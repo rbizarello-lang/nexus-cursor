@@ -4182,6 +4182,25 @@ function App() {
   const [selectedAssets, setSelectedAssets] = useState(new Set());
   const [assetSort, setAssetSort] = useState('status');
   const [cdaPopup, setCdaPopup] = useState(null);
+  // ─── PERF: fatias por operação com cache (invalidado quando 'data' muda) ───
+  // Trocar de aba reutiliza listas já filtradas em vez de refiltrar todas as coleções.
+  const opSlicesCache = useMemo(() => new Map(), [data]);
+  const getOpSlices = (oid) => {
+    let s = opSlicesCache.get(oid);
+    if (!s) {
+      s = {
+        people: data.people.filter(p => p.operationId === oid),
+        debts: data.debts.filter(d => d.operationId === oid),
+        executions: data.executions.filter(e => e.operationId === oid),
+        assets: data.assets.filter(a => a.operationId === oid),
+        measures: (data.measures || []).filter(m => m.operationId === oid),
+      };
+      opSlicesCache.set(oid, s);
+    }
+    return s;
+  };
+  // Transição não-bloqueante ao trocar de aba/operação (React 18)
+  const [isTabSwitching, startTabSwitch] = React.useTransition();
   const toggleGroup = (gk) => setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(gk)) n.delete(gk); else n.add(gk); return n; });
   // Colapso dos cards do Painel (prescrição, agenda) — preferência de UI lembrada entre sessões
   const [painelCollapsed, setPainelCollapsed] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('nexus_painel_collapsed') || '[]')); } catch { return new Set(); } });
@@ -4337,10 +4356,10 @@ function App() {
     const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const opId = op.id;
     const briefing = op.briefing || {};
-    const opDebts = data.debts.filter(d => d.operationId === opId);
-    const opExecs = data.executions.filter(e => e.operationId === opId);
-    const opAssets = data.assets.filter(a => a.operationId === opId);
-    const opPeople = data.people.filter(p => p.operationId === opId);
+    const opDebts = getOpSlices(opId).debts;
+    const opExecs = getOpSlices(opId).executions;
+    const opAssets = getOpSlices(opId).assets;
+    const opPeople = getOpSlices(opId).people;
     const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
     const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction && x.status !== 'analisado');
     const activeDebts = opDebts.filter(d => d.status !== 'extinta');
@@ -4587,9 +4606,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const updateBriefing = (field, value) => {
         upsert('operations', { ...activeOp, briefing: { ...briefing, [field]: value } });
       };
-      const opDebts = data.debts.filter(d => d.operationId === opId);
-      const opExecs = data.executions.filter(e => e.operationId === opId);
-      const opAssets = data.assets.filter(a => a.operationId === opId);
+      const opDebts = getOpSlices(opId).debts;
+      const opExecs = getOpSlices(opId).executions;
+      const opAssets = getOpSlices(opId).assets;
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction);
 
@@ -4962,7 +4981,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
         if (activeTab === 'grafo') {
-      const hasData = data.people.filter(p => p.operationId === opId).length > 0;
+      const hasData = getOpSlices(opId).people.length > 0;
       return (<div style={{flex:1,position:'relative',overflow:'hidden'}}>
         {!hasData ? <div className="welcome-screen"><div style={{fontSize:40,opacity:0.3}}>◎</div><p>Importe dados ou adicione manualmente para visualizar o grafo.</p></div>
           : <GraphView operation={activeOp} data={data} onSelectNode={setSelectedNode} onOpenExec={(execData) => setModal({type:'edit',entityType:'execution',initial:execData})} />}
@@ -5231,11 +5250,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'pessoas') {
-      const items = data.people.filter(p => p.operationId === opId);
-      const opDebts = data.debts.filter(d => d.operationId === opId);
-      const opAssets = data.assets.filter(a => a.operationId === opId);
+      const items = getOpSlices(opId).people;
+      const opDebts = getOpSlices(opId).debts;
+      const opAssets = getOpSlices(opId).assets;
       const allLinks = data.links?.cdaResponsibilities || [];
-      const opExecsForPresc = data.executions.filter(e => e.operationId === opId);
+      const opExecsForPresc = getOpSlices(opId).executions;
 
       // Compute exposure stats per person
       const peopleStats = items.map(p => {
@@ -5315,12 +5334,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'dividas') {
-      const allItems = data.debts.filter(d => d.operationId === opId);
+      const allItems = getOpSlices(opId).debts;
       const allLinks = data.links?.cdaResponsibilities || [];
       // Apply person filter — show CDAs where the selected person has ANY responsibility role
       const items = cdaPersonFilter === 'all' ? allItems :
         allItems.filter(d => allLinks.some(l => l.cdaId === d.id && l.personId === cdaPersonFilter));
-      const opExecs = data.executions.filter(e => e.operationId === opId);
+      const opExecs = getOpSlices(opId).executions;
       let sorted = [...items];
       if (cdaSort === 'status') sorted.sort((a,b) => (a.status||'').localeCompare(b.status||''));
       else if (cdaSort === 'value_desc') sorted.sort((a,b) => (b.value||0) - (a.value||0));
@@ -5575,10 +5594,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'execucoes') {
-      const allExecItems = data.executions.filter(e => e.operationId === opId);
-      const opDebts = data.debts.filter(d => d.operationId === opId);
-      const opMeasures = data.measures.filter(m => m.operationId === opId);
-      const opAssets = data.assets.filter(a => a.operationId === opId);
+      const allExecItems = getOpSlices(opId).executions;
+      const opDebts = getOpSlices(opId).debts;
+      const opMeasures = getOpSlices(opId).measures;
+      const opAssets = getOpSlices(opId).assets;
       const allRespLinks = data.links?.cdaResponsibilities || [];
 
       // Apply person filter — show executions whose process number matches a CDA in which the selected person has any responsibility
@@ -6185,8 +6204,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'prescricao') {
-      const execs = data.executions.filter(e => e.operationId === opId);
-      const allDebts = data.debts.filter(d => d.operationId === opId);
+      const execs = getOpSlices(opId).executions;
+      const allDebts = getOpSlices(opId).debts;
       const prescEvents = data.prescriptionEvents || [];
 
       // Group CDAs: by execution, then unlinked
@@ -6375,8 +6394,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       //           + edit button → modal with sub-tabs (process data | prescription control)
       //           + generate task button → opens task modal pre-filled from process
       // ═══════════════════════════════════════════════════════════════════
-      const execs = data.executions.filter(e => e.operationId === opId);
-      const allDebts = data.debts.filter(d => d.operationId === opId);
+      const execs = getOpSlices(opId).executions;
+      const allDebts = getOpSlices(opId).debts;
       const prescEvents = data.prescriptionEvents || [];
 
       // Build group list — same as prescription tab
@@ -6842,8 +6861,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'medidas') {
-      const items = data.measures.filter(m => m.operationId === opId);
-      const opExecs = data.executions.filter(e => e.operationId === opId);
+      const items = getOpSlices(opId).measures;
+      const opExecs = getOpSlices(opId).executions;
       return (<div className="entity-area">
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
           <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} medida(s)</span>
@@ -6876,7 +6895,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'bens') {
-      const items = data.assets.filter(a => a.operationId === opId);
+      const items = getOpSlices(opId).assets;
       const statusOrder = ['indisponibilidade_ativa','indisponibilidade_requerida','controvertido','liberado'];
       
       // Grouping logic based on assetSort
@@ -7030,14 +7049,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       // ═══ LINHA DO TEMPO UNIFICADA ═══
       // Agrega eventos de todas as fontes em ordem cronológica
       const events = [];
-      const opDebts = data.debts.filter(d => d.operationId === opId);
-      const opExecs = data.executions.filter(e => e.operationId === opId);
-      const opMeasures = data.measures.filter(m => m.operationId === opId);
-      const opAssets = data.assets.filter(a => a.operationId === opId);
+      const opDebts = getOpSlices(opId).debts;
+      const opExecs = getOpSlices(opId).executions;
+      const opMeasures = getOpSlices(opId).measures;
+      const opAssets = getOpSlices(opId).assets;
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId);
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId);
       const opPrescEvts = (data.prescriptionEvents || []).filter(pe => opExecs.some(e => e.id === pe.executionId));
-      const opPeople = data.people.filter(p => p.operationId === opId);
+      const opPeople = getOpSlices(opId).people;
       const PRESC_EVT = PRESC_EVENT_TYPES || {};
 
       // CDAs — inscrição
@@ -7332,7 +7351,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado');
           const openTasks = (data.tasks||[]).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
           const alerts = data.debts.filter(d => { if (d.operationId!==op.id) return false; const pd = d.prescriptionDate || calcAutoPresc(d, opExecsForPresc, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); upsert('operations', {...op, lastAccessed: new Date().toISOString()}); }}>
+          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
             <div className="op-name">
               {op.name}
               {overdueIntims.length > 0 && <span className="op-intim-dot op-intim-overdue urgent has-tip" title={`${overdueIntims.length} intimação(ões) vencida(s)`}><span className="tip-content">{overdueIntims.length} intimação(ões) VENCIDA(S) nesta operação.</span></span>}
@@ -7928,7 +7947,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         const prescAlerts = debts.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
                         const notes = op.notesList || (op.notes ? [op.notes] : []);
                         return (<div key={op.id} className="ops-priority-card" style={{borderLeftColor: cls.border}}
-                          onClick={() => { setActiveOpId(op.id); setViewMode('operation'); upsert('operations', {...op, lastAccessed: new Date().toISOString()}); }}>
+                          onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
                           <div className="opc-header">
                             <div className="opc-name">{op.name}</div>
                             <span className={`badge ${op.status==='ativa'?'badge-muted':'badge-muted-strong'}`}>{op.status||'ativa'}</span>
@@ -8674,7 +8693,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div className="tabs">{tabList.map(t => {
           const isInsights = t === 'insights';
           const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
-          return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => {setActiveTab(t);setSelectedNode(null);}}>
+          return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
             {tabLabels[t]}
             {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
           </button>;

@@ -18,6 +18,11 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
   - Restante opcional: `ExecCard`, `PrescCard`, `ProcPrescCard` são chamados como
     funções comuns (sem problema de remontagem); converter em componentes
     memoizados é ganho adicional menor. Ganho maior restante: itens 4 e 5.
+- **Transições entre abas/operações** (29/07/2026) — três correções:
+  cache das listas filtradas por operação (30 refiltragens eliminadas por render),
+  gravação de `lastAccessed` adiada ao abrir operação (não bloqueia mais a abertura)
+  e `useTransition` nos cliques (a interface não congela durante a troca).
+  Cobre parte do item 4 (índices) e do item 5 (estado).
 - **Pré-compilação do JSX** (29/07/2026) — o Babel foi removido do navegador; o código
   é compilado no computador (`npm run build`) e entregue pronto, empacotado em base64
   para o Apps Script não corromper. Abertura do app 2–5 s mais rápida.
