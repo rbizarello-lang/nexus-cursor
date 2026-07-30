@@ -29,6 +29,12 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
   - Fonte para editar: `src/app.jsx` (lógica) e `src/Nexus.shell.html` (CSS/HTML)
   - `Nexus.html` é GERADO — nunca editar à mão
   - Fluxo: editar → `npm run build` → `clasp push` → Nova versão na implantação
+- **Operação vinculada — ordem e regra anti-vinculação falsa** (29/07/2026) —
+  o seletor "Operação vinculada" (intimação, tarefa, acompanhamento e audiência)
+  agora lista as operações em ordem alfabética. E o import do eproc parou de
+  herdar a operação aberta na tela: intimação nova só recebe operação se o
+  processo constar em um processo/CDA cadastrado (ou em intimação irmã do mesmo
+  processo). Sem correspondência → fica "Nenhuma", com aviso no resumo do import.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
