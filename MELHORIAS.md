@@ -7,6 +7,40 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 
 ---
 
+## 🎨 Redesign visual — SPEC FECHADA (29/07/2026)
+
+Decisões confirmadas. **Ainda não implementado.** Pedir por pacote: "vamos fazer o V0".
+
+### Abas da operação (alvo)
+`Resumo` · `Partes` · `Bens` · `Processos` · `Prazos` · `Arquivos` · `Mais` (Importar, Linha do Tempo)
+
+| Decisão | Detalhe |
+|--------|---------|
+| Bens × Partes | **Abas separadas** |
+| CDAs | Dentro de **Processos**; clique abre **popup de detalhe** |
+| Prescrição | **Fundida** na aba Processos (coluna/risco na lista) |
+| Grafo / Insights | **Apagar** |
+| Importância / dificuldade | **Campos novos manuais** (intimação/tarefa; outros a definir) |
+| Ordenação da landing | **Importância → Dificuldade → Prazo** |
+| Atenção | Sinais **separados** (sem score mágico); prazo visível, não único eixo |
+| Tom | App **calmo**: menos chrome, menos emoji, menos pulse |
+
+### Pacotes
+| # | Nome | Escopo |
+|---|------|--------|
+| **V0** | Calmo rápido | CTA hover, contraste, tipografia mín., reduzir pulse |
+| **V1** | Abas | Remover Grafo/Insights; fundir Prescrição; agrupar Mais; Bens separado |
+| **V2** | Processos+CDA | Lista unificada + popup de detalhe da CDA |
+| **V3** | Campos manuais | Importância + dificuldade |
+| **V4** | Landing | Tela Hoje com ordenação composta + sidebar recentes/fixadas |
+| **V5** | Quiet UI | Rótulos no lugar de emoji; menos pills |
+
+Ordem sugerida: V0 → V1 → V2 → V3 → V4 → V5.
+
+Mockups de referência (Cursor assets): `nexus-visao-landing.png`, `nexus-visao-dossie.png`, `nexus-debate-urgencia.png`.
+
+---
+
 ## ✅ Já feito
 
 - **Item 2 — Git** (29/07/2026) — repositório iniciado, commit inicial `9f21ea2`.
