@@ -2596,6 +2596,122 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// ─── PERF (item 3): componentes movidos para FORA do App ───
+// Definidos dentro do App, eram recriados a cada render — o React os via como
+// componentes novos e desmontava/remontava toda a subárvore a cada tecla digitada.
+// No escopo do módulo a identidade é estável; React.memo evita re-renders extras.
+
+const ExecutadoLine = React.memo(function ExecutadoLine({ processNumber, getDebtors, onEditPerson }) {
+  const debtors = getDebtors(processNumber);
+  if (debtors.length === 0) return null;
+  return <div style={{fontSize:10,marginTop:2,color:'var(--text-muted)'}}>
+    Executado{debtors.length > 1 ? 's' : ''}: {debtors.map((d, i) => <React.Fragment key={i}>
+      {i > 0 && <span> · </span>}
+      <span style={{color:'var(--text-secondary)',fontWeight:500,cursor:d.id?'pointer':'default'}} onClick={ev => { if (d.id) { ev.stopPropagation(); onEditPerson(d.id); }}}>{truncate(d.name, 30)}</span>
+    </React.Fragment>)}
+  </div>;
+});
+
+const CDAList = React.memo(function CDAList({ cdas, processNumber, onShowAll }) {
+  if (cdas.length === 0) return <span style={{fontSize:10,color:'var(--text-muted)'}}>0 CDAs</span>;
+  const shown = cdas.slice(0, 3);
+  const hasMore = cdas.length > 3;
+  return (<span style={{fontSize:10}}>
+    {shown.map((d,i) => <span key={d.id} style={{color:'var(--text-secondary)'}}>{i>0?' · ':''}{d.cdaNumber||'CDA'}</span>)}
+    {hasMore && <span className="cda-list-toggle" onClick={e => { e.stopPropagation(); onShowAll({ cdas, processNumber }); }}> +{cdas.length-3} ver todas</span>}
+    <span style={{color:'var(--text-muted)',marginLeft:6}}>({fmtCur(cdas.reduce((s,d)=>s+(d.value||0),0))})</span>
+  </span>);
+});
+
+const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLinks, people, collapsedGroups, toggleGroup, setModal }) {
+  const p = s.person;
+  const isExpanded = !collapsedGroups.has('person-'+p.id);
+  const isRelacionada = p.operationRole === 'relacionada';
+  const notes = p.notesList || (p.notes ? [p.notes] : []);
+  return (<div className="entity-card" style={{marginBottom:8,opacity:isRelacionada?0.85:1,borderLeft:`3px solid ${isRelacionada?'var(--text-muted)':'var(--pgfn)'}`}}>
+    {/* Header */}
+    <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => toggleGroup('person-'+p.id)}>
+      <span style={{fontSize:14,color:'var(--accent)'}}>{isExpanded?'▼':'▶'}</span>
+      <span className={`badge ${p.subtype==='PJ'?'badge-blue':'badge-muted'}`} style={{fontSize:9}}>{p.subtype}</span>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
+        <div style={{fontSize:10,color:'var(--text-muted)'}}><Copyable value={p.cpfCnpj}>{p.cpfCnpj}</Copyable>{p.role?` · ${p.role}`:''}</div>
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        {s.totalCdas > 0 && <span className="has-tip" style={{fontSize:10,color:'var(--text-muted)'}}>{s.totalCdas} CDA(s)<span className="tip-content">{s.cdasOriginario.length} como originária + {s.totalCdas - s.cdasOriginario.length} como corresponsável</span></span>}
+        {s.valTotal > 0 && <span className="has-tip" style={{fontSize:12,fontWeight:700,color:'var(--gold)'}}>{fmtCur(s.valTotal)}<span className="tip-content">Exposição total: {fmtCur(s.valOriginario)} (originário) + {fmtCur(s.valCorresp)} (corresponsabilidade)</span></span>}
+        {s.prescRisk > 0 && <span className="badge badge-red has-tip" style={{fontSize:9}}>⏱ {s.prescRisk}<span className="tip-content">CDAs originárias com risco prescricional iminente (≤6 meses), sem tratamento.</span></span>}
+        <button className="btn-secondary btn-xs has-tip" onClick={ev => { ev.stopPropagation(); const btn = ev.currentTarget; copyText(buildPersonQualification(p, data)); const orig = btn.firstChild.textContent; btn.firstChild.textContent = '✓'; setTimeout(() => { try { btn.firstChild.textContent = orig; } catch(x){} }, 1500); }}><span>📋</span><span className="tip-content">Copiar qualificação formatada (nome, CPF/CNPJ, CDAs, processos) — pronta para colar em petição.</span></button>
+        <button className="btn-secondary btn-xs" onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:p}); }}>Editar</button>
+      </div>
+    </div>
+
+    {/* Expanded body */}
+    {isExpanded && <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
+      {/* Como originária */}
+      {s.cdasOriginario.length > 0 && <div style={{marginBottom:10}}>
+        <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>🟢 Como Devedora Originária ({s.cdasOriginario.length} CDA(s) · {fmtCur(s.valOriginario)})</div>
+        <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(64,168,112,0.3)'}}>
+          {s.cdasOriginario.map(d => {
+            const cdaSt = DEBT_STATUSES[d.status] || {};
+            return (<div key={d.id} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'debt',initial:d}); }} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11,cursor:'pointer',borderRadius:3}} className="hover-bg">
+              <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
+              <span style={{flex:1,color:'var(--text-muted)'}}>{d.tribute||''}</span>
+              <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8}}>{cdaSt.label||d.status}</span>
+              <span style={{fontWeight:600}}>{fmtCur(d.value)}</span>
+            </div>);
+          })}
+        </div>
+      </div>}
+
+      {/* Como corresponsável (agrupado por role) */}
+      {Object.keys(s.cdasCorrespByRole).length > 0 && <div style={{marginBottom:10}}>
+        {Object.entries(s.cdasCorrespByRole).map(([role, list]) => {
+          const ri = RESPONSIBILITY_ROLES[role] || {};
+          const subTotal = list.reduce((sum, item) => sum + (item.debt.value||0), 0);
+          return (<div key={role} style={{marginBottom:6}}>
+            <div style={{fontSize:10,color:ri.color,textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>{ri.icon} {ri.label} ({list.length} CDA(s) · {fmtCur(subTotal)})</div>
+            <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:`2px solid ${ri.color}40`}}>
+              {list.map(({debt: d, link: l}) => {
+                const origLink = allLinks.find(x => x.cdaId === d.id && x.role === 'originario');
+                const orig = origLink ? people.find(pp => pp.id === origLink.personId) : null;
+                const cdaSt = DEBT_STATUSES[d.status] || {};
+                return (<div key={l.id} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'debt',initial:d}); }} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11,cursor:'pointer',borderRadius:3}} className="hover-bg">
+                  <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
+                  <span style={{flex:1,color:'var(--text-muted)',fontSize:10}}>orig: {orig?.name || '?'}{l.basis?` · ${l.basis}`:''}</span>
+                  <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8}}>{cdaSt.label||d.status}</span>
+                  <span style={{fontWeight:600}}>{fmtCur(d.value)}</span>
+                </div>);
+              })}
+            </div>
+          </div>);
+        })}
+      </div>}
+
+      {/* Patrimônio */}
+      {s.myAssets.length > 0 && <div style={{marginBottom:10}}>
+        <div style={{fontSize:10,color:'var(--blue)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>💎 Patrimônio Identificado ({s.myAssets.length} bem(ns) · {fmtCur(s.valAssets)})</div>
+        <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(91,143,217,0.3)'}}>
+          {s.myAssets.slice(0,5).map(a => (
+            <div key={a.id} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11}}>
+              <span style={{flex:1}}>{truncate(a.description||a.type, 50)}</span>
+              <span style={{fontWeight:600}}>{fmtCur(a.value)}</span>
+            </div>
+          ))}
+          {s.myAssets.length > 5 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'3px 6px'}}>+ {s.myAssets.length - 5} bem(ns)</div>}
+        </div>
+      </div>}
+
+      {/* Notas */}
+      {notes.length > 0 && <div style={{fontSize:10,color:'var(--text-muted)',padding:6,background:'var(--bg-elevated)',borderRadius:4}}>
+        {notes.map((n,i) => <div key={i}>• {n}</div>)}
+      </div>}
+
+      {s.totalCdas === 0 && s.myAssets.length === 0 && <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',textAlign:'center',padding:8}}>Sem CDAs ou bens vinculados a esta pessoa nesta operação.</div>}
+    </div>}
+  </div>);
+});
+
 function App() {
   const [data, setData] = useState(loadData);
   const [activeOpId, setActiveOpId] = useState(null);
@@ -5153,95 +5269,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const alvos = peopleStats.filter(s => (s.person.operationRole || 'alvo') === 'alvo');
       const relacionadas = peopleStats.filter(s => s.person.operationRole === 'relacionada');
 
-      const PersonProfileCard = ({ s }) => {
-        const p = s.person;
-        const isExpanded = !collapsedGroups.has('person-'+p.id);
-        const isRelacionada = p.operationRole === 'relacionada';
-        const notes = p.notesList || (p.notes ? [p.notes] : []);
-        return (<div className="entity-card" style={{marginBottom:8,opacity:isRelacionada?0.85:1,borderLeft:`3px solid ${isRelacionada?'var(--text-muted)':'var(--pgfn)'}`}}>
-          {/* Header */}
-          <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => toggleGroup('person-'+p.id)}>
-            <span style={{fontSize:14,color:'var(--accent)'}}>{isExpanded?'▼':'▶'}</span>
-            <span className={`badge ${p.subtype==='PJ'?'badge-blue':'badge-muted'}`} style={{fontSize:9}}>{p.subtype}</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
-              <div style={{fontSize:10,color:'var(--text-muted)'}}><Copyable value={p.cpfCnpj}>{p.cpfCnpj}</Copyable>{p.role?` · ${p.role}`:''}</div>
-            </div>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              {s.totalCdas > 0 && <span className="has-tip" style={{fontSize:10,color:'var(--text-muted)'}}>{s.totalCdas} CDA(s)<span className="tip-content">{s.cdasOriginario.length} como originária + {s.totalCdas - s.cdasOriginario.length} como corresponsável</span></span>}
-              {s.valTotal > 0 && <span className="has-tip" style={{fontSize:12,fontWeight:700,color:'var(--gold)'}}>{fmtCur(s.valTotal)}<span className="tip-content">Exposição total: {fmtCur(s.valOriginario)} (originário) + {fmtCur(s.valCorresp)} (corresponsabilidade)</span></span>}
-              {s.prescRisk > 0 && <span className="badge badge-red has-tip" style={{fontSize:9}}>⏱ {s.prescRisk}<span className="tip-content">CDAs originárias com risco prescricional iminente (≤6 meses), sem tratamento.</span></span>}
-              <button className="btn-secondary btn-xs has-tip" onClick={ev => { ev.stopPropagation(); const btn = ev.currentTarget; copyText(buildPersonQualification(p, data)); const orig = btn.firstChild.textContent; btn.firstChild.textContent = '✓'; setTimeout(() => { try { btn.firstChild.textContent = orig; } catch(x){} }, 1500); }}><span>📋</span><span className="tip-content">Copiar qualificação formatada (nome, CPF/CNPJ, CDAs, processos) — pronta para colar em petição.</span></button>
-              <button className="btn-secondary btn-xs" onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:p}); }}>Editar</button>
-            </div>
-          </div>
-
-          {/* Expanded body */}
-          {isExpanded && <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
-            {/* Como originária */}
-            {s.cdasOriginario.length > 0 && <div style={{marginBottom:10}}>
-              <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>🟢 Como Devedora Originária ({s.cdasOriginario.length} CDA(s) · {fmtCur(s.valOriginario)})</div>
-              <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(64,168,112,0.3)'}}>
-                {s.cdasOriginario.map(d => {
-                  const cdaSt = DEBT_STATUSES[d.status] || {};
-                  return (<div key={d.id} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'debt',initial:d}); }} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11,cursor:'pointer',borderRadius:3}} className="hover-bg">
-                    <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
-                    <span style={{flex:1,color:'var(--text-muted)'}}>{d.tribute||''}</span>
-                    <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8}}>{cdaSt.label||d.status}</span>
-                    <span style={{fontWeight:600}}>{fmtCur(d.value)}</span>
-                  </div>);
-                })}
-              </div>
-            </div>}
-
-            {/* Como corresponsável (agrupado por role) */}
-            {Object.keys(s.cdasCorrespByRole).length > 0 && <div style={{marginBottom:10}}>
-              {Object.entries(s.cdasCorrespByRole).map(([role, list]) => {
-                const ri = RESPONSIBILITY_ROLES[role] || {};
-                const subTotal = list.reduce((sum, item) => sum + (item.debt.value||0), 0);
-                return (<div key={role} style={{marginBottom:6}}>
-                  <div style={{fontSize:10,color:ri.color,textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>{ri.icon} {ri.label} ({list.length} CDA(s) · {fmtCur(subTotal)})</div>
-                  <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:`2px solid ${ri.color}40`}}>
-                    {list.map(({debt: d, link: l}) => {
-                      const origLink = allLinks.find(x => x.cdaId === d.id && x.role === 'originario');
-                      const orig = origLink ? items.find(pp => pp.id === origLink.personId) : null;
-                      const cdaSt = DEBT_STATUSES[d.status] || {};
-                      return (<div key={l.id} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'debt',initial:d}); }} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11,cursor:'pointer',borderRadius:3}} className="hover-bg">
-                        <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
-                        <span style={{flex:1,color:'var(--text-muted)',fontSize:10}}>orig: {orig?.name || '?'}{l.basis?` · ${l.basis}`:''}</span>
-                        <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8}}>{cdaSt.label||d.status}</span>
-                        <span style={{fontWeight:600}}>{fmtCur(d.value)}</span>
-                      </div>);
-                    })}
-                  </div>
-                </div>);
-              })}
-            </div>}
-
-            {/* Patrimônio */}
-            {s.myAssets.length > 0 && <div style={{marginBottom:10}}>
-              <div style={{fontSize:10,color:'var(--blue)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>💎 Patrimônio Identificado ({s.myAssets.length} bem(ns) · {fmtCur(s.valAssets)})</div>
-              <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(91,143,217,0.3)'}}>
-                {s.myAssets.slice(0,5).map(a => (
-                  <div key={a.id} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11}}>
-                    <span style={{flex:1}}>{truncate(a.description||a.type, 50)}</span>
-                    <span style={{fontWeight:600}}>{fmtCur(a.value)}</span>
-                  </div>
-                ))}
-                {s.myAssets.length > 5 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'3px 6px'}}>+ {s.myAssets.length - 5} bem(ns)</div>}
-              </div>
-            </div>}
-
-            {/* Notas */}
-            {notes.length > 0 && <div style={{fontSize:10,color:'var(--text-muted)',padding:6,background:'var(--bg-elevated)',borderRadius:4}}>
-              {notes.map((n,i) => <div key={i}>• {n}</div>)}
-            </div>}
-
-            {s.totalCdas === 0 && s.myAssets.length === 0 && <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',textAlign:'center',padding:8}}>Sem CDAs ou bens vinculados a esta pessoa nesta operação.</div>}
-          </div>}
-        </div>);
-      };
-
       // Compute deduplicated grand total — each CDA counted once even if associated with multiple people
       const cdasInOp = new Set(opDebts.filter(d => d.status !== 'extinta').map(d => d.id));
       const grandTotalUnique = opDebts.filter(d => cdasInOp.has(d.id)).reduce((s,d) => s+(d.value||0), 0);
@@ -5273,7 +5300,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{fontSize:11,fontWeight:700,color:'var(--pgfn-light)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>🎯 Alvos Diretos da Operação ({alvos.length})
               <HelpIcon tip="Pessoas contra as quais a operação é dirigida diretamente. São objeto de pedidos de IDPJ, indisponibilidades, cautelar fiscal." />
             </div>
-            {alvos.map(s => <PersonProfileCard key={s.person.id} s={s} />)}
+            {alvos.map(s => <PersonProfileCard key={s.person.id} s={s} data={data} allLinks={allLinks} people={items} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} setModal={setModal} />)}
           </div>}
 
           {/* RELACIONADAS */}
@@ -5281,7 +5308,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,display:'flex',alignItems:'center',gap:6,paddingTop:12,borderTop:'1px dashed var(--border)'}}>📎 Pessoas Relacionadas (subsídio analítico) ({relacionadas.length})
               <HelpIcon tip="Pessoas cadastradas para fins de análise — sucessoras colaterais, sócios não-redirecionados, terceiros relevantes — mas que NÃO são alvo direto da operação. Aparecem com destaque visual reduzido." />
             </div>
-            {relacionadas.map(s => <PersonProfileCard key={s.person.id} s={s} />)}
+            {relacionadas.map(s => <PersonProfileCard key={s.person.id} s={s} data={data} allLinks={allLinks} people={items} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} setModal={setModal} />)}
           </div>}
         </>}
       </div>);
@@ -5721,27 +5748,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         }
         return debtors;
       };
-      const ExecutadoLine = ({ processNumber }) => {
-        const debtors = getDebtorsForProcess(processNumber);
-        if (debtors.length === 0) return null;
-        return <div style={{fontSize:10,marginTop:2,color:'var(--text-muted)'}}>
-          Executado{debtors.length > 1 ? 's' : ''}: {debtors.map((d, i) => <React.Fragment key={i}>
-            {i > 0 && <span> · </span>}
-            <span style={{color:'var(--text-secondary)',fontWeight:500,cursor:d.id?'pointer':'default'}} onClick={ev => { if (d.id) { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:data.people.find(p=>p.id===d.id)}); }}}>{truncate(d.name, 30)}</span>
-          </React.Fragment>)}
-        </div>;
-      };
-
-      const CDAList = ({ cdas, processNumber }) => {
-        if (cdas.length === 0) return <span style={{fontSize:10,color:'var(--text-muted)'}}>0 CDAs</span>;
-        const shown = cdas.slice(0, 3);
-        const hasMore = cdas.length > 3;
-        return (<span style={{fontSize:10}}>
-          {shown.map((d,i) => <span key={d.id} style={{color:'var(--text-secondary)'}}>{i>0?' · ':''}{d.cdaNumber||'CDA'}</span>)}
-          {hasMore && <span className="cda-list-toggle" onClick={e => { e.stopPropagation(); setCdaPopup({ cdas, processNumber }); }}> +{cdas.length-3} ver todas</span>}
-          <span style={{color:'var(--text-muted)',marginLeft:6}}>({fmtCur(cdas.reduce((s,d)=>s+(d.value||0),0))})</span>
-        </span>);
-      };
+      const openEditPersonById = (pid) => setModal({type:'edit',entityType:'person',initial:data.people.find(p=>p.id===pid)});
 
       
       return (<div className="entity-area">
@@ -5767,7 +5774,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   </div>
                   <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-secondary)',marginBottom:2}}><Copyable value={ep.processNumber}>{ep.processNumber}</Copyable></div>
                   <div style={{fontSize:10,color:'var(--text-muted)'}}>{ep.court} {ep.className ? `· ${ep.className}` : ''}</div>
-                  <ExecutadoLine processNumber={ep.processNumber} />
+                  <ExecutadoLine processNumber={ep.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
                 </div>
                 <div className="idpj-execs">
                   <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>Execuções abrangidas</div>
@@ -5775,7 +5782,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     {linkedExecs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma vinculada</span> :
                     linkedExecs.map(e => <span key={e.id} className="idpj-linked-exec">{truncate(e.processNumber,25)}</span>)}
                   </div>
-                  {linkedCDAs.length > 0 && <div style={{marginTop:4,fontSize:10}}><span style={{color:'var(--text-muted)'}}>CDAs:</span> <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} /></div>}
+                  {linkedCDAs.length > 0 && <div style={{marginTop:4,fontSize:10}}><span style={{color:'var(--text-muted)'}}>CDAs:</span> <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} onShowAll={setCdaPopup} /></div>}
                   {totalLinkedCDAValue > 0 && <div style={{marginTop:6,padding:'4px 8px',background:'rgba(245,158,11,0.08)',borderRadius:4,borderLeft:'2px solid var(--gold)'}}>
                     <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor total das EFs abrangidas</span><br/>
                     <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalLinkedCDAValue)}</strong>
@@ -5852,7 +5859,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <div className="idpj-execs">
                     <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>CDAs vinculadas</div>
                     {linkedCDAs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                    <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} />}
+                    <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} onShowAll={setCdaPopup} />}
                     <div style={{marginTop:6,fontSize:11}}><span style={{color:'var(--text-muted)',fontSize:9}}>Valor da causa: </span><strong style={{color:'var(--gold)'}}>{fmtCur(totalCDA)}</strong></div>
                   </div>
                   <div className="idpj-center">
@@ -5885,7 +5892,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </div>
                         <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,marginBottom:2}}><Copyable value={ap.processNumber}>{ap.processNumber}</Copyable></div>
                         <div style={{fontSize:10,color:'var(--text-muted)'}}>{ap.court || ''}{ap.className ? ` · ${ap.className}` : ''}</div>
-                        <ExecutadoLine processNumber={ap.processNumber} />
+                        <ExecutadoLine processNumber={ap.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
                         <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
                           {ap.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(ap.protocolDate)}</strong></span>}
                           {ap.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:apPrescDays!==null&&apPrescDays<=365?apPrescDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(ap.prescriptionForecast)}{apPrescDays!==null&&apPrescDays<=365?` (${apPrescDays}d)`:''}</strong></span>}
@@ -5894,7 +5901,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <div className="idpj-execs">
                         <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>CDAs vinculadas</div>
                         {apCdas.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                        <CDAList cdas={apCdas} processNumber={ap.processNumber} />}
+                        <CDAList cdas={apCdas} processNumber={ap.processNumber} onShowAll={setCdaPopup} />}
                         <div style={{marginTop:6,fontSize:11}}><span style={{color:'var(--text-muted)',fontSize:9}}>Valor da causa: </span><strong style={{color:'var(--gold)'}}>{fmtCur(apTotal)}</strong></div>
                       </div>
                       <div className="idpj-center">
@@ -6012,7 +6019,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             {e.processNumber ? <Copyable value={e.processNumber}>{e.processNumber}</Copyable> : 'Sem nº'}
                           </div>
                           <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
-                          <ExecutadoLine processNumber={e.processNumber} />
+                          <ExecutadoLine processNumber={e.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
                           <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
                             {e.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(e.protocolDate)}</strong></span>}
                             {e.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:prescDays!==null&&prescDays<=365?prescDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(e.prescriptionForecast)}{prescDays!==null&&prescDays<=365?` (${prescDays}d)`:''}</strong></span>}
@@ -6022,7 +6029,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         <div className="idpj-execs">
                           <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3,fontWeight:600,letterSpacing:0.3}}>CDAs vinculadas ({linkedCDAs.length})</div>
                           {linkedCDAs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                          <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} /></div>}
+                          <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} onShowAll={setCdaPopup} /></div>}
                           <div style={{marginTop:6,fontSize:11}}>
                             <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor da causa</span><br/>
                             <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalCDA)}</strong>
@@ -6094,13 +6101,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       {e.processNumber ? <Copyable value={e.processNumber}>{e.processNumber}</Copyable> : 'Sem nº'}
                     </div>
                     <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
-                    <ExecutadoLine processNumber={e.processNumber} />
+                    <ExecutadoLine processNumber={e.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
                     {parentEF && <div style={{fontSize:9,color:'var(--accent)',marginTop:3,fontFamily:'var(--font-mono)'}}>↳ EF principal: {parentEF.processNumber}</div>}
                   </div>
                   <div className="idpj-execs">
                     {linkedCDAs.length > 0 ? <>
                       <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3,fontWeight:600,letterSpacing:0.3}}>CDAs vinculadas ({linkedCDAs.length})</div>
-                      <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} /></div>
+                      <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} onShowAll={setCdaPopup} /></div>
                       <div style={{marginTop:6,fontSize:11}}>
                         <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor da causa</span><br/>
                         <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalCDA)}</strong>

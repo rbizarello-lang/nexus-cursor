@@ -9,6 +9,15 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 
 ## ✅ Já feito
 
+- **Item 2 — Git** (29/07/2026) — repositório iniciado, commit inicial `9f21ea2`.
+  Para ver o histórico: `git log --oneline`. Para voltar atrás: me pedir.
+- **Item 3 — Lentidão ao digitar (parte principal)** (29/07/2026) —
+  `PersonProfileCard`, `ExecutadoLine` e `CDAList` movidos para fora do `App`
+  com `React.memo`. Eram recriados a cada tecla, forçando o React a desmontar
+  e remontar as abas Pessoas e Processos inteiras.
+  - Restante opcional: `ExecCard`, `PrescCard`, `ProcPrescCard` são chamados como
+    funções comuns (sem problema de remontagem); converter em componentes
+    memoizados é ganho adicional menor. Ganho maior restante: itens 4 e 5.
 - **Pré-compilação do JSX** (29/07/2026) — o Babel foi removido do navegador; o código
   é compilado no computador (`npm run build`) e entregue pronto, empacotado em base64
   para o Apps Script não corromper. Abertura do app 2–5 s mais rápida.
