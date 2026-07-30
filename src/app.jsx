@@ -3161,7 +3161,7 @@ function App() {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const logs = [];
-    let newCount = 0, updCount = 0;
+    let newCount = 0, updCount = 0, unlinkedCount = 0;
     const processFile = (file) => new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -3225,12 +3225,21 @@ function App() {
                 logs.push(`ℹ️ Sem alteração: ${intim.processNumber}`);
               }
             } else {
-              // NEW: create with operation match
-              const matchExec = data.executions.find(ex => intim.processNumber.replace(/[.\-]/g, '') === ex.processNumber?.replace(/[.\-]/g, ''));
+              // NOVA: vincula operação SOMENTE com evidência concreta.
+              // REGRA: se o processo não consta em nenhum processo/CDA cadastrado,
+              // a intimação fica SEM operação ("Nenhuma"). Antes ela herdava a
+              // operação aberta na tela — causa das vinculações falsas.
+              const matchExec = data.executions.find(ex => ex.operationId && sameProc(ex.processNumber, intim.processNumber));
+              const matchDebt = matchExec ? null : data.debts.find(d => d.operationId && sameProc(d.processNumber, intim.processNumber));
               if (matchExec) intim.operationId = matchExec.operationId;
-              // Also try to inherit from a sibling intimation on the same process
+              else if (matchDebt) intim.operationId = matchDebt.operationId;
+              // Intimação irmã do MESMO processo com vínculo já definido pelo usuário
               else if (candidates.length > 0 && candidates[0].operationId) intim.operationId = candidates[0].operationId;
-              else if (activeOpId) intim.operationId = activeOpId;
+              else {
+                intim.operationId = '';
+                unlinkedCount++;
+                logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
+              }
               upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
               newCount++;
             }
@@ -3242,6 +3251,7 @@ function App() {
     });
     Promise.all(files.map(processFile)).then(() => {
       logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
+      if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
       logImport('eproc', {
         fileNames: files.map(f => f.name),
         summary: `${newCount} nova(s), ${updCount} atualizada(s)`,
@@ -10004,7 +10014,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
   }
 
   if (entityType === 'intimation') {
-    const ops = data?.operations || [];
+    const ops = [...(data?.operations || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
     return (<>
       <div className="form-row">
         <div className="form-group"><label>Nº Processo</label><input value={form.processNumber||''} onChange={e=>set('processNumber',e.target.value)} placeholder="5000000-00.2024.4.04.7000" /></div>
@@ -10053,7 +10063,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
   }
 
   if (entityType === 'task') {
-    const ops = data?.operations || [];
+    const ops = [...(data?.operations || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
     return (<>
       <div className="form-group"><label>Título da Tarefa</label>
         <input value={form.title||''} onChange={e=>set('title',e.target.value)} placeholder="Ex: Requerer extensão de penhora para CDA 90.2.23..." />
@@ -10108,7 +10118,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
   }
 
   if (entityType === 'watch') {
-    const ops = data?.operations || [];
+    const ops = [...(data?.operations || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
     return (<>
       <div className="form-group"><label>Nº do Processo</label>
         <input value={form.processNumber||''} onChange={e=>set('processNumber',e.target.value)} placeholder="50000000020244047001" style={{fontFamily:'var(--font-mono)'}} />
@@ -10138,7 +10148,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
   }
 
   if (entityType === 'hearing') {
-    const ops = data?.operations || [];
+    const ops = [...(data?.operations || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
     const docs = (data?.documents || []).filter(dc => !form.operationId || dc.operationId === form.operationId);
     const linkedDocs = form.documentIds || [];
     const toggleDoc = (id) => { const next = linkedDocs.includes(id) ? linkedDocs.filter(x=>x!==id) : [...linkedDocs, id]; set('documentIds', next); };
