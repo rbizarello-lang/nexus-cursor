@@ -7,37 +7,32 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 
 ---
 
-## 🎨 Redesign visual — SPEC FECHADA (29/07/2026)
+## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
-Decisões confirmadas. **Ainda não implementado.** Pedir por pacote: "vamos fazer o V0".
+**Ainda não implementado.** Pedir por fase: "vamos fazer o P1".
+Mockups em `_design-mockups/` (inclui `recon-07-gramatica-card-atual.png`).
 
-### Abas da operação (alvo)
-`Resumo` · `Partes` · `Bens` · `Processos` · `Prazos` · `Arquivos` · `Mais` (Importar, Linha do Tempo)
+### Princípios (suas decisões)
+- **Preservar o card atual** (notas imprescindíveis). Não trocar por tabela “do zero”.
+- **Gramática composta** no card: Importância + Dificuldade (manuais) + Prazo visível; ordenação escolhida pelo usuário (padrão Imp → Dif → Prazo). Sem score mágico.
+- **Processos + presc + CDA:** manter modelo de cards; **colapsado por padrão**, expandir ao detalhe atual com um clique; **popup** no clique da CDA.
+- **Partes + Bens:** **uma aba** com seletor interno (Partes | Bens), não duas abas nem fusão de dados.
+- **Grafo / Insights:** apagar (fase isolada).
+- **Uma fase por vez** → deploy → validação → próxima.
 
-| Decisão | Detalhe |
-|--------|---------|
-| Bens × Partes | **Abas separadas** |
-| CDAs | Dentro de **Processos**; clique abre **popup de detalhe** |
-| Prescrição | **Fundida** na aba Processos (coluna/risco na lista) |
-| Grafo / Insights | **Apagar** |
-| Importância / dificuldade | **Campos novos manuais** (intimação/tarefa; outros a definir) |
-| Ordenação da landing | **Importância → Dificuldade → Prazo** |
-| Atenção | Sinais **separados** (sem score mágico); prazo visível, não único eixo |
-| Tom | App **calmo**: menos chrome, menos emoji, menos pulse |
+### Fases
+| Fase | Entrega | Risco |
+|------|---------|-------|
+| **P1** | Gramática no **card atual** de intimação (campos + ordenar) | Baixo |
+| **P2** | Remover só Grafo e Insights | Baixo |
+| **P3a** | Processos colapsados → expandir ao card atual | Médio |
+| **P3b** | Prescrição na mesma família visual (sem perder Controle) | Médio |
+| **P3c** | Popup detalhe CDA (alinhar/aprimorar) | Baixo |
+| **P4** | Aba Partes/Bens com seletor | Baixo–médio |
+| **P5** | Calmo leve (CTA hover, menos pulse) — opcional | Mínimo |
+| **P6** | Landing/Hoje — só após P1 estável | Médio |
 
-### Pacotes
-| # | Nome | Escopo |
-|---|------|--------|
-| **V0** | Calmo rápido | CTA hover, contraste, tipografia mín., reduzir pulse |
-| **V1** | Abas | Remover Grafo/Insights; fundir Prescrição; agrupar Mais; Bens separado |
-| **V2** | Processos+CDA | Lista unificada + popup de detalhe da CDA |
-| **V3** | Campos manuais | Importância + dificuldade |
-| **V4** | Landing | Tela Hoje com ordenação composta + sidebar recentes/fixadas |
-| **V5** | Quiet UI | Rótulos no lugar de emoji; menos pills |
-
-Ordem sugerida: V0 → V1 → V2 → V3 → V4 → V5.
-
-Mockups de referência (Cursor assets): `nexus-visao-landing.png`, `nexus-visao-dossie.png`, `nexus-debate-urgencia.png`.
+Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
 
 ---
 
