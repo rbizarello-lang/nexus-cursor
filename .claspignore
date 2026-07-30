@@ -1,0 +1,16 @@
+# Fonte e toolchain local - NAO enviar ao Apps Script
+src/**
+scripts/**
+node_modules/**
+package.json
+package-lock.json
+.gitignore
+.claspignore
+README.md
+BUILD.md
+_backup*/**
+_app_compiled*
+_debug*
+**/*.md
+.DS_Store
+Thumbs.db

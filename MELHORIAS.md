@@ -1,0 +1,93 @@
+# NEXUS — Banco de Anotações (melhorias futuras)
+
+Arquivo de planejamento. Não sobe para o Apps Script (ignorado pelo `.claspignore`).
+Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
+
+Última atualização: 29/07/2026
+
+---
+
+## ✅ Já feito
+
+- **Pré-compilação do JSX** (29/07/2026) — o Babel foi removido do navegador; o código
+  é compilado no computador (`npm run build`) e entregue pronto, empacotado em base64
+  para o Apps Script não corromper. Abertura do app 2–5 s mais rápida.
+  - Fonte para editar: `src/app.jsx` (lógica) e `src/Nexus.shell.html` (CSS/HTML)
+  - `Nexus.html` é GERADO — nunca editar à mão
+  - Fluxo: editar → `npm run build` → `clasp push` → Nova versão na implantação
+- **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
+
+---
+
+## 📋 Pendentes
+
+### 1. Trava de integridade (SRI) nas bibliotecas do CDN
+- **O que é:** anotar no HTML a "impressão digital" das 4 bibliotecas externas
+  (React, ReactDOM, XLSX, LZ-String, pdf.js) para o navegador recusar versões adulteradas.
+- **Por quê:** essas ferramentas rodam na mesma página onde os dados aparecem;
+  a trava elimina o (pequeno) risco de adulteração no depósito público (cdnjs).
+- **Alternativa máxima:** embutir as bibliotecas dentro do próprio `Nexus.html`
+  (app passa a não depender de nenhum servidor fora do Google).
+- **Esforço:** pequeno · **Risco:** baixo
+
+### 2. Controle de versão (Git)
+- **O que é:** iniciar um repositório Git na pasta e criar um commit inicial.
+- **Por quê:** hoje não há histórico; um erro de edição ou um `clasp pull` mal-dado
+  é irrecuperável. É a proteção mais importante antes de refatorações maiores.
+- **Esforço:** pequeno · **Risco:** nenhum
+- **Prioridade sugerida: ALTA — fazer antes dos itens 3 a 6**
+
+### 3. Corrigir lentidão ao digitar/filtrar (React.memo)
+- **O que é:** mover componentes definidos dentro do `App` (`PersonProfileCard`,
+  `ExecCard`, `PrescCard`, `ProcPrescCard`, `CDAList`, `ExecutadoLine`) para fora
+  e aplicar `React.memo`. Hoje qualquer tecla digitada remonta o painel inteiro.
+- **Por quê:** é a maior causa da lentidão DURANTE o uso (a pré-compilação já
+  resolveu a lentidão de ABERTURA).
+- **Esforço:** médio/grande · **Risco:** médio (mexe em muitos pontos — exige Git antes)
+
+### 4. Índices por ID (buscas quadráticas)
+- **O que é:** criar mapas memoizados (id → entidade) para pessoas, CDAs, processos.
+  Hoje há ~900 varreduras de listas, muitas aninhadas (custo cresce ao quadrado).
+- **Por quê:** o app vai ficando mais lento conforme os dados crescem.
+- **Esforço:** médio · **Risco:** baixo/médio
+
+### 5. Separar estado de interface do estado de dados
+- **O que é:** filtros, modais e buscas não devem disparar o ciclo de salvamento
+  nem re-renderizar tudo (hoje ~78 estados vivem no mesmo componente).
+- **Esforço:** médio · **Risco:** médio
+
+### 6. Persistência mais robusta
+- **O que é:** mover a compressão (LZ-String) para um Web Worker ou migrar o cache
+  local de localStorage (limite ~5 MB, já próximo) para IndexedDB.
+- **Por quê:** evitar travadinhas ao salvar e o risco de estourar a cota local.
+- **Esforço:** médio · **Risco:** médio
+
+### 7. Permissões explícitas no manifesto
+- **O que é:** declarar `oauthScopes` no `appsscript.json` (Drive, Planilhas, Mail).
+- **Por quê:** evita quebras de autorização em redeploys futuros.
+- **Esforço:** pequeno · **Risco:** baixo
+
+### 8. Testes da calculadora de prescrição
+- **O que é:** testes automatizados para as regras do Art. 40 LEF (a parte com
+  maior consequência jurídica em caso de erro silencioso).
+- **Esforço:** médio · **Risco:** nenhum (só adiciona verificação)
+
+### 9. Dividir o código-fonte em módulos
+- **O que é:** quebrar `src/app.jsx` (10 mil linhas) em arquivos menores por tema
+  (parsers, prescrição, telas...). O build já existe, então isso ficou viável.
+- **Por quê:** manutenção mais fácil e menos risco a cada edição.
+- **Esforço:** grande · **Risco:** médio (exige Git antes)
+
+---
+
+## Notas de contexto (para futuras conversas)
+
+- Deploy: `npm run build` → `clasp push` → editor Apps Script → Implantar →
+  Gerenciar implantações → ✏️ → Nova versão. Recarregar com Ctrl+Shift+R.
+- PowerShell bloqueia npm/clasp por padrão: rodar antes
+  `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+  e `$env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;" + $env:Path`.
+- O Apps Script corrompe JS inline grande com aparência de HTML — por isso o
+  código do app viaja em base64 dentro do `Nexus.html` (montado pelo `scripts/build.mjs`).
+- Dados sensíveis: ficam no Drive institucional + navegador. O código não é sensível.
+- Acesso do web app: restrito ao próprio usuário (`access: MYSELF`).
