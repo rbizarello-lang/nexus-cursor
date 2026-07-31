@@ -8312,21 +8312,23 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </span> : <span className="intim-deadline not-started">prazo fechado</span>}
                 <span className={`badge ${st.badge||''}`}>{st.label||intim.status}</span>
                 {intim.processNumber && <a href={`https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_selecionar&num_processo=${intim.processNumber.replace(/[.\-]/g,'')}`} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="intim-eproc-link">⚖️ eproc</a>}
-                <div style={{display:'flex',gap:3,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                  <button className="btn-secondary btn-xs" onClick={e => { e.stopPropagation(); setRespondModal({intim, type:null}); }}>✎ Atuação</button>
-                </div>
-                <button className="btn-secondary btn-xs" title="Adicionar à watchlist" onClick={e => { e.stopPropagation(); setModal({type:'create',entityType:'watch',initial:{processNumber:intim.processNumber,parties:intim.parties,operationId:intim.operationId,reason:`Origem: ${intim.eventDescription||'intimação'}`,createdAt:new Date().toISOString()}}); }}>👁 Acompanhar</button>
-                <button className="btn-secondary btn-xs" title={isOnDesk('intimation',intim.id)?'Remover da Mesa de trabalho':'Enviar para a Mesa de trabalho'} onClick={e => { e.stopPropagation(); toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); }} style={isOnDesk('intimation',intim.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{}}>🗂 {isOnDesk('intimation',intim.id)?'na mesa':'Mesa'}</button>
               </div>
-              {/* Faixa de atenção — importância + complexidade (prazo já está no card) */}
+              {/* Faixa inferior: atenção à esquerda · ações à direita */}
               <div className="intim-attention">
-                {intimIsUrgent(intim) && <span className="intim-att-chip urgent-mark">URGENTE</span>}
-                <span className={`intim-att-chip imp-${intimImpKey(intim)}`}>
-                  {INTIM_PRIORITIES[intimImpKey(intim)].label}
-                </span>
-                <span className={`intim-att-chip dif-${intimDifKey(intim)}`}>
-                  {INTIM_DIFFICULTY[intimDifKey(intim)].label}
-                </span>
+                <div className="intim-att-left">
+                  {intimIsUrgent(intim) && <span className="intim-att-chip urgent-mark">URGENTE</span>}
+                  <span className={`intim-att-chip imp-${intimImpKey(intim)}`}>
+                    {INTIM_PRIORITIES[intimImpKey(intim)].label}
+                  </span>
+                  <span className={`intim-att-chip dif-${intimDifKey(intim)}`}>
+                    {INTIM_DIFFICULTY[intimDifKey(intim)].label}
+                  </span>
+                </div>
+                <div className="intim-att-actions">
+                  <button type="button" className="intim-att-btn" onClick={e => { e.stopPropagation(); setRespondModal({intim, type:null}); }}>Atuação</button>
+                  <button type="button" className="intim-att-btn" title="Adicionar à watchlist" onClick={e => { e.stopPropagation(); setModal({type:'create',entityType:'watch',initial:{processNumber:intim.processNumber,parties:intim.parties,operationId:intim.operationId,reason:`Origem: ${intim.eventDescription||'intimação'}`,createdAt:new Date().toISOString()}}); }}>Acompanhar</button>
+                  <button type="button" className={`intim-att-btn${isOnDesk('intimation',intim.id)?' on-desk':''}`} title={isOnDesk('intimation',intim.id)?'Remover da Mesa de trabalho':'Enviar para a Mesa de trabalho'} onClick={e => { e.stopPropagation(); toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); }}>{isOnDesk('intimation',intim.id)?'Na mesa':'Mesa'}</button>
+                </div>
               </div>
             </div></React.Fragment>);
           })}</div>);

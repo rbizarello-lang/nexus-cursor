@@ -345,7 +345,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .intim-state-card .isc-num { font-size: 16px; font-weight: 700; font-family: var(--font-display); color: var(--text-primary); }
 .intim-state-card .isc-lbl { font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
 .intim-grid { display: flex; flex-direction: column; gap: 8px; }
-.intim-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 16px; cursor: pointer; transition: all 0.2s; display: grid; grid-template-columns: 1.2fr 0.6fr 1.2fr auto; gap: 10px; position: relative; }
+.intim-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 16px; cursor: pointer; transition: all 0.2s; display: grid; grid-template-columns: minmax(0,1.2fr) minmax(100px,0.6fr) minmax(0,1.2fr) minmax(75px,auto); gap: 10px; position: relative; }
 .intim-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
 .intim-card.overdue { border-left: 4px solid var(--red); background: linear-gradient(90deg, rgba(229,64,96,0.06) 0%, var(--bg-card) 30%); }
 .intim-card.due-soon { border-left: 4px solid var(--yellow); background: linear-gradient(90deg, rgba(212,168,56,0.05) 0%, var(--bg-card) 30%); }
@@ -364,7 +364,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .intim-left { min-width: 0; }
 .intim-dates-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .intim-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 75px; }
-.intim-center { display: flex; flex-direction: column; gap: 4px; min-width: 0; border-left: 1px solid rgba(30,42,58,0.3); padding-left: 12px; }
+.intim-center { align-self: start; display: flex; flex-direction: column; gap: 4px; min-width: 0; border-left: 1px solid rgba(30,42,58,0.3); padding-left: 12px; }
 .intim-center-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .intim-center-text { font-size: 11px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; max-height: 3em; position: relative; cursor: default; }
 .intim-center-text-wrap { position: relative; }
@@ -424,16 +424,19 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .intim-deadline { font-size: 13px; font-weight: 700; }
 .intim-deadline.overdue { color: var(--red); }
 .intim-deadline.due-soon { color: var(--yellow); }
-/* P1 — faixa de atenção no card (sinais separados) */
-.intim-attention { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
-.intim-att-chip { display: inline-flex; align-items: baseline; gap: 5px; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
-.intim-att-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-.intim-att-days { font-weight: 500; font-size: 10px; }
+/* P1 — faixa inferior: atenção (esq.) + ações (dir.) */
+.intim-attention { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-top: 2px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.06); }
+.intim-att-left { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 5px; align-items: center; min-width: 0; }
+.intim-att-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; align-items: center; margin-left: auto; }
+.intim-att-chip { display: inline-flex; align-items: center; font-size: 8px; font-weight: 700; letter-spacing: 0.35px; color: var(--text-secondary); padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); line-height: 1.2; white-space: nowrap; }
 .intim-att-chip.imp-urgente, .intim-att-chip.imp-alta { color: var(--red); border-color: rgba(229,64,96,0.35); background: var(--red-dim); }
 .intim-att-chip.imp-baixa { opacity: 0.75; }
 .intim-att-chip.dif-alta, .intim-att-chip.dif-complexa { color: var(--orange); border-color: rgba(216,136,64,0.35); background: var(--orange-dim); }
 .intim-att-chip.dif-baixa, .intim-att-chip.dif-rotina { color: var(--text-muted); }
-.intim-att-chip.urgent-mark { color: #fff; background: var(--red); border-color: var(--red); font-weight: 700; letter-spacing: 0.4px; }
+.intim-att-chip.urgent-mark { color: #fff; background: var(--red); border-color: var(--red); }
+.intim-att-btn { font-family: var(--font-mono); font-size: 9px; font-weight: 500; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary); cursor: pointer; line-height: 1.2; white-space: nowrap; }
+.intim-att-btn:hover { color: var(--text-primary); border-color: var(--border-light); background: var(--bg-card-hover); }
+.intim-att-btn.on-desk { border-color: var(--blue); color: var(--blue); }
 .intim-deadline.normal { color: var(--text-secondary); }
 .intim-deadline.not-started { color: var(--text-muted); font-weight: 400; }
 .intim-urgent-star { color: var(--red); font-size: 14px; cursor: pointer; }
