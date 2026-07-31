@@ -75,10 +75,10 @@ const generateDemoData = () => {
       { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
     ],
     intimations: [
-      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta' },
-      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal' },
-      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'urgente' },
-      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa' },
+      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'complexa' },
+      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media' },
+      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'urgente', difficulty:'complexa' },
+      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'rotina' },
     ],
     tasks: [
       { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
@@ -989,7 +989,11 @@ const TASK_STATUSES = {
   cancelada: { label: 'Cancelada', badge: 'badge-muted-strong' }
 };
 const TASK_PRIORITIES = { urgente: { label: 'Urgente', color: 'var(--red)' }, alta: { label: 'Alta', color: 'var(--orange)' }, media: { label: 'Média', color: 'var(--yellow)' }, baixa: { label: 'Baixa', color: 'var(--text-muted)' } };
-const INTIM_PRIORITIES = { urgente: { label: '🔴 Urgente', order: 0 }, alta: { label: '🔴 Alta', order: 1 }, normal: { label: 'Normal', order: 2 }, baixa: { label: 'Baixa', order: 3 } };
+// Importância (campo `priority` legado) + dificuldade — gramática composta de atenção (P1).
+const INTIM_PRIORITIES = { urgente: { label: 'Urgente', order: 0 }, alta: { label: 'Alta', order: 1 }, normal: { label: 'Média', order: 2 }, baixa: { label: 'Baixa', order: 3 } };
+const INTIM_DIFFICULTY = { complexa: { label: 'Complexa', order: 0 }, media: { label: 'Média', order: 1 }, rotina: { label: 'Rotina', order: 2 } };
+const intimImpOrder = (x) => (INTIM_PRIORITIES[x?.priority]?.order ?? 2);
+const intimDifOrder = (x) => (INTIM_DIFFICULTY[x?.difficulty || 'media']?.order ?? 1);
 // Ordem fixa de exibição das jurisdições (cards por estado e agrupamento por Estado).
 // TJSC/TJ tratados como a mesma posição; jurisdições fora da lista vão para o fim (alfabética).
 const JURIS_ORDER = ['RS', 'PR', 'SC', 'TJSC', 'TJ'];
@@ -2739,7 +2743,7 @@ function App() {
   const [globalSearch, setGlobalSearch] = useState(false);
   const [gsQuery, setGsQuery] = useState('');
   const [intimFilter, setIntimFilter] = useState('all');
-  const [intimSort, setIntimSort] = useState('deadline');
+  const [intimSort, setIntimSort] = useState('attention');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
   const [intimWork, setIntimWork] = useState(false); // overlay p/ trabalhar intimações dentro da operação
   const [intimView, setIntimView] = useState('list');
@@ -8021,7 +8025,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {Object.entries(INTIM_STATUSES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               <option value="resolvidas">✓ Resolvidas ({resolvidasCount})</option>
             </select>
-            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:160}}>
+            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Gramática composta: importância, dificuldade e prazo são sinais separados">
+              <option value="attention">Atenção: Imp. → Dif. → Prazo</option>
+              <option value="importance">Importância</option>
+              <option value="difficulty">Dificuldade</option>
               <option value="deadline">Prazo final (mais próximo)</option>
               <option value="deadline_desc">Prazo final (mais distante)</option>
               <option value="days_left">Dias restantes (menor)</option>
@@ -8033,7 +8040,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="action_date">Agrupar por Data de atuação</option>
               <option value="sent">Data de envio (recente)</option>
             </select>
-            <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise'}})}>+ Intimação</button>
+            <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media'}})}>+ Intimação</button>
             <button className="btn-secondary btn-sm" onClick={() => eprocInputRef.current?.click()}>📬 Importar eproc</button>
             <input ref={eprocInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleEprocImport} />
             <div className="view-toggle" style={{marginLeft:'auto'}}>
@@ -8084,8 +8091,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {isOverdue ? `VENCIDA ${Math.abs(days)}d` : `${days}d — ${fmtDate(intim.dateDeadline)}`}
                         </div>}
                         {(intim.obs1 || intim.object) && <div className="kc-obs">{intim.object || intim.obs1}</div>}
-                        {(intim.priority==='urgente'||intim.priority==='urgent') && <span style={{fontSize:9,color:'var(--red)'}}>🔴 Urgente</span>}
-                        {intim.priority==='alta' && <span style={{fontSize:9,color:'var(--red)'}}>🔴 Alta</span>}
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4,fontSize:9}}>
+                          <span style={{color:(intim.priority==='urgente'||intim.priority==='alta')?'var(--red)':'var(--text-secondary)'}}>Imp. {(INTIM_PRIORITIES[intim.priority]||INTIM_PRIORITIES.normal).label}</span>
+                          <span style={{color:intim.difficulty==='complexa'?'var(--orange)':'var(--text-muted)'}}>Dif. {(INTIM_DIFFICULTY[intim.difficulty]||INTIM_DIFFICULTY.media).label}</span>
+                        </div>
                       </div>);
                     })}
                   </div>
@@ -8111,7 +8120,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               if (d >= startOfPrevMonth && d < startOfMonth) return 'Mês passado';
               return 'Anteriores';
             };
-            if (intimSort === 'deadline') sorted.sort((a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(a.dateDeadline) - new Date(b.dateDeadline); });
+            const byDeadlineAsc = (a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(a.dateDeadline) - new Date(b.dateDeadline); };
+            if (intimSort === 'attention') sorted.sort((a,b) => {
+              const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
+              const da = intimDifOrder(a), db = intimDifOrder(b); if (da !== db) return da - db;
+              return byDeadlineAsc(a,b);
+            });
+            else if (intimSort === 'importance') sorted.sort((a,b) => { const d = intimImpOrder(a) - intimImpOrder(b); return d !== 0 ? d : byDeadlineAsc(a,b); });
+            else if (intimSort === 'difficulty') sorted.sort((a,b) => { const d = intimDifOrder(a) - intimDifOrder(b); return d !== 0 ? d : byDeadlineAsc(a,b); });
+            else if (intimSort === 'deadline') sorted.sort(byDeadlineAsc);
             else if (intimSort === 'deadline_desc') sorted.sort((a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(b.dateDeadline) - new Date(a.dateDeadline); });
             else if (intimSort === 'days_left') sorted.sort((a,b) => { const da = daysUntil(a.dateDeadline), db = daysUntil(b.dateDeadline); if (da===null) return 1; if (db===null) return -1; return da - db; });
             else if (intimSort === 'overdue_first') sorted.sort((a,b) => { const aO = a.dateDeadline && new Date(a.dateDeadline+'T00:00:00') < now && a.status!=='analisado'; const bO = b.dateDeadline && new Date(b.dateDeadline+'T00:00:00') < now && b.status!=='analisado'; if (aO&&!bO) return -1; if (!aO&&bO) return 1; if (a.dateDeadline&&b.dateDeadline) return new Date(a.dateDeadline)-new Date(b.dateDeadline); return 0; });
@@ -8122,10 +8139,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Pin urgente to top (stable sort preserves inner order).
-            // Só vale para intimações ABERTAS (sem atuação registrada): depois de resolvida,
-            // a urgência não importa mais e o critério de exibição escolhido deve prevalecer.
-            if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
+            // Pin urgente só em ordenações por prazo (atenção/importância já usam o eixo Imp.).
+            if (!['attention','importance','difficulty','jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
               const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && (x.priority==='urgente'||x.priority==='urgent');
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
@@ -8166,8 +8181,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:4}}>
                   {linkedOp ? <span className="intim-op-tag" onClick={e => { e.stopPropagation(); setActiveOpId(linkedOp.id); setViewMode('operation'); }}>◎ {linkedOp.name}</span>
                     : <span className="intim-op-tag unlinked">Sem operação</span>}
-                  {(intim.priority === 'urgente' || intim.priority === 'urgent') && <span className="intim-urgent-star" title="Urgente">🔴</span>}
-                  {intim.priority === 'alta' && <span className="intim-urgent-star" title="Alta prioridade" style={{fontSize:10}}>🔴</span>}
                   <span title={intim.hasPending?'Pendência marcada — clique para desmarcar':'Marcar pendência (algo a fazer aqui)'} onClick={e => { e.stopPropagation(); upsert('intimations', { ...intim, hasPending: !intim.hasPending }); }} style={{cursor:'pointer',fontSize:10,lineHeight:1,padding:'2px 7px',borderRadius:999,border:`1px solid ${intim.hasPending?'var(--yellow)':'var(--border)'}`,background:intim.hasPending?'rgba(212,168,56,0.15)':'transparent',color:intim.hasPending?'var(--yellow)':'var(--text-muted)',fontWeight:intim.hasPending?600:400}}>⚑{intim.hasPending?' pendência':''}</span>
                 </div>
                 <div className="intim-party">{(() => {
@@ -8273,6 +8286,26 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
                 <button className="btn-secondary btn-xs" title="Adicionar à watchlist" onClick={e => { e.stopPropagation(); setModal({type:'create',entityType:'watch',initial:{processNumber:intim.processNumber,parties:intim.parties,operationId:intim.operationId,reason:`Origem: ${intim.eventDescription||'intimação'}`,createdAt:new Date().toISOString()}}); }}>👁 Acompanhar</button>
                 <button className="btn-secondary btn-xs" title={isOnDesk('intimation',intim.id)?'Remover da Mesa de trabalho':'Enviar para a Mesa de trabalho'} onClick={e => { e.stopPropagation(); toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); }} style={isOnDesk('intimation',intim.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{}}>🗂 {isOnDesk('intimation',intim.id)?'na mesa':'Mesa'}</button>
+              </div>
+              {/* Faixa de atenção — sinais separados (P1) */}
+              <div className="intim-attention">
+                <span className={`intim-att-chip imp-${intim.priority||'normal'}`}>
+                  <span className="intim-att-lbl">Imp.</span>
+                  {(INTIM_PRIORITIES[intim.priority]||INTIM_PRIORITIES.normal).label}
+                </span>
+                <span className={`intim-att-chip dif-${intim.difficulty||'media'}`}>
+                  <span className="intim-att-lbl">Dif.</span>
+                  {(INTIM_DIFFICULTY[intim.difficulty]||INTIM_DIFFICULTY.media).label}
+                </span>
+                <span className="intim-att-chip">
+                  <span className="intim-att-lbl">Prazo</span>
+                  {intim.dateDeadline ? fmtDate(intim.dateDeadline) : '—'}
+                  {days !== null && intim.status !== 'analisado' && !intim.responseAction && (
+                    <span className="intim-att-days" style={{color:isOverdue?'var(--red)':isDueSoon?'var(--yellow)':'var(--text-muted)'}}>
+                      {isOverdue ? ` · vencida ${Math.abs(days)}d` : ` · ${days}d`}
+                    </span>
+                  )}
+                </span>
               </div>
             </div></React.Fragment>);
           })}</div>);
@@ -10034,16 +10067,29 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         <div className="form-group"><label>Início Prazo</label><input type="date" value={form.dateStart||''} onChange={e=>set('dateStart',e.target.value)} /></div>
         <div className="form-group"><label>Final Prazo</label><input type="date" value={form.dateDeadline||''} onChange={e=>set('dateDeadline',e.target.value)} /></div>
       </div>
-      <div className="form-row-3">
+      <div className="form-row">
         <div className="form-group"><label>Status</label><select value={form.status||'pendente_analise'} onChange={e=>set('status',e.target.value)}>
           {Object.entries(INTIM_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-        </select></div>
-        <div className="form-group"><label>Prioridade</label><select value={form.priority||'normal'} onChange={e=>set('priority',e.target.value)}>
-          {Object.entries(INTIM_PRIORITIES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select></div>
         <div className="form-group"><label>Operação vinculada</label><select value={form.operationId||''} onChange={e=>set('operationId',e.target.value)}>
           <option value="">Nenhuma</option>{ops.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
         </select></div>
+      </div>
+      <div className="form-group" style={{padding:12,background:'var(--accent-dim)',borderRadius:'var(--radius)',borderLeft:'3px solid var(--gold)'}}>
+        <label style={{marginBottom:6,display:'block'}}>Atenção (manual)</label>
+        <div className="form-row" style={{marginBottom:0}}>
+          <div className="form-group" style={{marginBottom:0}}><label>Importância</label>
+            <select value={form.priority||'normal'} onChange={e=>set('priority',e.target.value)}>
+              {Object.entries(INTIM_PRIORITIES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{marginBottom:0}}><label>Dificuldade</label>
+            <select value={form.difficulty||'media'} onChange={e=>set('difficulty',e.target.value)}>
+              {Object.entries(INTIM_DIFFICULTY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:6}}>Ordenação padrão da lista: Importância → Dificuldade → Prazo. O prazo continua visível no card.</span>
       </div>
       <div className="form-group"><label>Objeto / Providência</label><input value={form.object||''} onChange={e=>set('object',e.target.value)} placeholder="Pedido de dilação, mera ciência, embargos..." /></div>
       <div className="form-group"><label>📝 Link da Minuta / Resposta (Google Docs)</label>

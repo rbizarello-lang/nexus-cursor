@@ -424,6 +424,15 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .intim-deadline { font-size: 13px; font-weight: 700; }
 .intim-deadline.overdue { color: var(--red); }
 .intim-deadline.due-soon { color: var(--yellow); }
+/* P1 — faixa de atenção no card (sinais separados) */
+.intim-attention { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+.intim-att-chip { display: inline-flex; align-items: baseline; gap: 5px; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+.intim-att-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+.intim-att-days { font-weight: 500; font-size: 10px; }
+.intim-att-chip.imp-urgente, .intim-att-chip.imp-alta { color: var(--red); border-color: rgba(229,64,96,0.35); background: var(--red-dim); }
+.intim-att-chip.imp-baixa { opacity: 0.75; }
+.intim-att-chip.dif-complexa { color: var(--orange); border-color: rgba(216,136,64,0.35); background: var(--orange-dim); }
+.intim-att-chip.dif-rotina { color: var(--text-muted); }
 .intim-deadline.normal { color: var(--text-secondary); }
 .intim-deadline.not-started { color: var(--text-muted); font-weight: 400; }
 .intim-urgent-star { color: var(--red); font-size: 14px; cursor: pointer; }
