@@ -9,6 +9,7 @@ package-lock.json
 README.md
 BUILD.md
 _backup*/**
+_design-mockups/**
 _app_compiled*
 _debug*
 **/*.md

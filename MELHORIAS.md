@@ -23,7 +23,7 @@ Mockups em `_design-mockups/` (inclui `recon-07-gramatica-card-atual.png`).
 ### Fases
 | Fase | Entrega | Risco |
 |------|---------|-------|
-| **P1** | Gramática no **card atual** de intimação (campos + ordenar) | Baixo |
+| **P1** ✅ | Gramática no **card atual** de intimação (campos + ordenar) — feito 30/07/2026 | Baixo |
 | **P2** | Remover só Grafo e Insights | Baixo |
 | **P3a** | Processos colapsados → expandir ao card atual | Médio |
 | **P3b** | Prescrição na mesma família visual (sem perder Controle) | Médio |

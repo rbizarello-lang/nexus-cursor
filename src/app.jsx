@@ -75,10 +75,10 @@ const generateDemoData = () => {
       { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
     ],
     intimations: [
-      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'complexa' },
-      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media' },
-      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'urgente', difficulty:'complexa' },
-      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'rotina' },
+      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false },
+      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
+      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true },
+      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false },
     ],
     tasks: [
       { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
@@ -989,11 +989,36 @@ const TASK_STATUSES = {
   cancelada: { label: 'Cancelada', badge: 'badge-muted-strong' }
 };
 const TASK_PRIORITIES = { urgente: { label: 'Urgente', color: 'var(--red)' }, alta: { label: 'Alta', color: 'var(--orange)' }, media: { label: 'Média', color: 'var(--yellow)' }, baixa: { label: 'Baixa', color: 'var(--text-muted)' } };
-// Importância (campo `priority` legado) + dificuldade — gramática composta de atenção (P1).
-const INTIM_PRIORITIES = { urgente: { label: 'Urgente', order: 0 }, alta: { label: 'Alta', order: 1 }, normal: { label: 'Média', order: 2 }, baixa: { label: 'Baixa', order: 3 } };
-const INTIM_DIFFICULTY = { complexa: { label: 'Complexa', order: 0 }, media: { label: 'Média', order: 1 }, rotina: { label: 'Rotina', order: 2 } };
-const intimImpOrder = (x) => (INTIM_PRIORITIES[x?.priority]?.order ?? 2);
-const intimDifOrder = (x) => (INTIM_DIFFICULTY[x?.difficulty || 'media']?.order ?? 1);
+// Importância (`priority`) + complexidade (`difficulty`) + marcador Urgente separado (`urgent`).
+// Legado: priority==='urgente' vira urgent=true; difficulty complexa/rotina → alta/baixa.
+const INTIM_PRIORITIES = {
+  alta: { label: 'ALTA IMPORTÂNCIA', order: 0 },
+  normal: { label: 'MÉDIA IMPORTÂNCIA', order: 1 },
+  baixa: { label: 'BAIXA IMPORTÂNCIA', order: 2 },
+  urgente: { label: 'ALTA IMPORTÂNCIA', order: 0 } // legado — preferir flag `urgent`
+};
+const INTIM_DIFFICULTY = {
+  alta: { label: 'ALTA COMPLEXIDADE', order: 0 },
+  media: { label: 'MÉDIA COMPLEXIDADE', order: 1 },
+  baixa: { label: 'BAIXA COMPLEXIDADE', order: 2 },
+  complexa: { label: 'ALTA COMPLEXIDADE', order: 0 }, // legado
+  rotina: { label: 'BAIXA COMPLEXIDADE', order: 2 }  // legado
+};
+const intimIsUrgent = (x) => !!(x && (x.urgent || x.priority === 'urgente' || x.priority === 'urgent'));
+const intimImpKey = (x) => {
+  const p = x?.priority;
+  if (p === 'urgente' || p === 'urgent' || p === 'alta') return 'alta';
+  if (p === 'baixa') return 'baixa';
+  return 'normal';
+};
+const intimDifKey = (x) => {
+  const d = x?.difficulty || 'media';
+  if (d === 'complexa' || d === 'alta') return 'alta';
+  if (d === 'rotina' || d === 'baixa') return 'baixa';
+  return 'media';
+};
+const intimImpOrder = (x) => (INTIM_PRIORITIES[intimImpKey(x)]?.order ?? 1);
+const intimDifOrder = (x) => (INTIM_DIFFICULTY[intimDifKey(x)]?.order ?? 1);
 // Ordem fixa de exibição das jurisdições (cards por estado e agrupamento por Estado).
 // TJSC/TJ tratados como a mesma posição; jurisdições fora da lista vão para o fim (alfabética).
 const JURIS_ORDER = ['RS', 'PR', 'SC', 'TJSC', 'TJ'];
@@ -8025,10 +8050,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {Object.entries(INTIM_STATUSES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               <option value="resolvidas">✓ Resolvidas ({resolvidasCount})</option>
             </select>
-            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Gramática composta: importância, dificuldade e prazo são sinais separados">
-              <option value="attention">Atenção: Imp. → Dif. → Prazo</option>
+            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Urgente primeiro; depois importância, complexidade e prazo">
+              <option value="attention">Atenção: Urgente → Imp. → Complexidade → Prazo</option>
               <option value="importance">Importância</option>
-              <option value="difficulty">Dificuldade</option>
+              <option value="difficulty">Complexidade</option>
               <option value="deadline">Prazo final (mais próximo)</option>
               <option value="deadline_desc">Prazo final (mais distante)</option>
               <option value="days_left">Dias restantes (menor)</option>
@@ -8040,7 +8065,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="action_date">Agrupar por Data de atuação</option>
               <option value="sent">Data de envio (recente)</option>
             </select>
-            <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media'}})}>+ Intimação</button>
+            <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media',urgent:false}})}>+ Intimação</button>
             <button className="btn-secondary btn-sm" onClick={() => eprocInputRef.current?.click()}>📬 Importar eproc</button>
             <input ref={eprocInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleEprocImport} />
             <div className="view-toggle" style={{marginLeft:'auto'}}>
@@ -8065,8 +8090,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             return (<div className="kanban-board">
               {statusCols.map(([statusKey, statusDef]) => {
                 const colItems = filtered.filter(x => x.status === statusKey).sort((a,b) => {
-                  const aU = (a.priority==='urgente'||a.priority==='urgent')?0:1, bU = (b.priority==='urgente'||b.priority==='urgent')?0:1;
+                  const aU = intimIsUrgent(a) ? 0 : 1, bU = intimIsUrgent(b) ? 0 : 1;
                   if (aU !== bU) return aU - bU;
+                  const ia = intimImpOrder(a) - intimImpOrder(b); if (ia) return ia;
                   if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1;
                   return new Date(a.dateDeadline) - new Date(b.dateDeadline);
                 });
@@ -8092,8 +8118,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </div>}
                         {(intim.obs1 || intim.object) && <div className="kc-obs">{intim.object || intim.obs1}</div>}
                         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4,fontSize:9}}>
-                          <span style={{color:(intim.priority==='urgente'||intim.priority==='alta')?'var(--red)':'var(--text-secondary)'}}>Imp. {(INTIM_PRIORITIES[intim.priority]||INTIM_PRIORITIES.normal).label}</span>
-                          <span style={{color:intim.difficulty==='complexa'?'var(--orange)':'var(--text-muted)'}}>Dif. {(INTIM_DIFFICULTY[intim.difficulty]||INTIM_DIFFICULTY.media).label}</span>
+                          {intimIsUrgent(intim) && <span style={{color:'var(--red)',fontWeight:700}}>URGENTE</span>}
+                          <span style={{color:intimImpKey(intim)==='alta'?'var(--red)':'var(--text-secondary)'}}>{INTIM_PRIORITIES[intimImpKey(intim)].label}</span>
+                          <span style={{color:intimDifKey(intim)==='alta'?'var(--orange)':'var(--text-muted)'}}>{INTIM_DIFFICULTY[intimDifKey(intim)].label}</span>
                         </div>
                       </div>);
                     })}
@@ -8122,11 +8149,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             };
             const byDeadlineAsc = (a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(a.dateDeadline) - new Date(b.dateDeadline); };
             if (intimSort === 'attention') sorted.sort((a,b) => {
+              const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
               const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
               const da = intimDifOrder(a), db = intimDifOrder(b); if (da !== db) return da - db;
               return byDeadlineAsc(a,b);
             });
-            else if (intimSort === 'importance') sorted.sort((a,b) => { const d = intimImpOrder(a) - intimImpOrder(b); return d !== 0 ? d : byDeadlineAsc(a,b); });
+            else if (intimSort === 'importance') sorted.sort((a,b) => {
+              const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
+              const d = intimImpOrder(a) - intimImpOrder(b); return d !== 0 ? d : byDeadlineAsc(a,b);
+            });
             else if (intimSort === 'difficulty') sorted.sort((a,b) => { const d = intimDifOrder(a) - intimDifOrder(b); return d !== 0 ? d : byDeadlineAsc(a,b); });
             else if (intimSort === 'deadline') sorted.sort(byDeadlineAsc);
             else if (intimSort === 'deadline_desc') sorted.sort((a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(b.dateDeadline) - new Date(a.dateDeadline); });
@@ -8139,9 +8170,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Pin urgente só em ordenações por prazo (atenção/importância já usam o eixo Imp.).
-            if (!['attention','importance','difficulty','jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
-              const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && (x.priority==='urgente'||x.priority==='urgent');
+            // Urgente no topo (exceto agrupamentos)
+            if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
+              const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
 
@@ -8174,7 +8205,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>;
               }
             }
-            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':intim.status==='analisado'?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${(intim.priority==='urgente'||intim.priority==='urgent')?' prio-urgente':intim.priority==='alta'?' prio-alta':intim.priority==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
+            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':intim.status==='analisado'?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${intimIsUrgent(intim)?' prio-urgente':intimImpKey(intim)==='alta'?' prio-alta':intimImpKey(intim)==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
               onClick={() => setModal({type:'edit',entityType:'intimation',initial:intim})}>
               {/* COL 1: party + process */}
               <div className="intim-left">
@@ -8287,24 +8318,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button className="btn-secondary btn-xs" title="Adicionar à watchlist" onClick={e => { e.stopPropagation(); setModal({type:'create',entityType:'watch',initial:{processNumber:intim.processNumber,parties:intim.parties,operationId:intim.operationId,reason:`Origem: ${intim.eventDescription||'intimação'}`,createdAt:new Date().toISOString()}}); }}>👁 Acompanhar</button>
                 <button className="btn-secondary btn-xs" title={isOnDesk('intimation',intim.id)?'Remover da Mesa de trabalho':'Enviar para a Mesa de trabalho'} onClick={e => { e.stopPropagation(); toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); }} style={isOnDesk('intimation',intim.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{}}>🗂 {isOnDesk('intimation',intim.id)?'na mesa':'Mesa'}</button>
               </div>
-              {/* Faixa de atenção — sinais separados (P1) */}
+              {/* Faixa de atenção — importância + complexidade (prazo já está no card) */}
               <div className="intim-attention">
-                <span className={`intim-att-chip imp-${intim.priority||'normal'}`}>
-                  <span className="intim-att-lbl">Imp.</span>
-                  {(INTIM_PRIORITIES[intim.priority]||INTIM_PRIORITIES.normal).label}
+                {intimIsUrgent(intim) && <span className="intim-att-chip urgent-mark">URGENTE</span>}
+                <span className={`intim-att-chip imp-${intimImpKey(intim)}`}>
+                  {INTIM_PRIORITIES[intimImpKey(intim)].label}
                 </span>
-                <span className={`intim-att-chip dif-${intim.difficulty||'media'}`}>
-                  <span className="intim-att-lbl">Dif.</span>
-                  {(INTIM_DIFFICULTY[intim.difficulty]||INTIM_DIFFICULTY.media).label}
-                </span>
-                <span className="intim-att-chip">
-                  <span className="intim-att-lbl">Prazo</span>
-                  {intim.dateDeadline ? fmtDate(intim.dateDeadline) : '—'}
-                  {days !== null && intim.status !== 'analisado' && !intim.responseAction && (
-                    <span className="intim-att-days" style={{color:isOverdue?'var(--red)':isDueSoon?'var(--yellow)':'var(--text-muted)'}}>
-                      {isOverdue ? ` · vencida ${Math.abs(days)}d` : ` · ${days}d`}
-                    </span>
-                  )}
+                <span className={`intim-att-chip dif-${intimDifKey(intim)}`}>
+                  {INTIM_DIFFICULTY[intimDifKey(intim)].label}
                 </span>
               </div>
             </div></React.Fragment>);
@@ -10076,20 +10097,35 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </select></div>
       </div>
       <div className="form-group" style={{padding:12,background:'var(--accent-dim)',borderRadius:'var(--radius)',borderLeft:'3px solid var(--gold)'}}>
-        <label style={{marginBottom:6,display:'block'}}>Atenção (manual)</label>
+        <label style={{marginBottom:8,display:'block'}}>Atenção (manual)</label>
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginBottom:10,padding:'8px 10px',borderRadius:'var(--radius)',border:`1px solid ${intimIsUrgent(form)?'var(--red)':'var(--border)'}`,background:intimIsUrgent(form)?'var(--red-dim)':'var(--bg-input)'}}>
+          <input type="checkbox" checked={intimIsUrgent(form)} onChange={e=>{
+            const on = e.target.checked;
+            set('urgent', on);
+            if (form.priority === 'urgente' || form.priority === 'urgent') set('priority', 'alta');
+          }} style={{width:16,height:16,accentColor:'var(--red)'}} />
+          <span>
+            <strong style={{color:intimIsUrgent(form)?'var(--red)':'var(--text-primary)'}}>Urgente</strong>
+            <span style={{display:'block',fontSize:9,color:'var(--text-muted)',marginTop:2}}>Marcado: vai para o topo da lista e o card fica com tom vermelho mais forte.</span>
+          </span>
+        </label>
         <div className="form-row" style={{marginBottom:0}}>
           <div className="form-group" style={{marginBottom:0}}><label>Importância</label>
-            <select value={form.priority||'normal'} onChange={e=>set('priority',e.target.value)}>
-              {Object.entries(INTIM_PRIORITIES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            <select value={intimImpKey(form)} onChange={e=>set('priority',e.target.value)}>
+              <option value="alta">{INTIM_PRIORITIES.alta.label}</option>
+              <option value="normal">{INTIM_PRIORITIES.normal.label}</option>
+              <option value="baixa">{INTIM_PRIORITIES.baixa.label}</option>
             </select>
           </div>
-          <div className="form-group" style={{marginBottom:0}}><label>Dificuldade</label>
-            <select value={form.difficulty||'media'} onChange={e=>set('difficulty',e.target.value)}>
-              {Object.entries(INTIM_DIFFICULTY).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          <div className="form-group" style={{marginBottom:0}}><label>Complexidade</label>
+            <select value={intimDifKey(form)} onChange={e=>set('difficulty',e.target.value)}>
+              <option value="alta">{INTIM_DIFFICULTY.alta.label}</option>
+              <option value="media">{INTIM_DIFFICULTY.media.label}</option>
+              <option value="baixa">{INTIM_DIFFICULTY.baixa.label}</option>
             </select>
           </div>
         </div>
-        <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:6}}>Ordenação padrão da lista: Importância → Dificuldade → Prazo. O prazo continua visível no card.</span>
+        <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:6}}>Prazo continua só nas datas do card (centro / direita) — sem repetir na faixa.</span>
       </div>
       <div className="form-group"><label>Objeto / Providência</label><input value={form.object||''} onChange={e=>set('object',e.target.value)} placeholder="Pedido de dilação, mera ciência, embargos..." /></div>
       <div className="form-group"><label>📝 Link da Minuta / Resposta (Google Docs)</label>
