@@ -2776,6 +2776,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('notas');
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
   const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
+  const [carteiraTreeOpen, setCarteiraTreeOpen] = useState(true); // árvore de ops sob Carteira
   const [agendaWeekStart, setAgendaWeekStart] = useState(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // monday
@@ -7599,7 +7600,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Inbox {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
-            <button className="btn-secondary" onClick={() => setViewMode('operacoes')}>Ver Carteira</button>
+            <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
             {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
           </div>
         </div>
@@ -7621,6 +7622,161 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             ))}
           </div>
         )}
+      </div>
+    );
+  };
+
+  const openCarteiraHome = () => {
+    setCarteiraTreeOpen(true);
+    setSidebarCollapsed(false);
+    try { localStorage.setItem('nexus_sidebar_collapsed', '0'); } catch {}
+    setDemoTrabalhoOpen(false);
+    startTabSwitch(() => {
+      setViewMode('operacoes');
+      setSelectedNode(null);
+      setImportResult(null);
+    });
+  };
+  const openCarteiraOp = (op) => {
+    setCarteiraTreeOpen(true);
+    setSidebarCollapsed(false);
+    try { localStorage.setItem('nexus_sidebar_collapsed', '0'); } catch {}
+    startTabSwitch(() => {
+      setActiveOpId(op.id);
+      setSelectedNode(null);
+      setImportResult(null);
+      setViewMode('operation');
+      setDemoZone(tabToDemoZone(activeTab));
+    });
+    setTimeout(() => upsert('operations', { ...op, lastAccessed: new Date().toISOString() }), 800);
+  };
+  const carteiraContext = isDemo && (viewMode === 'operacoes' || viewMode === 'operation' || viewMode === 'painel');
+  const alphaOps = (data.operations || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+
+  const renderCarteiraRankingPanel = () => {
+    const ops = data.operations.filter(o => o.status !== 'encerrada');
+    if (ops.length === 0) return null;
+    const allDebts = data.debts || [];
+    const allExecs = data.executions || [];
+    const allAssets = data.assets || [];
+    const allIntims = data.intimations || [];
+    const allTasks = data.tasks || [];
+    const allPrescEvts = data.prescriptionEvents || [];
+    const opAnalytics = ops.map(op => {
+      const debts = allDebts.filter(d => d.operationId === op.id && d.status !== 'extinta');
+      const execs = allExecs.filter(e => e.operationId === op.id);
+      const assets = allAssets.filter(a => a.operationId === op.id);
+      const intims = allIntims.filter(x => x.operationId === op.id);
+      const tasks = allTasks.filter(t => t.operationId === op.id);
+      const totalValue = debts.reduce((s, d) => s + (d.value || 0), 0);
+      const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
+      const prescRisk = debts.filter(d => {
+        const pd = d.prescriptionDate || calcAutoPresc(d, execs, allPrescEvts);
+        const dd = daysUntil(pd);
+        return dd !== null && dd <= 180 && !d.prescriptionHandled;
+      }).length;
+      const openIntims = intims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
+      const openTasks = tasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
+      const idpjCount = execs.filter(e => e.processTag === 'idpj').length;
+      const cautelarCount = execs.filter(e => e.processTag === 'cautelar_fiscal').length;
+      const lastAccess = op.lastAccessed ? new Date(op.lastAccessed) : null;
+      const daysSinceAccess = lastAccess ? Math.floor((Date.now() - lastAccess.getTime()) / 86400000) : null;
+      return { op, totalValue, guaranteedValue, prescRisk, openIntims, openTasks, debtsCount: debts.length, execsCount: execs.length, assetsCount: assets.length, idpjCount, cautelarCount, daysSinceAccess };
+    });
+    const carteiraSortFns = {
+      valor_desc: (a, b) => b.totalValue - a.totalValue,
+      valor_asc: (a, b) => a.totalValue - b.totalValue,
+      presc: (a, b) => b.prescRisk - a.prescRisk || b.totalValue - a.totalValue,
+      intims: (a, b) => b.openIntims - a.openIntims || b.totalValue - a.totalValue,
+      tasks: (a, b) => b.openTasks - a.openTasks || b.totalValue - a.totalValue,
+      cobertura_asc: (a, b) => {
+        const ca = a.totalValue > 0 ? a.guaranteedValue / a.totalValue : 1;
+        const cb = b.totalValue > 0 ? b.guaranteedValue / b.totalValue : 1;
+        return ca - cb;
+      },
+      acesso_recente: (a, b) => {
+        const da = a.daysSinceAccess === null ? 99999 : a.daysSinceAccess;
+        const db = b.daysSinceAccess === null ? 99999 : b.daysSinceAccess;
+        return da - db;
+      },
+      revisao_atrasada: (a, b) => {
+        const ra = reviewStatus(a.op);
+        const rb = reviewStatus(b.op);
+        return (ra.daysLeft ?? 99999) - (rb.daysLeft ?? 99999);
+      },
+      nome: (a, b) => (a.op.name || '').localeCompare(b.op.name || '', 'pt-BR'),
+      idpj: (a, b) => (b.idpjCount + b.cautelarCount) - (a.idpjCount + a.cautelarCount) || b.totalValue - a.totalValue,
+    };
+    opAnalytics.sort(carteiraSortFns[carteiraSort] || carteiraSortFns.valor_desc);
+    const sortLabels = {
+      valor_desc: 'Maior valor de crédito', valor_asc: 'Menor valor de crédito', presc: 'Maior risco de prescrição',
+      intims: 'Mais intimações abertas', tasks: 'Mais tarefas pendentes', cobertura_asc: 'Menor cobertura de garantia',
+      acesso_recente: 'Acessadas recentemente', revisao_atrasada: 'Revisão mais atrasada primeiro',
+      nome: 'Nome (A→Z)', idpj: 'Mais IDPJs/Cautelares',
+    };
+    const totalCredito = opAnalytics.reduce((s, o) => s + o.totalValue, 0);
+    return (
+      <div style={{marginTop:20}}>
+        <h4 style={{fontSize:13,fontWeight:700,color:'var(--text-secondary)',marginBottom:12,letterSpacing:0.3}}>Lista e ranking da carteira</h4>
+        <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+          <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:0.5}}>Operações · {sortLabels[carteiraSort]}</span>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <label style={{fontSize:10,color:'var(--text-muted)'}}>Ordenar:</label>
+              <select value={carteiraSort} onChange={e => setCarteiraSort(e.target.value)} style={{fontSize:11,padding:'3px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,cursor:'pointer'}}>
+                <optgroup label="Financeiro">
+                  <option value="valor_desc">Maior valor de crédito</option>
+                  <option value="valor_asc">Menor valor de crédito</option>
+                  <option value="cobertura_asc">Menor cobertura de garantia</option>
+                </optgroup>
+                <optgroup label="Risco / Urgência">
+                  <option value="presc">Maior risco de prescrição</option>
+                  <option value="intims">Mais intimações abertas</option>
+                  <option value="tasks">Mais tarefas pendentes</option>
+                </optgroup>
+                <optgroup label="Atividade">
+                  <option value="acesso_recente">Acessadas recentemente</option>
+                  <option value="revisao_atrasada">Revisão mais atrasada</option>
+                </optgroup>
+                <optgroup label="Estratégico">
+                  <option value="idpj">Mais IDPJs / Cautelares</option>
+                  <option value="nome">Nome (A→Z)</option>
+                </optgroup>
+              </select>
+              <span style={{fontSize:10,color:'var(--text-muted)'}}>· {opAnalytics.length} ativa(s)</span>
+            </div>
+          </div>
+          <div style={{maxHeight:420,overflowY:'auto'}}>
+            {opAnalytics.map((oa, idx) => {
+              const barPct = totalCredito > 0 ? Math.max(2, (oa.totalValue / totalCredito) * 100) : 0;
+              const guarPct = oa.totalValue > 0 ? (oa.guaranteedValue / oa.totalValue) * 100 : 0;
+              return (
+                <div key={oa.op.id} style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',cursor:'pointer',transition:'background 0.15s'}}
+                  onClick={() => openCarteiraOp(oa.op)}
+                  onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = 'transparent'; }}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flex:1,minWidth:0}}>
+                      <span style={{fontSize:10,color:'var(--text-muted)',fontWeight:700,width:18}}>{idx + 1}.</span>
+                      <span style={{fontSize:12,fontWeight:600,color:'var(--text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{oa.op.name}</span>
+                      {oa.prescRisk > 0 && <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'var(--red-dim)',color:'var(--red)',fontWeight:700}}>⏱{oa.prescRisk}</span>}
+                      {oa.openIntims > 0 && <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'var(--blue-dim)',color:'var(--blue)',fontWeight:700}}>📬{oa.openIntims}</span>}
+                      {oa.openTasks > 0 && <span style={{fontSize:9,padding:'1px 5px',borderRadius:3,background:'var(--yellow-dim)',color:'var(--yellow)',fontWeight:700}}>✓{oa.openTasks}</span>}
+                    </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'var(--accent)',fontFamily:'var(--font-mono)'}}>{fmtCur(oa.totalValue)}</div>
+                      <div style={{fontSize:9,color:'var(--text-muted)'}}>{oa.debtsCount} CDAs · {oa.execsCount} proc. · {oa.assetsCount} bens</div>
+                    </div>
+                  </div>
+                  <div style={{height:4,background:'var(--bg-elevated)',borderRadius:2,overflow:'hidden',position:'relative'}}>
+                    <div style={{height:'100%',width:barPct + '%',background:'rgba(184,115,51,0.35)',borderRadius:2,position:'absolute'}}></div>
+                    <div style={{height:'100%',width:(barPct * guarPct / 100) + '%',background:'var(--green)',borderRadius:2,position:'absolute'}}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   };
@@ -7664,19 +7820,53 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isDemo && !sidebarCollapsed?'demo-rail-expanded':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {/* ═══ DEMO RAIL ═══ */}
     {isDemo && <nav className="demo-rail">
       <div className="demo-rail-brand">
-        {sidebarCollapsed ? 'N' : 'NEXUS'}
-        {!sidebarCollapsed && <small>Central de Comando</small>}
+        {sidebarCollapsed && !(carteiraContext && carteiraTreeOpen) ? 'N' : 'NEXUS'}
+        {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && <small>Central de Comando</small>}
       </div>
       <div className="demo-rail-nav">
-        <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => setViewMode('hoje')}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
-        <button className={`demo-rail-btn ${viewMode==='intimacoes'?'active':''}`} onClick={() => setViewMode('intimacoes')}><span className="demo-rail-ico">📥</span><span>Inbox</span>{openIntimsCount>0 && <span className="demo-rail-count">{openIntimsCount}</span>}</button>
-        <button className={`demo-rail-btn ${viewMode==='operacoes'||viewMode==='painel'||viewMode==='operation'?'active':''}`} onClick={() => setViewMode('operacoes')}><span className="demo-rail-ico">◈</span><span>Carteira</span></button>
-        <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => setViewMode('audiencias')}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
-        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => setViewMode('modelos')}><span className="demo-rail-ico">📄</span><span>Biblioteca</span></button>
+        <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('hoje'); }}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
+        <button className={`demo-rail-btn ${viewMode==='intimacoes'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('intimacoes'); }}><span className="demo-rail-ico">📥</span><span>Inbox</span>{openIntimsCount>0 && <span className="demo-rail-count">{openIntimsCount}</span>}</button>
+
+        <div className={`demo-rail-branch ${carteiraContext ? 'open' : ''} ${viewMode==='operacoes'||viewMode==='painel'||viewMode==='operation'?'active-branch':''}`}>
+          <button className={`demo-rail-btn ${viewMode==='operacoes'||viewMode==='painel'?'active':''} ${viewMode==='operation'?'soft-active':''}`}
+            onClick={openCarteiraHome}
+            title="Carteira — página inicial do portfólio">
+            <span className="demo-rail-ico">◈</span>
+            <span>Carteira</span>
+            {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && (
+              <span className="demo-rail-chevron" onClick={e => { e.stopPropagation(); setCarteiraTreeOpen(v => !v); setSidebarCollapsed(false); }}
+                title={carteiraTreeOpen ? 'Recolher operações' : 'Expandir operações'}>
+                {carteiraTreeOpen && carteiraContext ? '▾' : '▸'}
+              </span>
+            )}
+            {(data.operations||[]).length > 0 && <span className="demo-rail-count">{(data.operations||[]).length}</span>}
+          </button>
+          {carteiraContext && carteiraTreeOpen && (
+            <div className="demo-rail-tree">
+              <button type="button" className={`demo-rail-tree-item rootish ${viewMode==='operacoes'?'active':''}`} onClick={openCarteiraHome}>
+                <span className="demo-rail-tree-mark">◉</span>
+                <span>Visão geral</span>
+              </button>
+              {alphaOps.length === 0 && <div className="demo-rail-tree-empty">Nenhuma operação</div>}
+              {alphaOps.map(op => (
+                <button type="button" key={op.id}
+                  className={`demo-rail-tree-item ${viewMode==='operation' && activeOpId===op.id?'active':''}`}
+                  onClick={() => openCarteiraOp(op)}
+                  title={op.name}>
+                  <span className="demo-rail-tree-mark">○</span>
+                  <span className="demo-rail-tree-label">{op.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('audiencias'); }}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
+        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span className="demo-rail-ico">📄</span><span>Biblioteca</span></button>
         <button className={`demo-rail-btn ${['mesa','tarefas_global','acompanhar'].includes(viewMode)?'active':''}`} onClick={() => setDemoTrabalhoOpen(v => !v)}><span className="demo-rail-ico">🗂</span><span>Trabalho</span></button>
       </div>
       {demoTrabalhoOpen && <div className="demo-trabalho-drawer">
@@ -7872,7 +8062,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
              viewMode === 'intimacoes' ? 'Caixa de intimações · lista e kanban' :
-             viewMode === 'operacoes' ? 'Portfólio de operações fiscais' :
+             viewMode === 'operacoes' ? 'Página inicial · cards por classificação e ranking' :
              viewMode === 'painel' ? 'Indicadores da carteira' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'operation' ? 'Workspace da operação · briefing, acervo, risco e ferramentas' :
@@ -7883,26 +8073,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <span className="demo-pill">Demo</span>
           {isGAS && <span className={`cloud-dot ${cloudStatus}`} title={cloudMsg || 'Sync'} style={{margin:0}}></span>}
           {viewMode === 'operation' && (
-            <button className="btn-secondary btn-sm" onClick={() => setViewMode('operacoes')}>← Carteira</button>
+            <button className="btn-secondary btn-sm" onClick={openCarteiraHome}>← Carteira</button>
           )}
           {isGAS && <button className="btn-secondary btn-sm" onClick={cloudPush} title="Salvar na Planilha">⬆ Sync</button>}
           <button className="btn-secondary btn-sm" onClick={() => {setGlobalSearch(true);setGsQuery('');}}>Busca ⌘K</button>
           <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
         </div>
       </div>}
-
-      {/* Demo: ops strip inside Carteira / operation */}
-      {isDemo && (viewMode === 'operacoes' || viewMode === 'operation' || viewMode === 'painel') && (
-        <div style={{display:'flex',gap:6,padding:'8px 22px',overflowX:'auto',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,0.45)',flexShrink:0}}>
-          {(data.operations || []).slice().sort((a,b) => (a.name||'').localeCompare(b.name||'','pt-BR')).map(op => (
-            <button key={op.id} className={`demo-zone-chip ${activeOpId===op.id && viewMode==='operation'?'active':''}`}
-              onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); setDemoZone(tabToDemoZone(activeTab)); }); }}>
-              {truncate(op.name, 28)}
-            </button>
-          ))}
-          {(data.operations || []).length === 0 && <span style={{fontSize:12,color:'var(--text-muted)'}}>Nenhuma operação — crie a primeira.</span>}
-        </div>
-      )}
 
       {(() => {
         const today = new Date(); today.setHours(0,0,0,0);
@@ -8322,7 +8499,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         const prescAlerts = debts.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
                         const notes = op.notesList || (op.notes ? [op.notes] : []);
                         return (<div key={op.id} className="ops-priority-card" style={{borderLeftColor: cls.border}}
-                          onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
+                          onClick={() => { if (isDemo) openCarteiraOp(op); else { startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); } }}>
                           <div className="opc-header">
                             <div className="opc-name">{op.name}</div>
                             <span className={`badge ${op.status==='ativa'?'badge-muted':'badge-muted-strong'}`}>{op.status||'ativa'}</span>
@@ -8353,6 +8530,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   </div>);
                 });
               })()}
+              {isDemo && renderCarteiraRankingPanel()}
             </div>
           )}
         </div>

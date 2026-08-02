@@ -779,6 +779,71 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .demo-rail-foot { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
 .app-layout.edition-demo.demo-rail-expanded .demo-rail-btn { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 10px 12px; font-size: 12px; }
 .app-layout.edition-demo.demo-rail-expanded .demo-rail-brand { text-align: left; padding-left: 10px; font-size: 20px; }
+.app-layout.edition-demo.demo-carteira-open { grid-template-columns: 248px 1fr; }
+.app-layout.edition-demo.demo-carteira-open .demo-trabalho-drawer { left: 248px; }
+
+.demo-rail-branch { display: flex; flex-direction: column; gap: 2px; }
+.demo-rail-branch.active-branch > .demo-rail-btn.soft-active {
+  background: rgba(184,115,51,0.12);
+  border-color: rgba(184,115,51,0.28);
+  color: #e8c49a;
+}
+.demo-rail-chevron {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.75;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.demo-rail-chevron:hover { background: rgba(255,255,255,0.08); opacity: 1; }
+.demo-rail-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 6px 8px 14px;
+  padding: 4px 0 4px 8px;
+  border-left: 1px solid rgba(232,196,154,0.28);
+  max-height: min(48vh, 420px);
+  overflow-y: auto;
+  animation: demoFadeSlide 0.28s ease;
+}
+.demo-rail-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(215,226,236,0.78);
+  border-radius: 7px;
+  padding: 7px 8px;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.demo-rail-tree-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.demo-rail-tree-item.active {
+  background: rgba(184,115,51,0.22);
+  border-color: rgba(184,115,51,0.4);
+  color: #f0d2ad;
+  font-weight: 600;
+}
+.demo-rail-tree-item.rootish { font-weight: 600; color: rgba(232,196,154,0.9); }
+.demo-rail-tree-mark { font-size: 9px; opacity: 0.7; flex-shrink: 0; width: 12px; text-align: center; }
+.demo-rail-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.demo-rail-tree-empty {
+  font-size: 10px;
+  color: rgba(215,226,236,0.45);
+  padding: 6px 8px;
+}
 .app-layout.edition-demo .demo-rail .settings-panel {
   top: auto; bottom: 100%; right: 0; left: 8px; margin-top: 0; margin-bottom: 8px;
   min-width: 260px; background: #12263a; border-color: rgba(255,255,255,0.12); color: #d7e2ec;
