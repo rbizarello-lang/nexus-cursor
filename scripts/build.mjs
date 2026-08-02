@@ -18,7 +18,8 @@ const jsxPath = path.join(root, 'src', 'app.jsx');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
 const outDemoPath = path.join(root, 'Nexus.demo.html');
-// Nome alinhado aos artefatos da raiz (Nexus.html / Nexus.demo.html)
+const outDemoUnderscorePath = path.join(root, 'Nexus_demo.html'); // alias Windows/local
+// Nome alinhado aos artefatos da raiz (Nexus.html / Nexus_demo.html)
 const outDemoExperimentalPath = path.join(root, 'Nexus_demo_experimental.html');
 const outDemoExperimentalAlias = path.join(root, 'demo_experimental.html');
 const MARKER = '<!--INJECT_APP_JS-->';
@@ -176,7 +177,8 @@ fs.writeFileSync(outPath, classic.html, 'utf8');
 
 const demo = assembleHtml(true);
 fs.writeFileSync(outDemoPath, demo.html, 'utf8');
-// Artefato Demo Experimental na raiz (mesmo nível de Nexus.html)
+fs.writeFileSync(outDemoUnderscorePath, demo.html, 'utf8');
+// Artefato Demo Experimental na raiz (mesmo nível de Nexus.html / Nexus_demo.html)
 fs.writeFileSync(outDemoExperimentalPath, demo.html, 'utf8');
 fs.writeFileSync(outDemoExperimentalAlias, demo.html, 'utf8');
 
@@ -185,7 +187,7 @@ const jsxKb = (Buffer.byteLength(jsx, 'utf8') / 1024).toFixed(1);
 const outKb = (Buffer.byteLength(classic.html, 'utf8') / 1024).toFixed(1);
 const demoKb = (Buffer.byteLength(demo.html, 'utf8') / 1024).toFixed(1);
 console.log(`OK  src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
-console.log(`    + Nexus.demo.html (${demoKb} KB)`);
+console.log(`    + Nexus.demo.html / Nexus_demo.html (${demoKb} KB)`);
 console.log(`    + Nexus_demo_experimental.html (${demoKb} KB) — Demo Experimental na raiz`);
 console.log(`    + demo_experimental.html (alias)`);
 console.log(`    script do app: ${(classic.appLen / 1024).toFixed(1)} KB (íntegro)`);
