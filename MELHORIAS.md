@@ -12,10 +12,10 @@ Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico.
 
 - **O quê:** edição `uiEdition: 'demo'` com rail (Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho=Mesa), zonas da operação, Command Center “Hoje”, grade semanal, temas Clara·Mar·Ardósia·Grafite.
-- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir `demo_experimental.html` / `Nexus.demo.html`, ou `?edition=demo`.
+- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus_demo_experimental.html` (também `Nexus.demo.html` / `demo_experimental.html`), ou `?edition=demo`.
 - **Visão Gemini (Workspace):** ⚙ → Visão Gemini, ou botão no Hoje. Materializa abas `Gemini_*` na Planilha (`exportGeminiView` em `Código.js`) para análise no Gemini do Workspace. Escopos: carteira · fila de hoje · operação atual.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
-- **Build:** `npm run build` gera `Nexus.html` + `Nexus.demo.html` + `demo_experimental.html`.
+- **Build:** `npm run build` gera na raiz: `Nexus.html` + `Nexus.demo.html` + `Nexus_demo_experimental.html` (+ alias `demo_experimental.html`).
 
 ---
 
