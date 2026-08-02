@@ -1,6 +1,7 @@
 /**
  * Compila src/app.jsx (JSX) → JavaScript e injeta em src/Nexus.shell.html,
- * gerando Nexus.html (artefato de deploy do Apps Script).
+ * gerando Nexus.html (artefato de deploy do Apps Script) e Nexus.demo.html
+ * (edição experimental Central de Comando, bootstrap __NEXUS_DEMO__).
  *
  * Uso:  npm run build
  * Depois: clasp push
@@ -16,6 +17,7 @@ const root = path.resolve(__dirname, '..');
 const jsxPath = path.join(root, 'src', 'app.jsx');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
+const outDemoPath = path.join(root, 'Nexus.demo.html');
 const MARKER = '<!--INJECT_APP_JS-->';
 
 const jsx = fs.readFileSync(jsxPath, 'utf8');
@@ -77,15 +79,13 @@ for (let i = 0; i < b64.length; i += CHUNK) {
 }
 const partsJs = parts.map((p) => `"${p}"`).join(',\n');
 
-const banner =
-  `<!-- GERADO por scripts/build.mjs em ${new Date().toISOString()}. ` +
-  `NAO edite Nexus.html. Edite src/app.jsx e src/Nexus.shell.html, depois: npm run build -->`;
-
-const injected = `<script>
+function buildInjected(demo) {
+  return `<script>
 (function () {
   window.__NEXUS_BUILD__ = '${buildStamp}';
+  ${demo ? "window.__NEXUS_DEMO__ = true;" : "window.__NEXUS_DEMO__ = false;"}
   var boot = document.getElementById('nexus-boot');
-  if (boot) boot.textContent = 'Carregando NEXUS… (build ${buildStamp})';
+  if (boot) boot.textContent = 'Carregando NEXUS${demo ? ' Demo' : ''}… (build ${buildStamp})';
   try {
     var b64 = [
 ${partsJs}
@@ -103,62 +103,83 @@ ${partsJs}
   }
 })();
 </script>`;
-
-// IMPORTANTE: usar função no replace. Se passar a string direto, o JS interpreta
-// padrões especiais ($', $&, $1...) e corrompe o HTML (causa "Conteúdo HTML inválido").
-let html = shell.replace(MARKER, () => injected);
-
-// Banner DENTRO do head (nunca antes do <!DOCTYPE> — o Apps Script rejeita).
-if (html.includes('<head>')) {
-  html = html.replace('<head>', `<head>\n${banner}`);
-} else {
-  console.error('ERRO: <head> não encontrado no shell');
-  process.exit(1);
 }
 
-// Validação: o fim do documento não pode aparecer no meio do arquivo.
-const docEnd = '</body>\n</html>';
-const endPositions = [];
-let from = 0;
-while (true) {
-  const p = html.indexOf(docEnd, from);
-  if (p === -1) break;
-  endPositions.push(p);
-  from = p + 1;
-}
-if (endPositions.length !== 1) {
-  console.error(`ERRO: esperado 1 '</body></html>', achei ${endPositions.length}. Build corrompido.`);
-  process.exit(1);
-}
-if (endPositions[0] < html.length - docEnd.length - 5) {
-  console.error('ERRO: </body></html> não está no fim do arquivo. Build corrompido.');
-  process.exit(1);
+function assembleHtml(demo) {
+  const banner =
+    `<!-- GERADO por scripts/build.mjs em ${new Date().toISOString()}. ` +
+    `NAO edite ${demo ? 'Nexus.demo.html' : 'Nexus.html'}. Edite src/app.jsx e src/Nexus.shell.html, depois: npm run build -->`;
+  const injected = buildInjected(demo);
+  // IMPORTANTE: usar função no replace. Se passar a string direto, o JS interpreta
+  // padrões especiais ($', $&, $1...) e corrompe o HTML (causa "Conteúdo HTML inválido").
+  let html = shell.replace(MARKER, () => injected);
+
+  // Banner DENTRO do head (nunca antes do <!DOCTYPE> — o Apps Script rejeita).
+  if (html.includes('<head>')) {
+    html = html.replace('<head>', `<head>\n${banner}`);
+  } else {
+    console.error('ERRO: <head> não encontrado no shell');
+    process.exit(1);
+  }
+
+  if (demo) {
+    html = html.replace(
+      '<title>NEXUS — Painel de Operações Fiscais v2</title>',
+      '<title>NEXUS Demo — Central de Comando</title>'
+    );
+  }
+
+  // Validação: o fim do documento não pode aparecer no meio do arquivo.
+  const docEnd = '</body>\n</html>';
+  const endPositions = [];
+  let from = 0;
+  while (true) {
+    const p = html.indexOf(docEnd, from);
+    if (p === -1) break;
+    endPositions.push(p);
+    from = p + 1;
+  }
+  if (endPositions.length !== 1) {
+    console.error(`ERRO: esperado 1 '</body></html>', achei ${endPositions.length}. Build corrompido.`);
+    process.exit(1);
+  }
+  if (endPositions[0] < html.length - docEnd.length - 5) {
+    console.error('ERRO: </body></html> não está no fim do arquivo. Build corrompido.');
+    process.exit(1);
+  }
+
+  // Validação: o payload base64 precisa decodificar de volta EXATAMENTE ao código compilado.
+  const b64InHtml = html.match(/var b64 = \[\n([\s\S]*?)\n\s*\]\.join\(''\);/);
+  if (!b64InHtml) {
+    console.error('ERRO: payload base64 não encontrado no HTML gerado.');
+    process.exit(1);
+  }
+  const rebuilt = b64InHtml[1]
+    .split(',')
+    .map((s) => s.trim().replace(/^"|"$/g, ''))
+    .join('');
+  const decoded = Buffer.from(rebuilt, 'base64').toString('utf8');
+  if (decoded !== result.code) {
+    console.error('ERRO: base64 não bate com o código compilado. Build corrompido.');
+    process.exit(1);
+  }
+  return { html, appLen: decoded.length };
 }
 
-// Validação: o payload base64 precisa decodificar de volta EXATAMENTE ao código compilado.
-const b64InHtml = html.match(/var b64 = \[\n([\s\S]*?)\n\s*\]\.join\(''\);/);
-if (!b64InHtml) {
-  console.error('ERRO: payload base64 não encontrado no HTML gerado.');
-  process.exit(1);
-}
-const rebuilt = b64InHtml[1]
-  .split(',')
-  .map((s) => s.trim().replace(/^"|"$/g, ''))
-  .join('');
-const decoded = Buffer.from(rebuilt, 'base64').toString('utf8');
-if (decoded !== result.code) {
-  console.error('ERRO: base64 não bate com o código compilado. Build corrompido.');
-  process.exit(1);
-}
-new Function(decoded); // valida sintaxe; lança se inválido
-const appLen = decoded.length;
+new Function(result.code); // valida sintaxe; lança se inválido
 
-fs.writeFileSync(outPath, html, 'utf8');
+const classic = assembleHtml(false);
+fs.writeFileSync(outPath, classic.html, 'utf8');
+
+const demo = assembleHtml(true);
+fs.writeFileSync(outDemoPath, demo.html, 'utf8');
 
 const ms = Date.now() - t0;
 const jsxKb = (Buffer.byteLength(jsx, 'utf8') / 1024).toFixed(1);
-const outKb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
+const outKb = (Buffer.byteLength(classic.html, 'utf8') / 1024).toFixed(1);
+const demoKb = (Buffer.byteLength(demo.html, 'utf8') / 1024).toFixed(1);
 console.log(`OK  src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
-console.log(`    script do app: ${(appLen / 1024).toFixed(1)} KB (íntegro)`);
+console.log(`    + Nexus.demo.html (${demoKb} KB) — edição experimental (__NEXUS_DEMO__)`);
+console.log(`    script do app: ${(classic.appLen / 1024).toFixed(1)} KB (íntegro)`);
 console.log('    babel-standalone removido — o navegador recebe JS já compilado.');
 console.log('    Próximo passo: clasp push');

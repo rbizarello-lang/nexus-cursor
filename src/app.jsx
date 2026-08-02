@@ -2756,12 +2756,39 @@ function App() {
   // Temas válidos: '' (Noite Azulada, padrão), theme-obsidian, theme-ferro.
   // Temas aposentados (crepusculo/clara) salvos no navegador voltam ao padrão.
   const THEMES_OK = ['', 'theme-obsidian', 'theme-ferro'];
-  const [appSettings, setAppSettings] = useState(() => { try { const s = JSON.parse(localStorage.getItem('nexus_settings')||'{}'); const th = s.theme || ''; return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '' }; } catch { return { zoom: 100, font: '', theme: '' }; } });
+  const [appSettings, setAppSettings] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
+      const th = s.theme || '';
+      // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
+      let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
+      try {
+        if (typeof window !== 'undefined') {
+          if (window.__NEXUS_DEMO__ === true) edition = 'demo';
+          else if (/[?&]edition=demo\b/.test(window.location.search || '')) edition = 'demo';
+        }
+      } catch {}
+      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '', uiEdition: edition };
+    } catch { return { zoom: 100, font: '', theme: '', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
+  });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
+  const isDemo = appSettings.uiEdition === 'demo';
   const [activeTab, setActiveTab] = useState('notas');
+  const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
+  const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
+  const [agendaWeekStart, setAgendaWeekStart] = useState(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // monday
+    return d;
+  });
   const [modal, setModal] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [viewMode, setViewMode] = useState('painel'); // 'painel' | 'operation'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && (window.__NEXUS_DEMO__ || /[?&]edition=demo\b/.test(window.location.search || ''))) return 'hoje';
+    } catch {}
+    return 'painel';
+  }); // 'hoje' | 'painel' | 'operation' | ...
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
@@ -2838,10 +2865,22 @@ function App() {
 
   // Global search shortcut (Ctrl+K)
   useEffect(() => {
-    const handler = (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setGlobalSearch(true); setGsQuery(''); } if (e.key === 'Escape') setGlobalSearch(false); };
+    const handler = (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setGlobalSearch(true); setGsQuery(''); } if (e.key === 'Escape') { setGlobalSearch(false); setDemoTrabalhoOpen(false); } };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  // Demo: manter zona alinhada à aba ativa (deep-links do Painel/Busca/etc.)
+  useEffect(() => {
+    if (appSettings.uiEdition !== 'demo') return;
+    const zoneOf = (tab) => {
+      if (['pessoas','dividas','execucoes','bens'].includes(tab)) return 'acervo';
+      if (['prescricao_v2','timeline','prescricao'].includes(tab)) return 'risco';
+      if (['tarefas','importar','docs','grafo','insights'].includes(tab)) return 'ferramentas';
+      return 'briefing';
+    };
+    setDemoZone(zoneOf(activeTab));
+  }, [activeTab, appSettings.uiEdition]);
 
   // Eproc import handler
   // ─── SIDA / DEBCAD PDF IMPORT (complement only — never overwrites) ───
@@ -7366,8 +7405,298 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
   const tabList = ['notas','grafo','tarefas','importar','pessoas','dividas','execucoes','prescricao_v2','bens','timeline','docs','insights'];
   const tabLabels = { notas:'Anotações', grafo:'Grafo', tarefas:'Tarefas', importar:'Importar', pessoas:'Pessoas', dividas:'CDAs', execucoes:'Processos', prescricao_v2:'Controle da Prescrição', bens:'Bens', timeline:'Linha do Tempo', docs:'Docs', insights:'Insights' };
+  const DEMO_ZONES = {
+    briefing: { label: 'Briefing', tabs: ['notas'] },
+    acervo: { label: 'Acervo', tabs: ['pessoas', 'dividas', 'execucoes', 'bens'] },
+    risco: { label: 'Risco', tabs: ['prescricao_v2', 'timeline'] },
+    ferramentas: { label: 'Ferramentas', tabs: ['tarefas', 'importar', 'docs', 'grafo', 'insights'] },
+  };
+  const tabToDemoZone = (tab) => {
+    for (const [z, cfg] of Object.entries(DEMO_ZONES)) { if (cfg.tabs.includes(tab)) return z; }
+    return 'briefing';
+  };
+  const setDemoZoneAndTab = (zone, tab) => {
+    setDemoZone(zone);
+    startTabSwitch(() => { setActiveTab(tab || DEMO_ZONES[zone].tabs[0]); setSelectedNode(null); });
+  };
+  const switchEdition = (edition) => {
+    updateSetting('uiEdition', edition);
+    if (edition === 'demo') {
+      setViewMode(prev => (prev === 'painel' ? 'hoje' : prev));
+      setDemoZone(tabToDemoZone(activeTab));
+    } else {
+      setViewMode(prev => (prev === 'hoje' ? 'painel' : prev));
+    }
+    setShowSettings(false);
+  };
+  const loadDemoData = () => {
+    setData(prev => {
+      const hasData = (prev.operations || []).length > 0;
+      const demo = generateDemoData();
+      if (!hasData) return demo;
+      const merged = { ...prev };
+      Object.keys(demo).forEach(k => {
+        if (k === 'links') {
+          merged.links = { ...(prev.links || {}) };
+          Object.keys(demo.links).forEach(lk => { merged.links[lk] = [...((prev.links || {})[lk] || []), ...demo.links[lk]]; });
+        } else if (Array.isArray(demo[k])) {
+          merged[k] = [...(prev[k] || []), ...demo[k]];
+        }
+      });
+      return merged;
+    });
+    setActiveOpId(null);
+    if (isDemo) setViewMode('hoje');
+    alert('✅ Dados de demonstração carregados (3 operações fictícias).');
+  };
+  const openIntimsCount = (data.intimations || []).filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
+  const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
+  const deskCount = (data.desk || []).length;
+  const watchCount = (data.watchlist || []).filter(w => w.status !== 'encerrado').length;
+  const hearingsAheadCount = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return (data.hearings || []).filter(h => (h.status === 'agendada' || h.status === 'redesignada') && h.date && new Date(h.date + 'T00:00:00') >= t).length; })();
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${appSettings.theme} ${appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  const renderSettingsPanel = () => (showSettings && <div className="settings-panel" onClick={e => e.stopPropagation()}>
+    <div className="settings-group">
+      <div className="settings-label">Edição da interface</div>
+      <div className="settings-options">
+        <button className={`settings-opt ${!isDemo ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
+        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Demo Experimental</button>
+      </div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A Demo remodela navegação e layout (Central de Comando). Dados e funcionalidades permanecem os mesmos.</div>
+    </div>
+    <div className="settings-group">
+      <div className="settings-label">Zoom / Escala</div>
+      <div className="settings-zoom">
+        <span>{appSettings.zoom}%</span>
+        <input type="range" min="70" max="140" step="5" value={appSettings.zoom} onChange={e => updateSetting('zoom', Number(e.target.value))} />
+        <button style={{fontSize:9,padding:'2px 6px',border:'1px solid var(--border)',borderRadius:3,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}} onClick={() => updateSetting('zoom', 100)}>Reset</button>
+      </div>
+    </div>
+    {!isDemo && <div className="settings-group">
+      <div className="settings-label">Fonte</div>
+      <div className="settings-options">
+        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
+        <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
+        <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
+        <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
+      </div>
+    </div>}
+    {!isDemo && <div className="settings-group">
+      <div className="settings-label">Tema</div>
+      <div className="settings-options">
+        <button className={`settings-opt ${appSettings.theme===''?'active':''}`} onClick={() => updateSetting('theme','')}>Noite Azulada</button>
+        <button className={`settings-opt ${appSettings.theme==='theme-obsidian'?'active':''}`} onClick={() => updateSetting('theme','theme-obsidian')}>Obsidian</button>
+        <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
+      </div>
+    </div>}
+    <div className="settings-group">
+      <div className="settings-label">Dados / Sync</div>
+      <div className="settings-options" style={{flexDirection:'column'}}>
+        {isGAS && <>
+          <button className="settings-opt" style={{width:'100%'}} onClick={() => { cloudPush(); setShowSettings(false); }}>⬆ Salvar na Planilha</button>
+          <button className="settings-opt" style={{width:'100%'}} onClick={() => { cloudPull(); setShowSettings(false); }}>⬇ Carregar da Planilha</button>
+          <button className="settings-opt" style={{width:'100%'}} onClick={() => {
+            const v = !autoSyncEnabled;
+            setAutoSyncEnabled(v);
+            localStorage.setItem('nexus_autosync_enabled', v ? 'true' : 'false');
+          }}>Auto-sync: {autoSyncEnabled ? 'ON' : 'OFF'}</button>
+        </>}
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
+        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Carregar dados demo</button>}
+      </div>
+      {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
+    </div>
+    <div className="settings-group">
+      <div className="settings-label">Manutenção</div>
+      <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowDiagnostico(true); setShowSettings(false); }}>🩺 Diagnóstico de integridade</button>
+    </div>
+  </div>);
+
+  const buildHojeFila = () => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const items = [];
+    (data.intimations || []).forEach(x => {
+      const open = (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction;
+      if (!open) return;
+      const dd = x.dateDeadline ? daysUntil(x.dateDeadline) : null;
+      if (dd === null || dd > 7) return;
+      const op = data.operations.find(o => o.id === x.operationId);
+      items.push({
+        id: 'intim-' + x.id, kind: 'Intimação', due: dd,
+        title: truncate(x.className || x.eventDescription || x.processNumber || 'Intimação', 70),
+        meta: [op?.name, x.processNumber].filter(Boolean).join(' · '),
+        urgent: dd < 0 || dd <= 2,
+        go: () => { setViewMode('intimacoes'); setTimeout(() => setModal({ type: 'edit', entityType: 'intimation', initial: x }), 80); },
+      });
+    });
+    (data.tasks || []).forEach(t => {
+      if (t.status === 'concluida' || t.status === 'cancelada') return;
+      const dd = t.dueDate ? daysUntil(t.dueDate) : null;
+      if (dd === null || dd > 7) return;
+      const op = data.operations.find(o => o.id === t.operationId);
+      items.push({
+        id: 'task-' + t.id, kind: 'Tarefa', due: dd,
+        title: truncate(t.title || t.description || 'Tarefa', 70),
+        meta: [op?.name, t.priority].filter(Boolean).join(' · '),
+        urgent: dd < 0 || dd <= 2,
+        go: () => {
+          if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setDemoZoneAndTab('ferramentas', 'tarefas'); }
+          else setViewMode('tarefas_global');
+          setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
+        },
+      });
+    });
+    (data.hearings || []).forEach(h => {
+      if (h.status === 'realizada' || h.status === 'cancelada' || !h.date) return;
+      const dd = Math.round((new Date(h.date + 'T00:00:00') - today) / 86400000);
+      if (dd < 0 || dd > 7) return;
+      items.push({
+        id: 'hear-' + h.id, kind: 'Audiência', due: dd,
+        title: truncate(h.parties || h.processNumber || 'Audiência', 70),
+        meta: [h.time, h.processNumber].filter(Boolean).join(' · '),
+        urgent: dd <= 2,
+        go: () => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); },
+      });
+    });
+    (data.debts || []).forEach(d => {
+      if (d.prescriptionHandled) return;
+      const opExecs = data.executions.filter(e => e.operationId === d.operationId);
+      const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []);
+      const dd = daysUntil(pd);
+      if (dd === null || dd > 180) return;
+      const op = data.operations.find(o => o.id === d.operationId);
+      items.push({
+        id: 'presc-' + d.id, kind: 'Prescrição', due: dd,
+        title: `CDA ${d.number || d.cdaNumber || ''} · ${fmtCur(d.value || 0)}`.trim(),
+        meta: [op?.name, dd < 0 ? 'vencida' : `${dd}d`].filter(Boolean).join(' · '),
+        urgent: dd <= 30,
+        go: () => {
+          if (d.operationId) { setActiveOpId(d.operationId); setViewMode('operation'); setDemoZoneAndTab('risco', 'prescricao_v2'); }
+          setTimeout(() => setModal({ type: 'edit', entityType: 'debt', initial: d }), 80);
+        },
+      });
+    });
+    items.sort((a, b) => {
+      const ad = a.due === null ? 9999 : a.due;
+      const bd = b.due === null ? 9999 : b.due;
+      return ad - bd;
+    });
+    return items.slice(0, 18);
+  };
+
+  const renderHojeView = () => {
+    const fila = buildHojeFila();
+    const hour = new Date().getHours();
+    const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    return (
+      <div className="demo-hoje">
+        <div className="demo-hoje-hero">
+          <div className="demo-hoje-kicker">NEXUS Demo · Central de Comando</div>
+          <h2>{saudacao}. O que exige ação hoje?</h2>
+          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).</p>
+          <div className="demo-hoje-ctas">
+            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Inbox {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
+            <button className="btn-secondary" onClick={() => setViewMode('operacoes')}>Ver Carteira</button>
+            {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
+          </div>
+        </div>
+        {fila.length === 0 ? (
+          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou o Inbox para navegar o acervo.</div>
+        ) : (
+          <div className="demo-fila">
+            {fila.map(it => (
+              <div key={it.id} className="demo-fila-item" onClick={it.go}>
+                <div className="demo-fila-kind">{it.kind}</div>
+                <div>
+                  <div className="demo-fila-title">{it.title}</div>
+                  <div className="demo-fila-meta">{it.meta}</div>
+                </div>
+                <div className={`demo-fila-due ${it.urgent ? 'urgent' : ''}`}>
+                  {it.due === null ? '—' : it.due < 0 ? `${Math.abs(it.due)}d atrasado` : it.due === 0 ? 'hoje' : `${it.due}d`}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAgendaWeek = () => {
+    const start = new Date(agendaWeekStart);
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start); d.setDate(start.getDate() + i); return d;
+    });
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
+    return (
+      <div style={{padding:'12px 24px 0'}}>
+        <div className="demo-week-nav">
+          <button className="btn-secondary btn-xs" onClick={() => shift(-1)}>← Semana</button>
+          <button className="btn-secondary btn-xs" onClick={() => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); setAgendaWeekStart(d); }}>Hoje</button>
+          <button className="btn-secondary btn-xs" onClick={() => shift(1)}>Semana →</button>
+          <span style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{label}</span>
+        </div>
+        <div className="demo-week">
+          {days.map(d => {
+            const key = d.toISOString().slice(0, 10);
+            const isToday = d.getTime() === today.getTime();
+            const evs = (data.hearings || []).filter(h => h.date === key && h.status !== 'cancelada');
+            return (
+              <div key={key} className={`demo-week-day ${isToday ? 'today' : ''}`}>
+                <div className="demo-week-day-h">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
+                <div className="demo-week-day-n">{d.getDate()}</div>
+                {evs.map(h => (
+                  <div key={h.id} className="demo-week-ev" title={h.parties || h.processNumber || ''}
+                    onClick={() => setModal({ type: 'edit', entityType: 'hearing', initial: h })}>
+                    {(h.time ? h.time + ' ' : '') + truncate(h.parties || h.processNumber || 'Audiência', 28)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isDemo && !sidebarCollapsed?'demo-rail-expanded':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+    {/* ═══ DEMO RAIL ═══ */}
+    {isDemo && <nav className="demo-rail">
+      <div className="demo-rail-brand">
+        {sidebarCollapsed ? 'N' : 'NEXUS'}
+        {!sidebarCollapsed && <small>Central de Comando</small>}
+      </div>
+      <div className="demo-rail-nav">
+        <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => setViewMode('hoje')}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
+        <button className={`demo-rail-btn ${viewMode==='intimacoes'?'active':''}`} onClick={() => setViewMode('intimacoes')}><span className="demo-rail-ico">📥</span><span>Inbox</span>{openIntimsCount>0 && <span className="demo-rail-count">{openIntimsCount}</span>}</button>
+        <button className={`demo-rail-btn ${viewMode==='operacoes'||viewMode==='painel'||viewMode==='operation'?'active':''}`} onClick={() => setViewMode('operacoes')}><span className="demo-rail-ico">◈</span><span>Carteira</span></button>
+        <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => setViewMode('audiencias')}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
+        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => setViewMode('modelos')}><span className="demo-rail-ico">📄</span><span>Biblioteca</span></button>
+        <button className={`demo-rail-btn ${['mesa','tarefas_global','acompanhar'].includes(viewMode)?'active':''}`} onClick={() => setDemoTrabalhoOpen(v => !v)}><span className="demo-rail-ico">🗂</span><span>Trabalho</span></button>
+      </div>
+      {demoTrabalhoOpen && <div className="demo-trabalho-drawer">
+        <button onClick={() => { setViewMode('mesa'); setDemoTrabalhoOpen(false); }}><span>Mesa</span><span>{deskCount||''}</span></button>
+        <button onClick={() => { setViewMode('tarefas_global'); setDemoTrabalhoOpen(false); }}><span>Tarefas</span><span>{openTasksCount||''}</span></button>
+        <button onClick={() => { setViewMode('acompanhar'); setDemoTrabalhoOpen(false); }}><span>Acompanhar</span><span>{watchCount||''}</span></button>
+        <button onClick={() => { setViewMode('painel'); setDemoTrabalhoOpen(false); }}><span>Painel KPIs</span><span></span></button>
+      </div>}
+      <div className="demo-rail-foot">
+        <button className="demo-rail-btn" onClick={() => { const next = !sidebarCollapsed; setSidebarCollapsed(next); try { localStorage.setItem('nexus_sidebar_collapsed', next?'1':'0'); } catch {} }} title="Expandir/recolher">
+          <span className="demo-rail-ico">{sidebarCollapsed?'»':'«'}</span>{!sidebarCollapsed && <span>Recolher</span>}
+        </button>
+        <button className="demo-rail-btn" onClick={() => {setGlobalSearch(true);setGsQuery('');}}><span className="demo-rail-ico">⌕</span>{!sidebarCollapsed && <span>Busca</span>}</button>
+        <div style={{position:'relative'}}>
+          <button className="demo-rail-btn" onClick={() => setShowSettings(!showSettings)}><span className="demo-rail-ico">⚙</span>{!sidebarCollapsed && <span>Ajustes</span>}</button>
+          {renderSettingsPanel()}
+        </div>
+      </div>
+    </nav>}
+
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
       <div className="sidebar-header">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -7476,22 +7805,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <button className="btn-secondary btn-xs" style={{width:'100%',marginTop:4}} onClick={() => {
             const hasData = (data.operations || []).length > 0;
             if (hasData && !confirm('⚠ Já existem operações neste navegador.\n\nOs dados de demonstração serão SOMADOS aos existentes (podem se misturar com dados reais). O ideal é usar só em ambiente vazio.\n\nContinuar mesmo assim?')) return;
-            setData(prev => {
-              const demo = generateDemoData();
-              if (!hasData) return demo;
-              const merged = { ...prev };
-              Object.keys(demo).forEach(k => {
-                if (k === 'links') {
-                  merged.links = { ...(prev.links || {}) };
-                  Object.keys(demo.links).forEach(lk => { merged.links[lk] = [...((prev.links || {})[lk] || []), ...demo.links[lk]]; });
-                } else if (Array.isArray(demo[k])) {
-                  merged[k] = [...(prev[k] || []), ...demo[k]];
-                }
-              });
-              return merged;
-            });
-            setActiveOpId(null);
-            alert('✅ Dados de demonstração carregados (3 operações fictícias). Confira o Painel.');
+            loadDemoData();
           }}>🧪 Carregar dados de demonstração</button>
         </>)}
       </div>
@@ -7537,39 +7851,58 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </>}
         <div style={{marginLeft:'auto',position:'relative'}}>
           <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="Configurações">⚙</button>
-          {showSettings && <div className="settings-panel" onClick={e => e.stopPropagation()}>
-            <div className="settings-group">
-              <div className="settings-label">Zoom / Escala</div>
-              <div className="settings-zoom">
-                <span>{appSettings.zoom}%</span>
-                <input type="range" min="70" max="140" step="5" value={appSettings.zoom} onChange={e => updateSetting('zoom', Number(e.target.value))} />
-                <button style={{fontSize:9,padding:'2px 6px',border:'1px solid var(--border)',borderRadius:3,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}} onClick={() => updateSetting('zoom', 100)}>Reset</button>
-              </div>
-            </div>
-            <div className="settings-group">
-              <div className="settings-label">Fonte</div>
-              <div className="settings-options">
-                <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
-                <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
-                <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
-                <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
-              </div>
-            </div>
-            <div className="settings-group">
-              <div className="settings-label">Tema</div>
-              <div className="settings-options">
-                <button className={`settings-opt ${appSettings.theme===''?'active':''}`} onClick={() => updateSetting('theme','')}>Noite Azulada</button>
-                <button className={`settings-opt ${appSettings.theme==='theme-obsidian'?'active':''}`} onClick={() => updateSetting('theme','theme-obsidian')}>Obsidian</button>
-                <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
-              </div>
-            </div>
-            <div className="settings-group">
-              <div className="settings-label">Manutenção</div>
-              <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowDiagnostico(true); setShowSettings(false); }}>🩺 Diagnóstico de integridade</button>
-            </div>
-          </div>}
+          {renderSettingsPanel()}
         </div>
       </div>
+
+      {/* Demo topbar */}
+      {isDemo && <div className="demo-topbar">
+        <div>
+          <div className="demo-topbar-title">
+            {viewMode === 'hoje' ? 'Hoje' :
+             viewMode === 'intimacoes' ? 'Inbox' :
+             viewMode === 'operacoes' || viewMode === 'painel' ? 'Carteira' :
+             viewMode === 'audiencias' ? 'Agenda' :
+             viewMode === 'modelos' ? 'Biblioteca' :
+             viewMode === 'mesa' ? 'Mesa' :
+             viewMode === 'tarefas_global' ? 'Tarefas' :
+             viewMode === 'acompanhar' ? 'Acompanhar' :
+             viewMode === 'operation' && activeOp ? truncate(activeOp.name, 40) : 'NEXUS'}
+          </div>
+          <div className="demo-topbar-sub">
+            {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
+             viewMode === 'intimacoes' ? 'Caixa de intimações · lista e kanban' :
+             viewMode === 'operacoes' ? 'Portfólio de operações fiscais' :
+             viewMode === 'painel' ? 'Indicadores da carteira' :
+             viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
+             viewMode === 'operation' ? 'Workspace da operação · briefing, acervo, risco e ferramentas' :
+             'NEXUS Demo Experimental'}
+          </div>
+        </div>
+        <div className="demo-topbar-actions">
+          <span className="demo-pill">Demo</span>
+          {isGAS && <span className={`cloud-dot ${cloudStatus}`} title={cloudMsg || 'Sync'} style={{margin:0}}></span>}
+          {viewMode === 'operation' && (
+            <button className="btn-secondary btn-sm" onClick={() => setViewMode('operacoes')}>← Carteira</button>
+          )}
+          {isGAS && <button className="btn-secondary btn-sm" onClick={cloudPush} title="Salvar na Planilha">⬆ Sync</button>}
+          <button className="btn-secondary btn-sm" onClick={() => {setGlobalSearch(true);setGsQuery('');}}>Busca ⌘K</button>
+          <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
+        </div>
+      </div>}
+
+      {/* Demo: ops strip inside Carteira / operation */}
+      {isDemo && (viewMode === 'operacoes' || viewMode === 'operation' || viewMode === 'painel') && (
+        <div style={{display:'flex',gap:6,padding:'8px 22px',overflowX:'auto',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,0.45)',flexShrink:0}}>
+          {(data.operations || []).slice().sort((a,b) => (a.name||'').localeCompare(b.name||'','pt-BR')).map(op => (
+            <button key={op.id} className={`demo-zone-chip ${activeOpId===op.id && viewMode==='operation'?'active':''}`}
+              onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); setDemoZone(tabToDemoZone(activeTab)); }); }}>
+              {truncate(op.name, 28)}
+            </button>
+          ))}
+          {(data.operations || []).length === 0 && <span style={{fontSize:12,color:'var(--text-muted)'}}>Nenhuma operação — crie a primeira.</span>}
+        </div>
+      )}
 
       {(() => {
         const today = new Date(); today.setHours(0,0,0,0);
@@ -7583,6 +7916,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {imm.length > 1 && <span style={{color:'var(--text-muted)',marginLeft:'auto'}}>+{imm.length-1} em ≤48h</span>}
         </div>);
       })()}
+
+      {/* ═══ HOJE (Demo Command Center) ═══ */}
+      {viewMode === 'hoje' && renderHojeView()}
 
       {/* ═══ PAINEL GERAL ═══ */}
       {viewMode === 'painel' && (
@@ -8654,6 +8990,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'audiencias' && (() => {
         const all = data.hearings || [];
         const today = new Date(); today.setHours(0,0,0,0);
+        const weekBlock = isDemo ? renderAgendaWeek() : null;
         const monNames = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
         const typeLabels = {instrucao:'Instrução',conciliacao:'Conciliação',una:'Una',justificacao:'Justificação',inquiricao:'Inquirição',outra:'Outra'};
         const isClosed = (h) => h.status === 'realizada' || h.status === 'cancelada';
@@ -8688,7 +9025,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           </div>); };
         const grp = (title, arr, color) => arr.length > 0 ? (<React.Fragment key={title}><div style={{fontSize:12,fontWeight:600,color:color,margin:'14px 0 8px'}}>{title}</div>{arr.map(card)}</React.Fragment>) : null;
-        return (<div className="entity-area">
+        return (<div style={{flex:1,minHeight:0,overflow:'auto',display:'flex',flexDirection:'column'}}>
+          {weekBlock}
+          <div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,alignItems:'center'}}>
             <span style={{color:'var(--text-muted)',fontSize:11}}>{upcoming.length} audiência(s) agendada(s)</span>
             <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'hearing',initial:{status:'agendada',modality:'presencial',hearingType:'instrucao',remindDays:'3'}})}>+ Nova audiência</button>
@@ -8700,7 +9039,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {grp('Sem data definida', noDate, 'var(--text-muted)')}
             {past.length > 0 && <><div style={{margin:'20px 0 8px',fontSize:11,color:'var(--text-muted)'}}>Realizadas / passadas ({past.length})</div>{past.slice(0,15).map(card)}</>}
           </>}
-        </div>);
+        </div></div>);
       })()}
 
       {/* ═══ OPERATION VIEW ═══ */}
@@ -8756,14 +9095,41 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
               </div>
         </div>}
-        <div className="tabs">{tabList.map(t => {
-          const isInsights = t === 'insights';
-          const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
-          return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
-            {tabLabels[t]}
-            {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
-          </button>;
-        })}</div>
+        {isDemo ? (<>
+          <div className="demo-zones">
+            {Object.entries(DEMO_ZONES).map(([z, cfg]) => (
+              <button key={z} className={`demo-zone-btn ${demoZone===z?'active':''}`}
+                onClick={() => setDemoZoneAndTab(z, cfg.tabs.includes(activeTab) ? activeTab : cfg.tabs[0])}>
+                {cfg.label}
+              </button>
+            ))}
+          </div>
+          {DEMO_ZONES[demoZone]?.tabs.length > 1 && (
+            <div className="demo-zone-sub">
+              {DEMO_ZONES[demoZone].tabs.map(t => {
+                const isInsights = t === 'insights';
+                const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
+                return (
+                  <button key={t} className={`demo-zone-chip ${activeTab===t?'active':''}`}
+                    onClick={() => startTabSwitch(() => { setActiveTab(t); setSelectedNode(null); })}>
+                    {tabLabels[t]}
+                    {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle'}}></span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>) : (
+          <div className="tabs">{tabList.map(t => {
+            const isInsights = t === 'insights';
+            const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
+            return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
+              {tabLabels[t]}
+              {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
+            </button>;
+          })}</div>
+        )}
+        <div className={isDemo ? 'demo-zone-panel' : undefined} style={isDemo ? undefined : undefined}>
         {(() => {
           try { return renderTab(); }
           catch (err) {
@@ -8778,6 +9144,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>);
           }
         })()}
+        </div>
       </>}
     </div>
 

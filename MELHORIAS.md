@@ -3,7 +3,19 @@
 Arquivo de planejamento. Não sobe para o Apps Script (ignorado pelo `.claspignore`).
 Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 
-Última atualização: 29/07/2026
+Última atualização: 02/08/2026
+
+---
+
+## 🧪 Demo Experimental — Central de Comando (02/08/2026)
+
+Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico.
+
+- **O quê:** edição `uiEdition: 'demo'` com rail de intenções (Hoje / Inbox / Carteira / Agenda / Biblioteca), workspace da operação em 4 zonas (Briefing · Acervo · Risco · Ferramentas), Command Center “Hoje” e grade semanal na Agenda.
+- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir `Nexus.demo.html` (build local com `window.__NEXUS_DEMO__`), ou `?edition=demo`.
+- **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
+- **Build:** `npm run build` gera `Nexus.html` + `Nexus.demo.html`.
+- **Visual:** tema claro tinta/cobre (Fraunces + IBM Plex Sans), distinto do “Noite Azulada”.
 
 ---
 
