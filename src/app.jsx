@@ -2756,10 +2756,13 @@ function App() {
   // Temas válidos: '' (Noite Azulada, padrão), theme-obsidian, theme-ferro.
   // Temas aposentados (crepusculo/clara) salvos no navegador voltam ao padrão.
   const THEMES_OK = ['', 'theme-obsidian', 'theme-ferro'];
+  // Temas da Demo Experimental: clara (padrão) + 3 escuros azul/cinza.
+  const DEMO_THEMES_OK = ['clara', 'mar', 'ardosia', 'grafite'];
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
       const th = s.theme || '';
+      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'clara';
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
       try {
@@ -2768,11 +2771,12 @@ function App() {
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) edition = 'demo';
         }
       } catch {}
-      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '', uiEdition: edition };
-    } catch { return { zoom: 100, font: '', theme: '', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
+      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '', demoTheme: dth, uiEdition: edition };
+    } catch { return { zoom: 100, font: '', theme: '', demoTheme: 'clara', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
+  const demoThemeClass = isDemo && appSettings.demoTheme && appSettings.demoTheme !== 'clara' ? `demo-theme-${appSettings.demoTheme}` : '';
   const [activeTab, setActiveTab] = useState('notas');
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
   const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
@@ -7490,6 +7494,25 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
       </div>
     </div>}
+    {isDemo && <div className="settings-group">
+      <div className="settings-label">Tema da Demo</div>
+      <div className="settings-options demo-theme-opts">
+        {[
+          { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro (padrão)' },
+          { id: 'mar', label: 'Mar Profundo', tip: 'Azul-marinho escuro, leitura prolongada' },
+          { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
+          { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
+        ].map(t => (
+          <button key={t.id} type="button" title={t.tip}
+            className={`settings-opt demo-theme-opt ${(appSettings.demoTheme || 'clara') === t.id ? 'active' : ''}`}
+            onClick={() => updateSetting('demoTheme', t.id)}>
+            <span className={`demo-theme-swatch demo-swatch-${t.id}`} aria-hidden="true"></span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Fundos sem preto puro; texto off-white; contraste pensado para leitura (WCAG AA).</div>
+    </div>}
     <div className="settings-group">
       <div className="settings-label">Dados / Sync</div>
       <div className="settings-options" style={{flexDirection:'column'}}>
@@ -7820,7 +7843,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${demoThemeClass} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {/* ═══ DEMO RAIL ═══ */}
     {isDemo && <nav className="demo-rail">
       <div className="demo-rail-brand">
