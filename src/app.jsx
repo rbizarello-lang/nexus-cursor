@@ -7620,7 +7620,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <h2>{saudacao}. O que exige ação hoje?</h2>
           <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).</p>
           <div className="demo-hoje-ctas">
-            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Inbox {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
+            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Abrir Tarefas {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
             <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
@@ -7628,7 +7629,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         </div>
         {fila.length === 0 ? (
-          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou o Inbox para navegar o acervo.</div>
+          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou Intimações e Tarefas para navegar o acervo.</div>
         ) : (
           <div className="demo-fila">
             {fila.map(it => (
@@ -7852,7 +7853,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
       <div className="demo-rail-nav">
         <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('hoje'); }}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
-        <button className={`demo-rail-btn ${viewMode==='intimacoes'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('intimacoes'); }}><span className="demo-rail-ico">📥</span><span>Inbox</span>{openIntimsCount>0 && <span className="demo-rail-count">{openIntimsCount}</span>}</button>
+        <button className={`demo-rail-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'); }} title="Intimações e Tarefas">
+          <span className="demo-rail-ico">📥</span>
+          <span>{(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) ? 'Intimações e Tarefas' : 'Intimações'}</span>
+          {(openIntimsCount + openTasksCount) > 0 && <span className="demo-rail-count">{openIntimsCount + openTasksCount}</span>}
+        </button>
 
         <div className={`demo-rail-branch ${carteiraContext ? 'open' : ''} ${viewMode==='operacoes'||viewMode==='painel'||viewMode==='operation'?'active-branch':''}`}>
           <button className={`demo-rail-btn ${viewMode==='operacoes'||viewMode==='painel'?'active':''} ${viewMode==='operation'?'soft-active':''}`}
@@ -7890,11 +7895,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
         <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('audiencias'); }}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
         <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span className="demo-rail-ico">📄</span><span>Biblioteca</span></button>
-        <button className={`demo-rail-btn ${['mesa','tarefas_global','acompanhar'].includes(viewMode)?'active':''}`} onClick={() => setDemoTrabalhoOpen(v => !v)}><span className="demo-rail-ico">🗂</span><span>Trabalho</span></button>
+        <div className={`demo-rail-branch ${viewMode==='mesa'||viewMode==='acompanhar'||viewMode==='painel'?'active-branch':''}`}>
+          <button className={`demo-rail-btn ${viewMode==='mesa'?'active':''} ${viewMode==='acompanhar'||viewMode==='painel'?'soft-active':''}`}
+            onClick={() => { setDemoTrabalhoOpen(false); setViewMode('mesa'); }}
+            title="Mesa de trabalho">
+            <span className="demo-rail-ico">🗂</span>
+            <span>Trabalho</span>
+            {deskCount > 0 && <span className="demo-rail-count">{deskCount}</span>}
+            {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && (
+              <span className="demo-rail-chevron" onClick={e => { e.stopPropagation(); setDemoTrabalhoOpen(v => !v); }} title="Mais opções">▸</span>
+            )}
+          </button>
+        </div>
       </div>
       {demoTrabalhoOpen && <div className="demo-trabalho-drawer">
-        <button onClick={() => { setViewMode('mesa'); setDemoTrabalhoOpen(false); }}><span>Mesa</span><span>{deskCount||''}</span></button>
-        <button onClick={() => { setViewMode('tarefas_global'); setDemoTrabalhoOpen(false); }}><span>Tarefas</span><span>{openTasksCount||''}</span></button>
+        <button onClick={() => { setViewMode('mesa'); setDemoTrabalhoOpen(false); }}><span>Mesa de trabalho</span><span>{deskCount||''}</span></button>
         <button onClick={() => { setViewMode('acompanhar'); setDemoTrabalhoOpen(false); }}><span>Acompanhar</span><span>{watchCount||''}</span></button>
         <button onClick={() => { setViewMode('painel'); setDemoTrabalhoOpen(false); }}><span>Painel KPIs</span><span></span></button>
       </div>}
@@ -8073,21 +8088,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div>
           <div className="demo-topbar-title">
             {viewMode === 'hoje' ? 'Hoje' :
-             viewMode === 'intimacoes' ? 'Inbox' :
+             viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Intimações e Tarefas' :
              viewMode === 'operacoes' || viewMode === 'painel' ? 'Carteira' :
              viewMode === 'audiencias' ? 'Agenda' :
              viewMode === 'modelos' ? 'Biblioteca' :
-             viewMode === 'mesa' ? 'Mesa' :
-             viewMode === 'tarefas_global' ? 'Tarefas' :
+             viewMode === 'mesa' ? 'Trabalho · Mesa' :
              viewMode === 'acompanhar' ? 'Acompanhar' :
              viewMode === 'operation' && activeOp ? truncate(activeOp.name, 40) : 'NEXUS'}
           </div>
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
-             viewMode === 'intimacoes' ? 'Caixa de intimações · lista e kanban' :
+             viewMode === 'intimacoes' ? 'Intimações · lista e kanban' :
+             viewMode === 'tarefas_global' ? 'Tarefas avulsas e vinculadas · mesma gestão de hoje' :
              viewMode === 'operacoes' ? 'Página inicial · cards por classificação e ranking' :
              viewMode === 'painel' ? 'Indicadores da carteira' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
+             viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
              viewMode === 'operation' ? 'Workspace da operação · briefing, acervo, risco e ferramentas' :
              'NEXUS Demo Experimental'}
           </div>
@@ -8116,6 +8132,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {imm.length > 1 && <span style={{color:'var(--text-muted)',marginLeft:'auto'}}>+{imm.length-1} em ≤48h</span>}
         </div>);
       })()}
+
+      {/* Demo: abas internas Intimações | Tarefas */}
+      {isDemo && (viewMode === 'intimacoes' || viewMode === 'tarefas_global') && (
+        <div className="demo-zone-sub" style={{borderBottom:'1px solid var(--border)'}}>
+          <button type="button" className={`demo-zone-chip ${viewMode==='intimacoes'?'active':''}`}
+            onClick={() => setViewMode('intimacoes')}>
+            Intimações{openIntimsCount > 0 ? ` (${openIntimsCount})` : ''}
+          </button>
+          <button type="button" className={`demo-zone-chip ${viewMode==='tarefas_global'?'active':''}`}
+            onClick={() => setViewMode('tarefas_global')}>
+            Tarefas{openTasksCount > 0 ? ` (${openTasksCount})` : ''}
+          </button>
+        </div>
+      )}
 
       {/* ═══ HOJE (Demo Command Center) ═══ */}
       {viewMode === 'hoje' && renderHojeView()}
