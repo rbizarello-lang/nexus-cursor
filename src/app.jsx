@@ -3603,6 +3603,54 @@ function App() {
     setCloudStatus('error'); setCloudMsg('Ambiente não suportado.');
   };
 
+  // Visão Gemini (Workspace): materializa abas Gemini_* na Planilha ativa
+  const exportGeminiView = (scope) => {
+    if (!isGAS) {
+      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar JSON / dossiê manual.');
+      return;
+    }
+    const sc = scope || 'carteira';
+    if (sc === 'operacao' && !activeOpId) {
+      alert('Abra uma operação na Carteira antes de exportar o escopo “Operação atual”.');
+      return;
+    }
+    const labels = { carteira: 'carteira ativa', hoje: 'fila de hoje', operacao: 'operação atual' };
+    if (!confirm(`Atualizar Visão Gemini (${labels[sc] || sc})?\n\nIsso recria/atualiza as abas Gemini_Meta, Gemini_Ops, Gemini_Intimacoes, Gemini_Prescricao, Gemini_Tarefas e Gemini_Briefing nesta Planilha.\n\nRecomendado: sincronizar (⬆ Sync) antes.`)) return;
+    setCloudStatus('syncing');
+    setCloudMsg('Gerando Visão Gemini…');
+    setShowSettings(false);
+    google.script.run
+      .withSuccessHandler((res) => {
+        if (!res || !res.success) {
+          setCloudStatus('error');
+          setCloudMsg('Gemini: ' + ((res && res.error) || 'falha'));
+          alert('Falha ao gerar Visão Gemini:\n' + ((res && res.error) || 'erro desconhecido'));
+          return;
+        }
+        setCloudStatus('connected');
+        setCloudMsg('Visão Gemini atualizada ✓');
+        const c = res.counts || {};
+        const msg = `Visão Gemini atualizada (${labels[sc] || sc}).\n\n` +
+          `Ops: ${c.ops || 0} · Intimações: ${c.intimacoes || 0} · Prescrição: ${c.prescricoes || 0} · Tarefas: ${c.tarefas || 0}\n\n` +
+          `Abra o Gemini no painel lateral da Planilha e pergunte sobre as abas Gemini_*.`;
+        if (res.spreadsheetUrl && confirm(msg + '\n\nAbrir a Planilha agora?')) {
+          try { window.open(res.spreadsheetUrl, '_blank'); } catch (e) {}
+        } else {
+          alert(msg);
+        }
+      })
+      .withFailureHandler((err) => {
+        setCloudStatus('error');
+        setCloudMsg('Gemini: ' + (err && err.message ? err.message : err));
+        alert('Erro ao chamar exportGeminiView:\n' + (err && err.message ? err.message : err));
+      })
+      .exportGeminiView({
+        scope: sc,
+        operationId: sc === 'operacao' ? activeOpId : '',
+        jsonString: JSON.stringify(data),
+      });
+  };
+
   const activeOp = data.operations.find(o => o.id === activeOpId);
   const filteredOps = data.operations.filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase())).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
 
@@ -7532,6 +7580,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
     <div className="settings-group">
+      <div className="settings-label">Visão Gemini (Workspace)</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6,lineHeight:1.4}}>
+        Materializa abas Gemini_* na Planilha para análise no painel Gemini do Workspace. Sob demanda — nada é enviado automaticamente.
+      </div>
+      <div className="settings-options" style={{flexDirection:'column'}}>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('carteira')}>Atualizar · Carteira</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('hoje')}>Atualizar · Fila de hoje</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('operacao')} disabled={!activeOpId}>Atualizar · Operação atual</button>
+      </div>
+    </div>
+    <div className="settings-group">
       <div className="settings-label">Manutenção</div>
       <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowDiagnostico(true); setShowSettings(false); }}>🩺 Diagnóstico de integridade</button>
     </div>
@@ -7625,6 +7684,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
             <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
+            <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
             {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
           </div>
         </div>
