@@ -53,7 +53,49 @@
   --radius-lg: 10px;
   --shadow: 0 2px 16px rgba(0,0,0,0.3);
 }
-/* ─── Theme: Obsidian Monocromática (escala de cinzas sobre fundo profundo) ─── */
+/* ─── Theme: Mar Profundo (navy · teal; substitui Obsidian) ─── */
+.theme-mar {
+  --bg-deep: #0c1524;
+  --bg-main: #121c2e;
+  --bg-card: #1a2740;
+  --bg-card-hover: #21314d;
+  --bg-elevated: #243552;
+  --bg-input: #0f1a2c;
+  --border: #2c4060;
+  --border-light: #3d5678;
+  --text-primary: #e6edf5;
+  --text-secondary: #a9bbd0;
+  --text-muted: #7d91a8;
+  --accent: #c4a36a;
+  --accent-dim: rgba(196,163,106,0.14);
+  --accent-glow: rgba(196,163,106,0.22);
+  --gold: #c4a36a;
+  --gold-dim: rgba(196,163,106,0.14);
+  --pgfn: #b84a66;
+  --pgfn-light: #d0607c;
+  --pgfn-dim: rgba(184,74,102,0.16);
+  --red: #e06b7e;
+  --red-dim: rgba(224,107,126,0.14);
+  --yellow: #d4b45a;
+  --yellow-dim: rgba(212,180,90,0.14);
+  --blue: #7eb0d6;
+  --blue-dim: rgba(126,176,214,0.14);
+  --green: #6fbf90;
+  --green-dim: rgba(111,191,144,0.14);
+  --orange: #d4925a;
+  --orange-dim: rgba(212,146,90,0.14);
+  --cyan: #6db8c4;
+  --cyan-dim: rgba(109,184,196,0.14);
+  --purple: #8a9bb0;
+  --purple-dim: rgba(138,155,176,0.14);
+  --shadow: 0 2px 20px rgba(0,0,0,0.45);
+}
+.app-layout.theme-mar {
+  background:
+    radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.10), transparent 55%),
+    radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.07), transparent 50%),
+    linear-gradient(180deg, #101828 0%, #0c1524 45%, #0a1220 100%);
+}
 /* ─── Theme: Ferro e Maré (ferro escuro + azul maré, destaques bege, alerta burgundy) ─── */
 .theme-ferro { --bg-deep: #171e27; --bg-main: #1f2733; --bg-card: #253243; --bg-card-hover: #2b3a4e; --bg-elevated: #223c5e; --bg-input: #1a222d; --border: #2e3f54; --border-light: #3f5a7c; --text-primary: #e2ded0; --text-secondary: #c0c0c0; --text-muted: #7d8896; --accent: #c4a87c; --accent-dim: rgba(196,168,124,0.12); --accent-glow: rgba(196,168,124,0.20); --gold: #c4a87c; --gold-dim: rgba(196,168,124,0.12); --pgfn: #660000; --pgfn-light: #8f1f1f; --pgfn-dim: rgba(102,0,0,0.20); --blue: #5d8bc4; --blue-dim: rgba(93,139,196,0.14); --shadow: 0 2px 16px rgba(0,0,0,0.45); }
 /* ─── Font variants ─── */
@@ -1165,7 +1207,8 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .demo-week-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   width: 100%; text-align: left; border: 1px solid var(--border);
-  border-radius: 7px; padding: 5px 6px; cursor: pointer; font-family: var(--font-ui);
+  border-radius: 7px; padding: 5px 6px; cursor: pointer;
+  font-family: var(--font-ui, var(--font-display), system-ui, sans-serif);
   background: var(--bg-card); transition: border-color 0.15s ease, transform 0.15s ease;
 }
 .demo-week-card:hover { transform: translateY(-1px); border-color: var(--border-light); }
@@ -1198,13 +1241,15 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 
 .demo-inbox-switch {
   display: flex; gap: 0; padding: 10px 24px 0; flex-shrink: 0;
-  border-bottom: 1px solid var(--border); background: var(--demo-glass-soft);
+  border-bottom: 1px solid var(--border);
+  background: var(--demo-glass-soft, var(--bg-card));
   animation: demoFadeIn 0.25s ease;
 }
 .demo-inbox-tab {
   position: relative; font-size: 12px; font-weight: 600; padding: 10px 16px 12px;
   border: none; background: transparent; color: var(--text-muted); cursor: pointer;
-  font-family: var(--font-ui); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: var(--font-ui, var(--font-display), system-ui, sans-serif);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
   transition: color 0.18s ease, border-color 0.18s ease;
 }
 .demo-inbox-tab:hover { color: var(--text-secondary); }

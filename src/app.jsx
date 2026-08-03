@@ -2753,16 +2753,16 @@ function App() {
   const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — nó selecionado na árvore
   const [modelQuery, setModelQuery] = useState('');      // busca livre (texto da peça colado)
   const [modelMatters, setModelMatters] = useState([]);  // matérias inferidas do texto colado
-  // Temas válidos clássicos: '' (Noite Azulada), theme-ferro.
-  // Obsidian removido (substitído pelo Mar Profundo na Demo Experimental).
-  const THEMES_OK = ['', 'theme-ferro'];
+  // Temas válidos clássicos: theme-mar (padrão), '' (Noite Azulada), theme-ferro.
+  // Obsidian removido → Mar Profundo.
+  const THEMES_OK = ['theme-mar', '', 'theme-ferro'];
   // Temas da Demo: Mar Profundo é o padrão experimental; Clara/Ardósia/Grafite opcionais.
   const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite'];
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
-      let th = s.theme || '';
-      if (th === 'theme-obsidian') th = ''; // Obsidian aposentado → Noite Azulada
+      let th = s.theme;
+      if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
       const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'mar';
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
@@ -2772,8 +2772,8 @@ function App() {
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) edition = 'demo';
         }
       } catch {}
-      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '', demoTheme: dth, uiEdition: edition };
-    } catch { return { zoom: 100, font: '', theme: '', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
+      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition };
+    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
@@ -7542,6 +7542,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     {!isDemo && <div className="settings-group">
       <div className="settings-label">Tema</div>
       <div className="settings-options">
+        <button className={`settings-opt ${appSettings.theme==='theme-mar'?'active':''}`} onClick={() => updateSetting('theme','theme-mar')}>Mar Profundo</button>
         <button className={`settings-opt ${appSettings.theme===''?'active':''}`} onClick={() => updateSetting('theme','')}>Noite Azulada</button>
         <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
       </div>
@@ -8192,17 +8193,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="top-nav">
         <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => setViewMode('painel')}>Painel</button>
         <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => setViewMode('operacoes')}>Operações</button>
-        <button className={`top-nav-btn ${viewMode==='intimacoes'?'active':''}`} onClick={() => setViewMode('intimacoes')}>
-          Intimações
-          {(() => { const open = (data.intimations||[]).filter(x=>(x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
+        <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
+          onClick={() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes')}
+          title="Intimações e Tarefas">
+          Intimações e Tarefas
+          {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
         </button>
         <button className={`top-nav-btn ${viewMode==='mesa'?'active':''}`} onClick={() => setViewMode('mesa')}>
           🗂 Mesa
           {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
-        </button>
-        <button className={`top-nav-btn ${viewMode==='tarefas_global'?'active':''}`} onClick={() => setViewMode('tarefas_global')}>
-          Tarefas
-          {(() => { const open = (data.tasks||[]).filter(t=>t.status!=='concluida'&&t.status!=='cancelada').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
         </button>
         <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => setViewMode('acompanhar')}>
           Acompanhar
@@ -8274,8 +8273,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>);
       })()}
 
-      {/* Demo: Intimações e Tarefas fundidas — transição interna na mesma aba */}
-      {isDemo && (viewMode === 'intimacoes' || viewMode === 'tarefas_global') && (
+      {/* Intimações e Tarefas fundidas — transição interna na mesma aba */}
+      {(viewMode === 'intimacoes' || viewMode === 'tarefas_global') && (
         <div className="demo-inbox-switch" role="tablist" aria-label="Intimações e Tarefas">
           <button type="button" role="tab" aria-selected={viewMode==='intimacoes'}
             className={`demo-inbox-tab ${viewMode==='intimacoes'?'active':''}`}
@@ -8399,92 +8398,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>);
             })()}
 
-            {/* ═══ AGENDA — Demo: quadro semanal · Clássico: lista 30 dias ═══ */}
-            {isDemo ? (
-              <div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
-                <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
-                    Agenda da semana
-                    <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
-                      Fim de prazos · audiências · termo final de prescrição
-                    </span>
-                  </div>
+            {/* ═══ AGENDA DA SEMANA — prazos, audiências, termo final de prescrição ═══ */}
+            <div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+              <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
+                  Agenda da semana
+                  <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
+                    Fim de prazos · audiências · termo final de prescrição
+                  </span>
                 </div>
-                {renderAgendaWeek({ embedded: true })}
               </div>
-            ) : (() => {
-              const HORIZON = 30;
-              const items = [];
-              const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
-              // Intimações com prazo, não respondidas
-              (data.intimations || []).forEach(x => {
-                if (!x.dateDeadline || x.responseAction || x.status === 'analisado') return;
-                const dd = daysUntil(x.dateDeadline);
-                if (dd === null || dd > HORIZON) return;
-                items.push({ kind: 'intim', icon: '📬', date: x.dateDeadline, days: dd, label: `Intimação — ${x.processNumber || 'S/N'}`, sub: truncate(x.partyName || x.eventDescription || '', 60), opId: x.operationId, opName: opName(x.operationId), go: () => { setViewMode('intimacoes'); } });
-              });
-              // Tarefas abertas com vencimento
-              (data.tasks || []).forEach(t => {
-                if (!t.dueDate || t.status === 'concluida' || t.status === 'cancelada') return;
-                const dd = daysUntil(t.dueDate);
-                if (dd === null || dd > HORIZON) return;
-                items.push({ kind: 'task', icon: '✓', date: t.dueDate, days: dd, label: t.title || 'Tarefa', sub: '', opId: t.operationId, opName: opName(t.operationId), go: () => { if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); } else { setViewMode('tarefas_global'); } } });
-              });
-              // Audiências dentro do horizonte
-              (data.hearings || []).forEach(h => {
-                if (!h.date || h.status === 'realizada' || h.status === 'cancelada') return;
-                const dd = daysUntil(h.date);
-                if (dd === null || dd > HORIZON) return;
-                items.push({ kind: 'hearing', icon: '⚖️', date: h.date, days: dd, label: `Audiência — ${h.parties || h.processNumber || 'S/N'}`, sub: `${h.time||''}${h.location?' · '+truncate(h.location,30):''}`, opId: h.operationId, opName: opName(h.operationId), go: () => { setViewMode('audiencias'); setTimeout(() => setModal({type:'edit',entityType:'hearing',initial:h}), 100); } });
-              });
-              // Revisões de operação vencendo
-              data.operations.filter(o => o.status !== 'encerrada').forEach(o => {
-                const rs = reviewStatus(o);
-                if (rs.daysLeft === null || rs.daysLeft > HORIZON || rs.overdue) return; // vencidas já têm seção própria
-                const dt = new Date(); dt.setDate(dt.getDate() + rs.daysLeft);
-                items.push({ kind: 'review', icon: '🔄', date: dt.toISOString().slice(0,10), days: rs.daysLeft, label: `Revisão — ${o.name}`, sub: REVIEW_INTERVALS[o.reviewInterval || 'mensal'].label, opId: o.id, opName: '', go: () => { setActiveOpId(o.id); setViewMode('operation'); setActiveTab('notas'); } });
-              });
-              if (items.length === 0) return null;
-              items.sort((a, b) => a.days - b.days);
-              const kindColor = { intim: 'var(--blue)', task: 'var(--yellow)', hearing: 'var(--yellow)', review: 'var(--text-muted)' };
-              // Agrupar por bucket temporal
-              const buckets = [
-                { label: '⚠ VENCIDOS', test: (d) => d < 0 },
-                { label: 'Hoje', test: (d) => d === 0 },
-                { label: 'Esta semana', test: (d) => d >= 1 && d <= 7 },
-                { label: 'Próximas 2 semanas', test: (d) => d >= 8 && d <= 14 },
-                { label: 'Até 30 dias', test: (d) => d >= 15 && d <= HORIZON }
-              ];
-              const agendaOpen = !painelCollapsed.has('agenda');
-              return (<div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
-                <div style={{padding:'12px 16px',borderBottom:agendaOpen?'1px solid var(--border)':'none',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={() => togglePainel('agenda')} title={agendaOpen?'Recolher':'Expandir'}>
-                  <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)',display:'flex',alignItems:'center',gap:7}}>
-                    <span style={{fontSize:9,color:'var(--text-muted)',display:'inline-block',transform:agendaOpen?'rotate(90deg)':'none',transition:'transform 0.15s'}}>▶</span>
-                    📅 Agenda — próximos 30 dias <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10}}>({items.length} prazos: intimações, tarefas, audiências e revisões)</span>
-                  </div>
-                </div>
-                {agendaOpen && <div style={{maxHeight:320,overflowY:'auto',padding:'4px 0'}}>
-                  {buckets.map(bk => {
-                    const bi = items.filter(it => bk.test(it.days));
-                    if (bi.length === 0) return null;
-                    return (<div key={bk.label}>
-                      <div style={{fontSize:9,fontWeight:700,color:bk.label.startsWith('⚠')?'var(--red)':'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,padding:'6px 16px 2px'}}>{bk.label} ({bi.length})</div>
-                      {bi.map((it, i) => (
-                        <div key={it.kind + i + it.date} onClick={it.go} className={it.kind === 'hearing' ? 'hover-bg agenda-hearing' : 'hover-bg'} style={{display:'flex',gap:10,alignItems:'center',padding:'5px 16px',fontSize:11,cursor:'pointer',borderLeft:`${it.kind === 'hearing' ? 3 : 2}px solid ${kindColor[it.kind]}`}}>
-                          <span style={{fontFamily:'var(--font-mono)',fontWeight:700,width:38,flexShrink:0,color:it.days < 0 ? 'var(--red)' : it.days <= 5 ? 'var(--yellow)' : 'var(--text-secondary)'}}>{it.days < 0 ? `${it.days}d` : it.days === 0 ? 'HOJE' : `${it.days}d`}</span>
-                          <span style={{flexShrink:0}}>{it.icon}</span>
-                          {it.kind === 'hearing' && <span style={{flexShrink:0,fontSize:8,fontWeight:800,letterSpacing:0.4,color:'var(--yellow)',background:'rgba(212,168,56,0.18)',border:'1px solid rgba(212,168,56,0.4)',borderRadius:3,padding:'1px 5px',textTransform:'uppercase'}}>Audiência</span>}
-                          <span style={{fontWeight:600,color:it.kind === 'hearing' ? 'var(--yellow)' : undefined,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.label}</span>
-                          <span style={{color:'var(--text-muted)',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{it.sub}</span>
-                          <span style={{color:'var(--text-muted)',fontSize:9,flexShrink:0}}>{it.opName && `◎ ${truncate(it.opName, 24)}`}</span>
-                          <span style={{color:'var(--text-muted)',fontSize:9,fontFamily:'var(--font-mono)',flexShrink:0}}>{fmtDate(it.date)}</span>
-                        </div>
-                      ))}
-                    </div>);
-                  })}
-                </div>}
-              </div>);
-            })()}
+              {renderAgendaWeek({ embedded: true })}
+            </div>
 
             {/* ═══ REVISÕES DEVIDAS ═══ */}
             {(() => {
@@ -8758,7 +8683,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const overdue = allIntim.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && x.status !== 'analisado' && !x.responseAction).length;
         const resolvidasCount = allIntim.filter(x => !!x.responseAction).length;
 
-        return (<div key="demo-inbox-intimacoes" className={`entity-area ${isDemo ? 'demo-inbox-panel' : ''}`}>
+        return (<div key="inbox-intimacoes" className="entity-area demo-inbox-panel">
           <div className="intim-summary">
             <div className="intim-summary-card has-tip"><div className="is-label">Total ativas</div><div className="is-value">{allIntim.filter(x => !x.responseAction).length}</div><span className="tip-content">Intimações que ainda requerem atuação.</span></div>
             <div className="intim-summary-card"><div className="is-label">Pendentes</div><div className="is-value" style={{color:'var(--yellow)'}}>{allIntim.filter(x=>x.status==='pendente_analise' && !x.responseAction).length}</div></div>
@@ -9243,7 +9168,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const open = allTasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
         const done = allTasks.filter(t => t.status === 'concluida');
         const toggleTask = (t) => { upsert('tasks', { ...t, status: t.status === 'concluida' ? 'pendente' : 'concluida' }); };
-        return (<div key="demo-inbox-tarefas" className={`entity-area ${isDemo ? 'demo-inbox-panel' : ''}`}>
+        return (<div key="inbox-tarefas" className="entity-area demo-inbox-panel">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{open.length} aberta(s) · {done.length} concluída(s)</span>
