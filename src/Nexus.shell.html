@@ -48,6 +48,8 @@
   --gold: #c8a04a;
   --gold-dim: rgba(200,160,74,0.10);
   --font-display: 'Public Sans', 'Inter', system-ui, sans-serif;
+  --font-ui: 'Public Sans', 'Inter', system-ui, sans-serif;
+  --font-body: 'Public Sans', 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
   --radius: 6px;
   --radius-lg: 10px;
@@ -98,10 +100,41 @@
 }
 /* ─── Theme: Ferro e Maré (ferro escuro + azul maré, destaques bege, alerta burgundy) ─── */
 .theme-ferro { --bg-deep: #171e27; --bg-main: #1f2733; --bg-card: #253243; --bg-card-hover: #2b3a4e; --bg-elevated: #223c5e; --bg-input: #1a222d; --border: #2e3f54; --border-light: #3f5a7c; --text-primary: #e2ded0; --text-secondary: #c0c0c0; --text-muted: #7d8896; --accent: #c4a87c; --accent-dim: rgba(196,168,124,0.12); --accent-glow: rgba(196,168,124,0.20); --gold: #c4a87c; --gold-dim: rgba(196,168,124,0.12); --pgfn: #660000; --pgfn-light: #8f1f1f; --pgfn-dim: rgba(102,0,0,0.20); --blue: #5d8bc4; --blue-dim: rgba(93,139,196,0.14); --shadow: 0 2px 16px rgba(0,0,0,0.45); }
-/* ─── Font variants ─── */
-.font-inter { --font-display: 'Inter', system-ui, sans-serif; }
-.font-outfit { --font-display: 'Outfit', system-ui, sans-serif; }
-.font-source { --font-display: 'Source Sans 3', system-ui, sans-serif; }
+/* ─── Font variants (settings → class on html + .app-layout) ─── */
+.font-inter, html.font-inter, .app-layout.font-inter {
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+.font-outfit, html.font-outfit, .app-layout.font-outfit {
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+}
+.font-source, html.font-source, .app-layout.font-source {
+  --font-display: 'Source Sans 3', system-ui, sans-serif;
+  --font-ui: 'Source Sans 3', system-ui, sans-serif;
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+}
+/* Demo edition defaults Fraunces/IBM; settings font classes must win */
+.app-layout.edition-demo.font-inter,
+html.font-inter .app-layout.edition-demo {
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+.app-layout.edition-demo.font-outfit,
+html.font-outfit .app-layout.edition-demo {
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+}
+.app-layout.edition-demo.font-source,
+html.font-source .app-layout.edition-demo {
+  --font-display: 'Source Sans 3', system-ui, sans-serif;
+  --font-ui: 'Source Sans 3', system-ui, sans-serif;
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+}
 /* ─── Settings panel ─── */
 .settings-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 15px; padding: 4px 8px; border-radius: var(--radius); transition: all 0.15s; }
 .settings-btn:hover { color: var(--gold); background: rgba(200,160,74,0.08); }
@@ -119,7 +152,7 @@
 .settings-zoom span { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); min-width: 32px; text-align: center; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; overflow: hidden; }
-body { font-family: var(--font-display); font-size: 15px; background: var(--bg-deep); color: var(--text-primary); line-height: 1.55; }
+body { font-family: var(--font-body, var(--font-display)); font-size: 15px; background: var(--bg-deep); color: var(--text-primary); line-height: 1.55; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -158,7 +191,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .badge-muted { background: rgba(255,255,255,0.06); color: var(--text-muted); }
 .badge-brown { background: rgba(180,120,60,0.15); color: #d4a05a; }
 
-.app-layout { display: grid; grid-template-columns: 280px 1fr; height: 100%; transition: grid-template-columns 0.25s ease; }
+.app-layout { display: grid; grid-template-columns: 280px 1fr; height: 100%; transition: grid-template-columns 0.25s ease; font-family: var(--font-body, var(--font-display)); }
 .app-layout.sidebar-collapsed { grid-template-columns: 40px 1fr; }
 .sidebar { background: var(--bg-main); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width 0.25s ease; min-height: 0; }
 .sidebar.collapsed .sidebar-search, .sidebar.collapsed .sidebar-ops, .sidebar.collapsed .sidebar-footer, .sidebar.collapsed .cloud-panel { display: none; }
@@ -721,6 +754,8 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 /* ─── UX aprovado 31/07: resumo da operação + processos colapsáveis ─── */
 .op-summary {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 0;
   min-height: 52px;
@@ -785,6 +820,43 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Régua de fases IDPJ/MCF/Central — sempre horizontal no desktop */
+.proc-stage-ruler {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  width: 100%;
+  margin: 12px 2px 4px;
+  gap: 0;
+}
+.proc-stage-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 0;
+  min-width: 0;
+  cursor: pointer;
+}
+.proc-stage-step .proc-stage-dot {
+  width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+}
+.proc-stage-step .proc-stage-label {
+  font-size: 8px; text-align: center; line-height: 1.15;
+}
+.proc-stage-step .proc-stage-info {
+  font-size: 7px; text-align: center; line-height: 1.1;
+  color: var(--text-muted); font-family: var(--font-mono);
+}
+.proc-stage-conn {
+  flex: 0.7 1 12px;
+  height: 2px;
+  min-width: 8px;
+  margin-top: 6px;
+  align-self: flex-start;
 }
 
 /* Processos colapsados — mesma escala de .ec-title / .ec-sub (Pessoas, Bens, Tarefas) */
@@ -978,6 +1050,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --purple-dim: rgba(90,107,125,0.10);
   --font-display: 'Fraunces', Georgia, serif;
   --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --shadow: 0 2px 18px rgba(11,31,51,0.08);
   --demo-rail-bg: #0b1f33;
   --demo-rail-fg: #d7e2ec;
@@ -1186,7 +1259,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .app-layout.edition-demo .demo-rail { display: flex; }
 .demo-rail-brand {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.04em;
@@ -1197,7 +1270,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .demo-rail-brand small {
   display: block;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1210,7 +1283,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   background: transparent; border: 1px solid transparent; color: var(--demo-rail-fg); opacity: 0.85;
   border-radius: 10px; padding: 10px 6px; cursor: pointer; transition: all 0.2s ease;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 10px; font-weight: 600;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600;
   width: 100%;
 }
 .demo-rail-btn .demo-rail-ico { font-size: 16px; line-height: 1; }
@@ -1268,7 +1341,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   border-radius: 7px;
   padding: 7px 8px;
   cursor: pointer;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.25;

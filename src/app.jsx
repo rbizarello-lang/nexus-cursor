@@ -2519,8 +2519,8 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
       </defs>
       {/* Zone labels */}
       {layout.nodes.length > 1 && <>
-        <text x={-280} y={-260} textAnchor="middle" fill="rgba(59,130,246,0.15)" fontSize="12" fontWeight="700" fontFamily="Public Sans">PESSOAS</text>
-        <text x={300} y={-260} textAnchor="middle" fill="rgba(148,163,184,0.15)" fontSize="12" fontWeight="700" fontFamily="Public Sans">PROCESSOS</text>
+        <text x={-280} y={-260} textAnchor="middle" fill="rgba(59,130,246,0.15)" fontSize="12" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>PESSOAS</text>
+        <text x={300} y={-260} textAnchor="middle" fill="rgba(148,163,184,0.15)" fontSize="12" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>PROCESSOS</text>
         <line x1={20} y1={-250} x2={20} y2={500} stroke="rgba(255,255,255,0.02)" strokeWidth="1" strokeDasharray="8,8" />
       </>}
       {layout.edges.map((e, i) => {
@@ -2550,7 +2550,7 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
               fill={node.color} fillOpacity={0.08} stroke={node.color} strokeWidth={1.5} strokeDasharray="6,4" />
             {labelLines.map((line, li) => (
               <text key={li} x={node.x} y={node.y + (li - (labelLines.length-1)/2) * 13} textAnchor="middle" dominantBaseline="central"
-                fill={li === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)'} fontSize={li === 0 ? "10" : "9"} fontWeight={li === 0 ? "600" : "400"} fontFamily="Public Sans">{line}</text>
+                fill={li === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)'} fontSize={li === 0 ? "10" : "9"} fontWeight={li === 0 ? "600" : "400"} style={{fontFamily:'var(--font-display)'}}>{line}</text>
             ))}
           </g>);
         }
@@ -2566,15 +2566,15 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
           {alertRing && <circle cx={node.x} cy={node.y} r={node.r + 3} fill="none" stroke={alertRing} strokeWidth={2} strokeDasharray="4,3" />}
           <circle cx={node.x} cy={node.y} r={node.r} fill={node.color} fillOpacity={inactive ? 0.04 : node.isHub ? 0.18 : node.isApenso ? 0.06 : 0.1} stroke={node.color} strokeWidth={node.isHub ? 2 : node.isApenso ? 0.5 : 1.5} strokeDasharray={inactive ? '3,3' : 'none'} />
           {node.type === 'operation' ?
-            <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central" fill={node.color} fontSize="9" fontWeight="700" fontFamily="Outfit">{truncate(node.label, 14)}</text> :
+            <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central" fill={node.color} fontSize="9" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>{truncate(node.label, 14)}</text> :
             <><text x={node.x} y={node.y - 1} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={node.r >= 26 ? "9" : node.r > 12 ? "7" : "6"} fontWeight="500">
               {node.type === 'person' ? (node.subtype === 'PJ' ? '🏢' : '👤') : node.type === 'debt' ? '📄' : node.type === 'execution' ? (node.isHub ? (node.data?.processTag === 'idpj' ? '🛡' : '⚡') : '⚖') : node.type === 'measure' ? '🛡️' : '💎'}
             </text>
             {node.isHub ? <>
-              {(node.label||'').split('\n').map((line, li) => <text key={li} x={node.x} y={node.y + node.r + 10 + li * 10} textAnchor="middle" fill={li===0?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.6)'} fontSize={li===0?"7":"5.5"} fontWeight={li===0?"700":"500"} fontFamily={li===0?"Public Sans":"JetBrains Mono"}>{line}</text>)}
-              {node.totalLinkedValue > 0 && <text x={node.x} y={node.y + node.r + 10 + (node.label||'').split('\n').length * 10} textAnchor="middle" fill="rgba(245,158,11,0.85)" fontSize="6" fontWeight="700" fontFamily="JetBrains Mono">{fmtCur(node.totalLinkedValue)}</text>}
+              {(node.label||'').split('\n').map((line, li) => <text key={li} x={node.x} y={node.y + node.r + 10 + li * 10} textAnchor="middle" fill={li===0?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.6)'} fontSize={li===0?"7":"5.5"} fontWeight={li===0?"700":"500"} style={{fontFamily: li===0 ? 'var(--font-display)' : 'var(--font-mono)'}}>{line}</text>)}
+              {node.totalLinkedValue > 0 && <text x={node.x} y={node.y + node.r + 10 + (node.label||'').split('\n').length * 10} textAnchor="middle" fill="rgba(245,158,11,0.85)" fontSize="6" fontWeight="700" style={{fontFamily:'var(--font-mono)'}}>{fmtCur(node.totalLinkedValue)}</text>}
             </> :
-            <text x={node.x} y={node.y + node.r + (node.isApenso ? 6 : 9)} textAnchor="middle" fill={`rgba(255,255,255,${node.isApenso ? '0.35' : '0.6'})`} fontSize={node.isApenso ? "4.5" : "5.5"} fontFamily="JetBrains Mono">{node.label}</text>}</>}
+            <text x={node.x} y={node.y + node.r + (node.isApenso ? 6 : 9)} textAnchor="middle" fill={`rgba(255,255,255,${node.isApenso ? '0.35' : '0.6'})`} fontSize={node.isApenso ? "4.5" : "5.5"} style={{fontFamily:'var(--font-mono)'}}>{node.label}</text>}</>}
         </g>);
       })}
     </svg>
@@ -2802,6 +2802,15 @@ function App() {
   const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : 'mar';
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
   const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
+
+  // Propaga classe de fonte para <html> (body + herança) além do .app-layout
+  useEffect(() => {
+    const root = document.documentElement;
+    ['font-inter', 'font-outfit', 'font-source'].forEach(c => root.classList.remove(c));
+    if (appSettings.font) root.classList.add(appSettings.font);
+    return () => { ['font-inter', 'font-outfit', 'font-source'].forEach(c => root.classList.remove(c)); };
+  }, [appSettings.font]);
+
   const [activeTab, setActiveTab] = useState('notas');
   const [briefingSub, setBriefingSub] = useState('estrategias'); // estrategias | panorama
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
@@ -5050,6 +5059,59 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {ef.hasGuarantee && <span className="badge badge-muted" style={{fontSize:8,color:'rgba(34,197,94,0.6)'}}>GAR</span>}
                 </div>);
               };
+              const stageMeta = (STAGES, STAGE_KEYS, recs) => STAGE_KEYS.map((k, i) => {
+                const sd = STAGES[k];
+                const rec = recs[k];
+                const recursos = sd.multiRecurso ? getRecursos(rec) : null;
+                const has = sd.multiRecurso
+                  ? recursos.length > 0
+                  : !!(rec && (rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
+                const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
+                let info = '';
+                if (sd.multiRecurso) {
+                  info = recursos.length ? recursos.length + (recursos.length === 1 ? ' recurso' : ' recursos') : '';
+                } else if (sd.textOnly) {
+                  info = (rec?.texto && String(rec.texto).trim()) || '';
+                } else if (has) {
+                  const parts = [];
+                  if (rec.date) parts.push(fmtDate(rec.date));
+                  if (rec.evento) parts.push('Ev. ' + rec.evento);
+                  if (rec.texto && String(rec.texto).trim()) parts.push(String(rec.texto).trim());
+                  info = parts.join(' · ');
+                }
+                const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
+                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel };
+              });
+              const renderStageRuler = (ip, STAGES, STAGE_KEYS, recs) => {
+                const metas = stageMeta(STAGES, STAGE_KEYS, recs);
+                const openPop = (k) => toggleGroup('stagepop-' + ip.id + '-' + k);
+                const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
+                  <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
+                    onCommit={(patch) => setRec(ip.id, m.k, patch)}
+                    onDelete={() => { delRec(ip.id, m.k); openPop(m.k); }}
+                    onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
+                    onClose={() => openPop(m.k)} />
+                );
+                return (<div className="proc-stage-vertical" style={{margin:'10px 0 4px',display:'flex',flexDirection:'column',gap:0}}>
+                  {metas.map((m) => (
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'6px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:16,flexShrink:0,paddingTop:2}}>
+                        <div style={{width:12,height:12,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
+                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:10,marginTop:3,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
+                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-muted)',fontFamily:'var(--font-display)'}}>{m.sd.label}</span>
+                          {m.outcomeLabel && <span style={{fontSize:11,color:m.c}}>{m.outcomeLabel}</span>}
+                          {m.info && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:m.sd.textOnly?'var(--font-display)':'var(--font-mono)'}}>{m.info}</span>}
+                          {!m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
+                        </div>
+                      </div>
+                      {popupFor(m)}
+                    </div>
+                  ))}
+                </div>);
+              };
               // Badge por tipo de processo-mãe (IDPJ/MCF/Central) e rótulo dos filhos (EF abrangida / apensa)
               const badgeFor = (tag) => tag === 'idpj' ? { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF' }
                 : tag === 'cautelar_fiscal' ? { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF' }
@@ -5091,33 +5153,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
                       </div>
 
-                      {/* Régua de fases — clique numa fase para abrir o popup; data/evento aparecem sob o nome */}
-                      <div style={{display:'flex',alignItems:'flex-start',margin:'12px 2px 4px'}}>
-                        {STAGE_KEYS.map((k,i,arr) => {
-                          const sd = STAGES[k];
-                          const rec = recs[k];
-                          const recursos = sd.multiRecurso ? getRecursos(rec) : null;
-                          const has = sd.multiRecurso ? recursos.length > 0 : !!rec;
-                          const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
-                          const popKey = 'stagepop-'+ip.id+'-'+k;
-                          const info = sd.multiRecurso
-                            ? (recursos.length ? recursos.length + (recursos.length===1?' recurso':' recursos') : '')
-                            : (has && (rec.date || rec.evento) ? `${rec.date?fmtDate(rec.date):''}${rec.date&&rec.evento?' · ':''}${rec.evento?'Ev. '+rec.evento:''}` : '');
-                          return (<React.Fragment key={k}>
-                            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2,flex:1,cursor:'pointer'}} onClick={() => toggleGroup(popKey)} title={has?sd.label+' — clique para editar':'Registrar '+sd.label}>
-                              <div style={{width:13,height:13,borderRadius:'50%',flexShrink:0,background:has?c:'transparent',border:`2px solid ${has?c:'var(--border-light, var(--border))'}`}} />
-                              <span style={{fontSize:8,textAlign:'center',lineHeight:1.15,color:has?c:'var(--text-muted)',fontWeight:has?700:400}}>{sd.label}</span>
-                              {info && <span style={{fontSize:7,textAlign:'center',lineHeight:1.1,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{info}</span>}
-                            </div>
-                            {i < arr.length-1 && <div style={{height:2,flex:1,marginTop:6,background:has ? 'var(--text-muted)' : 'var(--border)'}} />}
-                            {collapsedGroups.has(popKey) && <StagePopup key={popKey} sd={sd} rec={rec}
-                              onCommit={(patch) => setRec(ip.id, k, patch)}
-                              onDelete={() => { delRec(ip.id, k); toggleGroup(popKey); }}
-                              onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList||[]), text] }); alert('Registrado como nota no card.'); }}
-                              onClose={() => toggleGroup(popKey)} />}
-                          </React.Fragment>);
-                        })}
-                      </div>
+                      {/* Régua de fases — formato aprovado: lista vertical com desfecho */}
+                      {renderStageRuler(ip, STAGES, STAGE_KEYS, recs)}
 
                       {myEFs.length > 0 && <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
                         {myEFs.slice(0,8).map(ef => efRow(ef, true))}
@@ -6986,6 +7023,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       };
 
       return (<div className="entity-area">
+        {/* Header — same create entry point as the old Processos (execucoes) tab */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+          <span style={{color:'var(--text-muted)',fontSize:11}}>{execs.length} processo(s) · {allDebts.length} CDA(s)</span>
+          <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
+        </div>
+
         {/* Orientação da visão integrada */}
         <div className="presc-legal-ref">
           <strong>Processos, CDAs e prescrição em uma única visão.</strong>
@@ -7033,7 +7076,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>);
         })()}
 
-        {execs.length === 0 && allDebts.length === 0 ? <div className="empty-state"><div className="empty-icon">⏱</div><p>Importe processos e CDAs para começar.</p></div> :
+        {execs.length === 0 && allDebts.length === 0 ? <div className="empty-state"><div className="empty-icon">⏱</div><p>Nenhum processo cadastrado.</p><button className="btn-primary btn-sm" style={{marginTop:12}} onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button></div> :
         <div className="entity-list">
           {/* IDPJ / Cautelar section */}
           {idpjGroups.length > 0 && <div style={{marginBottom:16}}>
@@ -7623,15 +7666,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button style={{fontSize:9,padding:'2px 6px',border:'1px solid var(--border)',borderRadius:3,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}} onClick={() => updateSetting('zoom', 100)}>Reset</button>
       </div>
     </div>
-    {!isDemo && <div className="settings-group">
+    <div className="settings-group">
       <div className="settings-label">Fonte</div>
       <div className="settings-options">
-        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
+        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>{isDemo ? 'Padrão (Demo)' : 'Public Sans'}</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
       </div>
-    </div>}
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Altera a tipografia de toda a interface. Números de processo e campos técnicos permanecem em mono.</div>
+    </div>
     {!isDemo && <div className="settings-group">
       <div className="settings-label">Tema</div>
       <div className="settings-options">
@@ -8079,7 +8123,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${demoThemeClass} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${isDemo?'':appSettings.font}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${demoThemeClass} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {/* ═══ DEMO RAIL ═══ */}
     {isDemo && <nav className="demo-rail">
       <div className="demo-rail-brand">
@@ -9465,19 +9509,42 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ); })}
               </div>;
             })()}
-            <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>Revisada</button>
-            {(() => { const rs = reviewStatus(activeOp); return <span style={{fontSize:11,fontWeight:600,color:rs.color,whiteSpace:'nowrap'}}>{rs.label}</span>; })()}
             <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
-        {opStats && <div className="op-summary">
-          <div className="op-summary-item"><small>Dívida</small><strong>{fmtCur(opStats.total)}</strong></div>
-          <div className="op-summary-item"><small>Garantido</small><strong>{fmtCur(opStats.guar)} · {opStats.total>0?((opStats.guar/opStats.total)*100).toFixed(0):0}%</strong></div>
-          <button type="button" className="op-summary-item" onClick={() => { if (opStats.indispCount>0) setActiveTab('bens'); }}><small>Bens indisponíveis</small><strong>{opStats.indispLabel}</strong></button>
-          <div className="op-summary-item"><small>Prescrição</small><strong>{opStats.prescA} CDA · {opStats.prescExec} interc.</strong></div>
-          <button type="button" className="op-summary-item" onClick={() => { if (opStats.openIntims>0) setIntimWork(true); }}><small>Intimações</small><strong>{opStats.openIntims}{opStats.overdueIntims>0?` · ${opStats.overdueIntims} venc.`:''}</strong></button>
-          <button type="button" className="op-summary-item" onClick={() => { if (opStats.openTasks>0) setActiveTab('tarefas'); }}><small>Tarefas</small><strong>{opStats.openTasks}{opStats.overdueTasks>0?` · ${opStats.overdueTasks} venc.`:''}</strong></button>
+        {opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch',flexShrink:0}}>
+          <div className="stats-bar" style={{flex:1,minWidth:0,borderBottom:'none'}}>
+            <div className="stat-card"><div className="stat-label">Dívida Total</div><div className="stat-value" style={{color:'var(--text-primary)',fontSize:15}}>{fmtCur(opStats.total)}</div><div className="stat-sub">{opStats.debts} CDAs</div></div>
+            <div className="stat-card"><div className="stat-label has-tip">Garantido (CDA)<span className="tip-content">Soma dos valores das CDAs com status "Garantida". Reflete a garantia formal reconhecida por CDA, não o valor de mercado dos bens constritados.</span></div><div className="stat-value" style={{color:'var(--text-secondary)',fontSize:15}}>{fmtCur(opStats.guar)}</div><div className="stat-sub">{opStats.total>0?((opStats.guar/opStats.total)*100).toFixed(0):0}%</div></div>
+            <div className="stat-card has-tip" onClick={() => { if (opStats.indispCount>0) setActiveTab('bens'); }} style={{cursor:opStats.indispCount>0?'pointer':'default'}}>
+              <div className="stat-label">Indisponibilidades</div>
+              <div className="stat-value" style={{color:opStats.indispHasValue?'var(--text-primary)':'var(--text-muted)',fontSize:opStats.indispHasValue?15:12}}>{opStats.indispLabel}</div>
+              <div className="stat-sub">{opStats.indispCount > 0 ? `${opStats.indispCount} bem(ns)` : ''}</div>
+              <span className="tip-content">{opStats.indispCount === 0 ? 'Nenhum bem com status de indisponibilidade cadastrado nesta operação.' : opStats.indispHasValue ? `Soma dos valores dos ${opStats.indispCount} bem(ns) com indisponibilidade ativa/requerida que possuem valor informado. Clique para ver a aba Bens.` : `${opStats.indispCount} bem(ns) constritado(s), mas nenhum com valor de avaliação preenchido. Informe os valores na aba Bens para ver o total aqui.`}</span>
+            </div>
+            <div className="stat-card"><div className="stat-label">Presc. CDA</div><div className="stat-value" style={{color:opStats.prescA>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescA}</div><div className="stat-sub">≤180 dias</div></div>
+            <div className="stat-card"><div className="stat-label">Presc. Interc.</div><div className="stat-value" style={{color:opStats.prescExec>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescExec}</div><div className="stat-sub">≤365 dias</div></div>
+            <div className={`stat-card ${opStats.openIntims>0?'alert-pulse-blue':''}`} onClick={() => { if (opStats.openIntims>0) setIntimWork(true); }} style={{cursor:opStats.openIntims>0?'pointer':'default'}}>
+              <div className="stat-label">Intimações</div>
+              <div className="stat-value" style={{color: opStats.overdueIntims > 0 ? 'var(--red)' : opStats.openIntims > 0 ? 'var(--blue)' : 'var(--text-muted)',fontSize:15}}>{opStats.openIntims}</div>
+              <div className="stat-sub">{opStats.overdueIntims > 0 ? `${opStats.overdueIntims} vencida(s)` : opStats.openIntims > 0 ? 'em aberto' : 'nenhuma'}</div>
+            </div>
+            <div className={`stat-card ${opStats.openTasks>0?'alert-pulse-yellow':''}`} onClick={() => { if (opStats.openTasks>0) setActiveTab('tarefas'); }} style={{cursor:opStats.openTasks>0?'pointer':'default'}}>
+              <div className="stat-label">Tarefas</div>
+              <div className="stat-value" style={{color: opStats.overdueTasks > 0 ? 'var(--red)' : opStats.openTasks > 0 ? 'var(--yellow)' : 'var(--text-muted)',fontSize:15}}>{opStats.openTasks}</div>
+              <div className="stat-sub">{opStats.overdueTasks > 0 ? `${opStats.overdueTasks} vencida(s)` : opStats.openTasks > 0 ? 'em aberto' : 'nenhuma'}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:6,padding:'8px 18px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
+            <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+              <button className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
+              {(() => { const rs = reviewStatus(activeOp); return (<span style={{fontSize:9,color:rs.color,fontWeight:600,padding:'2px 8px',borderRadius:3,background:`${rs.color.replace('var(--','rgba(').replace(')',', 0.1)')}`,border:`1px solid ${rs.color.replace('var(--','rgba(').replace(')',', 0.25)')}`}}>{rs.label}</span>); })()}
+              <span style={{fontSize:9,color:'var(--text-muted)'}}>Atualizada {activeOp.updatedAt ? new Date(activeOp.updatedAt).toLocaleDateString('pt-BR') : '—'}</span>
+            </div>
+          </div>
         </div>}
         {isDemo ? (<>
           <div className="demo-zones">
