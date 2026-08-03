@@ -30,7 +30,7 @@ const guessMatters = (texto) => {
 
 // ─── DADOS DE DEMONSTRAÇÃO (uso local/teste) ───
 // Gera um dataset fictício, coerente e interligado, com datas relativas a "hoje"
-// para popular os painéis (agenda 30 dias, prescrição iminente, revisões devidas).
+// para popular os painéis (quadro semanal, agenda 30 dias, prescrição iminente, revisões).
 // Todos os nomes/CPFs/CNPJs/processos são inventados.
 const generateDemoData = () => {
   // Data local (meio-dia para evitar viradas de fuso/DST) no formato YYYY-MM-DD
@@ -8229,7 +8229,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div className="demo-topbar-title">
             {viewMode === 'hoje' ? 'Hoje' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Intimações e Tarefas' :
-             viewMode === 'operacoes' || viewMode === 'painel' ? 'Carteira' :
+             viewMode === 'operacoes' ? 'Carteira' :
+             viewMode === 'painel' ? 'Painel' :
              viewMode === 'audiencias' ? 'Agenda' :
              viewMode === 'modelos' ? 'Biblioteca' :
              viewMode === 'mesa' ? 'Trabalho · Mesa' :
