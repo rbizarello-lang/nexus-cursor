@@ -134,21 +134,11 @@ function assembleHtml(demo) {
   }
 
   // Validação: o fim do documento não pode aparecer no meio do arquivo.
-  const docEnd = '</body>\n</html>';
-  const endPositions = [];
-  let from = 0;
-  while (true) {
-    const p = html.indexOf(docEnd, from);
-    if (p === -1) break;
-    endPositions.push(p);
-    from = p + 1;
-  }
-  if (endPositions.length !== 1) {
-    console.error(`ERRO: esperado 1 '</body></html>', achei ${endPositions.length}. Build corrompido.`);
-    process.exit(1);
-  }
-  if (endPositions[0] < html.length - docEnd.length - 5) {
-    console.error('ERRO: </body></html> não está no fim do arquivo. Build corrompido.');
+  // Aceita LF e CRLF (Windows).
+  const docEndMatch = html.match(/<\/body>\r?\n<\/html>\s*$/);
+  const docEndCount = (html.match(/<\/body>\r?\n<\/html>/g) || []).length;
+  if (docEndCount !== 1 || !docEndMatch) {
+    console.error(`ERRO: esperado 1 '</body></html>' no fim do arquivo, achei ${docEndCount}. Build corrompido.`);
     process.exit(1);
   }
 

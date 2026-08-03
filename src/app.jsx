@@ -550,6 +550,27 @@ const calcAutoPresc = (debt, executions, events = []) => {
   return baseDate.toISOString().slice(0, 10);
 };
 
+/**
+ * Lookup O(1) do termo final de prescrição por CDA.
+ * Pré-calcula uma vez por conjunto (debts/executions/events) e reutiliza no render.
+ * Data manual (debt.prescriptionDate) sempre prevalece.
+ */
+const createPrescDateLookup = (debts, executions, events = []) => {
+  const map = new Map();
+  const execs = executions || [];
+  const evts = events || [];
+  for (const d of debts || []) {
+    if (!d || !d.id) continue;
+    map.set(d.id, calcAutoPresc(d, execs, evts));
+  }
+  return (debt) => {
+    if (!debt) return '';
+    if (debt.prescriptionDate) return debt.prescriptionDate;
+    if (debt.id && map.has(debt.id)) return map.get(debt.id);
+    return calcAutoPresc(debt, execs, evts);
+  };
+};
+
 const DEBT_STATUSES = {
   ativa: { label: 'Ativa', badge: 'badge-muted' },
   ativa_ajuizada: { label: 'Ativa Ajuizada', badge: 'badge-muted' },
@@ -744,7 +765,7 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
   return parts.length ? parts.join('') : '<span class="muted">não informado</span>';
 };
 
-// ─── Blocos de estratégia: tipos de entrada (feed cronológico da aba Anotações) ───
+// ─── Blocos de estratégia: tipos de entrada (feed cronológico da aba Briefing) ───
 const BRIEFING_ENTRY_TYPES = {
   risco:       { label: 'Risco',            color: 'var(--red)',        bg: 'rgba(229,64,96,0.15)' },
   estrategia:  { label: 'Estratégia',       color: 'var(--green)',      bg: 'rgba(64,168,112,0.15)' },
@@ -2155,6 +2176,7 @@ function computeGraph(operation, data) {
   const people = data.people.filter(p => p.operationId === opId);
   const debts = data.debts.filter(d => d.operationId === opId);
   const allExecs = data.executions.filter(e => e.operationId === opId);
+  const getPrescDate = createPrescDateLookup(debts, allExecs, data.prescriptionEvents || []);
   // Graph shows only: IDPJ, MCF, and Execuções Fiscais ativas (omit central, embargos, agravos, extintas)
   const execs = allExecs.filter(e => {
     if (e.status === 'extinta' || e.status === 'arquivada') return false;
@@ -2263,7 +2285,6 @@ function computeGraph(operation, data) {
 
     // Classify: which EFs have alerts (guarantee, prescription ≤180d, open intimations)?
     const allDebts = data.debts || [];
-    const allPrescEvts = data.prescriptionEvents || [];
     const allIntims = data.intimations || [];
     const alertEFs = [];
     const quietEFs = [];
@@ -2273,7 +2294,7 @@ function computeGraph(operation, data) {
       // Prescription risk: any CDA linked to this process with ≤180d
       const linkedCDAs = allDebts.filter(d => d.operationId === opId && sameProc(d.processNumber, ef.processNumber) && d.status !== 'extinta' && !d.prescriptionHandled);
       const hasPrescRisk = linkedCDAs.some(d => {
-        const pd = d.prescriptionDate || calcAutoPresc(d, execs, allPrescEvts);
+        const pd = getPrescDate(d);
         const dd = daysUntil(pd);
         return dd !== null && dd > 0 && dd <= 180;
       });
@@ -2351,12 +2372,13 @@ function generateInsights(op, data) {
   const execs = data.executions.filter(e => e.operationId === opId);
   const measures = data.measures.filter(m => m.operationId === opId);
   const assets = data.assets.filter(a => a.operationId === opId);
+  const getPrescDate = createPrescDateLookup(debts, execs, data.prescriptionEvents || []);
 
   const unexecuted = debts.filter(d => (d.status === 'ativa' || d.status === 'ativa_nao_ajuizavel') && !d.processNumber);
   if (unexecuted.length > 0) ins.push({ type: 'critical', title: `${unexecuted.length} CDA(s) sem execução fiscal`, desc: `${unexecuted.map(d => d.cdaNumber || fmtCur(d.value)).join(', ')}. Avaliar ajuizamento.` });
 
   debts.forEach(d => {
-    const prescDate = d.prescriptionDate || calcAutoPresc(d, execs, data.prescriptionEvents || []);
+    const prescDate = getPrescDate(d);
     const days = daysUntil(prescDate);
     if (days !== null && days > 0 && days <= 180) ins.push({ type: days <= 60 ? 'critical' : 'warning', title: `Prescrição iminente: ${d.cdaNumber || 'CDA'}`, desc: `${days}d para prescrição (${fmtDate(prescDate)})${!d.prescriptionDate ? ' [cálculo automático]' : ''}. ${fmtCur(d.value)}.` });
     if (days !== null && days <= 0) ins.push({ type: 'critical', title: `Possível prescrição: ${d.cdaNumber}`, desc: `Data ${fmtDate(prescDate)} ultrapassada${!d.prescriptionDate ? ' [auto]' : ''}. ${fmtCur(d.value)}.` });
@@ -2781,6 +2803,7 @@ function App() {
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
   const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
   const [activeTab, setActiveTab] = useState('notas');
+  const [briefingSub, setBriefingSub] = useState('estrategias'); // estrategias | panorama
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
   const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
   const [carteiraTreeOpen, setCarteiraTreeOpen] = useState(true); // árvore de ops sob Carteira
@@ -2802,6 +2825,8 @@ function App() {
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
   const [globalSearch, setGlobalSearch] = useState(false);
   const [gsQuery, setGsQuery] = useState('');
+  // Digitação da busca fica responsiva; o filtro pesado roda com prioridade baixa.
+  const deferredGsQuery = React.useDeferredValue(gsQuery);
   const [intimFilter, setIntimFilter] = useState('all');
   const [intimSort, setIntimSort] = useState('attention');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
@@ -2882,8 +2907,8 @@ function App() {
   useEffect(() => {
     if (appSettings.uiEdition !== 'demo') return;
     const zoneOf = (tab) => {
-      if (['pessoas','dividas','execucoes','bens'].includes(tab)) return 'acervo';
-      if (['prescricao_v2','timeline','prescricao'].includes(tab)) return 'risco';
+      if (['pessoas','bens'].includes(tab)) return 'acervo';
+      if (['prescricao_v2','prescricao','dividas','execucoes','timeline'].includes(tab)) return 'risco';
       if (['tarefas','importar','docs','grafo','insights'].includes(tab)) return 'ferramentas';
       return 'briefing';
     };
@@ -3338,17 +3363,30 @@ function App() {
     e.target.value = '';
   };
 
-  // Global search results
+  // Índice O(1) por operação — evita .find() em cada hit da busca global.
+  const opsById = useMemo(() => {
+    const m = new Map();
+    (data.operations || []).forEach(o => m.set(o.id, o));
+    return m;
+  }, [data.operations]);
+
+  // ─── PERF: termo final de prescrição por CDA (1 cálculo por debt ao mudar dados) ───
+  const getPrescDate = useMemo(
+    () => createPrescDateLookup(data.debts, data.executions, data.prescriptionEvents || []),
+    [data.debts, data.executions, data.prescriptionEvents]
+  );
+
+  // Global search results (filtro adiado via deferredGsQuery)
   const gsResults = useMemo(() => {
-    if (!gsQuery || gsQuery.length < 2) return [];
-    const raw = gsQuery.toLowerCase();
+    if (!deferredGsQuery || deferredGsQuery.length < 2) return [];
+    const raw = deferredGsQuery.toLowerCase();
     const q = raw.replace(/[.\-\/]/g, '');
     const results = [];
     // People — name, CPF/CNPJ
     data.people.forEach(p => {
       const match = p.name?.toLowerCase().includes(raw) || p.cpfCnpj?.replace(/\D/g,'').includes(q) || p.cpfCnpj?.toLowerCase().includes(raw);
       if (match) {
-        const op = data.operations.find(o => o.id === p.operationId);
+        const op = opsById.get(p.operationId);
         results.push({ type: 'person', icon: p.subtype === 'PJ' ? '🏢' : '👤', name: p.name, meta: `${p.subtype} · ${p.cpfCnpj || ''}${p.role ? ' · '+p.role : ''}`, opName: op?.name, opId: p.operationId, id: p.id, entity: p, entityType: 'person', tab: 'pessoas' });
       }
     });
@@ -3356,15 +3394,15 @@ function App() {
     data.debts.forEach(d => {
       const match = d.cdaNumber?.toLowerCase().includes(raw) || d.cdaNumber?.replace(/\D/g,'').includes(q) || d.processNumber?.replace(/[.\-]/g,'').includes(q);
       if (match) {
-        const op = data.operations.find(o => o.id === d.operationId);
+        const op = opsById.get(d.operationId);
         results.push({ type: 'debt', icon: '📄', name: `CDA ${d.cdaNumber}`, meta: `${fmtCur(d.value)} · ${DEBT_STATUSES[d.status]?.label || d.status}${d.processNumber ? ' · Proc. '+d.processNumber : ''}`, opName: op?.name, opId: d.operationId, id: d.id, entity: d, entityType: 'debt', tab: 'dividas' });
       }
     });
     // Executions — process number, court, class
     data.executions.forEach(e => {
-      const match = e.processNumber?.replace(/[.\-]/g,'').includes(q) || e.processNumber?.includes(gsQuery) || e.court?.toLowerCase().includes(raw) || e.className?.toLowerCase().includes(raw);
+      const match = e.processNumber?.replace(/[.\-]/g,'').includes(q) || e.processNumber?.includes(deferredGsQuery) || e.court?.toLowerCase().includes(raw) || e.className?.toLowerCase().includes(raw);
       if (match) {
-        const op = data.operations.find(o => o.id === e.operationId);
+        const op = opsById.get(e.operationId);
         const tag = e.processTag === 'idpj' ? 'IDPJ · ' : e.processTag === 'cautelar_fiscal' ? 'MCF · ' : '';
         results.push({ type: 'execution', icon: '⚖️', name: e.processNumber, meta: `${tag}${e.className || ''}${e.court ? ' · '+e.court : ''} · ${EXEC_STATUSES[e.status]?.label || e.status}`, opName: op?.name, opId: e.operationId, id: e.id, entity: e, entityType: 'execution', tab: 'execucoes' });
       }
@@ -3373,7 +3411,7 @@ function App() {
     (data.intimations || []).forEach(intim => {
       const match = intim.processNumber?.replace(/[.\-]/g,'').includes(q) || intim.parties?.toLowerCase().includes(raw) || intim.partyName?.toLowerCase().includes(raw);
       if (match) {
-        const op = data.operations.find(o => o.id === intim.operationId);
+        const op = opsById.get(intim.operationId);
         results.push({ type: 'intimation', icon: '📬', name: intim.processNumber, meta: `${intim.className || ''} · ${truncate(intim.eventDescription || '', 40)}`, opName: op?.name || 'Sem operação', opId: intim.operationId, id: intim.id, entity: intim, entityType: 'intimation', tab: null });
       }
     });
@@ -3381,7 +3419,7 @@ function App() {
     data.assets.forEach(a => {
       const match = a.description?.toLowerCase().includes(raw) || a.registry?.toLowerCase().includes(raw);
       if (match) {
-        const op = data.operations.find(o => o.id === a.operationId);
+        const op = opsById.get(a.operationId);
         results.push({ type: 'asset', icon: '💎', name: truncate(a.description, 40), meta: `${ASSET_SUBTYPES[a.subtype] || a.subtype || ''} · ${(ASSET_STATUSES[a.status] || {}).label || a.status}${a.value ? ' · '+fmtCur(a.value) : ''}`, opName: op?.name, opId: a.operationId, id: a.id, entity: a, entityType: 'asset', tab: 'bens' });
       }
     });
@@ -3392,7 +3430,7 @@ function App() {
       }
     });
     return results.slice(0, 25);
-  }, [gsQuery, data]);
+  }, [deferredGsQuery, data, opsById]);
 
   // ─── Cloud Sync Functions (GAS-aware) ───
   const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
@@ -4502,7 +4540,7 @@ function App() {
     const constrVal = constricted.reduce((s,a) => s + (a.value||0), 0);
     const idpjs = opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
     const activeExecs = opExecs.filter(e => e.status !== 'extinta' && e.status !== 'arquivada');
-    const prescRisk = activeDebts.map(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []); return { d, pd, days: daysUntil(pd) }; }).filter(x => x.days !== null && x.days <= 180 && !x.d.prescriptionHandled).sort((a,b) => a.days - b.days);
+    const prescRisk = activeDebts.map(d => { const pd = getPrescDate(d); return { d, pd, days: daysUntil(pd) }; }).filter(x => x.days !== null && x.days <= 180 && !x.d.prescriptionHandled).sort((a,b) => a.days - b.days);
     const alvos = opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo');
     const row = (cells) => `<tr>${cells.map(x => `<td>${x}</td>`).join('')}</tr>`;
     const section = (title, body) => `<h2>${title}</h2>${body}`;
@@ -4603,7 +4641,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
     const guar = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
     const unexec = debts.filter(d => (d.status === 'ativa' || d.status === 'ativa_nao_ajuizavel') && !d.processNumber).length;
-    const prescA = debts.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, execs, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+    const prescA = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
     const prescExec = execs.filter(e => {
       const evts = (data.prescriptionEvents || []).filter(pe => pe.executionId === e.id);
       if (evts.length > 0) {
@@ -4649,7 +4687,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const unexec = opDebts.filter(d => (d.status === 'ativa' || !d.status) && !d.processNumber);
       if (unexec.length > 0) {
         const val = unexec.reduce((s,d) => s + (d.value||0), 0);
-        suggestions.push({ id: `cda_unexec:${op.id}`, priority: unexec.length >= 5 ? 'high' : 'medium', icon: '⚖️', opId: op.id, title: `${unexec.length} CDA(s) sem execução`, detail: `Total: ${fmtCur(val)}. Avaliar ajuizamento.`, actionLabel: 'Ver CDAs', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('dividas'); } });
+        suggestions.push({ id: `cda_unexec:${op.id}`, priority: unexec.length >= 5 ? 'high' : 'medium', icon: '⚖️', opId: op.id, title: `${unexec.length} CDA(s) sem execução`, detail: `Total: ${fmtCur(val)}. Avaliar ajuizamento.`, actionLabel: 'Ver CDAs', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); } });
       }
       // Bens sem Analytics
       const pending = opAssets.filter(a => !a.analyticsRegistered && a.status === 'indisponibilidade_ativa');
@@ -4662,7 +4700,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         if (!lastTouch) return;
         const daysSince = Math.floor((Date.now() - new Date(lastTouch).getTime()) / 86400000);
         if (daysSince > 90) {
-          suggestions.push({ id: `idpj_stale:${idpj.id}`, priority: daysSince > 180 ? 'high' : 'medium', icon: '🛡️', opId: op.id, title: `${idpj.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'} sem movimentação há ${daysSince}d`, detail: `${truncate(idpj.processNumber || 'S/N', 30)}. Avaliar cobrança de andamento.`, actionLabel: 'Ver processo', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('execucoes'); setTimeout(() => setModal({type:'edit',entityType:'execution',initial:idpj}), 100); } });
+          suggestions.push({ id: `idpj_stale:${idpj.id}`, priority: daysSince > 180 ? 'high' : 'medium', icon: '🛡️', opId: op.id, title: `${idpj.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'} sem movimentação há ${daysSince}d`, detail: `${truncate(idpj.processNumber || 'S/N', 30)}. Avaliar cobrança de andamento.`, actionLabel: 'Ver processo', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); setTimeout(() => setModal({type:'edit',entityType:'execution',initial:idpj}), 100); } });
         }
       });
       // Revisão atrasada
@@ -4680,7 +4718,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         suggestions.push({ id: `low_coverage:${op.id}`, priority: 'medium', icon: '🔓', opId: op.id, title: `Cobertura baixa: ${((guar/total)*100).toFixed(0)}%`, detail: `${fmtCur(total)} em crédito, apenas ${fmtCur(guar)} garantido.`, actionLabel: 'Ver bens', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('bens'); } });
       }
       // CDAs em risco crítico de prescrição (≤60 dias)
-      const critical = activeD.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, allPrescEvts); const dd = daysUntil(pd); return dd !== null && dd > 0 && dd <= 60 && !d.prescriptionHandled; });
+      const critical = activeD.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd > 0 && dd <= 60 && !d.prescriptionHandled; });
       if (critical.length > 0) {
         const cVal = critical.reduce((s,d) => s + (d.value||0), 0);
         suggestions.push({ id: `presc_crit:${op.id}`, priority: 'high', icon: '⏱', opId: op.id, title: `${critical.length} CDA(s) prescrevendo em ≤60d`, detail: `Risco: ${fmtCur(cVal)}. Agir imediatamente.`, actionLabel: 'Ver prescrição', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); } });
@@ -4756,7 +4794,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         .map(ef => ({ ...ef, _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s,d) => s + (d.value||0), 0) }))
         .sort((a, b) => b._cdaValue - a._cdaValue);
       const prescRisk = activeDebts.filter(d => {
-        const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []);
+        const pd = getPrescDate(d);
         const dd = daysUntil(pd);
         return dd !== null && dd <= 180 && !d.prescriptionHandled;
       });
@@ -4815,8 +4853,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>);
         })()}
 
-        {/* ═══ SPLIT LAYOUT: Briefing (left) + Anotações (right) ═══ */}
-        <div className="briefing-split" ref={briefingSplitRef}>
+        {/* ═══ BRIEFING: sub-abas internas ═══ */}
+        <div className="demo-inbox-switch briefing-sub-switch" role="tablist" aria-label="Briefing">
+          <button type="button" role="tab" aria-selected={briefingSub==='estrategias'}
+            className={`demo-inbox-tab ${briefingSub==='estrategias'?'active':''}`}
+            onClick={() => setBriefingSub('estrategias')}>
+            Estratégias e notas
+          </button>
+          <button type="button" role="tab" aria-selected={briefingSub==='panorama'}
+            className={`demo-inbox-tab ${briefingSub==='panorama'?'active':''}`}
+            onClick={() => setBriefingSub('panorama')}>
+            Panorama processual
+          </button>
+        </div>
+
+        {/* ═══ SUB: Estratégias e notas — links, entradas, checklists, lembretes ═══ */}
+        {briefingSub === 'estrategias' && <div className="briefing-split" ref={briefingSplitRef}>
           <div className="briefing-split-left">
 
             {/* ─── ACCORDION: Estratégia e notas (open by default) ─── */}
@@ -4870,8 +4922,93 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>}
             </div>
 
-            {/* ─── ACCORDION: Processos (mapa unificado — incidentes + centrais + EFs, com régua de estágio) ─── */}
-            {(idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central')) && (() => {
+            {/* ─── ACCORDION: Checklists (collapsed by default) ─── */}
+            {(() => {
+              const chk = briefing.checklists || {};
+              const toggle = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
+              const idpjItems = [['idpj_efs','EFs da inicial abrangidas'],['idpj_requeridos','Requeridos incluídos'],['idpj_preclusao','Sem termo "preclusão"'],['idpj_formulario','Formulário de indisponib.'],['idpj_saj','Corresponsáveis no SAJ']];
+              const vistaItems = [['vista_triar','Triar a operação'],['vista_formulario','Formulário de indisponib.'],['vista_bens','Bens do IDPJ indisponib.'],['vista_analisar','Analisar com calma']];
+              const totalDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
+              const totalAll = idpjItems.length + vistaItems.length;
+              const idpjDone = idpjItems.every(([k]) => chk[k]);
+              const vistaDone = vistaItems.every(([k]) => chk[k]);
+              const renderList = (items, done, label, borderColor) => (
+                <div style={{padding:'6px 8px',background:'rgba(255,255,255,0.02)',borderRadius:4,borderLeft:`2px solid ${done?'var(--green)':borderColor}`}}>
+                  <div style={{fontSize:8,fontWeight:700,textTransform:'uppercase',letterSpacing:0.4,color:done?'var(--green)':'var(--text-muted)',marginBottom:3,display:'flex',justifyContent:'space-between'}}>
+                    <span>{label}</span>
+                    <span style={{fontWeight:400,opacity:0.6}}>{items.filter(([k])=>chk[k]).length}/{items.length}</span>
+                  </div>
+                  {items.map(([k,l]) => (
+                    <div key={k} style={{display:'flex',alignItems:'center',gap:4,padding:'1px 0',fontSize:10,color:chk[k]?'var(--text-muted)':'var(--text-secondary)',textDecoration:chk[k]?'line-through':'none',cursor:'pointer',lineHeight:1.5,opacity:chk[k]?0.5:1}} onClick={() => toggle(k)}>
+                      <span style={{fontSize:9,width:12,textAlign:'center',flexShrink:0,color:chk[k]?'var(--green)':'var(--border)'}}>{chk[k]?'✓':'○'}</span>
+                      <span>{l}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+              return (<div className="b-acc">
+                <div className="b-acc-hdr" onClick={() => toggleGroup('bacc-chk')}>
+                  <div className="b-acc-left">
+                    <span className={`b-acc-icon ${collapsedGroups.has('bacc-chk')?'open':''}`}>▸</span>
+                    <span className="b-acc-title">Checklists</span>
+                    <span className="b-acc-count" style={totalDone===totalAll?{background:'rgba(34,197,94,0.15)',color:'var(--green)'}:{}}>{totalDone}/{totalAll}</span>
+                  </div>
+                </div>
+                {collapsedGroups.has('bacc-chk') && <div className="b-acc-body">
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    {renderList(idpjItems, idpjDone, 'Decisão Final do IDPJ', 'var(--red)')}
+                    {renderList(vistaItems, vistaDone, '1a. Vista da Operação', 'var(--yellow)')}
+                  </div>
+                </div>}
+              </div>);
+            })()}
+
+            {/* ─── ACCORDION: Tarefas (collapsed by default) ─── */}
+            {opTasks.length > 0 && <div className="b-acc">
+              <div className="b-acc-hdr" onClick={() => toggleGroup('bacc-tsk')}>
+                <div className="b-acc-left">
+                  <span className={`b-acc-icon ${collapsedGroups.has('bacc-tsk')?'open':''}`}>▸</span>
+                  <span className="b-acc-title">Tarefas</span>
+                  <span className="b-acc-count" style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)'}}>{opTasks.length}</span>
+                </div>
+              </div>
+              {collapsedGroups.has('bacc-tsk') && <div className="b-acc-body">
+                {opTasks.slice(0, 6).map(t => (
+                  <div key={t.id} className="briefing-proc-item" onClick={() => setModal({type:'edit',entityType:'task',initial:t})}>
+                    {t.dueDate && daysUntil(t.dueDate) !== null && daysUntil(t.dueDate) < 0 && <span style={{color:'var(--red)',marginRight:3}}>●</span>}
+                    <span style={{flex:1,fontSize:10,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title}</span>
+                    {t.dueDate && <span style={{fontSize:9,color:'var(--text-muted)'}}>{fmtDate(t.dueDate)}</span>}
+                  </div>
+                ))}
+                {opTasks.length > 6 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{opTasks.length - 6}</div>}
+              </div>}
+            </div>}
+
+          </div>
+
+          {/* ═══ DRAG HANDLE ═══ */}
+          <div className="briefing-split-handle" onMouseDown={onSplitDragStart} title="Arraste para redimensionar" />
+
+          {/* ═══ RIGHT PANEL: Lembretes ═══ */}
+          <div className="briefing-split-right" style={{width: briefingRightW + '%', flexShrink: 0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>📌 Lembretes</span>
+              <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setModal({type:'create',entityType:'stickyNote',initial:{operationId:opId,color:'yellow'}})}>+ Lembrete</button>
+            </div>
+            {notes.length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--text-muted)',fontSize:11,background:'rgba(255,255,255,0.02)',borderRadius:'var(--radius-lg)',border:'1px dashed var(--border)'}}>Nenhum lembrete.<br/>Anote lembretes e notas soltas.</div> :
+            <div className="notes-grid">{notes.map(n => (
+              <div key={n.id} className={`sticky-note color-${n.color || 'yellow'}`} onClick={() => setModal({type:'edit',entityType:'stickyNote',initial:n})}>
+                <button className="sn-delete" onClick={e => { e.stopPropagation(); if(confirm('Excluir lembrete?')) { setData(prev => ({...prev, stickyNotes: prev.stickyNotes.filter(x=>x.id!==n.id)})); } }}>✕</button>
+                {n.title && <div className="sn-title">{n.title}</div>}
+                <div className="sn-body">{linkify(n.content || '')}</div>
+                <div className="sn-date">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString('pt-BR') : ''}</div>
+              </div>
+            ))}</div>}
+          </div>
+        </div>}
+
+        {/* ═══ SUB: Panorama processual — cards de processos (IDPJ/MCF/centrais) ═══ */}
+        {briefingSub === 'panorama' && ((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central')) ? (() => {
               const coveredMap = {};
               idpjs.forEach(ip => { (ip.linkedExecutionIds || []).forEach(efId => { coveredMap[efId] = ip; }); });
               const coveredEFs = mainEFs.filter(ef => coveredMap[ef.id]);
@@ -4922,17 +5059,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ...idpjs.map(ip => ({ ip, STAGES: PROCESS_STAGES, STAGE_KEYS: PROCESS_STAGE_KEYS, apensos: efsByIncident[ip.id] || [] })),
                 ...centrais.map(c => ({ ip: c, STAGES: CENTRAL_STAGES, STAGE_KEYS: CENTRAL_STAGE_KEYS, apensos: apensosByCentral[c.id] || [] })),
               ];
+              const procCount = idpjs.length + centrais.length + coveredEFs.length + uncoveredEFs.length;
 
-              return (<div className="b-acc">
-                <div className="b-acc-hdr" onClick={() => toggleGroup('bacc-proc')}>
-                  <div className="b-acc-left">
-                    <span className={`b-acc-icon ${collapsedGroups.has('bacc-proc')?'open':''}`}>▸</span>
-                    <span className="b-acc-title">Processos</span>
-                    <span className="b-acc-count">{idpjs.length + centrais.length + coveredEFs.length + uncoveredEFs.length}</span>
+              return (<div className="demo-inbox-panel">
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Processos</span>
+                    <span className="b-acc-count">{procCount}</span>
                   </div>
-                  {grand > 0 && <div className="b-acc-right"><span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)'}}>{pct}% coberto</span></div>}
+                  {grand > 0 && <span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)'}}>{pct}% coberto</span>}
                 </div>
-                {collapsedGroups.has('bacc-proc') && <div className="b-acc-body">
                   {grand > 0 && <div style={{marginBottom:10}}>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'var(--text-muted)',marginBottom:3}}>
                       <span>Cobertura por incidentes</span>
@@ -5021,96 +5157,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       {uncoveredEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{uncoveredEFs.length-8} EF(s)</div>}
                     </div>
                   </div>}
-                </div>}
               </div>);
-            })()}
-
-            {/* EFs abrangidas / não abrangidas agora vivem dentro do acordeão "Processos" acima */}
-
-            {/* ─── ACCORDION: Checklists (collapsed by default) ─── */}
-            {(() => {
-              const chk = briefing.checklists || {};
-              const toggle = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
-              const idpjItems = [['idpj_efs','EFs da inicial abrangidas'],['idpj_requeridos','Requeridos incluídos'],['idpj_preclusao','Sem termo "preclusão"'],['idpj_formulario','Formulário de indisponib.'],['idpj_saj','Corresponsáveis no SAJ']];
-              const vistaItems = [['vista_triar','Triar a operação'],['vista_formulario','Formulário de indisponib.'],['vista_bens','Bens do IDPJ indisponib.'],['vista_analisar','Analisar com calma']];
-              const totalDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
-              const totalAll = idpjItems.length + vistaItems.length;
-              const idpjDone = idpjItems.every(([k]) => chk[k]);
-              const vistaDone = vistaItems.every(([k]) => chk[k]);
-              const renderList = (items, done, label, borderColor) => (
-                <div style={{padding:'6px 8px',background:'rgba(255,255,255,0.02)',borderRadius:4,borderLeft:`2px solid ${done?'var(--green)':borderColor}`}}>
-                  <div style={{fontSize:8,fontWeight:700,textTransform:'uppercase',letterSpacing:0.4,color:done?'var(--green)':'var(--text-muted)',marginBottom:3,display:'flex',justifyContent:'space-between'}}>
-                    <span>{label}</span>
-                    <span style={{fontWeight:400,opacity:0.6}}>{items.filter(([k])=>chk[k]).length}/{items.length}</span>
-                  </div>
-                  {items.map(([k,l]) => (
-                    <div key={k} style={{display:'flex',alignItems:'center',gap:4,padding:'1px 0',fontSize:10,color:chk[k]?'var(--text-muted)':'var(--text-secondary)',textDecoration:chk[k]?'line-through':'none',cursor:'pointer',lineHeight:1.5,opacity:chk[k]?0.5:1}} onClick={() => toggle(k)}>
-                      <span style={{fontSize:9,width:12,textAlign:'center',flexShrink:0,color:chk[k]?'var(--green)':'var(--border)'}}>{chk[k]?'✓':'○'}</span>
-                      <span>{l}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-              return (<div className="b-acc">
-                <div className="b-acc-hdr" onClick={() => toggleGroup('bacc-chk')}>
-                  <div className="b-acc-left">
-                    <span className={`b-acc-icon ${collapsedGroups.has('bacc-chk')?'open':''}`}>▸</span>
-                    <span className="b-acc-title">Checklists</span>
-                    <span className="b-acc-count" style={totalDone===totalAll?{background:'rgba(34,197,94,0.15)',color:'var(--green)'}:{}}>{totalDone}/{totalAll}</span>
-                  </div>
-                </div>
-                {collapsedGroups.has('bacc-chk') && <div className="b-acc-body">
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                    {renderList(idpjItems, idpjDone, 'Decisão Final do IDPJ', 'var(--red)')}
-                    {renderList(vistaItems, vistaDone, '1a. Vista da Operação', 'var(--yellow)')}
-                  </div>
-                </div>}
-              </div>);
-            })()}
-
-            {/* ─── ACCORDION: Tarefas (collapsed by default) ─── */}
-            {opTasks.length > 0 && <div className="b-acc">
-              <div className="b-acc-hdr" onClick={() => toggleGroup('bacc-tsk')}>
-                <div className="b-acc-left">
-                  <span className={`b-acc-icon ${collapsedGroups.has('bacc-tsk')?'open':''}`}>▸</span>
-                  <span className="b-acc-title">Tarefas</span>
-                  <span className="b-acc-count" style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)'}}>{opTasks.length}</span>
-                </div>
-              </div>
-              {collapsedGroups.has('bacc-tsk') && <div className="b-acc-body">
-                {opTasks.slice(0, 6).map(t => (
-                  <div key={t.id} className="briefing-proc-item" onClick={() => setModal({type:'edit',entityType:'task',initial:t})}>
-                    {t.dueDate && daysUntil(t.dueDate) !== null && daysUntil(t.dueDate) < 0 && <span style={{color:'var(--red)',marginRight:3}}>●</span>}
-                    <span style={{flex:1,fontSize:10,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title}</span>
-                    {t.dueDate && <span style={{fontSize:9,color:'var(--text-muted)'}}>{fmtDate(t.dueDate)}</span>}
-                  </div>
-                ))}
-                {opTasks.length > 6 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{opTasks.length - 6}</div>}
-              </div>}
-            </div>}
-
+            })() : (
+          <div className="demo-inbox-panel" style={{padding:24,textAlign:'center',color:'var(--text-muted)',fontSize:12,background:'rgba(255,255,255,0.02)',borderRadius:'var(--radius-lg)',border:'1px dashed var(--border)'}}>
+            Nenhum processo central, incidente ou EF ativa para o panorama.
           </div>
-
-          {/* ═══ DRAG HANDLE ═══ */}
-          <div className="briefing-split-handle" onMouseDown={onSplitDragStart} title="Arraste para redimensionar" />
-
-          {/* ═══ RIGHT PANEL: Anotações ═══ */}
-          <div className="briefing-split-right" style={{width: briefingRightW + '%', flexShrink: 0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8}}>
-              <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>📌 Lembretes</span>
-              <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setModal({type:'create',entityType:'stickyNote',initial:{operationId:opId,color:'yellow'}})}>+ Lembrete</button>
-            </div>
-            {notes.length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--text-muted)',fontSize:11,background:'rgba(255,255,255,0.02)',borderRadius:'var(--radius-lg)',border:'1px dashed var(--border)'}}>Nenhum lembrete.<br/>Anote lembretes e notas soltas.</div> :
-            <div className="notes-grid">{notes.map(n => (
-              <div key={n.id} className={`sticky-note color-${n.color || 'yellow'}`} onClick={() => setModal({type:'edit',entityType:'stickyNote',initial:n})}>
-                <button className="sn-delete" onClick={e => { e.stopPropagation(); if(confirm('Excluir lembrete?')) { setData(prev => ({...prev, stickyNotes: prev.stickyNotes.filter(x=>x.id!==n.id)})); } }}>✕</button>
-                {n.title && <div className="sn-title">{n.title}</div>}
-                <div className="sn-body">{linkify(n.content || '')}</div>
-                <div className="sn-date">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString('pt-BR') : ''}</div>
-              </div>
-            ))}</div>}
-          </div>
-        </div>
+        ))}
       </div>);
     }
 
@@ -5414,7 +5466,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const valCorresp = cdasCorresp.reduce((s,l) => { const d = opDebts.find(dd => dd.id === l.cdaId); return s + (d?.value||0); }, 0);
         const myAssets = opAssets.filter(a => a.titularCpfCnpj === p.cpfCnpj);
         const valAssets = myAssets.reduce((s,a)=>s+(a.value||0),0);
-        const prescRisk = cdasOriginario.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecsForPresc, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+        const prescRisk = cdasOriginario.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
         return { person: p, cdasOriginario, cdasCorrespByRole, valOriginario, valCorresp, valTotal: valOriginario + valCorresp, myAssets, valAssets, prescRisk, totalCdas: cdasOriginario.length + cdasCorresp.length };
       });
 
@@ -5478,7 +5530,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       if (cdaSort === 'status') sorted.sort((a,b) => (a.status||'').localeCompare(b.status||''));
       else if (cdaSort === 'value_desc') sorted.sort((a,b) => (b.value||0) - (a.value||0));
       else if (cdaSort === 'value_asc') sorted.sort((a,b) => (a.value||0) - (b.value||0));
-      else if (cdaSort === 'prescription') sorted.sort((a,b) => { const pa = calcAutoPresc(a,opExecs, data.prescriptionEvents || [])||'9999'; const pb = calcAutoPresc(b,opExecs, data.prescriptionEvents || [])||'9999'; return pa.localeCompare(pb); });
+      else if (cdaSort === 'prescription') sorted.sort((a,b) => { const pa = getPrescDate(a)||'9999'; const pb = getPrescDate(b)||'9999'; return pa.localeCompare(pb); });
       else if (cdaSort === 'devedor') sorted.sort((a,b) => { const na = data.people.find(p=>p.id===a.personId)?.name||'zzz'; const nb = data.people.find(p=>p.id===b.personId)?.name||'zzz'; return na.localeCompare(nb); });
       else if (cdaSort === 'tribute') sorted.sort((a,b) => (a.tribute||'zzz').localeCompare(b.tribute||'zzz'));
       else if (cdaSort === 'ajuizada') sorted.sort((a,b) => (a.processNumber?0:1) - (b.processNumber?0:1));
@@ -5589,7 +5641,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {(() => {
           // Reusable CDA card renderer
           const renderCDACard = (d) => {
-            const autoPresc = calcAutoPresc(d, opExecs, data.prescriptionEvents || []);
+            const autoPresc = getPrescDate(d);
             const prescDate = d.prescriptionDate || autoPresc;
             const days = daysUntil(prescDate);
             const st = DEBT_STATUSES[d.status] || {};
@@ -6431,7 +6483,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
                 <div style={{maxHeight:200,overflowY:'auto'}}>
                   {group.cdas.map(d => {
-                    const autoPresc = calcAutoPresc(d, execs, data.prescriptionEvents || []);
+                    const autoPresc = getPrescDate(d);
                     const prescDate = d.prescriptionDate || autoPresc;
                     const days = daysUntil(prescDate);
                     const isSelected = selectedCDAs.has(d.id);
@@ -6603,7 +6655,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         // Apenso de algo é renderizado sob o principal — só top-level aqui
         if (g.exec.parentExecutionId) return false;
         // Apenas EFs regulares (filtra centrais, embargos, recursos, outros)
-        return isExecucaoFiscalRegular(g.exec);
+        return true; // visão integrada: todos os processos top-level
       });
 
       // Lista vazia agora — embargos/recursos/centrais/outros não aparecem mais
@@ -6689,24 +6741,55 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           return null;
         })() : null;
 
-        return (<div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
+        const processKey = 'process-row-' + (isExec ? e.id : 'unlinked');
+        const processExpanded = collapsedGroups.has(processKey);
+        const riskDays = group.cdas
+          .filter(d => !d.prescriptionHandled)
+          .map(d => daysUntil(getPrescDate(d)))
+          .filter(v => v !== null);
+        const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
+        const allHandled = group.cdas.length > 0 && group.cdas.every(d => d.prescriptionHandled);
+        const riskLabel = allHandled ? 'Tratadas'
+          : minRiskDays === null ? 'Sem dados'
+          : minRiskDays <= 0 ? 'Prescrita'
+          : minRiskDays <= 180 ? minRiskDays + 'd · crítico'
+          : minRiskDays <= 365 ? minRiskDays + 'd · atenção'
+          : minRiskDays + 'd';
+        const riskClass = allHandled ? 'risk-ok'
+          : minRiskDays !== null && minRiskDays <= 180 ? 'risk-critical'
+          : minRiskDays !== null && minRiskDays <= 365 ? 'risk-warning'
+          : '';
+
+        return (<div className={`process-group ${processExpanded ? 'open' : ''}`}>
+          <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
+            <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
+            <span className="process-id">
+              <strong>{isExec ? (e.processNumber || 'Processo sem número') : 'CDAs sem processo'}</strong>
+              <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
+            </span>
+            <span className="process-stat"><small>Status</small><strong>{isExec ? (st.label || e.status) : 'Não ajuizadas'}</strong></span>
+            <span className="process-stat"><small>CDAs</small><strong>{group.cdas.length} · {fmtCur(totalCDAValue)}</strong></span>
+            <span className={`process-risk ${riskClass}`}><small>Prescrição</small><strong>{riskLabel}</strong></span>
+          </button>
+          {processExpanded && <div className="process-detail">
+            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
           <div style={{minWidth:0}}>
             {/* Process header row */}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
               {isExec && group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} style={{width:16,cursor:'pointer',flexShrink:0}} title="Selecionar todas as CDAs do processo" />}
               {isExec ? <div style={{minWidth:0,flex:1}}>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:2,alignItems:'center'}}>
-                  {isExec && <span onClick={toggleRelevant} style={{cursor:'pointer',fontSize:12,lineHeight:1,opacity:isRelevant?1:0.3,transition:'opacity 0.15s'}} title={isRelevant?'Remover destaque':'Marcar como relevante'}>{isRelevant?'★':'☆'}</span>}
-                  {isApenso && <span style={{fontSize:9,color:'var(--accent)',fontWeight:700}}>↳ apenso</span>}
-                  {myApensosGroups.length > 0 && <span className="has-tip" style={{fontSize:9,color:'var(--accent)',fontWeight:700}}>📎{myApensosGroups.length}<span className="tip-content">{myApensosGroups.length} processo(s) apensado(s).</span></span>}
-                  {isTagged && <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:e.processTag==='idpj'?'rgba(244,63,94,0.2)':e.processTag==='cautelar_fiscal'?'rgba(245,158,11,0.2)':'rgba(122,139,163,0.2)',color:e.processTag==='idpj'?'var(--red)':e.processTag==='cautelar_fiscal'?'var(--yellow)':'var(--purple)'}}>{tagLabels[e.processTag]||e.processTag}</span>}
-                  {isLinkedToIDPJ2 && !isTagged && <span className="badge badge-red has-tip" style={{fontSize:9}}>↗ IDPJ<span className="tip-content">Abrangida por incidente.</span></span>}
-                  <span className={`badge ${st.badge||''}`} style={{fontSize:9,fontWeight:700}}>{st.label||e.status}</span>
-                  {e.hasGuarantee && <span className="badge badge-green has-tip" style={{fontSize:9}}>GAR<span className="tip-content">Garantia idônea.</span></span>}
-                  {e.prescriptionInterrupted && <span className="badge badge-cyan has-tip" style={{fontSize:9}}>PI<span className="tip-content">Prescrição interrompida.</span></span>}
-                  {procAlerts.intims.length > 0 && <span className="has-tip" style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:procAlerts.overdueIntim?'rgba(244,63,94,0.2)':'rgba(59,130,246,0.2)',color:procAlerts.overdueIntim?'var(--red)':'var(--blue)',display:'inline-flex',alignItems:'center',gap:3}}>📬 {procAlerts.intims.length}<span className="tip-content">{procAlerts.intims.length} intimação(ões) {procAlerts.overdueIntim ? 'VENCIDA(S)' : 'em aberto'}.</span></span>}
-                  {procAlerts.tasks.length > 0 && <span className="has-tip" style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:procAlerts.overdueTask?'rgba(244,63,94,0.2)':'rgba(245,158,11,0.2)',color:procAlerts.overdueTask?'var(--red)':'var(--yellow)',display:'inline-flex',alignItems:'center',gap:3}}>✓ {procAlerts.tasks.length}<span className="tip-content">{procAlerts.tasks.length} tarefa(s) {procAlerts.overdueTask ? 'VENCIDA(S)' : 'em aberto'}.</span></span>}
+                <div className="process-meta">
+                  {isExec && <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>}
+                  {isApenso && <span>Apenso</span>}
+                  {myApensosGroups.length > 0 && <span>{myApensosGroups.length} apenso(s)</span>}
+                  {isTagged && <strong>{tagLabels[e.processTag]||e.processTag}</strong>}
+                  {isLinkedToIDPJ2 && !isTagged && <span>Vinculada a IDPJ</span>}
+                  <span>{st.label||e.status}</span>
+                  {e.hasGuarantee && <span>Garantia</span>}
+                  {e.prescriptionInterrupted && <span>PI</span>}
+                  {procAlerts.intims.length > 0 && <span className={procAlerts.overdueIntim?'overdue':''}>{procAlerts.intims.length} intimação(ões)</span>}
+                  {procAlerts.tasks.length > 0 && <span className={procAlerts.overdueTask?'overdue':''}>{procAlerts.tasks.length} tarefa(s)</span>}
                 </div>
                 <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700}}>
                   <Copyable value={e.processNumber}>{e.processNumber}</Copyable>
@@ -6730,7 +6813,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
             <div style={{maxHeight:260,overflowY:'auto'}}>
               {group.cdas.map(d => {
-                const autoPresc = calcAutoPresc(d, execs, data.prescriptionEvents || []);
+                const autoPresc = getPrescDate(d);
                 const prescDate = d.prescriptionDate || autoPresc;
                 const days = daysUntil(prescDate);
                 const isSelected = selectedCDAs.has(d.id);
@@ -6769,19 +6852,23 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     }});
                   }
                 };
-                return (<div key={d.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:3,opacity:isHandled&&!isAguardando?0.85:1}}>
+                return (<div key={d.id} className="cda-row" title="Abrir detalhes da CDA" onClick={(ev) => {
+                  if (ev.target.closest && ev.target.closest('input,button')) return;
+                  ev.stopPropagation();
+                  setModal({type:'cdaDetail',entityType:'debt',initial:d});
+                }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:3,opacity:isHandled&&!isAguardando?0.85:1}}>
                   <input type="checkbox" checked={isSelected} onChange={() => toggleCDA2(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
                       <span style={{fontWeight:600,fontSize:11}}>
                         {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:4}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
                          : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
-                        <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
+                        <span className="cda-link">{d.cdaNumber || 'CDA'}</span>
                       </span>
                       <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
                     </div>
                     <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
-                      <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8,padding:'1px 5px'}}>{cdaSt.label||d.status}</span>
+                      <span className="cda-status">{cdaSt.label||d.status}</span>
                       {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
                        : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
                       <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
@@ -6855,11 +6942,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               ev.stopPropagation();
               const cdaIds = group.cdas.map(d => d.id);
               setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? e.id : ''}});
-            }}>⏱ + Evento</button>
+            }}>+ Evento</button>
             {isExec && <button className="btn-secondary btn-sm" onClick={(ev) => {
               ev.stopPropagation();
               setModal({type:'edit',entityType:'execution',initial:{...e, _editMode: 'dados'}});
-            }}>✎ Dados do Processo</button>}
+            }}>Dados do Processo</button>}
             {isExec && <button className="btn-secondary btn-sm" onClick={(ev) => {
               ev.stopPropagation();
               setModal({type:'create',entityType:'task',initial:{
@@ -6871,7 +6958,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 status: 'pendente',
                 taskVisibility: 'operation'
               }});
-            }}>📋 Gerar Tarefa</button>}
+            }}>Gerar Tarefa</button>}
             {group.cdas.length > 0 && <button className="btn-secondary btn-xs" onClick={(ev) => { ev.stopPropagation(); selectGroup2(group.cdas); }}>{groupAllSelected?'Desmarcar':'Marcar todas'}</button>}
             <div style={{fontSize:9,color:'var(--text-muted)',textAlign:'center',marginTop:4,paddingTop:4,borderTop:'1px dashed var(--border)'}}>
               <strong style={{color:'var(--text-secondary)',fontSize:10}}>{group.cdas.length} CDA(s)</strong><br/>
@@ -6882,6 +6969,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>}
             </div>
           </div>
+            </div>
+          </div>}
         </div>);
       };
 
@@ -6897,10 +6986,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       };
 
       return (<div className="entity-area">
-        {/* Legal reference */}
+        {/* Orientação da visão integrada */}
         <div className="presc-legal-ref">
-          <strong>Prescrição por CDA</strong> — Ajuizadas: data mais recente (inscrição ou protocolo) + 6 anos (1a suspensão + 5a arquivamento, Art. 40 LEF). Não ajuizadas: inscrição + 5 anos (Art. 174 CTN). Eventos interruptivos reiniciam a contagem; eventos suspensivos pausam.
-          <br/><span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Esta aba exibe apenas Incidentes (IDPJ), Medidas Cautelares Fiscais e Execuções Fiscais. Embargos, recursos, processos centrais e ações declaratórias/anulatórias permanecem na aba Processos.</span>
+          <strong>Processos, CDAs e prescrição em uma única visão.</strong>
+          {' '}Os processos começam recolhidos. Abra uma linha para acessar o detalhamento, as notas, os eventos e as ações. Clique numa CDA para ver o popup completo.
         </div>
 
         {/* Bulk selection bar */}
@@ -6949,7 +7038,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {/* IDPJ / Cautelar section */}
           {idpjGroups.length > 0 && <div style={{marginBottom:16}}>
             <div style={{fontSize:12,fontWeight:700,color:'var(--pgfn-light)',marginBottom:8,textTransform:'uppercase',letterSpacing:0.5,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span>🛡️ Incidentes de Desconsideração / Cautelares Fiscais ({idpjGroups.length})</span>
+              <span>Incidentes de Desconsideração / Cautelares Fiscais ({idpjGroups.length})</span>
               {idpjGroups.some(g => (g.exec.linkedExecutionIds||[]).length > 0) && <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',fontWeight:600,textTransform:'none',letterSpacing:0}} onClick={() => {
                 // Collect all CDAs from every EF covered by any IDPJ in the list
                 const coveredExecIds = new Set();
@@ -6957,7 +7046,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const coveredExecs = execs.filter(e => coveredExecIds.has(e.id));
                 const cdasToSelect = allDebts.filter(d => d.processNumber && coveredExecs.some(e => sameProc(e.processNumber, d.processNumber)));
                 setSelectedCDAs(prev => { const n = new Set(prev); cdasToSelect.forEach(d => n.add(d.id)); return n; });
-              }}>⊕ Selecionar CDAs das EFs cobertas<span className="tip-content">Seleciona todas as CDAs de todas as execuções fiscais abrangidas pelos incidentes/cautelares acima. Útil para lançar um único evento interruptivo (ex: indisponibilidade patrimonial obtida no IDPJ) que alcance todas as CDAs de uma vez.</span></button>}
+              }}>Selecionar CDAs das EFs cobertas<span className="tip-content">Seleciona todas as CDAs de todas as execuções fiscais abrangidas pelos incidentes/cautelares acima. Útil para lançar um único evento interruptivo (ex: indisponibilidade patrimonial obtida no IDPJ) que alcance todas as CDAs de uma vez.</span></button>}
             </div>
             {idpjGroups.map(g => renderGroupTree(g, 'idpj'))}
           </div>}
@@ -6965,7 +7054,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {/* Regular processes — linked to IDPJ/Cautelar (close to the incident) */}
           {regularLinkedToIdpj.length > 0 && <div style={{marginBottom:8}}>
             <div style={{fontSize:10,fontWeight:600,color:'var(--pgfn-light)',marginBottom:6,letterSpacing:0.3,display:'flex',alignItems:'center',gap:8}}>
-              <span style={{flex:'0 0 auto'}}>⚖️🔗 Execuções Fiscais vinculadas ao Incidente/Cautelar ({regularLinkedToIdpj.length})</span>
+              <span style={{flex:'0 0 auto'}}>Execuções Fiscais vinculadas ao Incidente/Cautelar ({regularLinkedToIdpj.length})</span>
               <span style={{flex:1,height:1,background:'linear-gradient(90deg, rgba(155,40,72,0.4), transparent)'}}></span>
             </div>
             {regularLinkedToIdpj.map(g => renderGroupTree(g, 'normal'))}
@@ -6975,7 +7064,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {regularLinkedToIdpj.length > 0 && regularStandalone.length > 0 && (
             <div style={{margin:'14px 0 10px',display:'flex',alignItems:'center',gap:10}}>
               <span style={{flex:1,height:1,background:'repeating-linear-gradient(90deg, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)'}}></span>
-              <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600}}>⚖️ Demais Processos</span>
+              <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600}}>Demais Processos</span>
               <span style={{flex:1,height:1,background:'repeating-linear-gradient(90deg, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)'}}></span>
             </div>
           )}
@@ -7387,7 +7476,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const d = initial;
       const st = DEBT_STATUSES[d.status] || {};
       const opExecsLocal = data.executions.filter(e => e.operationId === d.operationId);
-      const autoPresc = calcAutoPresc(d, opExecsLocal, data.prescriptionEvents || []);
+      const autoPresc = getPrescDate(d);
       const prescDate = d.prescriptionDate || autoPresc;
       const prescDays = daysUntil(prescDate);
       const linkedExec = d.processNumber ? data.executions.find(e => sameProc(e.processNumber, d.processNumber) && e.operationId === d.operationId) : null;
@@ -7459,13 +7548,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
   const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da CDA' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'CDA',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência'}[modal.entityType]||'')) : '';
 
-  const tabList = ['notas','grafo','tarefas','importar','pessoas','dividas','execucoes','prescricao_v2','bens','timeline','docs','insights'];
-  const tabLabels = { notas:'Anotações', grafo:'Grafo', tarefas:'Tarefas', importar:'Importar', pessoas:'Pessoas', dividas:'CDAs', execucoes:'Processos', prescricao_v2:'Controle da Prescrição', bens:'Bens', timeline:'Linha do Tempo', docs:'Docs', insights:'Insights' };
+  const tabList = ['notas','pessoas','prescricao_v2','bens','tarefas','importar','docs'];
+  const tabLabels = { notas:'Briefing', pessoas:'Pessoas', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
+  React.useEffect(() => {
+    // Abas removidas (grafo, insights, timeline, CDAs, Processos) → visão integrada
+    if (!tabList.includes(activeTab)) setActiveTab('prescricao_v2');
+  }, [activeTab]);
   const DEMO_ZONES = {
     briefing: { label: 'Briefing', tabs: ['notas'] },
-    acervo: { label: 'Acervo', tabs: ['pessoas', 'dividas', 'execucoes', 'bens'] },
-    risco: { label: 'Risco', tabs: ['prescricao_v2', 'timeline'] },
-    ferramentas: { label: 'Ferramentas', tabs: ['tarefas', 'importar', 'docs', 'grafo', 'insights'] },
+    acervo: { label: 'Acervo', tabs: ['pessoas', 'bens'] },
+    risco: { label: 'Risco', tabs: ['prescricao_v2'] },
+    ferramentas: { label: 'Ferramentas', tabs: ['tarefas', 'importar', 'docs'] },
   };
   const tabToDemoZone = (tab) => {
     for (const [z, cfg] of Object.entries(DEMO_ZONES)) { if (cfg.tabs.includes(tab)) return z; }
@@ -7650,7 +7743,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     (data.debts || []).forEach(d => {
       if (d.prescriptionHandled) return;
       const opExecs = data.executions.filter(e => e.operationId === d.operationId);
-      const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []);
+      const pd = getPrescDate(d);
       const dd = daysUntil(pd);
       if (dd === null || dd > 180) return;
       const op = data.operations.find(o => o.id === d.operationId);
@@ -7760,7 +7853,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const totalValue = debts.reduce((s, d) => s + (d.value || 0), 0);
       const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
       const prescRisk = debts.filter(d => {
-        const pd = d.prescriptionDate || calcAutoPresc(d, execs, allPrescEvts);
+        const pd = getPrescDate(d);
         const dd = daysUntil(pd);
         return dd !== null && dd <= 180 && !d.prescriptionHandled;
       }).length;
@@ -7929,7 +8022,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const allPrescEvts = data.prescriptionEvents || [];
     (data.debts || []).forEach(d => {
       if (d.status === 'extinta' || d.prescriptionHandled) return;
-      const pd = d.prescriptionDate || calcAutoPresc(d, allExecs, allPrescEvts);
+      const pd = getPrescDate(d);
       if (!inWeek(pd)) return;
       byDay[pd].push({
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
@@ -8036,12 +8129,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
 
         <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('audiencias'); }}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
-        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span className="demo-rail-ico">📄</span><span>Biblioteca</span></button>
+        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span>Biblioteca</span></button>
         <div className={`demo-rail-branch ${viewMode==='mesa'||viewMode==='acompanhar'||viewMode==='painel'?'active-branch':''}`}>
           <button className={`demo-rail-btn ${viewMode==='mesa'?'active':''} ${viewMode==='acompanhar'||viewMode==='painel'?'soft-active':''}`}
             onClick={() => { setDemoTrabalhoOpen(false); setViewMode('mesa'); }}
             title="Mesa de trabalho">
-            <span className="demo-rail-ico">🗂</span>
             <span>Trabalho</span>
             {deskCount > 0 && <span className="demo-rail-count">{deskCount}</span>}
             {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && (
@@ -8088,7 +8180,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           const openIntims = opIntims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
           const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado');
           const openTasks = (data.tasks||[]).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
-          const alerts = data.debts.filter(d => { if (d.operationId!==op.id) return false; const pd = d.prescriptionDate || calcAutoPresc(d, opExecsForPresc, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+          const alerts = data.debts.filter(d => { if (d.operationId!==op.id) return false; const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
           return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
             <div className="op-name">
               {op.name}
@@ -8189,31 +8281,31 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
 
     <div className="main-content">
-      {/* Top Navigation */}
-      <div className="top-nav">
-        <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => setViewMode('painel')}>Painel</button>
-        <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => setViewMode('operacoes')}>Operações</button>
+      {/* Top Navigation — startTabSwitch evita freeze ao trocar de vista */}
+      <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`}>
+        <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
+        <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
         <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
-          onClick={() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes')}
+          onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
           title="Intimações e Tarefas">
           Intimações e Tarefas
           {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
         </button>
-        <button className={`top-nav-btn ${viewMode==='mesa'?'active':''}`} onClick={() => setViewMode('mesa')}>
-          🗂 Mesa
+        <button className={`top-nav-btn ${viewMode==='mesa'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('mesa'))}>
+          Mesa
           {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
         </button>
-        <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => setViewMode('acompanhar')}>
+        <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
           Acompanhar
           {(() => { const open = (data.watchlist||[]).filter(w=>w.status!=='encerrado').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
         </button>
-        <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => setViewMode('audiencias')}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
-        <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => setViewMode('modelos')}>
-          📄 Modelos
+        <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('audiencias'))}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
+        <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('modelos'))}>
+          Modelos
           {(() => { const n = (data.models||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
         </button>
         {activeOp && <><div className="top-nav-sep"></div>
-          <button className={`top-nav-btn ${viewMode==='operation'?'active':''}`} onClick={() => setViewMode('operation')}>
+          <button className={`top-nav-btn ${viewMode==='operation'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operation'))}>
             {truncate(activeOp.name, 28)}
           </button>
         </>}
@@ -8311,7 +8403,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const totalValue = activeDebts.reduce((s,d) => s+(d.value||0), 0);
               const openIntims = allIntims.filter(x => (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length;
               const overdueIntims = allIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado').length;
-              const prescRisk = allDebts.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, allExecs, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; });
+              const prescRisk = allDebts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; });
               const prescRiskVal = prescRisk.reduce((s,d) => s+(d.value||0), 0);
               return (<>
                 <div className="dashboard-kpis">
@@ -8353,7 +8445,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => idpjIds.add(id));
                 });
                 allDebts.filter(d => d.operationId === op.id && d.status !== 'extinta' && !d.prescriptionHandled).forEach(d => {
-                  const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, allPrescEvts);
+                  const pd = getPrescDate(d);
                   const dd = daysUntil(pd);
                   if (dd !== null && dd > 0 && dd <= 180) {
                     const linkedExec = d.processNumber ? opExecs.find(e => sameProc(e.processNumber, d.processNumber)) : null;
@@ -8451,7 +8543,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const totalValue = debts.reduce((s,d) => s + (d.value||0), 0);
                 const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
                 const prescRisk = debts.filter(d => {
-                  const pd = d.prescriptionDate || calcAutoPresc(d, execs, allPrescEvts);
+                  const pd = getPrescDate(d);
                   const dd = daysUntil(pd);
                   return dd !== null && dd <= 180 && !d.prescriptionHandled;
                 }).length;
@@ -8629,7 +8721,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         const execs = opExecs.length;
                         const opIntims = (data.intimations||[]).filter(x=>x.operationId===op.id && (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction);
                         const opTasks = (data.tasks||[]).filter(t=>t.operationId===op.id && t.status!=='concluida' && t.status!=='cancelada');
-                        const prescAlerts = debts.filter(d => { const pd = d.prescriptionDate || calcAutoPresc(d, opExecs, data.prescriptionEvents || []); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+                        const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
                         const notes = op.notesList || (op.notes ? [op.notes] : []);
                         return (<div key={op.id} className="ops-priority-card" style={{borderLeftColor: cls.border}}
                           onClick={() => { if (isDemo) openCarteiraOp(op); else { startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); } }}>
@@ -9017,7 +9109,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>📄 Modelos</span>
+              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Modelos</span>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} modelo(s)</span>
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -9113,12 +9205,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>🗂 Mesa de trabalho</span>
+              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Mesa de trabalho</span>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} item(ns) em foco</span>
             </div>
             {items.length > 0 && <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Arraste ⠿ para reordenar · marque ☐ para tirar da mesa</span>}
           </div>
-          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">🗂</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão 🗂 Mesa nos cards.</p></div> :
+          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">◫</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão Mesa nos cards.</p></div> :
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
             {items.map(({ d, x }, i) => {
               const m = META[d.type]; const r = rowInfo(d, x);
@@ -9212,7 +9304,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5}}>
                 <span className={`badge ${TASK_STATUSES[t.status]?.badge||''}`} style={{fontSize:10,fontWeight:700}}>{TASK_STATUSES[t.status]?.label||t.status}</span>
-                <button className="btn-secondary btn-xs" title={isOnDesk('task',t.id)?'Remover da Mesa':'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); toggleDesk('task', t.id, daysUntil(t.dueDate)); }} style={isOnDesk('task',t.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{}}>🗂 {isOnDesk('task',t.id)?'na mesa':'Mesa'}</button>
+                <button className="btn-secondary btn-xs" title={isOnDesk('task',t.id)?'Remover da Mesa':'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); toggleDesk('task', t.id, daysUntil(t.dueDate)); }} style={isOnDesk('task',t.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{}}>{isOnDesk('task',t.id)?'na mesa':'Mesa'}</button>
               </div>
             </div>);
           })}
@@ -9332,7 +9424,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{textAlign:'right'}}>
               <div style={{fontSize:12,fontWeight:600,color:ddColor}}>{ddText}</div>
               {op ? <div style={{fontSize:11,color:'var(--accent)',cursor:'pointer',marginTop:6}} onClick={e => { e.stopPropagation(); setActiveOpId(op.id); setViewMode('operation'); }}>↗ {truncate(op.name,22)}</div> : <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>sem operação</div>}
-              <button className="btn-secondary btn-xs" title={isOnDesk('hearing',h.id)?'Remover da Mesa':'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); toggleDesk('hearing', h.id, daysUntil(h.date)); }} style={{marginTop:6, ...(isOnDesk('hearing',h.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{})}}>🗂 {isOnDesk('hearing',h.id)?'na mesa':'Mesa'}</button>
+              <button className="btn-secondary btn-xs" title={isOnDesk('hearing',h.id)?'Remover da Mesa':'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); toggleDesk('hearing', h.id, daysUntil(h.date)); }} style={{marginTop:6, ...(isOnDesk('hearing',h.id)?{borderColor:'var(--blue)',color:'var(--blue)'}:{})}}>{isOnDesk('hearing',h.id)?'na mesa':'Mesa'}</button>
             </div>
           </div>); };
         const grp = (title, arr, color) => arr.length > 0 ? (<React.Fragment key={title}><div style={{fontSize:12,fontWeight:600,color:color,margin:'14px 0 8px'}}>{title}</div>{arr.map(card)}</React.Fragment>) : null;
@@ -9359,52 +9451,33 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
       {viewMode === 'operation' && activeOp && <>
         <div className="main-header">
-          <div style={{flex:1,minWidth:0}}><h2>{activeOp.name}</h2>{activeOp.description&&<div style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5,maxWidth:'95%'}}>{activeOp.description}</div>}</div>
-          <div className="header-actions" style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{flex:1,minWidth:0}}>
+            <h2>{activeOp.name}</h2>
+            {activeOp.description && <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5,maxWidth:'95%'}}>{activeOp.description}</div>}
+          </div>
+          <div className="header-actions">
             {(() => {
               const clsKeys = getOpClassifications(activeOp);
               if (!clsKeys.length) return null;
-              return <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'flex-end',maxWidth:440}}>
+              return <div className="op-class-chips">
                 {clsKeys.map(k => { const cls = OP_CLASSIFICATIONS[k]; return (
-                  <span key={k} style={{fontSize:11,fontWeight:600,padding:'4px 12px',borderRadius:4,background:'rgba(255,255,255,0.04)',color:cls.color,border:`1px solid ${cls.border}`,letterSpacing:0.2}}>{cls.label}</span>
+                  <span key={k} className="op-class-chip" style={{color:cls.color,border:`1px solid ${cls.border}`}}>{cls.label}</span>
                 ); })}
               </div>;
             })()}
-            <button className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
+            <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>Revisada</button>
+            {(() => { const rs = reviewStatus(activeOp); return <span style={{fontSize:11,fontWeight:600,color:rs.color,whiteSpace:'nowrap'}}>{rs.label}</span>; })()}
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
-        {opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch'}}><div className="stats-bar" style={{flex:1,minWidth:0,borderBottom:'none'}}>
-          <div className="stat-card"><div className="stat-label">Dívida Total</div><div className="stat-value" style={{color:'var(--text-primary)',fontSize:15}}>{fmtCur(opStats.total)}</div><div className="stat-sub">{opStats.debts} CDAs</div></div>
-          <div className="stat-card"><div className="stat-label has-tip">Garantido (CDA)<span className="tip-content">Soma dos valores das CDAs com status "Garantida". Reflete a garantia formal reconhecida por CDA, não o valor de mercado dos bens constritados.</span></div><div className="stat-value" style={{color:'var(--text-secondary)',fontSize:15}}>{fmtCur(opStats.guar)}</div><div className="stat-sub">{opStats.total>0?((opStats.guar/opStats.total)*100).toFixed(0):0}%</div></div>
-          <div className="stat-card has-tip" onClick={() => { if (opStats.indispCount>0) setActiveTab('bens'); }} style={{cursor:opStats.indispCount>0?'pointer':'default'}}>
-            <div className="stat-label">Indisponibilidades</div>
-            <div className="stat-value" style={{color:opStats.indispHasValue?'var(--text-primary)':'var(--text-muted)',fontSize:opStats.indispHasValue?15:12}}>{opStats.indispLabel}</div>
-            <div className="stat-sub">{opStats.indispCount > 0 ? `${opStats.indispCount} bem(ns)` : ''}</div>
-            <span className="tip-content">{opStats.indispCount === 0 ? 'Nenhum bem com status de indisponibilidade cadastrado nesta operação.' : opStats.indispHasValue ? `Soma dos valores dos ${opStats.indispCount} bem(ns) com indisponibilidade ativa/requerida que possuem valor informado. Clique para ver a aba Bens.` : `${opStats.indispCount} bem(ns) constritado(s), mas nenhum com valor de avaliação preenchido. Informe os valores na aba Bens para ver o total aqui.`}</span>
-          </div>
-          <div className="stat-card"><div className="stat-label">Presc. CDA</div><div className="stat-value" style={{color:opStats.prescA>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescA}</div><div className="stat-sub">≤180 dias</div></div>
-          <div className="stat-card"><div className="stat-label">Presc. Interc.</div><div className="stat-value" style={{color:opStats.prescExec>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescExec}</div><div className="stat-sub">≤365 dias</div></div>
-          <div className={`stat-card ${opStats.openIntims>0?'alert-pulse-blue':''}`} onClick={() => { if (opStats.openIntims>0) setIntimWork(true); }} style={{cursor:opStats.openIntims>0?'pointer':'default'}}>
-            <div className="stat-label">Intimações</div>
-            <div className="stat-value" style={{color: opStats.overdueIntims > 0 ? 'var(--red)' : opStats.openIntims > 0 ? 'var(--blue)' : 'var(--text-muted)',fontSize:15}}>{opStats.openIntims}</div>
-            <div className="stat-sub">{opStats.overdueIntims > 0 ? `${opStats.overdueIntims} vencida(s)` : opStats.openIntims > 0 ? 'em aberto' : 'nenhuma'}</div>
-          </div>
-          <div className={`stat-card ${opStats.openTasks>0?'alert-pulse-yellow':''}`} onClick={() => { if (opStats.openTasks>0) setActiveTab('tarefas'); }} style={{cursor:opStats.openTasks>0?'pointer':'default'}}>
-            <div className="stat-label">Tarefas</div>
-            <div className="stat-value" style={{color: opStats.overdueTasks > 0 ? 'var(--red)' : opStats.openTasks > 0 ? 'var(--yellow)' : 'var(--text-muted)',fontSize:15}}>{opStats.openTasks}</div>
-            <div className="stat-sub">{opStats.overdueTasks > 0 ? `${opStats.overdueTasks} vencida(s)` : opStats.openTasks > 0 ? 'em aberto' : 'nenhuma'}</div>
-          </div>
-          </div>
-              <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:6,padding:'8px 18px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
-                <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
-                  <button className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
-                  <button className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
-                </div>
-                <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
-                  {(() => { const rs = reviewStatus(activeOp); return (<span style={{fontSize:9,color:rs.color,fontWeight:600,padding:'2px 8px',borderRadius:3,background:`${rs.color.replace('var(--','rgba(').replace(')',', 0.1)')}`,border:`1px solid ${rs.color.replace('var(--','rgba(').replace(')',', 0.25)')}`}}>{rs.label}</span>); })()}
-                  <span style={{fontSize:9,color:'var(--text-muted)'}}>Atualizada {activeOp.updatedAt ? new Date(activeOp.updatedAt).toLocaleDateString('pt-BR') : '—'}</span>
-                </div>
-              </div>
+        {opStats && <div className="op-summary">
+          <div className="op-summary-item"><small>Dívida</small><strong>{fmtCur(opStats.total)}</strong></div>
+          <div className="op-summary-item"><small>Garantido</small><strong>{fmtCur(opStats.guar)} · {opStats.total>0?((opStats.guar/opStats.total)*100).toFixed(0):0}%</strong></div>
+          <button type="button" className="op-summary-item" onClick={() => { if (opStats.indispCount>0) setActiveTab('bens'); }}><small>Bens indisponíveis</small><strong>{opStats.indispLabel}</strong></button>
+          <div className="op-summary-item"><small>Prescrição</small><strong>{opStats.prescA} CDA · {opStats.prescExec} interc.</strong></div>
+          <button type="button" className="op-summary-item" onClick={() => { if (opStats.openIntims>0) setIntimWork(true); }}><small>Intimações</small><strong>{opStats.openIntims}{opStats.overdueIntims>0?` · ${opStats.overdueIntims} venc.`:''}</strong></button>
+          <button type="button" className="op-summary-item" onClick={() => { if (opStats.openTasks>0) setActiveTab('tarefas'); }}><small>Tarefas</small><strong>{opStats.openTasks}{opStats.overdueTasks>0?` · ${opStats.overdueTasks} venc.`:''}</strong></button>
         </div>}
         {isDemo ? (<>
           <div className="demo-zones">
@@ -9440,12 +9513,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </button>;
           })}</div>
         )}
-        <div className={isDemo ? 'demo-zone-panel' : undefined} style={isDemo ? undefined : undefined}>
+        <div className={isDemo ? 'op-tab-panel demo-zone-panel' : 'op-tab-panel'}>
         {(() => {
           try { return renderTab(); }
           catch (err) {
             console.error('[Tab render error]', err);
-            return (<div style={{padding:24,margin:24,background:'rgba(244,63,94,0.08)',border:'2px solid var(--red)',borderRadius:8,color:'var(--text-primary)'}}>
+            return (<div className="entity-area" style={{padding:24,margin:0,background:'rgba(244,63,94,0.08)',border:'2px solid var(--red)',borderRadius:8,color:'var(--text-primary)'}}>
               <h3 style={{color:'var(--red)',marginTop:0}}>⚠ Erro ao renderizar aba "{tabLabels[activeTab]||activeTab}"</h3>
               <div style={{fontFamily:'monospace',fontSize:11,background:'var(--bg-deep)',padding:12,borderRadius:4,whiteSpace:'pre-wrap',maxHeight:400,overflow:'auto'}}>
                 <div style={{color:'var(--red)',fontWeight:700,marginBottom:6}}>{err.name}: {err.message}</div>
@@ -9600,7 +9673,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 }
                 // All other types: navigate to operation + tab, then open modal
                 if (r.opId) { setActiveOpId(r.opId); setViewMode('operation'); }
-                if (r.tab) setActiveTab(r.tab);
+                if (r.tab) setActiveTab(({dividas:'prescricao_v2',execucoes:'prescricao_v2',prescricao:'prescricao_v2',timeline:'prescricao_v2',grafo:'pessoas',insights:'notas'}[r.tab]) || r.tab);
                 if (r.entity && r.entityType) {
                   setTimeout(() => setModal({type:'edit',entityType:r.entityType,initial:r.entity}), 150);
                 }
