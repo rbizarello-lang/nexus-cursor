@@ -2753,16 +2753,17 @@ function App() {
   const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — nó selecionado na árvore
   const [modelQuery, setModelQuery] = useState('');      // busca livre (texto da peça colado)
   const [modelMatters, setModelMatters] = useState([]);  // matérias inferidas do texto colado
-  // Temas válidos: '' (Noite Azulada, padrão), theme-obsidian, theme-ferro.
-  // Temas aposentados (crepusculo/clara) salvos no navegador voltam ao padrão.
-  const THEMES_OK = ['', 'theme-obsidian', 'theme-ferro'];
-  // Temas da Demo Experimental: clara (padrão) + 3 escuros azul/cinza.
-  const DEMO_THEMES_OK = ['clara', 'mar', 'ardosia', 'grafite'];
+  // Temas válidos clássicos: '' (Noite Azulada), theme-ferro.
+  // Obsidian removido (substitído pelo Mar Profundo na Demo Experimental).
+  const THEMES_OK = ['', 'theme-ferro'];
+  // Temas da Demo: Mar Profundo é o padrão experimental; Clara/Ardósia/Grafite opcionais.
+  const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite'];
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
-      const th = s.theme || '';
-      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'clara';
+      let th = s.theme || '';
+      if (th === 'theme-obsidian') th = ''; // Obsidian aposentado → Noite Azulada
+      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'mar';
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
       try {
@@ -2772,11 +2773,13 @@ function App() {
         }
       } catch {}
       return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : '', demoTheme: dth, uiEdition: edition };
-    } catch { return { zoom: 100, font: '', theme: '', demoTheme: 'clara', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
+    } catch { return { zoom: 100, font: '', theme: '', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
-  const demoThemeClass = isDemo && appSettings.demoTheme && appSettings.demoTheme !== 'clara' ? `demo-theme-${appSettings.demoTheme}` : '';
+  const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : 'mar';
+  // Clara = tokens base de .edition-demo; demais = .demo-theme-*
+  const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
   const [activeTab, setActiveTab] = useState('notas');
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
   const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
@@ -7475,6 +7478,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const switchEdition = (edition) => {
     updateSetting('uiEdition', edition);
     if (edition === 'demo') {
+      if (!DEMO_THEMES_OK.includes(appSettings.demoTheme)) updateSetting('demoTheme', 'mar');
       setViewMode(prev => (prev === 'painel' ? 'hoje' : prev));
       setDemoZone(tabToDemoZone(activeTab));
     } else {
@@ -7538,7 +7542,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="settings-label">Tema</div>
       <div className="settings-options">
         <button className={`settings-opt ${appSettings.theme===''?'active':''}`} onClick={() => updateSetting('theme','')}>Noite Azulada</button>
-        <button className={`settings-opt ${appSettings.theme==='theme-obsidian'?'active':''}`} onClick={() => updateSetting('theme','theme-obsidian')}>Obsidian</button>
         <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
       </div>
     </div>}
@@ -7546,20 +7549,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="settings-label">Tema da Demo</div>
       <div className="settings-options demo-theme-opts">
         {[
-          { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro (padrão)' },
-          { id: 'mar', label: 'Mar Profundo', tip: 'Azul-marinho escuro, leitura prolongada' },
+          { id: 'mar', label: 'Mar Profundo', tip: 'Padrão experimental · azul-marinho' },
+          { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro' },
           { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
           { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
         ].map(t => (
           <button key={t.id} type="button" title={t.tip}
-            className={`settings-opt demo-theme-opt ${(appSettings.demoTheme || 'clara') === t.id ? 'active' : ''}`}
+            className={`settings-opt demo-theme-opt ${demoThemeId === t.id ? 'active' : ''}`}
             onClick={() => updateSetting('demoTheme', t.id)}>
             <span className={`demo-theme-swatch demo-swatch-${t.id}`} aria-hidden="true"></span>
             {t.label}
           </button>
         ))}
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Fundos sem preto puro; texto off-white; contraste pensado para leitura (WCAG AA).</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Padrão: Mar Profundo. Obsidian removido.</div>
     </div>}
     <div className="settings-group">
       <div className="settings-label">Dados / Sync</div>
@@ -7865,36 +7868,113 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  const renderAgendaWeek = () => {
+  // Quadro semanal Demo: cards de fim de prazo, audiências e termo final de prescrição.
+  const renderAgendaWeek = (opts = {}) => {
+    const embedded = !!opts.embedded;
     const start = new Date(agendaWeekStart);
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
     const today = new Date(); today.setHours(0, 0, 0, 0);
+    const weekStartKey = days[0].toISOString().slice(0, 10);
+    const weekEndKey = days[6].toISOString().slice(0, 10);
     const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
+    const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
+    const inWeek = (iso) => iso && iso >= weekStartKey && iso <= weekEndKey;
+
+    // Coleta por dia: prazo (intimação/tarefa), audiência, termo final de prescrição
+    const byDay = {};
+    days.forEach(d => { byDay[d.toISOString().slice(0, 10)] = []; });
+
+    (data.intimations || []).forEach(x => {
+      if (!x.dateDeadline || x.responseAction || x.status === 'analisado') return;
+      if (!inWeek(x.dateDeadline)) return;
+      byDay[x.dateDeadline].push({
+        id: 'intim-' + x.id, kind: 'prazo', sub: 'intim',
+        title: truncate(x.processNumber || x.partyName || 'Intimação', 32),
+        meta: opName(x.operationId),
+        tip: `Fim de prazo · intimação${x.partyName ? ' · ' + x.partyName : ''}`,
+        onClick: () => { setViewMode('intimacoes'); },
+      });
+    });
+    (data.tasks || []).forEach(t => {
+      if (!t.dueDate || t.status === 'concluida' || t.status === 'cancelada') return;
+      if (!inWeek(t.dueDate)) return;
+      byDay[t.dueDate].push({
+        id: 'task-' + t.id, kind: 'prazo', sub: 'task',
+        title: truncate(t.title || 'Tarefa', 32),
+        meta: opName(t.operationId),
+        tip: 'Fim de prazo · tarefa',
+        onClick: () => {
+          if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); }
+          else setViewMode('tarefas_global');
+        },
+      });
+    });
+    (data.hearings || []).forEach(h => {
+      if (!h.date || h.status === 'cancelada' || h.status === 'realizada') return;
+      if (!inWeek(h.date)) return;
+      byDay[h.date].push({
+        id: 'hear-' + h.id, kind: 'audiencia', sub: 'hearing',
+        title: truncate((h.time ? h.time + ' · ' : '') + (h.parties || h.processNumber || 'Audiência'), 34),
+        meta: opName(h.operationId),
+        tip: h.parties || h.processNumber || 'Audiência',
+        onClick: () => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
+      });
+    });
+    const allExecs = data.executions || [];
+    const allPrescEvts = data.prescriptionEvents || [];
+    (data.debts || []).forEach(d => {
+      if (d.status === 'extinta' || d.prescriptionHandled) return;
+      const pd = d.prescriptionDate || calcAutoPresc(d, allExecs, allPrescEvts);
+      if (!inWeek(pd)) return;
+      byDay[pd].push({
+        id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
+        title: truncate(d.cdaNumber || 'CDA', 28),
+        meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
+        tip: `Termo final de prescrição · ${fmtDate(pd)}${!d.prescriptionDate ? ' (auto)' : ''}`,
+        onClick: () => {
+          if (d.operationId) { setActiveOpId(d.operationId); setViewMode('operation'); setActiveTab('prescricao_v2'); }
+        },
+      });
+    });
+
+    const kindLabel = { prazo: 'Prazo', audiencia: 'Audiência', presc: 'Prescrição' };
+    let totalCards = 0;
+    Object.values(byDay).forEach(arr => { totalCards += arr.length; });
+
     return (
-      <div style={{padding:'12px 24px 0'}}>
+      <div className={embedded ? 'demo-week-embed' : undefined} style={embedded ? undefined : { padding: '12px 24px 0' }}>
         <div className="demo-week-nav">
           <button className="btn-secondary btn-xs" onClick={() => shift(-1)}>← Semana</button>
           <button className="btn-secondary btn-xs" onClick={() => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); setAgendaWeekStart(d); }}>Hoje</button>
           <button className="btn-secondary btn-xs" onClick={() => shift(1)}>Semana →</button>
           <span style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{label}</span>
+          <span className="demo-week-legend" aria-hidden="true">
+            <span className="demo-week-leg kind-prazo">Prazo</span>
+            <span className="demo-week-leg kind-audiencia">Audiência</span>
+            <span className="demo-week-leg kind-presc">Prescrição</span>
+          </span>
+          <span style={{fontSize:10,color:'var(--text-muted)',marginLeft:'auto'}}>{totalCards} card(s)</span>
         </div>
         <div className="demo-week">
           {days.map(d => {
             const key = d.toISOString().slice(0, 10);
             const isToday = d.getTime() === today.getTime();
-            const evs = (data.hearings || []).filter(h => h.date === key && h.status !== 'cancelada');
+            const cards = byDay[key] || [];
             return (
               <div key={key} className={`demo-week-day ${isToday ? 'today' : ''}`}>
                 <div className="demo-week-day-h">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
                 <div className="demo-week-day-n">{d.getDate()}</div>
-                {evs.map(h => (
-                  <div key={h.id} className="demo-week-ev" title={h.parties || h.processNumber || ''}
-                    onClick={() => setModal({ type: 'edit', entityType: 'hearing', initial: h })}>
-                    {(h.time ? h.time + ' ' : '') + truncate(h.parties || h.processNumber || 'Audiência', 28)}
-                  </div>
+                {cards.length === 0 && <div className="demo-week-empty">—</div>}
+                {cards.map(c => (
+                  <button key={c.id} type="button" className={`demo-week-card kind-${c.kind}`}
+                    title={c.tip} onClick={c.onClick}>
+                    <span className="demo-week-card-k">{kindLabel[c.kind]}</span>
+                    <span className="demo-week-card-t">{c.title}</span>
+                    {c.meta ? <span className="demo-week-card-m">{truncate(c.meta, 28)}</span> : null}
+                  </button>
                 ))}
               </div>
             );
@@ -8158,10 +8238,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
-             viewMode === 'intimacoes' ? 'Intimações · lista e kanban' :
-             viewMode === 'tarefas_global' ? 'Tarefas avulsas e vinculadas · mesma gestão de hoje' :
+             viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Uma aba · alterne entre Intimações e Tarefas' :
              viewMode === 'operacoes' ? 'Página inicial · cards por classificação e ranking' :
-             viewMode === 'painel' ? 'Indicadores da carteira' :
+             viewMode === 'painel' ? 'KPIs · quadro semanal de prazos, audiências e prescrição' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
              viewMode === 'operation' ? 'Workspace da operação · briefing, acervo, risco e ferramentas' :
@@ -8193,16 +8272,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>);
       })()}
 
-      {/* Demo: abas internas Intimações | Tarefas */}
+      {/* Demo: Intimações e Tarefas fundidas — transição interna na mesma aba */}
       {isDemo && (viewMode === 'intimacoes' || viewMode === 'tarefas_global') && (
-        <div className="demo-zone-sub" style={{borderBottom:'1px solid var(--border)'}}>
-          <button type="button" className={`demo-zone-chip ${viewMode==='intimacoes'?'active':''}`}
+        <div className="demo-inbox-switch" role="tablist" aria-label="Intimações e Tarefas">
+          <button type="button" role="tab" aria-selected={viewMode==='intimacoes'}
+            className={`demo-inbox-tab ${viewMode==='intimacoes'?'active':''}`}
             onClick={() => setViewMode('intimacoes')}>
-            Intimações{openIntimsCount > 0 ? ` (${openIntimsCount})` : ''}
+            Intimações{openIntimsCount > 0 ? ` · ${openIntimsCount}` : ''}
           </button>
-          <button type="button" className={`demo-zone-chip ${viewMode==='tarefas_global'?'active':''}`}
+          <button type="button" role="tab" aria-selected={viewMode==='tarefas_global'}
+            className={`demo-inbox-tab ${viewMode==='tarefas_global'?'active':''}`}
             onClick={() => setViewMode('tarefas_global')}>
-            Tarefas{openTasksCount > 0 ? ` (${openTasksCount})` : ''}
+            Tarefas{openTasksCount > 0 ? ` · ${openTasksCount}` : ''}
           </button>
         </div>
       )}
@@ -8316,8 +8397,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>);
             })()}
 
-            {/* ═══ AGENDA UNIFICADA — próximos 30 dias (intimações + tarefas + audiências + revisões) ═══ */}
-            {(() => {
+            {/* ═══ AGENDA — Demo: quadro semanal · Clássico: lista 30 dias ═══ */}
+            {isDemo ? (
+              <div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+                <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
+                    Agenda da semana
+                    <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
+                      Fim de prazos · audiências · termo final de prescrição
+                    </span>
+                  </div>
+                </div>
+                {renderAgendaWeek({ embedded: true })}
+              </div>
+            ) : (() => {
               const HORIZON = 30;
               const items = [];
               const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
@@ -8663,7 +8756,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const overdue = allIntim.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && x.status !== 'analisado' && !x.responseAction).length;
         const resolvidasCount = allIntim.filter(x => !!x.responseAction).length;
 
-        return (<div className="entity-area">
+        return (<div key="demo-inbox-intimacoes" className={`entity-area ${isDemo ? 'demo-inbox-panel' : ''}`}>
           <div className="intim-summary">
             <div className="intim-summary-card has-tip"><div className="is-label">Total ativas</div><div className="is-value">{allIntim.filter(x => !x.responseAction).length}</div><span className="tip-content">Intimações que ainda requerem atuação.</span></div>
             <div className="intim-summary-card"><div className="is-label">Pendentes</div><div className="is-value" style={{color:'var(--yellow)'}}>{allIntim.filter(x=>x.status==='pendente_analise' && !x.responseAction).length}</div></div>
@@ -9148,7 +9241,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const open = allTasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
         const done = allTasks.filter(t => t.status === 'concluida');
         const toggleTask = (t) => { upsert('tasks', { ...t, status: t.status === 'concluida' ? 'pendente' : 'concluida' }); };
-        return (<div className="entity-area">
+        return (<div key="demo-inbox-tarefas" className={`entity-area ${isDemo ? 'demo-inbox-panel' : ''}`}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{open.length} aberta(s) · {done.length} concluída(s)</span>
