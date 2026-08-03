@@ -53,7 +53,7 @@ const generateDemoData = () => {
       { id:'pe-7', operationId:'op-demo-3', name:'Nova Metal Sul LTDA', subtype:'PJ', cpfCnpj:'44.555.666/0001-33', role:'Sucessora de fato', operationRole:'alvo' },
     ],
     debts: [
-      { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(25), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ' },
+      { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ' },
       { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
       { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
       { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
@@ -87,7 +87,7 @@ const generateDemoData = () => {
       { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
     ],
     hearings: [
-      { id:'he-1', operationId:'op-demo-1', date: iso(10), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
+      { id:'he-1', operationId:'op-demo-1', date: iso(4), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
       { id:'he-2', operationId:'op-demo-2', date: iso(24), time:'10:00', processNumber:'5007777-88.2022.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', hearingType:'instrucao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'5', roteiro:'Inquirição de testemunhas sobre a interposição de pessoas.' },
       { id:'he-3', operationId:'op-demo-3', date: iso(-5), time:'09:00', processNumber:'5000045-12.2019.4.04.7003', parties:'FAZENDA NACIONAL X Indústria Metalúrgica Sul S/A', hearingType:'una', status:'realizada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'3' },
     ],
@@ -7487,10 +7487,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     setShowSettings(false);
   };
   const loadDemoData = () => {
+    const demo = generateDemoData();
     setData(prev => {
-      const hasData = (prev.operations || []).length > 0;
-      const demo = generateDemoData();
-      if (!hasData) return demo;
+      // Demo Experimental: substitui o dataset para o quadro semanal/filas ficarem coerentes.
+      // Clássico: se já houver dados, faz merge (comportamento anterior).
+      if (isDemo || (prev.operations || []).length === 0) return demo;
       const merged = { ...prev };
       Object.keys(demo).forEach(k => {
         if (k === 'links') {
