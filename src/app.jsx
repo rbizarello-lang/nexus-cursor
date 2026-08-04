@@ -5197,7 +5197,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid var(--border)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 55%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:3}}>
                         <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
                         {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:4,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
