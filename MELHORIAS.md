@@ -3,16 +3,19 @@
 Arquivo de planejamento. Não sobe para o Apps Script (ignorado pelo `.claspignore`).
 Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
 
-Última atualização: 02/08/2026
+Última atualização: 03/08/2026
 
 ---
 
-## 🧪 Demo Experimental — Central de Comando (02/08/2026)
+## 🧪 Demo Experimental — Central de Comando (✅ 02–03/08/2026)
 
-Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico.
+Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico. **Implementada.**
 
-- **O quê:** edição `uiEdition: 'demo'` com rail (Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho=Mesa), zonas da operação, Command Center “Hoje”, grade semanal, temas Clara·Mar·Ardósia·Grafite.
-- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus_demo_experimental.html` (também `Nexus.demo.html` / `demo_experimental.html`), ou `?edition=demo`.
+- **O quê:** edição `uiEdition: 'demo'` com rail (Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho=Mesa), zonas da operação, Command Center “Hoje”, grade semanal, temas Clara·Mar·Ardósia·Grafite (padrão Mar Profundo).
+- **Zonas da operação:** Briefing (aba Briefing) · Acervo (Pessoas | Bens) · Risco (Processos e Prescrição) · Ferramentas (Tarefas | Importar | Arquivos). Abas legadas (Grafo/Timeline/CDAs) foram fundidas/removidas da navegação; o mapper ainda redireciona IDs órfãos.
+- **Processos Visão C (clássico) + A/B/C (Demo):** o app clássico usa **Visão C** (hubs accordion + tabela de EFs, depois sem vínculo / Extintas / Outros) via `renderProcViewList` + `classifyProcGroups`. No Demo Experimental permanece o seletor **A · Árvore** | **B · Hub com EFs no card** (padrão demo) | **C · Seções + tabela** (`nexus_settings.processViewModel` / `nexus_demo_proc_view`).
+- **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
+- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus_demo_experimental.html` (também `Nexus.demo.html` / `demo_experimental.html`), ou `?edition=demo` (persiste em `nexus_settings`).
 - **Visão Gemini (Workspace):** ⚙ → Visão Gemini, ou botão no Hoje. Materializa abas `Gemini_*` na Planilha (`exportGeminiView` em `Código.js`) para análise no Gemini do Workspace. Escopos: carteira · fila de hoje · operação atual.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
 - **Build:** `npm run build` gera na raiz: `Nexus.html` + `Nexus.demo.html` + `Nexus_demo_experimental.html` (+ alias `demo_experimental.html`).

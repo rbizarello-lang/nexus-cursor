@@ -684,7 +684,7 @@ const PROCESS_STAGES = {
   ajuizamento: { label: 'Ajuizamento',         outcomes: {} },
   liminar:     { label: 'Liminar',             outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso1:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
-  saneamento:  { label: 'Saneamento e provas', outcomes: {} },
+  saneamento:  { label: 'Saneamento e provas', outcomes: {}, textOnly: true }, // só texto — sem data/evento
   decisao:     { label: 'Decisão final',       outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso2:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
   transito:    { label: 'Trânsito em julgado', outcomes: {} },
@@ -757,8 +757,15 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
     let det;
     if (isMulti) {
       det = rs.length ? rs.map((r, i) => `${i+1}) ${r.date ? fmtDate(r.date) : 's/ data'}${r.proc ? ' · proc. ' + esc(r.proc) : ''}${r.outcome && sd.outcomes[r.outcome] ? ' (' + sd.outcomes[r.outcome] + ')' : ''}`).join('; ') : '';
+    } else if (sd.textOnly) {
+      det = rec.texto ? esc(rec.texto) : '';
     } else {
-      det = [rec.outcome && sd.outcomes[rec.outcome] ? sd.outcomes[rec.outcome] : '', rec.date ? fmtDate(rec.date) : '', rec.evento ? 'Ev. ' + esc(rec.evento) : ''].filter(Boolean).join(' · ');
+      det = [
+        rec.outcome && sd.outcomes[rec.outcome] ? sd.outcomes[rec.outcome] : '',
+        rec.date ? fmtDate(rec.date) : '',
+        rec.evento ? 'Ev. ' + esc(rec.evento) : '',
+        rec.texto ? esc(rec.texto) : '',
+      ].filter(Boolean).join(' · ');
     }
     return `<span class="stage-tag" style="color:${col};background:rgba(0,0,0,0.04);border-color:${col}">${esc(sd.label)}${det ? ' — ' + det : ''}</span>`;
   });
@@ -2167,6 +2174,74 @@ function parseAssetsBulk(text, people, operationId) {
 }
 
 // ═══════════════════════════════════════════════
+// DEMO: classify process groups for views A/B/C
+// hubs → covered EFs → uncovered EFs → extinct → others
+// ═══════════════════════════════════════════════
+function classifyProcGroups(cdaGroups, execs) {
+  const byId = Object.fromEntries((execs || []).map(e => [e.id, e]));
+  const groupByExecId = {};
+  const unlinked = [];
+  (cdaGroups || []).forEach(g => {
+    if (g.type === 'unlinked') unlinked.push(g);
+    else if (g.type === 'exec' && g.exec) groupByExecId[g.exec.id] = g;
+  });
+  const isExtinct = (e) => !!e && (e.status === 'extinta' || e.status === 'arquivada');
+  const isHub = (e) => !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
+  const isOtherClass = (e) => {
+    if (!e || isHub(e)) return false;
+    const cn = (e.className || '').toLowerCase();
+    if (/embargo/.test(cn)) return true;
+    if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return true;
+    if (/conhecimento|a[çc][ãa]o ordin[aá]ria|monit[oó]ria/.test(cn)) return true;
+    return false;
+  };
+  const hubs = (cdaGroups || []).filter(g => g.type === 'exec' && isHub(g.exec) && !isExtinct(g.exec));
+  const coveredIds = new Set();
+  hubs.forEach(h => {
+    (h.exec.linkedExecutionIds || []).forEach(id => coveredIds.add(id));
+    (cdaGroups || []).forEach(g => {
+      if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) coveredIds.add(g.exec.id);
+    });
+  });
+  // Centrals may also own apensos via parentExecutionId even if not listed as linkedExecutionIds
+  (cdaGroups || []).forEach(g => {
+    if (g.type !== 'exec' || !g.exec.parentExecutionId) return;
+    const parent = byId[g.exec.parentExecutionId];
+    if (parent && isHub(parent) && !isExtinct(parent)) coveredIds.add(g.exec.id);
+  });
+  const coveredByHub = {};
+  hubs.forEach(h => {
+    const ids = new Set(h.exec.linkedExecutionIds || []);
+    (cdaGroups || []).forEach(g => {
+      if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) ids.add(g.exec.id);
+    });
+    coveredByHub[h.exec.id] = [...ids]
+      .map(id => groupByExecId[id])
+      .filter(g => g && !isHub(g.exec));
+  });
+  const coveredEFs = [...coveredIds]
+    .map(id => groupByExecId[id])
+    .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec));
+  const uncoveredEFs = (cdaGroups || []).filter(g => {
+    if (g.type !== 'exec') return false;
+    const e = g.exec;
+    if (isHub(e) || isExtinct(e) || isOtherClass(e)) return false;
+    if (e.parentExecutionId) return false;
+    if (coveredIds.has(e.id)) return false;
+    return true;
+  });
+  const extinct = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec));
+  const others = (cdaGroups || []).filter(g => {
+    if (g.type !== 'exec') return false;
+    const e = g.exec;
+    if (isHub(e) || isExtinct(e)) return false;
+    if (e.parentExecutionId || coveredIds.has(e.id)) return false;
+    return isOtherClass(e);
+  });
+  return { hubs, coveredByHub, coveredEFs, uncoveredEFs, extinct, others, unlinked, coveredIds };
+}
+
+// ═══════════════════════════════════════════════
 // GRAPH LAYOUT
 // ═══════════════════════════════════════════════
 function computeGraph(operation, data) {
@@ -2788,16 +2863,28 @@ function App() {
       const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'mar';
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
+      let bootstrapped = false;
       try {
         if (typeof window !== 'undefined') {
-          if (window.__NEXUS_DEMO__ === true) edition = 'demo';
-          else if (/[?&]edition=demo\b/.test(window.location.search || '')) edition = 'demo';
+          if (window.__NEXUS_DEMO__ === true) { edition = 'demo'; bootstrapped = true; }
+          else if (/[?&]edition=demo\b/.test(window.location.search || '')) { edition = 'demo'; bootstrapped = true; }
         }
       } catch {}
-      return { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition };
-    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic' }; }
+      // Demo Processos A/B/C — prefer nexus_settings; fallback legacy key nexus_demo_proc_view
+      let pvm = s.processViewModel;
+      if (!['A', 'B', 'C'].includes(pvm)) {
+        try { pvm = localStorage.getItem('nexus_demo_proc_view'); } catch { pvm = null; }
+      }
+      if (!['A', 'B', 'C'].includes(pvm)) pvm = 'B';
+      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm };
+      // Persiste bootstrap (?edition=demo / Nexus.demo.html) para o toggle ⚙ ficar coerente
+      if (bootstrapped && s.uiEdition !== 'demo') {
+        try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
+      }
+      return next;
+    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic', processViewModel: 'B' }; }
   });
-  const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
+  const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} if (key === 'processViewModel') { try { localStorage.setItem('nexus_demo_proc_view', val); } catch {} } return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
   const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : 'mar';
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
@@ -5085,6 +5172,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const renderStageRuler = (ip, STAGES, STAGE_KEYS, recs) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                 const openPop = (k) => toggleGroup('stagepop-' + ip.id + '-' + k);
+                const noteEditKey = (k) => 'stagenote-' + ip.id + '-' + k;
                 const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
                   <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
                     onCommit={(patch) => setRec(ip.id, m.k, patch)}
@@ -5093,23 +5181,49 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     onClose={() => openPop(m.k)} />
                 );
                 return (<div className="proc-stage-vertical" style={{margin:'10px 0 4px',display:'flex',flexDirection:'column',gap:0}}>
-                  {metas.map((m) => (
+                  {metas.map((m) => {
+                    const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
+                    // info sem o texto livre (data · Ev.) — o texto fica no slot clicável à direita
+                    const metaInfo = m.sd.textOnly ? '' : (m.info || '').split(' · ').filter(p => p && p !== noteTxt).join(' · ');
+                    const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
+                    const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
+                    const commitNote = (val) => {
+                      const t = String(val || '').trim();
+                      if (t || noteTxt) setRec(ip.id, m.k, { texto: t });
+                      if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
+                    };
+                    return (
                     <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'6px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:16,flexShrink:0,paddingTop:2}}>
                         <div style={{width:12,height:12,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
                         {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:10,marginTop:3,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-muted)',fontFamily:'var(--font-display)'}}>{m.sd.label}</span>
-                          {m.outcomeLabel && <span style={{fontSize:11,color:m.c}}>{m.outcomeLabel}</span>}
-                          {m.info && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:m.sd.textOnly?'var(--font-display)':'var(--font-mono)'}}>{m.info}</span>}
-                          {!m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
+                        <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'nowrap'}}>
+                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-muted)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
+                          {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
+                          {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
+                          {m.sd.multiRecurso ? (
+                            !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>
+                          ) : editingNote ? (
+                            <input autoFocus defaultValue={noteTxt}
+                              placeholder="texto ao lado do evento"
+                              onClick={ev => ev.stopPropagation()}
+                              onBlur={e => commitNote(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
+                              style={{flex:1,minWidth:80,fontSize:11,padding:'1px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)'}} />
+                          ) : (
+                            <span onClick={startNoteEdit} title="Editar texto"
+                              style={{fontSize:11,color:noteTxt?'var(--text-secondary)':'var(--text-muted)',fontFamily:'var(--font-display)',flex:1,minWidth:noteTxt || (!m.outcomeLabel && !metaInfo) ? 24 : 12,cursor:'text',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              {noteTxt || (!m.outcomeLabel && !metaInfo ? '—' : '')}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {popupFor(m)}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>);
               };
               // Badge por tipo de processo-mãe (IDPJ/MCF/Central) e rótulo dos filhos (EF abrangida / apensa)
@@ -6636,12 +6750,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const unlinkedCDAs = allDebts.filter(d => !d.processNumber || !execs.some(e => sameProc(e.processNumber, d.processNumber)));
       if (unlinkedCDAs.length > 0) cdaGroups.push({ type: 'unlinked', exec: null, cdas: unlinkedCDAs });
 
-      // Identify IDPJ / Central / linked to IDPJ (same logic as Processos tab)
-      const idpjProcesses2 = execs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-      const centralProcesses2 = execs.filter(e => e.processTag === 'central');
+      // Linked-to-IDPJ set (badges no card) — hierarquia de seções vem de classifyProcGroups / Visão C
       const idpjLinkedExecIds2 = new Set();
-      idpjProcesses2.forEach(e => {
-        if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => idpjLinkedExecIds2.add(id));
+      execs.forEach(e => {
+        if (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') {
+          (e.linkedExecutionIds || []).forEach(id => idpjLinkedExecIds2.add(id));
+        }
       });
 
       const toggleCDA2 = (id) => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -6661,48 +6775,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         }
       });
 
-      // Helper: determina se um processo deve aparecer no Controle da Prescrição.
-      // Regra principal: qualquer processo com CDAs vinculadas PRECISA de monitoramento prescricional.
-      // Regra secundária: EFs sem CDAs (importação incompleta) entram por heurística de className.
-      // Excluídos: apenas embargos/agravos/recursos SEM CDAs (processos acessórios).
-      const isExecucaoFiscalRegular = (e) => {
-        if (!e) return false;
-        if (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') return false; // tratados em idpjGroups
-        // Se tem CDAs vinculadas → SEMPRE monitorar prescrição, independente de tag ou className
-        const hasCDAs = allDebts.some(d => d.processNumber && sameProc(d.processNumber, e.processNumber));
-        if (hasCDAs) return true;
-        // Sem CDAs: "central" sem CDAs não precisa de controle de prescrição
-        if (e.processTag === 'central') return false;
-        const cn = (e.className || '').toLowerCase();
-        // Embargos/recursos sem CDAs são acessórios — não entram
-        if (/embargo/.test(cn)) return false;
-        if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return false;
-        // EFs sem CDAs (possível importação incompleta) — incluir para não perder
-        if (/execu[çc][ãa]o fiscal/.test(cn)) return true;
-        if (!cn || cn === 'execucao' || cn === 'execução') return true;
-        return false;
-      };
-
-      // Separate priority groups — IDPJ/Cautelar e EFs regulares
-      const idpjGroups = cdaGroups.filter(g => g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal'));
-      // Processos "central" COM CDAs agora aparecem (hasCDAs=true bypasses tag filter)
-      const regularTopLevel = cdaGroups.filter(g => {
-        if (g.type !== 'exec') return true; // CDAs não ajuizadas continuam aparecendo
-        if (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') return false;
-        // Apenso de algo é renderizado sob o principal — só top-level aqui
-        if (g.exec.parentExecutionId) return false;
-        // Apenas EFs regulares (filtra centrais, embargos, recursos, outros)
-        return true; // visão integrada: todos os processos top-level
-      });
-
-      // Lista vazia agora — embargos/recursos/centrais/outros não aparecem mais
-      const regularEmbargos = [];
-      // Split regulars: EFs linked to any IDPJ/Cautelar come first; the rest are truly standalone
-      const regularLinkedToIdpj = regularTopLevel.filter(g => g.type === 'exec' && idpjLinkedExecIds2.has(g.exec.id));
-      const regularStandalone = regularTopLevel.filter(g => !(g.type === 'exec' && idpjLinkedExecIds2.has(g.exec.id)));
-
       // ─── THE CARD RENDERER ───
-      const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal' }) => {
+      const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null }) => {
         const isExec = group.type === 'exec';
         const e = isExec ? group.exec : null;
         const st = isExec ? (EXEC_STATUSES[e.status] || {}) : {};
@@ -6797,7 +6871,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           : minRiskDays !== null && minRiskDays <= 365 ? 'risk-warning'
           : '';
 
-        return (<div className={`process-group ${processExpanded ? 'open' : ''}`}>
+        return (<div className={`process-group ${processExpanded ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
           <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
             <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
             <span className="process-id">
@@ -6808,6 +6882,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <span className="process-stat"><small>CDAs</small><strong>{group.cdas.length} · {fmtCur(totalCDAValue)}</strong></span>
             <span className={`process-risk ${riskClass}`}><small>Prescrição</small><strong>{riskLabel}</strong></span>
           </button>
+          {hubCoveredBlock}
           {processExpanded && <div className="process-detail">
             <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
@@ -7012,27 +7087,219 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       };
 
       // Recursive renderer for a group + its apensos
-      const renderGroupTree = (group, cardVariant = 'normal') => {
+      const renderGroupTree = (group, cardVariant = 'normal', hubCoveredBlock = null) => {
         const myApensos = group.type === 'exec' ? (apensoMap2[group.exec.id] || []) : [];
         return (<React.Fragment key={group.type === 'exec' ? group.exec.id : 'unlinked'}>
-          {ProcPrescCard({ group, isApenso: false, cardVariant })}
+          {ProcPrescCard({ group, isApenso: false, cardVariant, hubCoveredBlock })}
           {myApensos.length > 0 && <div style={{marginLeft:24,borderLeft:`3px solid ${cardVariant==='central'?'rgba(122,139,163,0.4)':'var(--accent-dim)'}`,paddingLeft:10,marginTop:-4,marginBottom:8}}>
             {myApensos.map(ag => <React.Fragment key={ag.exec.id}>{ProcPrescCard({ group: ag, isApenso: true, cardVariant: cardVariant === 'central' ? 'central' : 'normal' })}</React.Fragment>)}
           </div>}
         </React.Fragment>);
       };
 
+      // Visão C no clássico; Demo Experimental mantém seletor A/B/C (padrão B)
+      const procViewModel = isDemo
+        ? (['A', 'B', 'C'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'B')
+        : 'C';
+      const classified = classifyProcGroups(cdaGroups, execs);
+      const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
+      const efRiskMeta = (group) => {
+        const riskDays = (group.cdas || []).filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
+        const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
+        const allHandled = group.cdas.length > 0 && group.cdas.every(d => d.prescriptionHandled);
+        const total = (group.cdas || []).reduce((s, d) => s + (d.value || 0), 0);
+        const st = EXEC_STATUSES[group.exec?.status] || {};
+        const label = allHandled ? 'Tratadas' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
+        const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
+        return { total, st, label, riskClass, minRiskDays };
+      };
+      const renderHubCoveredBlock = (hubGroup, covered) => {
+        if (!covered || covered.length === 0) return (
+          <div className="demo-proc-hub-efs empty">
+            <span className="demo-proc-hub-efs-label">EFs abrangidas</span>
+            <span className="demo-proc-hub-efs-empty">Nenhuma EF vinculada</span>
+          </div>
+        );
+        return (
+          <div className="demo-proc-hub-efs">
+            <div className="demo-proc-hub-efs-label">EFs abrangidas ({covered.length})</div>
+            <div className="demo-proc-hub-efs-list">
+              {covered.map(cg => {
+                const meta = efRiskMeta(cg);
+                const pk = 'process-row-' + cg.exec.id;
+                return (
+                  <button type="button" key={cg.exec.id} className={`demo-proc-ef-chip risk-${meta.riskClass}`}
+                    onClick={(ev) => { ev.stopPropagation(); toggleGroup(pk); }}
+                    title="Abrir detalhe da EF">
+                    <span className="demo-proc-ef-num">{cg.exec.processNumber || 'S/N'}</span>
+                    <span className="demo-proc-ef-st">{meta.st.label || cg.exec.status}</span>
+                    <span className="demo-proc-ef-val">{fmtCur(meta.total)}</span>
+                    <span className="demo-proc-ef-risk">{meta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      };
+      const renderDemoSection = (title, items, opts = {}) => {
+        if (!items || items.length === 0) return null;
+        const { demoted = false, collapsible = false, sectionKey = '', defaultOpen = true, variant = 'normal', tree = false, table = false, hubId = null } = opts;
+        const openKey = sectionKey || ('demo-sec-' + title);
+        const isOpen = collapsible ? (defaultOpen ? !collapsedGroups.has(openKey) : collapsedGroups.has(openKey)) : true;
+        const toggleSec = () => toggleGroup(openKey);
+        return (
+          <div className={`demo-proc-section${demoted ? ' demoted' : ''}${tree ? ' tree' : ''}${table ? ' table-mode' : ''}`}>
+            <div className={`demo-proc-section-hdr${collapsible ? ' clickable' : ''}`} onClick={collapsible ? toggleSec : undefined}>
+              {collapsible && <span className="demo-proc-section-chev">{isOpen ? '▾' : '▸'}</span>}
+              <span>{title} ({items.length})</span>
+            </div>
+            {isOpen && (table ? (
+              <div className="demo-proc-table-wrap">
+                <table className="demo-proc-table">
+                  <thead><tr><th>Processo</th><th>Status</th><th>CDAs</th><th>Valor</th><th>Prescrição</th></tr></thead>
+                  <tbody>
+                    {items.map(g => {
+                      const meta = efRiskMeta(g);
+                      const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
+                      const expanded = collapsedGroups.has(pk);
+                      return (
+                        <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
+                          <tr className={`demo-proc-table-row risk-${meta.riskClass}`} onClick={() => toggleGroup(pk)}>
+                            <td className="mono">{g.exec?.processNumber || '—'}</td>
+                            <td>{meta.st.label || g.exec?.status || '—'}</td>
+                            <td>{g.cdas.length}</td>
+                            <td>{fmtCur(meta.total)}</td>
+                            <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                          </tr>
+                          {expanded && <tr className="demo-proc-table-detail"><td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: variant })}</td></tr>}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className={tree ? 'demo-proc-tree-children' : undefined}>
+                {items.map(g => {
+                  const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
+                    : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : variant;
+                  if (tree && hubId) {
+                    return <div key={g.exec.id} className="demo-proc-tree-child">{renderGroupTree(g, 'normal')}</div>;
+                  }
+                  return renderGroupTree(g, cv);
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      };
+      // Renderer compartilhado A/B/C — clássico chama com model='C'; demo usa o seletor
+      const renderProcViewList = () => {
+        if (!classified) return null;
+        const { hubs, coveredByHub, uncoveredEFs, extinct, others, unlinked } = classified;
+        const model = procViewModel || 'C';
+
+        const hubBlocks = hubs.map(h => {
+          const covered = (coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada');
+          const cv = hubVariant(h.exec);
+          if (model === 'A') {
+            return (
+              <div key={h.exec.id} className="demo-proc-tree-hub">
+                {renderGroupTree(h, cv)}
+                {covered.length > 0 && (
+                  <div className="demo-proc-tree-children">
+                    <div className="demo-proc-tree-hint">EFs abrangidas · {covered.length}</div>
+                    {covered.map(cg => <div key={cg.exec.id} className="demo-proc-tree-child">{renderGroupTree(cg, 'normal')}</div>)}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          if (model === 'C') {
+            const hubKey = 'demo-hub-acc-' + h.exec.id;
+            const hubOpen = collapsedGroups.has(hubKey);
+            return (
+              <div key={h.exec.id} className="demo-proc-hub-acc">
+                <button type="button" className="demo-proc-hub-acc-hdr" onClick={() => toggleGroup(hubKey)} aria-expanded={hubOpen}>
+                  <span className="demo-proc-section-chev">{hubOpen ? '▾' : '▸'}</span>
+                  <strong>{tagLabels[h.exec.processTag] || h.exec.processTag}</strong>
+                  <span className="mono">{h.exec.processNumber || 'S/N'}</span>
+                  <span className="muted">{covered.length} EF(s)</span>
+                </button>
+                {hubOpen && (
+                  <div className="demo-proc-hub-acc-body">
+                    {renderGroupTree(h, cv)}
+                    {covered.length > 0
+                      ? renderDemoSection('EFs abrangidas', covered, { table: true, sectionKey: 'demo-hub-tbl-' + h.exec.id, defaultOpen: true })
+                      : <div className="demo-proc-hub-efs empty"><span className="demo-proc-hub-efs-empty">Nenhuma EF vinculada</span></div>}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          // Model B (default demo): hub card with EFs always listed inside
+          const expandedCovered = covered.filter(cg => collapsedGroups.has('process-row-' + cg.exec.id));
+          return (
+            <div key={h.exec.id} className="demo-proc-hub-b">
+              {renderGroupTree(h, cv, renderHubCoveredBlock(h, covered))}
+              {expandedCovered.length > 0 && (
+                <div className="demo-proc-hub-b-expanded">
+                  {expandedCovered.map(cg => <div key={cg.exec.id} className="demo-proc-tree-child">{renderGroupTree(cg, 'normal')}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        });
+
+        return (
+          <div className={`demo-proc-view demo-proc-view-${model}`}>
+            {hubs.length > 0 && (
+              <div className="demo-proc-section hubs">
+                <div className="demo-proc-section-hdr">Hubs — IDPJ / Cautelares / Centrais ({hubs.length})</div>
+                {hubBlocks}
+              </div>
+            )}
+            {renderDemoSection('EFs sem vínculo', uncoveredEFs, { sectionKey: 'demo-uncovered' })}
+            {unlinked.map(g => renderGroupTree(g, 'normal'))}
+            {renderDemoSection('Extintas / Arquivadas', extinct, { demoted: true, collapsible: true, sectionKey: 'demo-extinct', defaultOpen: model !== 'C' })}
+            {renderDemoSection('Outros', others, { demoted: true, sectionKey: 'demo-others' })}
+          </div>
+        );
+      };
+
       return (<div className="entity-area">
         {/* Header — same create entry point as the old Processos (execucoes) tab */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
           <span style={{color:'var(--text-muted)',fontSize:11}}>{execs.length} processo(s) · {allDebts.length} CDA(s)</span>
-          <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            {isDemo && (
+              <div className="demo-proc-view-switch" role="group" aria-label="Modelo de visualização de processos">
+                <span className="demo-proc-view-switch-label">Visão</span>
+                {[
+                  { id: 'A', tip: 'Árvore — hubs com EFs aninhadas' },
+                  { id: 'B', tip: 'Hub com EFs no card (padrão)' },
+                  { id: 'C', tip: 'Seções + tabela densa de EFs' },
+                ].map(m => (
+                  <button key={m.id} type="button" title={m.tip}
+                    className={`demo-proc-view-opt${procViewModel === m.id ? ' active' : ''}`}
+                    onClick={() => updateSetting('processViewModel', m.id)}>{m.id}</button>
+                ))}
+              </div>
+            )}
+            <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
+          </div>
         </div>
 
         {/* Orientação da visão integrada */}
         <div className="presc-legal-ref">
           <strong>Processos, CDAs e prescrição em uma única visão.</strong>
-          {' '}Os processos começam recolhidos. Abra uma linha para acessar o detalhamento, as notas, os eventos e as ações. Clique numa CDA para ver o popup completo.
+          {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.
+          {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas e ações. Clique numa CDA para o popup completo.
+          {isDemo && procViewModel === 'B' && <> {' '}Demo: modelo <strong>B</strong> — EFs abrangidas listadas no card do hub.</>}
+          {isDemo && procViewModel === 'A' && <> {' '}Demo: modelo <strong>A</strong> — árvore hub → EFs.</>}
+          {isDemo && procViewModel === 'C' && <> {' '}Demo: modelo <strong>C</strong> — seções + tabela.</>}
+          {!isDemo && <> {' '}Visão <strong>C</strong> — seções + tabela.</>}
         </div>
 
         {/* Bulk selection bar */}
@@ -7078,50 +7345,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
         {execs.length === 0 && allDebts.length === 0 ? <div className="empty-state"><div className="empty-icon">⏱</div><p>Nenhum processo cadastrado.</p><button className="btn-primary btn-sm" style={{marginTop:12}} onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button></div> :
         <div className="entity-list">
-          {/* IDPJ / Cautelar section */}
-          {idpjGroups.length > 0 && <div style={{marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:'var(--pgfn-light)',marginBottom:8,textTransform:'uppercase',letterSpacing:0.5,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span>Incidentes de Desconsideração / Cautelares Fiscais ({idpjGroups.length})</span>
-              {idpjGroups.some(g => (g.exec.linkedExecutionIds||[]).length > 0) && <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',fontWeight:600,textTransform:'none',letterSpacing:0}} onClick={() => {
-                // Collect all CDAs from every EF covered by any IDPJ in the list
-                const coveredExecIds = new Set();
-                idpjGroups.forEach(g => (g.exec.linkedExecutionIds||[]).forEach(id => coveredExecIds.add(id)));
-                const coveredExecs = execs.filter(e => coveredExecIds.has(e.id));
-                const cdasToSelect = allDebts.filter(d => d.processNumber && coveredExecs.some(e => sameProc(e.processNumber, d.processNumber)));
-                setSelectedCDAs(prev => { const n = new Set(prev); cdasToSelect.forEach(d => n.add(d.id)); return n; });
-              }}>Selecionar CDAs das EFs cobertas<span className="tip-content">Seleciona todas as CDAs de todas as execuções fiscais abrangidas pelos incidentes/cautelares acima. Útil para lançar um único evento interruptivo (ex: indisponibilidade patrimonial obtida no IDPJ) que alcance todas as CDAs de uma vez.</span></button>}
-            </div>
-            {idpjGroups.map(g => renderGroupTree(g, 'idpj'))}
-          </div>}
-
-          {/* Regular processes — linked to IDPJ/Cautelar (close to the incident) */}
-          {regularLinkedToIdpj.length > 0 && <div style={{marginBottom:8}}>
-            <div style={{fontSize:10,fontWeight:600,color:'var(--pgfn-light)',marginBottom:6,letterSpacing:0.3,display:'flex',alignItems:'center',gap:8}}>
-              <span style={{flex:'0 0 auto'}}>Execuções Fiscais vinculadas ao Incidente/Cautelar ({regularLinkedToIdpj.length})</span>
-              <span style={{flex:1,height:1,background:'linear-gradient(90deg, rgba(155,40,72,0.4), transparent)'}}></span>
-            </div>
-            {regularLinkedToIdpj.map(g => renderGroupTree(g, 'normal'))}
-          </div>}
-
-          {/* Visual divider between linked and standalone regulars */}
-          {regularLinkedToIdpj.length > 0 && regularStandalone.length > 0 && (
-            <div style={{margin:'14px 0 10px',display:'flex',alignItems:'center',gap:10}}>
-              <span style={{flex:1,height:1,background:'repeating-linear-gradient(90deg, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)'}}></span>
-              <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600}}>Demais Processos</span>
-              <span style={{flex:1,height:1,background:'repeating-linear-gradient(90deg, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)'}}></span>
-            </div>
-          )}
-
-          {/* Regular processes — standalone (no IDPJ link) */}
-          {regularStandalone.length > 0 && <div>
-            {regularStandalone.map(g => renderGroupTree(g, 'normal'))}
-          </div>}
-
-          {/* Embargos at the end */}
-          {regularEmbargos.length > 0 && <div style={{marginTop:16}}>
-            <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:0.5}}>📎 Embargos à Execução ({regularEmbargos.length})</div>
-            {regularEmbargos.map(g => renderGroupTree(g, 'normal'))}
-          </div>}
+          {renderProcViewList()}
         </div>}
       </div>);
     }
@@ -9929,30 +10153,39 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
 // evita re-render da aba inteira a cada tecla (causa da lentidão anterior).
 function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const isMulti = !!sd.multiRecurso;
+  const textOnly = !!sd.textOnly;
   const [date, setDate] = React.useState((rec && rec.date) || '');
   const [evento, setEvento] = React.useState((rec && rec.evento) || '');
+  const [texto, setTexto] = React.useState((rec && rec.texto) || '');
   const [outcome, setOutcome] = React.useState((rec && rec.outcome) || '');
   const [recursos, setRecursos] = React.useState(() => getRecursos(rec).map(r => ({ ...r })));
   const outs = Object.entries(sd.outcomes);
-  const hadData = rec && (rec.date || rec.evento || rec.outcome || rec.recursos || rec.procs);
+  const hadData = rec && (rec.date || rec.evento || rec.texto || rec.outcome || rec.recursos || rec.procs);
   const commit = () => {
     if (isMulti) { if (recursos.length || (rec && (rec.recursos || rec.procs))) onCommit({ recursos, procs: undefined }); return; }
-    if (date || evento || outcome || hadData) onCommit({ date, evento, outcome });
+    if (textOnly) {
+      if (texto.trim() || hadData) onCommit({ date: '', evento: '', texto: texto.trim(), outcome: '' });
+      return;
+    }
+    if (date || evento || texto.trim() || outcome || hadData) onCommit({ date, evento, texto: texto.trim(), outcome });
   };
   const close = () => { commit(); onClose(); };
   const noteText = () => {
     if (isMulti) { if (!recursos.length) return null; return sd.label + ': ' + recursos.map((r,i) => `${i+1}) ${r.date?fmtDate(r.date):'s/ data'}${r.proc?' · proc. '+r.proc:''}${r.outcome&&sd.outcomes[r.outcome]?' ('+sd.outcomes[r.outcome]+')':''}`).join('; '); }
-    if (!date && !evento && !outcome) return null;
+    if (textOnly) return texto.trim() ? (sd.label + ' — ' + texto.trim()) : null;
+    if (!date && !evento && !texto.trim() && !outcome) return null;
     const outLbl = outcome && sd.outcomes[outcome] ? ' — ' + sd.outcomes[outcome] : '';
-    const evLbl = evento ? ' · Evento ' + evento : '';
-    const dLbl = date ? ' · ' + fmtDate(date) : '';
-    return sd.label + outLbl + evLbl + dLbl;
+    const parts = [sd.label + outLbl];
+    if (date) parts.push(fmtDate(date));
+    if (evento) parts.push('Evento ' + evento);
+    if (texto.trim()) parts.push(texto.trim());
+    return parts.join(' · ');
   };
   const updR = (ri, patch) => setRecursos(rs => rs.map((r,j) => j===ri ? { ...r, ...patch } : r));
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
-  const hasData = isMulti ? recursos.length > 0 : (!!date || !!evento || !!outcome);
+  const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome));
   return (<div onClick={(e) => { e.stopPropagation(); close(); }} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:300,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
+    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:textOnly?360:380,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{sd.label}</span>
         <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:16}} onClick={close}>✕</span>
@@ -9973,14 +10206,20 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
           </div>
         </div>))}
         <button type="button" onClick={() => setRecursos(rs => [...rs, { date:'', proc:'', outcome:'pendente' }])} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-secondary)',cursor:'pointer'}}>+ adicionar recurso</button>
-      </div>) : (<>
+      </div>) : textOnly ? (
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label>
+          <textarea value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="Descreva o saneamento / provas relevantes" rows={3} style={{width:'100%',fontSize:12,padding:'8px 10px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.45}} />
+        </div>
+      ) : (<>
         {outs.length > 0 && <div style={{display:'flex',gap:6,marginBottom:12}}>
           {outs.map(([ok,ol]) => { const on = outcome === ok; const oc = outcomeColor(ok);
             return <button key={ok} type="button" onClick={() => setOutcome(on?'':ok)} style={{flex:1,fontSize:11,padding:'6px 8px',borderRadius:5,cursor:'pointer',border:`1px solid ${on?oc:'var(--border)'}`,background:on?outcomeTint(ok):'transparent',color:on?oc:'var(--text-secondary)',fontWeight:on?700:400}}>{ol}</button>; })}
         </div>}
-        <div style={{display:'flex',gap:8,marginBottom:14}}>
-          <div style={{flex:1}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Data</label><input type="date" value={date} onChange={e => setDate(e.target.value)} onBlur={commit} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
-          <div style={{width:100}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Nº do evento</label><input value={evento} onChange={e => setEvento(e.target.value)} onBlur={commit} placeholder="ex.: 5" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
+        <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'flex-end'}}>
+          <div style={{flex:'0 0 128px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Data</label><input type="date" value={date} onChange={e => setDate(e.target.value)} onBlur={commit} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
+          <div style={{flex:'0 0 88px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Nº do evento</label><input value={evento} onChange={e => setEvento(e.target.value)} onBlur={commit} placeholder="ex.: 5" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
+          <div style={{flex:1,minWidth:0}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label><input value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="ao lado do evento" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
         </div>
       </>)}
       <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'center'}}>
