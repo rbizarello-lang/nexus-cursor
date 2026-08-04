@@ -2850,16 +2850,19 @@ function App() {
   const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — nó selecionado na árvore
   const [modelQuery, setModelQuery] = useState('');      // busca livre (texto da peça colado)
   const [modelMatters, setModelMatters] = useState([]);  // matérias inferidas do texto colado
-  // Temas válidos clássicos: theme-mar (padrão), '' (Noite Azulada), theme-ferro.
-  // Obsidian removido → Mar Profundo.
-  const THEMES_OK = ['theme-mar', '', 'theme-ferro'];
+  // Temas válidos clássicos: theme-mar (padrão), theme-claro, theme-ferro.
+  // Noite Azulada ('') removida → Claro; Obsidian → Mar Profundo.
+  const THEMES_OK = ['theme-mar', 'theme-claro', 'theme-ferro'];
   // Temas da Demo: Mar Profundo é o padrão experimental; Clara/Ardósia/Grafite opcionais.
   const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite'];
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
       let th = s.theme;
+      let themeMigrated = false;
       if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
+      // Migra Noite Azulada ('' / theme-noite) → Claro (tokens Clara da Demo)
+      if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
       const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'mar';
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
@@ -2870,19 +2873,19 @@ function App() {
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) { edition = 'demo'; bootstrapped = true; }
         }
       } catch {}
-      // Demo Processos A/B/C — prefer nexus_settings; fallback legacy key nexus_demo_proc_view
+      // Demo Processos A/B/C/D — prefer nexus_settings; fallback legacy key nexus_demo_proc_view
       let pvm = s.processViewModel;
-      if (!['A', 'B', 'C'].includes(pvm)) {
+      if (!['A', 'B', 'C', 'D'].includes(pvm)) {
         try { pvm = localStorage.getItem('nexus_demo_proc_view'); } catch { pvm = null; }
       }
-      if (!['A', 'B', 'C'].includes(pvm)) pvm = 'B';
+      if (!['A', 'B', 'C', 'D'].includes(pvm)) pvm = 'D';
       const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm };
-      // Persiste bootstrap (?edition=demo / Nexus.demo.html) para o toggle ⚙ ficar coerente
-      if (bootstrapped && s.uiEdition !== 'demo') {
+      // Persiste bootstrap (?edition=demo / Nexus.demo.html) e migração de tema legado
+      if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
       return next;
-    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic', processViewModel: 'B' }; }
+    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic', processViewModel: 'D' }; }
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} if (key === 'processViewModel') { try { localStorage.setItem('nexus_demo_proc_view', val); } catch {} } return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
@@ -4441,6 +4444,7 @@ function App() {
     try { localStorage.removeItem('nexus_dismissed_suggestions'); } catch {}
   };
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [selectedProcHubId, setSelectedProcHubId] = useState(null); // Visão D · master–detail
   const briefingSplitRef = React.useRef(null);
   const briefingDragRef = React.useRef({ active: false, startX: 0, startW: 0 });
   const [briefingRightW, setBriefingRightW] = useState(() => { try { const v = parseFloat(localStorage.getItem('nexus_split_pct')); return v > 15 && v < 65 ? v : 33; } catch { return 33; } });
@@ -6750,7 +6754,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const unlinkedCDAs = allDebts.filter(d => !d.processNumber || !execs.some(e => sameProc(e.processNumber, d.processNumber)));
       if (unlinkedCDAs.length > 0) cdaGroups.push({ type: 'unlinked', exec: null, cdas: unlinkedCDAs });
 
-      // Linked-to-IDPJ set (badges no card) — hierarquia de seções vem de classifyProcGroups / Visão C
+      // Linked-to-IDPJ set (badges no card) — hierarquia de seções vem de classifyProcGroups / Visão D
       const idpjLinkedExecIds2 = new Set();
       execs.forEach(e => {
         if (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') {
@@ -7097,12 +7101,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </React.Fragment>);
       };
 
-      // Visão C no clássico; Demo Experimental mantém seletor A/B/C (padrão B)
+      // Visão D no clássico; Demo Experimental mantém seletor A/B/C/D (padrão D se unset)
       const procViewModel = isDemo
-        ? (['A', 'B', 'C'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'B')
-        : 'C';
+        ? (['A', 'B', 'C', 'D'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'D')
+        : 'D';
       const classified = classifyProcGroups(cdaGroups, execs);
       const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
+      const hubTagShort = (tag) => ({ idpj: 'IDPJ', cautelar_fiscal: 'Cautelar fiscal', central: 'Central' }[tag] || tag || 'Hub');
       const efRiskMeta = (group) => {
         const riskDays = (group.cdas || []).filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
         const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
@@ -7112,6 +7117,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const label = allHandled ? 'Tratadas' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
         const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
         return { total, st, label, riskClass, minRiskDays };
+      };
+      const hubRailMeta = (hubGroup, covered) => {
+        const metas = (covered || []).map(efRiskMeta);
+        const total = metas.reduce((s, m) => s + (m.total || 0), 0);
+        const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
+        const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
+        const allHandled = metas.length > 0 && metas.every(m => m.riskClass === 'ok');
+        const label = allHandled ? 'OK' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
+        const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
+        const st = EXEC_STATUSES[hubGroup.exec?.status] || {};
+        return { total, st, label, riskClass, minRiskDays, coveredCount: (covered || []).length };
       };
       const renderHubCoveredBlock = (hubGroup, covered) => {
         if (!covered || covered.length === 0) return (
@@ -7194,11 +7210,201 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         );
       };
-      // Renderer compartilhado A/B/C — clássico chama com model='C'; demo usa o seletor
+      // Renderer compartilhado A/B/C/D — clássico chama com model='D'; demo usa o seletor
+      const renderProcViewMasterDetail = () => {
+        const { hubs, coveredByHub, uncoveredEFs, extinct, others, unlinked } = classified;
+        const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
+          ? selectedProcHubId
+          : (hubs[0]?.exec.id || null);
+        const selectedHub = hubs.find(h => h.exec.id === effectiveHubId) || null;
+        const covered = selectedHub
+          ? (coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada')
+          : [];
+        const hubMeta = selectedHub ? hubRailMeta(selectedHub, covered) : null;
+        const freeEFs = [...uncoveredEFs, ...unlinked];
+
+        const openRowDetail = (g) => {
+          const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
+          if (!collapsedGroups.has(pk)) toggleGroup(pk);
+        };
+        const renderEfTable = (items, emptyMsg) => {
+          if (!items || items.length === 0) {
+            return <div className="proc-md-empty">{emptyMsg || 'Nenhum processo'}</div>;
+          }
+          return (
+            <div className="demo-proc-table-wrap">
+              <table className="demo-proc-table proc-md-table">
+                <thead><tr><th>Processo</th><th>Status</th><th>Valor</th><th>Prescrição</th><th></th></tr></thead>
+                <tbody>
+                  {items.map(g => {
+                    const meta = efRiskMeta(g);
+                    const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
+                    const expanded = collapsedGroups.has(pk);
+                    const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
+                      : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : 'normal';
+                    return (
+                      <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
+                        <tr className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''}`}
+                          onClick={() => toggleGroup(pk)}>
+                          <td className="mono">{g.exec?.processNumber || (g.type === 'unlinked' ? 'CDAs sem processo' : '—')}</td>
+                          <td>{meta.st.label || g.exec?.status || 'Não ajuizadas'}</td>
+                          <td>{fmtCur(meta.total)}</td>
+                          <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                          <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
+                            {g.type === 'exec' && (
+                              <button type="button" className="btn-secondary btn-xs"
+                                onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: g.exec })}>Abrir</button>
+                            )}
+                          </td>
+                        </tr>
+                        {expanded && (
+                          <tr className="demo-proc-table-detail">
+                            <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv })}</td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        const extinctOpen = collapsedGroups.has('proc-md-extinct');
+        const othersOpen = collapsedGroups.has('proc-md-others');
+
+        return (
+          <div className="demo-proc-view demo-proc-view-D proc-md-frame">
+            <aside className="proc-md-rail">
+              <div className="proc-md-rail-h">Hubs ({hubs.length})</div>
+              {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum hub nesta operação</div>}
+              {hubs.map(h => {
+                const cov = (coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada');
+                const meta = hubRailMeta(h, cov);
+                const active = h.exec.id === effectiveHubId;
+                return (
+                  <button type="button" key={h.exec.id}
+                    className={`proc-md-hub${active ? ' active' : ''}`}
+                    onClick={() => setSelectedProcHubId(h.exec.id)}>
+                    <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
+                    <span className="proc-md-hub-num">{h.exec.processNumber || 'S/N'}</span>
+                    <span className="proc-md-hub-meta">
+                      <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
+                      <span>{fmtCur(meta.total)}</span>
+                      <span className={`risk-${meta.riskClass}`}>{meta.label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+
+              {uncoveredEFs.length > 0 && (
+                <>
+                  <div className="proc-md-rail-sec">Sem vínculo ({uncoveredEFs.length})</div>
+                  {uncoveredEFs.map(g => {
+                    const meta = efRiskMeta(g);
+                    return (
+                      <button type="button" key={g.exec.id} className="proc-md-rail-item"
+                        onClick={() => openRowDetail(g)}
+                        title="Abrir detalhe da EF">
+                        <span className="mono">{g.exec.processNumber || 'S/N'}</span>
+                        <span className="muted"> · {meta.st.label || g.exec.status || '—'}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
+              <div className="proc-md-rail-sec">Extintas · Outros</div>
+              <button type="button" className="proc-md-rail-item demoted"
+                onClick={() => toggleGroup('proc-md-extinct')}>
+                {extinctOpen ? '▾' : '▸'} Extintas ({extinct.length})
+              </button>
+              {extinctOpen && extinct.map(g => (
+                <button type="button" key={g.exec.id} className="proc-md-rail-item nested"
+                  onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: g.exec })}>
+                  <span className="mono">{g.exec.processNumber || 'S/N'}</span>
+                </button>
+              ))}
+              <button type="button" className="proc-md-rail-item demoted"
+                onClick={() => toggleGroup('proc-md-others')}>
+                {othersOpen ? '▾' : '▸'} Outros ({others.length})
+              </button>
+              {othersOpen && others.map(g => (
+                <button type="button" key={g.exec.id} className="proc-md-rail-item nested"
+                  onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: g.exec })}>
+                  <span className="mono">{g.exec.processNumber || 'S/N'}</span>
+                </button>
+              ))}
+            </aside>
+
+            <section className="proc-md-pane">
+              {selectedHub ? (
+                <>
+                  <div className="proc-md-pane-h">
+                    <div>
+                      <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
+                      <div className="proc-md-pane-num">
+                        {[selectedHub.exec.processNumber || 'S/N', selectedHub.exec.court].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <div className="proc-md-pane-actions">
+                      <button type="button" className="btn-secondary btn-sm"
+                        onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
+                      <button type="button" className="btn-primary btn-sm"
+                        onClick={() => {
+                          const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
+                          setModal({
+                            type: 'create',
+                            entityType: 'prescriptionEvent',
+                            initial: { batchCdaIds: cdaIds, executionId: selectedHub.exec.id }
+                          });
+                        }}>+ Evento</button>
+                    </div>
+                  </div>
+                  <div className="proc-md-pane-body">
+                    <div className="proc-md-hub-summary">
+                      <div><small>Status</small><strong>{hubMeta.st.label || selectedHub.exec.status || '—'}</strong></div>
+                      <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
+                      <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
+                    </div>
+
+                    <div className="proc-md-block-label">EFs abrangidas <span className="count">({covered.length})</span></div>
+                    {renderEfTable(covered, 'Nenhuma EF vinculada a este hub')}
+
+                    <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                    {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                  </div>
+                </>
+              ) : (
+                <div className="proc-md-pane-body">
+                  <div className="proc-md-block-label">Processos <span className="count">({freeEFs.length})</span></div>
+                  {renderEfTable(freeEFs, 'Nenhum processo nesta operação')}
+                  {extinct.length > 0 && (
+                    <>
+                      <div className="proc-md-block-label demoted">Extintas / Arquivadas <span className="count">({extinct.length})</span></div>
+                      {renderEfTable(extinct)}
+                    </>
+                  )}
+                  {others.length > 0 && (
+                    <>
+                      <div className="proc-md-block-label demoted">Outros <span className="count">({others.length})</span></div>
+                      {renderEfTable(others)}
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+        );
+      };
+
       const renderProcViewList = () => {
         if (!classified) return null;
         const { hubs, coveredByHub, uncoveredEFs, extinct, others, unlinked } = classified;
-        const model = procViewModel || 'C';
+        const model = procViewModel || 'D';
+
+        if (model === 'D') return renderProcViewMasterDetail();
 
         const hubBlocks = hubs.map(h => {
           const covered = (coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada');
@@ -7238,7 +7444,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>
             );
           }
-          // Model B (default demo): hub card with EFs always listed inside
+          // Model B (default demo legacy): hub card with EFs always listed inside
           const expandedCovered = covered.filter(cg => collapsedGroups.has('process-row-' + cg.exec.id));
           return (
             <div key={h.exec.id} className="demo-proc-hub-b">
@@ -7278,8 +7484,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <span className="demo-proc-view-switch-label">Visão</span>
                 {[
                   { id: 'A', tip: 'Árvore — hubs com EFs aninhadas' },
-                  { id: 'B', tip: 'Hub com EFs no card (padrão)' },
+                  { id: 'B', tip: 'Hub com EFs no card' },
                   { id: 'C', tip: 'Seções + tabela densa de EFs' },
+                  { id: 'D', tip: 'Master–detail — rail de hubs + painel (padrão)' },
                 ].map(m => (
                   <button key={m.id} type="button" title={m.tip}
                     className={`demo-proc-view-opt${procViewModel === m.id ? ' active' : ''}`}
@@ -7294,12 +7501,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {/* Orientação da visão integrada */}
         <div className="presc-legal-ref">
           <strong>Processos, CDAs e prescrição em uma única visão.</strong>
-          {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.
-          {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas e ações. Clique numa CDA para o popup completo.
+          {procViewModel === 'D' ? (
+            <> {' '}Hubs compactos à esquerda; painel direito com EFs abrangidas pelo hub e EFs sem vínculo. Extintas/Outros recolhidos no rodapé do rail. Clique numa linha ou em <strong>Abrir</strong> para o detalhe.</>
+          ) : (
+            <> {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.
+            {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas e ações. Clique numa CDA para o popup completo.</>
+          )}
           {isDemo && procViewModel === 'B' && <> {' '}Demo: modelo <strong>B</strong> — EFs abrangidas listadas no card do hub.</>}
           {isDemo && procViewModel === 'A' && <> {' '}Demo: modelo <strong>A</strong> — árvore hub → EFs.</>}
           {isDemo && procViewModel === 'C' && <> {' '}Demo: modelo <strong>C</strong> — seções + tabela.</>}
-          {!isDemo && <> {' '}Visão <strong>C</strong> — seções + tabela.</>}
+          {isDemo && procViewModel === 'D' && <> {' '}Demo: modelo <strong>D</strong> — master–detail.</>}
+          {!isDemo && <> {' '}Visão <strong>D</strong> — master–detail.</>}
         </div>
 
         {/* Bulk selection bar */}
@@ -7904,7 +8116,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="settings-label">Tema</div>
       <div className="settings-options">
         <button className={`settings-opt ${appSettings.theme==='theme-mar'?'active':''}`} onClick={() => updateSetting('theme','theme-mar')}>Mar Profundo</button>
-        <button className={`settings-opt ${appSettings.theme===''?'active':''}`} onClick={() => updateSetting('theme','')}>Noite Azulada</button>
+        <button className={`settings-opt ${appSettings.theme==='theme-claro'?'active':''}`} onClick={() => updateSetting('theme','theme-claro')}>Claro</button>
         <button className={`settings-opt ${appSettings.theme==='theme-ferro'?'active':''}`} onClick={() => updateSetting('theme','theme-ferro')}>Ferro e Maré</button>
       </div>
     </div>}
