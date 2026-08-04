@@ -5184,7 +5184,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
                     onClose={() => openPop(m.k)} />
                 );
-                return (<div className="proc-stage-vertical" style={{margin:'10px 0 4px',display:'flex',flexDirection:'column',gap:0}}>
+                return (<div className="proc-stage-vertical" style={{margin:'4px 0 2px',display:'flex',flexDirection:'column',gap:0}}>
                   {metas.map((m) => {
                     const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
                     // info sem o texto livre (data · Ev.) — o texto fica no slot clicável à direita
@@ -5197,28 +5197,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'6px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:16,flexShrink:0,paddingTop:2}}>
-                        <div style={{width:12,height:12,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
-                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:10,marginTop:3,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:3}}>
+                        <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
+                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:4,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'nowrap'}}>
+                      <div style={{flex:1,minWidth:0,lineHeight:1.3}}>
+                        <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
                           <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-muted)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
                           {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
                           {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
                           {m.sd.multiRecurso ? (
                             !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>
                           ) : editingNote ? (
-                            <input autoFocus defaultValue={noteTxt}
+                            <textarea autoFocus defaultValue={noteTxt}
                               placeholder="texto ao lado do evento"
+                              rows={Math.min(6, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
                               onClick={ev => ev.stopPropagation()}
                               onBlur={e => commitNote(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
-                              style={{flex:1,minWidth:80,fontSize:11,padding:'1px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)'}} />
+                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
+                              style={{flex:'1 1 100%',minWidth:0,width:'100%',fontSize:11,padding:'2px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.35,boxSizing:'border-box'}} />
                           ) : (
                             <span onClick={startNoteEdit} title="Editar texto"
-                              style={{fontSize:11,color:noteTxt?'var(--text-secondary)':'var(--text-muted)',fontFamily:'var(--font-display)',flex:1,minWidth:noteTxt || (!m.outcomeLabel && !metaInfo) ? 24 : 12,cursor:'text',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              style={{fontSize:11,color:noteTxt?'var(--text-secondary)':'var(--text-muted)',fontFamily:'var(--font-display)',flex:'1 1 12em',minWidth:noteTxt || (!m.outcomeLabel && !metaInfo) ? '12em' : 12,cursor:'text',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',lineHeight:1.35}}>
                               {noteTxt || (!m.outcomeLabel && !metaInfo ? '—' : '')}
                             </span>
                           )}
@@ -10428,10 +10429,10 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
           {outs.map(([ok,ol]) => { const on = outcome === ok; const oc = outcomeColor(ok);
             return <button key={ok} type="button" onClick={() => setOutcome(on?'':ok)} style={{flex:1,fontSize:11,padding:'6px 8px',borderRadius:5,cursor:'pointer',border:`1px solid ${on?oc:'var(--border)'}`,background:on?outcomeTint(ok):'transparent',color:on?oc:'var(--text-secondary)',fontWeight:on?700:400}}>{ol}</button>; })}
         </div>}
-        <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'flex-end'}}>
+        <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'flex-start',flexWrap:'wrap'}}>
           <div style={{flex:'0 0 128px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Data</label><input type="date" value={date} onChange={e => setDate(e.target.value)} onBlur={commit} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
           <div style={{flex:'0 0 88px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Nº do evento</label><input value={evento} onChange={e => setEvento(e.target.value)} onBlur={commit} placeholder="ex.: 5" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
-          <div style={{flex:1,minWidth:0}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label><input value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="ao lado do evento" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
+          <div style={{flex:'1 1 100%',minWidth:0}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label><textarea value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="ao lado do evento" rows={3} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.35}} /></div>
         </div>
       </>)}
       <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'center'}}>
