@@ -110,7 +110,10 @@
   --border-light: #a8b6c4;
   --text-primary: #0b1f33;
   --text-secondary: #3d5166;
-  --text-muted: #6b7f93;
+  --text-muted: #5a7088;
+  --demo-glass-card: #ffffff;
+  --demo-glass: rgba(255,255,255,0.92);
+  --demo-glass-soft: rgba(255,255,255,0.8);
   --accent: #b87333;
   --accent-dim: rgba(184,115,51,0.12);
   --accent-glow: rgba(184,115,51,0.22);
@@ -141,10 +144,16 @@
     radial-gradient(900px 400px at 90% 0%, rgba(42,95,143,0.08), transparent 50%),
     linear-gradient(180deg, #eef3f6 0%, #e8eef2 40%, #e4eaef 100%);
 }
-.app-layout.theme-claro .badge-muted { background: var(--purple-dim); color: var(--text-muted); }
-.app-layout.theme-claro .badge-white { background: var(--purple-dim); color: var(--text-secondary); border-color: var(--border); }
 .app-layout.theme-claro .btn-primary:hover { background: var(--pgfn-light); box-shadow: none; }
 .app-layout.theme-claro .settings-panel { box-shadow: 0 8px 32px rgba(11,31,51,0.14); }
+/* Superfícies “glass” do grafo: no Claro usam card/elevated (texto escuro legível) */
+.app-layout.theme-claro .graph-legend,
+.app-layout.theme-claro .graph-controls button,
+.app-layout.theme-claro .detail-panel {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow);
+}
 /* ─── Theme: Ferro e Maré (ferro escuro + azul maré, destaques bege, alerta burgundy) ─── */
 .theme-ferro { --bg-deep: #171e27; --bg-main: #1f2733; --bg-card: #253243; --bg-card-hover: #2b3a4e; --bg-elevated: #223c5e; --bg-input: #1a222d; --border: #2e3f54; --border-light: #3f5a7c; --text-primary: #e2ded0; --text-secondary: #c0c0c0; --text-muted: #7d8896; --accent: #c4a87c; --accent-dim: rgba(196,168,124,0.12); --accent-glow: rgba(196,168,124,0.20); --gold: #c4a87c; --gold-dim: rgba(196,168,124,0.12); --pgfn: #660000; --pgfn-light: #8f1f1f; --pgfn-dim: rgba(102,0,0,0.20); --blue: #5d8bc4; --blue-dim: rgba(93,139,196,0.14); --shadow: 0 2px 16px rgba(0,0,0,0.45); }
 /* ─── Font variants (settings → class on html + .app-layout) ─── */
@@ -231,12 +240,11 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .badge-purple { background: var(--purple-dim); color: var(--purple); }
 .badge-orange { background: var(--orange-dim); color: var(--orange); }
 .badge-cyan { background: var(--cyan-dim); color: var(--cyan); }
-.badge-muted { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); }
-.badge-muted-strong { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); }
-.badge-white { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); }
-.badge-green-strong { background: rgba(34,197,94,0.25); color: #4ade80; font-weight: 600; }
-.badge-muted { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-.badge-brown { background: rgba(180,120,60,0.15); color: #d4a05a; }
+.badge-muted { background: var(--purple-dim); color: var(--text-muted); }
+.badge-muted-strong { background: var(--purple-dim); color: var(--text-secondary); border: 1px solid var(--border); }
+.badge-white { background: var(--purple-dim); color: var(--text-secondary); border: 1px solid var(--border); }
+.badge-green-strong { background: var(--green-dim); color: var(--green); font-weight: 600; }
+.badge-brown { background: rgba(180,120,60,0.15); color: var(--yellow); }
 
 .app-layout { display: grid; grid-template-columns: 280px 1fr; height: 100%; transition: grid-template-columns 0.25s ease; font-family: var(--font-body, var(--font-display)); }
 .app-layout.sidebar-collapsed { grid-template-columns: 40px 1fr; }
@@ -299,11 +307,11 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .graph-container { flex: 1; position: relative; overflow: hidden; }
 .graph-container svg { width: 100%; height: 100%; cursor: grab; }
 .graph-container svg:active { cursor: grabbing; }
-.graph-legend { position: absolute; bottom: 12px; left: 12px; background: rgba(13,17,23,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; display: flex; gap: 14px; font-size: 10px; flex-wrap: wrap; }
+.graph-legend { position: absolute; bottom: 12px; left: 12px; background: var(--demo-glass-card, rgba(13,17,23,0.92)); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; display: flex; gap: 14px; font-size: 10px; flex-wrap: wrap; color: var(--text-secondary); }
 .legend-item { display: flex; align-items: center; gap: 5px; color: var(--text-secondary); }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 .graph-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 4px; }
-.graph-controls button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(13,17,23,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); font-size: 16px; padding: 0; }
+.graph-controls button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--demo-glass-card, rgba(13,17,23,0.92)); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); font-size: 16px; padding: 0; }
 .graph-controls button:hover { color: var(--accent); border-color: var(--accent); }
 
 .entity-area { flex: 1; overflow-y: auto; padding: 16px 24px 48px; min-height: 0; }
@@ -364,7 +372,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
-.detail-panel { position: absolute; top: 12px; left: 12px; width: 310px; max-height: calc(100% - 24px); overflow-y: auto; background: rgba(13,17,23,0.95); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; z-index: 10; }
+.detail-panel { position: absolute; top: 12px; left: 12px; width: 310px; max-height: calc(100% - 24px); overflow-y: auto; background: var(--demo-glass-card, rgba(13,17,23,0.95)); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; z-index: 10; color: var(--text-primary); }
 .detail-panel h4 { font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 3px; }
 .dp-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
 .dp-field { margin-bottom: 6px; }
@@ -640,7 +648,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .b-acc-icon { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; display: inline-block; flex-shrink: 0; width: 12px; text-align: center; }
 .b-acc-icon.open { transform: rotate(90deg); }
 .b-acc-title { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.b-acc-count { font-size: 9px; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 3px; flex-shrink: 0; }
+.b-acc-count { font-size: 9px; color: var(--text-muted); background: var(--bg-elevated); padding: 1px 6px; border-radius: 3px; flex-shrink: 0; }
 .b-acc-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .b-acc-body { padding: 0 4px 12px 22px; }
 .briefing-section { margin-bottom: 14px; }
@@ -1072,7 +1080,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --border-light: #a8b6c4;
   --text-primary: #0b1f33;
   --text-secondary: #3d5166;
-  --text-muted: #6b7f93;
+  --text-muted: #5a7088;
   --accent: #b87333;
   --accent-dim: rgba(184,115,51,0.12);
   --accent-glow: rgba(184,115,51,0.22);
@@ -1282,8 +1290,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .app-layout.edition-demo body,
 .app-layout.edition-demo { color: var(--text-primary); }
 .app-layout.edition-demo .main-content { background: transparent; }
-.app-layout.edition-demo .badge-muted { background: var(--purple-dim); color: var(--text-muted); }
-.app-layout.edition-demo .badge-white { background: var(--purple-dim); color: var(--text-secondary); border-color: var(--border); }
 .app-layout.edition-demo .btn-primary { background: var(--pgfn); color: #fff; }
 .app-layout.edition-demo .btn-primary:hover { background: var(--pgfn-light); box-shadow: none; }
 .app-layout.edition-demo .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border); }

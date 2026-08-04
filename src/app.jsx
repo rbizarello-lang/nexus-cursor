@@ -612,15 +612,15 @@ const OP_CLASSIFICATIONS = {
   recurso_interposto: { label: 'Recurso Interposto', color: 'var(--yellow)', border: 'rgba(212,168,56,0.45)' },
   recurso_provido: { label: 'Recurso Provido', color: 'var(--blue)', border: 'rgba(91,143,217,0.45)' },
   transito_julgado: { label: 'Trânsito em Julgado', color: 'var(--gold)', border: 'var(--gold)' },
-  suspenso: { label: 'Suspenso', color: 'rgba(255,255,255,0.55)', border: 'rgba(255,255,255,0.18)' },
-  poucos_bens: { label: 'Poucos Bens', color: '#d4a05a', border: '#92631a' },
+  suspenso: { label: 'Suspenso', color: 'var(--text-secondary)', border: 'var(--border-light)' },
+  poucos_bens: { label: 'Poucos Bens', color: 'var(--yellow)', border: 'var(--yellow)' },
   muitos_bens: { label: 'Muitos Bens', color: 'var(--green)', border: 'var(--green)' },
   bens_suficientes: { label: 'Bens Suficientes', color: 'var(--green)', border: 'var(--green)' },
-  sem_bens: { label: 'Sem Bens', color: '#d4a05a', border: '#92631a' },
+  sem_bens: { label: 'Sem Bens', color: 'var(--yellow)', border: 'var(--yellow)' },
   constricao_ativa: { label: 'Constrição Ativa', color: 'var(--cyan)', border: 'var(--cyan)' },
   parcelamento_parcial: { label: 'Parcelamento Parcial', color: 'var(--blue)', border: 'rgba(59,130,246,0.4)' },
   parcelamento_negociacao: { label: 'Parcelamento em Negociação', color: 'var(--yellow)', border: 'rgba(212,168,56,0.4)' },
-  parceladas: { label: 'Parceladas', color: 'rgba(255,255,255,0.6)', border: 'rgba(255,255,255,0.2)' }
+  parceladas: { label: 'Parceladas', color: 'var(--text-secondary)', border: 'var(--border-light)' }
 };
 // Leitura retrocompatível das classificações de uma operação.
 // Suporta o novo campo `classifications` (array) e o legado `classification` (string única).
@@ -2625,7 +2625,7 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
               fill={node.color} fillOpacity={0.08} stroke={node.color} strokeWidth={1.5} strokeDasharray="6,4" />
             {labelLines.map((line, li) => (
               <text key={li} x={node.x} y={node.y + (li - (labelLines.length-1)/2) * 13} textAnchor="middle" dominantBaseline="central"
-                fill={li === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)'} fontSize={li === 0 ? "10" : "9"} fontWeight={li === 0 ? "600" : "400"} style={{fontFamily:'var(--font-display)'}}>{line}</text>
+                fill={li === 0 ? 'var(--text-primary)' : 'var(--text-muted)'} fontSize={li === 0 ? "10" : "9"} fontWeight={li === 0 ? "600" : "400"} style={{fontFamily:'var(--font-display)'}}>{line}</text>
             ))}
           </g>);
         }
@@ -2642,21 +2642,21 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
           <circle cx={node.x} cy={node.y} r={node.r} fill={node.color} fillOpacity={inactive ? 0.04 : node.isHub ? 0.18 : node.isApenso ? 0.06 : 0.1} stroke={node.color} strokeWidth={node.isHub ? 2 : node.isApenso ? 0.5 : 1.5} strokeDasharray={inactive ? '3,3' : 'none'} />
           {node.type === 'operation' ?
             <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central" fill={node.color} fontSize="9" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>{truncate(node.label, 14)}</text> :
-            <><text x={node.x} y={node.y - 1} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={node.r >= 26 ? "9" : node.r > 12 ? "7" : "6"} fontWeight="500">
+            <><text x={node.x} y={node.y - 1} textAnchor="middle" dominantBaseline="central" fill="var(--text-primary)" fontSize={node.r >= 26 ? "9" : node.r > 12 ? "7" : "6"} fontWeight="500">
               {node.type === 'person' ? (node.subtype === 'PJ' ? '🏢' : '👤') : node.type === 'debt' ? '📄' : node.type === 'execution' ? (node.isHub ? (node.data?.processTag === 'idpj' ? '🛡' : '⚡') : '⚖') : node.type === 'measure' ? '🛡️' : '💎'}
             </text>
             {node.isHub ? <>
-              {(node.label||'').split('\n').map((line, li) => <text key={li} x={node.x} y={node.y + node.r + 10 + li * 10} textAnchor="middle" fill={li===0?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.6)'} fontSize={li===0?"7":"5.5"} fontWeight={li===0?"700":"500"} style={{fontFamily: li===0 ? 'var(--font-display)' : 'var(--font-mono)'}}>{line}</text>)}
-              {node.totalLinkedValue > 0 && <text x={node.x} y={node.y + node.r + 10 + (node.label||'').split('\n').length * 10} textAnchor="middle" fill="rgba(245,158,11,0.85)" fontSize="6" fontWeight="700" style={{fontFamily:'var(--font-mono)'}}>{fmtCur(node.totalLinkedValue)}</text>}
+              {(node.label||'').split('\n').map((line, li) => <text key={li} x={node.x} y={node.y + node.r + 10 + li * 10} textAnchor="middle" fill={li===0?'var(--text-primary)':'var(--text-secondary)'} fontSize={li===0?"7":"5.5"} fontWeight={li===0?"700":"500"} style={{fontFamily: li===0 ? 'var(--font-display)' : 'var(--font-mono)'}}>{line}</text>)}
+              {node.totalLinkedValue > 0 && <text x={node.x} y={node.y + node.r + 10 + (node.label||'').split('\n').length * 10} textAnchor="middle" fill="var(--yellow)" fontSize="6" fontWeight="700" style={{fontFamily:'var(--font-mono)'}}>{fmtCur(node.totalLinkedValue)}</text>}
             </> :
-            <text x={node.x} y={node.y + node.r + (node.isApenso ? 6 : 9)} textAnchor="middle" fill={`rgba(255,255,255,${node.isApenso ? '0.35' : '0.6'})`} fontSize={node.isApenso ? "4.5" : "5.5"} style={{fontFamily:'var(--font-mono)'}}>{node.label}</text>}</>}
+            <text x={node.x} y={node.y + node.r + (node.isApenso ? 6 : 9)} textAnchor="middle" fill={node.isApenso ? 'var(--text-muted)' : 'var(--text-secondary)'} fontSize={node.isApenso ? "4.5" : "5.5"} style={{fontFamily:'var(--font-mono)'}}>{node.label}</text>}</>}
         </g>);
       })}
     </svg>
     <div className="graph-legend">
       {[['PJ Originária','#3b82f6'],['IDPJ','#f43f5e'],['Cautelar','#f59e0b'],['EF vinculada','rgba(148,163,184,0.8)'],['EF c/ prescrição','rgba(244,63,94,0.7)'],['EF c/ garantia','rgba(34,197,94,0.6)'],['EF c/ intimação','rgba(59,130,246,0.6)']].map(([l,c]) =>
         <div key={l} className="legend-item"><div className="legend-dot" style={{background:c}}></div><span>{l}</span></div>)}
-      <div className="legend-item" style={{marginTop:4,paddingTop:4,borderTop:'1px dashed rgba(255,255,255,0.06)',fontSize:9,color:'var(--text-muted)'}}>
+      <div className="legend-item" style={{marginTop:4,paddingTop:4,borderTop:'1px dashed var(--border)',fontSize:9,color:'var(--text-muted)'}}>
         Extintas omitidas. EFs sem alerta colapsadas em bloco resumo.
       </div>
     </div>
@@ -4908,8 +4908,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           const d = lastLog.diff;
           const totalChanges = (d.newDebts?.length||0) + (d.newExecs?.length||0) + (d.newAssets?.length||0) + (d.newPeople?.length||0) + (d.changedDebts?.length||0) + (d.changedAssets?.length||0);
           if (totalChanges === 0) return null;
-          return (<div style={{marginBottom:16,background:'rgba(14,23,38,0.95)',border:'1px solid rgba(91,143,217,0.2)',borderLeft:'4px solid var(--blue)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid rgba(91,143,217,0.15)',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+          return (<div style={{marginBottom:16,background:'var(--bg-card)',border:'1px solid var(--border)',borderLeft:'4px solid var(--blue)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>📥 Novidades do último import</div>
                 <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>{new Date(lastLog.timestamp).toLocaleString('pt-BR')} · {(lastLog.fileNames||[]).join(', ')}</div>
@@ -5147,7 +5147,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <span style={{fontFamily:'var(--font-mono)',fontSize:10,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'copy'}} title="Clique para copiar" onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(ef.processNumber).then(() => { ev.target.style.color='var(--green)'; setTimeout(()=>ev.target.style.color='',1200); }); }}>{ef.processNumber}</span>
                   {ef._cdaValue > 0 && <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(ef._cdaValue)}</span>}
                   <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
-                  {ef.hasGuarantee && <span className="badge badge-muted" style={{fontSize:8,color:'rgba(34,197,94,0.6)'}}>GAR</span>}
+                  {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
                 </div>);
               };
               const stageMeta = (STAGES, STAGE_KEYS, recs) => STAGE_KEYS.map((k, i) => {
@@ -5197,14 +5197,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid var(--border)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:3}}>
                         <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
                         {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:4,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
                       <div style={{flex:1,minWidth:0,lineHeight:1.3}}>
                         <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
-                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-muted)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
+                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
                           {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
                           {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
                           {m.sd.multiRecurso ? (
@@ -5267,7 +5267,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     return (<div key={ip.id} style={{marginBottom:10,padding:'8px 10px',background:'transparent',border:'1px solid var(--border-light, var(--border))',borderRadius:6,opacity:ip.status==='extinta'?0.5:1}}>
                       <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                         <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
-                        <span style={{fontFamily:'var(--font-mono)',fontSize:10,cursor:'copy'}} title="Clique para copiar" onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(ip.processNumber).then(() => { ev.target.style.color='var(--green)'; setTimeout(()=>ev.target.style.color='',1200); }); }}>{ip.processNumber}</span>
+                        <span style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)',cursor:'copy'}} title="Clique para copiar" onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(ip.processNumber).then(() => { ev.target.style.color='var(--green)'; setTimeout(()=>ev.target.style.color='var(--text-primary)',1200); }); }}>{ip.processNumber}</span>
                         <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>{est.label}</span>
                         <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
                       </div>
