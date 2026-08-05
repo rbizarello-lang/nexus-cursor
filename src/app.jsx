@@ -5160,7 +5160,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
                 let info = '';
                 if (sd.multiRecurso) {
-                  info = recursos.length ? recursos.length + (recursos.length === 1 ? ' recurso' : ' recursos') : '';
+                  // Detalhe por recurso (nº do processo, desfecho, data, texto) — não só a contagem
+                  info = '';
                 } else if (sd.textOnly) {
                   info = (rec?.texto && String(rec.texto).trim()) || '';
                 } else if (has) {
@@ -5208,7 +5209,27 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
                           {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
                           {m.sd.multiRecurso ? (
-                            !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>
+                            m.has ? (
+                              <div style={{flex:'1 1 100%',minWidth:0,display:'flex',flexDirection:'column',gap:2}}>
+                                {(m.recursos || []).map((r, ri) => {
+                                  const bits = [];
+                                  if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
+                                  if (r.date) bits.push(fmtDate(r.date));
+                                  if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
+                                  const freeTxt = (r.texto && String(r.texto).trim()) || '';
+                                  return (
+                                    <div key={ri} style={{fontSize:11,lineHeight:1.35,color:'var(--text-secondary)'}}>
+                                      {(m.recursos.length > 1) && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
+                                      {bits.length > 0 && <span style={{fontFamily:'var(--font-mono)',marginRight:freeTxt ? 6 : 0}}>{bits.join(' · ')}</span>}
+                                      {freeTxt && <span style={{fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>{freeTxt}</span>}
+                                      {!bits.length && !freeTxt && <span style={{color:'var(--text-muted)'}}>—</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>
+                            )
                           ) : editingNote ? (
                             <textarea autoFocus defaultValue={noteTxt}
                               placeholder="texto ao lado do evento"
@@ -10384,7 +10405,17 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   };
   const close = () => { commit(); onClose(); };
   const noteText = () => {
-    if (isMulti) { if (!recursos.length) return null; return sd.label + ': ' + recursos.map((r,i) => `${i+1}) ${r.date?fmtDate(r.date):'s/ data'}${r.proc?' · proc. '+r.proc:''}${r.outcome&&sd.outcomes[r.outcome]?' ('+sd.outcomes[r.outcome]+')':''}`).join('; '); }
+    if (isMulti) {
+      if (!recursos.length) return null;
+      return sd.label + ': ' + recursos.map((r,i) => {
+        const parts = [`${i+1})`];
+        if (r.date) parts.push(fmtDate(r.date)); else parts.push('s/ data');
+        if (r.proc && String(r.proc).trim()) parts.push('proc. ' + String(r.proc).trim());
+        if (r.outcome && sd.outcomes[r.outcome]) parts.push('(' + sd.outcomes[r.outcome] + ')');
+        if (r.texto && String(r.texto).trim()) parts.push(String(r.texto).trim());
+        return parts.join(' · ');
+      }).join('; ');
+    }
     if (textOnly) return texto.trim() ? (sd.label + ' — ' + texto.trim()) : null;
     if (!date && !evento && !texto.trim() && !outcome) return null;
     const outLbl = outcome && sd.outcomes[outcome] ? ' — ' + sd.outcomes[outcome] : '';
@@ -10398,7 +10429,7 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
   const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome));
   return (<div onClick={(e) => { e.stopPropagation(); close(); }} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:textOnly?360:380,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
+    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:textOnly?360:isMulti?420:380,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{sd.label}</span>
         <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:16}} onClick={close}>✕</span>
@@ -10412,13 +10443,14 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
             <input type="date" value={r.date||''} onChange={e => updR(ri, { date: e.target.value })} style={{flex:1,fontSize:11,padding:'4px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4}} />
             <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:12}} title="Remover recurso" onClick={() => rmR(ri)}>✕</span>
           </div>
-          <input value={r.proc||''} onChange={e => updR(ri, { proc: e.target.value })} placeholder="nº do processo do recurso (opcional)" style={{width:'100%',fontSize:10,padding:'4px 6px',marginBottom:6,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',fontFamily:'var(--font-mono)'}} />
+          <input value={r.proc||''} onChange={e => updR(ri, { proc: e.target.value })} placeholder="nº do processo do recurso" style={{width:'100%',fontSize:10,padding:'4px 6px',marginBottom:6,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',fontFamily:'var(--font-mono)'}} />
+          <textarea value={r.texto||''} onChange={e => updR(ri, { texto: e.target.value })} placeholder="texto / observação do recurso" rows={2} style={{width:'100%',fontSize:11,padding:'5px 6px',marginBottom:6,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.35}} />
           <div style={{display:'flex',gap:5}}>
             {outs.map(([ok,ol]) => { const on = r.outcome === ok; const oc = outcomeColor(ok);
               return <button key={ok} type="button" onClick={() => updR(ri, { outcome: on?'':ok })} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?oc:'var(--border)'}`,background:on?outcomeTint(ok):'transparent',color:on?oc:'var(--text-secondary)',fontWeight:on?700:400}}>{ol}</button>; })}
           </div>
         </div>))}
-        <button type="button" onClick={() => setRecursos(rs => [...rs, { date:'', proc:'', outcome:'pendente' }])} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-secondary)',cursor:'pointer'}}>+ adicionar recurso</button>
+        <button type="button" onClick={() => setRecursos(rs => [...rs, { date:'', proc:'', texto:'', outcome:'pendente' }])} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-secondary)',cursor:'pointer'}}>+ adicionar recurso</button>
       </div>) : textOnly ? (
         <div style={{marginBottom:14}}>
           <label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label>
