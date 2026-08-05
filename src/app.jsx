@@ -2177,6 +2177,23 @@ function parseAssetsBulk(text, people, operationId) {
 // DEMO: classify process groups for views A/B/C
 // hubs → covered EFs → uncovered EFs → extinct → others
 // ═══════════════════════════════════════════════
+/** Nº do processo na visão Processos/Prescrição; arquivadas ficam com as ativas e ganham referência art. 40. */
+function efProcLabel(exec, empty = '—') {
+  if (!exec) return empty;
+  const num = exec.processNumber || empty;
+  if (exec.status === 'arquivada') return `${num} - Arquivada art. 40`;
+  return num;
+}
+
+/** Arquivadas no fim do rol (ainda entre as ativas; só extintas vão ao grupo demovido). */
+function sortArquivadasLast(groups) {
+  return [...(groups || [])].sort((a, b) => {
+    const aa = a?.exec?.status === 'arquivada' ? 1 : 0;
+    const bb = b?.exec?.status === 'arquivada' ? 1 : 0;
+    return aa - bb;
+  });
+}
+
 function classifyProcGroups(cdaGroups, execs) {
   const byId = Object.fromEntries((execs || []).map(e => [e.id, e]));
   const groupByExecId = {};
@@ -2185,7 +2202,8 @@ function classifyProcGroups(cdaGroups, execs) {
     if (g.type === 'unlinked') unlinked.push(g);
     else if (g.type === 'exec' && g.exec) groupByExecId[g.exec.id] = g;
   });
-  const isExtinct = (e) => !!e && (e.status === 'extinta' || e.status === 'arquivada');
+  // Só extintas saem do rol ativo. Arquivadas (art. 40) permanecem com as ativas.
+  const isExtinct = (e) => !!e && e.status === 'extinta';
   const isHub = (e) => !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
   const isOtherClass = (e) => {
     if (!e || isHub(e)) return false;
@@ -2215,21 +2233,21 @@ function classifyProcGroups(cdaGroups, execs) {
     (cdaGroups || []).forEach(g => {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) ids.add(g.exec.id);
     });
-    coveredByHub[h.exec.id] = [...ids]
+    coveredByHub[h.exec.id] = sortArquivadasLast([...ids]
       .map(id => groupByExecId[id])
-      .filter(g => g && !isHub(g.exec));
+      .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec)));
   });
-  const coveredEFs = [...coveredIds]
+  const coveredEFs = sortArquivadasLast([...coveredIds]
     .map(id => groupByExecId[id])
-    .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec));
-  const uncoveredEFs = (cdaGroups || []).filter(g => {
+    .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec)));
+  const uncoveredEFs = sortArquivadasLast((cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
     if (isHub(e) || isExtinct(e) || isOtherClass(e)) return false;
     if (e.parentExecutionId) return false;
     if (coveredIds.has(e.id)) return false;
     return true;
-  });
+  }));
   const extinct = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec));
   const others = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
@@ -6904,7 +6922,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
             <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
             <span className="process-id">
-              <strong>{isExec ? (e.processNumber || 'Processo sem número') : 'CDAs sem processo'}</strong>
+              <strong>{isExec ? efProcLabel(e, 'Processo sem número') : 'CDAs sem processo'}</strong>
               <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
             </span>
             <span className="process-stat"><small>Status</small><strong>{isExec ? (st.label || e.status) : 'Não ajuizadas'}</strong></span>
@@ -6934,6 +6952,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
                 <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700}}>
                   <Copyable value={e.processNumber}>{e.processNumber}</Copyable>
+                  {e.status === 'arquivada' && <span style={{fontWeight:500,color:'var(--text-muted)',marginLeft:6}}>— Arquivada art. 40</span>}
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4,marginTop:2}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
                 {/* Executado (devedor) */}
@@ -7172,7 +7191,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <button type="button" key={cg.exec.id} className={`demo-proc-ef-chip risk-${meta.riskClass}`}
                     onClick={(ev) => { ev.stopPropagation(); toggleGroup(pk); }}
                     title="Abrir detalhe da EF">
-                    <span className="demo-proc-ef-num">{cg.exec.processNumber || 'S/N'}</span>
+                    <span className="demo-proc-ef-num">{efProcLabel(cg.exec, 'S/N')}</span>
                     <span className="demo-proc-ef-st">{meta.st.label || cg.exec.status}</span>
                     <span className="demo-proc-ef-val">{fmtCur(meta.total)}</span>
                     <span className="demo-proc-ef-risk">{meta.label}</span>
@@ -7207,7 +7226,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       return (
                         <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
                           <tr className={`demo-proc-table-row risk-${meta.riskClass}`} onClick={() => toggleGroup(pk)}>
-                            <td className="mono">{g.exec?.processNumber || '—'}</td>
+                            <td className="mono">{efProcLabel(g.exec)}</td>
                             <td>{meta.st.label || g.exec?.status || '—'}</td>
                             <td>{g.cdas.length}</td>
                             <td>{fmtCur(meta.total)}</td>
@@ -7243,10 +7262,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           : (hubs[0]?.exec.id || null);
         const selectedHub = hubs.find(h => h.exec.id === effectiveHubId) || null;
         const covered = selectedHub
-          ? (coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada')
+          ? sortArquivadasLast((coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta'))
           : [];
         const hubMeta = selectedHub ? hubRailMeta(selectedHub, covered) : null;
-        const freeEFs = [...uncoveredEFs, ...unlinked];
+        const freeEFs = sortArquivadasLast([...uncoveredEFs, ...unlinked]);
 
         const openRowDetail = (g) => {
           const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
@@ -7271,7 +7290,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
                         <tr className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''}`}
                           onClick={() => toggleGroup(pk)}>
-                          <td className="mono">{g.exec?.processNumber || (g.type === 'unlinked' ? 'CDAs sem processo' : '—')}</td>
+                          <td className="mono">{g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}</td>
                           <td>{meta.st.label || g.exec?.status || 'Não ajuizadas'}</td>
                           <td>{fmtCur(meta.total)}</td>
                           <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
@@ -7305,7 +7324,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="proc-md-rail-h">Hubs ({hubs.length})</div>
               {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum hub nesta operação</div>}
               {hubs.map(h => {
-                const cov = (coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada');
+                const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
                 const meta = hubRailMeta(h, cov);
                 const active = h.exec.id === effectiveHubId;
                 return (
@@ -7313,7 +7332,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     className={`proc-md-hub${active ? ' active' : ''}`}
                     onClick={() => setSelectedProcHubId(h.exec.id)}>
                     <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
-                    <span className="proc-md-hub-num">{h.exec.processNumber || 'S/N'}</span>
+                    <span className="proc-md-hub-num">{efProcLabel(h.exec, 'S/N')}</span>
                     <span className="proc-md-hub-meta">
                       <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
                       <span>{fmtCur(meta.total)}</span>
@@ -7332,8 +7351,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <button type="button" key={g.exec.id} className="proc-md-rail-item"
                         onClick={() => openRowDetail(g)}
                         title="Abrir detalhe da EF">
-                        <span className="mono">{g.exec.processNumber || 'S/N'}</span>
-                        <span className="muted"> · {meta.st.label || g.exec.status || '—'}</span>
+                        <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                        {g.exec.status !== 'arquivada' && (
+                          <span className="muted"> · {meta.st.label || g.exec.status || '—'}</span>
+                        )}
                       </button>
                     );
                   })}
@@ -7370,7 +7391,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div>
                       <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
                       <div className="proc-md-pane-num">
-                        {[selectedHub.exec.processNumber || 'S/N', selectedHub.exec.court].filter(Boolean).join(' · ')}
+                        {[efProcLabel(selectedHub.exec, 'S/N'), selectedHub.exec.court].filter(Boolean).join(' · ')}
                       </div>
                     </div>
                     <div className="proc-md-pane-actions">
@@ -7407,7 +7428,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {renderEfTable(freeEFs, 'Nenhum processo nesta operação')}
                   {extinct.length > 0 && (
                     <>
-                      <div className="proc-md-block-label demoted">Extintas / Arquivadas <span className="count">({extinct.length})</span></div>
+                      <div className="proc-md-block-label demoted">Extintas <span className="count">({extinct.length})</span></div>
                       {renderEfTable(extinct)}
                     </>
                   )}
@@ -7432,7 +7453,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         if (model === 'D') return renderProcViewMasterDetail();
 
         const hubBlocks = hubs.map(h => {
-          const covered = (coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta' && g.exec.status !== 'arquivada');
+          const covered = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
           const cv = hubVariant(h.exec);
           if (model === 'A') {
             return (
@@ -7455,7 +7476,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button type="button" className="demo-proc-hub-acc-hdr" onClick={() => toggleGroup(hubKey)} aria-expanded={hubOpen}>
                   <span className="demo-proc-section-chev">{hubOpen ? '▾' : '▸'}</span>
                   <strong>{tagLabels[h.exec.processTag] || h.exec.processTag}</strong>
-                  <span className="mono">{h.exec.processNumber || 'S/N'}</span>
+                  <span className="mono">{efProcLabel(h.exec, 'S/N')}</span>
                   <span className="muted">{covered.length} EF(s)</span>
                 </button>
                 {hubOpen && (
@@ -7493,7 +7514,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
             {renderDemoSection('EFs sem vínculo', uncoveredEFs, { sectionKey: 'demo-uncovered' })}
             {unlinked.map(g => renderGroupTree(g, 'normal'))}
-            {renderDemoSection('Extintas / Arquivadas', extinct, { demoted: true, collapsible: true, sectionKey: 'demo-extinct', defaultOpen: model !== 'C' })}
+            {renderDemoSection('Extintas', extinct, { demoted: true, collapsible: true, sectionKey: 'demo-extinct', defaultOpen: model !== 'C' })}
             {renderDemoSection('Outros', others, { demoted: true, sectionKey: 'demo-others' })}
           </div>
         );
