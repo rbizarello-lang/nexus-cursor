@@ -3,3 +3,7 @@ _backup*/
 .DS_Store
 Thumbs.db
 *.log
+
+# Pasta de push do clasp (gerada por scripts/sync-gas.mjs)
+gas/**
+!gas/.claspignore

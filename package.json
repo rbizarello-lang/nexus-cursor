@@ -5,7 +5,7 @@
   "description": "NEXUS — Painel de Operações Fiscais (build local do JSX)",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "push": "npm run build && clasp push"
+    "push": "npm run build && node scripts/sync-gas.mjs && npx --yes @google/clasp push"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
