@@ -5188,7 +5188,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 return (<div className="proc-stage-vertical" style={{margin:'4px 0 2px',display:'flex',flexDirection:'column',gap:0}}>
                   {metas.map((m) => {
                     const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                    // info sem o texto livre (data · Ev.) — o texto fica no slot clicável à direita
+                    // meta sem o texto livre (data · Ev.) — o texto vai numa linha própria abaixo
                     const metaInfo = m.sd.textOnly ? '' : (m.info || '').split(' · ').filter(p => p && p !== noteTxt).join(' · ');
                     const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
                     const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
@@ -5197,54 +5197,57 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       if (t || noteTxt) setRec(ip.id, m.k, { texto: t });
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
+                    const bodyStyle = {fontSize:11,lineHeight:1.4,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:2};
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'2px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 55%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:3}}>
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'4px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 55%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:4}}>
                         <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
-                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:4,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:8,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
-                      <div style={{flex:1,minWidth:0,lineHeight:1.3}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        {/* Linha 1: fase + desfecho + data/evento — sem texto longo misturado */}
                         <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
                           <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
                           {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
                           {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
-                          {m.sd.multiRecurso ? (
-                            m.has ? (
-                              <div style={{flex:'1 1 100%',minWidth:0,display:'flex',flexDirection:'column',gap:2}}>
-                                {(m.recursos || []).map((r, ri) => {
-                                  const bits = [];
-                                  if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
-                                  if (r.date) bits.push(fmtDate(r.date));
-                                  if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
-                                  const freeTxt = (r.texto && String(r.texto).trim()) || '';
-                                  return (
-                                    <div key={ri} style={{fontSize:11,lineHeight:1.35,color:'var(--text-secondary)'}}>
-                                      {(m.recursos.length > 1) && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
-                                      {bits.length > 0 && <span style={{fontFamily:'var(--font-mono)',marginRight:freeTxt ? 6 : 0}}>{bits.join(' · ')}</span>}
-                                      {freeTxt && <span style={{fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word'}}>{freeTxt}</span>}
-                                      {!bits.length && !freeTxt && <span style={{color:'var(--text-muted)'}}>—</span>}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>
-                            )
-                          ) : editingNote ? (
-                            <textarea autoFocus defaultValue={noteTxt}
-                              placeholder="texto ao lado do evento"
-                              rows={Math.min(6, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
-                              onClick={ev => ev.stopPropagation()}
-                              onBlur={e => commitNote(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
-                              style={{flex:'1 1 100%',minWidth:0,width:'100%',fontSize:11,padding:'2px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.35,boxSizing:'border-box'}} />
-                          ) : (
-                            <span onClick={startNoteEdit} title="Editar texto"
-                              style={{fontSize:11,color:noteTxt?'var(--text-secondary)':'var(--text-muted)',fontFamily:'var(--font-display)',flex:'1 1 12em',minWidth:noteTxt || (!m.outcomeLabel && !metaInfo) ? '12em' : 12,cursor:'text',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',lineHeight:1.35}}>
-                              {noteTxt || (!m.outcomeLabel && !metaInfo ? '—' : '')}
-                            </span>
-                          )}
+                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
+                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
                         </div>
+                        {/* Linha 2+: texto / recursos — largura total, alinhado à esquerda do conteúdo */}
+                        {m.sd.multiRecurso ? (
+                          m.has && (
+                            <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:3}}>
+                              {(m.recursos || []).map((r, ri) => {
+                                const bits = [];
+                                if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
+                                if (r.date) bits.push(fmtDate(r.date));
+                                if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
+                                const freeTxt = (r.texto && String(r.texto).trim()) || '';
+                                return (
+                                  <div key={ri} style={{paddingLeft: m.recursos.length > 1 ? 0 : 0}}>
+                                    <div style={{fontSize:11,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
+                                      {m.recursos.length > 1 && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
+                                      {bits.length ? bits.join(' · ') : (!freeTxt ? '—' : '')}
+                                    </div>
+                                    {freeTxt && <div style={bodyStyle}>{freeTxt}</div>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )
+                        ) : editingNote ? (
+                          <textarea autoFocus defaultValue={noteTxt}
+                            placeholder="texto da fase"
+                            rows={Math.min(6, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
+                            onClick={ev => ev.stopPropagation()}
+                            onBlur={e => commitNote(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
+                            style={{display:'block',width:'100%',marginTop:3,fontSize:11,padding:'4px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.4,boxSizing:'border-box'}} />
+                        ) : noteTxt ? (
+                          <div onClick={startNoteEdit} title="Editar texto" style={{...bodyStyle,cursor:'text'}}>{noteTxt}</div>
+                        ) : m.has ? (
+                          <div onClick={startNoteEdit} title="Adicionar texto" style={{...bodyStyle,color:'var(--text-muted)',cursor:'text',fontStyle:'italic'}}>adicionar texto…</div>
+                        ) : null}
                       </div>
                       {popupFor(m)}
                     </div>
