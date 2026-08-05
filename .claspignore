@@ -15,3 +15,10 @@ _debug*
 **/*.md
 .DS_Store
 Thumbs.db
+
+# Demos locais — o webapp (Código.js) só serve Nexus.html.
+# Empurrar 4 cópias de ~1.5 MB cada (~6 MB) costuma falhar/timeout no clasp push.
+Nexus.demo.html
+Nexus_demo.html
+Nexus_demo_experimental.html
+demo_experimental.html
