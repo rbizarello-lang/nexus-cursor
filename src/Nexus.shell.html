@@ -246,7 +246,17 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .badge-green-strong { background: var(--green-dim); color: var(--green); font-weight: 600; }
 .badge-brown { background: rgba(180,120,60,0.15); color: var(--yellow); }
 
-.app-layout { display: grid; grid-template-columns: 280px 1fr; height: 100%; transition: grid-template-columns 0.25s ease; font-family: var(--font-body, var(--font-display)); }
+.app-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+  transition: grid-template-columns 0.25s ease;
+  font-family: var(--font-body, var(--font-display));
+  /* Temas (theme-claro etc.) definem tokens neste nó — a cor precisa
+     resolver aqui; senão herda o texto claro do :root via body. */
+  color: var(--text-primary);
+  background: var(--bg-deep);
+}
 .app-layout.sidebar-collapsed { grid-template-columns: 40px 1fr; }
 .sidebar { background: var(--bg-main); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width 0.25s ease; min-height: 0; }
 .sidebar.collapsed .sidebar-search, .sidebar.collapsed .sidebar-ops, .sidebar.collapsed .sidebar-footer, .sidebar.collapsed .cloud-panel { display: none; }
