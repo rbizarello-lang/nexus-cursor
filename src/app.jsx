@@ -598,8 +598,14 @@ const EF_BANDS = [
   { key: 'arquivada', label: 'Arquivada art. 40', cls: 'band-arq' },
   { key: 'extinta', label: 'Extintas', cls: 'band-extinta' },
 ];
+/** Rail próprio: CDAs sem processo (não ajuizadas). */
+const NAO_AJUIZ_BAND = { key: 'nao_ajuizada', label: 'Não ajuizadas', cls: 'band-nao-ajuiz' };
+function railBandMeta(key) {
+  if (key === NAO_AJUIZ_BAND.key) return NAO_AJUIZ_BAND;
+  return EF_BANDS.find(b => b.key === key) || null;
+}
 function efBandKey(exec) {
-  if (!exec) return 'ativa';
+  if (!exec) return 'nao_ajuizada';
   const st = exec.status || 'ativa';
   if (st === 'arquivada') return 'arquivada';
   if (st === 'suspensa_parcelamento') return 'suspensa_parcelamento';
@@ -7318,21 +7324,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           ? sortArquivadasLast((coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta'))
           : [];
         const hubMeta = selectedHub ? hubRailMeta(selectedHub, covered) : null;
-        const freeEFs = sortArquivadasLast([...uncoveredEFs, ...unlinked]);
 
         const bandOf = (list) => {
-          const map = { ativa: [], suspensa: [], suspensa_parcelamento: [], arquivada: [], extinta: [] };
+          const map = { ativa: [], suspensa: [], suspensa_parcelamento: [], arquivada: [], extinta: [], nao_ajuizada: [] };
           (list || []).forEach(g => {
-            if (g.type === 'unlinked') { map.ativa.push(g); return; }
+            if (g.type === 'unlinked') { map.nao_ajuizada.push(g); return; }
             const k = efBandKey(g.exec);
             if (map[k]) map[k].push(g);
             else map.ativa.push(g);
           });
           return map;
         };
-        // Rail e painel usam a mesma fonte (inclui CDAs sem processo na Ativa)
-        const freeByBand = bandOf(freeEFs);
+        // EFs sem vínculo por status; CDAs não ajuizadas em faixa própria
+        const freeByBand = bandOf(uncoveredEFs);
         freeByBand.extinta = extinct || [];
+        freeByBand.nao_ajuizada = unlinked || [];
         const uncoveredByBand = freeByBand;
 
         const bandTotals = (items) => {
@@ -7437,7 +7443,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const expanded = collapsedGroups.has(pk);
                     const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
                       : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : 'normal';
-                    const bandCls = g.exec ? `band-${efBandKey(g.exec)}` : '';
+                    const bandCls = g.type === 'unlinked'
+                      ? 'band-nao-ajuiz'
+                      : (g.exec ? `band-${efBandKey(g.exec)}` : '');
                     const domId = opts.domIdPrefix ? opts.domIdPrefix + rowId : undefined;
                     return (
                       <React.Fragment key={rowId}>
@@ -7476,7 +7484,57 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const focusedBandItems = focusIsBand
           ? (freeByBand[selectedProcBand] || [])
           : [];
-        const focusedBandMeta = EF_BANDS.find(b => b.key === selectedProcBand);
+        const focusedBandMeta = railBandMeta(selectedProcBand);
+
+        const renderRailBand = (band, items) => {
+          if (!items || items.length === 0) return null;
+          const tot = bandTotals(items);
+          const open = railBandsOpen.has(band.key);
+          const selected = focusIsBand && selectedProcBand === band.key;
+          return (
+            <React.Fragment key={band.key}>
+              <button type="button"
+                className={`proc-md-rail-sec band ${band.cls}${selected ? ' selected' : ''}${open ? ' open' : ''}`}
+                onClick={() => toggleBand(band.key)}
+                title="Clique para expandir/recolher e filtrar o painel">
+                <span>{open ? '▾' : '▸'} {band.label}</span>
+                <span className="band-tot">
+                  {selected
+                    ? `(${tot.count}) · ${fmtCur(tot.total)} · ${tot.presc}`
+                    : `(${tot.count})`}
+                </span>
+              </button>
+              {open && items.map(g => {
+                if (g.type !== 'exec') {
+                  return (
+                    <button type="button" key="unlinked" className={`proc-md-rail-item ${band.cls}`}
+                      onClick={() => {
+                        setSelectedProcBand(band.key);
+                        setProcFocus('band');
+                        openRowDetail(g);
+                      }}>
+                      <span className="mono">CDAs sem processo</span>
+                    </button>
+                  );
+                }
+                const pk = 'process-row-' + g.exec.id;
+                const rowOpen = collapsedGroups.has(pk);
+                return (
+                  <button type="button" key={g.exec.id}
+                    className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}`}
+                    onClick={() => {
+                      setSelectedProcBand(band.key);
+                      setProcFocus('band');
+                      openRowDetail(g);
+                    }}
+                    title="Abrir detalhe da EF">
+                    <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          );
+        };
 
         return (
           <>
@@ -7503,54 +7561,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 );
               })}
 
+              {(unlinked || []).length > 0 && (
+                <div className="rail-block-nao-ajuiz">
+                  {renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
+                </div>
+              )}
+
               <div className="proc-md-rail-sec rail-sem">Sem vínculo</div>
-              {EF_BANDS.map(band => {
-                const items = uncoveredByBand[band.key] || [];
-                if (items.length === 0 && band.key !== 'extinta') return null;
-                if (band.key === 'extinta' && items.length === 0) return null;
-                const tot = bandTotals(items);
-                const open = railBandsOpen.has(band.key);
-                const selected = focusIsBand && selectedProcBand === band.key;
-                return (
-                  <React.Fragment key={band.key}>
-                    <button type="button"
-                      className={`proc-md-rail-sec band ${band.cls}${selected ? ' selected' : ''}${open ? ' open' : ''}`}
-                      onClick={() => toggleBand(band.key)}
-                      title="Clique para expandir/recolher e filtrar o painel">
-                      <span>{open ? '▾' : '▸'} {band.label}</span>
-                      <span className="band-tot">
-                        {selected
-                          ? `(${tot.count}) · ${fmtCur(tot.total)} · ${tot.presc}`
-                          : `(${tot.count})`}
-                      </span>
-                    </button>
-                    {open && items.map(g => {
-                      if (g.type !== 'exec') {
-                        return (
-                          <button type="button" key="unlinked" className={`proc-md-rail-item ${band.cls}`}
-                            onClick={() => openRowDetail(g)}>
-                            <span className="mono">CDAs sem processo</span>
-                          </button>
-                        );
-                      }
-                      const pk = 'process-row-' + g.exec.id;
-                      const rowOpen = collapsedGroups.has(pk);
-                      return (
-                        <button type="button" key={g.exec.id}
-                          className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}`}
-                          onClick={() => {
-                            setSelectedProcBand(band.key);
-                            setProcFocus('band');
-                            openRowDetail(g);
-                          }}
-                          title="Abrir detalhe da EF">
-                          <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
-                        </button>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+              {EF_BANDS.map(band => renderRailBand(band, uncoveredByBand[band.key] || []))}
             </aside>
 
             <section className="proc-md-pane">
