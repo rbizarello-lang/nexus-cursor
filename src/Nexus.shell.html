@@ -1809,9 +1809,10 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-family: var(--font-mono, ui-monospace, Consolas, monospace);
   font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.9;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58%;
+  color: inherit;
 }
 .proc-md-rail-sec.band-ativa { color: var(--green); border-left-color: var(--green); }
-.proc-md-rail-sec.band-suspensa { color: var(--yellow); border-left-color: var(--yellow); }
+.proc-md-rail-sec.band-suspensa { color: var(--orange, #d88840); border-left-color: var(--orange, #d88840); }
 .proc-md-rail-sec.band-parc {
   color: var(--blue); border-left-color: var(--blue);
   background: color-mix(in srgb, var(--blue) 12%, transparent);
@@ -1821,18 +1822,41 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   background: color-mix(in srgb, var(--yellow) 12%, transparent);
 }
 .proc-md-rail-sec.band.selected { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); }
+.proc-md-rail-item.band-ativa {
+  color: color-mix(in srgb, var(--green) 55%, var(--text-primary));
+}
+.proc-md-rail-item.band-suspensa {
+  background: color-mix(in srgb, var(--orange, #d88840) 10%, transparent);
+  color: color-mix(in srgb, var(--orange, #d88840) 70%, var(--text-primary));
+}
 .proc-md-rail-item.band-parc {
   background: color-mix(in srgb, var(--blue) 10%, transparent); color: color-mix(in srgb, var(--blue) 70%, var(--text-primary));
 }
 .proc-md-rail-item.band-arq {
   background: color-mix(in srgb, var(--yellow) 10%, transparent); color: color-mix(in srgb, var(--yellow) 65%, var(--text-primary));
 }
-.proc-md-rail-item.band-ativa.open, .proc-md-rail-item.open {
+.proc-md-rail-item.band-ativa.open {
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.proc-md-rail-item.band-parc.open {
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+.proc-md-rail-item.band-arq.open {
+  background: color-mix(in srgb, var(--yellow) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--yellow);
+}
+.proc-md-rail-item.band-suspensa.open {
+  background: color-mix(in srgb, var(--orange, #d88840) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--orange, #d88840);
+}
+.proc-md-rail-item.open {
   background: color-mix(in srgb, var(--accent, #b87333) 10%, transparent);
   box-shadow: inset 3px 0 0 var(--accent, #b87333);
 }
 .proc-md-block-label.band-ativa { color: var(--green); border-left: 3px solid var(--green); padding-left: 8px; }
-.proc-md-block-label.band-suspensa { color: var(--yellow); border-left: 3px solid var(--yellow); padding-left: 8px; }
+.proc-md-block-label.band-suspensa { color: var(--orange, #d88840); border-left: 3px solid var(--orange, #d88840); padding-left: 8px; }
 .proc-md-block-label.band-parc {
   color: var(--blue); border-left: 3px solid var(--blue); padding-left: 8px;
   background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: 0 6px 6px 0;
@@ -1844,12 +1868,17 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-block-label.band-anchor {
   color: var(--pgfn, #9b2848); border-left: 3px solid var(--pgfn, #9b2848); padding-left: 8px;
 }
+.proc-md-block-label.band-sem {
+  color: var(--text-secondary); border-left: 3px solid var(--border-light); padding-left: 8px;
+}
 .ef-status-badge {
   display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.03em;
   padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
 }
 .ef-status-badge.ativa { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
-.ef-status-badge.suspensa { background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--yellow); }
+.ef-status-badge.suspensa {
+  background: color-mix(in srgb, var(--orange, #d88840) 14%, transparent); color: var(--orange, #d88840);
+}
 .ef-status-badge.suspensa_parcelamento {
   background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue);
   border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
@@ -1907,9 +1936,20 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-block-label {
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted); margin: 14px 0 8px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
 .proc-md-block-label:first-child { margin-top: 0; }
-.proc-md-block-label .count { color: var(--accent, #b87333); }
+/* Contagem/totais herdamm a cor da faixa — não usar accent/ouro (conflita com Ativa e Arquivada) */
+.proc-md-block-label .count {
+  color: inherit;
+  opacity: 0.88;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 10px;
+}
+.proc-md-block-label:not([class*="band-"]) .count { color: var(--text-muted); opacity: 1; }
 .proc-md-block-label.demoted { opacity: 0.75; }
 .proc-md-empty { font-size: 11px; color: var(--text-muted); font-style: italic; padding: 8px 0; }
 .proc-md-empty.rail { padding: 12px 14px; }

@@ -584,7 +584,7 @@ const DEBT_STATUSES = {
 };
 const EXEC_STATUSES = {
   ativa: { label: 'Ativa', badge: 'badge-green' },
-  suspensa: { label: 'Suspensa', badge: 'badge-yellow' },
+  suspensa: { label: 'Suspensa', badge: 'badge-orange' },
   suspensa_parcelamento: { label: 'Suspensa parcelamento', badge: 'badge-blue' },
   arquivada: { label: 'Arquivada art. 40', badge: 'badge-yellow' },
   extinta: { label: 'Extinta', badge: 'badge-muted-strong' }
@@ -7504,7 +7504,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
                     {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
 
-                    <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                    <div className="proc-md-block-label band-sem">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
                     {freeEFs.length === 0
                       ? <div className="proc-md-empty">Nenhuma EF sem vínculo</div>
                       : renderBandBlocks(freeByBand, { onlySelected: !!selectedProcBand })}
@@ -7512,7 +7512,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </>
               ) : (
                 <div className="proc-md-pane-body">
-                  <div className="proc-md-block-label">Processos · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                  <div className="proc-md-block-label band-sem">Processos · sem vínculo <span className="count">({freeEFs.length})</span></div>
                   {freeEFs.length === 0
                     ? <div className="proc-md-empty">Nenhum processo nesta operação</div>
                     : renderBandBlocks(freeByBand, { onlySelected: !!selectedProcBand })}
