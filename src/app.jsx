@@ -614,17 +614,21 @@ function efBandKey(exec) {
   return 'ativa';
 }
 
-/** Natureza curta para chips de recurso/embargo. */
-function otherNatureLabel(e) {
+/** Espécie curta para Outros processos (coluna Espécie + chips). */
+function otherSpecies(e) {
   const cn = (e?.className || '').toLowerCase();
-  if (/embargo/.test(cn)) return 'Embargos';
-  if (/agravo/.test(cn)) return 'Agravo';
-  if (/apela[çc][ãa]o/.test(cn)) return 'Apelação';
-  if (/mandado de seguran[çc]a/.test(cn)) return 'MS';
-  if (/reclama[çc][ãa]o/.test(cn)) return 'Reclamação';
-  if (/recurso/.test(cn)) return 'Recurso';
-  if (/conhecimento|ordin[aá]ria|monit[oó]ria/.test(cn)) return e.className || 'Ação';
-  return (e?.className || 'Incidente').split(/\s+/).slice(0, 2).join(' ');
+  if (/mandado\s+de\s+seguran[çc]a|\bms\b/.test(cn)) return { code: 'MS', label: 'Mandado de segurança' };
+  if (/agravo\s+de\s+instrumento|agravo\s+instrument/.test(cn)) return { code: 'AI', label: 'Agravo de instrumento' };
+  if (/embargo/.test(cn)) return { code: 'EMB', label: 'Embargos' };
+  if (/apela[çc][ãa]o/.test(cn)) return { code: 'APL', label: 'Apelação' };
+  if (/procedimento\s+comum|conhecimento|a[çc][ãa]o\s+ordin[aá]ria|monit[oó]ria/.test(cn)) {
+    return { code: 'PROC', label: 'Procedimento comum' };
+  }
+  return { code: 'OUTROS', label: e?.className || 'Outros' };
+}
+/** @deprecated use otherSpecies — mantido para chips legíveis */
+function otherNatureLabel(e) {
+  return otherSpecies(e).code;
 }
 
 function isOtherProcClass(e) {
@@ -633,8 +637,31 @@ function isOtherProcClass(e) {
   const cn = (e.className || '').toLowerCase();
   if (/embargo/.test(cn)) return true;
   if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return true;
-  if (/conhecimento|a[çc][ãa]o ordin[aá]ria|monit[oó]ria/.test(cn)) return true;
+  if (/procedimento\s+comum|conhecimento|a[çc][ãa]o ordin[aá]ria|monit[oó]ria/.test(cn)) return true;
   return false;
+}
+
+/** Rótulo do processo relacionado (EF / IDPJ / Cautelar / Central). */
+function relatedParentLabel(exec, byId) {
+  if (!exec?.parentExecutionId) return null;
+  const p = byId && byId[exec.parentExecutionId];
+  if (!p) return null;
+  const tag = p.processTag;
+  const prefix = tag === 'idpj' ? 'IDPJ'
+    : tag === 'cautelar_fiscal' ? 'Cautelar'
+    : tag === 'central' ? 'Central'
+    : null;
+  const num = efProcLabel(p, 'S/N');
+  return prefix ? `${prefix} · ${num}` : num;
+}
+
+function filterProcNotes(notes) {
+  return (notes || []).filter(n => {
+    const nl = (n || '').toLowerCase();
+    if (/^[\s·]*classe:\s/i.test(n)) return false;
+    if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
+    return true;
+  });
 }
 const MEASURE_SUBTYPES = { cautelar: 'Cautelar Fiscal', desconsideracao: 'Desc. Pers. Jurídica', arresto: 'Arresto', penhora_online: 'Penhora Online', outro: 'Outro' };
 const WATCH_STATUSES = {
@@ -7385,17 +7412,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           if (!rel.length) return null;
           return (
             <div className="proc-rel-chips" onClick={ev => ev.stopPropagation()}>
-              {rel.map(og => (
-                <button type="button" key={og.exec.id} className="proc-rel-chip"
-                  title={`Abrir em Outros: ${og.exec.className || ''}`}
-                  onClick={() => jumpToOther(og.exec.id)}>
-                  <span className="mono">{truncate(og.exec.processNumber || 'S/N', 18)}</span>
-                  <span className="nat">{otherNatureLabel(og.exec)}</span>
-                </button>
-              ))}
+              {rel.map(og => {
+                const sp = otherSpecies(og.exec);
+                return (
+                  <button type="button" key={og.exec.id} className="proc-rel-chip"
+                    title={`Abrir em Outros: ${sp.label}`}
+                    onClick={() => jumpToOther(og.exec.id)}>
+                    <span className="mono">{truncate(og.exec.processNumber || 'S/N', 18)}</span>
+                    <span className="nat">{sp.code}</span>
+                  </button>
+                );
+              })}
             </div>
           );
         };
+
+        const execById = Object.fromEntries((execs || []).map(e => [e.id, e]));
 
         const openRowDetail = (g) => {
           const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
@@ -7427,14 +7459,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         };
 
         const renderEfTable = (items, emptyMsg, opts = {}) => {
-          const { idPrefix = 'process-row-' } = opts;
+          const { idPrefix = 'process-row-', variant = 'ef' } = opts;
+          const isOthers = variant === 'others';
           if (!items || items.length === 0) {
             return <div className="proc-md-empty">{emptyMsg || 'Nenhum processo'}</div>;
           }
           return (
             <div className="demo-proc-table-wrap">
               <table className="demo-proc-table proc-md-table">
-                <thead><tr><th>Processo</th><th>Status</th><th>Valor</th><th>Prescrição</th><th></th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Processo</th>
+                    <th>Status</th>
+                    {isOthers ? <><th>Relacionado</th><th>Espécie</th></> : <><th>Valor</th><th>Prescrição</th></>}
+                    <th></th>
+                  </tr>
+                </thead>
                 <tbody>
                   {items.map(g => {
                     const meta = efRiskMeta(g);
@@ -7447,17 +7487,36 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       ? 'band-nao-ajuiz'
                       : (g.exec ? `band-${efBandKey(g.exec)}` : '');
                     const domId = opts.domIdPrefix ? opts.domIdPrefix + rowId : undefined;
+                    const related = g.type === 'exec' ? relatedParentLabel(g.exec, execById) : null;
+                    const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
                     return (
                       <React.Fragment key={rowId}>
                         <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}`}
                           onClick={() => toggleGroup(pk)}>
                           <td className="mono">
                             {g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}
-                            {g.type === 'exec' && relatedChips(g.exec.id)}
+                            {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
                           </td>
                           <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
-                          <td>{fmtCur(meta.total)}</td>
-                          <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                          {isOthers ? (
+                            <>
+                              <td className="proc-related-cell">
+                                {related
+                                  ? <span className="mono proc-related-ref" title={related}>{truncate(related, 28)}</span>
+                                  : <span className="muted">—</span>}
+                              </td>
+                              <td>
+                                {species
+                                  ? <span className="especie-badge" title={species.label}>{species.code}</span>
+                                  : '—'}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td>{fmtCur(meta.total)}</td>
+                              <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                            </>
+                          )}
                           <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
                             {g.type === 'exec' && (
                               <button type="button" className="btn-secondary btn-xs"
@@ -7596,11 +7655,35 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </div>
                   </div>
                   <div className="proc-md-pane-body">
-                    <div className="proc-md-hub-summary">
-                      <div><small>Status</small><strong>{hubMeta.st.label || selectedHub.exec.status || '—'}</strong></div>
-                      <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
-                      <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
-                    </div>
+                    {(() => {
+                      const hub = selectedHub.exec;
+                      const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
+                      const hubNotes = filterProcNotes(rawNotes);
+                      return (
+                        <div className="proc-md-hub-top">
+                          <div className="proc-md-hub-summary">
+                            <div><small>Status</small><strong>{hubMeta.st.label || hub.status || '—'}</strong></div>
+                            <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
+                            <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
+                          </div>
+                          <div className="proc-md-hub-notes">
+                            <div className="proc-md-hub-notes-h">
+                              <span>Notas e observações <span className="count">({hubNotes.length})</span></span>
+                              <button type="button" className="btn-secondary btn-xs"
+                                onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
+                                title="Editar âncora para alterar notas">✎</button>
+                            </div>
+                            {hubNotes.length === 0
+                              ? <div className="proc-md-empty">Nenhuma nota nesta âncora</div>
+                              : (
+                                <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                                  {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
                     {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
                     {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
@@ -7640,7 +7723,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </button>
               {othersCardOpen && (
                 <div className="proc-others-card-body">
-                  {renderEfTable(others, 'Nenhum outro processo', { domIdPrefix: 'proc-other-', idPrefix: 'process-row-' })}
+                  {renderEfTable(others, 'Nenhum outro processo', { domIdPrefix: 'proc-other-', idPrefix: 'process-row-', variant: 'others' })}
                 </div>
               )}
             </div>

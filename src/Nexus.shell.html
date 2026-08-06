@@ -2087,6 +2087,33 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
   background: color-mix(in srgb, var(--pgfn, #9b2848) 4%, var(--bg-card)); margin-bottom: 4px;
 }
+.proc-md-hub-top {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px;
+  margin-bottom: 4px; align-items: stretch;
+}
+.proc-md-hub-top .proc-md-hub-summary { margin-bottom: 0; }
+.proc-md-hub-notes {
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: color-mix(in srgb, var(--yellow, #d4a838) 5%, var(--bg-card));
+  min-height: 0;
+}
+.proc-md-hub-notes-h {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.proc-md-hub-notes-h .count {
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-secondary);
+}
+.especie-badge {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+  background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue);
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, transparent);
+}
+.proc-related-cell .proc-related-ref { font-size: 10px; color: var(--text-secondary); }
+.proc-related-cell .muted { color: var(--text-muted); font-size: 11px; }
 .proc-md-hub-summary div small {
   display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
 }
@@ -2136,6 +2163,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
     border-radius: 8px 8px 0 0;
   }
   .proc-md-hub-summary { grid-template-columns: 1fr; }
+  .proc-md-hub-top { grid-template-columns: 1fr; }
 }
 </style>
 </head>
