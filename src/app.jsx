@@ -614,6 +614,15 @@ function efBandKey(exec) {
   return 'ativa';
 }
 
+/** Classe é Execução Fiscal (card superior). Exige o vocábulo no início da classe. */
+function isExecucaoFiscalClass(e) {
+  if (!e) return false;
+  const cn = (e.className || '').toLowerCase().trim();
+  // "Execução Fiscal", "Execução Fiscal Previdenciária", "Execução Fiscal (SIDA)", etc.
+  // Não inclui "Embargos à Execução Fiscal" nem "Cumprimento de Sentença".
+  return /^execu[çc][ãa]o\s+fiscal\b/.test(cn);
+}
+
 /** Espécie curta para Outros processos (coluna Espécie + chips). */
 function otherSpecies(e) {
   const cn = (e?.className || '').toLowerCase();
@@ -624,6 +633,7 @@ function otherSpecies(e) {
   if (/procedimento\s+comum|conhecimento|a[çc][ãa]o\s+ordin[aá]ria|monit[oó]ria/.test(cn)) {
     return { code: 'PROC', label: 'Procedimento comum' };
   }
+  if (/cumprimento\s+de\s+senten[çc]a/.test(cn)) return { code: 'OUTROS', label: 'Cumprimento de Sentença' };
   return { code: 'OUTROS', label: e?.className || 'Outros' };
 }
 /** @deprecated use otherSpecies — mantido para chips legíveis */
@@ -631,14 +641,11 @@ function otherNatureLabel(e) {
   return otherSpecies(e).code;
 }
 
+/** Card superior = IDPJ / Cautelar / Central / Execução Fiscal. Demais → Outros. */
 function isOtherProcClass(e) {
   if (!e) return false;
   if (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central') return false;
-  const cn = (e.className || '').toLowerCase();
-  if (/embargo/.test(cn)) return true;
-  if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return true;
-  if (/procedimento\s+comum|conhecimento|a[çc][ãa]o ordin[aá]ria|monit[oó]ria/.test(cn)) return true;
-  return false;
+  return !isExecucaoFiscalClass(e);
 }
 
 /** Rótulo do processo relacionado (EF / IDPJ / Cautelar / Central). */
@@ -2275,11 +2282,37 @@ function classifyProcGroups(cdaGroups, execs) {
     if (g.type === 'unlinked') unlinked.push(g);
     else if (g.type === 'exec' && g.exec) groupByExecId[g.exec.id] = g;
   });
-  // Só extintas saem do rol ativo. Arquivadas (art. 40) permanecem com as ativas.
+
+  // Duplicidades de nº de processo no cadastro da operação
+  const byDigits = {};
+  (execs || []).forEach(e => {
+    const n = normProc(e.processNumber);
+    if (!n) return;
+    (byDigits[n] = byDigits[n] || []).push(e);
+  });
+  const dupDigits = new Set(Object.keys(byDigits).filter(n => byDigits[n].length > 1));
+  const dupExecIds = new Set();
+  dupDigits.forEach(n => byDigits[n].forEach(e => dupExecIds.add(e.id)));
+  const duplicates = [...dupDigits].map(n => {
+    const arr = byDigits[n];
+    return {
+      digits: n,
+      processNumber: arr[0].processNumber,
+      count: arr.length,
+      ids: arr.map(e => e.id),
+      tags: arr.map(e => e.processTag || 'normal'),
+      classes: arr.map(e => e.className || ''),
+    };
+  });
+
   const isExtinct = (e) => !!e && e.status === 'extinta';
   const isHub = (e) => !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
   const isOtherClass = (e) => isOtherProcClass(e);
+  const isEF = (e) => isExecucaoFiscalClass(e);
+
   const hubs = (cdaGroups || []).filter(g => g.type === 'exec' && isHub(g.exec) && !isExtinct(g.exec));
+  const hubProcNums = new Set(hubs.map(h => normProc(h.exec.processNumber)).filter(Boolean));
+
   const coveredIds = new Set();
   hubs.forEach(h => {
     (h.exec.linkedExecutionIds || []).forEach(id => coveredIds.add(id));
@@ -2287,50 +2320,83 @@ function classifyProcGroups(cdaGroups, execs) {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) coveredIds.add(g.exec.id);
     });
   });
-  // Centrals may also own apensos via parentExecutionId even if not listed as linkedExecutionIds
   (cdaGroups || []).forEach(g => {
     if (g.type !== 'exec' || !g.exec.parentExecutionId) return;
     const parent = byId[g.exec.parentExecutionId];
     if (parent && isHub(parent) && !isExtinct(parent)) coveredIds.add(g.exec.id);
   });
+
+  // Só EFs no card superior (abrangidas / sem vínculo)
+  const keepUpper = (g) => g && g.exec && !isHub(g.exec) && isEF(g.exec) && !isOtherClass(g.exec);
+
   const coveredByHub = {};
   hubs.forEach(h => {
     const ids = new Set(h.exec.linkedExecutionIds || []);
     (cdaGroups || []).forEach(g => {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) ids.add(g.exec.id);
     });
-    // Só EFs — recursos/embargos vão ao card Outros (chips na EF)
     coveredByHub[h.exec.id] = sortArquivadasLast([...ids]
       .map(id => groupByExecId[id])
-      .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec) && !isOtherClass(g.exec)));
+      .filter(g => keepUpper(g) && !isExtinct(g.exec)));
   });
   const coveredEFs = sortArquivadasLast([...coveredIds]
     .map(id => groupByExecId[id])
-    .filter(g => g && !isHub(g.exec) && !isExtinct(g.exec) && !isOtherClass(g.exec)));
-  const uncoveredEFs = sortArquivadasLast((cdaGroups || []).filter(g => {
+    .filter(g => keepUpper(g) && !isExtinct(g.exec)));
+
+  // Sem vínculo: EFs não abrangidas. Evita repetir nº já presente como âncora (hub).
+  const uncoveredRaw = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
-    if (isHub(e) || isExtinct(e) || isOtherClass(e)) return false;
+    if (!keepUpper(g) || isExtinct(e)) return false;
     if (e.parentExecutionId) return false;
     if (coveredIds.has(e.id)) return false;
+    const n = normProc(e.processNumber);
+    // Mesmo nº de uma âncora → não listar de novo em Sem vínculo (duplicidade)
+    if (n && hubProcNums.has(n)) return false;
     return true;
+  });
+  // Dentro de Sem vínculo, se houver 2+ cadastros do mesmo nº, mantém um (mais CDAs) e marca todos como dup
+  const uncoveredByNum = {};
+  uncoveredRaw.forEach(g => {
+    const n = normProc(g.exec.processNumber) || ('id:' + g.exec.id);
+    (uncoveredByNum[n] = uncoveredByNum[n] || []).push(g);
+  });
+  const uncoveredEFs = sortArquivadasLast(Object.values(uncoveredByNum).map(arr => {
+    if (arr.length === 1) return arr[0];
+    arr.sort((a, b) => (b.cdas || []).length - (a.cdas || []).length);
+    return arr[0]; // exibe um; badge de duplicado via dupExecIds
   }));
-  const extinct = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && !isOtherClass(g.exec));
-  // Outros = recursos/embargos/ações (com ou sem vínculo a EF) — card separado
+
+  // Extintas: só EFs
+  const extinct = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && isEF(g.exec) && !isHub(g.exec));
+
+  // Outros = tudo que não é hub nem EF (inclui cumprimento, embargos, recursos; também extintos não-EF)
   const others = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
-    if (isHub(e) || isExtinct(e)) return false;
+    if (isHub(e)) return false;
     return isOtherClass(e);
   });
+  // Evita Outros com mesmo nº de hub (cadastro duplicado da âncora)
+  const othersFiltered = others.filter(g => {
+    const n = normProc(g.exec.processNumber);
+    if (n && hubProcNums.has(n)) return false;
+    return true;
+  });
+
   const othersByParent = {};
-  others.forEach(g => {
+  othersFiltered.forEach(g => {
     const pid = g.exec.parentExecutionId;
     if (!pid) return;
     if (!othersByParent[pid]) othersByParent[pid] = [];
     othersByParent[pid].push(g);
   });
-  return { hubs, coveredByHub, coveredEFs, uncoveredEFs, extinct, others, othersByParent, unlinked, coveredIds };
+
+  return {
+    hubs, coveredByHub, coveredEFs, uncoveredEFs, extinct,
+    others: othersFiltered, othersByParent, unlinked, coveredIds,
+    duplicates, dupExecIds, dupDigits,
+  };
 }
 
 // ═══════════════════════════════════════════════
@@ -7342,7 +7408,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       };
       // Renderer compartilhado A/B/C/D — clássico chama com model='D'; demo usa o seletor
       const renderProcViewMasterDetail = () => {
-        const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, unlinked } = classified;
+        const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, unlinked, duplicates, dupExecIds } = classified;
+        const isDup = (execId) => !!(dupExecIds && dupExecIds.has(execId));
+        const dupBadge = (execId) => isDup(execId)
+          ? <span className="dup-badge" title="Mesmo nº cadastrado mais de uma vez nesta operação">Duplicado</span>
+          : null;
         const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
           ? selectedProcHubId
           : (hubs[0]?.exec.id || null);
@@ -7495,6 +7565,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           onClick={() => toggleGroup(pk)}>
                           <td className="mono">
                             {g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}
+                            {g.type === 'exec' && dupBadge(g.exec.id)}
                             {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
                           </td>
                           <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
@@ -7588,6 +7659,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     }}
                     title="Abrir detalhe da EF">
                     <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                    {dupBadge(g.exec.id)}
                   </button>
                 );
               })}
@@ -7597,6 +7669,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
         return (
           <>
+          {(duplicates || []).length > 0 && (
+            <div className="proc-dup-banner" role="status">
+              <strong>{duplicates.length} nº de processo em duplicidade</strong>
+              <span>
+                {duplicates.slice(0, 3).map(d => d.processNumber || d.digits).join(' · ')}
+                {duplicates.length > 3 ? ` · +${duplicates.length - 3}` : ''}
+                {' — '}mesmo número cadastrado mais de uma vez; revise o cadastro (Diagnósticos).
+              </span>
+            </div>
+          )}
           <div className="demo-proc-view demo-proc-view-D proc-md-frame">
             <aside className="proc-md-rail">
               <div className="proc-md-rail-h">IDPJ / Cautelar / Central ({hubs.length})</div>
@@ -7610,7 +7692,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     className={`proc-md-hub${active ? ' active' : ''}`}
                     onClick={() => selectHub(h.exec.id)}>
                     <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
-                    <span className="proc-md-hub-num">{efProcLabel(h.exec, 'S/N')}</span>
+                    <span className="proc-md-hub-num">{efProcLabel(h.exec, 'S/N')}{dupBadge(h.exec.id)}</span>
                     <span className="proc-md-hub-meta">
                       <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
                       <span>{fmtCur(meta.total)}</span>
@@ -7719,7 +7801,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 onClick={() => setOthersCardOpen(v => !v)}
                 aria-expanded={othersCardOpen}>
                 <span>{othersCardOpen ? '▾' : '▸'} Outros processos <span className="count">({others.length})</span></span>
-                <span className="muted">Recursos, embargos e ações — fora do rol de EFs</span>
+                <span className="muted">Cumprimento, recursos, embargos e demais — fora de IDPJ / Cautelar / Execução Fiscal</span>
               </button>
               {othersCardOpen && (
                 <div className="proc-others-card-body">
