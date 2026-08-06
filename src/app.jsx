@@ -2689,7 +2689,7 @@ function GraphView({ operation, data, onSelectNode, onOpenExec }) {
         {tooltip.node.type === 'debt' && `CDA · ${tooltip.node.data?.status?.toUpperCase()} · ${fmtCur(tooltip.node.data?.value)}`}
         {tooltip.node.type === 'execution' && `${tooltip.node.data?.className || 'Execução'} · ${EXEC_STATUSES[tooltip.node.data?.status]?.label || tooltip.node.data?.status || ''} · ${tooltip.node.data?.court || ''}${tooltip.node.alertType === 'presc' ? ' · ⏱ Prescrição próxima' : tooltip.node.alertType === 'gar' ? ' · ✓ Garantida' : tooltip.node.alertType === 'intim' ? ' · 📬 Intimação aberta' : ''}`}
         {tooltip.node.type === 'person' && `${tooltip.node.subtype} · ${tooltip.node.data?.cpfCnpj || ''}`}
-        {tooltip.node.type === 'summary' && `${tooltip.node.data?.count || ''} execuções fiscais sem alerta ativo (sem prescrição iminente, sem garantia, sem intimação aberta). Consultar na aba Processos.`}
+        {tooltip.node.type === 'summary' && `${tooltip.node.data?.count || ''} execuções fiscais sem alerta ativo (sem prescrição iminente, sem garantia, sem intimação aberta). Consultar na aba Processos e Prescrição.`}
         {tooltip.node.type === 'measure' && `${MEASURE_SUBTYPES[tooltip.node.data?.subtype] || ''} · ${tooltip.node.data?.status}`}
         {tooltip.node.type === 'asset' && `${ASSET_SUBTYPES[tooltip.node.data?.subtype] || ''} · ${fmtCur(tooltip.node.data?.value)}`}
         {tooltip.node.type === 'execution' && <div style={{marginTop:3,fontSize:9,color:'var(--accent)'}}>Clique para editar</div>}
@@ -4805,7 +4805,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const unexec = opDebts.filter(d => (d.status === 'ativa' || !d.status) && !d.processNumber);
       if (unexec.length > 0) {
         const val = unexec.reduce((s,d) => s + (d.value||0), 0);
-        suggestions.push({ id: `cda_unexec:${op.id}`, priority: unexec.length >= 5 ? 'high' : 'medium', icon: '⚖️', opId: op.id, title: `${unexec.length} CDA(s) sem execução`, detail: `Total: ${fmtCur(val)}. Avaliar ajuizamento.`, actionLabel: 'Ver CDAs', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); } });
+        suggestions.push({ id: `cda_unexec:${op.id}`, priority: unexec.length >= 5 ? 'high' : 'medium', icon: '⚖️', opId: op.id, title: `${unexec.length} inscrição(ões) sem execução`, detail: `Total: ${fmtCur(val)}. Avaliar ajuizamento.`, actionLabel: 'Ver Inscrições', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('dividas'); } });
       }
       // Bens sem Analytics
       const pending = opAssets.filter(a => !a.analyticsRegistered && a.status === 'indisponibilidade_ativa');
@@ -5811,7 +5811,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
       return (<div className="entity-area">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} CDA(s){cdaPersonFilter !== 'all' && ` (filtrada de ${allItems.length})`} · Total ativo: {fmtCur(totalActive)}</span>
+          <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} inscrição(ões){cdaPersonFilter !== 'all' && ` (filtrada de ${allItems.length})`} · Total ativo: {fmtCur(totalActive)}</span>
           <div style={{display:'flex',gap:6,alignItems:'center'}}>
             <select value={cdaSort} onChange={e=>{setCdaSort(e.target.value);setCollapsedGroups(new Set());}} style={{width:'auto',fontSize:10,padding:'4px 8px'}}>
               <option value="por_processo">Por Processo (IDPJ / apenso)</option>
@@ -5823,7 +5823,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="value_desc">Valor (maior)</option>
               <option value="value_asc">Valor (menor)</option>
             </select>
-            <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'debt',initial:{}})}>+ CDA</button>
+            <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'debt',initial:{}})}>+ Inscrição</button>
           </div>
         </div>
 
@@ -7544,14 +7544,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         </div>
 
-        {/* Orientação da visão integrada */}
+        {/* Orientação: processos + controle de prescrição (cadastro de inscrições fica na aba Inscrições) */}
         <div className="presc-legal-ref">
-          <strong>Processos, CDAs e prescrição em uma única visão.</strong>
+          <strong>Processos e controle da prescrição.</strong>
+          {' '}Cadastro e listagem de inscrições (CDAs) ficam na aba <strong>Inscrições</strong>.
           {procViewModel === 'D' ? (
-            <> {' '}Hubs compactos à esquerda; painel direito com EFs abrangidas pelo hub e EFs sem vínculo. Extintas/Outros recolhidos no rodapé do rail. Clique numa linha ou em <strong>Abrir</strong> para o detalhe.</>
+            <> {' '}Hubs compactos à esquerda; painel direito com EFs abrangidas pelo hub e EFs sem vínculo. Extintas/Outros recolhidos no rodapé do rail. Clique numa linha ou em <strong>Abrir</strong> para o detalhe e o controle prescricional.</>
           ) : (
             <> {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.
-            {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas e ações. Clique numa CDA para o popup completo.</>
+            {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas, CDAs vinculadas e ações de prescrição.</>
           )}
           {isDemo && procViewModel === 'B' && <> {' '}Demo: modelo <strong>B</strong> — EFs abrangidas listadas no card do hub.</>}
           {isDemo && procViewModel === 'A' && <> {' '}Demo: modelo <strong>A</strong> — árvore hub → EFs.</>}
@@ -7847,7 +7848,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       // Filtro por tipo
       const typeOptions = [
         { key: 'all', label: 'Todos' },
-        { key: 'cda', label: '📄 CDAs' },
+        { key: 'cda', label: '📄 Inscrições' },
         { key: 'exec', label: '⚖️ Processos' },
         { key: 'presc', label: '⏱ Prescrição' },
         { key: 'intim', label: '📬 Intimações' },
@@ -8059,7 +8060,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>)}
         <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
           <button className="btn-secondary" onClick={() => setModal(null)}>Fechar</button>
-          <button className="btn-primary" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>✏ Editar CDA</button>
+          <button className="btn-primary" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>✏ Editar Inscrição</button>
         </div>
       </div>);
     }
@@ -8071,18 +8072,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       onDelete={isEdit ? (id) => handleDelete(entityType, id) : null} />;
   };
 
-  const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da CDA' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'CDA',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência'}[modal.entityType]||'')) : '';
+  const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da Inscrição' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência'}[modal.entityType]||'')) : '';
 
-  const tabList = ['notas','pessoas','prescricao_v2','bens','tarefas','importar','docs'];
-  const tabLabels = { notas:'Briefing', pessoas:'Pessoas', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
+  const tabList = ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
+  const tabLabels = { notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
   React.useEffect(() => {
-    // Abas removidas (grafo, insights, timeline, CDAs, Processos) → visão integrada
+    // Abas removidas (grafo, insights, timeline, Processos avulso) → Inscrições + Processos e Prescrição
     if (!tabList.includes(activeTab)) setActiveTab('prescricao_v2');
   }, [activeTab]);
   const DEMO_ZONES = {
     briefing: { label: 'Briefing', tabs: ['notas'] },
     acervo: { label: 'Acervo', tabs: ['pessoas', 'bens'] },
-    risco: { label: 'Risco', tabs: ['prescricao_v2'] },
+    risco: { label: 'Risco', tabs: ['dividas', 'prescricao_v2'] },
     ferramentas: { label: 'Ferramentas', tabs: ['tarefas', 'importar', 'docs'] },
   };
   const tabToDemoZone = (tab) => {
@@ -10222,7 +10223,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 }
                 // All other types: navigate to operation + tab, then open modal
                 if (r.opId) { setActiveOpId(r.opId); setViewMode('operation'); }
-                if (r.tab) setActiveTab(({dividas:'prescricao_v2',execucoes:'prescricao_v2',prescricao:'prescricao_v2',timeline:'prescricao_v2',grafo:'pessoas',insights:'notas'}[r.tab]) || r.tab);
+                if (r.tab) setActiveTab(({execucoes:'prescricao_v2',prescricao:'prescricao_v2',timeline:'prescricao_v2',grafo:'pessoas',insights:'notas'}[r.tab]) || r.tab);
                 if (r.entity && r.entityType) {
                   setTimeout(() => setModal({type:'edit',entityType:r.entityType,initial:r.entity}), 150);
                 }
@@ -11068,8 +11069,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const fieldLabel = kind === 'embargo' ? 'Execução Fiscal embargada' : kind === 'recurso' ? 'Processo recorrido (EF, IDPJ, Cautelar ou outro)' : 'Apensado a (principal)';
       const emptyLabel = kind === 'embargo' ? '— Selecione a EF embargada —' : kind === 'recurso' ? '— Selecione o processo de origem —' : '— Não é apenso (processo independente ou principal) —';
       const dateLabel = kind === 'embargo' ? 'Data de oposição' : kind === 'recurso' ? 'Data de interposição' : 'Data do apensamento';
-      const helpTip = kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos.'
-        : kind === 'recurso' ? 'Vincule este recurso ao processo de origem — pode ser uma Execução Fiscal, um IDPJ, uma Cautelar Fiscal ou outro processo. Ao vincular, o recurso aparece indentado sob o processo de origem na aba Processos.'
+      const helpTip = kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos e Prescrição.'
+        : kind === 'recurso' ? 'Vincule este recurso ao processo de origem — pode ser uma Execução Fiscal, um IDPJ, uma Cautelar Fiscal ou outro processo. Ao vincular, o recurso aparece indentado sob o processo de origem na aba Processos e Prescrição.'
         : 'Quando uma execução fiscal é apensada a outra, o prosseguimento ocorre nos autos do principal. Atos interruptivos da prescrição praticados no principal estendem-se aos apensos automaticamente.';
       // Options: for embargo/recurso, allow any other process (EFs, IDPJs, Cautelares, Centrais, etc.)
       // For regular apensamento, only show top-level EFs as before.
