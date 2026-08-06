@@ -7634,24 +7634,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         </div>
 
-        {/* Orientação: processos + controle de prescrição (cadastro de inscrições fica na aba Inscrições) */}
-        <div className="presc-legal-ref">
-          <strong>Processos e controle da prescrição.</strong>
-          {' '}Foco em IDPJ / Cautelar / Central. Em Sem vínculo, EFs em faixas Ativa · Suspensa · Suspensa parcelamento · Arquivada art. 40.
-          {' '}Clique no marcador da faixa para ver a totalização (qtde · valor · presc.) na mesma linha.
-          {' '}Cadastro de inscrições fica na aba <strong>Inscrições</strong>.
-          {procViewModel === 'D' ? (
-            <> {' '}Painel direito: EFs abrangidas pela âncora e, abaixo, Sem vínculo por status. Extintas/Outros no rodapé do rail.</>
-          ) : (
-            <> {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.</>
-          )}
-          {isDemo && procViewModel === 'B' && <> {' '}Demo: modelo <strong>B</strong> — EFs abrangidas listadas no card do hub.</>}
-          {isDemo && procViewModel === 'A' && <> {' '}Demo: modelo <strong>A</strong> — árvore hub → EFs.</>}
-          {isDemo && procViewModel === 'C' && <> {' '}Demo: modelo <strong>C</strong> — seções + tabela.</>}
-          {isDemo && procViewModel === 'D' && <> {' '}Demo: modelo <strong>D</strong> — master–detail.</>}
-          {!isDemo && <> {' '}Visão <strong>D</strong> — master–detail.</>}
-        </div>
-
         {/* Bulk selection bar */}
         {selectedCDAs.size > 0 && (() => {
           const selectedArr = [...selectedCDAs];
