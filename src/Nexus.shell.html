@@ -314,6 +314,28 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .tab:hover { color: var(--text-secondary); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+.tabs-row-with-collapse {
+  display: flex; align-items: stretch; justify-content: space-between; gap: 8px;
+  padding-right: 12px;
+}
+.tabs-row-with-collapse .tabs-row-main {
+  display: flex; gap: 0; flex: 1; min-width: 0; overflow-x: auto;
+}
+.demo-zones.tabs-row-with-collapse { padding-right: 12px; }
+.op-header-collapse-btn {
+  flex-shrink: 0; align-self: center;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 5px 10px; margin: 4px 0;
+  border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.op-header-collapse-btn:hover {
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+
 .graph-container { flex: 1; position: relative; overflow: hidden; }
 .graph-container svg { width: 100%; height: 100%; cursor: grab; }
 .graph-container svg:active { cursor: grabbing; }
@@ -1756,16 +1778,45 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-frame {
   display: grid; grid-template-columns: 280px 1fr; gap: 0;
   min-height: 420px; border: 1px solid var(--border); border-radius: 8px;
-  overflow: hidden; background: var(--bg-card);
+  overflow: visible; background: var(--bg-card);
+  align-items: start;
 }
 .proc-md-rail {
   border-right: 1px solid var(--border); background: var(--bg-elevated);
-  display: flex; flex-direction: column; min-height: 0; max-height: min(72vh, 720px); overflow: auto;
+  display: flex; flex-direction: column; min-height: 0;
+  max-height: none; overflow: visible;
+  border-radius: 8px 0 0 8px;
+}
+.proc-md-pane { display: flex; flex-direction: column; min-width: 0; background: var(--bg-card); border-radius: 0 8px 8px 0; }
+.proc-md-pane-body { padding: 14px 18px 20px; flex: 1; min-height: 0; overflow: visible; }
+
+/* Separação forte: EFs abrangidas × sem vínculo */
+.proc-md-section-split {
+  display: flex; align-items: center; gap: 12px;
+  margin: 28px 0 14px;
+  padding: 0;
+}
+.proc-md-section-split::before,
+.proc-md-section-split::after {
+  content: ''; flex: 1; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--border-light), var(--border-light));
+}
+.proc-md-section-split::after {
+  background: linear-gradient(90deg, var(--border-light), var(--border-light), transparent);
+}
+.proc-md-section-split span {
+  flex-shrink: 0;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  background: var(--bg-elevated);
 }
 .proc-md-rail-h {
   padding: 12px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--pgfn-light, #c45a72); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; background: var(--bg-elevated); z-index: 1;
+  background: var(--bg-elevated);
 }
 .proc-md-hub {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
@@ -1909,7 +1960,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-rail-item .muted { color: var(--text-muted); font-size: 10px; }
 .proc-md-rail-item.demoted { opacity: 0.65; }
 .proc-md-rail-item.nested { padding-left: 22px; font-size: 10px; }
-.proc-md-pane { display: flex; flex-direction: column; min-width: 0; background: var(--bg-card); }
+.proc-md-pane { display: flex; flex-direction: column; min-width: 0; background: var(--bg-card); border-radius: 0 8px 8px 0; }
 .proc-md-pane-h {
   padding: 14px 18px; border-bottom: 1px solid var(--border);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
@@ -1920,7 +1971,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-size: 12px; color: var(--text-secondary); margin-top: 3px;
 }
 .proc-md-pane-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-.proc-md-pane-body { padding: 14px 18px 20px; flex: 1; min-height: 0; overflow: auto; }
+.proc-md-pane-body { padding: 14px 18px 20px; flex: 1; min-height: 0; overflow: visible; }
 .proc-md-hub-summary {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
@@ -1971,7 +2022,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   .proc-md-frame { grid-template-columns: 1fr; }
   .proc-md-rail {
     border-right: none; border-bottom: 1px solid var(--border);
-    max-height: 220px;
+    max-height: none; overflow: visible;
+    border-radius: 8px 8px 0 0;
   }
   .proc-md-hub-summary { grid-template-columns: 1fr; }
 }

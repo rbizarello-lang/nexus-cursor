@@ -4480,6 +4480,16 @@ function App() {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [selectedProcHubId, setSelectedProcHubId] = useState(null); // Visão D · master–detail
   const [selectedProcBand, setSelectedProcBand] = useState(null); // Cenário A · faixa Ativa/Suspensa/Arquivada
+  const [opHeaderCollapsed, setOpHeaderCollapsed] = useState(() => {
+    try { return localStorage.getItem('nexus_op_header_collapsed') === '1'; } catch { return false; }
+  });
+  const toggleOpHeaderCollapsed = () => {
+    setOpHeaderCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('nexus_op_header_collapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  };
   const briefingSplitRef = React.useRef(null);
   const briefingDragRef = React.useRef({ active: false, startX: 0, startW: 0 });
   const [briefingRightW, setBriefingRightW] = useState(() => { try { const v = parseFloat(localStorage.getItem('nexus_split_pct')); return v > 15 && v < 65 ? v : 33; } catch { return 33; } });
@@ -7504,6 +7514,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
                     {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
 
+                    <div className="proc-md-section-split" role="separator" aria-label="Separação: EFs sem vínculo com a âncora">
+                      <span>Sem vínculo com a âncora</span>
+                    </div>
                     <div className="proc-md-block-label band-sem">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
                     {freeEFs.length === 0
                       ? <div className="proc-md-empty">Nenhuma EF sem vínculo</div>
@@ -10100,7 +10113,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
             <h2>{activeOp.name}</h2>
-            {activeOp.description && <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5,maxWidth:'95%'}}>{activeOp.description}</div>}
+            {!opHeaderCollapsed && activeOp.description && <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:4,lineHeight:1.5,maxWidth:'95%'}}>{activeOp.description}</div>}
           </div>
           <div className="header-actions">
             {(() => {
@@ -10115,7 +10128,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
-        {opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch',flexShrink:0}}>
+        {!opHeaderCollapsed && opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch',flexShrink:0}}>
           <div className="stats-bar" style={{flex:1,minWidth:0,borderBottom:'none'}}>
             <div className="stat-card"><div className="stat-label">Dívida Total</div><div className="stat-value" style={{color:'var(--text-primary)',fontSize:15}}>{fmtCur(opStats.total)}</div><div className="stat-sub">{opStats.debts} CDAs</div></div>
             <div className="stat-card"><div className="stat-label has-tip">Garantido (CDA)<span className="tip-content">Soma dos valores das CDAs com status "Garantida". Reflete a garantia formal reconhecida por CDA, não o valor de mercado dos bens constritados.</span></div><div className="stat-value" style={{color:'var(--text-secondary)',fontSize:15}}>{fmtCur(opStats.guar)}</div><div className="stat-sub">{opStats.total>0?((opStats.guar/opStats.total)*100).toFixed(0):0}%</div></div>
@@ -10150,13 +10163,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         </div>}
         {isDemo ? (<>
-          <div className="demo-zones">
-            {Object.entries(DEMO_ZONES).map(([z, cfg]) => (
-              <button key={z} className={`demo-zone-btn ${demoZone===z?'active':''}`}
-                onClick={() => setDemoZoneAndTab(z, cfg.tabs.includes(activeTab) ? activeTab : cfg.tabs[0])}>
-                {cfg.label}
-              </button>
-            ))}
+          <div className="demo-zones tabs-row-with-collapse">
+            <div className="tabs-row-main">
+              {Object.entries(DEMO_ZONES).map(([z, cfg]) => (
+                <button key={z} className={`demo-zone-btn ${demoZone===z?'active':''}`}
+                  onClick={() => setDemoZoneAndTab(z, cfg.tabs.includes(activeTab) ? activeTab : cfg.tabs[0])}>
+                  {cfg.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="op-header-collapse-btn"
+              onClick={toggleOpHeaderCollapsed}
+              title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-expanded={!opHeaderCollapsed}>
+              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+            </button>
           </div>
           {DEMO_ZONES[demoZone]?.tabs.length > 1 && (
             <div className="demo-zone-sub">
@@ -10174,14 +10195,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           )}
         </>) : (
-          <div className="tabs">{tabList.map(t => {
-            const isInsights = t === 'insights';
-            const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
-            return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
-              {tabLabels[t]}
-              {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
-            </button>;
-          })}</div>
+          <div className="tabs tabs-row-with-collapse">
+            <div className="tabs-row-main">
+              {tabList.map(t => {
+                const isInsights = t === 'insights';
+                const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
+                return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
+                  {tabLabels[t]}
+                  {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
+                </button>;
+              })}
+            </div>
+            <button type="button" className="op-header-collapse-btn"
+              onClick={toggleOpHeaderCollapsed}
+              title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-expanded={!opHeaderCollapsed}>
+              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+            </button>
+          </div>
         )}
         <div className={isDemo ? 'op-tab-panel demo-zone-panel' : 'op-tab-panel'}>
         {(() => {
