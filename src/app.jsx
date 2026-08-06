@@ -583,11 +583,29 @@ const DEBT_STATUSES = {
   extinta: { label: 'Extinta', badge: 'badge-muted-strong' }
 };
 const EXEC_STATUSES = {
-  ativa: { label: 'Ativa', badge: 'badge-muted' },
+  ativa: { label: 'Ativa', badge: 'badge-green' },
   suspensa: { label: 'Suspensa', badge: 'badge-yellow' },
-  arquivada: { label: 'Arquivada', badge: 'badge-muted-strong' },
+  suspensa_parcelamento: { label: 'Suspensa parcelamento', badge: 'badge-blue' },
+  arquivada: { label: 'Arquivada art. 40', badge: 'badge-yellow' },
   extinta: { label: 'Extinta', badge: 'badge-muted-strong' }
 };
+
+/** Faixas do rail (Cenário A · Sem vínculo): ordem de exibição. */
+const EF_BANDS = [
+  { key: 'ativa', label: 'Ativa', cls: 'band-ativa' },
+  { key: 'suspensa', label: 'Suspensa', cls: 'band-suspensa' },
+  { key: 'suspensa_parcelamento', label: 'Suspensa parcelamento', cls: 'band-parc' },
+  { key: 'arquivada', label: 'Arquivada art. 40', cls: 'band-arq' },
+];
+function efBandKey(exec) {
+  if (!exec) return 'ativa';
+  const st = exec.status || 'ativa';
+  if (st === 'arquivada') return 'arquivada';
+  if (st === 'suspensa_parcelamento') return 'suspensa_parcelamento';
+  if (st === 'suspensa') return 'suspensa';
+  if (st === 'extinta') return 'extinta';
+  return 'ativa';
+}
 const MEASURE_SUBTYPES = { cautelar: 'Cautelar Fiscal', desconsideracao: 'Desc. Pers. Jurídica', arresto: 'Arresto', penhora_online: 'Penhora Online', outro: 'Outro' };
 const WATCH_STATUSES = {
   aguardando: { label: '🟡 Aguardando', badge: 'badge-yellow' },
@@ -2177,12 +2195,10 @@ function parseAssetsBulk(text, people, operationId) {
 // DEMO: classify process groups for views A/B/C
 // hubs → covered EFs → uncovered EFs → extinct → others
 // ═══════════════════════════════════════════════
-/** Nº do processo na visão Processos/Prescrição; arquivadas ficam com as ativas e ganham referência art. 40. */
+/** Nº do processo na visão Processos/Prescrição (status vai no badge/faixa, não no número). */
 function efProcLabel(exec, empty = '—') {
   if (!exec) return empty;
-  const num = exec.processNumber || empty;
-  if (exec.status === 'arquivada') return `${num} - Arquivada art. 40`;
-  return num;
+  return exec.processNumber || empty;
 }
 
 /** Arquivadas no fim do rol (ainda entre as ativas; só extintas vão ao grupo demovido). */
@@ -4463,6 +4479,7 @@ function App() {
   };
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [selectedProcHubId, setSelectedProcHubId] = useState(null); // Visão D · master–detail
+  const [selectedProcBand, setSelectedProcBand] = useState(null); // Cenário A · faixa Ativa/Suspensa/Arquivada
   const briefingSplitRef = React.useRef(null);
   const briefingDragRef = React.useRef({ active: false, startX: 0, startW: 0 });
   const [briefingRightW, setBriefingRightW] = useState(() => { try { const v = parseFloat(localStorage.getItem('nexus_split_pct')); return v > 15 && v < 65 ? v : 33; } catch { return 33; } });
@@ -6823,7 +6840,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       });
 
       // ─── THE CARD RENDERER ───
-      const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null }) => {
+      const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null, hideProcessNumber = false }) => {
         const isExec = group.type === 'exec';
         const e = isExec ? group.exec : null;
         const st = isExec ? (EXEC_STATUSES[e.status] || {}) : {};
@@ -6918,23 +6935,25 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           : minRiskDays !== null && minRiskDays <= 365 ? 'risk-warning'
           : '';
 
-        return (<div className={`process-group ${processExpanded ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
+        return (<div className={`process-group ${processExpanded || hideProcessNumber ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
+          {!hideProcessNumber && (
           <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
             <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
             <span className="process-id">
               <strong>{isExec ? efProcLabel(e, 'Processo sem número') : 'CDAs sem processo'}</strong>
               <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
             </span>
-            <span className="process-stat"><small>Status</small><strong>{isExec ? (st.label || e.status) : 'Não ajuizadas'}</strong></span>
+            <span className="process-stat"><small>Status</small><strong>{isExec ? (EXEC_STATUSES[e.status]?.label || e.status) : 'Não ajuizadas'}</strong></span>
             <span className="process-stat"><small>CDAs</small><strong>{group.cdas.length} · {fmtCur(totalCDAValue)}</strong></span>
             <span className={`process-risk ${riskClass}`}><small>Prescrição</small><strong>{riskLabel}</strong></span>
           </button>
+          )}
           {hubCoveredBlock}
-          {processExpanded && <div className="process-detail">
+          {(processExpanded || hideProcessNumber) && <div className="process-detail">
             <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
           <div style={{minWidth:0}}>
-            {/* Process header row */}
+            {/* Process header row — sem repetir o nº (já está no summary / linha da tabela) */}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
               {isExec && group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} style={{width:16,cursor:'pointer',flexShrink:0}} title="Selecionar todas as CDAs do processo" />}
               {isExec ? <div style={{minWidth:0,flex:1}}>
@@ -6944,15 +6963,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {myApensosGroups.length > 0 && <span>{myApensosGroups.length} apenso(s)</span>}
                   {isTagged && <strong>{tagLabels[e.processTag]||e.processTag}</strong>}
                   {isLinkedToIDPJ2 && !isTagged && <span>Vinculada a IDPJ</span>}
-                  <span>{st.label||e.status}</span>
+                  <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
                   {e.hasGuarantee && <span>Garantia</span>}
                   {e.prescriptionInterrupted && <span>PI</span>}
                   {procAlerts.intims.length > 0 && <span className={procAlerts.overdueIntim?'overdue':''}>{procAlerts.intims.length} intimação(ões)</span>}
                   {procAlerts.tasks.length > 0 && <span className={procAlerts.overdueTask?'overdue':''}>{procAlerts.tasks.length} tarefa(s)</span>}
-                </div>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700}}>
-                  <Copyable value={e.processNumber}>{e.processNumber}</Copyable>
-                  {e.status === 'arquivada' && <span style={{fontWeight:500,color:'var(--text-muted)',marginLeft:6}}>— Arquivada art. 40</span>}
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4,marginTop:2}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
                 {/* Executado (devedor) */}
@@ -7267,9 +7282,39 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const hubMeta = selectedHub ? hubRailMeta(selectedHub, covered) : null;
         const freeEFs = sortArquivadasLast([...uncoveredEFs, ...unlinked]);
 
+        const bandOf = (list) => {
+          const map = { ativa: [], suspensa: [], suspensa_parcelamento: [], arquivada: [] };
+          (list || []).forEach(g => {
+            if (g.type === 'unlinked') { map.ativa.push(g); return; }
+            const k = efBandKey(g.exec);
+            if (map[k]) map[k].push(g);
+            else map.ativa.push(g);
+          });
+          return map;
+        };
+        const freeByBand = bandOf(freeEFs);
+        const uncoveredByBand = bandOf(uncoveredEFs);
+        const bandTotals = (items) => {
+          const metas = (items || []).map(efRiskMeta);
+          const total = metas.reduce((s, m) => s + (m.total || 0), 0);
+          const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
+          const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
+          const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
+          return { count: (items || []).length, total, presc };
+        };
+
+        const statusBadge = (exec) => {
+          if (!exec) return <span className="ef-status-badge">Não ajuizadas</span>;
+          const k = efBandKey(exec);
+          const label = EXEC_STATUSES[exec.status]?.label || exec.status || '—';
+          return <span className={`ef-status-badge ${k}`}>{label}</span>;
+        };
+
         const openRowDetail = (g) => {
           const pk = 'process-row-' + (g.type === 'exec' ? g.exec.id : 'unlinked');
           if (!collapsedGroups.has(pk)) toggleGroup(pk);
+          // Garante que o painel mostre a faixa correspondente
+          if (g.exec) setSelectedProcBand(efBandKey(g.exec));
         };
         const renderEfTable = (items, emptyMsg) => {
           if (!items || items.length === 0) {
@@ -7286,12 +7331,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const expanded = collapsedGroups.has(pk);
                     const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
                       : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : 'normal';
+                    const bandCls = g.exec ? `band-${efBandKey(g.exec)}` : '';
                     return (
                       <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
-                        <tr className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''}`}
+                        <tr className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}`}
                           onClick={() => toggleGroup(pk)}>
                           <td className="mono">{g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}</td>
-                          <td>{meta.st.label || g.exec?.status || 'Não ajuizadas'}</td>
+                          <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
                           <td>{fmtCur(meta.total)}</td>
                           <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
                           <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
@@ -7303,7 +7349,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </tr>
                         {expanded && (
                           <tr className="demo-proc-table-detail">
-                            <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv })}</td>
+                            <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv, hideProcessNumber: true })}</td>
                           </tr>
                         )}
                       </React.Fragment>
@@ -7315,22 +7361,43 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           );
         };
 
+        const renderBandBlocks = (byBand, opts = {}) => {
+          const { onlySelected = false } = opts;
+          return EF_BANDS.map(band => {
+            const items = byBand[band.key] || [];
+            if (items.length === 0) return null;
+            if (onlySelected && selectedProcBand && selectedProcBand !== band.key) return null;
+            const tot = bandTotals(items);
+            return (
+              <div key={band.key} id={`proc-band-${band.key}`}>
+                <div className={`proc-md-block-label ${band.cls}`}>
+                  {band.label}
+                  <span className="count">
+                    {tot.count} · {fmtCur(tot.total)} · {tot.presc}
+                  </span>
+                </div>
+                {renderEfTable(items)}
+              </div>
+            );
+          });
+        };
+
         const extinctOpen = collapsedGroups.has('proc-md-extinct');
         const othersOpen = collapsedGroups.has('proc-md-others');
 
         return (
           <div className="demo-proc-view demo-proc-view-D proc-md-frame">
             <aside className="proc-md-rail">
-              <div className="proc-md-rail-h">Hubs ({hubs.length})</div>
-              {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum hub nesta operação</div>}
+              <div className="proc-md-rail-h">IDPJ / Cautelar / Central ({hubs.length})</div>
+              {hubs.length === 0 && <div className="proc-md-empty rail">Nenhuma âncora nesta operação</div>}
               {hubs.map(h => {
                 const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
                 const meta = hubRailMeta(h, cov);
-                const active = h.exec.id === effectiveHubId;
+                const active = h.exec.id === effectiveHubId && !selectedProcBand;
                 return (
                   <button type="button" key={h.exec.id}
                     className={`proc-md-hub${active ? ' active' : ''}`}
-                    onClick={() => setSelectedProcHubId(h.exec.id)}>
+                    onClick={() => { setSelectedProcHubId(h.exec.id); setSelectedProcBand(null); }}>
                     <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
                     <span className="proc-md-hub-num">{efProcLabel(h.exec, 'S/N')}</span>
                     <span className="proc-md-hub-meta">
@@ -7342,24 +7409,43 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 );
               })}
 
-              {uncoveredEFs.length > 0 && (
-                <>
-                  <div className="proc-md-rail-sec">Sem vínculo ({uncoveredEFs.length})</div>
-                  {uncoveredEFs.map(g => {
-                    const meta = efRiskMeta(g);
-                    return (
-                      <button type="button" key={g.exec.id} className="proc-md-rail-item"
-                        onClick={() => openRowDetail(g)}
-                        title="Abrir detalhe da EF">
-                        <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
-                        {g.exec.status !== 'arquivada' && (
-                          <span className="muted"> · {meta.st.label || g.exec.status || '—'}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </>
-              )}
+              <div className="proc-md-rail-sec">Sem vínculo ({uncoveredEFs.length})</div>
+              {EF_BANDS.map(band => {
+                const items = uncoveredByBand[band.key] || [];
+                if (items.length === 0) return null;
+                const tot = bandTotals(items);
+                const selected = selectedProcBand === band.key;
+                return (
+                  <React.Fragment key={band.key}>
+                    <button type="button"
+                      className={`proc-md-rail-sec band ${band.cls}${selected ? ' selected' : ''}`}
+                      onClick={() => {
+                        setSelectedProcBand(prev => prev === band.key ? null : band.key);
+                        // Mantém o hub selecionado; o painel destaca a faixa
+                      }}
+                      title="Clique para ver a totalização da faixa">
+                      <span>{band.label}</span>
+                      <span className="band-tot">
+                        {selected
+                          ? `${tot.count} · ${fmtCur(tot.total)} · ${tot.presc}`
+                          : tot.count}
+                      </span>
+                    </button>
+                    {items.map(g => {
+                      const pk = 'process-row-' + g.exec.id;
+                      const open = collapsedGroups.has(pk);
+                      return (
+                        <button type="button" key={g.exec.id}
+                          className={`proc-md-rail-item ${band.cls}${open ? ' open' : ''}`}
+                          onClick={() => openRowDetail(g)}
+                          title="Abrir detalhe da EF">
+                          <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                        </button>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
 
               <div className="proc-md-rail-sec">Extintas · Outros</div>
               <button type="button" className="proc-md-rail-item demoted"
@@ -7415,17 +7501,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
                     </div>
 
-                    <div className="proc-md-block-label">EFs abrangidas <span className="count">({covered.length})</span></div>
-                    {renderEfTable(covered, 'Nenhuma EF vinculada a este hub')}
+                    <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
+                    {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
 
                     <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
-                    {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                    {freeEFs.length === 0
+                      ? <div className="proc-md-empty">Nenhuma EF sem vínculo</div>
+                      : renderBandBlocks(freeByBand, { onlySelected: !!selectedProcBand })}
                   </div>
                 </>
               ) : (
                 <div className="proc-md-pane-body">
-                  <div className="proc-md-block-label">Processos <span className="count">({freeEFs.length})</span></div>
-                  {renderEfTable(freeEFs, 'Nenhum processo nesta operação')}
+                  <div className="proc-md-block-label">Processos · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                  {freeEFs.length === 0
+                    ? <div className="proc-md-empty">Nenhum processo nesta operação</div>
+                    : renderBandBlocks(freeByBand, { onlySelected: !!selectedProcBand })}
                   {extinct.length > 0 && (
                     <>
                       <div className="proc-md-block-label demoted">Extintas <span className="count">({extinct.length})</span></div>
@@ -7547,12 +7637,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {/* Orientação: processos + controle de prescrição (cadastro de inscrições fica na aba Inscrições) */}
         <div className="presc-legal-ref">
           <strong>Processos e controle da prescrição.</strong>
-          {' '}Cadastro e listagem de inscrições (CDAs) ficam na aba <strong>Inscrições</strong>.
+          {' '}Foco em IDPJ / Cautelar / Central. Em Sem vínculo, EFs em faixas Ativa · Suspensa · Suspensa parcelamento · Arquivada art. 40.
+          {' '}Clique no marcador da faixa para ver a totalização (qtde · valor · presc.) na mesma linha.
+          {' '}Cadastro de inscrições fica na aba <strong>Inscrições</strong>.
           {procViewModel === 'D' ? (
-            <> {' '}Hubs compactos à esquerda; painel direito com EFs abrangidas pelo hub e EFs sem vínculo. Extintas/Outros recolhidos no rodapé do rail. Clique numa linha ou em <strong>Abrir</strong> para o detalhe e o controle prescricional.</>
+            <> {' '}Painel direito: EFs abrangidas pela âncora e, abaixo, Sem vínculo por status. Extintas/Outros no rodapé do rail.</>
           ) : (
-            <> {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.
-            {' '}Os processos começam recolhidos. Abra uma linha para o detalhe, notas, CDAs vinculadas e ações de prescrição.</>
+            <> {' '}Hubs (IDPJ / Cautelar / Central) no topo; EFs abrangidas na tabela ao expandir; depois EFs sem vínculo, Extintas e Outros.</>
           )}
           {isDemo && procViewModel === 'B' && <> {' '}Demo: modelo <strong>B</strong> — EFs abrangidas listadas no card do hub.</>}
           {isDemo && procViewModel === 'A' && <> {' '}Demo: modelo <strong>A</strong> — árvore hub → EFs.</>}
@@ -8859,7 +8950,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Uma aba · alterne entre Intimações e Tarefas' :
-             viewMode === 'operacoes' ? 'Página inicial · cards por classificação e ranking' :
+             viewMode === 'operacoes' ? 'Kanban por classificação · arraste os cards entre colunas' :
              viewMode === 'painel' ? 'KPIs · quadro semanal de prazos, audiências e prescrição' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
@@ -9203,7 +9294,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
       )}
 
-      {/* ═══ OPERAÇÕES (visão geral agrupada) ═══ */}
+      {/* ═══ OPERAÇÕES (Kanban por classificação) ═══ */}
       {viewMode === 'operacoes' && (
         <div className="painel-container">
           {data.operations.length === 0 ? (
@@ -9213,74 +9304,121 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           ) : (
             <div className="painel-section">
-              <h3>Operações <span className="count">({data.operations.length})</span></h3>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+                <h3 style={{margin:0}}>Operações <span className="count">({data.operations.length})</span></h3>
+                <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
+              </div>
               {(() => {
-                const classOrder = [...Object.keys(OP_CLASSIFICATIONS), ''];
-                const groups = {};
-                // Uma operação pode ter múltiplas classificações: aparece em cada grupo correspondente.
-                // Operações sem classificação caem no grupo '' (Sem classificação).
-                [...data.operations].forEach(op => {
+                const getOpKanbanCol = (op) => {
+                  if (op.status === 'encerrada') return 'encerrada';
                   const cls = getOpClassifications(op);
-                  if (cls.length === 0) { if (!groups['']) groups[''] = []; groups[''].push(op); }
-                  else cls.forEach(k => { if (!groups[k]) groups[k] = []; groups[k].push(op); });
+                  if (cls.length > 0) return cls[0];
+                  return '';
+                };
+                const colOrder = [...Object.keys(OP_CLASSIFICATIONS), '', 'encerrada'];
+                const groups = {};
+                colOrder.forEach(k => { groups[k] = []; });
+                data.operations.forEach(op => {
+                  const k = getOpKanbanCol(op);
+                  if (!groups[k]) groups[k] = [];
+                  groups[k].push(op);
                 });
-                const orderedKeys = classOrder.filter(k => groups[k]?.length > 0);
+                const always = ['novas', 'em_andamento', 'alta_relevancia', 'replicar', 'suspenso', 'parceladas', '', 'encerrada'];
+                const cols = [...new Set([...always, ...colOrder.filter(k => (groups[k]||[]).length > 0)])];
 
-                return orderedKeys.map(clsKey => {
-                  const cls = OP_CLASSIFICATIONS[clsKey] || { label: 'Sem classificação', color: 'var(--text-muted)', border: 'var(--border)' };
-                  const opsInGroup = groups[clsKey];
-                  const isCollapsed3 = collapsedGroups.has('painel-'+clsKey);
-                  const groupTotal = opsInGroup.reduce((s,op) => s + data.debts.filter(d=>d.operationId===op.id&&d.status!=='extinta').reduce((ss,d)=>ss+(d.value||0),0), 0);
+                const moveOpToCol = (opId, colKey) => {
+                  setData(prev => ({
+                    ...prev,
+                    operations: prev.operations.map(op => {
+                      if (op.id !== opId) return op;
+                      if (colKey === 'encerrada') {
+                        return { ...op, status: 'encerrada', updatedAt: new Date().toISOString() };
+                      }
+                      const next = { ...op, status: op.status === 'encerrada' ? 'ativa' : (op.status || 'ativa'), updatedAt: new Date().toISOString() };
+                      if (colKey === '') {
+                        next.classifications = [];
+                      } else {
+                        const rest = getOpClassifications(op).filter(c => c !== colKey);
+                        next.classifications = [colKey, ...rest];
+                      }
+                      return next;
+                    })
+                  }));
+                };
 
-                  return (<div key={clsKey} style={{marginBottom:12}}>
-                    <div className="group-header" onClick={() => toggleGroup('painel-'+clsKey)} style={{borderLeft:`3px solid ${cls.border}`}}>
-                      <span className={`gh-toggle ${isCollapsed3?'':'open'}`}>▶</span>
-                      <span className="gh-label" style={{color:cls.color}}>{cls.label}</span>
-                      <span className="gh-count">({opsInGroup.length})</span>
-                      <span className="gh-total">{fmtCur(groupTotal)}</span>
-                    </div>
-                    {!isCollapsed3 && <div className="ops-priority-grid" style={{marginTop:8}}>
-                      {opsInGroup.map(op => {
-                        const debts = data.debts.filter(d=>d.operationId===op.id);
-                        const total = debts.filter(d=>d.status!=='extinta').reduce((s,d)=>s+(d.value||0),0);
-                        const people = data.people.filter(p=>p.operationId===op.id).length;
-                        const opExecs = data.executions.filter(e=>e.operationId===op.id);
-                        const execs = opExecs.length;
-                        const opIntims = (data.intimations||[]).filter(x=>x.operationId===op.id && (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction);
-                        const opTasks = (data.tasks||[]).filter(t=>t.operationId===op.id && t.status!=='concluida' && t.status!=='cancelada');
-                        const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-                        const notes = op.notesList || (op.notes ? [op.notes] : []);
-                        return (<div key={op.id} className="ops-priority-card" style={{borderLeftColor: cls.border}}
-                          onClick={() => { if (isDemo) openCarteiraOp(op); else { startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); } }}>
-                          <div className="opc-header">
-                            <div className="opc-name">{op.name}</div>
-                            <span className={`badge ${op.status==='ativa'?'badge-muted':'badge-muted-strong'}`}>{op.status||'ativa'}</span>
+                const openOp = (op) => {
+                  if (isDemo) openCarteiraOp(op);
+                  else {
+                    startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); });
+                    setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800);
+                  }
+                };
+
+                return (
+                  <div className="ops-kanban-board kanban-board">
+                    {cols.map(colKey => {
+                      const cls = colKey === 'encerrada'
+                        ? { label: 'Encerrada', color: 'var(--text-muted)', border: 'var(--border)' }
+                        : (OP_CLASSIFICATIONS[colKey] || { label: 'Sem classificação', color: 'var(--text-muted)', border: 'var(--border)' });
+                      const opsInCol = groups[colKey] || [];
+                      const groupTotal = opsInCol.reduce((s, op) => s + data.debts.filter(d => d.operationId === op.id && d.status !== 'extinta').reduce((ss, d) => ss + (d.value || 0), 0), 0);
+                      return (
+                        <div key={colKey || 'none'} className="kanban-col"
+                          onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
+                          onDragLeave={e => e.currentTarget.classList.remove('dragover')}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.currentTarget.classList.remove('dragover');
+                            const opId = e.dataTransfer.getData('text/op-id');
+                            if (opId) moveOpToCol(opId, colKey);
+                          }}>
+                          <div className="kanban-col-header" style={{borderBottom:`2px solid ${cls.border}`}}>
+                            <span style={{color: cls.color}}>{cls.label}</span>
+                            <span style={{fontSize:10,color:'var(--text-muted)'}}>{opsInCol.length} · {fmtCur(groupTotal)}</span>
                           </div>
-                          {(() => { const oc = getOpClassifications(op); return oc.length > 1 ? (
-                            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:4}}>
-                              {oc.map(ck => { const cc = OP_CLASSIFICATIONS[ck]; return (
-                                <span key={ck} style={{fontSize:9,fontWeight:600,padding:'1px 6px',borderRadius:3,color:cc.color,border:`1px solid ${cc.border}`,letterSpacing:0.2}}>{cc.label}</span>
-                              ); })}
-                            </div>
-                          ) : null; })()}
-                          <div className="opc-stats">
-                            <span>{people} pessoas</span><span>{debts.length} CDAs</span><span>{execs} EFs</span>
-                            <span style={{fontWeight:600}}>{fmtCur(total)}</span>
+                          <div className="kanban-col-body">
+                            {opsInCol.map(op => {
+                              const debts = data.debts.filter(d => d.operationId === op.id);
+                              const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
+                              const people = data.people.filter(p => p.operationId === op.id).length;
+                              const execs = data.executions.filter(e => e.operationId === op.id).length;
+                              const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
+                              const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
+                              const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+                              const notes = op.notesList || (op.notes ? [op.notes] : []);
+                              return (
+                                <div key={op.id} className="kanban-card"
+                                  draggable
+                                  onDragStart={e => { e.dataTransfer.setData('text/op-id', op.id); e.dataTransfer.effectAllowed = 'move'; }}
+                                  onClick={() => openOp(op)}
+                                  style={{borderLeft: `3px solid ${cls.border}`}}>
+                                  <div className="kc-name">{op.name}</div>
+                                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
+                                    <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
+                                    {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
+                                  </div>
+                                  <div className="kc-stats">
+                                    <span>{people} pes.</span>
+                                    <span>{debts.length} CDAs</span>
+                                    <span>{execs} EFs</span>
+                                    <span style={{fontWeight:600,color:'var(--text-secondary)'}}>{fmtCur(total)}</span>
+                                  </div>
+                                  {notes.length > 0 && <div className="kc-obs">{notes[0]}</div>}
+                                  <div className="kc-alerts">
+                                    {opIntims.length > 0 && <span className="badge badge-yellow">📬 {opIntims.length}</span>}
+                                    {opTasks.length > 0 && <span className="badge badge-blue">✓ {opTasks.length}</span>}
+                                    {prescAlerts > 0 && <span className="badge badge-red">⏱ {prescAlerts}</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {opsInCol.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:8}}>Arraste operações aqui</div>}
                           </div>
-                          {notes.length > 0 && <div className="intim-center-text-wrap" style={{marginTop:4}}>
-                            <div style={{fontSize:10,color:'var(--text-muted)',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{notes[0]}{notes.length>1?` (+${notes.length-1})`:''}</div>
-                            {notes.join(' ').length > 30 && <div className="intim-tooltip">{notes.map((n,i)=><div key={i} style={{marginBottom:4}}>• {n}</div>)}</div>}
-                          </div>}
-                          <div className="opc-alerts">
-                            {opIntims.length > 0 && <span className="badge badge-yellow has-tip">📬 {opIntims.length}<span className="tip-content">Intimações abertas (Prazo Fechado, Pendente de Análise ou Peça em Edição). Clique na operação para tratar.</span></span>}
-                            {opTasks.length > 0 && <span className="badge badge-blue has-tip">✓ {opTasks.length}<span className="tip-content">Tarefas pendentes ou em andamento vinculadas a esta operação.</span></span>}
-                            {prescAlerts > 0 && <span className="badge badge-red has-tip">⏱ {prescAlerts}<span className="tip-content">CDAs com risco de prescrição em até 6 meses, ainda sem tratamento. Acesse a aba Prescrição para analisar.</span></span>}
-                          </div>
-                        </div>);
-                      })}
-                    </div>}
-                  </div>);
-                });
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
               })()}
               {isDemo && renderCarteiraRankingPanel()}
             </div>

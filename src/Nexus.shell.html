@@ -1796,7 +1796,81 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-rail-sec {
   padding: 10px 14px 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-muted); margin-top: 4px;
+  border-left: 3px solid transparent;
 }
+.proc-md-rail-sec.band {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; cursor: pointer; border: none; background: transparent;
+  font-family: inherit; margin-top: 6px; border-radius: 0 6px 6px 0;
+  padding: 8px 10px 6px 11px;
+}
+.proc-md-rail-sec.band:hover { filter: brightness(1.08); }
+.proc-md-rail-sec.band .band-tot {
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.9;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58%;
+}
+.proc-md-rail-sec.band-ativa { color: var(--green); border-left-color: var(--green); }
+.proc-md-rail-sec.band-suspensa { color: var(--yellow); border-left-color: var(--yellow); }
+.proc-md-rail-sec.band-parc {
+  color: var(--blue); border-left-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+}
+.proc-md-rail-sec.band-arq {
+  color: var(--yellow); border-left-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+}
+.proc-md-rail-sec.band.selected { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); }
+.proc-md-rail-item.band-parc {
+  background: color-mix(in srgb, var(--blue) 10%, transparent); color: color-mix(in srgb, var(--blue) 70%, var(--text-primary));
+}
+.proc-md-rail-item.band-arq {
+  background: color-mix(in srgb, var(--yellow) 10%, transparent); color: color-mix(in srgb, var(--yellow) 65%, var(--text-primary));
+}
+.proc-md-rail-item.band-ativa.open, .proc-md-rail-item.open {
+  background: color-mix(in srgb, var(--accent, #b87333) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent, #b87333);
+}
+.proc-md-block-label.band-ativa { color: var(--green); border-left: 3px solid var(--green); padding-left: 8px; }
+.proc-md-block-label.band-suspensa { color: var(--yellow); border-left: 3px solid var(--yellow); padding-left: 8px; }
+.proc-md-block-label.band-parc {
+  color: var(--blue); border-left: 3px solid var(--blue); padding-left: 8px;
+  background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: 0 6px 6px 0;
+}
+.proc-md-block-label.band-arq {
+  color: var(--yellow); border-left: 3px solid var(--yellow); padding-left: 8px;
+  background: color-mix(in srgb, var(--yellow) 8%, transparent); border-radius: 0 6px 6px 0;
+}
+.proc-md-block-label.band-anchor {
+  color: var(--pgfn, #9b2848); border-left: 3px solid var(--pgfn, #9b2848); padding-left: 8px;
+}
+.ef-status-badge {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.03em;
+  padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+}
+.ef-status-badge.ativa { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.ef-status-badge.suspensa { background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--yellow); }
+.ef-status-badge.suspensa_parcelamento {
+  background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue);
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
+}
+.ef-status-badge.arquivada {
+  background: color-mix(in srgb, var(--yellow) 14%, transparent); color: var(--yellow);
+  border: 1px solid color-mix(in srgb, var(--yellow) 40%, transparent);
+}
+.ef-status-badge.extinta { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); }
+
+/* Operações · Kanban */
+.ops-kanban-board {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px; align-items: start; min-height: 420px;
+}
+.ops-kanban-board .kanban-col { max-height: calc(100vh - 220px); }
+.ops-kanban-board .kanban-card { cursor: grab; }
+.ops-kanban-board .kanban-card .kc-name { font-weight: 700; font-size: 12px; margin-bottom: 4px; color: var(--text-primary); }
+.ops-kanban-board .kanban-card .kc-stats { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+.ops-kanban-board .kanban-card .kc-alerts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+
 .proc-md-rail-item {
   padding: 7px 14px; font-size: 11px; color: var(--text-secondary); cursor: pointer;
   border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
