@@ -1,0 +1,14 @@
+---
+description: Build do Nexus — arquivos gerados e comandos obrigatórios
+globs: src/**/*, Nexus.html, Nexus*.html, demo_experimental.html, scripts/build.mjs, package.json
+alwaysApply: false
+---
+
+# Build e artefatos gerados
+
+- Fonte editável: `src/app.jsx` (JSX/React) e `src/Nexus.shell.html` (HTML/CSS/CDN).
+- **Proibido** editar à mão: `Nexus.html`, `Nexus.demo.html`, `Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`.
+- Após qualquer alteração em `src/`, executar `npm run build` e incluir os HTML gerados se mudarem.
+- Deploy Apps Script: `npm run push` (= build + `clasp push`). Só com clasp autenticado.
+- O shell deve manter o marcador `<!--INJECT_APP_JS-->` e **não** reintroduzir `babel-standalone` / `text/babel`.
+- Ver `BUILD.md` e a skill `/build-nexus` para o checklist completo.
