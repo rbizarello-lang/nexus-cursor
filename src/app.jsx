@@ -2343,18 +2343,33 @@ function classifyProcGroups(cdaGroups, execs) {
     .map(id => groupByExecId[id])
     .filter(g => keepUpper(g) && !isExtinct(g.exec)));
 
-  // Sem vínculo: EFs não abrangidas. Evita repetir nº já presente como âncora (hub).
+  // Sem vínculo: EFs top-level. Apensos de outra EF saem daqui e aninham sob o pai.
+  // Apensos de hub já entram em coveredByHub.
+  const apensosByParent = {};
   const uncoveredRaw = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
     if (!keepUpper(g) || isExtinct(e)) return false;
-    if (e.parentExecutionId) return false;
     if (coveredIds.has(e.id)) return false;
     const n = normProc(e.processNumber);
-    // Mesmo nº de uma âncora → não listar de novo em Sem vínculo (duplicidade)
     if (n && hubProcNums.has(n)) return false;
+
+    if (e.parentExecutionId) {
+      const parent = byId[e.parentExecutionId];
+      if (parent && isHub(parent)) return false; // já em coveredByHub
+      if (parent && keepUpper({ type: 'exec', exec: parent })) {
+        if (!apensosByParent[parent.id]) apensosByParent[parent.id] = [];
+        apensosByParent[parent.id].push(g);
+        return false; // aninha sob a EF principal
+      }
+      // Pai inexistente ou não-EF → permanece visível no nível superior (órfão)
+    }
     return true;
   });
+  Object.keys(apensosByParent).forEach(pid => {
+    apensosByParent[pid] = sortArquivadasLast(apensosByParent[pid]);
+  });
+
   // Dentro de Sem vínculo, se houver 2+ cadastros do mesmo nº, mantém um (mais CDAs) e marca todos como dup
   const uncoveredByNum = {};
   uncoveredRaw.forEach(g => {
@@ -2364,11 +2379,22 @@ function classifyProcGroups(cdaGroups, execs) {
   const uncoveredEFs = sortArquivadasLast(Object.values(uncoveredByNum).map(arr => {
     if (arr.length === 1) return arr[0];
     arr.sort((a, b) => (b.cdas || []).length - (a.cdas || []).length);
-    return arr[0]; // exibe um; badge de duplicado via dupExecIds
+    return arr[0];
   }));
 
-  // Extintas: só EFs
-  const extinct = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && isEF(g.exec) && !isHub(g.exec));
+  // Extintas: só EFs top-level; apensos extintos aninham se o pai também for listado em Extintas
+  const extinctRaw = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && isEF(g.exec) && !isHub(g.exec));
+  const extinct = sortArquivadasLast(extinctRaw.filter(g => {
+    const e = g.exec;
+    if (!e.parentExecutionId) return true;
+    const parent = byId[e.parentExecutionId];
+    if (parent && isEF(parent) && !isHub(parent)) {
+      if (!apensosByParent[parent.id]) apensosByParent[parent.id] = [];
+      if (!apensosByParent[parent.id].some(x => x.exec.id === e.id)) apensosByParent[parent.id].push(g);
+      return false;
+    }
+    return true;
+  }));
 
   // Outros = tudo que não é hub nem EF (inclui cumprimento, embargos, recursos; também extintos não-EF)
   const others = (cdaGroups || []).filter(g => {
@@ -2394,8 +2420,8 @@ function classifyProcGroups(cdaGroups, execs) {
 
   return {
     hubs, coveredByHub, coveredEFs, uncoveredEFs, extinct,
-    others: othersFiltered, othersByParent, unlinked, coveredIds,
-    duplicates, dupExecIds, dupDigits,
+    others: othersFiltered, othersByParent, apensosByParent,
+    unlinked, coveredIds, duplicates, dupExecIds, dupDigits,
   };
 }
 
@@ -7408,11 +7434,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       };
       // Renderer compartilhado A/B/C/D — clássico chama com model='D'; demo usa o seletor
       const renderProcViewMasterDetail = () => {
-        const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, unlinked, duplicates, dupExecIds } = classified;
+        const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates, dupExecIds } = classified;
         const isDup = (execId) => !!(dupExecIds && dupExecIds.has(execId));
         const dupBadge = (execId) => isDup(execId)
           ? <span className="dup-badge" title="Mesmo nº cadastrado mais de uma vez nesta operação">Duplicado</span>
           : null;
+        const apensosOf = (execId) => (apensosByParent && apensosByParent[execId]) || [];
+        const apensoBadge = <span className="apenso-badge" title="Apenso a outra execução fiscal">Apenso</span>;
         const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
           ? selectedProcHubId
           : (hubs[0]?.exec.id || null);
@@ -7534,6 +7562,74 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           if (!items || items.length === 0) {
             return <div className="proc-md-empty">{emptyMsg || 'Nenhum processo'}</div>;
           }
+
+          const renderOneRow = (g, { nested = false } = {}) => {
+            const meta = efRiskMeta(g);
+            const rowId = g.type === 'exec' ? g.exec.id : 'unlinked';
+            const pk = idPrefix + rowId;
+            const expanded = collapsedGroups.has(pk);
+            const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
+              : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : 'normal';
+            const bandCls = g.type === 'unlinked'
+              ? 'band-nao-ajuiz'
+              : (g.exec ? `band-${efBandKey(g.exec)}` : '');
+            const domId = opts.domIdPrefix ? opts.domIdPrefix + rowId : undefined;
+            const related = g.type === 'exec' ? relatedParentLabel(g.exec, execById) : null;
+            const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
+            const childApensos = (!isOthers && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
+            return (
+              <React.Fragment key={rowId}>
+                <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}${nested ? ' is-apenso' : ''}`}
+                  onClick={() => toggleGroup(pk)}>
+                  <td className={`mono${nested ? ' proc-apenso-cell' : ''}`}>
+                    {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
+                    {g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}
+                    {nested && apensoBadge}
+                    {g.type === 'exec' && dupBadge(g.exec.id)}
+                    {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
+                    {!isOthers && childApensos.length > 0 && (
+                      <span className="apenso-count" title={`${childApensos.length} apenso(s)`}>
+                        {childApensos.length} apenso{childApensos.length === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </td>
+                  <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
+                  {isOthers ? (
+                    <>
+                      <td className="proc-related-cell">
+                        {related
+                          ? <span className="mono proc-related-ref" title={related}>{truncate(related, 28)}</span>
+                          : <span className="muted">—</span>}
+                      </td>
+                      <td>
+                        {species
+                          ? <span className="especie-badge" title={species.label}>{species.code}</span>
+                          : '—'}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td>{fmtCur(meta.total)}</td>
+                      <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                    </>
+                  )}
+                  <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
+                    {g.type === 'exec' && (
+                      <button type="button" className="btn-secondary btn-xs"
+                        onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: g.exec })}>Abrir</button>
+                    )}
+                  </td>
+                </tr>
+                {expanded && (
+                  <tr className="demo-proc-table-detail">
+                    <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv, hideProcessNumber: true, isApenso: nested })}</td>
+                  </tr>
+                )}
+                {!isOthers && childApensos.map(ap => renderOneRow(ap, { nested: true }))}
+              </React.Fragment>
+            );
+          };
+
           return (
             <div className="demo-proc-table-wrap">
               <table className="demo-proc-table proc-md-table">
@@ -7546,63 +7642,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(g => {
-                    const meta = efRiskMeta(g);
-                    const rowId = g.type === 'exec' ? g.exec.id : 'unlinked';
-                    const pk = idPrefix + rowId;
-                    const expanded = collapsedGroups.has(pk);
-                    const cv = g.type === 'exec' && (g.exec.processTag === 'idpj' || g.exec.processTag === 'cautelar_fiscal') ? 'idpj'
-                      : g.type === 'exec' && g.exec.processTag === 'central' ? 'central' : 'normal';
-                    const bandCls = g.type === 'unlinked'
-                      ? 'band-nao-ajuiz'
-                      : (g.exec ? `band-${efBandKey(g.exec)}` : '');
-                    const domId = opts.domIdPrefix ? opts.domIdPrefix + rowId : undefined;
-                    const related = g.type === 'exec' ? relatedParentLabel(g.exec, execById) : null;
-                    const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
-                    return (
-                      <React.Fragment key={rowId}>
-                        <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}`}
-                          onClick={() => toggleGroup(pk)}>
-                          <td className="mono">
-                            {g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}
-                            {g.type === 'exec' && dupBadge(g.exec.id)}
-                            {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
-                          </td>
-                          <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
-                          {isOthers ? (
-                            <>
-                              <td className="proc-related-cell">
-                                {related
-                                  ? <span className="mono proc-related-ref" title={related}>{truncate(related, 28)}</span>
-                                  : <span className="muted">—</span>}
-                              </td>
-                              <td>
-                                {species
-                                  ? <span className="especie-badge" title={species.label}>{species.code}</span>
-                                  : '—'}
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td>{fmtCur(meta.total)}</td>
-                              <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
-                            </>
-                          )}
-                          <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
-                            {g.type === 'exec' && (
-                              <button type="button" className="btn-secondary btn-xs"
-                                onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: g.exec })}>Abrir</button>
-                            )}
-                          </td>
-                        </tr>
-                        {expanded && (
-                          <tr className="demo-proc-table-detail">
-                            <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv, hideProcessNumber: true })}</td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                  {items.map(g => renderOneRow(g))}
                 </tbody>
               </table>
             </div>
@@ -7649,18 +7689,40 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 }
                 const pk = 'process-row-' + g.exec.id;
                 const rowOpen = collapsedGroups.has(pk);
+                const kids = apensosOf(g.exec.id);
                 return (
-                  <button type="button" key={g.exec.id}
-                    className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}`}
-                    onClick={() => {
-                      setSelectedProcBand(band.key);
-                      setProcFocus('band');
-                      openRowDetail(g);
-                    }}
-                    title="Abrir detalhe da EF">
-                    <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
-                    {dupBadge(g.exec.id)}
-                  </button>
+                  <React.Fragment key={g.exec.id}>
+                    <button type="button"
+                      className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}`}
+                      onClick={() => {
+                        setSelectedProcBand(band.key);
+                        setProcFocus('band');
+                        openRowDetail(g);
+                      }}
+                      title="Abrir detalhe da EF">
+                      <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                      {dupBadge(g.exec.id)}
+                      {kids.length > 0 && <span className="apenso-count">{kids.length} ap.</span>}
+                    </button>
+                    {kids.map(ap => {
+                      const apk = 'process-row-' + ap.exec.id;
+                      const apOpen = collapsedGroups.has(apk);
+                      return (
+                        <button type="button" key={ap.exec.id}
+                          className={`proc-md-rail-item nested ${band.cls}${apOpen ? ' open' : ''}`}
+                          onClick={() => {
+                            setSelectedProcBand(band.key);
+                            setProcFocus('band');
+                            openRowDetail(ap);
+                          }}
+                          title="Apenso — abrir detalhe">
+                          <span className="mono">↳ {efProcLabel(ap.exec, 'S/N')}</span>
+                          {apensoBadge}
+                          {dupBadge(ap.exec.id)}
+                        </button>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
             </React.Fragment>
