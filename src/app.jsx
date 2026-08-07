@@ -6078,7 +6078,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   </div>;
                 })()}
                 {procStatusAlert && <div style={{marginTop:8,padding:'6px 10px',background:procStatusAlert.processStatus==='extinta'?'rgba(122,139,163,0.08)':'rgba(59,130,246,0.08)',borderRadius:4,borderLeft:`2px solid var(--${procStatusAlert.processStatus==='extinta'?'purple':'blue'})`,fontSize:10,color:'var(--text-secondary)'}}>
-                  {procStatusAlert.label} — processo {procStatusAlert.processNumber}. Verifique pendência de baixa.
+                  {procStatusAlert.label} — processo <ProcNum value={procStatusAlert.processNumber} />. Verifique pendência de baixa.
                 </div>}
               </div>
             </div>);
@@ -6123,7 +6123,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       return (<div key={sg.subExec.id} style={{marginTop:isMulti?8:4}}>
                         {isMulti && <div style={{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',background:'rgba(255,255,255,0.015)',borderLeft:`2px solid ${meta.color}50`,marginBottom:4,borderRadius:2}}>
                           <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,fontWeight:600}}>{isSameAsUmbrella ? '↓ Principal' : '↳ Vinculado'}</span>
-                          <span style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-secondary)',fontWeight:600}}>{sg.subExec.processNumber}</span>
+                          <ProcNum exec={sg.subExec} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-secondary)',fontWeight:600}} />
                           <span style={{fontSize:9,color:'var(--text-muted)',flex:1}}>{sg.subExec.court||''}</span>
                           <span style={{fontSize:10,color:'var(--text-muted)'}}>{sg.cdas.length} CDA(s) · {fmtCur(subTotal)}</span>
                         </div>}
@@ -6413,7 +6413,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const rSt = EXEC_STATUSES[r.status] || {};
                     return (<div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',background:'rgba(255,255,255,0.02)',borderRadius:4,fontSize:10,cursor:'pointer',opacity:r.status==='extinta'?0.4:1}} onClick={() => setModal({type:'edit',entityType:'execution',initial:r})}>
                       <span style={{color:'var(--text-muted)',fontSize:9}}>↳</span>
-                      <span style={{fontFamily:'var(--font-mono)',fontSize:10}}>{r.processNumber}</span>
+                      <ProcNum exec={r} style={{fontFamily:'var(--font-mono)',fontSize:10}} />
                       <span style={{color:'var(--text-muted)',fontSize:9,flex:1}}>{r.className || ''}</span>
                       <span className={`badge ${rSt.badge||''}`} style={{fontSize:8}}>{rSt.label}</span>
                     </div>);
@@ -6700,7 +6700,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </div>
                     <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
                     <ExecutadoLine processNumber={e.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
-                    {parentEF && <div style={{fontSize:9,color:'var(--accent)',marginTop:3,fontFamily:'var(--font-mono)'}}>↳ EF principal: {parentEF.processNumber}</div>}
+                    {parentEF && <div style={{fontSize:9,color:'var(--accent)',marginTop:3}}>↳ EF principal: <ProcNum exec={parentEF} /></div>}
                   </div>
                   <div className="idpj-execs">
                     {linkedCDAs.length > 0 ? <>
@@ -6760,7 +6760,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {/* CDA Popup */}
         {cdaPopup && (<div className="cda-popup-overlay" onClick={() => setCdaPopup(null)}>
           <div className="cda-popup" onClick={e => e.stopPropagation()}>
-            <h4>CDAs vinculadas — {cdaPopup.processNumber}</h4>
+            <h4>CDAs vinculadas — <ProcNum value={cdaPopup.processNumber} /></h4>
             {cdaPopup.cdas.map(d => (
               <div key={d.id} className="cda-popup-row">
                 <span style={{fontWeight:600}}>{d.cdaNumber||'CDA'}</span>
@@ -6773,7 +6773,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div className="cda-popup-copy">
               <button className="btn-secondary btn-sm" onClick={() => {
                 const txt = cdaPopup.cdas.map(d => `${d.cdaNumber||'CDA'} — ${fmtCur(d.value)} — ${(DEBT_STATUSES[d.status]||{}).label||d.status}`).join('\n');
-                navigator.clipboard.writeText(txt);
+                copyText(txt);
               }}>📋 Copiar lista</button>
               <button className="btn-secondary btn-sm" style={{marginLeft:8}} onClick={() => setCdaPopup(null)}>Fechar</button>
             </div>
@@ -9441,7 +9441,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     return (<div key={d.id} style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'6px 16px',borderBottom:'1px solid rgba(255,255,255,0.03)',fontSize:10,cursor:'pointer',alignItems:'center'}} onClick={() => { setActiveOpId(d.opId); setViewMode('operation'); setActiveTab('prescricao_v2'); }}>
                       <span style={{fontWeight:700,fontFamily:'var(--font-mono)',color:d.prescDays <= 30 ? 'var(--red)' : d.prescDays <= 90 ? 'var(--yellow)' : 'var(--text-secondary)'}}>{d.prescDays}d</span>
                       <span style={{fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.cdaNumber || 'S/N'}</span>
-                      <span style={{fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}>{d.processNumber || '—'}</span>
+                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}><ProcNum value={d.processNumber} empty="—" /></span>
                       <span className={`badge ${st.badge||''}`} style={{fontSize:8,justifySelf:'start'}}>{st.label||d.status}</span>
                       <span style={{color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(d.value)}</span>
                       <span style={{fontSize:9,color:d.hasIDPJ ? 'var(--text-secondary)' : 'var(--text-muted)'}}>{d.hasIDPJ ? '✓' : '—'}</span>
@@ -9862,7 +9862,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         onDragStart={e => e.dataTransfer.setData('text/plain', intim.id)}
                         onClick={() => setModal({type:'edit',entityType:'intimation',initial:intim})}>
                         <div className="kc-party">{getPartyName(intim)}</div>
-                        <div className="kc-proc">{intim.processNumber}</div>
+                        <div className="kc-proc"><ProcNum value={intim.processNumber} /></div>
                         {intim.dateDeadline && <div className="kc-deadline" style={{color:isOverdue?'var(--red)':days<=5?'var(--yellow)':'var(--text-secondary)'}}>
                           {isOverdue ? `VENCIDA ${Math.abs(days)}d` : `${days}d — ${fmtDate(intim.dateDeadline)}`}
                         </div>}
@@ -10385,7 +10385,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const op = data.operations.find(o => o.id === w.operationId);
               return (<div key={w.id} className="entity-card" style={{opacity:0.5,display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center'}} onClick={() => setModal({type:'edit',entityType:'watch',initial:w})}>
                 <div>
-                  <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,textDecoration:'line-through'}}>{w.processNumber}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,textDecoration:'line-through'}}><ProcNum value={w.processNumber} /></div>
                   <div className="ec-sub">{op?.name||''} · {w.reason}</div>
                 </div>
                 <span className="badge badge-green" style={{fontSize:9}}>Encerrado</span>
@@ -10418,7 +10418,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
             <div style={{minWidth:0}}>
               <div style={{fontSize:14,fontWeight:600,color:'var(--text-primary)'}}>{h.parties || 'Audiência'}</div>
-              {h.processNumber && <div style={{fontSize:12,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>{h.processNumber}</div>}
+              {h.processNumber && <div style={{fontSize:12,color:'var(--text-secondary)'}}><ProcNum value={h.processNumber} /></div>}
               <div style={{marginTop:5,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
                 <span className={`badge ${st.badge}`} style={{fontSize:9}}>{typeLabels[h.hearingType]||'Audiência'}</span>
                 <span style={{fontSize:11,color:'var(--text-muted)'}}>{h.modality==='virtual'?'🖥 Virtual':'📍 Presencial'}{h.location?' · '+truncate(h.location,40):''}</span>
@@ -11133,7 +11133,7 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
     {/* Context summary of the intimação */}
     <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:12,fontSize:11}}>
       <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:600,marginBottom:4}}>Intimação</div>
-      <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600}}>{intim.processNumber || '—'}</div>
+      <div><ProcNum value={intim.processNumber} style={{fontSize:11,fontWeight:600}} /></div>
       <div style={{fontSize:10,color:'var(--text-secondary)',marginTop:2}}>{intim.className || ''} {intim.jurisdiction ? '· '+intim.jurisdiction : ''}</div>
       {intim.eventDescription && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4,fontStyle:'italic'}}>{intim.eventDescription}</div>}
       {intim.dateDeadline && <div style={{fontSize:10,color:'var(--yellow)',marginTop:4}}>Prazo final: {fmtDate(intim.dateDeadline)}</div>}
@@ -11618,7 +11618,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
               return (<div style={{position:'relative'}}>
                 {current ? (
                   <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:3,fontSize:11}}>
-                    <span style={{fontFamily:'var(--font-mono)',flex:1}}>{current.processNumber}</span>
+                    <ProcNum exec={current} style={{fontFamily:'var(--font-mono)',flex:1}} />
                     <span style={{fontSize:9,color:'var(--text-muted)'}}>{current.court || current.className || ''}</span>
                     <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:12}} onClick={() => set('parentExecutionId', '')}>✕</span>
                   </div>
@@ -11659,7 +11659,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
               {children.map(a => {
                 const acn = (a.className||'').toLowerCase();
                 const aKind = /embargo/.test(acn) ? 'embargo' : /agravo|apela|recurso|mandado/.test(acn) ? 'recurso' : 'apenso';
-                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}>{a.processNumber} <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
+                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}><ProcNum exec={a} /> <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
               })}
             </ul>
           </div>;
@@ -11867,7 +11867,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontSize:11}}>
             <input type="checkbox" checked={willPropagate} onChange={e => set('_noApensoPropagation', !e.target.checked)} style={{width:16,height:16,cursor:'pointer',marginTop:1,flexShrink:0}} />
             <span>
-              <strong>📎 Estender este evento aos {apensos.length} processo(s) apensado(s)</strong> ao principal {principal.processNumber}.
+              <strong>📎 Estender este evento aos {apensos.length} processo(s) apensado(s)</strong> ao principal <ProcNum exec={principal} />.
               <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Atos interruptivos praticados no principal estendem-se aos apensos. Desmarque apenas em casos excepcionais (ex: ato pessoal restrito ao principal).</div>
               {willPropagate && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:4,fontFamily:'var(--font-mono)'}}>{apensos.map(a => '• ' + a.processNumber).join('\n')}</div>}
             </span>
