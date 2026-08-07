@@ -34,11 +34,18 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 - **Demo Experimental**: `uiEdition: 'demo'` — rail Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho. Ativar via ⚙, `?edition=demo`, ou abrir os HTML demo na raiz.
 - Demo **não** substitui o clássico. Modelo de dados, parsers, sync Drive, formulários e calculadora de prescrição devem permanecer compatíveis entre edições, salvo pedido explícito.
 
+## Layout / hierarquia visual
+
+- Skill **`/refine-layout`**: checklist de relevância da informação, superfícies clássico/Demo, fluxo Design Mode → editar `src/` → build → revalidar.
+- Rule `nexus-ui.mdc` (glob `src/**`): tokens no shell, preservar card Imp/Dif/Prazo, evitar clutter.
+- Validação visual: Design Mode (Agents Window browser) + screenshots; referências em `_design-mockups/` e telas aprovadas em `_design-mockups/approved/`.
+- Skill **`/build-nexus`**: após qualquer mudança em `src/`.
+
 ## Planejamento
 
 - `MELHORIAS.md` — banco de anotações / fases. Pedidos típicos: “vamos fazer o item N” ou “vamos fazer o P2”.
 - Redesign progressivo: **uma fase por vez** → build → validação → próxima.
-- Mockups em `_design-mockups/`. Arquivos `**/*.md`, `src/`, `scripts/` e toolchain **não** sobem no `clasp push` (`.claspignore`).
+- Mockups em `_design-mockups/` (aprovados em `approved/`). Arquivos `**/*.md`, `src/`, `scripts/` e toolchain **não** sobem no `clasp push` (`.claspignore`).
 
 ## Princípios de mudança
 
