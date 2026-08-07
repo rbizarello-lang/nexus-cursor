@@ -2265,6 +2265,21 @@ function efProcLabel(exec, empty = '—') {
   return exec.processNumber || empty;
 }
 
+/**
+ * Número de processo clicável — copia com 1 clique (usa Copyable + fallback GAS).
+ * Prefira este componente em qualquer exibição de processNumber na UI.
+ */
+function ProcNum({ exec, value, empty = '—', className = '', style, maxLen, prefix = null }) {
+  const raw = (value != null && value !== '') ? String(value) : ((exec && exec.processNumber) || '');
+  if (!raw) return <span className={className} style={style}>{empty}</span>;
+  const shown = maxLen ? truncate(raw, maxLen) : raw;
+  return (
+    <Copyable value={raw} className={`proc-num ${className}`.trim()} style={style} title={`Clique para copiar: ${raw}`}>
+      {prefix}{shown}
+    </Copyable>
+  );
+}
+
 /** Arquivadas no fim do rol (ainda entre as ativas; só extintas vão ao grupo demovido). */
 function sortArquivadasLast(groups) {
   return [...(groups || [])].sort((a, b) => {
@@ -5342,7 +5357,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const est = EXEC_STATUSES[ef.status] || {};
                 return (<div key={ef.id} className="briefing-proc-item" style={nested?{marginLeft:14,borderLeft:'2px solid var(--border)',borderRadius:0}:{}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}>
                   {nested && <span style={{color:'var(--text-muted)',fontSize:10,flexShrink:0}}>↳</span>}
-                  <span style={{fontFamily:'var(--font-mono)',fontSize:10,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'copy'}} title="Clique para copiar" onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(ef.processNumber).then(() => { ev.target.style.color='var(--green)'; setTimeout(()=>ev.target.style.color='',1200); }); }}>{ef.processNumber}</span>
+                  <ProcNum exec={ef} style={{fontFamily:'var(--font-mono)',fontSize:10,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} />
                   {ef._cdaValue > 0 && <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(ef._cdaValue)}</span>}
                   <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
                   {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
@@ -5489,7 +5504,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     return (<div key={ip.id} style={{marginBottom:10,padding:'8px 10px',background:'transparent',border:'1px solid var(--border-light, var(--border))',borderRadius:6,opacity:ip.status==='extinta'?0.5:1}}>
                       <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                         <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
-                        <span style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)',cursor:'copy'}} title="Clique para copiar" onClick={ev => { ev.stopPropagation(); navigator.clipboard.writeText(ip.processNumber).then(() => { ev.target.style.color='var(--green)'; setTimeout(()=>ev.target.style.color='var(--text-primary)',1200); }); }}>{ip.processNumber}</span>
+                        <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
                         <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>{est.label}</span>
                         <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
                       </div>
@@ -7103,7 +7118,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
             <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
             <span className="process-id">
-              <strong>{isExec ? efProcLabel(e, 'Processo sem número') : 'CDAs sem processo'}</strong>
+              <strong>{isExec ? <ProcNum exec={e} empty="Processo sem número" /> : 'CDAs sem processo'}</strong>
               <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
             </span>
             <span className="process-stat"><small>Status</small><strong>{isExec ? (EXEC_STATUSES[e.status]?.label || e.status) : 'Não ajuizadas'}</strong></span>
@@ -7369,7 +7384,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <button type="button" key={cg.exec.id} className={`demo-proc-ef-chip risk-${meta.riskClass}`}
                     onClick={(ev) => { ev.stopPropagation(); toggleGroup(pk); }}
                     title="Abrir detalhe da EF">
-                    <span className="demo-proc-ef-num">{efProcLabel(cg.exec, 'S/N')}</span>
+                    <span className="demo-proc-ef-num"><ProcNum exec={cg.exec} empty="S/N" /></span>
                     <span className="demo-proc-ef-st">{meta.st.label || cg.exec.status}</span>
                     <span className="demo-proc-ef-val">{fmtCur(meta.total)}</span>
                     <span className="demo-proc-ef-risk">{meta.label}</span>
@@ -7404,7 +7419,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       return (
                         <React.Fragment key={g.type === 'exec' ? g.exec.id : 'unlinked'}>
                           <tr className={`demo-proc-table-row risk-${meta.riskClass}`} onClick={() => toggleGroup(pk)}>
-                            <td className="mono">{efProcLabel(g.exec)}</td>
+                            <td className="mono"><ProcNum exec={g.exec} /></td>
                             <td>{meta.st.label || g.exec?.status || '—'}</td>
                             <td>{g.cdas.length}</td>
                             <td>{fmtCur(meta.total)}</td>
@@ -7516,7 +7531,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <button type="button" key={og.exec.id} className="proc-rel-chip"
                     title={`Abrir em Outros: ${sp.label}`}
                     onClick={() => jumpToOther(og.exec.id)}>
-                    <span className="mono">{truncate(og.exec.processNumber || 'S/N', 18)}</span>
+                    <ProcNum exec={og.exec} empty="S/N" maxLen={18} className="mono" />
                     <span className="nat">{sp.code}</span>
                   </button>
                 );
@@ -7574,7 +7589,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               ? 'band-nao-ajuiz'
               : (g.exec ? `band-${efBandKey(g.exec)}` : '');
             const domId = opts.domIdPrefix ? opts.domIdPrefix + rowId : undefined;
-            const related = g.type === 'exec' ? relatedParentLabel(g.exec, execById) : null;
+            const relatedParent = g.type === 'exec' && g.exec.parentExecutionId
+              ? execById[g.exec.parentExecutionId]
+              : null;
+            const relatedPrefix = relatedParent
+              ? (relatedParent.processTag === 'idpj' ? 'IDPJ'
+                : relatedParent.processTag === 'cautelar_fiscal' ? 'Cautelar'
+                : relatedParent.processTag === 'central' ? 'Central'
+                : null)
+              : null;
             const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
             const childApensos = (!isOthers && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
             return (
@@ -7583,7 +7606,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   onClick={() => toggleGroup(pk)}>
                   <td className={`mono${nested ? ' proc-apenso-cell' : ''}`}>
                     {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
-                    {g.type === 'unlinked' ? 'CDAs sem processo' : efProcLabel(g.exec)}
+                    {g.type === 'unlinked' ? 'CDAs sem processo' : <ProcNum exec={g.exec} />}
                     {nested && apensoBadge}
                     {g.type === 'exec' && dupBadge(g.exec.id)}
                     {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
@@ -7597,8 +7620,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {isOthers ? (
                     <>
                       <td className="proc-related-cell">
-                        {related
-                          ? <span className="mono proc-related-ref" title={related}>{truncate(related, 28)}</span>
+                        {relatedParent
+                          ? (
+                            <span className="proc-related-ref">
+                              {relatedPrefix && <span className="muted">{relatedPrefix} · </span>}
+                              <ProcNum exec={relatedParent} maxLen={22} />
+                            </span>
+                          )
                           : <span className="muted">—</span>}
                       </td>
                       <td>
@@ -7700,7 +7728,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         openRowDetail(g);
                       }}
                       title="Abrir detalhe da EF">
-                      <span className="mono">{efProcLabel(g.exec, 'S/N')}</span>
+                      <span className="mono"><ProcNum exec={g.exec} empty="S/N" /></span>
                       {dupBadge(g.exec.id)}
                       {kids.length > 0 && <span className="apenso-count">{kids.length} ap.</span>}
                     </button>
@@ -7716,7 +7744,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             openRowDetail(ap);
                           }}
                           title="Apenso — abrir detalhe">
-                          <span className="mono">↳ {efProcLabel(ap.exec, 'S/N')}</span>
+                          <span className="mono"><ProcNum exec={ap.exec} empty="S/N" prefix="↳ " /></span>
                           {apensoBadge}
                           {dupBadge(ap.exec.id)}
                         </button>
@@ -7754,7 +7782,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     className={`proc-md-hub${active ? ' active' : ''}`}
                     onClick={() => selectHub(h.exec.id)}>
                     <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
-                    <span className="proc-md-hub-num">{efProcLabel(h.exec, 'S/N')}{dupBadge(h.exec.id)}</span>
+                    <span className="proc-md-hub-num"><ProcNum exec={h.exec} empty="S/N" />{dupBadge(h.exec.id)}</span>
                     <span className="proc-md-hub-meta">
                       <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
                       <span>{fmtCur(meta.total)}</span>
@@ -7781,7 +7809,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div>
                       <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
                       <div className="proc-md-pane-num">
-                        {[efProcLabel(selectedHub.exec, 'S/N'), selectedHub.exec.court].filter(Boolean).join(' · ')}
+                        <ProcNum exec={selectedHub.exec} empty="S/N" />
+                        {selectedHub.exec.court ? <span className="muted"> · {selectedHub.exec.court}</span> : null}
                       </div>
                     </div>
                     <div className="proc-md-pane-actions">
@@ -7907,7 +7936,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button type="button" className="demo-proc-hub-acc-hdr" onClick={() => toggleGroup(hubKey)} aria-expanded={hubOpen}>
                   <span className="demo-proc-section-chev">{hubOpen ? '▾' : '▸'}</span>
                   <strong>{tagLabels[h.exec.processTag] || h.exec.processTag}</strong>
-                  <span className="mono">{efProcLabel(h.exec, 'S/N')}</span>
+                  <span className="mono"><ProcNum exec={h.exec} empty="S/N" /></span>
                   <span className="muted">{covered.length} EF(s)</span>
                 </button>
                 {hubOpen && (
@@ -8341,14 +8370,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <span className="tip-content">{d.actionDate ? 'Data de atuação registrada' : (d.createdAt ? 'Data de criação do registro (sem data de atuação informada)' : 'Sem data de atuação')}</span>
               </span>
               {procNum ? (
-                <span className="doc-procnum" title="Clique para copiar o nº do processo" onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(procNum).then(() => {
-                    e.currentTarget.classList.add('copied');
-                    setTimeout(() => { try { e.currentTarget && e.currentTarget.classList.remove('copied'); } catch {} }, 1500);
-                  }).catch(() => {});
-                }}>{procNum}</span>
-              ) : <span style={{fontSize:10,color:'var(--text-muted)',whiteSpace:'nowrap'}}>—</span>}
+                <ProcNum value={procNum} className="doc-procnum" />
+              ) : <span className="doc-procnum muted">—</span>}
               <button className="btn-xs btn-secondary" onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'document',initial:d}); }}>✎</button>
             </div>);
           })}
@@ -9950,13 +9973,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 })()}</div>
                 <div className="intim-proc-row">
                   <span className="intim-juris">{intim.jurisdiction || '?'}</span>
-                  <span className="intim-procnum" title="Clique para copiar" onClick={e => {
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(intim.processNumber).then(() => {
-                      e.target.classList.add('copied');
-                      setTimeout(() => e.target.classList.remove('copied'), 1500);
-                    });
-                  }}>{intim.processNumber}</span>
+                  <ProcNum value={intim.processNumber} className="intim-procnum" />
                 </div>
                 <div className="intim-classname" style={{marginTop:2}}>{truncate(intim.className, 35)}</div>
               </div>
@@ -10749,8 +10766,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="intimwork-card" key={intim.id}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                          <span style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text-primary)'}}>{intim.processNumber || '—'}</span>
-                          <button className="btn-secondary btn-xs" onClick={() => navigator.clipboard.writeText(intim.processNumber || '')}>📋 Copiar nº</button>
+                          <ProcNum value={intim.processNumber} className="intim-procnum" style={{fontSize:12}} />
                           {intim.jurisdiction && <span style={{fontSize:10,color:'var(--text-muted)'}}>{intim.jurisdiction}</span>}
                         </div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -10784,19 +10800,31 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 // FORM ROUTER
 // ═══════════════════════════════════════════════
 // Checkbox multi-select component
-// Click-to-copy element with visual feedback
-function Copyable({ value, children, className = '', style }) {
+// Click-to-copy — ferramenta padrão do app (nº processo, CDA, CPF etc.)
+function Copyable({ value, children, className = '', style, title }) {
   const [copied, setCopied] = React.useState(false);
-  if (!value) return <span>{children || '—'}</span>;
-  return (<span className={`copyable ${copied?'copied':''} ${className}`} style={style}
-    title="Clique para copiar"
-    onClick={e => {
-      e.stopPropagation();
-      navigator.clipboard.writeText(value).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      });
-    }}>{children || value}</span>);
+  if (value == null || value === '') return <span className={className} style={style}>{children || '—'}</span>;
+  const doCopy = (e) => {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    const text = String(value);
+    copyText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <span
+      className={`copyable ${copied ? 'copied' : ''} ${className}`.trim()}
+      style={style}
+      title={copied ? 'Copiado!' : (title || 'Clique para copiar')}
+      role="button"
+      tabIndex={0}
+      onClick={doCopy}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') doCopy(e);
+      }}
+    >{children != null ? children : String(value)}</span>
+  );
 }
 
 // Inline help tooltip — pass children as the trigger element
