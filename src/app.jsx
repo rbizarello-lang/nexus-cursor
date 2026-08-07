@@ -4647,6 +4647,8 @@ function App() {
   const [selectedProcBand, setSelectedProcBand] = useState(null); // faixa Ativa/Suspensa/…
   const [procFocus, setProcFocus] = useState('hub'); // 'hub' | 'band'
   const [railBandsOpen, setRailBandsOpen] = useState(() => new Set(['ativa']));
+  const [hubsCardOpen, setHubsCardOpen] = useState(true);
+  const [freeCardOpen, setFreeCardOpen] = useState(true);
   const [othersCardOpen, setOthersCardOpen] = useState(true);
   const [opHeaderCollapsed, setOpHeaderCollapsed] = useState(() => {
     try { return localStorage.getItem('nexus_op_header_collapsed') === '1'; } catch { return false; }
@@ -7561,9 +7563,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             return n;
           });
           if (selectedProcBand === bandKey && wasOpen) {
-            // Recolhe e limpa filtro → volta ao foco da âncora
-            setSelectedProcBand(null);
-            setProcFocus(hubs.length ? 'hub' : 'band');
+            // Recolhe lista; mantém filtro da faixa (card Sem vínculo)
+            setSelectedProcBand(bandKey);
+            setProcFocus('band');
           } else {
             setSelectedProcBand(bandKey);
             setProcFocus('band');
@@ -7677,18 +7679,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           );
         };
 
-        const focusIsHub = procFocus === 'hub' && !!selectedHub;
-        const focusIsBand = procFocus === 'band' && !!selectedProcBand;
-        const focusedBandItems = focusIsBand
-          ? (freeByBand[selectedProcBand] || [])
-          : [];
-        const focusedBandMeta = railBandMeta(selectedProcBand);
+        const focusIsHub = !!selectedHub;
+        const freeCount = (uncoveredEFs || []).length + (extinct || []).length + (unlinked || []).length;
+        // Faixa efetiva no card Sem vínculo (sem setState durante render)
+        const effectiveBandKey = (() => {
+          if (selectedProcBand && (freeByBand[selectedProcBand] || []).length > 0) return selectedProcBand;
+          const first = [NAO_AJUIZ_BAND, ...EF_BANDS].find(b => (freeByBand[b.key] || []).length > 0);
+          return first ? first.key : null;
+        })();
+        const focusedBandItems = effectiveBandKey ? (freeByBand[effectiveBandKey] || []) : [];
+        const focusedBandMeta = railBandMeta(effectiveBandKey);
 
         const renderRailBand = (band, items) => {
           if (!items || items.length === 0) return null;
           const tot = bandTotals(items);
           const open = railBandsOpen.has(band.key);
-          const selected = focusIsBand && selectedProcBand === band.key;
+          const selected = effectiveBandKey === band.key;
           return (
             <React.Fragment key={band.key}>
               <button type="button"
@@ -7769,138 +7775,174 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </span>
             </div>
           )}
-          <div className="demo-proc-view demo-proc-view-D proc-md-frame">
-            <aside className="proc-md-rail">
-              <div className="proc-md-rail-h">IDPJ / Cautelar / Central ({hubs.length})</div>
-              {hubs.length === 0 && <div className="proc-md-empty rail">Nenhuma âncora nesta operação</div>}
-              {hubs.map(h => {
-                const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
-                const meta = hubRailMeta(h, cov);
-                const active = focusIsHub && h.exec.id === effectiveHubId;
-                return (
-                  <button type="button" key={h.exec.id}
-                    className={`proc-md-hub${active ? ' active' : ''}`}
-                    onClick={() => selectHub(h.exec.id)}>
-                    <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
-                    <span className="proc-md-hub-num"><ProcNum exec={h.exec} empty="S/N" />{dupBadge(h.exec.id)}</span>
-                    <span className="proc-md-hub-meta">
-                      <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
-                      <span>{fmtCur(meta.total)}</span>
-                      <span className={`risk-${meta.riskClass}`}>{meta.label}</span>
-                    </span>
-                  </button>
-                );
-              })}
 
-              {(unlinked || []).length > 0 && (
-                <div className="rail-block-nao-ajuiz">
-                  {renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
-                </div>
-              )}
-
-              <div className="proc-md-rail-sec rail-sem">Sem vínculo</div>
-              {EF_BANDS.map(band => renderRailBand(band, uncoveredByBand[band.key] || []))}
-            </aside>
-
-            <section className="proc-md-pane">
-              {focusIsHub && selectedHub ? (
-                <>
-                  <div className="proc-md-pane-h">
-                    <div>
-                      <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
-                      <div className="proc-md-pane-num">
-                        <ProcNum exec={selectedHub.exec} empty="S/N" />
-                        {selectedHub.exec.court ? <span className="muted"> · {selectedHub.exec.court}</span> : null}
-                      </div>
-                    </div>
-                    <div className="proc-md-pane-actions">
-                      <button type="button" className="btn-secondary btn-sm"
-                        onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
-                      <button type="button" className="btn-primary btn-sm"
-                        onClick={() => {
-                          const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
-                          setModal({
-                            type: 'create',
-                            entityType: 'prescriptionEvent',
-                            initial: { batchCdaIds: cdaIds, executionId: selectedHub.exec.id }
-                          });
-                        }}>+ Evento</button>
-                    </div>
-                  </div>
-                  <div className="proc-md-pane-body">
-                    {(() => {
-                      const hub = selectedHub.exec;
-                      const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
-                      const hubNotes = filterProcNotes(rawNotes);
+          {/* ═══ CARD 1: Âncoras (IDPJ / Cautelar / Central) + EFs relacionadas ═══ */}
+          <div id="proc-hubs-card" className={`proc-section-card${hubsCardOpen ? ' open' : ''}`}>
+            <button type="button" className="proc-section-card-h"
+              onClick={() => setHubsCardOpen(v => !v)}
+              aria-expanded={hubsCardOpen}>
+              <span>{hubsCardOpen ? '▾' : '▸'} IDPJ / Cautelar / Central <span className="count">({hubs.length})</span></span>
+              <span className="muted">Âncoras e execuções fiscais abrangidas</span>
+            </button>
+            {hubsCardOpen && (
+              <div className="proc-section-card-body">
+                <div className="demo-proc-view demo-proc-view-D proc-md-frame">
+                  <aside className="proc-md-rail">
+                    <div className="proc-md-rail-h">Âncoras ({hubs.length})</div>
+                    {hubs.length === 0 && <div className="proc-md-empty rail">Nenhuma âncora nesta operação</div>}
+                    {hubs.map(h => {
+                      const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
+                      const meta = hubRailMeta(h, cov);
+                      const active = focusIsHub && h.exec.id === effectiveHubId;
                       return (
-                        <div className="proc-md-hub-top">
-                          <div className="proc-md-hub-summary">
-                            <div><small>Status</small><strong>{hubMeta.st.label || hub.status || '—'}</strong></div>
-                            <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
-                            <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
-                          </div>
-                          <div className="proc-md-hub-notes">
-                            <div className="proc-md-hub-notes-h">
-                              <span>Notas e observações <span className="count">({hubNotes.length})</span></span>
-                              <button type="button" className="btn-secondary btn-xs"
-                                onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
-                                title="Editar âncora para alterar notas">✎</button>
+                        <button type="button" key={h.exec.id}
+                          className={`proc-md-hub${active ? ' active' : ''}`}
+                          onClick={() => selectHub(h.exec.id)}>
+                          <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
+                          <span className="proc-md-hub-num"><ProcNum exec={h.exec} empty="S/N" />{dupBadge(h.exec.id)}</span>
+                          <span className="proc-md-hub-meta">
+                            <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
+                            <span>{fmtCur(meta.total)}</span>
+                            <span className={`risk-${meta.riskClass}`}>{meta.label}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </aside>
+
+                  <section className="proc-md-pane">
+                    {selectedHub ? (
+                      <>
+                        <div className="proc-md-pane-h">
+                          <div>
+                            <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
+                            <div className="proc-md-pane-num">
+                              <ProcNum exec={selectedHub.exec} empty="S/N" />
+                              {selectedHub.exec.court ? <span className="muted"> · {selectedHub.exec.court}</span> : null}
                             </div>
-                            {hubNotes.length === 0
-                              ? <div className="proc-md-empty">Nenhuma nota nesta âncora</div>
-                              : (
-                                <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
-                                  {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                                </div>
-                              )}
+                          </div>
+                          <div className="proc-md-pane-actions">
+                            <button type="button" className="btn-secondary btn-sm"
+                              onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
+                            <button type="button" className="btn-primary btn-sm"
+                              onClick={() => {
+                                const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
+                                setModal({
+                                  type: 'create',
+                                  entityType: 'prescriptionEvent',
+                                  initial: { batchCdaIds: cdaIds, executionId: selectedHub.exec.id }
+                                });
+                              }}>+ Evento</button>
                           </div>
                         </div>
-                      );
-                    })()}
-                    <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
-                    {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
-                    {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
-                      <div className="proc-hub-rel">
-                        <div className="proc-md-block-label">Recursos / embargos vinculados</div>
-                        {relatedChips(selectedHub.exec.id)}
+                        <div className="proc-md-pane-body">
+                          {(() => {
+                            const hub = selectedHub.exec;
+                            const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
+                            const hubNotes = filterProcNotes(rawNotes);
+                            return (
+                              <div className="proc-md-hub-top">
+                                <div className="proc-md-hub-summary">
+                                  <div><small>Status</small><strong>{hubMeta.st.label || hub.status || '—'}</strong></div>
+                                  <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
+                                  <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
+                                </div>
+                                <div className="proc-md-hub-notes">
+                                  <div className="proc-md-hub-notes-h">
+                                    <span>Notas e observações <span className="count">({hubNotes.length})</span></span>
+                                    <button type="button" className="btn-secondary btn-xs"
+                                      onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
+                                      title="Editar âncora para alterar notas">✎</button>
+                                  </div>
+                                  {hubNotes.length === 0
+                                    ? <div className="proc-md-empty">Nenhuma nota nesta âncora</div>
+                                    : (
+                                      <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                                        {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
+                          {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
+                          {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
+                            <div className="proc-hub-rel">
+                              <div className="proc-md-block-label">Recursos / embargos vinculados</div>
+                              {relatedChips(selectedHub.exec.id)}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="proc-md-pane-body">
+                        <div className="proc-md-empty">Nenhuma âncora (IDPJ / Cautelar / Central) nesta operação.</div>
                       </div>
                     )}
-                  </div>
-                </>
-              ) : focusIsBand && focusedBandMeta ? (
-                <div className="proc-md-pane-body">
-                  <div className={`proc-md-block-label ${focusedBandMeta.cls}`}>
-                    {focusedBandMeta.label}
-                    <span className="count">
-                      {(() => { const t = bandTotals(focusedBandItems); return `${t.count} · ${fmtCur(t.total)} · ${t.presc}`; })()}
-                    </span>
-                  </div>
-                  {renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
+                  </section>
                 </div>
-              ) : (
-                <div className="proc-md-pane-body">
-                  <div className="proc-md-empty">Selecione uma âncora (IDPJ / Cautelar / Central) ou uma faixa à esquerda.</div>
-                </div>
-              )}
-            </section>
+              </div>
+            )}
           </div>
 
-          {/* Card separado: recursos, embargos e demais processos não-EF */}
-          {others.length > 0 && (
-            <div id="proc-others-card" className={`proc-others-card${othersCardOpen ? ' open' : ''}`}>
-              <button type="button" className="proc-others-card-h"
-                onClick={() => setOthersCardOpen(v => !v)}
-                aria-expanded={othersCardOpen}>
-                <span>{othersCardOpen ? '▾' : '▸'} Outros processos <span className="count">({others.length})</span></span>
-                <span className="muted">Cumprimento, recursos, embargos e demais — fora de IDPJ / Cautelar / Execução Fiscal</span>
-              </button>
-              {othersCardOpen && (
-                <div className="proc-others-card-body">
-                  {renderEfTable(others, 'Nenhum outro processo', { domIdPrefix: 'proc-other-', idPrefix: 'process-row-', variant: 'others' })}
+          {/* ═══ CARD 2: EFs sem vínculo a âncora ═══ */}
+          <div id="proc-free-card" className={`proc-section-card${freeCardOpen ? ' open' : ''}`}>
+            <button type="button" className="proc-section-card-h"
+              onClick={() => setFreeCardOpen(v => !v)}
+              aria-expanded={freeCardOpen}>
+              <span>{freeCardOpen ? '▾' : '▸'} Execuções sem vínculo <span className="count">({freeCount})</span></span>
+              <span className="muted">Ativas, suspensas, art. 40, extintas e não ajuizadas — fora de IDPJ / Cautelar / Central</span>
+            </button>
+            {freeCardOpen && (
+              <div className="proc-section-card-body">
+                <div className="demo-proc-view demo-proc-view-D proc-md-frame">
+                  <aside className="proc-md-rail">
+                    {(unlinked || []).length > 0 && renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
+                    <div className="proc-md-rail-sec rail-sem" style={{ borderTop: (unlinked || []).length ? undefined : 'none', marginTop: (unlinked || []).length ? undefined : 0, paddingTop: (unlinked || []).length ? undefined : 8 }}>
+                      Por status
+                    </div>
+                    {EF_BANDS.map(band => renderRailBand(band, uncoveredByBand[band.key] || []))}
+                    {freeCount === 0 && <div className="proc-md-empty rail">Nenhuma EF fora das âncoras</div>}
+                  </aside>
+                  <section className="proc-md-pane">
+                    {effectiveBandKey && focusedBandMeta ? (
+                      <div className="proc-md-pane-body">
+                        <div className={`proc-md-block-label ${focusedBandMeta.cls}`}>
+                          {focusedBandMeta.label}
+                          <span className="count">
+                            {(() => { const t = bandTotals(focusedBandItems); return `${t.count} · ${fmtCur(t.total)} · ${t.presc}`; })()}
+                          </span>
+                        </div>
+                        {renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
+                      </div>
+                    ) : (
+                      <div className="proc-md-pane-body">
+                        <div className="proc-md-empty">Nenhuma execução fora das âncoras nesta operação.</div>
+                      </div>
+                    )}
+                  </section>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+
+          {/* ═══ CARD 3: Outros (recursos, embargos, cumprimento…) ═══ */}
+          <div id="proc-others-card" className={`proc-section-card proc-others-card${othersCardOpen ? ' open' : ''}`}>
+            <button type="button" className="proc-section-card-h"
+              onClick={() => setOthersCardOpen(v => !v)}
+              aria-expanded={othersCardOpen}>
+              <span>{othersCardOpen ? '▾' : '▸'} Outros processos <span className="count">({others.length})</span></span>
+              <span className="muted">Cumprimento, recursos, embargos e demais — fora de Execução Fiscal</span>
+            </button>
+            {othersCardOpen && (
+              <div className="proc-section-card-body">
+                {others.length > 0
+                  ? renderEfTable(others, 'Nenhum outro processo', { domIdPrefix: 'proc-other-', idPrefix: 'process-row-', variant: 'others' })
+                  : <div className="proc-md-empty">Nenhum outro processo nesta operação.</div>}
+              </div>
+            )}
+          </div>
           </>
         );
       };
