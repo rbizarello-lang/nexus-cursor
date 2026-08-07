@@ -8250,24 +8250,38 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const fila = buildHojeFila();
     const hour = new Date().getHours();
     const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    const hasOps = (data.operations || []).length > 0;
     return (
       <div className="demo-hoje">
         <div className="demo-hoje-hero">
           <div className="demo-hoje-kicker">NEXUS Demo · Central de Comando</div>
           <h2>{saudacao}. O que exige ação hoje?</h2>
-          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).</p>
+          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais.</p>
           <div className="demo-hoje-ctas">
-            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Abrir Tarefas {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
-            <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
-            <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
-            {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
+            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações{openIntimsCount > 0 ? ` (${openIntimsCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Tarefas{openTasksCount > 0 ? ` (${openTasksCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Mesa{deskCount > 0 ? ` (${deskCount})` : ''}</button>
+          </div>
+          <div className="demo-hoje-ctas demo-hoje-ctas-secondary">
+            <button className="btn-secondary btn-sm" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
+            <button className="btn-secondary btn-sm" onClick={openCarteiraHome}>Carteira</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">Visão Gemini</button>
           </div>
         </div>
         {fila.length === 0 ? (
-          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou Intimações e Tarefas para navegar o acervo.</div>
+          <div className="demo-fila-empty">
+            <p className="demo-fila-empty-title">{hasOps ? 'Nada urgente nos próximos 7 dias' : 'Fila vazia'}</p>
+            <p className="demo-fila-empty-body">
+              {hasOps
+                ? 'Nenhuma intimação/tarefa/audiência crítica nesta janela, e nenhuma prescrição ≤180d. Use a Carteira ou Intimações e Tarefas para navegar o acervo.'
+                : 'Carregue dados de demonstração ou abra a Carteira para começar a operar.'}
+            </p>
+            <div className="demo-fila-empty-actions">
+              {!isGAS && <button className="btn-primary" onClick={loadDemoData}>Carregar dados demo</button>}
+              <button className="btn-secondary" onClick={() => setViewMode('intimacoes')}>Ir para Intimações</button>
+              <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
+            </div>
+          </div>
         ) : (
           <div className="demo-fila">
             {fila.map(it => (
@@ -9292,7 +9306,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <button className={intimView==='kanban'?'active':''} onClick={()=>setIntimView('kanban')}>▦ Kanban</button>
             </div>
           </div>
-          {filtered.length === 0 ? <div className="empty-state"><div className="empty-icon">📬</div><p>Nenhuma intimação{intimFilter!=='all'?' neste filtro':''}.</p></div> :
+          {filtered.length === 0 ? <div className="empty-state"><div className="empty-icon">📬</div><p>Nenhuma intimação{intimFilter!=='all'?' neste filtro':''}.</p>
+            {!isGAS && intimFilter==='all' && (data.intimations||[]).length===0 && (
+              <button className="btn-primary btn-sm" style={{marginTop:10}} onClick={loadDemoData}>Carregar dados de demonstração</button>
+            )}
+          </div> :
           intimView === 'kanban' ? (() => {
             // Kanban view
             const statusCols = Object.entries(INTIM_STATUSES);

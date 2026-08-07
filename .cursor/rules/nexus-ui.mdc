@@ -1,0 +1,14 @@
+---
+description: Guardrails curtos de UI/layout do Nexus ao editar frontend
+globs: src/**/*, _design-mockups/**/*
+alwaysApply: false
+---
+
+# Nexus UI
+
+- Tokens e temas em `src/Nexus.shell.html`; estrutura React em `src/app.jsx`. Não editar HTML gerados na raiz.
+- Clássico e Demo Experimental são trilhas paralelas — não unificar sem pedido.
+- Preservar card de intimação (notas + Imp/Dif/Prazo) salvo fase/pedido explícito.
+- Preferir hierarquia que destaque prazo/urgência/ação; evitar clutter (chips/badges sem ação).
+- Após mudança visual: `npm run build` (skill `/build-nexus`). Para refino sistemático: skill `/refine-layout`.
+- Mockups: `_design-mockups/`; telas aprovadas: `_design-mockups/approved/`.
