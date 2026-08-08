@@ -70,7 +70,7 @@ const generateDemoData = () => {
     ],
     assets: [
       { id:'as-1', operationId:'op-demo-1', description:'Imóvel — Matrícula 45.678 CRI Maringá', subtype:'imovel', value:900000, status:'indisponibilidade_ativa', registry:'45.678', holderId:'pe-1', analyticsRegistered:true, source:'CNIB', processRef:'5001234-56.2023.4.04.7001' },
-      { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', holderId:'pe-2', source:'Renajud' },
+      { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', registry:'ABC1D23', holderId:'pe-2', source:'Renajud' },
       { id:'as-3', operationId:'op-demo-2', description:'Bloqueio de conta bancária', subtype:'conta_bancaria', value:145000, status:'indisponibilidade_ativa', holderId:'pe-4', source:'Sisbajud', processRef:'5003333-22.2024.4.04.7002' },
       { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
     ],
@@ -720,6 +720,57 @@ const ASSET_STATUSES = {
   liberado: { label: 'Liberado', badge: 'badge-muted' },
   controvertido: { label: 'Controvertido', badge: 'badge-red' }
 };
+// Headline do card de bem: espécie + identificador (matrícula/placa/titular).
+// A descrição livre fica secundária — não compete com o identificador operacional.
+function extractAssetPlate(text) {
+  const s = String(text || '');
+  const m = s.match(/\b([A-Z]{3}-?\d{4})\b/i) || s.match(/\b([A-Z]{3}\d[A-Z]\d{2})\b/i);
+  return m ? m[1].toUpperCase() : '';
+}
+function extractAssetMatricula(text) {
+  const s = String(text || '');
+  const m = s.match(/matr[ií]cula\s*[:.\-]?\s*([\d.\/\-]+)/i);
+  return m ? m[1] : '';
+}
+function assetSpeciesLabel(a) {
+  const src = String(a?.source || '').toLowerCase();
+  if (/sisbajud|bacenjud/.test(src) && (!a?.subtype || a.subtype === 'conta_bancaria' || a.subtype === 'investimento')) {
+    return 'SISBAJUD';
+  }
+  const labels = {
+    imovel: 'IMÓVEL',
+    veiculo: 'VEÍCULO',
+    conta_bancaria: 'CONTA BANCÁRIA',
+    investimento: 'INVESTIMENTO',
+    participacao: 'PARTICIPAÇÃO SOCIETÁRIA',
+    outro: 'BEM',
+  };
+  return labels[a?.subtype] || String(ASSET_SUBTYPES[a?.subtype] || a?.subtype || 'BEM').toUpperCase();
+}
+function assetIdentifier(a, people) {
+  const reg = String(a?.registry || '').trim();
+  if (a?.subtype === 'imovel') {
+    const id = reg || extractAssetMatricula(a.description);
+    return id ? `MATRÍCULA ${id}` : '';
+  }
+  if (a?.subtype === 'veiculo') {
+    const plate = reg || extractAssetPlate(a.description);
+    return plate ? `PLACA ${plate}` : '';
+  }
+  if (a?.subtype === 'participacao') {
+    const holder = (people || []).find(p => p.id === a.holderId);
+    if (holder?.name) return holder.name;
+    const after = String(a.description || '').split(/[—–\-|]/).slice(1).join(' ').trim();
+    if (!after) return '';
+    return after.replace(/^\d+(?:[.,]\d+)?\s*%\s*/, '').trim() || after;
+  }
+  return reg;
+}
+function formatAssetHeadline(a, people) {
+  const species = assetSpeciesLabel(a);
+  const id = assetIdentifier(a, people);
+  return id ? `${species} ${id}` : species;
+}
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
 // Process tag labels (used across Processos and Proc & Presc² tabs)
@@ -3019,7 +3070,7 @@ const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLi
         <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(91,143,217,0.3)'}}>
           {s.myAssets.slice(0,5).map(a => (
             <div key={a.id} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11}}>
-              <span style={{flex:1}}>{truncate(a.description||a.type, 50)}</span>
+              <span style={{flex:1}}>{truncate(formatAssetHeadline(a), 50)}</span>
               <span style={{fontWeight:600}}>{fmtCur(a.value)}</span>
             </div>
           ))}
@@ -3718,7 +3769,7 @@ function App() {
       const match = a.description?.toLowerCase().includes(raw) || a.registry?.toLowerCase().includes(raw);
       if (match) {
         const op = opsById.get(a.operationId);
-        results.push({ type: 'asset', icon: '💎', name: truncate(a.description, 40), meta: `${ASSET_SUBTYPES[a.subtype] || a.subtype || ''} · ${(ASSET_STATUSES[a.status] || {}).label || a.status}${a.value ? ' · '+fmtCur(a.value) : ''}`, opName: op?.name, opId: a.operationId, id: a.id, entity: a, entityType: 'asset', tab: 'bens' });
+        results.push({ type: 'asset', icon: '💎', name: truncate(formatAssetHeadline(a, data.people), 48), meta: `${(ASSET_STATUSES[a.status] || {}).label || a.status}${a.value ? ' · '+fmtCur(a.value) : ''}${a.description ? ' · '+truncate(a.description, 28) : ''}`, opName: op?.name, opId: a.operationId, id: a.id, entity: a, entityType: 'asset', tab: 'bens' });
       }
     });
     // Operations — name, description
@@ -8235,16 +8286,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const notes = a.notesList || (a.notes ? [a.notes] : []);
               const linkedExec = a.processRef ? data.executions.find(e => e.operationId === opId && sameProc(e.processNumber, a.processRef)) : null;
               const ast = ASSET_STATUSES[a.status] || {};
+              const headline = formatAssetHeadline(a, data.people);
+              const desc = (a.description || '').trim();
+              const showDesc = desc && desc.toLowerCase() !== headline.toLowerCase();
               return (<div key={a.id} className="entity-card-selectable">
                 <input type="checkbox" checked={selectedAssets.has(a.id)} onChange={() => toggleAsset(a.id)} />
                 <div className="entity-card" style={{flex:1,display:'grid',gridTemplateColumns:'2fr 1fr 1.2fr auto',gap:12,alignItems:'start'}} onClick={() => setModal({type:'edit',entityType:'asset',initial:a})}>
-                  {/* Col 1: Descrição + tipo + matrícula + processo + origem */}
+                  {/* Col 1: Espécie + identificador (destaque); descrição secundária */}
                   <div style={{minWidth:0}}>
-                    <div className="ec-title">{a.description || 'Sem descrição'}</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:3,fontSize:10,color:'var(--text-muted)',lineHeight:1.5}}>
-                      <span>{ASSET_SUBTYPES[a.subtype]||a.subtype||'Outro'}</span>
-                      {a.registry && <><span>·</span><span style={{fontFamily:'var(--font-mono)'}}>Matr. {a.registry}</span></>}
-                    </div>
+                    <div className="ec-title" style={{letterSpacing:'0.02em'}}>{headline}</div>
+                    {showDesc && <div className="ec-sub" style={{marginTop:3,fontSize:11,color:'var(--text-muted)',lineHeight:1.4}}>{desc}</div>}
                     {a.processRef && <div style={{marginTop:3,fontSize:10}}>
                       <span style={{color:'var(--text-muted)'}}>Proc.: </span>
                       <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',cursor:linkedExec?'pointer':'default',textDecoration:linkedExec?'underline':'none',textDecorationColor:'rgba(255,255,255,0.15)'}} onClick={e => { if (linkedExec) { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:linkedExec}); }}}>{a.processRef}</span>
@@ -11747,7 +11798,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-group"><label>Bens Alcançados</label>
         <CheckList
-          options={opAssets.map(a => ({ id: a.id, label: a.description||'Bem', badge: ASSET_SUBTYPES[a.subtype]||a.subtype }))}
+          options={opAssets.map(a => ({ id: a.id, label: formatAssetHeadline(a, opPeople), badge: ASSET_SUBTYPES[a.subtype]||a.subtype }))}
           selected={form.linkedAssetIds||[]}
           onChange={ids => set('linkedAssetIds', ids)}
           emptyText="Cadastre bens primeiro"
@@ -11766,7 +11817,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
     <div className="form-row">
-      <div className="form-group"><label>Registro / Matrícula</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} /></div>
+      <div className="form-group"><label>Registro / Matrícula / Placa</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} placeholder={form.subtype==='veiculo'?'ABC1D23':form.subtype==='imovel'?'45.678':''} /></div>
       <div className="form-group"><label>Titular</label><select value={form.holderId||''} onChange={e=>set('holderId',e.target.value)}><option value="">Nenhum</option>
         {(data?.people||[]).filter(p=>p.operationId===operationId).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     </div>
