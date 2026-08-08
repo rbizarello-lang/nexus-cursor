@@ -33,87 +33,269 @@ const guessMatters = (texto) => {
 // para popular os painéis (quadro semanal, agenda 30 dias, prescrição iminente, revisões).
 // Todos os nomes/CPFs/CNPJs/processos são inventados.
 const generateDemoData = () => {
-  // Data local (meio-dia para evitar viradas de fuso/DST) no formato YYYY-MM-DD
+  // Dataset amplo e interligado para explorar clássico + Demo (Hoje, Painel, zonas, Visão D, agenda).
+  // Nomes/CPFs/CNPJs/processos são fictícios. Datas relativas a "hoje".
   const iso = (n) => { const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const ts = (n) => new Date(Date.now() + n*86400000).toISOString();
   const base = defaultData();
-  return { ...base,
-    operations: [
-      { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas e blindagem patrimonial no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210) },
-      { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora usando interpostas pessoas; medida cautelar fiscal em curso.', status:'ativa', priority:'normal', classifications:['replicar','muitos_bens'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160) },
-      { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; execução suspensa (art. 40) e embargos.', status:'ativa', priority:'normal', classifications:['em_andamento','recurso_interposto'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400) },
-    ],
-    people: [
-      { id:'pe-1', operationId:'op-demo-1', name:'Comercial Fachada Norte LTDA', subtype:'PJ', cpfCnpj:'12.345.678/0001-90', role:'Devedora originária', operationRole:'alvo' },
-      { id:'pe-2', operationId:'op-demo-1', name:'João Almeida Souza', subtype:'PF', cpfCnpj:'123.456.789-00', role:'Sócio administrador (redirecionado)', operationRole:'alvo' },
-      { id:'pe-3', operationId:'op-demo-1', name:'Marina Ferreira Norte', subtype:'PF', cpfCnpj:'987.654.321-00', role:'Sócia — incluída por IDPJ', operationRole:'alvo' },
-      { id:'pe-4', operationId:'op-demo-2', name:'Distribuidora Vale Verde EIRELI', subtype:'PJ', cpfCnpj:'22.333.444/0001-55', role:'Devedora originária', operationRole:'alvo' },
-      { id:'pe-5', operationId:'op-demo-2', name:'Carlos Eduardo Menezes', subtype:'PF', cpfCnpj:'111.222.333-44', role:'Interposta pessoa (laranja)', operationRole:'alvo' },
-      { id:'pe-6', operationId:'op-demo-3', name:'Indústria Metalúrgica Sul S/A', subtype:'PJ', cpfCnpj:'33.444.555/0001-22', role:'Sociedade sucedida', operationRole:'alvo' },
-      { id:'pe-7', operationId:'op-demo-3', name:'Nova Metal Sul LTDA', subtype:'PJ', cpfCnpj:'44.555.666/0001-33', role:'Sucessora de fato', operationRole:'alvo' },
-    ],
-    debts: [
-      { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ' },
-      { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
-      { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
-      { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
-      { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ' },
-      { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
-    ],
-    executions: [
-      { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500) },
-      { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1'], protocolDate: iso(-120) },
-      { id:'ex-3', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', className:'Execução Fiscal', court:'2ª Vara Federal de Londrina', processTag:'central', status:'ativa', hasGuarantee:true, protocolDate: iso(-800) },
-      { id:'ex-4', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', className:'Medida Cautelar Fiscal', court:'2ª Vara Federal de Londrina', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-3'], protocolDate: iso(-90) },
-      { id:'ex-5', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', className:'Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'suspensa', prescriptionForecast: iso(320), protocolDate: iso(-1600) },
-      { id:'ex-6', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', className:'Embargos à Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', parentExecutionId:'ex-5', protocolDate: iso(-30) },
-    ],
-    assets: [
-      { id:'as-1', operationId:'op-demo-1', description:'Imóvel — Matrícula 45.678 CRI Maringá', subtype:'imovel', value:900000, status:'indisponibilidade_ativa', registry:'45.678', holderId:'pe-1', analyticsRegistered:true, source:'CNIB', processRef:'5001234-56.2023.4.04.7001' },
-      { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', holderId:'pe-2', source:'Renajud' },
-      { id:'as-3', operationId:'op-demo-2', description:'Bloqueio de conta bancária', subtype:'conta_bancaria', value:145000, status:'indisponibilidade_ativa', holderId:'pe-4', source:'Sisbajud', processRef:'5003333-22.2024.4.04.7002' },
-      { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
-    ],
-    intimations: [
-      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false },
-      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
-      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true },
-      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false },
-    ],
-    tasks: [
-      { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
-      { id:'ta-2', operationId:'op-demo-2', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
-      { id:'ta-3', operationId:'op-demo-3', title:'Analisar viabilidade de redirecionamento à sucessora', description:'Reunir provas da sucessão de fato para IDPJ.', priority:'media', dueDate: iso(-4), status:'pendente', taskVisibility:'global' },
-      { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
-    ],
-    hearings: [
-      { id:'he-1', operationId:'op-demo-1', date: iso(4), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
-      { id:'he-2', operationId:'op-demo-2', date: iso(24), time:'10:00', processNumber:'5007777-88.2022.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', hearingType:'instrucao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'5', roteiro:'Inquirição de testemunhas sobre a interposição de pessoas.' },
-      { id:'he-3', operationId:'op-demo-3', date: iso(-5), time:'09:00', processNumber:'5000045-12.2019.4.04.7003', parties:'FAZENDA NACIONAL X Indústria Metalúrgica Sul S/A', hearingType:'una', status:'realizada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'3' },
-    ],
-    watchlist: [
-      { id:'wa-1', operationId:'op-demo-2', processNumber:'5005555-44.2025.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', status:'movimentado', reason:'Aguardando homologação de acordo de parcelamento.', createdAt: ts(-15) },
-      { id:'wa-2', operationId:'', processNumber:'5006666-55.2025.4.04.7000', parties:'FAZENDA NACIONAL X Terceiro Interessado', status:'aguardando', reason:'Possível conexão com a Operação Fachada Norte.', createdAt: ts(-5) },
-    ],
-    documents: [
-      { id:'do-1', operationId:'op-demo-1', title:'Petição — Resposta à exceção de pré-executividade', url:'https://docs.google.com/document/d/exemplo-demo-1', type:'Manifestação', createdAt: ts(-2) },
-      { id:'do-2', operationId:'op-demo-2', title:'Minuta — Réplica aos embargos', url:'https://docs.google.com/document/d/exemplo-demo-2', type:'Réplica', createdAt: ts(-1) },
-    ],
-    links: {
-      measurePeople: [], measureAssets: [],
-      cdaResponsibilities: [
-        { id:'rl-1', cdaId:'cda-1', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
-        { id:'rl-2', cdaId:'cda-1', personId:'pe-2', role:'coresponsavel_redirecionamento', basis:'Redirecionamento art. 135 CTN — decisão evento 32', addedAt: ts(-100) },
-        { id:'rl-3', cdaId:'cda-1', personId:'pe-3', role:'coresponsavel_idpj', basis:'Incluída por IDPJ — decisão evento 15', addedAt: ts(-110) },
-        { id:'rl-4', cdaId:'cda-2', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
-        { id:'rl-5', cdaId:'cda-3', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
-        { id:'rl-6', cdaId:'cda-3', personId:'pe-5', role:'coresponsavel_idpj', basis:'Interposta pessoa — IDPJ deferido', addedAt: ts(-80) },
-        { id:'rl-7', cdaId:'cda-4', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
-        { id:'rl-8', cdaId:'cda-5', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
-        { id:'rl-9', cdaId:'cda-5', personId:'pe-7', role:'sucessor_de_fato', basis:'Sucessão de fato — em apuração', addedAt: ts(-60) },
-        { id:'rl-10', cdaId:'cda-6', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
-      ],
+
+  const operations = [
+    { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas e blindagem patrimonial no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa','muitos_bens'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210),
+      briefing: {
+        entries: [
+          { id:'be-1', title:'Hipótese', body:'Grupo econômico de fato entre Comercial Fachada Norte e sócios; confusão patrimonial e IDPJ em curso.', updatedAt: ts(-5) },
+          { id:'be-2', title:'Próximos passos', body:'Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção.', updatedAt: ts(-1) },
+        ],
+        processStageV2: {
+          'ex-2': {
+            ajuizamento: { date: iso(-120), evento: '1', outcome: '', texto: 'IDPJ ajuizado vinculando Marina Ferreira Norte.' },
+            liminar: { date: iso(-90), evento: '12', outcome: 'favoravel', texto: 'Liminar deferida — inclusão cautelar no polo.' },
+            saneamento: { texto: 'Documental: contratos sociais, extratos bancários e vínculos societários.' },
+            decisao: { date: '', evento: '', outcome: '', texto: 'Aguardando instrução / audiência de justificação.' },
+          },
+        },
+      },
     },
+    { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora usando interpostas pessoas; medida cautelar fiscal em curso.', status:'ativa', priority:'normal', classifications:['replicar','muitos_bens','constricao_ativa'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160),
+      briefing: {
+        entries: [{ id:'be-3', title:'Estratégia', body:'Cautelar fiscal + Sisbajud; avaliar redirecionamento a Carlos Menezes.', updatedAt: ts(-2) }],
+        processStageV2: {
+          'ex-4': {
+            ajuizamento: { date: iso(-90), evento: '1', outcome: '', texto: 'MCF ajuizada em garantia da EF central.' },
+            liminar: { date: iso(-70), evento: '8', outcome: 'favoravel', texto: 'Indisponibilidade deferida parcialmente.' },
+          },
+        },
+      },
+    },
+    { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; execução suspensa (art. 40) e embargos.', status:'ativa', priority:'normal', classifications:['em_andamento','recurso_interposto','poucos_bens'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400),
+      briefing: {
+        entries: [{ id:'be-4', title:'Risco', body:'EF suspensa art. 40; embargos ativos; avaliar IDPJ contra Nova Metal Sul.', updatedAt: ts(-4) }],
+        processStageV2: {},
+      },
+    },
+    { id:'op-demo-4', name:'Operação Porto Seco Oeste', description:'Trading e depósitos aduaneiros; CDAs de II/IPI com risco prescricional curto.', status:'ativa', priority:'alta', classifications:['alta_relevancia','novas','sem_bens'], opCategory:'alta_relevancia', reviewInterval:'quinzenal', lastReviewedAt: iso(-18), lastAccessed: ts(-2), createdAt: ts(-90) },
+    { id:'op-demo-5', name:'Operação Rede Farmácia Centro', description:'Rede de farmácias com parcelamento rescindido e protesto de CDA.', status:'ativa', priority:'normal', classifications:['parcelamento_parcial','avaliar_replicamento'], reviewInterval:'mensal', lastReviewedAt: iso(-5), lastAccessed: ts(-6), createdAt: ts(-300) },
+    { id:'op-demo-6', name:'Operação Holding Atlântico', description:'Holding familiar; bens suficientes; trânsito em julgado parcial.', status:'ativa', priority:'baixa', classifications:['bens_suficientes','transito_julgado','procedente_1grau'], reviewInterval:'trimestral', lastReviewedAt: iso(-10), lastAccessed: ts(-12), createdAt: ts(-500) },
+    { id:'op-demo-7', name:'Operação Agro Vale Verde', description:'Produtor rural e pessoas físicas; Renajud/CNIB em andamento.', status:'ativa', priority:'normal', classifications:['em_andamento','constricao_ativa','poucos_bens'], reviewInterval:'mensal', lastReviewedAt: iso(-55), lastAccessed: ts(-4), createdAt: ts(-240) },
+    { id:'op-demo-8', name:'Operação Tech Softpark', description:'Software house — dissolução irregular; redirecionamento art. 135.', status:'ativa', priority:'alta', classifications:['replicar','novas','sem_bens'], opCategory:'replicar', reviewInterval:'semanal', lastReviewedAt: iso(-12), lastAccessed: ts(-1), createdAt: ts(-70) },
+  ];
+
+  const people = [
+    { id:'pe-1', operationId:'op-demo-1', name:'Comercial Fachada Norte LTDA', subtype:'PJ', cpfCnpj:'12.345.678/0001-90', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-2', operationId:'op-demo-1', name:'João Almeida Souza', subtype:'PF', cpfCnpj:'123.456.789-00', role:'Sócio administrador (redirecionado)', operationRole:'alvo' },
+    { id:'pe-3', operationId:'op-demo-1', name:'Marina Ferreira Norte', subtype:'PF', cpfCnpj:'987.654.321-00', role:'Sócia — incluída por IDPJ', operationRole:'alvo' },
+    { id:'pe-4', operationId:'op-demo-2', name:'Distribuidora Vale Verde EIRELI', subtype:'PJ', cpfCnpj:'22.333.444/0001-55', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-5', operationId:'op-demo-2', name:'Carlos Eduardo Menezes', subtype:'PF', cpfCnpj:'111.222.333-44', role:'Interposta pessoa (laranja)', operationRole:'alvo' },
+    { id:'pe-6', operationId:'op-demo-3', name:'Indústria Metalúrgica Sul S/A', subtype:'PJ', cpfCnpj:'33.444.555/0001-22', role:'Sociedade sucedida', operationRole:'alvo' },
+    { id:'pe-7', operationId:'op-demo-3', name:'Nova Metal Sul LTDA', subtype:'PJ', cpfCnpj:'44.555.666/0001-33', role:'Sucessora de fato', operationRole:'alvo' },
+    { id:'pe-8', operationId:'op-demo-4', name:'Porto Seco Oeste Comércio Exterior LTDA', subtype:'PJ', cpfCnpj:'55.666.777/0001-11', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-9', operationId:'op-demo-4', name:'Helena Duarte Rocha', subtype:'PF', cpfCnpj:'222.333.444-55', role:'Administradora', operationRole:'alvo' },
+    { id:'pe-10', operationId:'op-demo-5', name:'Farmácia Centro Popular LTDA', subtype:'PJ', cpfCnpj:'66.777.888/0001-22', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-11', operationId:'op-demo-5', name:'Roberto Lima Centro', subtype:'PF', cpfCnpj:'333.444.555-66', role:'Sócio — redirecionamento', operationRole:'alvo' },
+    { id:'pe-12', operationId:'op-demo-6', name:'Holding Atlântico Participações S/A', subtype:'PJ', cpfCnpj:'77.888.999/0001-33', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-13', operationId:'op-demo-6', name:'Família Atlântico — Espólio', subtype:'PF', cpfCnpj:'444.555.666-77', role:'Sucessores', operationRole:'relacionada' },
+    { id:'pe-14', operationId:'op-demo-7', name:'Agropecuária Vale Verde', subtype:'PJ', cpfCnpj:'88.999.000/0001-44', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-15', operationId:'op-demo-7', name:'Pedro Henrique Agro', subtype:'PF', cpfCnpj:'555.666.777-88', role:'Produtor rural', operationRole:'alvo' },
+    { id:'pe-16', operationId:'op-demo-8', name:'Tech Softpark Soluções LTDA', subtype:'PJ', cpfCnpj:'99.000.111/0001-55', role:'Devedora — dissolvida irregularmente', operationRole:'alvo' },
+    { id:'pe-17', operationId:'op-demo-8', name:'Ana Paula Soft', subtype:'PF', cpfCnpj:'666.777.888-99', role:'Sócia-administradora', operationRole:'alvo' },
+    { id:'pe-18', operationId:'op-demo-8', name:'Bruno Soft Dev', subtype:'PF', cpfCnpj:'777.888.999-00', role:'Sócio oculto (análise)', operationRole:'relacionada' },
+    { id:'pe-19', operationId:'op-demo-1', name:'Imobiliária Norte Prime LTDA', subtype:'PJ', cpfCnpj:'11.222.333/0001-66', role:'Empresa do grupo', operationRole:'relacionada' },
+    { id:'pe-20', operationId:'op-demo-4', name:'Despachante Oeste Ltda', subtype:'PJ', cpfCnpj:'12.111.222/0001-77', role:'Intermediária aduaneira', operationRole:'relacionada' },
+  ];
+
+  const debts = [
+    { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ' },
+    { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
+    { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
+    { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
+    { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ' },
+    { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
+    { id:'cda-7', operationId:'op-demo-4', personId:'pe-8', cdaNumber:'90.6.24.001001-10', value:890000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(28), inscriptionDate: iso(-900), processNumber:'5012001-33.2024.4.04.7004', tribute:'II' },
+    { id:'cda-8', operationId:'op-demo-4', personId:'pe-8', cdaNumber:'90.6.24.001002-10', value:210000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(45), inscriptionDate: iso(-880), processNumber:'5012001-33.2024.4.04.7004', tribute:'IPI' },
+    { id:'cda-9', operationId:'op-demo-5', personId:'pe-10', cdaNumber:'90.6.21.000550-20', value:670000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(75), inscriptionDate: iso(-1600), processNumber:'5004400-10.2021.4.04.7005', tribute:'IRPJ' },
+    { id:'cda-10', operationId:'op-demo-5', personId:'pe-10', cdaNumber:'90.6.21.000551-20', value:88000, system:'SIDA', status:'ativa', prescriptionDate: iso(200), tribute:'CSLL' },
+    { id:'cda-11', operationId:'op-demo-6', personId:'pe-12', cdaNumber:'90.6.18.000300-30', value:4200000, system:'SIDA', status:'garantida', prescriptionDate: iso(900), inscriptionDate: iso(-2800), processNumber:'5002200-99.2018.4.04.7000', tribute:'IRPJ' },
+    { id:'cda-12', operationId:'op-demo-7', personId:'pe-14', cdaNumber:'90.6.20.000880-40', value:540000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(110), inscriptionDate: iso(-1200), processNumber:'5006600-22.2020.4.04.7006', tribute:'ITR' },
+    { id:'cda-13', operationId:'op-demo-7', personId:'pe-15', cdaNumber:'90.6.20.000881-40', value:95000, system:'SIDA', status:'ativa', prescriptionDate: iso(160), tribute:'IRPF' },
+    { id:'cda-14', operationId:'op-demo-8', personId:'pe-16', cdaNumber:'90.6.24.002100-50', value:310000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(15), inscriptionDate: iso(-700), processNumber:'5015000-44.2024.4.04.7007', tribute:'IRPJ' },
+    { id:'cda-15', operationId:'op-demo-8', personId:'pe-16', cdaNumber:'90.6.24.002101-50', value:125000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(50), inscriptionDate: iso(-690), processNumber:'5015000-44.2024.4.04.7007', tribute:'CSLL' },
+    { id:'cda-16', operationId:'op-demo-1', personId:'pe-2', cdaNumber:'90.6.23.000200-45', value:180000, system:'SIDA', status:'ativa', prescriptionDate: iso(240), tribute:'IRPF' },
+    { id:'cda-17', operationId:'op-demo-4', personId:'pe-9', cdaNumber:'90.6.24.001050-10', value:42000, system:'SIDA', status:'ativa', prescriptionDate: iso(170), tribute:'IRPF' },
+    { id:'cda-18', operationId:'op-demo-6', personId:'pe-12', cdaNumber:'90.6.18.000301-30', value:760000, system:'SIDA', status:'parcelada', prescriptionDate: iso(500), tribute:'CSLL' },
+  ];
+
+  const executions = [
+    { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500) },
+    { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1'], protocolDate: iso(-120) },
+    { id:'ex-3', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', className:'Execução Fiscal', court:'2ª Vara Federal de Londrina', processTag:'central', status:'ativa', hasGuarantee:true, protocolDate: iso(-800) },
+    { id:'ex-4', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', className:'Medida Cautelar Fiscal', court:'2ª Vara Federal de Londrina', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-3'], protocolDate: iso(-90) },
+    { id:'ex-5', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', className:'Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'suspensa', prescriptionForecast: iso(320), protocolDate: iso(-1600) },
+    { id:'ex-6', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', className:'Embargos à Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', parentExecutionId:'ex-5', protocolDate: iso(-30) },
+    { id:'ex-7', operationId:'op-demo-4', processNumber:'5012001-33.2024.4.04.7004', className:'Execução Fiscal', court:'1ª Vara Federal de Cascavel', processTag:'normal', status:'ativa', protocolDate: iso(-200) },
+    { id:'ex-8', operationId:'op-demo-5', processNumber:'5004400-10.2021.4.04.7005', className:'Execução Fiscal', court:'4ª Vara Federal de Curitiba', processTag:'central', status:'ativa', protocolDate: iso(-900) },
+    { id:'ex-9', operationId:'op-demo-5', processNumber:'5004411-10.2024.4.04.7005', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'4ª Vara Federal de Curitiba', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-8'], protocolDate: iso(-60) },
+    { id:'ex-10', operationId:'op-demo-6', processNumber:'5002200-99.2018.4.04.7000', className:'Execução Fiscal', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', hasGuarantee:true, analyticsRegistered:true, protocolDate: iso(-2000) },
+    { id:'ex-11', operationId:'op-demo-7', processNumber:'5006600-22.2020.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', protocolDate: iso(-1100) },
+    { id:'ex-12', operationId:'op-demo-8', processNumber:'5015000-44.2024.4.04.7007', className:'Execução Fiscal', court:'5ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', protocolDate: iso(-180) },
+    { id:'ex-13', operationId:'op-demo-8', processNumber:'5015111-44.2025.4.04.7007', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'5ª Vara Federal de Curitiba', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-12'], protocolDate: iso(-40) },
+    { id:'ex-14', operationId:'op-demo-4', processNumber:'5012099-33.2025.4.04.7004', className:'Exceção de Pré-Executividade', court:'1ª Vara Federal de Cascavel', processTag:'normal', status:'ativa', parentExecutionId:'ex-7', protocolDate: iso(-15) },
+    { id:'ex-15', operationId:'op-demo-6', processNumber:'5002299-99.2023.4.04.7000', className:'Embargos à Execução Fiscal', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'arquivada', parentExecutionId:'ex-10', protocolDate: iso(-400) },
+    { id:'ex-16', operationId:'op-demo-7', processNumber:'5006699-22.2025.4.04.7006', className:'Medida Cautelar Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-11'], protocolDate: iso(-25) },
+  ];
+
+  const assets = [
+    { id:'as-1', operationId:'op-demo-1', description:'Imóvel — Matrícula 45.678 CRI Maringá', subtype:'imovel', value:900000, status:'indisponibilidade_ativa', registry:'45.678', holderId:'pe-1', analyticsRegistered:true, source:'CNIB', processRef:'5001234-56.2023.4.04.7001' },
+    { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', holderId:'pe-2', source:'Renajud' },
+    { id:'as-3', operationId:'op-demo-2', description:'Bloqueio de conta bancária', subtype:'conta_bancaria', value:145000, status:'indisponibilidade_ativa', holderId:'pe-4', source:'Sisbajud', processRef:'5003333-22.2024.4.04.7002' },
+    { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
+    { id:'as-5', operationId:'op-demo-4', description:'Galpão aduaneiro — Cascavel', subtype:'imovel', value:1500000, status:'indisponibilidade_requerida', holderId:'pe-8', source:'CNIB' },
+    { id:'as-6', operationId:'op-demo-5', description:'Frota de vans de entrega (3 veículos)', subtype:'veiculo', value:220000, status:'indisponibilidade_ativa', holderId:'pe-10', source:'Renajud' },
+    { id:'as-7', operationId:'op-demo-6', description:'Apartamento coberture — Batel/CTBA', subtype:'imovel', value:2800000, status:'indisponibilidade_ativa', holderId:'pe-12', analyticsRegistered:true, source:'CNIB' },
+    { id:'as-8', operationId:'op-demo-6', description:'Aplicação financeira — CDB', subtype:'investimento', value:950000, status:'liberado', holderId:'pe-12', source:'Sisbajud' },
+    { id:'as-9', operationId:'op-demo-7', description:'Fazenda — matrícula 12.340 CRI PG', subtype:'imovel', value:1800000, status:'indisponibilidade_ativa', holderId:'pe-14', source:'CNIB' },
+    { id:'as-10', operationId:'op-demo-7', description:'Trator John Deere', subtype:'veiculo', value:320000, status:'indisponibilidade_requerida', holderId:'pe-15', source:'Renajud' },
+    { id:'as-11', operationId:'op-demo-8', description:'Conta PJ Softpark — saldo residual', subtype:'conta_bancaria', value:18000, status:'indisponibilidade_ativa', holderId:'pe-16', source:'Sisbajud' },
+    { id:'as-12', operationId:'op-demo-1', description:'Quota Imobiliária Norte Prime', subtype:'participacao', value:450000, status:'controvertido', holderId:'pe-19', source:'Analytics' },
+  ];
+
+  const intimations = [
+    { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false, notesList:['DIAGNÓSTICO E REVISÃO NA PASTA'] },
+    { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true, notesList:['URGENTE — preparar memorial para audiência'] },
+    { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-1), description:'Ciência registrada. Avaliar IDPJ à sucessora.' } },
+    { id:'in-5', operationId:'op-demo-4', processNumber:'5012001-33.2024.4.04.7004', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Porto Seco Oeste Comércio Exterior LTDA', eventDescription:'Intimação para apresentar documentos aduaneiros — 10 dias', dateSent: iso(-1), dateStart: iso(0), dateDeadline: iso(8), status:'pendente_analise', priority:'alta', difficulty:'media', urgent:false },
+    { id:'in-6', operationId:'op-demo-4', processNumber:'5012099-33.2025.4.04.7004', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Porto Seco Oeste Comércio Exterior LTDA', eventDescription:'Vista à Fazenda — exceção de pré-executividade', dateStart: iso(-5), dateDeadline: iso(2), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:true, notesList:['Minuta em Google Docs — revisar nulidade da CDA'] },
+    { id:'in-7', operationId:'op-demo-5', processNumber:'5004400-10.2021.4.04.7005', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Farmácia Centro Popular LTDA', eventDescription:'Manifestar sobre rescisão de parcelamento', dateStart: iso(-8), dateDeadline: iso(6), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-8', operationId:'op-demo-5', processNumber:'5004411-10.2024.4.04.7005', jurisdiction:'PR', className:'IDPJ', partyName:'Roberto Lima Centro', eventDescription:'Citação — IDPJ', dateSent: iso(-12), dateStart: iso(-10), dateDeadline: iso(14), status:'aguardando_subsidios', priority:'normal', difficulty:'alta', urgent:false },
+    { id:'in-9', operationId:'op-demo-6', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência de levantamento de penhora parcial', dateDeadline: iso(25), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-3), description:'Ciência. Patrimônio remanescente suficiente.' } },
+    { id:'in-10', operationId:'op-demo-7', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Vale Verde', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false },
+    { id:'in-11', operationId:'op-demo-7', processNumber:'5006699-22.2025.4.04.7006', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Pedro Henrique Agro', eventDescription:'Manifestar sobre extensão da indisponibilidade', dateStart: iso(-1), dateDeadline: iso(9), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-12', operationId:'op-demo-8', processNumber:'5015000-44.2024.4.04.7007', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Tech Softpark Soluções LTDA', eventDescription:'Manifestar sobre dissolução irregular — Súmula 435', dateStart: iso(-6), dateDeadline: iso(1), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true, notesList:['Coletar baixas cadastrais e endereço dos sócios'] },
+    { id:'in-13', operationId:'op-demo-8', processNumber:'5015111-44.2025.4.04.7007', jurisdiction:'PR', className:'IDPJ', partyName:'Ana Paula Soft', eventDescription:'Vista — contestação ao IDPJ', dateStart: iso(-4), dateDeadline: iso(11), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:false },
+    { id:'in-14', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Ciência de bloqueio Sisbajud parcial', dateDeadline: iso(3), status:'pendente_analise', priority:'normal', difficulty:'baixa', urgent:false },
+    { id:'in-15', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Réplica aos embargos — 15 dias', dateStart: iso(-9), dateDeadline: iso(7), status:'aguardando_subsidios', priority:'normal', difficulty:'alta', urgent:false },
+    { id:'in-16', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'João Almeida Souza', eventDescription:'Intimação pessoal — redirecionamento', dateSent: iso(-20), dateStart: iso(-18), dateDeadline: iso(-5), status:'analisado', priority:'alta', difficulty:'media', urgent:false, responseAction:{ type:'peticionamento', peticionType:'Manifestação', respondedAt: ts(-6), description:'Peticionado sustentando art. 135 CTN.', peticionUrl:'https://docs.google.com/document/d/exemplo-demo-redir' } },
+    { id:'in-17', operationId:'op-demo-4', processNumber:'5012001-33.2024.4.04.7004', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Helena Duarte Rocha', eventDescription:'Intimação para depósito — garantia', dateStart: iso(-14), dateDeadline: iso(16), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
+    { id:'in-18', operationId:'op-demo-6', processNumber:'5002299-99.2023.4.04.7000', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência — embargos julgados improcedentes', dateDeadline: iso(30), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-8), description:'Trânsito em andamento.' } },
+    { id:'in-19', operationId:'op-demo-8', processNumber:'5015000-44.2024.4.04.7007', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Bruno Soft Dev', eventDescription:'Ofício — informações cadastrais', dateStart: iso(-2), dateDeadline: iso(13), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
+    { id:'in-20', operationId:'op-demo-5', processNumber:'5004400-10.2021.4.04.7005', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Farmácia Centro Popular LTDA', eventDescription:'Protesto de CDA — ciência', dateDeadline: iso(-1), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:true },
+  ];
+
+  const tasks = [
+    { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
+    { id:'ta-2', operationId:'op-demo-2', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-3', operationId:'op-demo-3', title:'Analisar viabilidade de redirecionamento à sucessora', description:'Reunir provas da sucessão de fato para IDPJ.', priority:'media', dueDate: iso(-4), status:'pendente', taskVisibility:'global' },
+    { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
+    { id:'ta-5', operationId:'op-demo-4', title:'Levantar histórico aduaneiro — Porto Seco', description:'Solicitar relatórios de II/IPI e DI vinculadas.', priority:'alta', dueDate: iso(2), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-6', operationId:'op-demo-5', title:'Atualizar Analytics — frota apreendida', description:'Registrar vans no Analytics PGFN.', priority:'baixa', dueDate: iso(10), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-7', operationId:'op-demo-6', title:'Homologar cálculo de garantia', description:'Conferir cobertura vs crédito remanescente.', priority:'media', dueDate: iso(21), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-8', operationId:'op-demo-7', title:'Agendar diligência na fazenda', description:'Coordenar com oficial de justiça / CNIB.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
+    { id:'ta-9', operationId:'op-demo-8', title:'Coletar baixas RFB/JUCESP Softpark', description:'Prova de dissolução irregular (Súmula 435).', priority:'urgente', dueDate: iso(0), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-10', operationId:'op-demo-1', title:'Preparar memorial audiência IDPJ', description:'Roteiro + documentos do grupo econômico.', priority:'alta', dueDate: iso(3), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-11', operationId:'op-demo-2', title:'Renovar Sisbajud — Vale Verde', description:'Novo ciclo de pesquisa patrimonial.', priority:'media', dueDate: iso(14), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-12', operationId:'op-demo-4', title:'Responder exceção de pré-executividade', description:'Minuta quase pronta — revisar nulidade da CDA.', priority:'alta', dueDate: iso(2), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-13', operationId:'op-demo-8', title:'Mapear endereço atual Ana Paula Soft', description:'Para citação no IDPJ.', priority:'media', dueDate: iso(-2), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-14', operationId:'', title:'Atualizar checklist Visão Gemini', description:'Validar abas Gemini_* após novo seed.', priority:'baixa', dueDate: iso(28), status:'pendente', taskVisibility:'global' },
+    { id:'ta-15', operationId:'op-demo-3', title:'Decidir IDPJ Nova Metal Sul', description:'Parecer interno sobre sucessão de fato.', priority:'alta', dueDate: iso(8), status:'pendente', taskVisibility:'global' },
+  ];
+
+  const hearings = [
+    { id:'he-1', operationId:'op-demo-1', date: iso(4), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
+    { id:'he-2', operationId:'op-demo-2', date: iso(24), time:'10:00', processNumber:'5007777-88.2022.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', hearingType:'instrucao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'5', roteiro:'Inquirição de testemunhas sobre a interposição de pessoas.' },
+    { id:'he-3', operationId:'op-demo-3', date: iso(-5), time:'09:00', processNumber:'5000045-12.2019.4.04.7003', parties:'FAZENDA NACIONAL X Indústria Metalúrgica Sul S/A', hearingType:'una', status:'realizada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'3' },
+    { id:'he-4', operationId:'op-demo-5', date: iso(2), time:'15:00', processNumber:'5004411-10.2024.4.04.7005', parties:'FAZENDA NACIONAL X Roberto Lima Centro', hearingType:'justificacao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/4vf-ctba', remindDays:'2', roteiro:'Comprovar gestão de fato e confusão patrimonial.' },
+    { id:'he-5', operationId:'op-demo-8', date: iso(6), time:'11:00', processNumber:'5015111-44.2025.4.04.7007', parties:'FAZENDA NACIONAL X Ana Paula Soft', hearingType:'conciliacao', status:'agendada', modality:'presencial', location:'5ª Vara Federal de Curitiba', remindDays:'3' },
+    { id:'he-6', operationId:'op-demo-7', date: iso(11), time:'09:30', processNumber:'5006699-22.2025.4.04.7006', parties:'FAZENDA NACIONAL X Pedro Henrique Agro', hearingType:'instrucao', status:'agendada', modality:'presencial', location:'Vara Federal de Ponta Grossa', remindDays:'5' },
+    { id:'he-7', operationId:'op-demo-4', date: iso(1), time:'16:00', processNumber:'5012099-33.2025.4.04.7004', parties:'FAZENDA NACIONAL X Porto Seco Oeste', hearingType:'una', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/1vf-cascavel', remindDays:'1', roteiro:'Defesa da higidez da CDA e rejeição da exceção.' },
+    { id:'he-8', operationId:'op-demo-6', date: iso(-12), time:'10:30', processNumber:'5002299-99.2023.4.04.7000', parties:'FAZENDA NACIONAL X Holding Atlântico', hearingType:'julgamento', status:'realizada', modality:'presencial', location:'2ª Vara Federal de Curitiba', remindDays:'3' },
+    { id:'he-9', operationId:'op-demo-1', date: iso(18), time:'14:00', processNumber:'5001234-56.2023.4.04.7001', parties:'FAZENDA NACIONAL X Comercial Fachada Norte', hearingType:'instrucao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'7' },
+    { id:'he-10', operationId:'op-demo-8', date: iso(3), time:'08:30', processNumber:'5015000-44.2024.4.04.7007', parties:'FAZENDA NACIONAL X Tech Softpark', hearingType:'justificacao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/5vf-ctba', remindDays:'2' },
+  ];
+
+  const prescriptionEvents = [
+    { id:'pev-1', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_citacao', date: iso(-480), notes:'Citação válida do devedor originário.' },
+    { id:'pev-2', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_penhora', date: iso(-200), notes:'Penhora do imóvel matrícula 45.678.' },
+    { id:'pev-3', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'marco_sem_bens', date: iso(-400), notes:'Ciência de ausência de bens penhoráveis — art. 40.' },
+    { id:'pev-4', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'susp_art40', date: iso(-400), notes:'Suspensão automática 1 ano.' },
+    { id:'pev-5', operationId:'op-demo-5', cdaId:'cda-9', executionId:'ex-8', type:'susp_parcelamento', date: iso(-500), notes:'Parcelamento aderido; depois rescindido.' },
+    { id:'pev-6', operationId:'op-demo-5', cdaId:'cda-9', executionId:'ex-8', type:'int_rescisao_parcelamento', date: iso(-80), notes:'Rescisão — prazo reinicia.' },
+    { id:'pev-7', operationId:'op-demo-5', cdaId:'cda-9', executionId:'ex-8', type:'int_protesto_extrajudicial', date: iso(-30), notes:'Protesto LC 208/2024.' },
+    { id:'pev-8', operationId:'op-demo-8', cdaId:'cda-14', executionId:'ex-12', type:'int_despacho_citacao', date: iso(-160), notes:'Despacho ordenando citação.' },
+    { id:'pev-9', operationId:'op-demo-4', cdaId:'cda-7', executionId:'ex-7', type:'int_citacao', date: iso(-180), notes:'Citação da trading.' },
+    { id:'pev-10', operationId:'op-demo-7', cdaId:'cda-12', executionId:'ex-11', type:'int_cnib', date: iso(-40), notes:'Indisponibilidade fazenda.' },
+  ];
+
+  const stickyNotes = [
+    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', updatedAt: ts(-1), createdAt: ts(-3) },
+    { id:'sn-2', operationId:'op-demo-4', content:'CDA 001001 — prazo prescricional apertado (28d).', color:'red', updatedAt: ts(-2), createdAt: ts(-2) },
+    { id:'sn-3', operationId:'op-demo-8', content:'Softpark: confirmar baixa na RFB antes da audiência.', color:'blue', updatedAt: ts(0), createdAt: ts(-1) },
+    { id:'sn-4', operationId:'op-demo-3', content:'Avaliar se embargos obstam nova fase de constrição.', color:'yellow', updatedAt: ts(-4), createdAt: ts(-10) },
+  ];
+
+  const watchlist = [
+    { id:'wa-1', operationId:'op-demo-2', processNumber:'5005555-44.2025.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', status:'movimentado', reason:'Aguardando homologação de acordo de parcelamento.', createdAt: ts(-15) },
+    { id:'wa-2', operationId:'', processNumber:'5006666-55.2025.4.04.7000', parties:'FAZENDA NACIONAL X Terceiro Interessado', status:'aguardando', reason:'Possível conexão com a Operação Fachada Norte.', createdAt: ts(-5) },
+    { id:'wa-3', operationId:'op-demo-8', processNumber:'5015200-44.2025.4.04.7007', parties:'FAZENDA NACIONAL X Ana Paula Soft', status:'aguardando', reason:'Recurso administrativo paralelo — acompanhar.', createdAt: ts(-2) },
+    { id:'wa-4', operationId:'op-demo-6', processNumber:'5002300-99.2024.4.04.7000', parties:'FAZENDA NACIONAL X Holding Atlântico', status:'movimentado', reason:'Cumprimento de sentença / levantamento.', createdAt: ts(-20) },
+    { id:'wa-5', operationId:'op-demo-4', processNumber:'5012100-33.2025.4.04.7004', parties:'FAZENDA NACIONAL X Despachante Oeste', status:'aguardando', reason:'Possível litisconsórcio / conexão.', createdAt: ts(-7) },
+  ];
+
+  const documents = [
+    { id:'do-1', operationId:'op-demo-1', title:'Petição — Resposta à exceção de pré-executividade', url:'https://docs.google.com/document/d/exemplo-demo-1', type:'Manifestação', createdAt: ts(-2) },
+    { id:'do-2', operationId:'op-demo-2', title:'Minuta — Réplica aos embargos', url:'https://docs.google.com/document/d/exemplo-demo-2', type:'Réplica', createdAt: ts(-1) },
+    { id:'do-3', operationId:'op-demo-4', title:'Minuta — Impugnação à exceção de pré-executividade', url:'https://docs.google.com/document/d/exemplo-demo-3', type:'Manifestação', createdAt: ts(0) },
+    { id:'do-4', operationId:'op-demo-8', title:'Memorial — Dissolução irregular Softpark', url:'https://docs.google.com/document/d/exemplo-demo-4', type:'Parecer', createdAt: ts(-3) },
+    { id:'do-5', operationId:'op-demo-5', title:'Petição — Efeitos da rescisão de parcelamento', url:'https://docs.google.com/document/d/exemplo-demo-5', type:'Petição Inicial', createdAt: ts(-6) },
+    { id:'do-6', operationId:'op-demo-1', title:'Organograma — Grupo Fachada Norte', url:'https://docs.google.com/document/d/exemplo-demo-6', type:'Outro', createdAt: ts(-8) },
+  ];
+
+  const models = [
+    { id:'mo-1', title:'Contestação à exceção de pré-executividade', category:'Execução Fiscal', subcategory:'Nulidade da CDA', description:'Modelo padrão quando a defesa alega vício formal da CDA.', url:'https://docs.google.com/document/d/modelo-excecao', useCount:12, tags:['exceção','CDA'] },
+    { id:'mo-2', title:'Petição inicial de IDPJ', category:'IDPJ', subcategory:'Dissolução irregular', description:'Ajuizamento de IDPJ com fundamento na Súmula 435 STJ.', url:'https://docs.google.com/document/d/modelo-idpj', useCount:8, tags:['IDPJ','435'] },
+    { id:'mo-3', title:'Réplica a embargos — excesso de execução', category:'Embargos', subcategory:'Excesso de execução', description:'Impugnação à memória de cálculo do embargante.', url:'https://docs.google.com/document/d/modelo-replica', useCount:5, tags:['embargos'] },
+    { id:'mo-4', title:'Manifestação — rescisão de parcelamento', category:'Parcelamento / Suspensão', subcategory:'Prescrição', description:'Efeitos interruptivos/suspensivos após rescisão.', url:'https://docs.google.com/document/d/modelo-parc', useCount:3, tags:['parcelamento','prescrição'] },
+    { id:'mo-5', title:'Requerimento de indisponibilidade CNIB', category:'Constrição / Penhora', subcategory:'Indisponibilidade de bens', description:'Pedido de averbação/indisponibilidade.', url:'https://docs.google.com/document/d/modelo-cnib', useCount:9, tags:['CNIB'] },
+  ];
+
+  const desk = [
+    { type:'intimation', id:'in-3' },
+    { type:'intimation', id:'in-12' },
+    { type:'intimation', id:'in-6' },
+    { type:'task', id:'ta-9' },
+    { type:'task', id:'ta-1' },
+    { type:'hearing', id:'he-7' },
+    { type:'hearing', id:'he-1' },
+  ];
+
+  const links = {
+    measurePeople: [],
+    measureAssets: [],
+    cdaResponsibilities: [
+      { id:'rl-1', cdaId:'cda-1', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-2', cdaId:'cda-1', personId:'pe-2', role:'coresponsavel_redirecionamento', basis:'Redirecionamento art. 135 CTN — decisão evento 32', addedAt: ts(-100) },
+      { id:'rl-3', cdaId:'cda-1', personId:'pe-3', role:'coresponsavel_idpj', basis:'Incluída por IDPJ — decisão evento 15', addedAt: ts(-110) },
+      { id:'rl-4', cdaId:'cda-2', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-5', cdaId:'cda-3', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
+      { id:'rl-6', cdaId:'cda-3', personId:'pe-5', role:'coresponsavel_idpj', basis:'Interposta pessoa — IDPJ deferido', addedAt: ts(-80) },
+      { id:'rl-7', cdaId:'cda-4', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
+      { id:'rl-8', cdaId:'cda-5', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
+      { id:'rl-9', cdaId:'cda-5', personId:'pe-7', role:'sucessor_de_fato', basis:'Sucessão de fato — em apuração', addedAt: ts(-60) },
+      { id:'rl-10', cdaId:'cda-6', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
+      { id:'rl-11', cdaId:'cda-7', personId:'pe-8', role:'originario', basis:'Devedor originário', addedAt: ts(-100) },
+      { id:'rl-12', cdaId:'cda-7', personId:'pe-9', role:'coresponsavel_redirecionamento', basis:'Administradora — art. 135', addedAt: ts(-50) },
+      { id:'rl-13', cdaId:'cda-9', personId:'pe-10', role:'originario', basis:'Devedor originário', addedAt: ts(-400) },
+      { id:'rl-14', cdaId:'cda-9', personId:'pe-11', role:'coresponsavel_idpj', basis:'IDPJ em curso', addedAt: ts(-40) },
+      { id:'rl-15', cdaId:'cda-14', personId:'pe-16', role:'originario', basis:'Devedor originário', addedAt: ts(-90) },
+      { id:'rl-16', cdaId:'cda-14', personId:'pe-17', role:'coresponsavel_redirecionamento', basis:'Dissolução irregular', addedAt: ts(-30) },
+      { id:'rl-17', cdaId:'cda-12', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-18', cdaId:'cda-11', personId:'pe-12', role:'originario', basis:'Devedor originário', addedAt: ts(-800) },
+    ],
+  };
+
+  return {
+    ...base,
+    operations, people, debts, executions, assets, intimations, tasks, hearings,
+    prescriptionEvents, stickyNotes, watchlist, documents, models, desk, links,
   };
 };
 
@@ -7372,8 +7554,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="proc-md-block-label">EFs abrangidas <span className="count">({covered.length})</span></div>
                     {renderEfTable(covered, 'Nenhuma EF vinculada a este hub')}
 
-                    <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
-                    {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                    {freeEFs.length > 0 && (
+                      <>
+                        <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                        {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                      </>
+                    )}
                   </div>
                 </>
               ) : (
@@ -8077,7 +8263,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     });
     setActiveOpId(null);
     if (isDemo) setViewMode('hoje');
-    alert('✅ Dados de demonstração carregados (3 operações fictícias).');
+    alert('✅ Dados de demonstração carregados (8 operações · carteira completa para explorar o design).');
   };
   const openIntimsCount = (data.intimations || []).filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
@@ -8154,6 +8340,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
         {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Carregar dados demo</button>}
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowChangeLog(true); setShowSettings(false); }}>📜 Histórico de alterações</button>
+        <button className="settings-opt" style={{width:'100%',color:'var(--red)'}} onClick={() => {
+          if (!confirm('Limpar cache local?\n\nIsso apaga TODOS os dados salvos neste navegador (localStorage).\n\nContinuar?')) return;
+          try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem('nexus_cloud_lastsync'); } catch(e) {}
+          alert('✅ Cache local limpo. A página será recarregada.');
+          window.location.reload();
+        }}>🔒 Limpar cache local</button>
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
@@ -8250,24 +8443,38 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const fila = buildHojeFila();
     const hour = new Date().getHours();
     const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    const hasOps = (data.operations || []).length > 0;
     return (
       <div className="demo-hoje">
         <div className="demo-hoje-hero">
           <div className="demo-hoje-kicker">NEXUS Demo · Central de Comando</div>
           <h2>{saudacao}. O que exige ação hoje?</h2>
-          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).</p>
+          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais.</p>
           <div className="demo-hoje-ctas">
-            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Abrir Tarefas {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
-            <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
-            <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
-            {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
+            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações{openIntimsCount > 0 ? ` (${openIntimsCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Tarefas{openTasksCount > 0 ? ` (${openTasksCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Mesa{deskCount > 0 ? ` (${deskCount})` : ''}</button>
+          </div>
+          <div className="demo-hoje-ctas demo-hoje-ctas-secondary">
+            <button className="btn-secondary btn-sm" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
+            <button className="btn-secondary btn-sm" onClick={openCarteiraHome}>Carteira</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">Visão Gemini</button>
           </div>
         </div>
         {fila.length === 0 ? (
-          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou Intimações e Tarefas para navegar o acervo.</div>
+          <div className="demo-fila-empty">
+            <p className="demo-fila-empty-title">{hasOps ? 'Nada urgente nos próximos 7 dias' : 'Fila vazia'}</p>
+            <p className="demo-fila-empty-body">
+              {hasOps
+                ? 'Nenhuma intimação/tarefa/audiência crítica nesta janela. Use Carteira, Intimações ou o Painel para navegar o acervo.'
+                : 'Carregue dados de demonstração ou abra a Carteira para começar a operar.'}
+            </p>
+            <div className="demo-fila-empty-actions">
+              {!isGAS && <button className="btn-primary" onClick={loadDemoData}>Carregar dados demo</button>}
+              <button className="btn-secondary" onClick={() => setViewMode('intimacoes')}>Ir para Intimações</button>
+              <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
+            </div>
+          </div>
         ) : (
           <div className="demo-fila">
             {fila.map(it => (
@@ -8284,6 +8491,69 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             ))}
           </div>
         )}
+
+        {/* Digest do Painel clássico — mesmas métricas/agenda, sem sair do Hoje */}
+        {hasOps && (() => {
+          const allDebts = data.debts || [];
+          const allExecs = data.executions || [];
+          const allIntims = data.intimations || [];
+          const activeDebts = allDebts.filter(d => d.status !== 'extinta');
+          const totalValue = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
+          const openIntims = allIntims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
+          const overdueIntims = allIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < new Date() && x.status !== 'analisado').length;
+          const prescRisk = allDebts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; });
+          const prescRiskVal = prescRisk.reduce((s, d) => s + (d.value || 0), 0);
+          const dueReviews = data.operations.filter(o => o.status !== 'encerrada').map(o => ({ op: o, rs: reviewStatus(o) })).filter(o => o.rs.overdue);
+          return (
+            <div className="demo-hoje-painel">
+              <div className="demo-hoje-painel-head">
+                <div>
+                  <div className="demo-hoje-painel-title">Painel da carteira</div>
+                  <div className="demo-hoje-painel-sub">Mesmos KPIs, agenda e revisões do app clássico</div>
+                </div>
+                <button className="btn-secondary btn-sm" onClick={() => setViewMode('painel')}>Abrir Painel completo</button>
+              </div>
+              <div className="dashboard-kpis demo-hoje-kpis">
+                <div className="kpi-widget kpi-pgfn">
+                  <div className="kpi-label">Operações ativas</div>
+                  <div className="kpi-value">{data.operations.filter(o => o.status !== 'encerrada').length}</div>
+                  <div className="kpi-sub">{data.operations.length} total · {allExecs.length} processos</div>
+                </div>
+                <div className="kpi-widget kpi-gold">
+                  <div className="kpi-label">Crédito sob gestão</div>
+                  <div className="kpi-value">{fmtCur(totalValue)}</div>
+                  <div className="kpi-sub">{activeDebts.length} CDAs ativas</div>
+                </div>
+                <div className="kpi-widget kpi-red">
+                  <div className="kpi-label">Intimações abertas</div>
+                  <div className="kpi-value" style={{ color: overdueIntims > 0 ? 'var(--red)' : 'inherit' }}>{openIntims}</div>
+                  <div className="kpi-sub">{overdueIntims > 0 ? `${overdueIntims} vencida(s)` : 'Nenhuma vencida'}</div>
+                </div>
+                <div className="kpi-widget kpi-green">
+                  <div className="kpi-label">Risco prescricional</div>
+                  <div className="kpi-value" style={{ color: prescRisk.length > 0 ? 'var(--red)' : 'inherit' }}>{prescRisk.length}</div>
+                  <div className="kpi-sub">{prescRisk.length > 0 ? fmtCur(prescRiskVal) + ' em risco' : 'Situação controlada'}</div>
+                </div>
+              </div>
+              {dueReviews.length > 0 && (
+                <div className="demo-hoje-reviews">
+                  <div className="demo-hoje-reviews-title">Revisões devidas ({dueReviews.length})</div>
+                  <div className="demo-hoje-reviews-list">
+                    {dueReviews.slice(0, 8).map(o => (
+                      <button key={o.op.id} type="button" className="demo-hoje-review-chip" onClick={() => { setActiveOpId(o.op.id); setViewMode('operation'); setDemoZone('briefing'); }}>
+                        {o.op.name} <span>({o.rs.label})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="demo-hoje-week">
+                <div className="demo-hoje-painel-title" style={{ marginBottom: 10 }}>Agenda da semana</div>
+                {renderAgendaWeek({ embedded: true })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -8609,24 +8879,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
 
         <button className={`demo-rail-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('audiencias'); }}><span className="demo-rail-ico">⚖</span><span>Agenda</span>{hearingsAheadCount>0 && <span className="demo-rail-count">{hearingsAheadCount}</span>}</button>
-        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span>Biblioteca</span></button>
-        <div className={`demo-rail-branch ${viewMode==='mesa'||viewMode==='acompanhar'||viewMode==='painel'?'active-branch':''}`}>
-          <button className={`demo-rail-btn ${viewMode==='mesa'?'active':''} ${viewMode==='acompanhar'||viewMode==='painel'?'soft-active':''}`}
-            onClick={() => { setDemoTrabalhoOpen(false); setViewMode('mesa'); }}
-            title="Mesa de trabalho">
-            <span>Trabalho</span>
-            {deskCount > 0 && <span className="demo-rail-count">{deskCount}</span>}
-            {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && (
-              <span className="demo-rail-chevron" onClick={e => { e.stopPropagation(); setDemoTrabalhoOpen(v => !v); }} title="Mais opções">▸</span>
-            )}
-          </button>
-        </div>
+        <button className={`demo-rail-btn ${viewMode==='modelos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('modelos'); }}><span className="demo-rail-ico">📚</span><span>Biblioteca</span></button>
+        <button className={`demo-rail-btn ${viewMode==='mesa'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('mesa'); }} title="Mesa de trabalho">
+          <span className="demo-rail-ico">◫</span><span>Mesa</span>
+          {deskCount > 0 && <span className="demo-rail-count">{deskCount}</span>}
+        </button>
+        <button className={`demo-rail-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('acompanhar'); }} title="Acompanhar processos">
+          <span className="demo-rail-ico">👁</span><span>Acompanhar</span>
+          {watchCount > 0 && <span className="demo-rail-count">{watchCount}</span>}
+        </button>
+        <button className={`demo-rail-btn ${viewMode==='painel'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('painel'); }} title="Painel KPIs — visão clássica do portfólio">
+          <span className="demo-rail-ico">▣</span><span>Painel</span>
+        </button>
       </div>
-      {demoTrabalhoOpen && <div className="demo-trabalho-drawer">
-        <button onClick={() => { setViewMode('mesa'); setDemoTrabalhoOpen(false); }}><span>Mesa de trabalho</span><span>{deskCount||''}</span></button>
-        <button onClick={() => { setViewMode('acompanhar'); setDemoTrabalhoOpen(false); }}><span>Acompanhar</span><span>{watchCount||''}</span></button>
-        <button onClick={() => { setViewMode('painel'); setDemoTrabalhoOpen(false); }}><span>Painel KPIs</span><span></span></button>
-      </div>}
       <div className="demo-rail-foot">
         <button className="demo-rail-btn" onClick={() => { const next = !sidebarCollapsed; setSidebarCollapsed(next); try { localStorage.setItem('nexus_sidebar_collapsed', next?'1':'0'); } catch {} }} title="Expandir/recolher">
           <span className="demo-rail-ico">{sidebarCollapsed?'»':'«'}</span>{!sidebarCollapsed && <span>Recolher</span>}
@@ -9292,7 +9557,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <button className={intimView==='kanban'?'active':''} onClick={()=>setIntimView('kanban')}>▦ Kanban</button>
             </div>
           </div>
-          {filtered.length === 0 ? <div className="empty-state"><div className="empty-icon">📬</div><p>Nenhuma intimação{intimFilter!=='all'?' neste filtro':''}.</p></div> :
+          {filtered.length === 0 ? <div className="empty-state"><div className="empty-icon">📬</div><p>Nenhuma intimação{intimFilter!=='all'?' neste filtro':''}.</p>
+            {!isGAS && intimFilter==='all' && (data.intimations||[]).length===0 && (
+              <button className="btn-primary btn-sm" style={{marginTop:10}} onClick={loadDemoData}>Carregar dados de demonstração</button>
+            )}
+          </div> :
           intimView === 'kanban' ? (() => {
             // Kanban view
             const statusCols = Object.entries(INTIM_STATUSES);
