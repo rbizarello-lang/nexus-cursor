@@ -163,6 +163,8 @@ const generateDemoData = () => {
     { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
     { id:'cda-24', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000047-88', value:890000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(200), inscriptionDate: iso(-2300), processNumber:'5000045-12.2019.4.04.7003', tribute:'PIS/COFINS' },
     { id:'cda-25', operationId:'op-demo-3', personId:'pe-7', cdaNumber:'90.6.24.000900-88', value:145000, system:'SIDA', status:'ativa', prescriptionDate: iso(320), tribute:'IRPJ' },
+    { id:'cda-32', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.7.19.000100-01', value:220000, system:'DEBCAD', status:'ativa', prescriptionDate: iso(280), tribute:'INSS' },
+    { id:'cda-33', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.8.21.000200-02', value:100000, system:'FGTS', status:'ativa', prescriptionDate: iso(190), tribute:'FGTS' },
     // Op4
     { id:'cda-11', operationId:'op-demo-4', personId:'pe-12', cdaNumber:'90.6.18.000300-30', value:4200000, system:'SIDA', status:'garantida', prescriptionDate: iso(900), inscriptionDate: iso(-2800), processNumber:'5002200-99.2018.4.04.7000', tribute:'IRPJ' },
     { id:'cda-18', operationId:'op-demo-4', personId:'pe-12', cdaNumber:'90.6.18.000301-30', value:760000, system:'SIDA', status:'parcelada', prescriptionDate: iso(500), tribute:'CSLL' },
@@ -397,6 +399,8 @@ const generateDemoData = () => {
       { id:'rl-35', cdaId:'cda-30', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-150) },
       { id:'rl-36', cdaId:'cda-30', personId:'pe-15', role:'coresponsavel_redirecionamento', basis:'Sócio-administrador', addedAt: ts(-140) },
       { id:'rl-37', cdaId:'cda-31', personId:'pe-15', role:'originario', basis:'Devedor originário', addedAt: ts(-90) },
+      { id:'rl-38', cdaId:'cda-32', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-85) },
+      { id:'rl-39', cdaId:'cda-33', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-80) },
     ],
   };
 
@@ -891,6 +895,18 @@ const EF_BANDS = [
 ];
 /** Rail próprio: CDAs sem processo (não ajuizadas). */
 const NAO_AJUIZ_BAND = { key: 'nao_ajuizada', label: 'Não ajuizadas', cls: 'band-nao-ajuiz' };
+/** Espécie da inscrição a partir do campo system/source/tributo (SIDA, DEBCAD, FGTS…). */
+function cdaEspecie(d) {
+  const blob = [d?.system, d?.source, d?.tribute, d?.notes, ...(d?.notesList || [])]
+    .filter(Boolean).join(' ').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\bFGTS\b/.test(blob) || /\bCAIXA\b/.test(blob)) return 'FGTS';
+  if (/\bDEBCAD\b/.test(blob) || /\bDEB\s*CAD\b/.test(blob)) return 'DEBCAD';
+  if (/\bSIDA\b/.test(blob)) return 'SIDA';
+  if (/\bPANDORA\b/.test(blob)) return 'Pandora';
+  const sys = String(d?.system || '').trim();
+  return sys || '—';
+}
 function railBandMeta(key) {
   if (key === NAO_AJUIZ_BAND.key) return NAO_AJUIZ_BAND;
   return EF_BANDS.find(b => b.key === key) || null;
@@ -7602,12 +7618,74 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const uncoveredByBand = freeByBand;
 
         const bandTotals = (items) => {
-          const metas = (items || []).map(efRiskMeta);
+          const list = items || [];
+          // Não ajuizadas: contar CDAs (não o grupo agregado).
+          if (list.length > 0 && list.every(g => g.type === 'unlinked')) {
+            const cdas = list.flatMap(g => g.cdas || []);
+            const total = cdas.reduce((s, d) => s + (d.value || 0), 0);
+            const riskDays = cdas.filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
+            const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
+            const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
+            return { count: cdas.length, total, presc };
+          }
+          const metas = list.map(efRiskMeta);
           const total = metas.reduce((s, m) => s + (m.total || 0), 0);
           const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
           const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
           const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
-          return { count: (items || []).length, total, presc };
+          return { count: list.length, total, presc };
+        };
+
+        const renderUnlinkedCdaTable = (groups) => {
+          const cdas = (groups || []).flatMap(g => g.cdas || []);
+          if (cdas.length === 0) {
+            return <div className="proc-md-empty">Nenhuma CDA sem processo</div>;
+          }
+          return (
+            <div className="demo-proc-table-wrap">
+              <table className="demo-proc-table proc-md-table">
+                <thead>
+                  <tr>
+                    <th>Número</th>
+                    <th>Espécie</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Prescrição</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cdas.map(d => {
+                    const prescDate = d.prescriptionDate || getPrescDate(d);
+                    const days = daysUntil(prescDate);
+                    const riskClass = d.prescriptionHandled ? 'ok'
+                      : days !== null && days <= 180 ? 'critical'
+                      : days !== null && days <= 365 ? 'warning' : '';
+                    const prescLabel = d.prescriptionHandled ? 'Tratada'
+                      : days === null ? '—'
+                      : days <= 0 ? 'Prescrita'
+                      : `${days}d`;
+                    const st = DEBT_STATUSES[d.status] || {};
+                    const especie = cdaEspecie(d);
+                    return (
+                      <tr key={d.id} className={`demo-proc-table-row risk-${riskClass} band-nao-ajuiz`}
+                        onClick={() => setModal({ type: 'cdaDetail', entityType: 'debt', initial: d })}>
+                        <td className="mono">{d.cdaNumber || 'CDA'}</td>
+                        <td><span className="especie-badge" title={especie}>{especie}</span></td>
+                        <td><span className="ef-status-badge nao_ajuizada">{st.label || d.status || '—'}</span></td>
+                        <td>{fmtCur(d.value || 0)}</td>
+                        <td className={`risk-${riskClass}`}>{prescLabel}</td>
+                        <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
+                          <button type="button" className="btn-secondary btn-xs"
+                            onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Abrir</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
         };
 
         const statusBadge = (exec) => {
@@ -8051,7 +8129,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             {(() => { const t = bandTotals(focusedBandItems); return `${t.count} · ${fmtCur(t.total)} · ${t.presc}`; })()}
                           </span>
                         </div>
-                        {renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
+                        {effectiveBandKey === 'nao_ajuizada'
+                          ? renderUnlinkedCdaTable(focusedBandItems)
+                          : renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
                       </div>
                     ) : (
                       <div className="proc-md-pane-body">
