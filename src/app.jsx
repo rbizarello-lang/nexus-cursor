@@ -8015,13 +8015,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                                       onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
                                       title="Editar processo para alterar notas">✎</button>
                                   </div>
-                                  {hubNotes.length === 0
-                                    ? <div className="proc-md-empty">Nenhuma nota neste processo</div>
-                                    : (
-                                      <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
-                                        {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                                      </div>
-                                    )}
+                                  {hubNotes.length > 0 && (
+                                    <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                                      {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
