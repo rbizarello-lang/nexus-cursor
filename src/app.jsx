@@ -7435,10 +7435,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
                 return true;
               });
-              return filteredNotes.length === 0 ? <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma nota</div> :
-              <div className="note-stack" style={{maxHeight:260,overflowY:'auto'}}>
-                {filteredNotes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-              </div>;
+              if (filteredNotes.length === 0) return null;
+              return (
+                <div className="note-stack" style={{maxHeight:260,overflowY:'auto'}}>
+                  {filteredNotes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                </div>
+              );
             })()}
           </div>
 
