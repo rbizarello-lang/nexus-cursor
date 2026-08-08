@@ -8786,29 +8786,42 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  // Quadro semanal Demo: cards de fim de prazo, audiências e termo final de prescrição.
+  // Quadro semanal: prazos de intimação, tarefas com data limite, audiências e termo final de prescrição.
   const renderAgendaWeek = (opts = {}) => {
     const embedded = !!opts.embedded;
+    const localDayKey = (d) => {
+      if (typeof d === 'string') return d.slice(0, 10);
+      if (!d) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     const start = new Date(agendaWeekStart);
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const weekStartKey = days[0].toISOString().slice(0, 10);
-    const weekEndKey = days[6].toISOString().slice(0, 10);
+    const weekStartKey = localDayKey(days[0]);
+    const weekEndKey = localDayKey(days[6]);
     const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
     const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
-    const inWeek = (iso) => iso && iso >= weekStartKey && iso <= weekEndKey;
+    const inWeek = (iso) => { const k = localDayKey(iso); return k && k >= weekStartKey && k <= weekEndKey; };
 
-    // Coleta por dia: prazo (intimação/tarefa), audiência, termo final de prescrição
+    // Coleta por dia: prazo (intimação), tarefa (com data limite), audiência, termo final de prescrição
     const byDay = {};
-    days.forEach(d => { byDay[d.toISOString().slice(0, 10)] = []; });
+    days.forEach(d => { byDay[localDayKey(d)] = []; });
+    const pushDay = (iso, card) => {
+      const k = localDayKey(iso);
+      if (!k || !byDay[k]) return;
+      byDay[k].push(card);
+    };
 
     (data.intimations || []).forEach(x => {
       if (!x.dateDeadline || x.responseAction || x.status === 'analisado') return;
       if (!inWeek(x.dateDeadline)) return;
-      byDay[x.dateDeadline].push({
+      pushDay(x.dateDeadline, {
         id: 'intim-' + x.id, kind: 'prazo', sub: 'intim',
         title: truncate(x.processNumber || x.partyName || 'Intimação', 32),
         meta: opName(x.operationId),
@@ -8817,13 +8830,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       });
     });
     (data.tasks || []).forEach(t => {
+      // Só entra na agenda quando há Data Limite marcada
       if (!t.dueDate || t.status === 'concluida' || t.status === 'cancelada') return;
       if (!inWeek(t.dueDate)) return;
-      byDay[t.dueDate].push({
-        id: 'task-' + t.id, kind: 'prazo', sub: 'task',
+      pushDay(t.dueDate, {
+        id: 'task-' + t.id, kind: 'tarefa', sub: 'task',
         title: truncate(t.title || 'Tarefa', 32),
-        meta: opName(t.operationId),
-        tip: 'Fim de prazo · tarefa',
+        meta: opName(t.operationId) || (t.taskVisibility === 'global' ? 'Tarefa global' : ''),
+        tip: `Tarefa · data limite ${fmtDate(t.dueDate)}${t.priority ? ' · ' + t.priority : ''}`,
         onClick: () => {
           if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); }
           else setViewMode('tarefas_global');
@@ -8833,7 +8847,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     (data.hearings || []).forEach(h => {
       if (!h.date || h.status === 'cancelada' || h.status === 'realizada') return;
       if (!inWeek(h.date)) return;
-      byDay[h.date].push({
+      pushDay(h.date, {
         id: 'hear-' + h.id, kind: 'audiencia', sub: 'hearing',
         title: truncate((h.time ? h.time + ' · ' : '') + (h.parties || h.processNumber || 'Audiência'), 34),
         meta: opName(h.operationId),
@@ -8841,13 +8855,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onClick: () => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
       });
     });
-    const allExecs = data.executions || [];
-    const allPrescEvts = data.prescriptionEvents || [];
     (data.debts || []).forEach(d => {
       if (d.status === 'extinta' || d.prescriptionHandled) return;
       const pd = getPrescDate(d);
       if (!inWeek(pd)) return;
-      byDay[pd].push({
+      pushDay(pd, {
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
         title: truncate(d.cdaNumber || 'CDA', 28),
         meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
@@ -8858,7 +8870,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       });
     });
 
-    const kindLabel = { prazo: 'Prazo', audiencia: 'Audiência', presc: 'Prescrição' };
+    const kindLabel = { prazo: 'Prazo', tarefa: 'Tarefa', audiencia: 'Audiência', presc: 'Prescrição' };
     let totalCards = 0;
     Object.values(byDay).forEach(arr => { totalCards += arr.length; });
 
@@ -8871,6 +8883,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <span style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{label}</span>
           <span className="demo-week-legend" aria-hidden="true">
             <span className="demo-week-leg kind-prazo">Prazo</span>
+            <span className="demo-week-leg kind-tarefa">Tarefa</span>
             <span className="demo-week-leg kind-audiencia">Audiência</span>
             <span className="demo-week-leg kind-presc">Prescrição</span>
           </span>
@@ -8878,7 +8891,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
         <div className="demo-week">
           {days.map(d => {
-            const key = d.toISOString().slice(0, 10);
+            const key = localDayKey(d);
             const isToday = d.getTime() === today.getTime();
             const cards = byDay[key] || [];
             return (
@@ -9319,7 +9332,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
                   Agenda da semana
                   <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
-                    Fim de prazos · audiências · termo final de prescrição
+                    Prazos · tarefas (data limite) · audiências · termo final de prescrição
                   </span>
                 </div>
               </div>
