@@ -14,14 +14,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Public+Sans:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
+  /* Superfícies mais próximas do deep — menos contraste entre poço e cards */
   --bg-deep: #17263f;
-  --bg-main: #223458;
-  --bg-card: #2c4068;
-  --bg-card-hover: #344a78;
-  --bg-elevated: #3a5080;
-  --bg-input: #1b2e4c;
-  --border: #3a5080;
-  --border-light: #4d68a0;
+  --bg-main: #1c2e4a;
+  --bg-card: #203352;
+  --bg-card-hover: #263a5c;
+  --bg-elevated: #243858;
+  --bg-input: #182840;
+  --border: #314866;
+  --border-light: #425d80;
   --text-primary: #e8edf5;
   --text-secondary: #8ea0b8;
   --text-muted: #5a7088;
@@ -58,13 +59,13 @@
 /* ─── Theme: Mar Profundo (navy · teal; substitui Obsidian) ─── */
 .theme-mar {
   --bg-deep: #0c1524;
-  --bg-main: #121c2e;
-  --bg-card: #1a2740;
-  --bg-card-hover: #21314d;
-  --bg-elevated: #243552;
-  --bg-input: #0f1a2c;
-  --border: #2c4060;
-  --border-light: #3d5678;
+  --bg-main: #101929;
+  --bg-card: #141f33;
+  --bg-card-hover: #18263c;
+  --bg-elevated: #1a2940;
+  --bg-input: #0e1726;
+  --border: #243550;
+  --border-light: #334a66;
   --text-primary: #e6edf5;
   --text-secondary: #a9bbd0;
   --text-muted: #7d91a8;
@@ -101,19 +102,19 @@
 /* ─── Theme: Claro (papel-ardósia; tokens da Demo Clara / .edition-demo base) ─── */
 .theme-claro {
   --bg-deep: #e8eef2;
-  --bg-main: #f4f7f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f0f4f7;
-  --bg-elevated: #e2e9ef;
-  --bg-input: #ffffff;
+  --bg-main: #eef2f5;
+  --bg-card: #f1f4f6;
+  --bg-card-hover: #e9eef2;
+  --bg-elevated: #e6ecf1;
+  --bg-input: #f1f4f6;
   --border: #c5d0da;
   --border-light: #a8b6c4;
   --text-primary: #0b1f33;
   --text-secondary: #3d5166;
   --text-muted: #5a7088;
-  --demo-glass-card: #ffffff;
-  --demo-glass: rgba(255,255,255,0.92);
-  --demo-glass-soft: rgba(255,255,255,0.8);
+  --demo-glass-card: #f1f4f6;
+  --demo-glass: rgba(241,244,246,0.94);
+  --demo-glass-soft: rgba(238,242,245,0.88);
   --accent: #b87333;
   --accent-dim: rgba(184,115,51,0.12);
   --accent-glow: rgba(184,115,51,0.22);
@@ -155,7 +156,30 @@
   box-shadow: var(--shadow);
 }
 /* ─── Theme: Ferro e Maré (ferro escuro + azul maré, destaques bege, alerta burgundy) ─── */
-.theme-ferro { --bg-deep: #171e27; --bg-main: #1f2733; --bg-card: #253243; --bg-card-hover: #2b3a4e; --bg-elevated: #223c5e; --bg-input: #1a222d; --border: #2e3f54; --border-light: #3f5a7c; --text-primary: #e2ded0; --text-secondary: #c0c0c0; --text-muted: #7d8896; --accent: #c4a87c; --accent-dim: rgba(196,168,124,0.12); --accent-glow: rgba(196,168,124,0.20); --gold: #c4a87c; --gold-dim: rgba(196,168,124,0.12); --pgfn: #660000; --pgfn-light: #8f1f1f; --pgfn-dim: rgba(102,0,0,0.20); --blue: #5d8bc4; --blue-dim: rgba(93,139,196,0.14); --shadow: 0 2px 16px rgba(0,0,0,0.45); }
+.theme-ferro {
+  --bg-deep: #171e27;
+  --bg-main: #1b232e;
+  --bg-card: #1e2835;
+  --bg-card-hover: #243041;
+  --bg-elevated: #1f2d40;
+  --bg-input: #181f28;
+  --border: #2a3545;
+  --border-light: #3a4a5e;
+  --text-primary: #e2ded0;
+  --text-secondary: #c0c0c0;
+  --text-muted: #7d8896;
+  --accent: #c4a87c;
+  --accent-dim: rgba(196,168,124,0.12);
+  --accent-glow: rgba(196,168,124,0.20);
+  --gold: #c4a87c;
+  --gold-dim: rgba(196,168,124,0.12);
+  --pgfn: #660000;
+  --pgfn-light: #8f1f1f;
+  --pgfn-dim: rgba(102,0,0,0.20);
+  --blue: #5d8bc4;
+  --blue-dim: rgba(93,139,196,0.14);
+  --shadow: 0 2px 16px rgba(0,0,0,0.45);
+}
 /* ─── Font variants (settings → class on html + .app-layout) ─── */
 .font-inter, html.font-inter, .app-layout.font-inter {
   --font-display: 'Inter', system-ui, sans-serif;
@@ -1112,11 +1136,11 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 
 .app-layout.edition-demo {
   --bg-deep: #e8eef2;
-  --bg-main: #f4f7f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f0f4f7;
-  --bg-elevated: #e2e9ef;
-  --bg-input: #ffffff;
+  --bg-main: #eef2f5;
+  --bg-card: #f1f4f6;
+  --bg-card-hover: #e9eef2;
+  --bg-elevated: #e6ecf1;
+  --bg-input: #f1f4f6;
   --border: #c5d0da;
   --border-light: #a8b6c4;
   --text-primary: #0b1f33;
@@ -1155,9 +1179,9 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --demo-rail-active-bg: rgba(184,115,51,0.22);
   --demo-rail-active-bd: rgba(184,115,51,0.45);
   --demo-rail-active-fg: #f0d2ad;
-  --demo-glass: rgba(255,255,255,0.72);
-  --demo-glass-soft: rgba(255,255,255,0.55);
-  --demo-glass-card: rgba(255,255,255,0.7);
+  --demo-glass: rgba(241,244,246,0.78);
+  --demo-glass-soft: rgba(238,242,245,0.62);
+  --demo-glass-card: rgba(241,244,246,0.78);
   --demo-overlay: rgba(11,31,51,0.45);
   --demo-settings-bg: #12263a;
   grid-template-columns: 76px 1fr;
@@ -1171,13 +1195,13 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 /* Demo dark themes — off-white text, elevated grays, no pure black (WCAG-minded) */
 .app-layout.edition-demo.demo-theme-mar {
   --bg-deep: #0c1524;
-  --bg-main: #121c2e;
-  --bg-card: #1a2740;
-  --bg-card-hover: #21314d;
-  --bg-elevated: #243552;
-  --bg-input: #0f1a2c;
-  --border: #2c4060;
-  --border-light: #3d5678;
+  --bg-main: #101929;
+  --bg-card: #141f33;
+  --bg-card-hover: #18263c;
+  --bg-elevated: #1a2940;
+  --bg-input: #0e1726;
+  --border: #243550;
+  --border-light: #334a66;
   --text-primary: #e6edf5;
   --text-secondary: #a9bbd0;
   --text-muted: #7d91a8;
@@ -1211,11 +1235,11 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --demo-rail-active-bg: rgba(196,163,106,0.20);
   --demo-rail-active-bd: rgba(196,163,106,0.42);
   --demo-rail-active-fg: #f0d8ae;
-  --demo-glass: rgba(18,28,46,0.88);
-  --demo-glass-soft: rgba(26,39,64,0.82);
-  --demo-glass-card: rgba(26,39,64,0.9);
+  --demo-glass: rgba(16,25,41,0.90);
+  --demo-glass-soft: rgba(20,31,51,0.86);
+  --demo-glass-card: rgba(20,31,51,0.92);
   --demo-overlay: rgba(4,8,16,0.62);
-  --demo-settings-bg: #121c2e;
+  --demo-settings-bg: #101929;
   background:
     radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.10), transparent 55%),
     radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.07), transparent 50%),
@@ -1776,7 +1800,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-proc-table th {
   text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-muted); padding: 6px 8px;
-  border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 35%, var(--bg-card));
 }
 .demo-proc-table td {
   padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text-secondary); vertical-align: top;
@@ -1784,10 +1809,13 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-proc-table td.mono { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-weight: 600; color: var(--text-primary); }
 .demo-proc-table-row { cursor: pointer; }
 .demo-proc-table-row:hover td { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
-.demo-proc-table-detail td { padding: 0; background: var(--bg-elevated); }
+.demo-proc-table-detail td {
+  padding: 0;
+  background: color-mix(in srgb, var(--bg-elevated) 28%, var(--bg-card));
+}
 
 /* ── Visão D · Master–detail (clássico + demo) ── */
-/* Hierarquia de fundos: deep (página) → main (poço/nav) → card (conteúdo) → elevated (chrome). */
+/* Hierarquia de fundos com degraus curtos (menos contraste entre tons). */
 /* Altura pelo conteúdo: cresce ao expandir linhas; sem scroll interno no frame. */
 .proc-md-frame {
   display: grid; grid-template-columns: 280px 1fr; gap: 0;
@@ -1798,7 +1826,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   align-items: stretch;
 }
 .proc-md-rail {
-  border-right: 1px solid var(--border); background: var(--bg-main);
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-main) 40%, var(--bg-card));
   display: flex; flex-direction: column; min-height: 0;
   max-height: none; overflow: visible;
   border-radius: 8px 0 0 8px;
@@ -1835,16 +1864,16 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-rail-h {
   padding: 12px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--pgfn-light, #c45a72); border-bottom: 1px solid var(--border);
-  background: var(--bg-main);
+  background: color-mix(in srgb, var(--bg-main) 40%, var(--bg-card));
 }
 .proc-md-hub {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
   padding: 11px 14px; border: none; border-bottom: 1px solid var(--border);
   background: transparent; cursor: pointer; font-family: inherit; color: inherit;
 }
-.proc-md-hub:hover { background: color-mix(in srgb, var(--bg-card) 55%, transparent); }
+.proc-md-hub:hover { background: color-mix(in srgb, var(--bg-card) 40%, transparent); }
 .proc-md-hub.active {
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 70%, var(--bg-main));
   border-left: 3px solid var(--pgfn, #9b2848); padding-left: 11px;
 }
 .proc-md-hub-tag {
@@ -1918,48 +1947,48 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .proc-md-rail-sec.band-ativa {
   color: var(--green); border-left-color: var(--green);
-  background: color-mix(in srgb, var(--green) 8%, transparent);
+  background: color-mix(in srgb, var(--green) 4%, transparent);
 }
 .proc-md-rail-sec.band-suspensa {
   color: var(--orange, #d88840); border-left-color: var(--orange, #d88840);
-  background: color-mix(in srgb, var(--orange, #d88840) 12%, transparent);
+  background: color-mix(in srgb, var(--orange, #d88840) 5%, transparent);
 }
 .proc-md-rail-sec.band-parc {
   color: var(--blue); border-left-color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: color-mix(in srgb, var(--blue) 5%, transparent);
 }
 .proc-md-rail-sec.band-arq {
   color: var(--yellow); border-left-color: var(--yellow);
-  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  background: color-mix(in srgb, var(--yellow) 5%, transparent);
 }
 .proc-md-rail-sec.band-extinta {
   color: var(--text-muted); border-left-color: var(--text-muted);
-  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 4%, transparent);
 }
 .proc-md-rail-sec.band.selected { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent); }
 .proc-md-rail-item.band-ativa {
   color: color-mix(in srgb, var(--green) 55%, var(--text-primary));
 }
 .proc-md-rail-item.band-suspensa {
-  background: color-mix(in srgb, var(--orange, #d88840) 10%, transparent);
+  background: color-mix(in srgb, var(--orange, #d88840) 4%, transparent);
   color: color-mix(in srgb, var(--orange, #d88840) 70%, var(--text-primary));
 }
 .proc-md-rail-item.band-parc {
-  background: color-mix(in srgb, var(--blue) 10%, transparent); color: color-mix(in srgb, var(--blue) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--blue) 4%, transparent); color: color-mix(in srgb, var(--blue) 70%, var(--text-primary));
 }
 .proc-md-rail-item.band-arq {
-  background: color-mix(in srgb, var(--yellow) 10%, transparent); color: color-mix(in srgb, var(--yellow) 65%, var(--text-primary));
+  background: color-mix(in srgb, var(--yellow) 4%, transparent); color: color-mix(in srgb, var(--yellow) 65%, var(--text-primary));
 }
 .proc-md-rail-item.band-extinta {
-  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 3%, transparent);
   color: color-mix(in srgb, var(--text-muted) 70%, var(--text-primary));
 }
 .proc-md-rail-item.band-ativa.open {
-  background: color-mix(in srgb, var(--green) 12%, transparent);
+  background: color-mix(in srgb, var(--green) 6%, transparent);
   box-shadow: inset 3px 0 0 var(--green);
 }
 .proc-md-rail-item.band-parc.open {
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  background: color-mix(in srgb, var(--blue) 6%, transparent);
   box-shadow: inset 3px 0 0 var(--blue);
 }
 .proc-md-rail-item.band-arq.open {
