@@ -7554,8 +7554,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="proc-md-block-label">EFs abrangidas <span className="count">({covered.length})</span></div>
                     {renderEfTable(covered, 'Nenhuma EF vinculada a este hub')}
 
-                    <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
-                    {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                    {freeEFs.length > 0 && (
+                      <>
+                        <div className="proc-md-block-label">Nesta operação · sem vínculo <span className="count">({freeEFs.length})</span></div>
+                        {renderEfTable(freeEFs, 'Nenhuma EF sem vínculo')}
+                      </>
+                    )}
                   </div>
                 </>
               ) : (
