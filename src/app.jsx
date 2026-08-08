@@ -8026,7 +8026,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               </div>
                             );
                           })()}
-                          <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
+                          <div className="proc-md-block-label band-anchor">Execuções fiscais abrangidas <span className="count">({covered.length})</span></div>
                           {renderEfTable(covered, 'Nenhuma EF vinculada a este processo')}
                           {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
                             <div className="proc-hub-rel">
