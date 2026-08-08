@@ -10228,7 +10228,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             const lastCheck = w.lastCheckedAt ? Math.floor((new Date() - new Date(w.lastCheckedAt))/(1000*60*60*24)) : null;
             return (<div key={w.id} className="entity-card" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr auto',gap:12,alignItems:'start',borderLeft:`3px solid ${w.status==='aguardando'?'var(--yellow)':w.status==='movimentado'?'var(--blue)':'var(--green)'}`}} onClick={() => setModal({type:'edit',entityType:'watch',initial:w})}>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>{w.processNumber || 'Sem nº'}</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
+                  <ProcNum value={w.processNumber} empty="Sem nº" />
+                </div>
                 <div className="ec-sub">{w.parties || ''}</div>
                 {op && <div style={{fontSize:10,color:'var(--accent)',cursor:'pointer',marginTop:2}} onClick={e => { e.stopPropagation(); setActiveOpId(op.id); setViewMode('operation'); }}>↗ {op.name}</div>}
               </div>
