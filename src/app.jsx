@@ -7688,6 +7688,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             setSelectedProcBand(bandKey);
             setProcFocus('band');
             setRailBandsOpen(prev => new Set(prev).add(bandKey));
+            // Não ajuizadas: já abre o detalhe do grupo (evita clique extra).
+            if (bandKey === 'nao_ajuizada') {
+              const ug = (freeByBand.nao_ajuizada || []).find(x => x.type === 'unlinked');
+              if (ug) openRowDetail(ug);
+            }
           }
         };
 
@@ -7829,15 +7834,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </button>
               {open && items.map(g => {
                 if (g.type !== 'exec') {
+                  // Não ajuizadas: lista as CDAs direto (sem nível "CDAs sem processo").
+                  const cdas = g.cdas || [];
                   return (
-                    <button type="button" key="unlinked" className={`proc-md-rail-item ${band.cls}`}
-                      onClick={() => {
-                        setSelectedProcBand(band.key);
-                        setProcFocus('band');
-                        openRowDetail(g);
-                      }}>
-                      <span className="mono">CDAs sem processo</span>
-                    </button>
+                    <React.Fragment key="unlinked">
+                      {cdas.map(d => (
+                        <button type="button" key={d.id}
+                          className={`proc-md-rail-item ${band.cls}`}
+                          onClick={() => {
+                            setSelectedProcBand(band.key);
+                            setProcFocus('band');
+                            openRowDetail(g);
+                          }}
+                          title={d.cdaNumber || 'CDA'}>
+                          <span className="mono">{truncate(d.cdaNumber || 'CDA', 22)}</span>
+                          {d.value != null && <span className="apenso-count">{fmtCur(d.value)}</span>}
+                        </button>
+                      ))}
+                    </React.Fragment>
                   );
                 }
                 const pk = 'process-row-' + g.exec.id;
