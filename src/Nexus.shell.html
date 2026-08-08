@@ -1784,9 +1784,10 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-proc-table td.mono { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-weight: 600; color: var(--text-primary); }
 .demo-proc-table-row { cursor: pointer; }
 .demo-proc-table-row:hover td { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
-.demo-proc-table-detail td { padding: 0; background: var(--bg-main); }
+.demo-proc-table-detail td { padding: 0; background: var(--bg-elevated); }
 
 /* ── Visão D · Master–detail (clássico + demo) ── */
+/* Hierarquia de fundos: deep (página) → main (poço/nav) → card (conteúdo) → elevated (chrome). */
 /* Altura pelo conteúdo: cresce ao expandir linhas; sem scroll interno no frame. */
 .proc-md-frame {
   display: grid; grid-template-columns: 280px 1fr; gap: 0;
@@ -1797,7 +1798,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   align-items: stretch;
 }
 .proc-md-rail {
-  border-right: 1px solid var(--border); background: var(--bg-elevated);
+  border-right: 1px solid var(--border); background: var(--bg-main);
   display: flex; flex-direction: column; min-height: 0;
   max-height: none; overflow: visible;
   border-radius: 8px 0 0 8px;
@@ -1834,16 +1835,16 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-rail-h {
   padding: 12px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--pgfn-light, #c45a72); border-bottom: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: var(--bg-main);
 }
 .proc-md-hub {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
   padding: 11px 14px; border: none; border-bottom: 1px solid var(--border);
   background: transparent; cursor: pointer; font-family: inherit; color: inherit;
 }
-.proc-md-hub:hover { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
+.proc-md-hub:hover { background: color-mix(in srgb, var(--bg-card) 55%, transparent); }
 .proc-md-hub.active {
-  background: color-mix(in srgb, var(--pgfn, #9b2848) 8%, var(--bg-card));
+  background: var(--bg-card);
   border-left: 3px solid var(--pgfn, #9b2848); padding-left: 11px;
 }
 .proc-md-hub-tag {
@@ -2047,6 +2048,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-section-card-body {
   padding: 10px 12px 12px;
   height: auto;
+  background: var(--bg-main);
 }
 .proc-section-card-body .proc-md-frame {
   margin: 0;
@@ -2071,7 +2073,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-weight: 600; color: var(--text-muted); margin-left: 4px;
 }
 .proc-others-card-h .muted { font-size: 10px; font-weight: 500; color: var(--text-muted); }
-.proc-others-card-body { padding: 12px 16px 16px; }
+.proc-others-card-body { padding: 12px 16px 16px; background: var(--bg-main); }
 .proc-jump-flash {
   animation: procJumpFlash 1.2s ease;
 }
@@ -2112,7 +2114,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   padding: 7px 14px; font-size: 11px; color: var(--text-secondary); cursor: pointer;
   border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
 }
-.proc-md-rail-item:hover { color: var(--text-primary); background: rgba(0,0,0,0.03); }
+.proc-md-rail-item:hover { color: var(--text-primary); background: color-mix(in srgb, var(--bg-card) 45%, transparent); }
 .proc-md-rail-item .mono { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 10px; }
 .proc-md-rail-item .muted { color: var(--text-muted); font-size: 10px; }
 .proc-md-rail-item.demoted { opacity: 0.65; }
@@ -2125,6 +2127,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   padding: 12px 16px; border-bottom: 1px solid var(--border);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   flex-shrink: 0;
+  background: var(--bg-card);
 }
 .proc-md-pane-h h2 { font-size: 14px; font-weight: 700; margin: 0; color: var(--text-primary); line-height: 1.3; }
 .proc-md-pane-num {
@@ -2234,23 +2237,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-table td.risk-critical, .proc-md-hub-meta .risk-critical { color: var(--red); font-weight: 700; }
 .proc-md-table td.risk-warning, .proc-md-hub-meta .risk-warning { color: var(--yellow); font-weight: 700; }
 .proc-md-table td.risk-ok, .proc-md-hub-meta .risk-ok { color: var(--green); font-weight: 600; }
-
-/* Demo only — hierarquia de fundos (preview antes do app):
-   deep (página) → main (poço/nav) → card (conteúdo) → elevated (chrome/widgets). */
-.app-layout.edition-demo .demo-proc-table-detail td { background: var(--bg-elevated); }
-.app-layout.edition-demo .proc-md-rail,
-.app-layout.edition-demo .proc-md-rail-h { background: var(--bg-main); }
-.app-layout.edition-demo .proc-md-hub:hover {
-  background: color-mix(in srgb, var(--bg-card) 55%, transparent);
-}
-.app-layout.edition-demo .proc-md-hub.active { background: var(--bg-card); }
-.app-layout.edition-demo .proc-section-card-body,
-.app-layout.edition-demo .proc-others-card-body { background: var(--bg-main); }
-.app-layout.edition-demo .proc-md-rail-item:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-card) 45%, transparent);
-}
-.app-layout.edition-demo .proc-md-pane-h { background: var(--bg-card); }
 
 @media (max-width: 900px) {
   .app-layout.edition-demo, .app-layout.edition-demo.demo-rail-expanded { grid-template-columns: 64px 1fr; }
