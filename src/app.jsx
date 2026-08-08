@@ -7703,16 +7703,25 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
                             const hubNotes = filterProcNotes(rawNotes);
                             return (
-                              <div className="proc-md-hub-top">
-                                <div className="proc-md-hub-summary">
-                                  <div><small>Status</small><strong>{hubMeta.st.label || hub.status || '—'}</strong></div>
-                                  <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
-                                  <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
+                              <div className="proc-md-hub-meta-block">
+                                <div className="proc-md-hub-stats">
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">Status</span>
+                                    <strong>{hubMeta.st.label || hub.status || '—'}</strong>
+                                  </div>
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">EFs abrangidas</span>
+                                    <strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong>
+                                  </div>
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">Presc. mais próxima</span>
+                                    <strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong>
+                                  </div>
                                 </div>
-                                <div className="proc-md-hub-notes">
+                                <div className="proc-md-hub-notes-flat">
                                   <div className="proc-md-hub-notes-h">
-                                    <span>Notas e observações <span className="count">({hubNotes.length})</span></span>
-                                    <button type="button" className="btn-secondary btn-xs"
+                                    <span className="intim-center-label">Notas e observações ({hubNotes.length})</span>
+                                    <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                                       onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
                                       title="Editar âncora para alterar notas">✎</button>
                                   </div>

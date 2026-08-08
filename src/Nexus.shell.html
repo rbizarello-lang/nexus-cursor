@@ -2146,30 +2146,33 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   background: var(--bg-elevated) !important;
 }
 .proc-md-pane-body { padding: 12px 16px 14px; flex: 0 1 auto; min-height: 0; }
-.proc-md-hub-summary {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
-  background: color-mix(in srgb, var(--pgfn, #9b2848) 4%, var(--bg-card)); margin-bottom: 4px;
+/* Hub pane: meta/notas no padrão das intimações — sem card interno; só linhas. */
+.proc-md-hub-meta-block { margin-bottom: 12px; }
+.proc-md-hub-stats {
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: 0;
+  padding: 0 0 10px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
-.proc-md-hub-top {
-  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px;
-  margin-bottom: 4px; align-items: stretch;
+.proc-md-hub-stat {
+  flex: 1 1 0; min-width: 110px;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 0 14px; border-right: 1px solid var(--border);
 }
-.proc-md-hub-top .proc-md-hub-summary { margin-bottom: 0; }
-.proc-md-hub-notes {
-  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
-  background: color-mix(in srgb, var(--yellow, #d4a838) 5%, var(--bg-card));
-  min-height: 0;
+.proc-md-hub-stat:first-child { padding-left: 0; }
+.proc-md-hub-stat:last-child { border-right: none; padding-right: 0; }
+.proc-md-hub-stat .im-label {
+  font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
 }
+.proc-md-hub-stat strong { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+.proc-md-hub-stat .risk-critical { color: var(--red); }
+.proc-md-hub-stat .risk-warning { color: var(--yellow); }
+.proc-md-hub-stat .risk-ok { color: var(--green); }
+.proc-md-hub-notes-flat { min-height: 0; }
 .proc-md-hub-notes-h {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--text-muted); margin-bottom: 6px;
+  margin-bottom: 6px;
 }
-.proc-md-hub-notes-h .count {
-  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
-  font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-secondary);
-}
+.proc-md-hub-notes-h .intim-center-label { margin: 0; }
 .especie-badge {
   display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
   padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
@@ -2206,13 +2209,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-dup-banner strong { color: var(--red); font-size: 11px; }
 .proc-related-cell .proc-related-ref { font-size: 10px; color: var(--text-secondary); }
 .proc-related-cell .muted { color: var(--text-muted); font-size: 11px; }
-.proc-md-hub-summary div small {
-  display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
-}
-.proc-md-hub-summary div strong { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-.proc-md-hub-summary .risk-critical { color: var(--red); }
-.proc-md-hub-summary .risk-warning { color: var(--yellow); }
-.proc-md-hub-summary .risk-ok { color: var(--green); }
 .proc-md-block-label {
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted); margin: 14px 0 8px;
@@ -2255,8 +2251,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   background: color-mix(in srgb, var(--bg-card) 45%, transparent);
 }
 .app-layout.edition-demo .proc-md-pane-h { background: var(--bg-card); }
-.app-layout.edition-demo .proc-md-hub-summary,
-.app-layout.edition-demo .proc-md-hub-notes { background: var(--bg-elevated); }
 
 @media (max-width: 900px) {
   .app-layout.edition-demo, .app-layout.edition-demo.demo-rail-expanded { grid-template-columns: 64px 1fr; }
@@ -2274,8 +2268,12 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
     max-height: none; overflow: visible;
     border-radius: 8px 8px 0 0;
   }
-  .proc-md-hub-summary { grid-template-columns: 1fr; }
-  .proc-md-hub-top { grid-template-columns: 1fr; }
+  .proc-md-hub-stat {
+    flex: 1 1 100%; min-width: 0;
+    padding: 6px 0; border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .proc-md-hub-stat:last-child { border-bottom: none; padding-bottom: 0; }
 }
 </style>
 </head>
