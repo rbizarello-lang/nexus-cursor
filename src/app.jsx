@@ -7822,9 +7822,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             </div>
                           </div>
                           <div className="proc-md-pane-actions">
-                            <button type="button" className="btn-secondary btn-sm"
+                            <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
-                            <button type="button" className="btn-primary btn-sm"
+                            <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => {
                                 const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
                                 setModal({
