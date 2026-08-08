@@ -6805,7 +6805,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
               {/* COL 3: Action buttons */}
               <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-                <button className="btn-primary btn-sm" onClick={() => {
+                <button className="btn-secondary btn-sm" onClick={() => {
                   const cdaIds = group.cdas.map(d => d.id);
                   setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? group.exec.id : ''}});
                 }}>+ Evento</button>
@@ -7153,7 +7153,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
           {/* ═══ COL 4: Ações ═══ */}
           <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-            <button className="btn-primary btn-sm" onClick={(ev) => {
+            <button className="btn-secondary btn-sm" onClick={(ev) => {
               ev.stopPropagation();
               const cdaIds = group.cdas.map(d => d.id);
               setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? e.id : ''}});
