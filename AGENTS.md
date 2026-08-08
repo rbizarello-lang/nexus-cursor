@@ -59,3 +59,6 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 - Setup: `npm install && npm run build`.
 - Para validar clássico vs demo localmente, abrir os HTML gerados na raiz após o build.
 - `npm run push` só faz sentido com `clasp` autenticado e `.clasp.json` apontando ao projeto correto; não assumir push remoto sem isso.
+- Não há suíte de testes nem comando de lint. A verificação do build é `npm run build` seguido de `node scripts/verify.mjs` (decodifica o base64 embutido em `Nexus.html` e confere que o app parseia).
+- Para pré-visualizar no navegador, sirva a raiz com um servidor estático (ex.: `python3 -m http.server 8000`) e abra `http://localhost:8000/Nexus.html` (clássico) ou `http://localhost:8000/Nexus_demo_experimental.html` (demo). O React/xlsx/pdf.js vêm de CDN, então é preciso acesso à rede ao abrir a UI.
+- `npm run build` regenera os HTML da raiz e altera apenas o carimbo de build (`__NEXUS_BUILD__`); não faça commit dessas mudanças de timestamp a menos que `src/` tenha mudado de fato.
