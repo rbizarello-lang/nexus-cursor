@@ -817,6 +817,7 @@ const PROCESS_STAGES = {
   ajuizamento: { label: 'Ajuizamento',         outcomes: {} },
   liminar:     { label: 'Liminar',             outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso1:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
+  constricoes: { label: 'Constrições',         outcomes: {} },
   saneamento:  { label: 'Saneamento e provas', outcomes: {}, textOnly: true }, // só texto — sem data/evento
   decisao:     { label: 'Decisão final',       outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso2:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
@@ -5199,12 +5200,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const rec = recs[k];
                 const recursos = sd.multiRecurso ? getRecursos(rec) : null;
                 const has = sd.multiRecurso
-                  ? recursos.length > 0
-                  : !!(rec && (rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
+                  ? (recursos.length > 0 || !!(rec && rec._present))
+                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
                 const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
                 let info = '';
                 if (sd.multiRecurso) {
-                  // Detalhe por recurso (nº do processo, desfecho, data, texto) — não só a contagem
                   info = '';
                 } else if (sd.textOnly) {
                   info = (rec?.texto && String(rec.texto).trim()) || '';
@@ -5216,51 +5216,62 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   info = parts.join(' · ');
                 }
                 const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
-                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel };
+                const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
+                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
               });
               const renderStageRuler = (ip, STAGES, STAGE_KEYS, recs) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
+                // Oculta fases sem ocorrência; Ajuizamento permanece sempre na régua
+                const visible = metas.filter(m => m.has || m.alwaysShow);
+                const addable = metas.filter(m => !m.has && !m.alwaysShow);
+                const addMenuKey = 'stageadd-' + ip.id;
+                const addOpen = collapsedGroups.has(addMenuKey);
                 const openPop = (k) => toggleGroup('stagepop-' + ip.id + '-' + k);
                 const noteEditKey = (k) => 'stagenote-' + ip.id + '-' + k;
+                const addStage = (sk) => {
+                  const sd = STAGES[sk];
+                  if (sd.multiRecurso) setRec(ip.id, sk, { _present: true, recursos: [{ date: '', proc: '', texto: '', outcome: 'pendente' }] });
+                  else if (sd.textOnly) setRec(ip.id, sk, { _present: true, texto: '' });
+                  else setRec(ip.id, sk, { _present: true, date: '', evento: '', texto: '', outcome: '' });
+                  if (addOpen) toggleGroup(addMenuKey);
+                  if (!collapsedGroups.has('stagepop-' + ip.id + '-' + sk)) toggleGroup('stagepop-' + ip.id + '-' + sk);
+                };
                 const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
                   <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
-                    onCommit={(patch) => setRec(ip.id, m.k, patch)}
+                    onCommit={(patch) => setRec(ip.id, m.k, { ...patch, _present: true })}
                     onDelete={() => { delRec(ip.id, m.k); openPop(m.k); }}
                     onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
                     onClose={() => openPop(m.k)} />
                 );
-                return (<div className="proc-stage-vertical" style={{margin:'4px 0 2px',display:'flex',flexDirection:'column',gap:0}}>
-                  {metas.map((m) => {
+                return (<div className="proc-stage-vertical" style={{margin:'2px 0 0',display:'flex',flexDirection:'column',gap:0}}>
+                  {visible.map((m, vi) => {
                     const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                    // meta sem o texto livre (data · Ev.) — o texto vai numa linha própria abaixo
                     const metaInfo = m.sd.textOnly ? '' : (m.info || '').split(' · ').filter(p => p && p !== noteTxt).join(' · ');
                     const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
                     const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
                     const commitNote = (val) => {
                       const t = String(val || '').trim();
-                      if (t || noteTxt) setRec(ip.id, m.k, { texto: t });
+                      if (t || noteTxt || m.rec?._present) setRec(ip.id, m.k, { texto: t, _present: true });
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
-                    const bodyStyle = {fontSize:11,lineHeight:1.4,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:2};
+                    const bodyStyle = {fontSize:10,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:1};
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'4px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 55%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:4}}>
-                        <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
-                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:8,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:6,padding:'2px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 45%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:12,flexShrink:0,paddingTop:3}}>
+                        <div style={{width:8,height:8,borderRadius:'50%',background:m.has?m.c:'transparent',border:`1.5px solid ${m.has?m.c:'var(--border-light)'}`}} />
+                        {vi < visible.length - 1 && <div style={{width:1.5,flex:1,minHeight:6,marginTop:1,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
-                        {/* Linha 1: fase + desfecho + data/evento — sem texto longo misturado */}
-                        <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
-                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
-                          {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
-                          {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
-                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
-                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
+                        <div style={{display:'flex',alignItems:'baseline',gap:5,flexWrap:'wrap'}}>
+                          <span style={{fontSize:10.5,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
+                          {m.outcomeLabel && <span style={{fontSize:10,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
+                          {metaInfo && <span style={{fontSize:10,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
+                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
+                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
                         </div>
-                        {/* Linha 2+: texto / recursos — largura total, alinhado à esquerda do conteúdo */}
                         {m.sd.multiRecurso ? (
-                          m.has && (
-                            <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:3}}>
+                          m.has && (m.recursos || []).length > 0 && (
+                            <div style={{display:'flex',flexDirection:'column',gap:2,marginTop:2}}>
                               {(m.recursos || []).map((r, ri) => {
                                 const bits = [];
                                 if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
@@ -5268,8 +5279,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                                 if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
                                 const freeTxt = (r.texto && String(r.texto).trim()) || '';
                                 return (
-                                  <div key={ri} style={{paddingLeft: m.recursos.length > 1 ? 0 : 0}}>
-                                    <div style={{fontSize:11,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
+                                  <div key={ri}>
+                                    <div style={{fontSize:10,lineHeight:1.3,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
                                       {m.recursos.length > 1 && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
                                       {bits.length ? bits.join(' · ') : (!freeTxt ? '—' : '')}
                                     </div>
@@ -5282,11 +5293,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         ) : editingNote ? (
                           <textarea autoFocus defaultValue={noteTxt}
                             placeholder="texto da fase"
-                            rows={Math.min(6, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
+                            rows={Math.min(5, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
                             onClick={ev => ev.stopPropagation()}
                             onBlur={e => commitNote(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
-                            style={{display:'block',width:'100%',marginTop:3,fontSize:11,padding:'4px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.4,boxSizing:'border-box'}} />
+                            style={{display:'block',width:'100%',marginTop:2,fontSize:10,padding:'3px 5px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.35,boxSizing:'border-box'}} />
                         ) : noteTxt ? (
                           <div onClick={startNoteEdit} title="Editar texto" style={{...bodyStyle,cursor:'text'}}>{noteTxt}</div>
                         ) : m.has ? (
@@ -5297,6 +5308,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </div>
                     );
                   })}
+                  {addable.length > 0 && (
+                    <div style={{position:'relative',marginTop:4,paddingTop:2}} onClick={e => e.stopPropagation()}>
+                      <button type="button" className="btn-secondary btn-xs"
+                        onClick={() => toggleGroup(addMenuKey)}
+                        title="Incluir fase processual"
+                        style={{fontSize:9,padding:'1px 7px',opacity:0.75,fontWeight:500}}>
+                        + Fase
+                      </button>
+                      {addOpen && (
+                        <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:180,padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
+                          {addable.map(m => (
+                            <button key={m.k} type="button"
+                              onClick={() => addStage(m.k)}
+                              style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
+                              onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                              onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+                              {m.sd.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>);
               };
               // Badge por tipo de processo-mãe (IDPJ/MCF/Central) e rótulo dos filhos (EF abrangida / apensa)
@@ -5332,18 +5366,27 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const bm = badgeFor(ip.processTag);
                     const myEFs = apensos;
                     const covVal = myEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
+                    const cardCollapsed = collapsedGroups.has('panocollapse-' + ip.id);
                     return (<div key={ip.id} style={{marginBottom:10,padding:'8px 10px',background:'transparent',border:'1px solid var(--border-light, var(--border))',borderRadius:6,opacity:ip.status==='extinta'?0.5:1}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                      <div
+                        style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}}
+                        onClick={() => toggleGroup('panocollapse-' + ip.id)}
+                        title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
+                      >
+                        <span style={{fontSize:9,color:'var(--text-muted)',width:10,flexShrink:0}}>{cardCollapsed ? '▸' : '▾'}</span>
                         <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
-                        <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
-                        <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>{est.label}</span>
+                        <span onClick={e => e.stopPropagation()} style={{display:'inline-flex'}}>
+                          <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
+                        </span>
+                        <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ip}); }}>{est.label}</span>
                         <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
                       </div>
 
-                      {/* Régua de fases — formato aprovado: lista vertical com desfecho */}
+                      {!cardCollapsed && (<>
+                      {/* Régua de fases — só ocorridas (+ Ajuizamento); + Fase para incluir */}
                       {renderStageRuler(ip, STAGES, STAGE_KEYS, recs)}
 
-                      {myEFs.length > 0 && <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                      {myEFs.length > 0 && <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:3}}>
                         {myEFs.slice(0,8).map(ef => efRow(ef, true))}
                         {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)',marginLeft:14}}>+{myEFs.length-8} {bm.unit}(s)</div>}
                       </div>}
@@ -5354,23 +5397,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !/^[\s·]*classe:\s/i.test(n || ''));
                         const setNotes = (arr) => upsert('executions', { ...ip, notesList: arr });
                         const addKey = 'cardnote-' + ip.id; const addOpen = collapsedGroups.has(addKey);
-                        return (<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
-                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:cardNotes.length?5:0}}>
+                        return (<div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:cardNotes.length?4:0}}>
                             <span style={{fontSize:9,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5}}>📝 Notas</span>
-                            {!addOpen && <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar nota ao processo" style={{fontSize:12,lineHeight:1,padding:'0 8px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
+                            {!addOpen && <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar nota ao processo" style={{fontSize:11,lineHeight:1,padding:'0 7px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
                           </div>
-                          {cardNotes.length > 0 && <div style={{display:'flex',flexDirection:'column',gap:3,marginBottom:addOpen?6:0}}>
+                          {cardNotes.length > 0 && <div style={{display:'flex',flexDirection:'column',gap:2,marginBottom:addOpen?5:0}}>
                             {cardNotes.map(({ n, idx }) => (
-                              <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,fontSize:11,color:'var(--text-secondary)',lineHeight:1.45}}>
+                              <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.4}}>
                                 <span style={{color:'var(--text-muted)',flexShrink:0}}>•</span>
                                 <span style={{flex:1,minWidth:0,wordBreak:'break-word'}}>{linkify(n)}</span>
                                 <span style={{cursor:'pointer',color:'var(--text-muted)',opacity:0.5,flexShrink:0,fontSize:10}} title="Remover nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</span>
                               </div>
                             ))}
                           </div>}
-                          {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:11,padding:'4px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
+                          {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:10,padding:'3px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
                         </div>);
                       })()}
+                      </>)}
                     </div>);
                   })}
 
