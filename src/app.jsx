@@ -7543,9 +7543,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const focusIsHub = !!selectedHub;
         const freeCount = (uncoveredEFs || []).length + (extinct || []).length + (unlinked || []).length;
         // Faixa efetiva no card Sem vínculo (sem setState durante render)
+        // Ordem do rail: status das EFs primeiro; Não ajuizadas por último (mesma raiz).
         const effectiveBandKey = (() => {
           if (selectedProcBand && (freeByBand[selectedProcBand] || []).length > 0) return selectedProcBand;
-          const first = [NAO_AJUIZ_BAND, ...EF_BANDS].find(b => (freeByBand[b.key] || []).length > 0);
+          const first = [...EF_BANDS, NAO_AJUIZ_BAND].find(b => (freeByBand[b.key] || []).length > 0);
           return first ? first.key : null;
         })();
         const focusedBandItems = effectiveBandKey ? (freeByBand[effectiveBandKey] || []) : [];
@@ -7753,17 +7754,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               onClick={() => setFreeCardOpen(v => !v)}
               aria-expanded={freeCardOpen}>
               <span>{freeCardOpen ? '▾' : '▸'} Execuções sem vínculo <span className="count">({freeCount})</span></span>
-              <span className="muted">Ativas, suspensas, art. 40, extintas e não ajuizadas — fora de IDPJ / Cautelar / Central</span>
+              <span className="muted">Ativas, suspensas, art. 40, extintas — e não ajuizadas ao final — fora de IDPJ / Cautelar / Central</span>
             </button>
             {freeCardOpen && (
               <div className="proc-section-card-body">
                 <div className="demo-proc-view demo-proc-view-D proc-md-frame">
                   <aside className="proc-md-rail">
-                    {(unlinked || []).length > 0 && renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
-                    <div className="proc-md-rail-sec rail-sem" style={{ borderTop: (unlinked || []).length ? undefined : 'none', marginTop: (unlinked || []).length ? undefined : 0, paddingTop: (unlinked || []).length ? undefined : 8 }}>
-                      Por status
-                    </div>
                     {EF_BANDS.map(band => renderRailBand(band, uncoveredByBand[band.key] || []))}
+                    {(unlinked || []).length > 0 && renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
                     {freeCount === 0 && <div className="proc-md-empty rail">Nenhuma EF fora das âncoras</div>}
                   </aside>
                   <section className="proc-md-pane">
