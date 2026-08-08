@@ -7281,7 +7281,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           )}
           {hubCoveredBlock}
           {(processExpanded || hideProcessNumber) && <div className="process-detail">
-            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
+            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
           <div style={{minWidth:0}}>
             {/* Process header row — sem repetir o nº (já está no summary / linha da tabela) */}
@@ -7392,32 +7392,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>}
           </div>
 
-          {/* ═══ COL 2: Eventos prescricionais ═══ */}
-          <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
-            <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700}}>Eventos Prescricionais ({allDisplayedEvents.length})</div>
-            {allDisplayedEvents.length === 0 ? <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhum evento registrado</div> :
-            <div style={{maxHeight:260,overflowY:'auto'}}>
-              {allDisplayedEvents.map(evt => {
-                const evtType = PRESC_EVENT_TYPES[evt.type] || {};
-                const cat = evtType.category;
-                const catColor = cat==='interruptiva'?'var(--green)':cat==='suspensiva'?'var(--blue)':cat==='marco'?'var(--red)':'var(--text-muted)';
-                const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
-                const isInherited = isExec && evt.executionId === e.parentExecutionId;
-                return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:isInherited?'rgba(91,143,217,0.06)':'color-mix(in srgb, var(--bg-main) 45%, transparent)',borderRadius:4,borderLeft:`2px solid ${catColor}`,cursor:'pointer'}}
-                  onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
-                    <span style={{fontSize:11,fontWeight:700,color:catColor}}>{isInherited && '⤷ '}{catIcon} {evtType.label || evt.type}</span>
-                    <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtDate(evt.date)}</span>
-                  </div>
-                  {evt.endDate && <div style={{fontSize:9,color:'var(--text-muted)'}}>até {fmtDate(evt.endDate)}</div>}
-                  {evt.legalBasis && <div style={{fontSize:9,color:'var(--text-secondary)',marginTop:1}}>{truncate(evt.legalBasis,40)}</div>}
-                  {evt.notes && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:1,fontStyle:'italic'}}>{truncate(evt.notes,50)}</div>}
-                </div>);
-              })}
-            </div>}
-          </div>
-
-          {/* ═══ COL 3: Notas do processo ═══ */}
+          {/* ═══ COL 2: Notas do processo (espaço ampliado; eventos via botão + Evento) ═══ */}
           <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
             <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'space-between',gap:4}}>
               <span>Notas ({notes.length})</span>
@@ -7444,7 +7419,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             })()}
           </div>
 
-          {/* ═══ COL 4: Ações ═══ */}
+          {/* ═══ COL 3: Ações ═══ */}
           <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
             <button className="btn-secondary btn-sm" onClick={(ev) => {
               ev.stopPropagation();
