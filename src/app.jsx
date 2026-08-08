@@ -10392,8 +10392,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button type="button" className="op-header-collapse-btn"
               onClick={toggleOpHeaderCollapsed}
               title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-label={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
               aria-expanded={!opHeaderCollapsed}>
-              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+              {opHeaderCollapsed ? '▾' : '▴'}
             </button>
           </div>
           {DEMO_ZONES[demoZone]?.tabs.length > 1 && (
@@ -10426,8 +10427,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button type="button" className="op-header-collapse-btn"
               onClick={toggleOpHeaderCollapsed}
               title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-label={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
               aria-expanded={!opHeaderCollapsed}>
-              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+              {opHeaderCollapsed ? '▾' : '▴'}
             </button>
           </div>
         )}
