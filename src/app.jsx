@@ -7179,16 +7179,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const prescForecastDays = isExec ? daysUntil(e.prescriptionForecast) : null;
         const groupAllSelected = group.cdas.length > 0 && group.cdas.every(d => selectedCDAs.has(d.id));
 
-        // Events — combine execution-level and CDA-level and inherited from parent
-        const groupEvents = prescEvents.filter(pe =>
-          (isExec && pe.executionId === e.id) ||
-          group.cdas.some(d => pe.cdaId === d.id || (pe.batchCdaIds && pe.batchCdaIds.includes(d.id)))
-        ).sort((a,b) => (b.date||'').localeCompare(a.date||''));
-        const inheritedFromParent = isExec && e.parentExecutionId
-          ? prescEvents.filter(pe => pe.executionId === e.parentExecutionId && !pe.cdaId && (!pe.batchCdaIds || pe.batchCdaIds.length === 0))
-          : [];
-        const allDisplayedEvents = [...groupEvents, ...inheritedFromParent.filter(ie => !groupEvents.some(ge => ge.date === ie.date && ge.type === ie.type))];
-
         const myApensosGroups = isExec ? cdaGroups.filter(x => x.type === 'exec' && x.exec.parentExecutionId === e.id) : [];
         const isTagged = isExec && e.processTag && e.processTag !== 'normal';
         const isLinkedToIDPJ2 = isExec && idpjLinkedExecIds2.has(e.id);
