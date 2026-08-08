@@ -1734,122 +1734,6 @@ async function parseDebcadPDF(file) {
   return records;
 }
 
-function parseEprocXLS(workbook) {
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
-  const results = { intimations: [], errors: [], fileType: '' };
-
-  // Detect file type from first column header
-  const firstCol = String(raw[0]?.[0] || workbook.SheetNames[0] || '').toLowerCase();
-  if (firstCol.includes('prazo em aberto')) results.fileType = 'prazo_aberto';
-  else if (firstCol.includes('pendente')) results.fileType = 'pendente';
-  else results.fileType = 'desconhecido';
-
-  // Find header row
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(10, raw.length); i++) {
-    const row = raw[i].map(c => String(c || '').trim());
-    if (row.some(c => c === 'Processo' || c.includes('Processo'))) {
-      if (row.some(c => c.includes('Classe') || c.includes('Evento'))) { headerIdx = i; break; }
-    }
-  }
-  if (headerIdx === -1) { results.errors.push('Cabeçalho eproc não encontrado'); return results; }
-
-  const hdr = raw[headerIdx].map(c => String(c || '').trim());
-  const col = {};
-  hdr.forEach((h, i) => {
-    const hl = h.toLowerCase();
-    if (h === 'Processo' || hl === 'processo') col.processo = i;
-    else if (hl.includes('órgão') || hl.includes('orgao')) col.orgao = i;
-    else if (hl === 'partes' || hl === 'doc partes') { if (!col.partes) col.partes = i; }
-    else if (hl.includes('doc parte')) col.docParte = i;
-    else if (hl === 'classe') col.classe = i;
-    else if (hl === 'assunto') col.assunto = i;
-    else if (hl.includes('evento') && hl.includes('prazo')) col.eventoPrazo = i;
-    else if (hl.includes('data envio') || hl.includes('requisição')) col.dataEnvio = i;
-    else if (hl.includes('início prazo') || hl.includes('inicio prazo')) col.inicioPrazo = i;
-    else if (hl.includes('final prazo')) col.finalPrazo = i;
-  });
-
-  const parseDate = parseAnyDate; // use shared utility
-
-  // Extract party opposing União from partes string
-  const extractPartyName = (partesRaw) => {
-    const clean = partesRaw.replace(/\r/g, '\n').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    // Split by X to get opposing sides
-    const sides = clean.split(/\s+X\s+/i);
-    
-    // Strategy 1: find the side that does NOT contain Fazenda/União
-    for (const side of sides) {
-      if (side.toUpperCase().includes('FAZENDA NACIONAL') || side.toUpperCase().includes('UNIÃO -')) continue;
-      // Extract name after role keyword
-      const nameMatch = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Impetrante|Exequente|Requerente)\s+(.+?)(?:\s*\(|$)/i);
-      if (nameMatch) {
-        const name = nameMatch[1].trim();
-        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
-      }
-      // Fallback: just take anything after the role word
-      const fallback = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+(.+)/i);
-      if (fallback) {
-        const name = fallback[1].replace(/\(.*/, '').trim();
-        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
-      }
-    }
-    
-    // Strategy 2: scan all role+name patterns, pick first non-Fazenda
-    const allNames = [...clean.matchAll(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+([^\(X]+)/gi)];
-    for (const m of allNames) {
-      const name = m[1].trim();
-      if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO') && name.length > 2) return name;
-    }
-    
-    return '';
-  };
-
-  for (let i = headerIdx + 1; i < raw.length; i++) {
-    const row = raw[i];
-    const processo = String(row[col.processo] || '').trim();
-    if (!processo || processo.length < 10) continue;
-
-    const partesRaw = String(row[col.partes] || '');
-    const partes = partesRaw.replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-    const partyName = extractPartyName(partesRaw);
-    const orgao = String(row[col.orgao] || '').trim();
-    const classe = String(row[col.classe] || '').trim();
-    const assunto = String(row[col.assunto] || '').trim();
-    const eventoPrazo = String(row[col.eventoPrazo] || '').trim();
-
-    let jurisdiction = '';
-    const orgUp = orgao.toUpperCase();
-    if (orgUp.startsWith('PR')) jurisdiction = 'PR';
-    else if (orgUp.startsWith('RS')) jurisdiction = 'RS';
-    else if (orgUp.startsWith('SC')) jurisdiction = 'SC';
-    else if (orgUp.includes('TJ')) jurisdiction = 'TJ';
-    else jurisdiction = orgao.slice(0, 4);
-
-    results.intimations.push({
-      processNumber: processo,
-      partyName,
-      parties: partes,
-      organ: orgao,
-      jurisdiction,
-      className: classe,
-      subject: assunto,
-      eventDescription: eventoPrazo,
-      dateSent: parseDate(row[col.dataEnvio]),
-      dateStart: parseDate(row[col.inicioPrazo]),
-      dateDeadline: parseDate(row[col.finalPrazo]),
-      status: 'pendente_analise',
-      object: '',
-      obs1: '',
-      obs2: '',
-      minutaUrl: '',
-      operationId: ''
-    });
-  }
-  return results;
-}
-
 const NODE_COLORS = {
   operation: '#00d4aa', personPJ: '#3b82f6', personPF: '#60a5fa',
   debt: '#f59e0b', debtRisk: '#f43f5e', execution: '#a78bfa',
@@ -3212,7 +3096,6 @@ function App() {
   const cloudPushRef = useRef(null);      // populated after cloudPush is declared; breaks circular dep
   const fileInputRef = useRef(null);
   const xlsInputRef = useRef(null);
-  const eprocInputRef = useRef(null);
   const pgfnPdfInputRef = useRef(null);
 
   const hydratedRef = useRef(false);
@@ -3604,111 +3487,6 @@ function App() {
       counts: { cdaUpdated, eventsCreated, cdaNotFound, personsCreated, respCreated }
     });
     setImportResult(logs);
-    e.target.value = '';
-  };
-
-  const handleEprocImport = (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    const logs = [];
-    let newCount = 0, updCount = 0, unlinkedCount = 0;
-    const processFile = (file) => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const wb = XLSX.read(ev.target.result, { type: 'binary' });
-          const res = parseEprocXLS(wb);
-          logs.push(`📬 ${file.name}: ${res.intimations.length} intimação(ões) [${res.fileType}]`);
-          res.errors.forEach(err => logs.push(`⚠️ ${err}`));
-          res.intimations.forEach(intim => {
-            // Smart match: same process + same event description
-            // But if the existing intimation is already resolved (analisado/responded) AND
-            // the import has a different dateSent, it's a NEW intimation, not an update.
-            const candidates = (data.intimations || []).filter(x =>
-              sameProc(x.processNumber, intim.processNumber) &&
-              x.eventDescription === intim.eventDescription
-            );
-
-            let existing = null;
-            if (candidates.length > 0) {
-              // Priority 1: find one with matching dateSent (exact same intimation)
-              if (intim.dateSent) {
-                existing = candidates.find(x => x.dateSent === intim.dateSent);
-              }
-              // Priority 2: find an unresolved one (still being worked on)
-              if (!existing) {
-                existing = candidates.find(x => x.status !== 'analisado' && !x.responseAction);
-              }
-              // Priority 3: if all are resolved and dateSent differs → it's a NEW intimation
-              if (!existing) {
-                const allResolved = candidates.every(x => x.status === 'analisado' || x.responseAction);
-                const dateSentDiffers = intim.dateSent && !candidates.some(x => x.dateSent === intim.dateSent);
-                if (allResolved && dateSentDiffers) {
-                  existing = null; // Force creation of new intimation
-                } else if (allResolved && !intim.dateSent) {
-                  // No dateSent to compare — match the most recent resolved one (update scenario)
-                  existing = candidates.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''))[0];
-                } else {
-                  existing = candidates[0]; // Fallback
-                }
-              }
-            }
-            if (existing) {
-              // MERGE: update only dates and system fields, preserve user data
-              const merged = { ...existing };
-              let changed = false;
-              let significantChange = false; // Only flag visually for meaningful changes
-              if (intim.dateStart && intim.dateStart !== existing.dateStart) { merged.dateStart = intim.dateStart; changed = true; significantChange = true; }
-              if (intim.dateDeadline && intim.dateDeadline !== existing.dateDeadline) { merged.dateDeadline = intim.dateDeadline; changed = true; significantChange = true; }
-              if (intim.dateSent && !existing.dateSent) { merged.dateSent = intim.dateSent; changed = true; }
-              if (intim.partyName && !existing.partyName) { merged.partyName = intim.partyName; changed = true; }
-              if (changed) {
-                // Only show visual flag for significant changes (dates, status)
-                if (significantChange) {
-                  merged._importFlag = 'updated';
-                  merged._importFlagAt = new Date().toISOString();
-                }
-                upsert('intimations', merged);
-                updCount++;
-                logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
-              } else {
-                logs.push(`ℹ️ Sem alteração: ${intim.processNumber}`);
-              }
-            } else {
-              // NOVA: vincula operação SOMENTE com evidência concreta.
-              // REGRA: se o processo não consta em nenhum processo/CDA cadastrado,
-              // a intimação fica SEM operação ("Nenhuma"). Antes ela herdava a
-              // operação aberta na tela — causa das vinculações falsas.
-              const matchExec = data.executions.find(ex => ex.operationId && sameProc(ex.processNumber, intim.processNumber));
-              const matchDebt = matchExec ? null : data.debts.find(d => d.operationId && sameProc(d.processNumber, intim.processNumber));
-              if (matchExec) intim.operationId = matchExec.operationId;
-              else if (matchDebt) intim.operationId = matchDebt.operationId;
-              // Intimação irmã do MESMO processo com vínculo já definido pelo usuário
-              else if (candidates.length > 0 && candidates[0].operationId) intim.operationId = candidates[0].operationId;
-              else {
-                intim.operationId = '';
-                unlinkedCount++;
-                logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
-              }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
-              newCount++;
-            }
-          });
-        } catch (err) { logs.push(`❌ ${err.message}`); }
-        resolve();
-      };
-      reader.readAsBinaryString(file);
-    });
-    Promise.all(files.map(processFile)).then(() => {
-      logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
-      if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
-      logImport('eproc', {
-        fileNames: files.map(f => f.name),
-        summary: `${newCount} nova(s), ${updCount} atualizada(s)`,
-        counts: { new: newCount, updated: updCount }
-      });
-      setImportResult(logs);
-    });
     e.target.value = '';
   };
 
@@ -5789,29 +5567,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
 
           {importMode === 'planilhas' && <>
-          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos) ou intimações do eproc. O sistema identifica o tipo automaticamente.</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
-              <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
-                <div className="dz-icon">📂</div>
-                <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
-              </div>
-              <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
+          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos). O sistema identifica o tipo automaticamente.</div>
+          <div>
+            <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
+            <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
+              onDragLeave={e => e.currentTarget.classList.remove('dragover')}
+              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
+              <div className="dz-icon">📂</div>
+              <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
             </div>
-            <div>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>Intimações eproc (TRF4)</div>
-              <div className="drop-zone" onClick={() => eprocInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleEprocImport({ target: { files: e.dataTransfer.files } }); }}>
-                <div className="dz-icon">📬</div>
-                <div className="dz-text">citacaoIntimacao*.xls</div>
-              </div>
-            </div>
+            <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
           </div>
           </>}
 
@@ -9909,8 +9675,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="sent">Data de envio (recente)</option>
             </select>
             <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media',urgent:false}})}>+ Intimação</button>
-            <button className="btn-secondary btn-sm" onClick={() => eprocInputRef.current?.click()}>📬 Importar eproc</button>
-            <input ref={eprocInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleEprocImport} />
             <div className="view-toggle" style={{marginLeft:'auto'}}>
               <button className={intimView==='list'?'active':''} onClick={()=>setIntimView('list')}>☰ Lista</button>
               <button className={intimView==='kanban'?'active':''} onClick={()=>setIntimView('kanban')}>▦ Kanban</button>
