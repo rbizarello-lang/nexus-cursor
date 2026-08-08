@@ -11237,8 +11237,10 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       {(() => {
         const sel = Array.isArray(form.classifications) ? form.classifications : (form.classification ? [form.classification] : []);
         const toggle = (k) => { const next = sel.includes(k) ? sel.filter(x=>x!==k) : [...sel, k]; set('classifications', next); };
+        const entries = Object.entries(OP_CLASSIFICATIONS)
+          .sort((a, b) => a[1].label.localeCompare(b[1].label, 'pt-BR', { sensitivity: 'base' }));
         return (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 14px',padding:10,background:'var(--bg-input)',border:'1px solid var(--border)',borderRadius:6}}>
-          {Object.entries(OP_CLASSIFICATIONS).map(([k,v]) => { const on = sel.includes(k); return (
+          {entries.map(([k,v]) => { const on = sel.includes(k); return (
             <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:12,cursor:'pointer',color:on?v.color:'var(--text-secondary)',fontWeight:on?600:400}}>
               <input type="checkbox" checked={on} onChange={()=>toggle(k)} style={{accentColor:'var(--accent)',cursor:'pointer'}} />
               {v.label}
