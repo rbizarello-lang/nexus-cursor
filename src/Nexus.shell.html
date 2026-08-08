@@ -1679,23 +1679,24 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-week-leg.kind-presc { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
 
 .demo-inbox-switch {
-  display: flex; gap: 0; padding: 10px 24px 0; flex-shrink: 0;
+  display: flex; gap: 0; padding: 0 24px; flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   background: var(--demo-glass-soft, var(--bg-card));
   animation: demoFadeIn 0.25s ease;
 }
+/* Espelha .demo-zone-btn: mesma fonte, underline reto (sem radius do button global). */
 .demo-inbox-tab {
-  position: relative; font-size: 12px; font-weight: 600; padding: 10px 16px 12px;
-  border: none; background: transparent; color: var(--text-muted); cursor: pointer;
-  font-family: var(--font-ui, var(--font-display), system-ui, sans-serif);
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-  transition: color 0.18s ease, border-color 0.18s ease;
+  padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--text-muted);
+  background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+  cursor: pointer; font-family: var(--font-ui); margin-bottom: -1px;
+  transition: color 0.2s, border-color 0.2s;
 }
 .demo-inbox-tab:hover { color: var(--text-secondary); }
 .demo-inbox-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .demo-inbox-panel { animation: demoInboxSlide 0.28s ease; }
 .briefing-sub-switch {
-  padding: 0; margin: 0 0 14px; background: transparent;
+  /* Alinha com .demo-zones (fora do padding do .entity-area). */
+  padding: 0 24px; margin: -16px -24px 14px; background: transparent;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
