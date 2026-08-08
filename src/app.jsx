@@ -8742,26 +8742,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
     setShowSettings(false);
   };
-  const loadDemoData = () => {
+  const loadDemoData = ({ force = false } = {}) => {
+    const hasData = (data.operations || []).length > 0
+      || (data.debts || []).length > 0
+      || (data.executions || []).length > 0
+      || (data.intimations || []).length > 0;
+    if (hasData && !force) {
+      if (!confirm('Resetar dados demo?\n\nIsso SUBSTITUI todo o dataset deste navegador pelas 5 operações de demonstração (não soma / não duplica).\n\nContinuar?')) return;
+    }
     const demo = generateDemoData();
-    setData(prev => {
-      // Demo Experimental: substitui o dataset para o quadro semanal/filas ficarem coerentes.
-      // Clássico: se já houver dados, faz merge (comportamento anterior).
-      if (isDemo || (prev.operations || []).length === 0) return demo;
-      const merged = { ...prev };
-      Object.keys(demo).forEach(k => {
-        if (k === 'links') {
-          merged.links = { ...(prev.links || {}) };
-          Object.keys(demo.links).forEach(lk => { merged.links[lk] = [...((prev.links || {})[lk] || []), ...demo.links[lk]]; });
-        } else if (Array.isArray(demo[k])) {
-          merged[k] = [...(prev[k] || []), ...demo[k]];
-        }
-      });
-      return merged;
-    });
+    // Sempre substitui — nunca mescla (evitar duplicatas ao recarregar).
+    setData(demo);
     setActiveOpId(null);
     if (isDemo) setViewMode('hoje');
-    alert('✅ Dados de demonstração carregados (3 operações fictícias).');
+    alert('✅ Dados demo resetados (5 operações fictícias).');
   };
   const openIntimsCount = (data.intimations || []).filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
@@ -8837,7 +8831,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </>}
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
-        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Carregar dados demo</button>}
+        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
@@ -8947,7 +8941,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
             <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
             <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
-            {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
+            {!isGAS && <button className="btn-secondary" onClick={() => loadDemoData()}>Resetar / carregar dados demo</button>}
           </div>
         </div>
         {fila.length === 0 ? (
@@ -9441,11 +9435,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div style={{fontSize:10,color:'var(--text-muted)',padding:'6px 0'}}>
             App fora do ambiente Apps Script. Sincronização com Planilha indisponível.
           </div>
-          <button className="btn-secondary btn-xs" style={{width:'100%',marginTop:4}} onClick={() => {
-            const hasData = (data.operations || []).length > 0;
-            if (hasData && !confirm('⚠ Já existem operações neste navegador.\n\nOs dados de demonstração serão SOMADOS aos existentes (podem se misturar com dados reais). O ideal é usar só em ambiente vazio.\n\nContinuar mesmo assim?')) return;
-            loadDemoData();
-          }}>🧪 Carregar dados de demonstração</button>
+          <button className="btn-secondary btn-xs" style={{width:'100%',marginTop:4}} onClick={() => loadDemoData()}>🧪 Resetar / carregar dados demo</button>
         </>)}
       </div>
 
