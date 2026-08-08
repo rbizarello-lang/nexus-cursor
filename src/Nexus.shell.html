@@ -14,15 +14,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Public+Sans:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  /* Superfícies mais próximas do deep — menos contraste entre poço e cards */
+  /* Referência: cards quase no tom do fundo; leitura por borda (baixo contraste) */
   --bg-deep: #17263f;
-  --bg-main: #1c2e4a;
-  --bg-card: #203352;
-  --bg-card-hover: #263a5c;
-  --bg-elevated: #243858;
+  --bg-main: #192941;
+  --bg-card: #1b2b44;
+  --bg-card-hover: #20304a;
+  --bg-elevated: #1d2e48;
   --bg-input: #182840;
-  --border: #314866;
-  --border-light: #425d80;
+  --border: #2a3d58;
+  --border-light: #3a5270;
   --text-primary: #e8edf5;
   --text-secondary: #8ea0b8;
   --text-muted: #5a7088;
@@ -59,13 +59,13 @@
 /* ─── Theme: Mar Profundo (navy · teal; substitui Obsidian) ─── */
 .theme-mar {
   --bg-deep: #0c1524;
-  --bg-main: #101929;
-  --bg-card: #141f33;
-  --bg-card-hover: #18263c;
-  --bg-elevated: #1a2940;
-  --bg-input: #0e1726;
-  --border: #243550;
-  --border-light: #334a66;
+  --bg-main: #0e1728;
+  --bg-card: #101a2c;
+  --bg-card-hover: #142032;
+  --bg-elevated: #121e30;
+  --bg-input: #0d1626;
+  --border: #1e2c42;
+  --border-light: #2c3e58;
   --text-primary: #e6edf5;
   --text-secondary: #a9bbd0;
   --text-muted: #7d91a8;
@@ -91,30 +91,30 @@
   --cyan-dim: rgba(109,184,196,0.14);
   --purple: #8a9bb0;
   --purple-dim: rgba(138,155,176,0.14);
-  --shadow: 0 2px 20px rgba(0,0,0,0.45);
+  --shadow: 0 1px 8px rgba(0,0,0,0.28);
 }
 .app-layout.theme-mar {
   background:
-    radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.10), transparent 55%),
-    radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.07), transparent 50%),
-    linear-gradient(180deg, #101828 0%, #0c1524 45%, #0a1220 100%);
+    radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.08), transparent 55%),
+    radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.05), transparent 50%),
+    linear-gradient(180deg, #0e1728 0%, #0c1524 45%, #0a1220 100%);
 }
 /* ─── Theme: Claro (papel-ardósia; tokens da Demo Clara / .edition-demo base) ─── */
 .theme-claro {
   --bg-deep: #e8eef2;
-  --bg-main: #eef2f5;
-  --bg-card: #f1f4f6;
-  --bg-card-hover: #e9eef2;
-  --bg-elevated: #e6ecf1;
-  --bg-input: #f1f4f6;
-  --border: #c5d0da;
-  --border-light: #a8b6c4;
+  --bg-main: #ebf0f4;
+  --bg-card: #eef2f5;
+  --bg-card-hover: #e6ecf1;
+  --bg-elevated: #e9eef2;
+  --bg-input: #eef2f5;
+  --border: #d0d8e0;
+  --border-light: #b8c4d0;
   --text-primary: #0b1f33;
   --text-secondary: #3d5166;
   --text-muted: #5a7088;
-  --demo-glass-card: #f1f4f6;
-  --demo-glass: rgba(241,244,246,0.94);
-  --demo-glass-soft: rgba(238,242,245,0.88);
+  --demo-glass-card: #eef2f5;
+  --demo-glass: rgba(238,242,245,0.94);
+  --demo-glass-soft: rgba(235,240,244,0.88);
   --accent: #b87333;
   --accent-dim: rgba(184,115,51,0.12);
   --accent-glow: rgba(184,115,51,0.22);
@@ -137,13 +137,13 @@
   --cyan-dim: rgba(42,122,134,0.10);
   --purple: #5a6b7d;
   --purple-dim: rgba(90,107,125,0.10);
-  --shadow: 0 2px 18px rgba(11,31,51,0.08);
+  --shadow: 0 1px 6px rgba(11,31,51,0.05);
 }
 .app-layout.theme-claro {
   background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(184,115,51,0.10), transparent 55%),
-    radial-gradient(900px 400px at 90% 0%, rgba(42,95,143,0.08), transparent 50%),
-    linear-gradient(180deg, #eef3f6 0%, #e8eef2 40%, #e4eaef 100%);
+    radial-gradient(1200px 500px at 10% -10%, rgba(184,115,51,0.07), transparent 55%),
+    radial-gradient(900px 400px at 90% 0%, rgba(42,95,143,0.05), transparent 50%),
+    linear-gradient(180deg, #ebf0f4 0%, #e8eef2 40%, #e6ebf0 100%);
 }
 .app-layout.theme-claro .btn-primary:hover { background: var(--pgfn-light); box-shadow: none; }
 .app-layout.theme-claro .settings-panel { box-shadow: 0 8px 32px rgba(11,31,51,0.14); }
@@ -158,13 +158,13 @@
 /* ─── Theme: Ferro e Maré (ferro escuro + azul maré, destaques bege, alerta burgundy) ─── */
 .theme-ferro {
   --bg-deep: #171e27;
-  --bg-main: #1b232e;
-  --bg-card: #1e2835;
-  --bg-card-hover: #243041;
-  --bg-elevated: #1f2d40;
-  --bg-input: #181f28;
-  --border: #2a3545;
-  --border-light: #3a4a5e;
+  --bg-main: #191f29;
+  --bg-card: #1b222c;
+  --bg-card-hover: #202833;
+  --bg-elevated: #1d2530;
+  --bg-input: #181e28;
+  --border: #2a3340;
+  --border-light: #3a4452;
   --text-primary: #e2ded0;
   --text-secondary: #c0c0c0;
   --text-muted: #7d8896;
@@ -178,7 +178,7 @@
   --pgfn-dim: rgba(102,0,0,0.20);
   --blue: #5d8bc4;
   --blue-dim: rgba(93,139,196,0.14);
-  --shadow: 0 2px 16px rgba(0,0,0,0.45);
+  --shadow: 0 1px 8px rgba(0,0,0,0.28);
 }
 /* ─── Font variants (settings → class on html + .app-layout) ─── */
 .font-inter, html.font-inter, .app-layout.font-inter {
@@ -1142,13 +1142,13 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 
 .app-layout.edition-demo {
   --bg-deep: #e8eef2;
-  --bg-main: #eef2f5;
-  --bg-card: #f1f4f6;
-  --bg-card-hover: #e9eef2;
-  --bg-elevated: #e6ecf1;
-  --bg-input: #f1f4f6;
-  --border: #c5d0da;
-  --border-light: #a8b6c4;
+  --bg-main: #ebf0f4;
+  --bg-card: #eef2f5;
+  --bg-card-hover: #e6ecf1;
+  --bg-elevated: #e9eef2;
+  --bg-input: #eef2f5;
+  --border: #d0d8e0;
+  --border-light: #b8c4d0;
   --text-primary: #0b1f33;
   --text-secondary: #3d5166;
   --text-muted: #5a7088;
@@ -1185,29 +1185,29 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --demo-rail-active-bg: rgba(184,115,51,0.22);
   --demo-rail-active-bd: rgba(184,115,51,0.45);
   --demo-rail-active-fg: #f0d2ad;
-  --demo-glass: rgba(241,244,246,0.78);
-  --demo-glass-soft: rgba(238,242,245,0.62);
-  --demo-glass-card: rgba(241,244,246,0.78);
+  --demo-glass: rgba(238,242,245,0.78);
+  --demo-glass-soft: rgba(235,240,244,0.62);
+  --demo-glass-card: rgba(238,242,245,0.78);
   --demo-overlay: rgba(11,31,51,0.45);
   --demo-settings-bg: #12263a;
   grid-template-columns: 76px 1fr;
   font-family: var(--font-ui);
   background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(184,115,51,0.10), transparent 55%),
-    radial-gradient(900px 400px at 90% 0%, rgba(42,95,143,0.08), transparent 50%),
-    linear-gradient(180deg, #eef3f6 0%, #e8eef2 40%, #e4eaef 100%);
+    radial-gradient(1200px 500px at 10% -10%, rgba(184,115,51,0.07), transparent 55%),
+    radial-gradient(900px 400px at 90% 0%, rgba(42,95,143,0.05), transparent 50%),
+    linear-gradient(180deg, #ebf0f4 0%, #e8eef2 40%, #e6ebf0 100%);
 }
 
 /* Demo dark themes — off-white text, elevated grays, no pure black (WCAG-minded) */
 .app-layout.edition-demo.demo-theme-mar {
   --bg-deep: #0c1524;
-  --bg-main: #101929;
-  --bg-card: #141f33;
-  --bg-card-hover: #18263c;
-  --bg-elevated: #1a2940;
-  --bg-input: #0e1726;
-  --border: #243550;
-  --border-light: #334a66;
+  --bg-main: #0e1728;
+  --bg-card: #101a2c;
+  --bg-card-hover: #142032;
+  --bg-elevated: #121e30;
+  --bg-input: #0d1626;
+  --border: #1e2c42;
+  --border-light: #2c3e58;
   --text-primary: #e6edf5;
   --text-secondary: #a9bbd0;
   --text-muted: #7d91a8;
@@ -1241,15 +1241,16 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --demo-rail-active-bg: rgba(196,163,106,0.20);
   --demo-rail-active-bd: rgba(196,163,106,0.42);
   --demo-rail-active-fg: #f0d8ae;
-  --demo-glass: rgba(16,25,41,0.90);
-  --demo-glass-soft: rgba(20,31,51,0.86);
-  --demo-glass-card: rgba(20,31,51,0.92);
+  --demo-glass: rgba(14,23,40,0.92);
+  --demo-glass-soft: rgba(16,26,44,0.88);
+  --demo-glass-card: rgba(16,26,44,0.92);
   --demo-overlay: rgba(4,8,16,0.62);
-  --demo-settings-bg: #101929;
+  --demo-settings-bg: #0e1728;
+  --shadow: 0 1px 8px rgba(0,0,0,0.28);
   background:
-    radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.10), transparent 55%),
-    radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.07), transparent 50%),
-    linear-gradient(180deg, #101828 0%, #0c1524 45%, #0a1220 100%);
+    radial-gradient(1000px 420px at 12% -8%, rgba(126,176,214,0.08), transparent 55%),
+    radial-gradient(800px 360px at 92% 0%, rgba(196,163,106,0.05), transparent 50%),
+    linear-gradient(180deg, #0e1728 0%, #0c1524 45%, #0a1220 100%);
 }
 .app-layout.edition-demo.demo-theme-ardosia {
   --bg-deep: #151a22;
@@ -2065,6 +2066,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-section-card {
   margin-top: 14px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-card); overflow: hidden;
+  box-shadow: var(--shadow);
 }
 .proc-section-card:first-of-type { margin-top: 0; }
 .proc-dup-banner + .proc-section-card { margin-top: 14px; }
