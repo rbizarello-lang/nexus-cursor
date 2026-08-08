@@ -6786,7 +6786,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
                     const isInherited = evt._inheritedFromParent || (isApenso && evt.executionId === group.exec.parentExecutionId);
                     const isFromIDPJ = !!evt._inheritedFromIDPJ;
-                    const evtBg = isFromIDPJ ? 'rgba(155,40,72,0.08)' : isInherited ? 'rgba(91,143,217,0.06)' : 'var(--bg-elevated)';
+                    const evtBg = isFromIDPJ ? 'rgba(155,40,72,0.08)' : isInherited ? 'rgba(91,143,217,0.06)' : 'color-mix(in srgb, var(--bg-main) 45%, transparent)';
                     const evtPrefix = isFromIDPJ ? '🛡️ ' : isInherited ? '⤷ ' : '';
                     return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:evtBg,borderRadius:4,borderLeft:`2px solid ${isFromIDPJ?'var(--pgfn)':catColor}`,cursor:'pointer'}}
                       onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
@@ -6935,7 +6935,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const borderLeftWidth = cardVariant !== 'normal' || isApenso || isLinkedToIDPJ2 ? 3 : 1;
         const bgColor = cardVariant === 'idpj' ? 'rgba(155,40,72,0.04)'
           : cardVariant === 'central' ? 'rgba(122,139,163,0.04)'
-          : isApenso ? 'var(--bg-elevated)'
           : 'var(--bg-card)';
 
         // Opacity based on execution status
@@ -7113,7 +7112,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const catColor = cat==='interruptiva'?'var(--green)':cat==='suspensiva'?'var(--blue)':cat==='marco'?'var(--red)':'var(--text-muted)';
                 const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
                 const isInherited = isExec && evt.executionId === e.parentExecutionId;
-                return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:isInherited?'rgba(91,143,217,0.06)':'var(--bg-elevated)',borderRadius:4,borderLeft:`2px solid ${catColor}`,cursor:'pointer'}}
+                return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:isInherited?'rgba(91,143,217,0.06)':'color-mix(in srgb, var(--bg-main) 45%, transparent)',borderRadius:4,borderLeft:`2px solid ${catColor}`,cursor:'pointer'}}
                   onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
                     <span style={{fontSize:11,fontWeight:700,color:catColor}}>{isInherited && '⤷ '}{catIcon} {evtType.label || evt.type}</span>

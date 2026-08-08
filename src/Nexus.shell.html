@@ -1042,8 +1042,14 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .process-risk.risk-critical strong { color: var(--red); }
 .process-risk.risk-warning strong { color: var(--yellow); }
 .process-risk.risk-ok strong { color: var(--green); }
-.process-detail { padding: 0 8px 10px; border-top: 1px solid var(--border); background: rgba(0,0,0,.035); }
+.process-detail { padding: 0 8px 10px; border-top: 1px solid var(--border); background: var(--bg-card); }
 .process-detail > .entity-card { margin: 8px 0 0 !important; padding-top: 10px !important; border-top: 1px dashed var(--border) !important; border-color: transparent !important; border-radius: 0 !important; background: transparent !important; }
+/* Detalhe dentro do painel Visão D: sem tom elevated (reservado às barras IDPJ/Cautelar/…) */
+.proc-md-pane .demo-proc-table th,
+.proc-md-pane .demo-proc-table-detail td,
+.proc-md-pane .process-detail {
+  background: var(--bg-card);
+}
 
 .cda-row { cursor: pointer; transition: background .12s ease; font-family: var(--font-display); }
 .cda-row:hover { background: var(--blue-dim) !important; }
@@ -1801,7 +1807,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-muted); padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-elevated) 35%, var(--bg-card));
+  /* Conteúdo do processo: tom próximo do card — elevated só nas linhas identificadoras de seção */
+  background: var(--bg-card);
 }
 .demo-proc-table td {
   padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text-secondary); vertical-align: top;
@@ -1811,7 +1818,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-proc-table-row:hover td { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
 .demo-proc-table-detail td {
   padding: 0;
-  background: color-mix(in srgb, var(--bg-elevated) 28%, var(--bg-card));
+  background: var(--bg-card);
 }
 
 /* ── Visão D · Master–detail (clássico + demo) ── */
