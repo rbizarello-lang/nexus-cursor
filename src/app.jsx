@@ -1,5 +1,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
+/** Versão de produto (fonte: package.json → window.__NEXUS_VERSION__ no build). Exibida em ⚙. */
+const NEXUS_VERSION = (typeof window !== 'undefined' && window.__NEXUS_VERSION__) || '0.0.0';
 const STORAGE_KEY = 'nexus_fiscal_v2';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const defaultData = () => ({ operations: [], people: [], debts: [], executions: [], measures: [], assets: [], documents: [], prescriptionEvents: [], intimations: [], tasks: [], stickyNotes: [], watchlist: [], hearings: [], desk: [], models: [], importLogs: [], changeLog: [], links: { measurePeople: [], measureAssets: [], cdaResponsibilities: [] } });
@@ -33,89 +35,384 @@ const guessMatters = (texto) => {
 // para popular os painéis (quadro semanal, agenda 30 dias, prescrição iminente, revisões).
 // Todos os nomes/CPFs/CNPJs/processos são inventados.
 const generateDemoData = () => {
-  // Data local (meio-dia para evitar viradas de fuso/DST) no formato YYYY-MM-DD
+  // Dataset demo: 5 operações densas e interligadas (clássico + Demo).
+  // Nomes/CPFs/CNPJs/processos fictícios. Datas relativas a "hoje".
   const iso = (n) => { const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const ts = (n) => new Date(Date.now() + n*86400000).toISOString();
   const base = defaultData();
-  return { ...base,
-    operations: [
-      { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas e blindagem patrimonial no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210) },
-      { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora usando interpostas pessoas; medida cautelar fiscal em curso.', status:'ativa', priority:'normal', classifications:['replicar','muitos_bens'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160) },
-      { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; execução suspensa (art. 40) e embargos.', status:'ativa', priority:'normal', classifications:['em_andamento','recurso_interposto'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400) },
-    ],
-    people: [
-      { id:'pe-1', operationId:'op-demo-1', name:'Comercial Fachada Norte LTDA', subtype:'PJ', cpfCnpj:'12.345.678/0001-90', role:'Devedora originária', operationRole:'alvo' },
-      { id:'pe-2', operationId:'op-demo-1', name:'João Almeida Souza', subtype:'PF', cpfCnpj:'123.456.789-00', role:'Sócio administrador (redirecionado)', operationRole:'alvo' },
-      { id:'pe-3', operationId:'op-demo-1', name:'Marina Ferreira Norte', subtype:'PF', cpfCnpj:'987.654.321-00', role:'Sócia — incluída por IDPJ', operationRole:'alvo' },
-      { id:'pe-4', operationId:'op-demo-2', name:'Distribuidora Vale Verde EIRELI', subtype:'PJ', cpfCnpj:'22.333.444/0001-55', role:'Devedora originária', operationRole:'alvo' },
-      { id:'pe-5', operationId:'op-demo-2', name:'Carlos Eduardo Menezes', subtype:'PF', cpfCnpj:'111.222.333-44', role:'Interposta pessoa (laranja)', operationRole:'alvo' },
-      { id:'pe-6', operationId:'op-demo-3', name:'Indústria Metalúrgica Sul S/A', subtype:'PJ', cpfCnpj:'33.444.555/0001-22', role:'Sociedade sucedida', operationRole:'alvo' },
-      { id:'pe-7', operationId:'op-demo-3', name:'Nova Metal Sul LTDA', subtype:'PJ', cpfCnpj:'44.555.666/0001-33', role:'Sucessora de fato', operationRole:'alvo' },
-    ],
-    debts: [
-      { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ' },
-      { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
-      { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
-      { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
-      { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ' },
-      { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
-    ],
-    executions: [
-      { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500) },
-      { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1'], protocolDate: iso(-120) },
-      { id:'ex-3', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', className:'Execução Fiscal', court:'2ª Vara Federal de Londrina', processTag:'central', status:'ativa', hasGuarantee:true, protocolDate: iso(-800) },
-      { id:'ex-4', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', className:'Medida Cautelar Fiscal', court:'2ª Vara Federal de Londrina', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-3'], protocolDate: iso(-90) },
-      { id:'ex-5', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', className:'Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'suspensa', prescriptionForecast: iso(320), protocolDate: iso(-1600) },
-      { id:'ex-6', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', className:'Embargos à Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', parentExecutionId:'ex-5', protocolDate: iso(-30) },
-    ],
-    assets: [
-      { id:'as-1', operationId:'op-demo-1', description:'Imóvel — Matrícula 45.678 CRI Maringá', subtype:'imovel', value:900000, status:'indisponibilidade_ativa', registry:'45.678', holderId:'pe-1', analyticsRegistered:true, source:'CNIB', processRef:'5001234-56.2023.4.04.7001' },
-      { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', holderId:'pe-2', source:'Renajud' },
-      { id:'as-3', operationId:'op-demo-2', description:'Bloqueio de conta bancária', subtype:'conta_bancaria', value:145000, status:'indisponibilidade_ativa', holderId:'pe-4', source:'Sisbajud', processRef:'5003333-22.2024.4.04.7002' },
-      { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
-    ],
-    intimations: [
-      { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false },
-      { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
-      { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true },
-      { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false },
-    ],
-    tasks: [
-      { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
-      { id:'ta-2', operationId:'op-demo-2', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
-      { id:'ta-3', operationId:'op-demo-3', title:'Analisar viabilidade de redirecionamento à sucessora', description:'Reunir provas da sucessão de fato para IDPJ.', priority:'media', dueDate: iso(-4), status:'pendente', taskVisibility:'global' },
-      { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
-    ],
-    hearings: [
-      { id:'he-1', operationId:'op-demo-1', date: iso(4), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
-      { id:'he-2', operationId:'op-demo-2', date: iso(24), time:'10:00', processNumber:'5007777-88.2022.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', hearingType:'instrucao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'5', roteiro:'Inquirição de testemunhas sobre a interposição de pessoas.' },
-      { id:'he-3', operationId:'op-demo-3', date: iso(-5), time:'09:00', processNumber:'5000045-12.2019.4.04.7003', parties:'FAZENDA NACIONAL X Indústria Metalúrgica Sul S/A', hearingType:'una', status:'realizada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'3' },
-    ],
-    watchlist: [
-      { id:'wa-1', operationId:'op-demo-2', processNumber:'5005555-44.2025.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', status:'movimentado', reason:'Aguardando homologação de acordo de parcelamento.', createdAt: ts(-15) },
-      { id:'wa-2', operationId:'', processNumber:'5006666-55.2025.4.04.7000', parties:'FAZENDA NACIONAL X Terceiro Interessado', status:'aguardando', reason:'Possível conexão com a Operação Fachada Norte.', createdAt: ts(-5) },
-    ],
-    documents: [
-      { id:'do-1', operationId:'op-demo-1', title:'Petição — Resposta à exceção de pré-executividade', url:'https://docs.google.com/document/d/exemplo-demo-1', type:'Manifestação', createdAt: ts(-2) },
-      { id:'do-2', operationId:'op-demo-2', title:'Minuta — Réplica aos embargos', url:'https://docs.google.com/document/d/exemplo-demo-2', type:'Réplica', createdAt: ts(-1) },
-    ],
-    links: {
-      measurePeople: [], measureAssets: [],
-      cdaResponsibilities: [
-        { id:'rl-1', cdaId:'cda-1', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
-        { id:'rl-2', cdaId:'cda-1', personId:'pe-2', role:'coresponsavel_redirecionamento', basis:'Redirecionamento art. 135 CTN — decisão evento 32', addedAt: ts(-100) },
-        { id:'rl-3', cdaId:'cda-1', personId:'pe-3', role:'coresponsavel_idpj', basis:'Incluída por IDPJ — decisão evento 15', addedAt: ts(-110) },
-        { id:'rl-4', cdaId:'cda-2', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
-        { id:'rl-5', cdaId:'cda-3', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
-        { id:'rl-6', cdaId:'cda-3', personId:'pe-5', role:'coresponsavel_idpj', basis:'Interposta pessoa — IDPJ deferido', addedAt: ts(-80) },
-        { id:'rl-7', cdaId:'cda-4', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
-        { id:'rl-8', cdaId:'cda-5', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
-        { id:'rl-9', cdaId:'cda-5', personId:'pe-7', role:'sucessor_de_fato', basis:'Sucessão de fato — em apuração', addedAt: ts(-60) },
-        { id:'rl-10', cdaId:'cda-6', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
-      ],
+
+  const operations = [
+    { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa','muitos_bens'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210),
+      briefing: {
+        entries: [
+          { id:'be-1', title:'Hipótese', body:'Grupo econômico de fato entre Comercial Fachada Norte, Imobiliária Norte Prime e sócios; confusão patrimonial e IDPJ em curso.', updatedAt: ts(-5) },
+          { id:'be-2', title:'Próximos passos', body:'Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.', updatedAt: ts(-1) },
+          { id:'be-1b', title:'Provas', body:'Contratos sociais cruzados, extratos Sisbajud, CNIB matrícula 45.678 e organograma do grupo.', updatedAt: ts(-3) },
+        ],
+        processStageV2: {
+          'ex-2': {
+            ajuizamento: { date: iso(-120), evento: '1', outcome: '', texto: 'IDPJ ajuizado vinculando Marina Ferreira Norte e João Almeida.' },
+            liminar: { date: iso(-90), evento: '12', outcome: 'favoravel', texto: 'Liminar deferida — inclusão cautelar no polo.' },
+            saneamento: { texto: 'Documental: contratos sociais, extratos bancários e vínculos societários.' },
+            decisao: { date: '', evento: '', outcome: '', texto: 'Aguardando instrução / audiência de justificação.' },
+          },
+        },
+      },
     },
+    { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora com interpostas pessoas; EF central, cautelar fiscal, Sisbajud e embargos.', status:'ativa', priority:'normal', classifications:['replicar','muitos_bens','constricao_ativa'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160),
+      briefing: {
+        entries: [
+          { id:'be-3', title:'Estratégia', body:'Cautelar fiscal + Sisbajud; avaliar redirecionamento a Carlos Menezes e à transportadora do grupo.', updatedAt: ts(-2) },
+          { id:'be-3b', title:'Parcelamento', body:'CDA 000778 em parcelamento ativo — monitorar inadimplência.', updatedAt: ts(-6) },
+        ],
+        processStageV2: {
+          'ex-4': {
+            ajuizamento: { date: iso(-90), evento: '1', outcome: '', texto: 'MCF ajuizada em garantia da EF central.' },
+            liminar: { date: iso(-70), evento: '8', outcome: 'favoravel', texto: 'Indisponibilidade deferida parcialmente.' },
+            saneamento: { texto: 'Aguardando complementação de pesquisa patrimonial.' },
+          },
+        },
+      },
+    },
+    { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; EF suspensa (art. 40), embargos e avaliação de IDPJ à sucessora.', status:'ativa', priority:'normal', classifications:['em_andamento','recurso_interposto','poucos_bens'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400),
+      briefing: {
+        entries: [
+          { id:'be-4', title:'Risco', body:'EF suspensa art. 40; embargos ativos; avaliar IDPJ contra Nova Metal Sul e sócio da sucedida.', updatedAt: ts(-4) },
+          { id:'be-4b', title:'Linha do tempo', body:'Marco sem bens → suspensão 1 ano → arquivamento provisório → embargos recentes.', updatedAt: ts(-12) },
+        ],
+        processStageV2: {
+          'ex-17': {
+            ajuizamento: { date: iso(-45), evento: '1', outcome: '', texto: 'IDPJ preliminar contra Nova Metal Sul — em análise interna antes do ajuizamento pleno.' },
+          },
+        },
+      },
+    },
+    { id:'op-demo-4', name:'Operação Holding Atlântico', description:'Holding familiar com bens suficientes, trânsito parcial, garantia e cumprimento de sentença.', status:'ativa', priority:'baixa', classifications:['bens_suficientes','transito_julgado','procedente_1grau','constricao_ativa'], reviewInterval:'trimestral', lastReviewedAt: iso(-10), lastAccessed: ts(-12), createdAt: ts(-500),
+      briefing: {
+        entries: [
+          { id:'be-5', title:'Situação', body:'Crédito majoritário garantido; embargos improcedentes; patrimônio remanescente cobre o remanescente.', updatedAt: ts(-3) },
+          { id:'be-5b', title:'Pendências', body:'Homologar cálculo de garantia; acompanhar levantamento parcial; parcelamento CSLL.', updatedAt: ts(-1) },
+        ],
+        processStageV2: {
+          'ex-10': {
+            ajuizamento: { date: iso(-2000), evento: '1', outcome: '', texto: 'EF ajuizada contra a holding.' },
+            liminar: { date: iso(-1800), evento: '20', outcome: 'favoravel', texto: 'Penhora de cobertura Batel deferida.' },
+            decisao: { date: iso(-400), evento: '210', outcome: 'favoravel', texto: 'Embargos julgados improcedentes — trânsito parcial.' },
+          },
+        },
+      },
+    },
+    { id:'op-demo-5', name:'Operação Agro Horizonte', description:'Produtor rural e agropecuária; Renajud/CNIB, MCF e risco prescricional em ITR/IRPF.', status:'ativa', priority:'alta', classifications:['em_andamento','constricao_ativa','muitos_bens','novas'], opCategory:'alta_relevancia', reviewInterval:'quinzenal', lastReviewedAt: iso(-18), lastAccessed: ts(-2), createdAt: ts(-240),
+      briefing: {
+        entries: [
+          { id:'be-6', title:'Estratégia', body:'Consolidar CNIB da fazenda; estender indisponibilidade a máquinas; diligência in loco.', updatedAt: ts(-2) },
+          { id:'be-6b', title:'Pessoas', body:'Agropecuária Horizonte + Pedro Henrique Agro + cônjuge (meeira) sob análise.', updatedAt: ts(-5) },
+        ],
+        processStageV2: {
+          'ex-16': {
+            ajuizamento: { date: iso(-25), evento: '1', outcome: '', texto: 'MCF ajuizada vinculada à EF da fazenda.' },
+            liminar: { date: iso(-18), evento: '6', outcome: 'favoravel', texto: 'Indisponibilidade parcial deferida (matrícula 12.340).' },
+          },
+        },
+      },
+    },
+  ];
+
+  const people = [
+    // Op 1 — Fachada Norte
+    { id:'pe-1', operationId:'op-demo-1', name:'Comercial Fachada Norte LTDA', subtype:'PJ', cpfCnpj:'12.345.678/0001-90', role:'Devedora originária', operationRole:'alvo', notesList:['Sede: Maringá/PR', 'Baixa atividade declarada desde 2022'] },
+    { id:'pe-2', operationId:'op-demo-1', name:'João Almeida Souza', subtype:'PF', cpfCnpj:'123.456.789-00', role:'Sócio administrador (redirecionado)', operationRole:'alvo' },
+    { id:'pe-3', operationId:'op-demo-1', name:'Marina Ferreira Norte', subtype:'PF', cpfCnpj:'987.654.321-00', role:'Sócia — incluída por IDPJ', operationRole:'alvo' },
+    { id:'pe-19', operationId:'op-demo-1', name:'Imobiliária Norte Prime LTDA', subtype:'PJ', cpfCnpj:'11.222.333/0001-66', role:'Empresa do grupo', operationRole:'relacionada' },
+    { id:'pe-21', operationId:'op-demo-1', name:'Pedro Norte Investimentos', subtype:'PF', cpfCnpj:'321.654.987-11', role:'Sócio oculto (análise)', operationRole:'relacionada' },
+    // Op 2 — Laranjas
+    { id:'pe-4', operationId:'op-demo-2', name:'Distribuidora Vale Verde EIRELI', subtype:'PJ', cpfCnpj:'22.333.444/0001-55', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-5', operationId:'op-demo-2', name:'Carlos Eduardo Menezes', subtype:'PF', cpfCnpj:'111.222.333-44', role:'Interposta pessoa (laranja)', operationRole:'alvo' },
+    { id:'pe-22', operationId:'op-demo-2', name:'Transportes Vale Rápido LTDA', subtype:'PJ', cpfCnpj:'23.444.555/0001-66', role:'Empresa do grupo / frota', operationRole:'relacionada' },
+    { id:'pe-23', operationId:'op-demo-2', name:'Luciana Vale Menezes', subtype:'PF', cpfCnpj:'112.223.334-55', role:'Cônjuge — meeira (análise)', operationRole:'relacionada' },
+    // Op 3 — Sucessão
+    { id:'pe-6', operationId:'op-demo-3', name:'Indústria Metalúrgica Sul S/A', subtype:'PJ', cpfCnpj:'33.444.555/0001-22', role:'Sociedade sucedida', operationRole:'alvo' },
+    { id:'pe-7', operationId:'op-demo-3', name:'Nova Metal Sul LTDA', subtype:'PJ', cpfCnpj:'44.555.666/0001-33', role:'Sucessora de fato', operationRole:'alvo' },
+    { id:'pe-24', operationId:'op-demo-3', name:'Ricardo Metalúrgico Sul', subtype:'PF', cpfCnpj:'445.556.667-78', role:'Diretor da sucedida', operationRole:'alvo' },
+    { id:'pe-25', operationId:'op-demo-3', name:'Metalúrgica Sul Equipamentos ME', subtype:'PJ', cpfCnpj:'45.666.777/0001-44', role:'Braço operacional', operationRole:'relacionada' },
+    // Op 4 — Holding Atlântico
+    { id:'pe-12', operationId:'op-demo-4', name:'Holding Atlântico Participações S/A', subtype:'PJ', cpfCnpj:'77.888.999/0001-33', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-13', operationId:'op-demo-4', name:'Família Atlântico — Espólio', subtype:'PF', cpfCnpj:'444.555.666-77', role:'Sucessores', operationRole:'relacionada' },
+    { id:'pe-26', operationId:'op-demo-4', name:'Atlântico Imóveis SPE LTDA', subtype:'PJ', cpfCnpj:'78.999.000/0001-44', role:'SPE do grupo', operationRole:'relacionada' },
+    { id:'pe-27', operationId:'op-demo-4', name:'Clara Atlântico Costa', subtype:'PF', cpfCnpj:'555.666.777-01', role:'Administradora', operationRole:'alvo' },
+    // Op 5 — Agro Horizonte
+    { id:'pe-14', operationId:'op-demo-5', name:'Agropecuária Horizonte LTDA', subtype:'PJ', cpfCnpj:'88.999.000/0001-44', role:'Devedora originária', operationRole:'alvo' },
+    { id:'pe-15', operationId:'op-demo-5', name:'Pedro Henrique Agro', subtype:'PF', cpfCnpj:'555.666.777-88', role:'Produtor rural / sócio', operationRole:'alvo' },
+    { id:'pe-28', operationId:'op-demo-5', name:'Helena Agro Horizonte', subtype:'PF', cpfCnpj:'556.667.778-99', role:'Cônjuge — meeira', operationRole:'relacionada' },
+    { id:'pe-29', operationId:'op-demo-5', name:'Cooperativa Grãos do Planalto', subtype:'PJ', cpfCnpj:'89.000.111/0001-55', role:'Terceira / armazém', operationRole:'relacionada' },
+  ];
+
+  const debts = [
+    // Op1
+    { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ', notesList:['Prescrição iminente — priorizar'] },
+    { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
+    { id:'cda-16', operationId:'op-demo-1', personId:'pe-2', cdaNumber:'90.6.23.000200-45', value:180000, system:'SIDA', status:'ativa', prescriptionDate: iso(240), tribute:'IRPF' },
+    { id:'cda-19', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000125-45', value:92000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(180), inscriptionDate: iso(-1400), processNumber:'5001234-56.2023.4.04.7001', tribute:'PIS' },
+    { id:'cda-20', operationId:'op-demo-1', personId:'pe-19', cdaNumber:'90.6.23.000300-45', value:350000, system:'Pandora', status:'ativa', prescriptionDate: iso(300), tribute:'IRPJ' },
+    // Op2
+    { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
+    { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
+    { id:'cda-21', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000779-01', value:410000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(140), inscriptionDate: iso(-1700), processNumber:'5007777-88.2022.4.04.7002', tribute:'CSLL' },
+    { id:'cda-22', operationId:'op-demo-2', personId:'pe-5', cdaNumber:'90.6.22.000800-01', value:75000, system:'SIDA', status:'ativa', prescriptionDate: iso(260), tribute:'IRPF' },
+    { id:'cda-23', operationId:'op-demo-2', personId:'pe-22', cdaNumber:'90.6.22.000810-01', value:220000, system:'SIDA', status:'ativa', prescriptionDate: iso(200), tribute:'IRPJ' },
+    // Op3
+    { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ' },
+    { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
+    { id:'cda-24', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000047-88', value:890000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(200), inscriptionDate: iso(-2300), processNumber:'5000045-12.2019.4.04.7003', tribute:'PIS/COFINS' },
+    { id:'cda-25', operationId:'op-demo-3', personId:'pe-7', cdaNumber:'90.6.24.000900-88', value:145000, system:'SIDA', status:'ativa', prescriptionDate: iso(320), tribute:'IRPJ' },
+    { id:'cda-32', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.7.19.000100-01', value:220000, system:'DEBCAD', status:'ativa', prescriptionDate: iso(280), tribute:'INSS' },
+    { id:'cda-33', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.8.21.000200-02', value:100000, system:'FGTS', status:'ativa', prescriptionDate: iso(190), tribute:'FGTS' },
+    // Op4
+    { id:'cda-11', operationId:'op-demo-4', personId:'pe-12', cdaNumber:'90.6.18.000300-30', value:4200000, system:'SIDA', status:'garantida', prescriptionDate: iso(900), inscriptionDate: iso(-2800), processNumber:'5002200-99.2018.4.04.7000', tribute:'IRPJ' },
+    { id:'cda-18', operationId:'op-demo-4', personId:'pe-12', cdaNumber:'90.6.18.000301-30', value:760000, system:'SIDA', status:'parcelada', prescriptionDate: iso(500), tribute:'CSLL' },
+    { id:'cda-26', operationId:'op-demo-4', personId:'pe-12', cdaNumber:'90.6.18.000302-30', value:210000, system:'SIDA', status:'garantida', prescriptionDate: iso(850), inscriptionDate: iso(-2700), processNumber:'5002200-99.2018.4.04.7000', tribute:'PIS' },
+    { id:'cda-27', operationId:'op-demo-4', personId:'pe-26', cdaNumber:'90.6.20.000310-30', value:980000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(400), inscriptionDate: iso(-1500), processNumber:'5002210-99.2020.4.04.7000', tribute:'IRPJ' },
+    { id:'cda-28', operationId:'op-demo-4', personId:'pe-27', cdaNumber:'90.6.21.000320-30', value:55000, system:'SIDA', status:'ativa', prescriptionDate: iso(280), tribute:'IRPF' },
+    // Op5
+    { id:'cda-12', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.20.000880-40', value:540000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(110), inscriptionDate: iso(-1200), processNumber:'5006600-22.2020.4.04.7006', tribute:'ITR' },
+    { id:'cda-13', operationId:'op-demo-5', personId:'pe-15', cdaNumber:'90.6.20.000881-40', value:95000, system:'SIDA', status:'ativa', prescriptionDate: iso(160), tribute:'IRPF' },
+    { id:'cda-29', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.20.000882-40', value:380000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(45), inscriptionDate: iso(-1100), processNumber:'5006600-22.2020.4.04.7006', tribute:'IRPJ' },
+    { id:'cda-30', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.22.000883-40', value:125000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(28), inscriptionDate: iso(-900), processNumber:'5006610-22.2022.4.04.7006', tribute:'CSLL' },
+    { id:'cda-31', operationId:'op-demo-5', personId:'pe-15', cdaNumber:'90.6.23.000884-40', value:48000, system:'SIDA', status:'ativa', prescriptionDate: iso(70), tribute:'ITR' },
+  ];
+
+  const executions = [
+    // Op1
+    { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500), notesList:['Penhora imóvel ativa', 'Exceção de pré-executividade pendente'] },
+    { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1'], protocolDate: iso(-120) },
+    { id:'ex-18', operationId:'op-demo-1', processNumber:'5001240-56.2024.4.04.7001', className:'Exceção de Pré-Executividade', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', parentExecutionId:'ex-1', protocolDate: iso(-40) },
+    { id:'ex-19', operationId:'op-demo-1', processNumber:'5001250-56.2025.4.04.7001', className:'Agravo de Instrumento', court:'TRF4', processTag:'normal', status:'ativa', parentExecutionId:'ex-2', protocolDate: iso(-20) },
+    // Op2
+    { id:'ex-3', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', className:'Execução Fiscal', court:'2ª Vara Federal de Londrina', processTag:'central', status:'ativa', hasGuarantee:true, protocolDate: iso(-800) },
+    { id:'ex-4', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', className:'Medida Cautelar Fiscal', court:'2ª Vara Federal de Londrina', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-3'], protocolDate: iso(-90) },
+    { id:'ex-20', operationId:'op-demo-2', processNumber:'5007780-88.2023.4.04.7002', className:'Embargos à Execução Fiscal', court:'2ª Vara Federal de Londrina', processTag:'normal', status:'ativa', parentExecutionId:'ex-3', protocolDate: iso(-100) },
+    { id:'ex-21', operationId:'op-demo-2', processNumber:'5003340-22.2025.4.04.7002', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'2ª Vara Federal de Londrina', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-3'], protocolDate: iso(-35) },
+    // Op3
+    { id:'ex-5', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', className:'Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'suspensa', prescriptionForecast: iso(320), protocolDate: iso(-1600) },
+    { id:'ex-6', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', className:'Embargos à Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', parentExecutionId:'ex-5', protocolDate: iso(-30) },
+    { id:'ex-17', operationId:'op-demo-3', processNumber:'5008890-77.2025.4.04.7003', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'3ª Vara Federal de Curitiba', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-5'], protocolDate: iso(-15) },
+    { id:'ex-22', operationId:'op-demo-3', processNumber:'5000050-12.2020.4.04.7003', className:'Execução Fiscal', court:'3ª Vara Federal de Curitiba', processTag:'normal', status:'suspensa', protocolDate: iso(-1400) },
+    // Op4
+    { id:'ex-10', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', className:'Execução Fiscal', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', hasGuarantee:true, analyticsRegistered:true, protocolDate: iso(-2000) },
+    { id:'ex-15', operationId:'op-demo-4', processNumber:'5002299-99.2023.4.04.7000', className:'Embargos à Execução Fiscal', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'arquivada', parentExecutionId:'ex-10', protocolDate: iso(-400) },
+    { id:'ex-23', operationId:'op-demo-4', processNumber:'5002210-99.2020.4.04.7000', className:'Execução Fiscal', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', hasGuarantee:false, protocolDate: iso(-1200) },
+    { id:'ex-24', operationId:'op-demo-4', processNumber:'5002220-99.2024.4.04.7000', className:'Cumprimento de Sentença', court:'2ª Vara Federal de Curitiba', processTag:'normal', status:'ativa', parentExecutionId:'ex-10', protocolDate: iso(-90) },
+    // Op5
+    { id:'ex-11', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', protocolDate: iso(-1100), notesList:['CNIB fazenda ativo'] },
+    { id:'ex-16', operationId:'op-demo-5', processNumber:'5006699-22.2025.4.04.7006', className:'Medida Cautelar Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-11'], protocolDate: iso(-25) },
+    { id:'ex-25', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', protocolDate: iso(-700) },
+    { id:'ex-26', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', className:'Exceção de Pré-Executividade', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', parentExecutionId:'ex-11', protocolDate: iso(-12) },
+  ];
+
+  const assets = [
+    { id:'as-1', operationId:'op-demo-1', description:'Imóvel — Matrícula 45.678 CRI Maringá', subtype:'imovel', value:900000, status:'indisponibilidade_ativa', registry:'45.678', holderId:'pe-1', analyticsRegistered:true, source:'CNIB', processRef:'5001234-56.2023.4.04.7001' },
+    { id:'as-2', operationId:'op-demo-1', description:'Veículo — BMW X5 placa ABC1D23', subtype:'veiculo', value:280000, status:'indisponibilidade_requerida', registry:'ABC1D23', holderId:'pe-2', source:'Renajud' },
+    { id:'as-12', operationId:'op-demo-1', description:'Quota Imobiliária Norte Prime', subtype:'participacao', value:450000, status:'controvertido', holderId:'pe-19', source:'Analytics' },
+    { id:'as-13', operationId:'op-demo-1', description:'Conta PJ Fachada Norte — bloqueio parcial', subtype:'conta_bancaria', value:62000, status:'indisponibilidade_ativa', holderId:'pe-1', source:'Sisbajud', processRef:'5001234-56.2023.4.04.7001' },
+    { id:'as-3', operationId:'op-demo-2', description:'Bloqueio de conta bancária — Vale Verde', subtype:'conta_bancaria', value:145000, status:'indisponibilidade_ativa', holderId:'pe-4', source:'Sisbajud', processRef:'5003333-22.2024.4.04.7002' },
+    { id:'as-14', operationId:'op-demo-2', description:'Frota — caminhão VW 24.280 placa RIO2A34', subtype:'veiculo', value:310000, status:'indisponibilidade_ativa', registry:'RIO2A34', holderId:'pe-22', source:'Renajud' },
+    { id:'as-15', operationId:'op-demo-2', description:'Galpão logística — Londrina', subtype:'imovel', value:1750000, status:'indisponibilidade_requerida', registry:'78.901', holderId:'pe-4', source:'CNIB' },
+    { id:'as-16', operationId:'op-demo-2', description:'Aplicação CDB — Carlos Menezes', subtype:'investimento', value:88000, status:'controvertido', holderId:'pe-5', source:'Sisbajud' },
+    { id:'as-4', operationId:'op-demo-3', description:'Participação societária — 40% Nova Metal Sul', subtype:'participacao', value:1200000, status:'controvertido', holderId:'pe-7', source:'Analytics' },
+    { id:'as-17', operationId:'op-demo-3', description:'Máquinas industriais — linha de corte', subtype:'outro', value:650000, status:'indisponibilidade_requerida', holderId:'pe-6', source:'Analytics' },
+    { id:'as-18', operationId:'op-demo-3', description:'Imóvel industrial — CIC/CTBA matrícula 9.001', subtype:'imovel', value:2400000, status:'liberado', registry:'9.001', holderId:'pe-6', source:'CNIB', notesList:['Liberado após art. 40 — reavaliar'] },
+    { id:'as-7', operationId:'op-demo-4', description:'Apartamento cobertura — Batel/CTBA', subtype:'imovel', value:2800000, status:'indisponibilidade_ativa', registry:'33.210', holderId:'pe-12', analyticsRegistered:true, source:'CNIB', processRef:'5002200-99.2018.4.04.7000' },
+    { id:'as-8', operationId:'op-demo-4', description:'Aplicação financeira — CDB', subtype:'investimento', value:950000, status:'liberado', holderId:'pe-12', source:'Sisbajud' },
+    { id:'as-19', operationId:'op-demo-4', description:'Participação — Atlântico Imóveis SPE', subtype:'participacao', value:1500000, status:'indisponibilidade_ativa', holderId:'pe-26', source:'Analytics' },
+    { id:'as-20', operationId:'op-demo-4', description:'Veículo — Porsche Cayenne placa CTB1A23', subtype:'veiculo', value:420000, status:'indisponibilidade_ativa', registry:'CTB1A23', holderId:'pe-27', source:'Renajud' },
+    { id:'as-9', operationId:'op-demo-5', description:'Fazenda Horizonte — matrícula 12.340 CRI PG', subtype:'imovel', value:1800000, status:'indisponibilidade_ativa', registry:'12.340', holderId:'pe-14', source:'CNIB', processRef:'5006600-22.2020.4.04.7006', analyticsRegistered:true },
+    { id:'as-10', operationId:'op-demo-5', description:'Trator John Deere', subtype:'veiculo', value:320000, status:'indisponibilidade_requerida', holderId:'pe-15', source:'Renajud' },
+    { id:'as-21', operationId:'op-demo-5', description:'Colheitadeira Case', subtype:'veiculo', value:890000, status:'indisponibilidade_requerida', holderId:'pe-14', source:'Renajud' },
+    { id:'as-22', operationId:'op-demo-5', description:'Conta cooperativa — créditos de soja', subtype:'conta_bancaria', value:210000, status:'indisponibilidade_ativa', holderId:'pe-14', source:'Sisbajud', processRef:'5006699-22.2025.4.04.7006' },
+    { id:'as-23', operationId:'op-demo-5', description:'Silo / armazém — quota cooperativa', subtype:'participacao', value:400000, status:'controvertido', holderId:'pe-29', source:'Analytics' },
+  ];
+
+  const intimations = [
+    { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false, notesList:['DIAGNÓSTICO E REVISÃO NA PASTA'] },
+    { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true, notesList:['URGENTE — preparar memorial para audiência'] },
+    { id:'in-16', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'João Almeida Souza', eventDescription:'Intimação pessoal — redirecionamento', dateSent: iso(-20), dateStart: iso(-18), dateDeadline: iso(-5), status:'analisado', priority:'alta', difficulty:'media', urgent:false, responseAction:{ type:'peticionamento', peticionType:'Manifestação', respondedAt: ts(-6), description:'Peticionado sustentando art. 135 CTN.', peticionUrl:'https://docs.google.com/document/d/exemplo-demo-redir' } },
+    { id:'in-21', operationId:'op-demo-1', processNumber:'5001250-56.2025.4.04.7001', jurisdiction:'PR', className:'Agravo de Instrumento', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Contrarrazões ao agravo — 15 dias', dateStart: iso(-4), dateDeadline: iso(8), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:false, notesList:['Minuta em elaboração'] },
+    { id:'in-22', operationId:'op-demo-1', processNumber:'5001240-56.2024.4.04.7001', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Vista — complementação de documentos', dateStart: iso(-1), dateDeadline: iso(10), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-14', operationId:'op-demo-2', processNumber:'5003333-22.2024.4.04.7002', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Ciência de bloqueio Sisbajud parcial', dateDeadline: iso(3), status:'pendente_analise', priority:'normal', difficulty:'baixa', urgent:false },
+    { id:'in-23', operationId:'op-demo-2', processNumber:'5003340-22.2025.4.04.7002', jurisdiction:'PR', className:'IDPJ', partyName:'Carlos Eduardo Menezes', eventDescription:'Citação — IDPJ (laranja)', dateSent: iso(-8), dateStart: iso(-7), dateDeadline: iso(15), status:'aguardando_subsidios', priority:'alta', difficulty:'alta', urgent:false },
+    { id:'in-24', operationId:'op-demo-2', processNumber:'5007780-88.2023.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Especificar provas — 10 dias', dateStart: iso(-2), dateDeadline: iso(6), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-25', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Transportes Vale Rápido LTDA', eventDescription:'Ofício — informações patrimoniais', dateStart: iso(0), dateDeadline: iso(14), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
+    { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-1), description:'Ciência registrada. Avaliar IDPJ à sucessora.' } },
+    { id:'in-15', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Réplica aos embargos — 15 dias', dateStart: iso(-9), dateDeadline: iso(7), status:'aguardando_subsidios', priority:'normal', difficulty:'alta', urgent:false },
+    { id:'in-26', operationId:'op-demo-3', processNumber:'5008890-77.2025.4.04.7003', jurisdiction:'PR', className:'IDPJ', partyName:'Nova Metal Sul LTDA', eventDescription:'Manifestação preliminar — sucessão de fato', dateStart: iso(-3), dateDeadline: iso(11), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false, notesList:['Coletar contratos de transferência de ativos'] },
+    { id:'in-27', operationId:'op-demo-3', processNumber:'5000050-12.2020.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Ricardo Metalúrgico Sul', eventDescription:'Intimação — localização de bens', dateDeadline: iso(18), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-9', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência de levantamento de penhora parcial', dateDeadline: iso(25), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-3), description:'Ciência. Patrimônio remanescente suficiente.' } },
+    { id:'in-18', operationId:'op-demo-4', processNumber:'5002299-99.2023.4.04.7000', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência — embargos julgados improcedentes', dateDeadline: iso(30), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-8), description:'Trânsito em andamento.' } },
+    { id:'in-28', operationId:'op-demo-4', processNumber:'5002220-99.2024.4.04.7000', jurisdiction:'PR', className:'Cumprimento de Sentença', partyName:'Holding Atlântico Participações S/A', eventDescription:'Manifestar sobre cálculo de garantia', dateStart: iso(-5), dateDeadline: iso(9), status:'peca_edicao', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-29', operationId:'op-demo-4', processNumber:'5002210-99.2020.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Atlântico Imóveis SPE LTDA', eventDescription:'Citação — SPE do grupo', dateSent: iso(-10), dateStart: iso(-9), dateDeadline: iso(16), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-30', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Clara Atlântico Costa', eventDescription:'Intimação Renajud — veículo penhorado', dateStart: iso(-1), dateDeadline: iso(12), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
+    { id:'in-10', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false },
+    { id:'in-11', operationId:'op-demo-5', processNumber:'5006699-22.2025.4.04.7006', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Pedro Henrique Agro', eventDescription:'Manifestar sobre extensão da indisponibilidade', dateStart: iso(-1), dateDeadline: iso(9), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
+    { id:'in-31', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Vista à Fazenda — exceção (ITR)', dateStart: iso(-4), dateDeadline: iso(3), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:true, notesList:['Prazo curto — priorizar'] },
+    { id:'in-32', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Helena Agro Horizonte', eventDescription:'Ofício — meeira / meação', dateDeadline: iso(20), status:'pendente_analise', priority:'baixa', difficulty:'media', urgent:false },
+    { id:'in-33', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Cooperativa Grãos do Planalto', eventDescription:'Ofício — retenção de créditos de soja', dateStart: iso(0), dateDeadline: iso(11), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
+  ];
+
+  const tasks = [
+    { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
+    { id:'ta-10', operationId:'op-demo-1', title:'Preparar memorial audiência IDPJ', description:'Roteiro + documentos do grupo econômico.', priority:'alta', dueDate: iso(3), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-16', operationId:'op-demo-1', title:'Mapear quotas Norte Prime', description:'Cruzar Analytics com contratos sociais.', priority:'media', dueDate: iso(7), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-17', operationId:'op-demo-1', title:'Contrarrazões ao agravo IDPJ', description:'Prazo em curso no TRF4.', priority:'alta', dueDate: iso(8), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-2', operationId:'op-demo-2', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-11', operationId:'op-demo-2', title:'Renovar Sisbajud — Vale Verde', description:'Novo ciclo de pesquisa patrimonial.', priority:'media', dueDate: iso(14), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-18', operationId:'op-demo-2', title:'Avançar IDPJ contra Carlos Menezes', description:'Consolidar provas de interposição.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
+    { id:'ta-19', operationId:'op-demo-2', title:'Avaliar CNIB do galpão Londrina', description:'Pedido de indisponibilidade ainda pendente.', priority:'media', dueDate: iso(11), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-3', operationId:'op-demo-3', title:'Analisar viabilidade de redirecionamento à sucessora', description:'Reunir provas da sucessão de fato para IDPJ.', priority:'media', dueDate: iso(-4), status:'pendente', taskVisibility:'global' },
+    { id:'ta-15', operationId:'op-demo-3', title:'Decidir IDPJ Nova Metal Sul', description:'Parecer interno sobre sucessão de fato.', priority:'alta', dueDate: iso(8), status:'pendente', taskVisibility:'global' },
+    { id:'ta-20', operationId:'op-demo-3', title:'Réplica aos embargos — Metalúrgica Sul', description:'Aguardando subsídios do setor de cálculo.', priority:'alta', dueDate: iso(7), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-21', operationId:'op-demo-3', title:'Reavaliar imóvel CIC liberado', description:'Verificar se cabe nova constrição pós-embargos.', priority:'baixa', dueDate: iso(20), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-7', operationId:'op-demo-4', title:'Homologar cálculo de garantia', description:'Conferir cobertura vs crédito remanescente.', priority:'media', dueDate: iso(21), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-22', operationId:'op-demo-4', title:'Acompanhar parcelamento CSLL', description:'Monitorar inadimplência do parcelamento.', priority:'baixa', dueDate: iso(15), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-23', operationId:'op-demo-4', title:'Petição — SPE Atlântico Imóveis', description:'Avancar constrição sobre quotas da SPE.', priority:'media', dueDate: iso(6), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-8', operationId:'op-demo-5', title:'Agendar diligência na fazenda', description:'Coordenar com oficial de justiça / CNIB.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
+    { id:'ta-24', operationId:'op-demo-5', title:'Impugnar exceção de pré-executividade (ITR)', description:'Prazo curto — minuta em edição.', priority:'urgente', dueDate: iso(3), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-25', operationId:'op-demo-5', title:'Estender Renajud a colheitadeira', description:'Pedido ainda sem resultado útil.', priority:'alta', dueDate: iso(4), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-26', operationId:'op-demo-5', title:'Oficiar cooperativa — retenção de créditos', description:'Garantir bloqueio de valores a pagar.', priority:'media', dueDate: iso(10), status:'pendente', taskVisibility:'operation' },
+    { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
+    { id:'ta-14', operationId:'', title:'Atualizar checklist Visão Gemini', description:'Validar abas Gemini_* após novo seed.', priority:'baixa', dueDate: iso(28), status:'pendente', taskVisibility:'global' },
+  ];
+
+  const hearings = [
+    { id:'he-1', operationId:'op-demo-1', date: iso(4), time:'14:30', processNumber:'5009876-11.2024.4.04.7001', parties:'FAZENDA NACIONAL X Marina Ferreira Norte', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'3', roteiro:'Sustentar caracterização do grupo econômico e confusão patrimonial.' },
+    { id:'he-9', operationId:'op-demo-1', date: iso(18), time:'14:00', processNumber:'5001234-56.2023.4.04.7001', parties:'FAZENDA NACIONAL X Comercial Fachada Norte', hearingType:'instrucao', status:'agendada', modality:'presencial', location:'1ª Vara Federal de Maringá', remindDays:'7' },
+    { id:'he-2', operationId:'op-demo-2', date: iso(24), time:'10:00', processNumber:'5007777-88.2022.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', hearingType:'instrucao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'5', roteiro:'Inquirição de testemunhas sobre a interposição de pessoas.' },
+    { id:'he-11', operationId:'op-demo-2', date: iso(9), time:'15:30', processNumber:'5003340-22.2025.4.04.7002', parties:'FAZENDA NACIONAL X Carlos Eduardo Menezes', hearingType:'justificacao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-londrina', remindDays:'3', roteiro:'Demonstrar laranja e fluxo financeiro.' },
+    { id:'he-3', operationId:'op-demo-3', date: iso(-5), time:'09:00', processNumber:'5000045-12.2019.4.04.7003', parties:'FAZENDA NACIONAL X Indústria Metalúrgica Sul S/A', hearingType:'una', status:'realizada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'3' },
+    { id:'he-12', operationId:'op-demo-3', date: iso(14), time:'10:00', processNumber:'5008890-77.2025.4.04.7003', parties:'FAZENDA NACIONAL X Nova Metal Sul LTDA', hearingType:'justificacao', status:'agendada', modality:'presencial', location:'3ª Vara Federal de Curitiba', remindDays:'5', roteiro:'Sucessão de fato — continuidade operacional e mesmos sócios.' },
+    { id:'he-8', operationId:'op-demo-4', date: iso(-12), time:'10:30', processNumber:'5002299-99.2023.4.04.7000', parties:'FAZENDA NACIONAL X Holding Atlântico', hearingType:'una', status:'realizada', modality:'presencial', location:'2ª Vara Federal de Curitiba', remindDays:'3' },
+    { id:'he-13', operationId:'op-demo-4', date: iso(21), time:'11:00', processNumber:'5002220-99.2024.4.04.7000', parties:'FAZENDA NACIONAL X Holding Atlântico', hearingType:'conciliacao', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/2vf-ctba', remindDays:'5', roteiro:'Confirmar citação e prazo; preparar minuta de acordo com garantia imobiliária.' },
+    { id:'he-6', operationId:'op-demo-5', date: iso(11), time:'09:30', processNumber:'5006699-22.2025.4.04.7006', parties:'FAZENDA NACIONAL X Pedro Henrique Agro', hearingType:'instrucao', status:'agendada', modality:'presencial', location:'Vara Federal de Ponta Grossa', remindDays:'5', roteiro:'Extensão da indisponibilidade a máquinas e créditos de soja.' },
+    { id:'he-14', operationId:'op-demo-5', date: iso(2), time:'16:00', processNumber:'5006620-22.2025.4.04.7006', parties:'FAZENDA NACIONAL X Agropecuária Horizonte', hearingType:'una', status:'agendada', modality:'virtual', location:'https://webex.jus.br/sala/vf-pg', remindDays:'1', roteiro:'Defesa da higidez da CDA de ITR e rejeição da exceção.' },
+  ];
+
+  const prescriptionEvents = [
+    { id:'pev-1', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_citacao', date: iso(-480), notes:'Citação válida do devedor originário.' },
+    { id:'pev-2', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_penhora', date: iso(-200), notes:'Penhora do imóvel matrícula 45.678.' },
+    { id:'pev-11', operationId:'op-demo-1', cdaId:'cda-2', executionId:'ex-1', type:'int_sisbajud', date: iso(-150), notes:'Bloqueio parcial de conta PJ.' },
+    { id:'pev-3', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'marco_sem_bens', date: iso(-400), notes:'Ciência de ausência de bens penhoráveis — art. 40.' },
+    { id:'pev-4', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'susp_art40', date: iso(-400), notes:'Suspensão automática 1 ano.' },
+    { id:'pev-12', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'info_arquivamento', date: iso(-30), notes:'Arquivamento provisório após art. 40.' },
+    { id:'pev-13', operationId:'op-demo-2', cdaId:'cda-3', executionId:'ex-3', type:'int_citacao', date: iso(-750), notes:'Citação da distribuidora.' },
+    { id:'pev-14', operationId:'op-demo-2', cdaId:'cda-3', executionId:'ex-3', type:'int_sisbajud', date: iso(-60), notes:'Bloqueio Sisbajud via MCF.' },
+    { id:'pev-15', operationId:'op-demo-2', cdaId:'cda-4', executionId:'ex-3', type:'susp_parcelamento', date: iso(-200), endDate: '', notes:'Parcelamento IRPJ vigente.' },
+    { id:'pev-16', operationId:'op-demo-4', cdaId:'cda-11', executionId:'ex-10', type:'int_citacao', date: iso(-1900), notes:'Citação da holding.' },
+    { id:'pev-17', operationId:'op-demo-4', cdaId:'cda-11', executionId:'ex-10', type:'int_penhora', date: iso(-1600), notes:'Penhora cobertura Batel.' },
+    { id:'pev-18', operationId:'op-demo-4', cdaId:'cda-18', executionId:'ex-10', type:'susp_parcelamento', date: iso(-300), notes:'Parcelamento CSLL.' },
+    { id:'pev-10', operationId:'op-demo-5', cdaId:'cda-12', executionId:'ex-11', type:'int_cnib', date: iso(-40), notes:'Indisponibilidade fazenda.' },
+    { id:'pev-19', operationId:'op-demo-5', cdaId:'cda-12', executionId:'ex-11', type:'int_citacao', date: iso(-1000), notes:'Citação da agropecuária.' },
+    { id:'pev-20', operationId:'op-demo-5', cdaId:'cda-29', executionId:'ex-11', type:'int_despacho_citacao', date: iso(-650), notes:'Despacho ordenando citação — CDA IRPJ.' },
+    { id:'pev-21', operationId:'op-demo-5', cdaId:'cda-30', executionId:'ex-25', type:'int_citacao', date: iso(-600), notes:'Citação na EF satélite.' },
+  ];
+
+  const stickyNotes = [
+    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', updatedAt: ts(-1), createdAt: ts(-3) },
+    { id:'sn-4', operationId:'op-demo-3', content:'Avaliar se embargos obstam nova fase de constrição.', color:'yellow', updatedAt: ts(-4), createdAt: ts(-10) },
+    { id:'sn-5', operationId:'op-demo-2', content:'Sisbajud parcial — renovar ciclo em 14 dias.', color:'blue', updatedAt: ts(-1), createdAt: ts(-2) },
+    { id:'sn-6', operationId:'op-demo-4', content:'Garantia cobre crédito principal; CSLL ainda em parcelamento.', color:'yellow', updatedAt: ts(-2), createdAt: ts(-5) },
+    { id:'sn-7', operationId:'op-demo-5', content:'CDA 000882 — prazo prescricional apertado (45d). Priorizar.', color:'red', updatedAt: ts(0), createdAt: ts(-1) },
+    { id:'sn-8', operationId:'op-demo-5', content:'Diligência fazenda: confirmar benfeitorias e máquinas.', color:'blue', updatedAt: ts(-3), createdAt: ts(-3) },
+  ];
+
+  const watchlist = [
+    { id:'wa-1', operationId:'op-demo-2', processNumber:'5005555-44.2025.4.04.7002', parties:'FAZENDA NACIONAL X Distribuidora Vale Verde EIRELI', status:'movimentado', reason:'Aguardando homologação de acordo de parcelamento.', createdAt: ts(-15) },
+    { id:'wa-2', operationId:'', processNumber:'5006666-55.2025.4.04.7000', parties:'FAZENDA NACIONAL X Terceiro Interessado', status:'aguardando', reason:'Possível conexão com a Operação Fachada Norte.', createdAt: ts(-5) },
+    { id:'wa-4', operationId:'op-demo-4', processNumber:'5002300-99.2024.4.04.7000', parties:'FAZENDA NACIONAL X Holding Atlântico', status:'movimentado', reason:'Cumprimento de sentença / levantamento.', createdAt: ts(-20) },
+    { id:'wa-6', operationId:'op-demo-5', processNumber:'5006700-22.2025.4.04.7006', parties:'FAZENDA NACIONAL X Cooperativa Grãos do Planalto', status:'aguardando', reason:'Ofício de retenção — acompanhar resposta.', createdAt: ts(-3) },
+    { id:'wa-7', operationId:'op-demo-1', processNumber:'5001300-56.2025.4.04.7001', parties:'FAZENDA NACIONAL X Imobiliária Norte Prime', status:'aguardando', reason:'Possível litisconsórcio / conexão com Fachada Norte.', createdAt: ts(-8) },
+    { id:'wa-8', operationId:'op-demo-3', processNumber:'5008900-77.2025.4.04.7003', parties:'FAZENDA NACIONAL X Nova Metal Sul LTDA', status:'movimentado', reason:'Distribuição de IDPJ — aguardar citação.', createdAt: ts(-4) },
+  ];
+
+  const documents = [
+    { id:'do-1', operationId:'op-demo-1', title:'Petição — Resposta à exceção de pré-executividade', url:'https://docs.google.com/document/d/exemplo-demo-1', type:'Manifestação', createdAt: ts(-2) },
+    { id:'do-6', operationId:'op-demo-1', title:'Organograma — Grupo Fachada Norte', url:'https://docs.google.com/document/d/exemplo-demo-6', type:'Outro', createdAt: ts(-8) },
+    { id:'do-7', operationId:'op-demo-1', title:'Memorial — Audiência IDPJ Fachada Norte', url:'https://docs.google.com/document/d/exemplo-demo-7', type:'Parecer', createdAt: ts(-1) },
+    { id:'do-2', operationId:'op-demo-2', title:'Minuta — Réplica aos embargos', url:'https://docs.google.com/document/d/exemplo-demo-2', type:'Réplica', createdAt: ts(-1) },
+    { id:'do-8', operationId:'op-demo-2', title:'Petição — Extensão Sisbajud / CNIB', url:'https://docs.google.com/document/d/exemplo-demo-8', type:'Manifestação', createdAt: ts(-4) },
+    { id:'do-9', operationId:'op-demo-3', title:'Parecer — Sucessão de fato Nova Metal Sul', url:'https://docs.google.com/document/d/exemplo-demo-9', type:'Parecer', createdAt: ts(-5) },
+    { id:'do-10', operationId:'op-demo-3', title:'Minuta — Réplica embargos Metalúrgica', url:'https://docs.google.com/document/d/exemplo-demo-10', type:'Réplica', createdAt: ts(-2) },
+    { id:'do-11', operationId:'op-demo-4', title:'Cálculo — Homologação de garantia', url:'https://docs.google.com/document/d/exemplo-demo-11', type:'Outro', createdAt: ts(-6) },
+    { id:'do-12', operationId:'op-demo-4', title:'Petição — Constrição SPE Atlântico Imóveis', url:'https://docs.google.com/document/d/exemplo-demo-12', type:'Manifestação', createdAt: ts(-3) },
+    { id:'do-13', operationId:'op-demo-5', title:'Minuta — Impugnação à exceção (ITR)', url:'https://docs.google.com/document/d/exemplo-demo-13', type:'Manifestação', createdAt: ts(0) },
+    { id:'do-14', operationId:'op-demo-5', title:'Requerimento — Extensão CNIB/Renajud Agro', url:'https://docs.google.com/document/d/exemplo-demo-14', type:'Petição Inicial', createdAt: ts(-2) },
+  ];
+
+  const models = [
+    { id:'mo-1', title:'Contestação à exceção de pré-executividade', category:'Execução Fiscal', subcategory:'Nulidade da CDA', description:'Modelo padrão quando a defesa alega vício formal da CDA.', url:'https://docs.google.com/document/d/modelo-excecao', useCount:12, tags:['exceção','CDA'] },
+    { id:'mo-2', title:'Petição inicial de IDPJ', category:'IDPJ', subcategory:'Dissolução irregular', description:'Ajuizamento de IDPJ com fundamento na Súmula 435 STJ.', url:'https://docs.google.com/document/d/modelo-idpj', useCount:8, tags:['IDPJ','435'] },
+    { id:'mo-3', title:'Réplica a embargos — excesso de execução', category:'Embargos', subcategory:'Excesso de execução', description:'Impugnação à memória de cálculo do embargante.', url:'https://docs.google.com/document/d/modelo-replica', useCount:5, tags:['embargos'] },
+    { id:'mo-4', title:'Manifestação — rescisão de parcelamento', category:'Parcelamento / Suspensão', subcategory:'Prescrição', description:'Efeitos interruptivos/suspensivos após rescisão.', url:'https://docs.google.com/document/d/modelo-parc', useCount:3, tags:['parcelamento','prescrição'] },
+    { id:'mo-5', title:'Requerimento de indisponibilidade CNIB', category:'Constrição / Penhora', subcategory:'Indisponibilidade de bens', description:'Pedido de averbação/indisponibilidade.', url:'https://docs.google.com/document/d/modelo-cnib', useCount:9, tags:['CNIB'] },
+    { id:'mo-6', title:'Memorial de justificação — IDPJ grupo econômico', category:'IDPJ', subcategory:'Grupo econômico', description:'Roteiro de sustentação oral / memorial.', url:'https://docs.google.com/document/d/modelo-memorial', useCount:4, tags:['IDPJ','audiência'] },
+  ];
+
+  const desk = [
+    { type:'intimation', id:'in-3' },
+    { type:'intimation', id:'in-31' },
+    { type:'intimation', id:'in-1' },
+    { type:'task', id:'ta-24' },
+    { type:'task', id:'ta-1' },
+    { type:'hearing', id:'he-14' },
+    { type:'hearing', id:'he-1' },
+  ];
+
+  const links = {
+    measurePeople: [],
+    measureAssets: [],
+    cdaResponsibilities: [
+      { id:'rl-1', cdaId:'cda-1', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-2', cdaId:'cda-1', personId:'pe-2', role:'coresponsavel_redirecionamento', basis:'Redirecionamento art. 135 CTN — decisão evento 32', addedAt: ts(-100) },
+      { id:'rl-3', cdaId:'cda-1', personId:'pe-3', role:'coresponsavel_idpj', basis:'Incluída por IDPJ — decisão evento 15', addedAt: ts(-110) },
+      { id:'rl-4', cdaId:'cda-2', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-19', cdaId:'cda-19', personId:'pe-1', role:'originario', basis:'Devedor originário', addedAt: ts(-190) },
+      { id:'rl-20', cdaId:'cda-20', personId:'pe-19', role:'originario', basis:'Empresa do grupo', addedAt: ts(-80) },
+      { id:'rl-21', cdaId:'cda-16', personId:'pe-2', role:'originario', basis:'Devedor originário', addedAt: ts(-150) },
+      { id:'rl-5', cdaId:'cda-3', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
+      { id:'rl-6', cdaId:'cda-3', personId:'pe-5', role:'coresponsavel_idpj', basis:'Interposta pessoa — IDPJ deferido', addedAt: ts(-80) },
+      { id:'rl-7', cdaId:'cda-4', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-300) },
+      { id:'rl-22', cdaId:'cda-21', personId:'pe-4', role:'originario', basis:'Devedor originário', addedAt: ts(-280) },
+      { id:'rl-23', cdaId:'cda-22', personId:'pe-5', role:'originario', basis:'Devedor originário', addedAt: ts(-70) },
+      { id:'rl-24', cdaId:'cda-23', personId:'pe-22', role:'originario', basis:'Empresa do grupo', addedAt: ts(-60) },
+      { id:'rl-8', cdaId:'cda-5', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
+      { id:'rl-9', cdaId:'cda-5', personId:'pe-7', role:'sucessor_de_fato', basis:'Sucessão de fato — em apuração', addedAt: ts(-60) },
+      { id:'rl-10', cdaId:'cda-6', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-600) },
+      { id:'rl-25', cdaId:'cda-24', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-550) },
+      { id:'rl-26', cdaId:'cda-24', personId:'pe-7', role:'sucessor_de_fato', basis:'Sucessão de fato — em apuração', addedAt: ts(-50) },
+      { id:'rl-27', cdaId:'cda-25', personId:'pe-7', role:'originario', basis:'Devedor originário', addedAt: ts(-40) },
+      { id:'rl-18', cdaId:'cda-11', personId:'pe-12', role:'originario', basis:'Devedor originário', addedAt: ts(-800) },
+      { id:'rl-28', cdaId:'cda-18', personId:'pe-12', role:'originario', basis:'Devedor originário', addedAt: ts(-700) },
+      { id:'rl-29', cdaId:'cda-26', personId:'pe-12', role:'originario', basis:'Devedor originário', addedAt: ts(-750) },
+      { id:'rl-30', cdaId:'cda-27', personId:'pe-26', role:'originario', basis:'SPE do grupo', addedAt: ts(-200) },
+      { id:'rl-31', cdaId:'cda-27', personId:'pe-12', role:'coresponsavel_legal', basis:'Controladora', addedAt: ts(-180) },
+      { id:'rl-32', cdaId:'cda-28', personId:'pe-27', role:'originario', basis:'Devedor originário', addedAt: ts(-100) },
+      { id:'rl-17', cdaId:'cda-12', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-200) },
+      { id:'rl-33', cdaId:'cda-13', personId:'pe-15', role:'originario', basis:'Devedor originário', addedAt: ts(-180) },
+      { id:'rl-34', cdaId:'cda-29', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-190) },
+      { id:'rl-35', cdaId:'cda-30', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-150) },
+      { id:'rl-36', cdaId:'cda-30', personId:'pe-15', role:'coresponsavel_redirecionamento', basis:'Sócio-administrador', addedAt: ts(-140) },
+      { id:'rl-37', cdaId:'cda-31', personId:'pe-15', role:'originario', basis:'Devedor originário', addedAt: ts(-90) },
+      { id:'rl-38', cdaId:'cda-32', personId:'pe-6', role:'originario', basis:'Devedor originário', addedAt: ts(-85) },
+      { id:'rl-39', cdaId:'cda-33', personId:'pe-14', role:'originario', basis:'Devedor originário', addedAt: ts(-80) },
+    ],
+  };
+
+  return {
+    ...base,
+    operations, people, debts, executions, assets, intimations, tasks, hearings,
+    prescriptionEvents, stickyNotes, watchlist, documents, models, desk, links,
   };
 };
+
 
 const RESPONSIBILITY_ROLES = {
   originario: { label: 'Devedor Originário', color: 'var(--green)', bg: 'rgba(64,168,112,0.15)', icon: '🟢', desc: 'Pessoa em face de quem o crédito foi originalmente constituído.' },
@@ -600,6 +897,18 @@ const EF_BANDS = [
 ];
 /** Rail próprio: CDAs sem processo (não ajuizadas). */
 const NAO_AJUIZ_BAND = { key: 'nao_ajuizada', label: 'Não ajuizadas', cls: 'band-nao-ajuiz' };
+/** Espécie da inscrição a partir do campo system/source/tributo (SIDA, DEBCAD, FGTS…). */
+function cdaEspecie(d) {
+  const blob = [d?.system, d?.source, d?.tribute, d?.notes, ...(d?.notesList || [])]
+    .filter(Boolean).join(' ').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\bFGTS\b/.test(blob) || /\bCAIXA\b/.test(blob)) return 'FGTS';
+  if (/\bDEBCAD\b/.test(blob) || /\bDEB\s*CAD\b/.test(blob)) return 'DEBCAD';
+  if (/\bSIDA\b/.test(blob)) return 'SIDA';
+  if (/\bPANDORA\b/.test(blob)) return 'Pandora';
+  const sys = String(d?.system || '').trim();
+  return sys || '—';
+}
 function railBandMeta(key) {
   if (key === NAO_AJUIZ_BAND.key) return NAO_AJUIZ_BAND;
   return EF_BANDS.find(b => b.key === key) || null;
@@ -720,6 +1029,57 @@ const ASSET_STATUSES = {
   liberado: { label: 'Liberado', badge: 'badge-muted' },
   controvertido: { label: 'Controvertido', badge: 'badge-red' }
 };
+// Headline do card de bem: espécie + identificador (matrícula/placa/titular).
+// A descrição livre fica secundária — não compete com o identificador operacional.
+function extractAssetPlate(text) {
+  const s = String(text || '');
+  const m = s.match(/\b([A-Z]{3}-?\d{4})\b/i) || s.match(/\b([A-Z]{3}\d[A-Z]\d{2})\b/i);
+  return m ? m[1].toUpperCase() : '';
+}
+function extractAssetMatricula(text) {
+  const s = String(text || '');
+  const m = s.match(/matr[ií]cula\s*[:.\-]?\s*([\d.\/\-]+)/i);
+  return m ? m[1] : '';
+}
+function assetSpeciesLabel(a) {
+  const src = String(a?.source || '').toLowerCase();
+  if (/sisbajud|bacenjud/.test(src) && (!a?.subtype || a.subtype === 'conta_bancaria' || a.subtype === 'investimento')) {
+    return 'SISBAJUD';
+  }
+  const labels = {
+    imovel: 'IMÓVEL',
+    veiculo: 'VEÍCULO',
+    conta_bancaria: 'CONTA BANCÁRIA',
+    investimento: 'INVESTIMENTO',
+    participacao: 'PARTICIPAÇÃO SOCIETÁRIA',
+    outro: 'BEM',
+  };
+  return labels[a?.subtype] || String(ASSET_SUBTYPES[a?.subtype] || a?.subtype || 'BEM').toUpperCase();
+}
+function assetIdentifier(a, people) {
+  const reg = String(a?.registry || '').trim();
+  if (a?.subtype === 'imovel') {
+    const id = reg || extractAssetMatricula(a.description);
+    return id ? `MATRÍCULA ${id}` : '';
+  }
+  if (a?.subtype === 'veiculo') {
+    const plate = reg || extractAssetPlate(a.description);
+    return plate ? `PLACA ${plate}` : '';
+  }
+  if (a?.subtype === 'participacao') {
+    const holder = (people || []).find(p => p.id === a.holderId);
+    if (holder?.name) return holder.name;
+    const after = String(a.description || '').split(/[—–\-|]/).slice(1).join(' ').trim();
+    if (!after) return '';
+    return after.replace(/^\d+(?:[.,]\d+)?\s*%\s*/, '').trim() || after;
+  }
+  return reg;
+}
+function formatAssetHeadline(a, people) {
+  const species = assetSpeciesLabel(a);
+  const id = assetIdentifier(a, people);
+  return id ? `${species} ${id}` : species;
+}
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
 // Process tag labels (used across Processos and Proc & Presc² tabs)
@@ -766,6 +1126,7 @@ const PROCESS_STAGES = {
   ajuizamento: { label: 'Ajuizamento',         outcomes: {} },
   liminar:     { label: 'Liminar',             outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso1:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
+  constricoes: { label: 'Constrições',         outcomes: {} },
   saneamento:  { label: 'Saneamento e provas', outcomes: {}, textOnly: true }, // só texto — sem data/evento
   decisao:     { label: 'Decisão final',       outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
   recurso2:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
@@ -1681,122 +2042,6 @@ async function parseDebcadPDF(file) {
     i = j;
   }
   return records;
-}
-
-function parseEprocXLS(workbook) {
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
-  const results = { intimations: [], errors: [], fileType: '' };
-
-  // Detect file type from first column header
-  const firstCol = String(raw[0]?.[0] || workbook.SheetNames[0] || '').toLowerCase();
-  if (firstCol.includes('prazo em aberto')) results.fileType = 'prazo_aberto';
-  else if (firstCol.includes('pendente')) results.fileType = 'pendente';
-  else results.fileType = 'desconhecido';
-
-  // Find header row
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(10, raw.length); i++) {
-    const row = raw[i].map(c => String(c || '').trim());
-    if (row.some(c => c === 'Processo' || c.includes('Processo'))) {
-      if (row.some(c => c.includes('Classe') || c.includes('Evento'))) { headerIdx = i; break; }
-    }
-  }
-  if (headerIdx === -1) { results.errors.push('Cabeçalho eproc não encontrado'); return results; }
-
-  const hdr = raw[headerIdx].map(c => String(c || '').trim());
-  const col = {};
-  hdr.forEach((h, i) => {
-    const hl = h.toLowerCase();
-    if (h === 'Processo' || hl === 'processo') col.processo = i;
-    else if (hl.includes('órgão') || hl.includes('orgao')) col.orgao = i;
-    else if (hl === 'partes' || hl === 'doc partes') { if (!col.partes) col.partes = i; }
-    else if (hl.includes('doc parte')) col.docParte = i;
-    else if (hl === 'classe') col.classe = i;
-    else if (hl === 'assunto') col.assunto = i;
-    else if (hl.includes('evento') && hl.includes('prazo')) col.eventoPrazo = i;
-    else if (hl.includes('data envio') || hl.includes('requisição')) col.dataEnvio = i;
-    else if (hl.includes('início prazo') || hl.includes('inicio prazo')) col.inicioPrazo = i;
-    else if (hl.includes('final prazo')) col.finalPrazo = i;
-  });
-
-  const parseDate = parseAnyDate; // use shared utility
-
-  // Extract party opposing União from partes string
-  const extractPartyName = (partesRaw) => {
-    const clean = partesRaw.replace(/\r/g, '\n').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    // Split by X to get opposing sides
-    const sides = clean.split(/\s+X\s+/i);
-    
-    // Strategy 1: find the side that does NOT contain Fazenda/União
-    for (const side of sides) {
-      if (side.toUpperCase().includes('FAZENDA NACIONAL') || side.toUpperCase().includes('UNIÃO -')) continue;
-      // Extract name after role keyword
-      const nameMatch = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Impetrante|Exequente|Requerente)\s+(.+?)(?:\s*\(|$)/i);
-      if (nameMatch) {
-        const name = nameMatch[1].trim();
-        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
-      }
-      // Fallback: just take anything after the role word
-      const fallback = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+(.+)/i);
-      if (fallback) {
-        const name = fallback[1].replace(/\(.*/, '').trim();
-        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
-      }
-    }
-    
-    // Strategy 2: scan all role+name patterns, pick first non-Fazenda
-    const allNames = [...clean.matchAll(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+([^\(X]+)/gi)];
-    for (const m of allNames) {
-      const name = m[1].trim();
-      if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO') && name.length > 2) return name;
-    }
-    
-    return '';
-  };
-
-  for (let i = headerIdx + 1; i < raw.length; i++) {
-    const row = raw[i];
-    const processo = String(row[col.processo] || '').trim();
-    if (!processo || processo.length < 10) continue;
-
-    const partesRaw = String(row[col.partes] || '');
-    const partes = partesRaw.replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-    const partyName = extractPartyName(partesRaw);
-    const orgao = String(row[col.orgao] || '').trim();
-    const classe = String(row[col.classe] || '').trim();
-    const assunto = String(row[col.assunto] || '').trim();
-    const eventoPrazo = String(row[col.eventoPrazo] || '').trim();
-
-    let jurisdiction = '';
-    const orgUp = orgao.toUpperCase();
-    if (orgUp.startsWith('PR')) jurisdiction = 'PR';
-    else if (orgUp.startsWith('RS')) jurisdiction = 'RS';
-    else if (orgUp.startsWith('SC')) jurisdiction = 'SC';
-    else if (orgUp.includes('TJ')) jurisdiction = 'TJ';
-    else jurisdiction = orgao.slice(0, 4);
-
-    results.intimations.push({
-      processNumber: processo,
-      partyName,
-      parties: partes,
-      organ: orgao,
-      jurisdiction,
-      className: classe,
-      subject: assunto,
-      eventDescription: eventoPrazo,
-      dateSent: parseDate(row[col.dataEnvio]),
-      dateStart: parseDate(row[col.inicioPrazo]),
-      dateDeadline: parseDate(row[col.finalPrazo]),
-      status: 'pendente_analise',
-      object: '',
-      obs1: '',
-      obs2: '',
-      minutaUrl: '',
-      operationId: ''
-    });
-  }
-  return results;
 }
 
 const NODE_COLORS = {
@@ -3019,7 +3264,7 @@ const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLi
         <div style={{display:'flex',flexDirection:'column',gap:3,paddingLeft:8,borderLeft:'2px solid rgba(91,143,217,0.3)'}}>
           {s.myAssets.slice(0,5).map(a => (
             <div key={a.id} style={{display:'flex',gap:8,padding:'3px 6px',fontSize:11}}>
-              <span style={{flex:1}}>{truncate(a.description||a.type, 50)}</span>
+              <span style={{flex:1}}>{truncate(formatAssetHeadline(a), 50)}</span>
               <span style={{fontWeight:600}}>{fmtCur(a.value)}</span>
             </div>
           ))}
@@ -3161,7 +3406,6 @@ function App() {
   const cloudPushRef = useRef(null);      // populated after cloudPush is declared; breaks circular dep
   const fileInputRef = useRef(null);
   const xlsInputRef = useRef(null);
-  const eprocInputRef = useRef(null);
   const pgfnPdfInputRef = useRef(null);
 
   const hydratedRef = useRef(false);
@@ -3556,111 +3800,6 @@ function App() {
     e.target.value = '';
   };
 
-  const handleEprocImport = (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    const logs = [];
-    let newCount = 0, updCount = 0, unlinkedCount = 0;
-    const processFile = (file) => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const wb = XLSX.read(ev.target.result, { type: 'binary' });
-          const res = parseEprocXLS(wb);
-          logs.push(`📬 ${file.name}: ${res.intimations.length} intimação(ões) [${res.fileType}]`);
-          res.errors.forEach(err => logs.push(`⚠️ ${err}`));
-          res.intimations.forEach(intim => {
-            // Smart match: same process + same event description
-            // But if the existing intimation is already resolved (analisado/responded) AND
-            // the import has a different dateSent, it's a NEW intimation, not an update.
-            const candidates = (data.intimations || []).filter(x =>
-              sameProc(x.processNumber, intim.processNumber) &&
-              x.eventDescription === intim.eventDescription
-            );
-
-            let existing = null;
-            if (candidates.length > 0) {
-              // Priority 1: find one with matching dateSent (exact same intimation)
-              if (intim.dateSent) {
-                existing = candidates.find(x => x.dateSent === intim.dateSent);
-              }
-              // Priority 2: find an unresolved one (still being worked on)
-              if (!existing) {
-                existing = candidates.find(x => x.status !== 'analisado' && !x.responseAction);
-              }
-              // Priority 3: if all are resolved and dateSent differs → it's a NEW intimation
-              if (!existing) {
-                const allResolved = candidates.every(x => x.status === 'analisado' || x.responseAction);
-                const dateSentDiffers = intim.dateSent && !candidates.some(x => x.dateSent === intim.dateSent);
-                if (allResolved && dateSentDiffers) {
-                  existing = null; // Force creation of new intimation
-                } else if (allResolved && !intim.dateSent) {
-                  // No dateSent to compare — match the most recent resolved one (update scenario)
-                  existing = candidates.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''))[0];
-                } else {
-                  existing = candidates[0]; // Fallback
-                }
-              }
-            }
-            if (existing) {
-              // MERGE: update only dates and system fields, preserve user data
-              const merged = { ...existing };
-              let changed = false;
-              let significantChange = false; // Only flag visually for meaningful changes
-              if (intim.dateStart && intim.dateStart !== existing.dateStart) { merged.dateStart = intim.dateStart; changed = true; significantChange = true; }
-              if (intim.dateDeadline && intim.dateDeadline !== existing.dateDeadline) { merged.dateDeadline = intim.dateDeadline; changed = true; significantChange = true; }
-              if (intim.dateSent && !existing.dateSent) { merged.dateSent = intim.dateSent; changed = true; }
-              if (intim.partyName && !existing.partyName) { merged.partyName = intim.partyName; changed = true; }
-              if (changed) {
-                // Only show visual flag for significant changes (dates, status)
-                if (significantChange) {
-                  merged._importFlag = 'updated';
-                  merged._importFlagAt = new Date().toISOString();
-                }
-                upsert('intimations', merged);
-                updCount++;
-                logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
-              } else {
-                logs.push(`ℹ️ Sem alteração: ${intim.processNumber}`);
-              }
-            } else {
-              // NOVA: vincula operação SOMENTE com evidência concreta.
-              // REGRA: se o processo não consta em nenhum processo/CDA cadastrado,
-              // a intimação fica SEM operação ("Nenhuma"). Antes ela herdava a
-              // operação aberta na tela — causa das vinculações falsas.
-              const matchExec = data.executions.find(ex => ex.operationId && sameProc(ex.processNumber, intim.processNumber));
-              const matchDebt = matchExec ? null : data.debts.find(d => d.operationId && sameProc(d.processNumber, intim.processNumber));
-              if (matchExec) intim.operationId = matchExec.operationId;
-              else if (matchDebt) intim.operationId = matchDebt.operationId;
-              // Intimação irmã do MESMO processo com vínculo já definido pelo usuário
-              else if (candidates.length > 0 && candidates[0].operationId) intim.operationId = candidates[0].operationId;
-              else {
-                intim.operationId = '';
-                unlinkedCount++;
-                logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
-              }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
-              newCount++;
-            }
-          });
-        } catch (err) { logs.push(`❌ ${err.message}`); }
-        resolve();
-      };
-      reader.readAsBinaryString(file);
-    });
-    Promise.all(files.map(processFile)).then(() => {
-      logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
-      if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
-      logImport('eproc', {
-        fileNames: files.map(f => f.name),
-        summary: `${newCount} nova(s), ${updCount} atualizada(s)`,
-        counts: { new: newCount, updated: updCount }
-      });
-      setImportResult(logs);
-    });
-    e.target.value = '';
-  };
-
   // Índice O(1) por operação — evita .find() em cada hit da busca global.
   const opsById = useMemo(() => {
     const m = new Map();
@@ -3718,7 +3857,7 @@ function App() {
       const match = a.description?.toLowerCase().includes(raw) || a.registry?.toLowerCase().includes(raw);
       if (match) {
         const op = opsById.get(a.operationId);
-        results.push({ type: 'asset', icon: '💎', name: truncate(a.description, 40), meta: `${ASSET_SUBTYPES[a.subtype] || a.subtype || ''} · ${(ASSET_STATUSES[a.status] || {}).label || a.status}${a.value ? ' · '+fmtCur(a.value) : ''}`, opName: op?.name, opId: a.operationId, id: a.id, entity: a, entityType: 'asset', tab: 'bens' });
+        results.push({ type: 'asset', icon: '💎', name: truncate(formatAssetHeadline(a, data.people), 48), meta: `${(ASSET_STATUSES[a.status] || {}).label || a.status}${a.value ? ' · '+fmtCur(a.value) : ''}${a.description ? ' · '+truncate(a.description, 28) : ''}`, opName: op?.name, opId: a.operationId, id: a.id, entity: a, entityType: 'asset', tab: 'bens' });
       }
     });
     // Operations — name, description
@@ -4643,6 +4782,14 @@ function App() {
     try { localStorage.removeItem('nexus_dismissed_suggestions'); } catch {}
   };
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
+  const toggleCdaExpand = (id) => {
+    setExpandedCdas(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
   const [selectedProcHubId, setSelectedProcHubId] = useState(null); // Visão D · master–detail
   const [selectedProcBand, setSelectedProcBand] = useState(null); // faixa Ativa/Suspensa/…
   const [procFocus, setProcFocus] = useState('hub'); // 'hub' | 'band'
@@ -4720,6 +4867,20 @@ function App() {
     const [moved] = arr.splice(from, 1);
     arr.splice(to, 0, moved);
     return { ...prev, desk: arr };
+  });
+  /** Reordena dentro da coluna (mesmo tipo), preservando a posição dos demais tipos. */
+  const reorderDeskInColumn = (type, fromId, toId) => setData(prev => {
+    const desk = prev.desk || [];
+    if (!type || fromId == null || toId == null || fromId === toId) return prev;
+    const col = desk.filter(d => d.type === type);
+    const fi = col.findIndex(d => d.id === fromId);
+    const ti = col.findIndex(d => d.id === toId);
+    if (fi < 0 || ti < 0 || fi === ti) return prev;
+    const nextCol = [...col];
+    const [moved] = nextCol.splice(fi, 1);
+    nextCol.splice(ti, 0, moved);
+    let i = 0;
+    return { ...prev, desk: desk.map(d => d.type === type ? nextCol[i++] : d) };
   });
   const toggleDesk = (type, id, days) => { if (isOnDesk(type, id)) removeFromDesk(type, id); else addToDesk(type, id, days); };
   const toggleDebt = (id) => setSelectedDebts(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -5370,12 +5531,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const rec = recs[k];
                 const recursos = sd.multiRecurso ? getRecursos(rec) : null;
                 const has = sd.multiRecurso
-                  ? recursos.length > 0
-                  : !!(rec && (rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
+                  ? (recursos.length > 0 || !!(rec && rec._present))
+                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
                 const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
                 let info = '';
                 if (sd.multiRecurso) {
-                  // Detalhe por recurso (nº do processo, desfecho, data, texto) — não só a contagem
                   info = '';
                 } else if (sd.textOnly) {
                   info = (rec?.texto && String(rec.texto).trim()) || '';
@@ -5387,51 +5547,62 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   info = parts.join(' · ');
                 }
                 const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
-                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel };
+                const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
+                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
               });
               const renderStageRuler = (ip, STAGES, STAGE_KEYS, recs) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
+                // Oculta fases sem ocorrência; Ajuizamento permanece sempre na régua
+                const visible = metas.filter(m => m.has || m.alwaysShow);
+                const addable = metas.filter(m => !m.has && !m.alwaysShow);
+                const addMenuKey = 'stageadd-' + ip.id;
+                const addOpen = collapsedGroups.has(addMenuKey);
                 const openPop = (k) => toggleGroup('stagepop-' + ip.id + '-' + k);
                 const noteEditKey = (k) => 'stagenote-' + ip.id + '-' + k;
+                const addStage = (sk) => {
+                  const sd = STAGES[sk];
+                  if (sd.multiRecurso) setRec(ip.id, sk, { _present: true, recursos: [{ date: '', proc: '', texto: '', outcome: 'pendente' }] });
+                  else if (sd.textOnly) setRec(ip.id, sk, { _present: true, texto: '' });
+                  else setRec(ip.id, sk, { _present: true, date: '', evento: '', texto: '', outcome: '' });
+                  if (addOpen) toggleGroup(addMenuKey);
+                  if (!collapsedGroups.has('stagepop-' + ip.id + '-' + sk)) toggleGroup('stagepop-' + ip.id + '-' + sk);
+                };
                 const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
                   <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
-                    onCommit={(patch) => setRec(ip.id, m.k, patch)}
+                    onCommit={(patch) => setRec(ip.id, m.k, { ...patch, _present: true })}
                     onDelete={() => { delRec(ip.id, m.k); openPop(m.k); }}
                     onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
                     onClose={() => openPop(m.k)} />
                 );
-                return (<div className="proc-stage-vertical" style={{margin:'4px 0 2px',display:'flex',flexDirection:'column',gap:0}}>
-                  {metas.map((m) => {
+                return (<div className="proc-stage-vertical" style={{margin:'2px 0 0',display:'flex',flexDirection:'column',gap:0}}>
+                  {visible.map((m, vi) => {
                     const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                    // meta sem o texto livre (data · Ev.) — o texto vai numa linha própria abaixo
                     const metaInfo = m.sd.textOnly ? '' : (m.info || '').split(' · ').filter(p => p && p !== noteTxt).join(' · ');
                     const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
                     const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
                     const commitNote = (val) => {
                       const t = String(val || '').trim();
-                      if (t || noteTxt) setRec(ip.id, m.k, { texto: t });
+                      if (t || noteTxt || m.rec?._present) setRec(ip.id, m.k, { texto: t, _present: true });
                       if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
                     };
-                    const bodyStyle = {fontSize:11,lineHeight:1.4,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:2};
+                    const bodyStyle = {fontSize:10,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:1};
                     return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'4px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 55%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:14,flexShrink:0,paddingTop:4}}>
-                        <div style={{width:10,height:10,borderRadius:'50%',background:m.has?m.c:'transparent',border:`2px solid ${m.has?m.c:'var(--border-light)'}`}} />
-                        {m.i < metas.length - 1 && <div style={{width:2,flex:1,minHeight:8,marginTop:2,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:6,padding:'2px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 45%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:12,flexShrink:0,paddingTop:3}}>
+                        <div style={{width:8,height:8,borderRadius:'50%',background:m.has?m.c:'transparent',border:`1.5px solid ${m.has?m.c:'var(--border-light)'}`}} />
+                        {vi < visible.length - 1 && <div style={{width:1.5,flex:1,minHeight:6,marginTop:1,background:m.has?'var(--text-muted)':'var(--border)'}} />}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
-                        {/* Linha 1: fase + desfecho + data/evento — sem texto longo misturado */}
-                        <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
-                          <span style={{fontSize:12,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
-                          {m.outcomeLabel && <span style={{fontSize:11,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
-                          {metaInfo && <span style={{fontSize:11,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
-                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
-                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:11,color:'var(--text-muted)'}}>—</span>}
+                        <div style={{display:'flex',alignItems:'baseline',gap:5,flexWrap:'wrap'}}>
+                          <span style={{fontSize:10.5,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
+                          {m.outcomeLabel && <span style={{fontSize:10,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
+                          {metaInfo && <span style={{fontSize:10,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
+                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
+                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
                         </div>
-                        {/* Linha 2+: texto / recursos — largura total, alinhado à esquerda do conteúdo */}
                         {m.sd.multiRecurso ? (
-                          m.has && (
-                            <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:3}}>
+                          m.has && (m.recursos || []).length > 0 && (
+                            <div style={{display:'flex',flexDirection:'column',gap:2,marginTop:2}}>
                               {(m.recursos || []).map((r, ri) => {
                                 const bits = [];
                                 if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
@@ -5439,8 +5610,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                                 if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
                                 const freeTxt = (r.texto && String(r.texto).trim()) || '';
                                 return (
-                                  <div key={ri} style={{paddingLeft: m.recursos.length > 1 ? 0 : 0}}>
-                                    <div style={{fontSize:11,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
+                                  <div key={ri}>
+                                    <div style={{fontSize:10,lineHeight:1.3,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
                                       {m.recursos.length > 1 && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
                                       {bits.length ? bits.join(' · ') : (!freeTxt ? '—' : '')}
                                     </div>
@@ -5453,11 +5624,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         ) : editingNote ? (
                           <textarea autoFocus defaultValue={noteTxt}
                             placeholder="texto da fase"
-                            rows={Math.min(6, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
+                            rows={Math.min(5, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
                             onClick={ev => ev.stopPropagation()}
                             onBlur={e => commitNote(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
-                            style={{display:'block',width:'100%',marginTop:3,fontSize:11,padding:'4px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.4,boxSizing:'border-box'}} />
+                            style={{display:'block',width:'100%',marginTop:2,fontSize:10,padding:'3px 5px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.35,boxSizing:'border-box'}} />
                         ) : noteTxt ? (
                           <div onClick={startNoteEdit} title="Editar texto" style={{...bodyStyle,cursor:'text'}}>{noteTxt}</div>
                         ) : m.has ? (
@@ -5468,6 +5639,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </div>
                     );
                   })}
+                  {addable.length > 0 && (
+                    <div style={{position:'relative',marginTop:4,paddingTop:2}} onClick={e => e.stopPropagation()}>
+                      <button type="button" className="btn-secondary btn-xs"
+                        onClick={() => toggleGroup(addMenuKey)}
+                        title="Incluir fase processual"
+                        style={{fontSize:9,padding:'1px 7px',opacity:0.75,fontWeight:500}}>
+                        + Fase
+                      </button>
+                      {addOpen && (
+                        <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:180,padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
+                          {addable.map(m => (
+                            <button key={m.k} type="button"
+                              onClick={() => addStage(m.k)}
+                              style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
+                              onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                              onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+                              {m.sd.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>);
               };
               // Badge por tipo de processo-mãe (IDPJ/MCF/Central) e rótulo dos filhos (EF abrangida / apensa)
@@ -5503,18 +5697,27 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const bm = badgeFor(ip.processTag);
                     const myEFs = apensos;
                     const covVal = myEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
+                    const cardCollapsed = collapsedGroups.has('panocollapse-' + ip.id);
                     return (<div key={ip.id} style={{marginBottom:10,padding:'8px 10px',background:'transparent',border:'1px solid var(--border-light, var(--border))',borderRadius:6,opacity:ip.status==='extinta'?0.5:1}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                      <div
+                        style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}}
+                        onClick={() => toggleGroup('panocollapse-' + ip.id)}
+                        title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
+                      >
+                        <span style={{fontSize:9,color:'var(--text-muted)',width:10,flexShrink:0}}>{cardCollapsed ? '▸' : '▾'}</span>
                         <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
-                        <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
-                        <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>{est.label}</span>
+                        <span onClick={e => e.stopPropagation()} style={{display:'inline-flex'}}>
+                          <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
+                        </span>
+                        <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ip}); }}>{est.label}</span>
                         <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
                       </div>
 
-                      {/* Régua de fases — formato aprovado: lista vertical com desfecho */}
+                      {!cardCollapsed && (<>
+                      {/* Régua de fases — só ocorridas (+ Ajuizamento); + Fase para incluir */}
                       {renderStageRuler(ip, STAGES, STAGE_KEYS, recs)}
 
-                      {myEFs.length > 0 && <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                      {myEFs.length > 0 && <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:3}}>
                         {myEFs.slice(0,8).map(ef => efRow(ef, true))}
                         {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)',marginLeft:14}}>+{myEFs.length-8} {bm.unit}(s)</div>}
                       </div>}
@@ -5525,23 +5728,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !/^[\s·]*classe:\s/i.test(n || ''));
                         const setNotes = (arr) => upsert('executions', { ...ip, notesList: arr });
                         const addKey = 'cardnote-' + ip.id; const addOpen = collapsedGroups.has(addKey);
-                        return (<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
-                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:cardNotes.length?5:0}}>
+                        return (<div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:cardNotes.length?4:0}}>
                             <span style={{fontSize:9,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5}}>📝 Notas</span>
-                            {!addOpen && <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar nota ao processo" style={{fontSize:12,lineHeight:1,padding:'0 8px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
+                            {!addOpen && <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar nota ao processo" style={{fontSize:11,lineHeight:1,padding:'0 7px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
                           </div>
-                          {cardNotes.length > 0 && <div style={{display:'flex',flexDirection:'column',gap:3,marginBottom:addOpen?6:0}}>
+                          {cardNotes.length > 0 && <div style={{display:'flex',flexDirection:'column',gap:2,marginBottom:addOpen?5:0}}>
                             {cardNotes.map(({ n, idx }) => (
-                              <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,fontSize:11,color:'var(--text-secondary)',lineHeight:1.45}}>
+                              <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.4}}>
                                 <span style={{color:'var(--text-muted)',flexShrink:0}}>•</span>
                                 <span style={{flex:1,minWidth:0,wordBreak:'break-word'}}>{linkify(n)}</span>
                                 <span style={{cursor:'pointer',color:'var(--text-muted)',opacity:0.5,flexShrink:0,fontSize:10}} title="Remover nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</span>
                               </div>
                             ))}
                           </div>}
-                          {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:11,padding:'4px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
+                          {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:10,padding:'3px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
                         </div>);
                       })()}
+                      </>)}
                     </div>);
                   })}
 
@@ -5738,29 +5942,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
 
           {importMode === 'planilhas' && <>
-          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos) ou intimações do eproc. O sistema identifica o tipo automaticamente.</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
-              <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
-                <div className="dz-icon">📂</div>
-                <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
-              </div>
-              <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
+          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos). O sistema identifica o tipo automaticamente.</div>
+          <div>
+            <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
+            <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
+              onDragLeave={e => e.currentTarget.classList.remove('dragover')}
+              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
+              <div className="dz-icon">📂</div>
+              <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
             </div>
-            <div>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>Intimações eproc (TRF4)</div>
-              <div className="drop-zone" onClick={() => eprocInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleEprocImport({ target: { files: e.dataTransfer.files } }); }}>
-                <div className="dz-icon">📬</div>
-                <div className="dz-text">citacaoIntimacao*.xls</div>
-              </div>
-            </div>
+            <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
           </div>
           </>}
 
@@ -6925,7 +7117,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
                     const isInherited = evt._inheritedFromParent || (isApenso && evt.executionId === group.exec.parentExecutionId);
                     const isFromIDPJ = !!evt._inheritedFromIDPJ;
-                    const evtBg = isFromIDPJ ? 'rgba(155,40,72,0.08)' : isInherited ? 'rgba(91,143,217,0.06)' : 'var(--bg-elevated)';
+                    const evtBg = isFromIDPJ ? 'rgba(155,40,72,0.08)' : isInherited ? 'rgba(91,143,217,0.06)' : 'color-mix(in srgb, var(--bg-main) 45%, transparent)';
                     const evtPrefix = isFromIDPJ ? '🛡️ ' : isInherited ? '⤷ ' : '';
                     return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:evtBg,borderRadius:4,borderLeft:`2px solid ${isFromIDPJ?'var(--pgfn)':catColor}`,cursor:'pointer'}}
                       onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
@@ -6944,7 +7136,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
               {/* COL 3: Action buttons */}
               <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-                <button className="btn-primary btn-sm" onClick={() => {
+                <button className="btn-secondary btn-sm" onClick={() => {
                   const cdaIds = group.cdas.map(d => d.id);
                   setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? group.exec.id : ''}});
                 }}>+ Evento</button>
@@ -7010,6 +7202,67 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         setModal({type:'create', entityType:'prescriptionEvent', initial:{ batchCdaIds: [...selectedCDAs] }});
       };
 
+      // Detalhe inline da CDA (expande abaixo — sem popup).
+      const renderCdaInlineDetail = (d) => {
+        const st = DEBT_STATUSES[d.status] || {};
+        const autoPresc = getPrescDate(d);
+        const prescDate = d.prescriptionDate || autoPresc;
+        const prescDays = daysUntil(prescDate);
+        const notes = d.notesList || (d.notes ? [d.notes] : []);
+        const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
+        const field = (label, value, color) => value ? (
+          <div key={label} className="cda-inline-field">
+            <span className="im-label">{label}</span>
+            <strong style={color ? { color } : undefined}>{value}</strong>
+          </div>
+        ) : null;
+        return (
+          <div className="cda-inline-detail" onClick={ev => ev.stopPropagation()}>
+            <div className="cda-inline-fields">
+              {field('Status', st.label || d.status)}
+              {field('Espécie', cdaEspecie(d))}
+              {field('Tributo', d.tribute)}
+              {field('Valor', d.value != null ? fmtCur(d.value) : null)}
+              {field('Inscrição', fmtDate(d.inscriptionDate))}
+              {field('Prescrição', prescDate
+                ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${!d.prescriptionDate && autoPresc ? ' · auto' : ''}`
+                : '—',
+                prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined)}
+              {d.prescriptionHandled && field('Tratamento',
+                d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')}
+              {d.processNumber && field('Processo', d.processNumber)}
+              {d.rawStatus && field('Situação origem', d.rawStatus)}
+            </div>
+            {responsabilidades.length > 0 && (
+              <div className="cda-inline-resp">
+                <span className="im-label">Responsáveis ({responsabilidades.length})</span>
+                <div className="cda-inline-resp-list">
+                  {responsabilidades.map(r => {
+                    const p = data.people.find(pp => pp.id === r.personId);
+                    if (!p) return null;
+                    return (
+                      <button type="button" key={r.id} className="btn-secondary btn-xs"
+                        onClick={() => setModal({ type: 'edit', entityType: 'person', initial: p })}>
+                        {truncate(p.name, 28)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {notes.length > 0 && (
+              <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
+                {notes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+              </div>
+            )}
+            <div className="cda-inline-actions">
+              <button type="button" className="btn-secondary btn-xs"
+                onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>✏ Editar inscrição</button>
+            </div>
+          </div>
+        );
+      };
+
       // Build apenso map
       const apensoMap2 = {};
       cdaGroups.forEach(g => {
@@ -7026,16 +7279,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const st = isExec ? (EXEC_STATUSES[e.status] || {}) : {};
         const prescForecastDays = isExec ? daysUntil(e.prescriptionForecast) : null;
         const groupAllSelected = group.cdas.length > 0 && group.cdas.every(d => selectedCDAs.has(d.id));
-
-        // Events — combine execution-level and CDA-level and inherited from parent
-        const groupEvents = prescEvents.filter(pe =>
-          (isExec && pe.executionId === e.id) ||
-          group.cdas.some(d => pe.cdaId === d.id || (pe.batchCdaIds && pe.batchCdaIds.includes(d.id)))
-        ).sort((a,b) => (b.date||'').localeCompare(a.date||''));
-        const inheritedFromParent = isExec && e.parentExecutionId
-          ? prescEvents.filter(pe => pe.executionId === e.parentExecutionId && !pe.cdaId && (!pe.batchCdaIds || pe.batchCdaIds.length === 0))
-          : [];
-        const allDisplayedEvents = [...groupEvents, ...inheritedFromParent.filter(ie => !groupEvents.some(ge => ge.date === ie.date && ge.type === ie.type))];
 
         const myApensosGroups = isExec ? cdaGroups.filter(x => x.type === 'exec' && x.exec.parentExecutionId === e.id) : [];
         const isTagged = isExec && e.processTag && e.processTag !== 'normal';
@@ -7074,7 +7317,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const borderLeftWidth = cardVariant !== 'normal' || isApenso || isLinkedToIDPJ2 ? 3 : 1;
         const bgColor = cardVariant === 'idpj' ? 'rgba(155,40,72,0.04)'
           : cardVariant === 'central' ? 'rgba(122,139,163,0.04)'
-          : isApenso ? 'var(--bg-elevated)'
           : 'var(--bg-card)';
 
         // Opacity based on execution status
@@ -7130,7 +7372,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           )}
           {hubCoveredBlock}
           {(processExpanded || hideProcessNumber) && <div className="process-detail">
-            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 0.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
+            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
           <div style={{minWidth:0}}>
             {/* Process header row — sem repetir o nº (já está no summary / linha da tabela) */}
@@ -7164,9 +7406,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div> : <span style={{color:'var(--red)',fontWeight:700,fontSize:12}}>⚠ CDAs Não Ajuizadas</span>}
             </div>
 
-            {/* CDAs list */}
+            {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo (como processos) */}
             {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
-            <div style={{maxHeight:260,overflowY:'auto'}}>
+            <div className="cda-inline-list" style={{maxHeight: expandedCdas.size ? 'none' : 260, overflowY: expandedCdas.size ? 'visible' : 'auto'}}>
               {group.cdas.map(d => {
                 const autoPresc = getPrescDate(d);
                 const prescDate = d.prescriptionDate || autoPresc;
@@ -7176,6 +7418,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
                 const cdaState = isHandled ? 'tratada' : days === null ? 'sem_dados' : days <= 0 ? 'prescrito' : days <= 180 ? 'critico' : days <= 365 ? 'alerta' : 'correndo';
                 const cdaSt = DEBT_STATUSES[d.status] || {};
+                const isExpanded = expandedCdas.has(d.id);
                 const toggleHandled = () => {
                   // If this CDA is in the selection, apply to ALL selected CDAs
                   const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
@@ -7207,66 +7450,54 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     }});
                   }
                 };
-                return (<div key={d.id} className="cda-row" title="Abrir detalhes da CDA" onClick={(ev) => {
-                  if (ev.target.closest && ev.target.closest('input,button')) return;
-                  ev.stopPropagation();
-                  setModal({type:'cdaDetail',entityType:'debt',initial:d});
-                }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:3,opacity:isHandled&&!isAguardando?0.85:1}}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleCDA2(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
-                      <span style={{fontWeight:600,fontSize:11}}>
-                        {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:4}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
-                         : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
-                        <span className="cda-link">{d.cdaNumber || 'CDA'}</span>
-                      </span>
-                      <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
+                return (<React.Fragment key={d.id}>
+                  <div className={`cda-row${isExpanded ? ' open' : ''}`} title="Clique ao lado do nº para expandir · nº copia ao clicar"
+                    onClick={(ev) => {
+                      if (ev.target.closest && ev.target.closest('input,button,.copyable,.cda-expand-chev')) return;
+                      ev.stopPropagation();
+                      toggleCdaExpand(d.id);
+                    }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:isExpanded?'none':'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:isExpanded?'3px 3px 0 0':3,opacity:isHandled&&!isAguardando?0.85:1}}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleCDA2(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
+                        <span style={{fontWeight:600,fontSize:11,display:'inline-flex',alignItems:'center',gap:4}}>
+                          <button type="button" className="cda-expand-chev" aria-expanded={isExpanded}
+                            title={isExpanded ? 'Recolher' : 'Expandir detalhes'}
+                            onClick={(ev) => { ev.stopPropagation(); toggleCdaExpand(d.id); }}>
+                            {isExpanded ? '▾' : '▸'}
+                          </button>
+                          {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:2}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
+                           : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:2}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
+                          <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
+                        </span>
+                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
+                      </div>
+                      <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
+                        <span className="cda-status">{cdaSt.label||d.status}</span>
+                        {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
+                         : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
+                        <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
+                          {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
+                          <span className="tip-content">{cdaState==='prescrito'?'PRESCRIÇÃO CONSUMADA':cdaState==='critico'?'CRÍTICO — <6 meses':cdaState==='alerta'?'Alerta — <1 ano':'Correndo normal'}</span>
+                        </span>}
+                      </div>
                     </div>
-                    <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
-                      <span className="cda-status">{cdaSt.label||d.status}</span>
-                      {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
-                       : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
-                      <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
-                        {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
-                        <span className="tip-content">{cdaState==='prescrito'?'PRESCRIÇÃO CONSUMADA':cdaState==='critico'?'CRÍTICO — <6 meses':cdaState==='alerta'?'Alerta — <1 ano':'Correndo normal'}</span>
-                      </span>}
+                    <div style={{display:'flex',gap:3,flexShrink:0}}>
+                      {!isHandled && <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); markAsAguardando(); }} style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)',borderColor:'rgba(245,158,11,0.3)'}}>⏳{selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como prescritas.`:'Marcar como prescrita — aguardando reconhecimento.'}</span></button>}
+                      <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); toggleHandled(); }}>{isHandled?'↻':'✓'}{!isHandled&&selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{isHandled?'Reabrir alerta.':selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como tratadas.`:'Marcar como tratada.'}</span></button>
                     </div>
                   </div>
-                  <div style={{display:'flex',gap:3,flexShrink:0}}>
-                    {!isHandled && <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); markAsAguardando(); }} style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)',borderColor:'rgba(245,158,11,0.3)'}}>⏳{selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como prescritas.`:'Marcar como prescrita — aguardando reconhecimento.'}</span></button>}
-                    <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); toggleHandled(); }}>{isHandled?'↻':'✓'}{!isHandled&&selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{isHandled?'Reabrir alerta.':selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como tratadas.`:'Marcar como tratada.'}</span></button>
-                  </div>
-                </div>);
+                  {isExpanded && (
+                    <div className="process-detail cda-expand-detail" onClick={ev => ev.stopPropagation()}>
+                      {renderCdaInlineDetail(d)}
+                    </div>
+                  )}
+                </React.Fragment>);
               })}
             </div>}
           </div>
 
-          {/* ═══ COL 2: Eventos prescricionais ═══ */}
-          <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
-            <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700}}>Eventos Prescricionais ({allDisplayedEvents.length})</div>
-            {allDisplayedEvents.length === 0 ? <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhum evento registrado</div> :
-            <div style={{maxHeight:260,overflowY:'auto'}}>
-              {allDisplayedEvents.map(evt => {
-                const evtType = PRESC_EVENT_TYPES[evt.type] || {};
-                const cat = evtType.category;
-                const catColor = cat==='interruptiva'?'var(--green)':cat==='suspensiva'?'var(--blue)':cat==='marco'?'var(--red)':'var(--text-muted)';
-                const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
-                const isInherited = isExec && evt.executionId === e.parentExecutionId;
-                return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:isInherited?'rgba(91,143,217,0.06)':'var(--bg-elevated)',borderRadius:4,borderLeft:`2px solid ${catColor}`,cursor:'pointer'}}
-                  onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
-                    <span style={{fontSize:11,fontWeight:700,color:catColor}}>{isInherited && '⤷ '}{catIcon} {evtType.label || evt.type}</span>
-                    <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtDate(evt.date)}</span>
-                  </div>
-                  {evt.endDate && <div style={{fontSize:9,color:'var(--text-muted)'}}>até {fmtDate(evt.endDate)}</div>}
-                  {evt.legalBasis && <div style={{fontSize:9,color:'var(--text-secondary)',marginTop:1}}>{truncate(evt.legalBasis,40)}</div>}
-                  {evt.notes && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:1,fontStyle:'italic'}}>{truncate(evt.notes,50)}</div>}
-                </div>);
-              })}
-            </div>}
-          </div>
-
-          {/* ═══ COL 3: Notas do processo ═══ */}
+          {/* ═══ COL 2: Notas do processo (espaço ampliado; eventos via botão + Evento) ═══ */}
           <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
             <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'space-between',gap:4}}>
               <span>Notas ({notes.length})</span>
@@ -7284,16 +7515,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
                 return true;
               });
-              return filteredNotes.length === 0 ? <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma nota</div> :
-              <div className="note-stack" style={{maxHeight:260,overflowY:'auto'}}>
-                {filteredNotes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-              </div>;
+              if (filteredNotes.length === 0) return null;
+              return (
+                <div className="note-stack" style={{maxHeight:260,overflowY:'auto'}}>
+                  {filteredNotes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                </div>
+              );
             })()}
           </div>
 
-          {/* ═══ COL 4: Ações ═══ */}
+          {/* ═══ COL 3: Ações ═══ */}
           <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-            <button className="btn-primary btn-sm" onClick={(ev) => {
+            <button className="btn-secondary btn-sm" onClick={(ev) => {
               ev.stopPropagation();
               const cdaIds = group.cdas.map(d => d.id);
               setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? e.id : ''}});
@@ -7484,12 +7717,97 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const uncoveredByBand = freeByBand;
 
         const bandTotals = (items) => {
-          const metas = (items || []).map(efRiskMeta);
+          const list = items || [];
+          // Não ajuizadas: contar CDAs (não o grupo agregado).
+          if (list.length > 0 && list.every(g => g.type === 'unlinked')) {
+            const cdas = list.flatMap(g => g.cdas || []);
+            const total = cdas.reduce((s, d) => s + (d.value || 0), 0);
+            const riskDays = cdas.filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
+            const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
+            const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
+            return { count: cdas.length, total, presc };
+          }
+          const metas = list.map(efRiskMeta);
           const total = metas.reduce((s, m) => s + (m.total || 0), 0);
           const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
           const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
           const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
-          return { count: (items || []).length, total, presc };
+          return { count: list.length, total, presc };
+        };
+
+        const renderUnlinkedCdaTable = (groups) => {
+          const cdas = (groups || []).flatMap(g => g.cdas || []);
+          if (cdas.length === 0) {
+            return <div className="proc-md-empty">Nenhuma CDA sem processo</div>;
+          }
+          return (
+            <div className="demo-proc-table-wrap">
+              <table className="demo-proc-table proc-md-table">
+                <thead>
+                  <tr>
+                    <th>Número</th>
+                    <th>Espécie</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Prescrição</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cdas.map(d => {
+                    const prescDate = d.prescriptionDate || getPrescDate(d);
+                    const days = daysUntil(prescDate);
+                    const riskClass = d.prescriptionHandled ? 'ok'
+                      : days !== null && days <= 180 ? 'critical'
+                      : days !== null && days <= 365 ? 'warning' : '';
+                    const prescLabel = d.prescriptionHandled ? 'Tratada'
+                      : days === null ? '—'
+                      : days <= 0 ? 'Prescrita'
+                      : `${days}d`;
+                    const st = DEBT_STATUSES[d.status] || {};
+                    const especie = cdaEspecie(d);
+                    const isExpanded = expandedCdas.has(d.id);
+                    return (
+                      <React.Fragment key={d.id}>
+                        <tr className={`demo-proc-table-row cda-expand-row risk-${riskClass} band-nao-ajuiz${isExpanded ? ' open' : ''}`}
+                          onClick={(ev) => {
+                            if (ev.target.closest && ev.target.closest('.copyable,button,.btn-secondary')) return;
+                            toggleCdaExpand(d.id);
+                          }}
+                          title="Clique na linha para expandir · no número para copiar">
+                          <td className="mono">
+                            <button type="button" className="cda-expand-chev" aria-expanded={isExpanded}
+                              title={isExpanded ? 'Recolher' : 'Expandir detalhes'}
+                              onClick={(ev) => { ev.stopPropagation(); toggleCdaExpand(d.id); }}>
+                              {isExpanded ? '▾' : '▸'}
+                            </button>
+                            <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
+                          </td>
+                          <td><span className="especie-badge" title={especie}>{especie}</span></td>
+                          <td><span className="ef-status-badge nao_ajuizada">{st.label || d.status || '—'}</span></td>
+                          <td>{fmtCur(d.value || 0)}</td>
+                          <td className={`risk-${riskClass}`}>{prescLabel}</td>
+                          <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
+                            <button type="button" className="btn-secondary btn-xs"
+                              onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Abrir</button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="demo-proc-table-detail">
+                            <td colSpan={6}>
+                              <div className="process-detail cda-expand-detail">
+                                {renderCdaInlineDetail(d)}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
         };
 
         const statusBadge = (exec) => {
@@ -7570,6 +7888,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             setSelectedProcBand(bandKey);
             setProcFocus('band');
             setRailBandsOpen(prev => new Set(prev).add(bandKey));
+            // Não ajuizadas: já abre o detalhe do grupo (evita clique extra).
+            if (bandKey === 'nao_ajuizada') {
+              const ug = (freeByBand.nao_ajuizada || []).find(x => x.type === 'unlinked');
+              if (ug) openRowDetail(ug);
+            }
           }
         };
 
@@ -7682,9 +8005,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const focusIsHub = !!selectedHub;
         const freeCount = (uncoveredEFs || []).length + (extinct || []).length + (unlinked || []).length;
         // Faixa efetiva no card Sem vínculo (sem setState durante render)
+        // Ordem do rail: status das EFs primeiro; Não ajuizadas por último (mesma raiz).
         const effectiveBandKey = (() => {
           if (selectedProcBand && (freeByBand[selectedProcBand] || []).length > 0) return selectedProcBand;
-          const first = [NAO_AJUIZ_BAND, ...EF_BANDS].find(b => (freeByBand[b.key] || []).length > 0);
+          const first = [...EF_BANDS, NAO_AJUIZ_BAND].find(b => (freeByBand[b.key] || []).length > 0);
           return first ? first.key : null;
         })();
         const focusedBandItems = effectiveBandKey ? (freeByBand[effectiveBandKey] || []) : [];
@@ -7710,15 +8034,30 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </button>
               {open && items.map(g => {
                 if (g.type !== 'exec') {
+                  // Não ajuizadas: lista as CDAs direto (sem nível "CDAs sem processo").
+                  const cdas = g.cdas || [];
                   return (
-                    <button type="button" key="unlinked" className={`proc-md-rail-item ${band.cls}`}
-                      onClick={() => {
-                        setSelectedProcBand(band.key);
-                        setProcFocus('band');
-                        openRowDetail(g);
-                      }}>
-                      <span className="mono">CDAs sem processo</span>
-                    </button>
+                    <React.Fragment key="unlinked">
+                      {cdas.map(d => (
+                        <button type="button" key={d.id}
+                          className={`proc-md-rail-item ${band.cls}${expandedCdas.has(d.id) ? ' open' : ''}`}
+                          onClick={(ev) => {
+                            if (ev.target.closest && ev.target.closest('.copyable')) return;
+                            setSelectedProcBand(band.key);
+                            setProcFocus('band');
+                            openRowDetail(g);
+                            setExpandedCdas(prev => {
+                              const n = new Set(prev);
+                              if (n.has(d.id)) n.delete(d.id); else n.add(d.id);
+                              return n;
+                            });
+                          }}
+                          title="Clique para expandir detalhes · nº copia ao clicar">
+                          <Copyable value={d.cdaNumber || ''} className="mono cda-link">{truncate(d.cdaNumber || 'CDA', 22)}</Copyable>
+                          {d.value != null && <span className="apenso-count">{fmtCur(d.value)}</span>}
+                        </button>
+                      ))}
+                    </React.Fragment>
                   );
                 }
                 const pk = 'process-row-' + g.exec.id;
@@ -7776,20 +8115,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           )}
 
-          {/* ═══ CARD 1: Âncoras (IDPJ / Cautelar / Central) + EFs relacionadas ═══ */}
+          {/* ═══ CARD 1: IDPJ / Cautelar / Central + EFs relacionadas ═══ */}
           <div id="proc-hubs-card" className={`proc-section-card${hubsCardOpen ? ' open' : ''}`}>
             <button type="button" className="proc-section-card-h"
               onClick={() => setHubsCardOpen(v => !v)}
               aria-expanded={hubsCardOpen}>
               <span>{hubsCardOpen ? '▾' : '▸'} IDPJ / Cautelar / Central <span className="count">({hubs.length})</span></span>
-              <span className="muted">Âncoras e execuções fiscais abrangidas</span>
+              <span className="muted">Incidentes e execuções fiscais abrangidas</span>
             </button>
             {hubsCardOpen && (
               <div className="proc-section-card-body">
                 <div className="demo-proc-view demo-proc-view-D proc-md-frame">
                   <aside className="proc-md-rail">
-                    <div className="proc-md-rail-h">Âncoras ({hubs.length})</div>
-                    {hubs.length === 0 && <div className="proc-md-empty rail">Nenhuma âncora nesta operação</div>}
+                    <div className="proc-md-rail-h">IDPJ / Cautelar / Central ({hubs.length})</div>
+                    {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum IDPJ, cautelar ou central nesta operação</div>}
                     {hubs.map(h => {
                       const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
                       const meta = hubRailMeta(h, cov);
@@ -7822,9 +8161,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             </div>
                           </div>
                           <div className="proc-md-pane-actions">
-                            <button type="button" className="btn-secondary btn-sm"
+                            <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
-                            <button type="button" className="btn-primary btn-sm"
+                            <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => {
                                 const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
                                 setModal({
@@ -7841,32 +8180,39 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
                             const hubNotes = filterProcNotes(rawNotes);
                             return (
-                              <div className="proc-md-hub-top">
-                                <div className="proc-md-hub-summary">
-                                  <div><small>Status</small><strong>{hubMeta.st.label || hub.status || '—'}</strong></div>
-                                  <div><small>EFs abrangidas</small><strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong></div>
-                                  <div><small>Presc. mais próxima</small><strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong></div>
-                                </div>
-                                <div className="proc-md-hub-notes">
-                                  <div className="proc-md-hub-notes-h">
-                                    <span>Notas e observações <span className="count">({hubNotes.length})</span></span>
-                                    <button type="button" className="btn-secondary btn-xs"
-                                      onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
-                                      title="Editar âncora para alterar notas">✎</button>
+                              <div className="proc-md-hub-meta-block">
+                                <div className="proc-md-hub-stats">
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">Status</span>
+                                    <strong>{hubMeta.st.label || hub.status || '—'}</strong>
                                   </div>
-                                  {hubNotes.length === 0
-                                    ? <div className="proc-md-empty">Nenhuma nota nesta âncora</div>
-                                    : (
-                                      <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
-                                        {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                                      </div>
-                                    )}
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">EFs abrangidas</span>
+                                    <strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong>
+                                  </div>
+                                  <div className="proc-md-hub-stat">
+                                    <span className="im-label">Presc. mais próxima</span>
+                                    <strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong>
+                                  </div>
+                                </div>
+                                <div className="proc-md-hub-notes-flat">
+                                  <div className="proc-md-hub-notes-h">
+                                    <span className="intim-center-label">Notas e observações ({hubNotes.length})</span>
+                                    <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
+                                      onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: hub })}
+                                      title="Editar processo para alterar notas">✎</button>
+                                  </div>
+                                  {hubNotes.length > 0 && (
+                                    <div className="note-stack" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                                      {hubNotes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
                           })()}
-                          <div className="proc-md-block-label band-anchor">EFs abrangidas <span className="count">({covered.length})</span></div>
-                          {renderEfTable(covered, 'Nenhuma EF vinculada a esta âncora')}
+                          <div className="proc-md-block-label band-anchor">Execuções fiscais abrangidas <span className="count">({covered.length})</span></div>
+                          {renderEfTable(covered, 'Nenhuma EF vinculada a este processo')}
                           {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
                             <div className="proc-hub-rel">
                               <div className="proc-md-block-label">Recursos / embargos vinculados</div>
@@ -7877,7 +8223,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       </>
                     ) : (
                       <div className="proc-md-pane-body">
-                        <div className="proc-md-empty">Nenhuma âncora (IDPJ / Cautelar / Central) nesta operação.</div>
+                        <div className="proc-md-empty">Nenhum IDPJ, cautelar ou central nesta operação.</div>
                       </div>
                     )}
                   </section>
@@ -7886,24 +8232,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
           </div>
 
-          {/* ═══ CARD 2: EFs sem vínculo a âncora ═══ */}
+          {/* ═══ CARD 2: EFs sem vínculo a IDPJ / Cautelar / Central ═══ */}
           <div id="proc-free-card" className={`proc-section-card${freeCardOpen ? ' open' : ''}`}>
             <button type="button" className="proc-section-card-h"
               onClick={() => setFreeCardOpen(v => !v)}
               aria-expanded={freeCardOpen}>
               <span>{freeCardOpen ? '▾' : '▸'} Execuções sem vínculo <span className="count">({freeCount})</span></span>
-              <span className="muted">Ativas, suspensas, art. 40, extintas e não ajuizadas — fora de IDPJ / Cautelar / Central</span>
+              <span className="muted">Ativas, suspensas, art. 40, extintas — e não ajuizadas ao final — fora de IDPJ / Cautelar / Central</span>
             </button>
             {freeCardOpen && (
               <div className="proc-section-card-body">
                 <div className="demo-proc-view demo-proc-view-D proc-md-frame">
                   <aside className="proc-md-rail">
-                    {(unlinked || []).length > 0 && renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
-                    <div className="proc-md-rail-sec rail-sem" style={{ borderTop: (unlinked || []).length ? undefined : 'none', marginTop: (unlinked || []).length ? undefined : 0, paddingTop: (unlinked || []).length ? undefined : 8 }}>
-                      Por status
-                    </div>
                     {EF_BANDS.map(band => renderRailBand(band, uncoveredByBand[band.key] || []))}
-                    {freeCount === 0 && <div className="proc-md-empty rail">Nenhuma EF fora das âncoras</div>}
+                    {(unlinked || []).length > 0 && renderRailBand(NAO_AJUIZ_BAND, freeByBand.nao_ajuizada)}
+                    {freeCount === 0 && <div className="proc-md-empty rail">Nenhuma EF fora de IDPJ / Cautelar / Central</div>}
                   </aside>
                   <section className="proc-md-pane">
                     {effectiveBandKey && focusedBandMeta ? (
@@ -7914,11 +8257,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             {(() => { const t = bandTotals(focusedBandItems); return `${t.count} · ${fmtCur(t.total)} · ${t.presc}`; })()}
                           </span>
                         </div>
-                        {renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
+                        {effectiveBandKey === 'nao_ajuizada'
+                          ? renderUnlinkedCdaTable(focusedBandItems)
+                          : renderEfTable(focusedBandItems, `Nenhum processo em ${focusedBandMeta.label}`)}
                       </div>
                     ) : (
                       <div className="proc-md-pane-body">
-                        <div className="proc-md-empty">Nenhuma execução fora das âncoras nesta operação.</div>
+                        <div className="proc-md-empty">Nenhuma execução fora de IDPJ / Cautelar / Central nesta operação.</div>
                       </div>
                     )}
                   </section>
@@ -8235,16 +8580,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const notes = a.notesList || (a.notes ? [a.notes] : []);
               const linkedExec = a.processRef ? data.executions.find(e => e.operationId === opId && sameProc(e.processNumber, a.processRef)) : null;
               const ast = ASSET_STATUSES[a.status] || {};
+              const headline = formatAssetHeadline(a, data.people);
+              const desc = (a.description || '').trim();
+              const showDesc = desc && desc.toLowerCase() !== headline.toLowerCase();
               return (<div key={a.id} className="entity-card-selectable">
                 <input type="checkbox" checked={selectedAssets.has(a.id)} onChange={() => toggleAsset(a.id)} />
                 <div className="entity-card" style={{flex:1,display:'grid',gridTemplateColumns:'2fr 1fr 1.2fr auto',gap:12,alignItems:'start'}} onClick={() => setModal({type:'edit',entityType:'asset',initial:a})}>
-                  {/* Col 1: Descrição + tipo + matrícula + processo + origem */}
+                  {/* Col 1: Espécie + identificador (destaque); descrição secundária */}
                   <div style={{minWidth:0}}>
-                    <div className="ec-title">{a.description || 'Sem descrição'}</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:3,fontSize:10,color:'var(--text-muted)',lineHeight:1.5}}>
-                      <span>{ASSET_SUBTYPES[a.subtype]||a.subtype||'Outro'}</span>
-                      {a.registry && <><span>·</span><span style={{fontFamily:'var(--font-mono)'}}>Matr. {a.registry}</span></>}
-                    </div>
+                    <div className="ec-title" style={{letterSpacing:'0.02em'}}>{headline}</div>
+                    {showDesc && <div className="ec-sub" style={{marginTop:3,fontSize:11,color:'var(--text-muted)',lineHeight:1.4}}>{desc}</div>}
                     {a.processRef && <div style={{marginTop:3,fontSize:10}}>
                       <span style={{color:'var(--text-muted)'}}>Proc.: </span>
                       <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',cursor:linkedExec?'pointer':'default',textDecoration:linkedExec?'underline':'none',textDecorationColor:'rgba(255,255,255,0.15)'}} onClick={e => { if (linkedExec) { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:linkedExec}); }}}>{a.processRef}</span>
@@ -8584,26 +8929,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
     setShowSettings(false);
   };
-  const loadDemoData = () => {
+  const loadDemoData = ({ force = false } = {}) => {
+    const hasData = (data.operations || []).length > 0
+      || (data.debts || []).length > 0
+      || (data.executions || []).length > 0
+      || (data.intimations || []).length > 0;
+    if (hasData && !force) {
+      if (!confirm('Resetar dados demo?\n\nIsso SUBSTITUI todo o dataset deste navegador pelas 5 operações de demonstração (não soma / não duplica).\n\nContinuar?')) return;
+    }
     const demo = generateDemoData();
-    setData(prev => {
-      // Demo Experimental: substitui o dataset para o quadro semanal/filas ficarem coerentes.
-      // Clássico: se já houver dados, faz merge (comportamento anterior).
-      if (isDemo || (prev.operations || []).length === 0) return demo;
-      const merged = { ...prev };
-      Object.keys(demo).forEach(k => {
-        if (k === 'links') {
-          merged.links = { ...(prev.links || {}) };
-          Object.keys(demo.links).forEach(lk => { merged.links[lk] = [...((prev.links || {})[lk] || []), ...demo.links[lk]]; });
-        } else if (Array.isArray(demo[k])) {
-          merged[k] = [...(prev[k] || []), ...demo[k]];
-        }
-      });
-      return merged;
-    });
+    // Sempre substitui — nunca mescla (evitar duplicatas ao recarregar).
+    setData(demo);
     setActiveOpId(null);
     if (isDemo) setViewMode('hoje');
-    alert('✅ Dados de demonstração carregados (3 operações fictícias).');
+    alert('✅ Dados demo resetados (5 operações fictícias).');
   };
   const openIntimsCount = (data.intimations || []).filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
@@ -8612,6 +8951,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const hearingsAheadCount = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return (data.hearings || []).filter(h => (h.status === 'agendada' || h.status === 'redesignada') && h.date && new Date(h.date + 'T00:00:00') >= t).length; })();
 
   const renderSettingsPanel = () => (showSettings && <div className="settings-panel" onClick={e => e.stopPropagation()}>
+    <div className="settings-version" title="Versão implantada — se não mudar após deploy, a implantação não pegou este build">
+      <strong>NEXUS {NEXUS_VERSION}</strong>
+      <span>build {typeof window !== 'undefined' && window.__NEXUS_BUILD__ ? window.__NEXUS_BUILD__ : '—'}</span>
+    </div>
     <div className="settings-group">
       <div className="settings-label">Edição da interface</div>
       <div className="settings-options">
@@ -8679,7 +9022,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </>}
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
-        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Carregar dados demo</button>}
+        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
@@ -8789,7 +9132,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
             <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
             <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
-            {!isGAS && <button className="btn-secondary" onClick={loadDemoData}>Carregar dados demo</button>}
+            {!isGAS && <button className="btn-secondary" onClick={() => loadDemoData()}>Resetar / carregar dados demo</button>}
           </div>
         </div>
         {fila.length === 0 ? (
@@ -8969,29 +9312,42 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  // Quadro semanal Demo: cards de fim de prazo, audiências e termo final de prescrição.
+  // Quadro semanal: prazos de intimação, tarefas com data limite, audiências e termo final de prescrição.
   const renderAgendaWeek = (opts = {}) => {
     const embedded = !!opts.embedded;
+    const localDayKey = (d) => {
+      if (typeof d === 'string') return d.slice(0, 10);
+      if (!d) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     const start = new Date(agendaWeekStart);
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const weekStartKey = days[0].toISOString().slice(0, 10);
-    const weekEndKey = days[6].toISOString().slice(0, 10);
+    const weekStartKey = localDayKey(days[0]);
+    const weekEndKey = localDayKey(days[6]);
     const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
     const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
-    const inWeek = (iso) => iso && iso >= weekStartKey && iso <= weekEndKey;
+    const inWeek = (iso) => { const k = localDayKey(iso); return k && k >= weekStartKey && k <= weekEndKey; };
 
-    // Coleta por dia: prazo (intimação/tarefa), audiência, termo final de prescrição
+    // Coleta por dia: prazo (intimação), tarefa (com data limite), audiência, termo final de prescrição
     const byDay = {};
-    days.forEach(d => { byDay[d.toISOString().slice(0, 10)] = []; });
+    days.forEach(d => { byDay[localDayKey(d)] = []; });
+    const pushDay = (iso, card) => {
+      const k = localDayKey(iso);
+      if (!k || !byDay[k]) return;
+      byDay[k].push(card);
+    };
 
     (data.intimations || []).forEach(x => {
       if (!x.dateDeadline || x.responseAction || x.status === 'analisado') return;
       if (!inWeek(x.dateDeadline)) return;
-      byDay[x.dateDeadline].push({
+      pushDay(x.dateDeadline, {
         id: 'intim-' + x.id, kind: 'prazo', sub: 'intim',
         title: truncate(x.processNumber || x.partyName || 'Intimação', 32),
         meta: opName(x.operationId),
@@ -9000,13 +9356,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       });
     });
     (data.tasks || []).forEach(t => {
+      // Só entra na agenda quando há Data Limite marcada
       if (!t.dueDate || t.status === 'concluida' || t.status === 'cancelada') return;
       if (!inWeek(t.dueDate)) return;
-      byDay[t.dueDate].push({
-        id: 'task-' + t.id, kind: 'prazo', sub: 'task',
+      pushDay(t.dueDate, {
+        id: 'task-' + t.id, kind: 'tarefa', sub: 'task',
         title: truncate(t.title || 'Tarefa', 32),
-        meta: opName(t.operationId),
-        tip: 'Fim de prazo · tarefa',
+        meta: opName(t.operationId) || (t.taskVisibility === 'global' ? 'Tarefa global' : ''),
+        tip: `Tarefa · data limite ${fmtDate(t.dueDate)}${t.priority ? ' · ' + t.priority : ''}`,
         onClick: () => {
           if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); }
           else setViewMode('tarefas_global');
@@ -9016,7 +9373,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     (data.hearings || []).forEach(h => {
       if (!h.date || h.status === 'cancelada' || h.status === 'realizada') return;
       if (!inWeek(h.date)) return;
-      byDay[h.date].push({
+      pushDay(h.date, {
         id: 'hear-' + h.id, kind: 'audiencia', sub: 'hearing',
         title: truncate((h.time ? h.time + ' · ' : '') + (h.parties || h.processNumber || 'Audiência'), 34),
         meta: opName(h.operationId),
@@ -9024,13 +9381,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onClick: () => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
       });
     });
-    const allExecs = data.executions || [];
-    const allPrescEvts = data.prescriptionEvents || [];
     (data.debts || []).forEach(d => {
       if (d.status === 'extinta' || d.prescriptionHandled) return;
       const pd = getPrescDate(d);
       if (!inWeek(pd)) return;
-      byDay[pd].push({
+      pushDay(pd, {
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
         title: truncate(d.cdaNumber || 'CDA', 28),
         meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
@@ -9041,7 +9396,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       });
     });
 
-    const kindLabel = { prazo: 'Prazo', audiencia: 'Audiência', presc: 'Prescrição' };
+    const kindLabel = { prazo: 'Prazo', tarefa: 'Tarefa', audiencia: 'Audiência', presc: 'Prescrição' };
     let totalCards = 0;
     Object.values(byDay).forEach(arr => { totalCards += arr.length; });
 
@@ -9054,6 +9409,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <span style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{label}</span>
           <span className="demo-week-legend" aria-hidden="true">
             <span className="demo-week-leg kind-prazo">Prazo</span>
+            <span className="demo-week-leg kind-tarefa">Tarefa</span>
             <span className="demo-week-leg kind-audiencia">Audiência</span>
             <span className="demo-week-leg kind-presc">Prescrição</span>
           </span>
@@ -9061,7 +9417,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
         <div className="demo-week">
           {days.map(d => {
-            const key = d.toISOString().slice(0, 10);
+            const key = localDayKey(d);
             const isToday = d.getTime() === today.getTime();
             const cards = byDay[key] || [];
             return (
@@ -9270,11 +9626,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div style={{fontSize:10,color:'var(--text-muted)',padding:'6px 0'}}>
             App fora do ambiente Apps Script. Sincronização com Planilha indisponível.
           </div>
-          <button className="btn-secondary btn-xs" style={{width:'100%',marginTop:4}} onClick={() => {
-            const hasData = (data.operations || []).length > 0;
-            if (hasData && !confirm('⚠ Já existem operações neste navegador.\n\nOs dados de demonstração serão SOMADOS aos existentes (podem se misturar com dados reais). O ideal é usar só em ambiente vazio.\n\nContinuar mesmo assim?')) return;
-            loadDemoData();
-          }}>🧪 Carregar dados de demonstração</button>
+          <button className="btn-secondary btn-xs" style={{width:'100%',marginTop:4}} onClick={() => loadDemoData()}>🧪 Resetar / carregar dados demo</button>
         </>)}
       </div>
 
@@ -9297,7 +9649,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           Intimações e Tarefas
           {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
         </button>
-        <button className={`top-nav-btn ${viewMode==='mesa'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('mesa'))}>
+        <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
+          onClick={() => { setViewMode('mesa'); }}>
           Mesa
           {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
         </button>
@@ -9502,7 +9855,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
                   Agenda da semana
                   <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
-                    Fim de prazos · audiências · termo final de prescrição
+                    Prazos · tarefas (data limite) · audiências · termo final de prescrição
                   </span>
                 </div>
               </div>
@@ -9858,8 +10211,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="sent">Data de envio (recente)</option>
             </select>
             <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media',urgent:false}})}>+ Intimação</button>
-            <button className="btn-secondary btn-sm" onClick={() => eprocInputRef.current?.click()}>📬 Importar eproc</button>
-            <input ref={eprocInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleEprocImport} />
             <div className="view-toggle" style={{marginLeft:'auto'}}>
               <button className={intimView==='list'?'active':''} onClick={()=>setIntimView('list')}>☰ Lista</button>
               <button className={intimView==='kanban'?'active':''} onClick={()=>setIntimView('kanban')}>▦ Kanban</button>
@@ -10225,21 +10576,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
       {/* ═══ MESA DE TRABALHO ═══ */}
       {viewMode === 'mesa' && (() => {
-        const META = {
-          intimation: { label: 'INTIMAÇÃO', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
-          task:       { label: 'TAREFA',    color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
-          hearing:    { label: 'AUDIÊNCIA', color: 'var(--accent)', bg: 'rgba(200,160,74,0.18)' },
-        };
+        const COLS = [
+          { type: 'intimation', label: 'Intimações', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
+          { type: 'task', label: 'Tarefas', color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
+          { type: 'hearing', label: 'Audiências', color: 'var(--accent)', bg: 'rgba(200,160,74,0.18)' },
+        ];
         const resolve = (d) => {
           const coll = d.type === 'intimation' ? data.intimations : d.type === 'task' ? data.tasks : data.hearings;
           const x = (coll || []).find(i => i.id === d.id);
-          return x ? { d, x } : null;
+          return x ? { d, x, deskIdx: (data.desk || []).findIndex(y => y.type === d.type && y.id === d.id) } : null;
         };
         const items = (data.desk || []).map(resolve).filter(Boolean);
         const rowInfo = (d, x) => {
           const op = data.operations.find(o => o.id === x.operationId);
-          const doc = d.type === 'intimation' ? x.minutaUrl : x.docUrl; // intimação: minutaUrl · tarefa/audiência: docUrl
-          // Notas herdadas do card de origem (intimação tem fallback para obs1/obs2 legados)
+          const doc = d.type === 'intimation' ? x.minutaUrl : x.docUrl;
           const notes = d.type === 'intimation'
             ? ((x.notesList && x.notesList.length) ? x.notesList : [x.obs1, x.obs2].filter(Boolean))
             : (x.notesList || (x.notes ? [x.notes] : []));
@@ -10249,47 +10599,94 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         };
         const daysColor = (dd) => dd === null ? 'var(--text-muted)' : dd <= 2 ? 'var(--red)' : dd <= 7 ? 'var(--yellow)' : 'var(--text-secondary)';
         const daysText = (dd) => dd === null ? '—' : dd < 0 ? `vencido ${Math.abs(dd)}d` : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : `${dd} dias`;
-        return (<div className="entity-area">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Mesa de trabalho</span>
-              <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} item(ns) em foco</span>
+        const renderCard = ({ d, x }) => {
+          const r = rowInfo(d, x);
+          return (
+            <div key={d.type + ':' + d.id} className="mesa-card" draggable
+              onDragStart={() => { deskDragRef.current = { type: d.type, id: d.id }; }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                e.preventDefault();
+                const from = deskDragRef.current;
+                deskDragRef.current = null;
+                if (!from || from.type !== d.type) return;
+                reorderDeskInColumn(d.type, from.id, d.id);
+              }}>
+              <div className="mesa-card-top">
+                <span className="mesa-drag" title="Arraste para reordenar na coluna">⠿</span>
+                <div className="mesa-check" onClick={e => { e.stopPropagation(); removeFromDesk(d.type, d.id); }} title="Tirar da mesa (sem concluir)" />
+                <div className="mesa-card-due" style={{ color: daysColor(r.days) }}>
+                  <strong>{daysText(r.days)}</strong>
+                  {r.dateLbl && <span>{r.dateLbl}</span>}
+                </div>
+              </div>
+              <div className="mesa-card-title" title="Abrir para editar"
+                onClick={() => setModal({ type: 'edit', entityType: d.type, initial: x })}>{r.title}</div>
+              {(r.proc || r.op || r.extra) && (
+                <div className="mesa-card-meta">
+                  {r.proc && <Copyable value={r.proc} className="intim-procnum">{r.proc}</Copyable>}
+                  {r.op && <span className="mesa-op" title="Abrir a operação"
+                    onClick={e => { e.stopPropagation(); setActiveOpId(r.op.id); setViewMode('operation'); }}>◎ {truncate(r.op.name, 22)}</span>}
+                  {r.extra && <span className="muted">{r.extra}</span>}
+                </div>
+              )}
+              {r.notes.length > 0 && (
+                <div className="note-stack mesa-card-notes">
+                  {r.notes.slice(0, 2).map((n, ni) => <div key={ni} className="note-item">{linkify(n)}</div>)}
+                  {r.notes.length > 2 && <div className="muted" style={{ fontSize: 9 }}>+{r.notes.length - 2} nota(s)</div>}
+                </div>
+              )}
+              <div className="mesa-card-actions">
+                {r.doc && <a href={r.doc} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="intim-doc-link">📝 Doc</a>}
+                {d.type === 'intimation' && (
+                  <button className="btn-secondary btn-xs" title="Registrar atuação"
+                    onClick={e => { e.stopPropagation(); setRespondModal({ intim: x, type: null }); }}>✎ Atuação</button>
+                )}
+              </div>
             </div>
-            {items.length > 0 && <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Arraste ⠿ para reordenar · marque ☐ para tirar da mesa</span>}
+          );
+        };
+        return (<div className="entity-area">
+          <div className="mesa-header">
+            <div>
+              <span className="mesa-title">Mesa de trabalho</span>
+              <span className="muted" style={{ marginLeft: 10, fontSize: 11 }}>{items.length} item(ns) em foco</span>
+            </div>
+            <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}>
+              Colunas · arraste ⠿ para reordenar na coluna · ☐ tira da mesa
+            </span>
           </div>
-          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">◫</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão Mesa nos cards.</p></div> :
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {items.map(({ d, x }, i) => {
-              const m = META[d.type]; const r = rowInfo(d, x);
-              return (<div key={d.type + ':' + d.id} draggable
-                onDragStart={() => { deskDragRef.current = i; }}
-                onDragOver={e => e.preventDefault()}
-                onDrop={() => { reorderDesk(deskDragRef.current, i); deskDragRef.current = null; }}
-                style={{display:'flex',alignItems:'flex-start',gap:10,background:'var(--bg-card)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:6,padding:'9px 12px',cursor:'grab'}}>
-                <span style={{color:'var(--text-muted)',fontSize:14,flexShrink:0,marginTop:1}} title="Arraste para reordenar">⠿</span>
-                <div onClick={e => { e.stopPropagation(); removeFromDesk(d.type, d.id); }} title="Tirar da mesa (sem concluir)" style={{width:16,height:16,borderRadius:4,border:'1.5px solid var(--text-muted)',flexShrink:0,cursor:'pointer',marginTop:2}} />
-                <span style={{fontSize:10,fontWeight:700,padding:'1px 7px',borderRadius:3,background:m.bg,color:m.color,flexShrink:0,marginTop:3}}>{m.label}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,color:'var(--text-primary)',cursor:'pointer',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title="Abrir para editar" onClick={() => setModal({ type:'edit', entityType: d.type, initial: x })}>{r.title}</div>
-                  {(r.proc || r.op || r.extra) && <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:1}}>
-                    {r.proc && <Copyable value={r.proc} className="intim-procnum">{r.proc}</Copyable>}
-                    {r.op && <span style={{fontSize:11,color:'var(--accent)',cursor:'pointer'}} title="Abrir a operação" onClick={e => { e.stopPropagation(); setActiveOpId(r.op.id); setViewMode('operation'); }}>◎ {truncate(r.op.name, 26)}</span>}
-                    {r.extra && <span style={{fontSize:11,color:'var(--text-muted)'}}>{r.extra}</span>}
-                  </div>}
-                  {r.notes.length > 0 && <div className="note-stack" style={{marginTop:4,maxHeight:64,overflowY:'auto'}}>
-                    {r.notes.slice(0,3).map((n,ni) => <div key={ni} className="note-item">{linkify(n)}</div>)}
-                    {r.notes.length > 3 && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:2}}>+{r.notes.length-3} nota(s)</div>}
-                  </div>}
-                </div>
-                {r.doc && <a href={r.doc} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="intim-doc-link" style={{flexShrink:0}}>📝 {r.doc.includes('docs.google') ? 'Google Docs' : 'Documento'}</a>}
-                {d.type === 'intimation' && <button className="btn-secondary btn-xs" style={{flexShrink:0}} title="Registrar atuação — conclui a intimação e tira da mesa" onClick={e => { e.stopPropagation(); setRespondModal({ intim: x, type: null }); }}>✎ Atuação</button>}
-                <div style={{textAlign:'right',flexShrink:0,minWidth:56}}>
-                  <div style={{fontSize:12,fontWeight:600,color:daysColor(r.days)}}>{daysText(r.days)}</div>
-                  {r.dateLbl && <div style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{r.dateLbl}</div>}
-                </div>
-              </div>);
+          {items.length === 0 && (
+            <p className="mesa-board-hint muted">Mesa vazia — envie itens com o botão Mesa nos cards de intimações, tarefas ou audiências.</p>
+          )}
+          <div className="mesa-board">
+            {COLS.map(col => {
+              const colItems = items.filter(it => it.d.type === col.type);
+              return (
+                <section key={col.type} className="mesa-col" style={{ '--mesa-col-color': col.color, '--mesa-col-bg': col.bg }}>
+                  <header className="mesa-col-h">
+                    <span>{col.label}</span>
+                    <span className="mesa-col-count">{colItems.length}</span>
+                  </header>
+                  <div className="mesa-col-body"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const from = deskDragRef.current;
+                      deskDragRef.current = null;
+                      if (!from || from.type !== col.type || colItems.length === 0) return;
+                      const last = colItems[colItems.length - 1];
+                      if (from.id === last.d.id) return;
+                      reorderDeskInColumn(col.type, from.id, last.d.id);
+                    }}>
+                    {colItems.length === 0
+                      ? <div className="mesa-col-empty">Nenhum item</div>
+                      : colItems.map(renderCard)}
+                  </div>
+                </section>
+              );
             })}
-          </div>}
+          </div>
         </div>);
       })()}
 
@@ -10400,7 +10797,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             const lastCheck = w.lastCheckedAt ? Math.floor((new Date() - new Date(w.lastCheckedAt))/(1000*60*60*24)) : null;
             return (<div key={w.id} className="entity-card" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr auto',gap:12,alignItems:'start',borderLeft:`3px solid ${w.status==='aguardando'?'var(--yellow)':w.status==='movimentado'?'var(--blue)':'var(--green)'}`}} onClick={() => setModal({type:'edit',entityType:'watch',initial:w})}>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>{w.processNumber || 'Sem nº'}</div>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
+                  <ProcNum value={w.processNumber} empty="Sem nº" />
+                </div>
                 <div className="ec-sub">{w.parties || ''}</div>
                 {op && <div style={{fontSize:10,color:'var(--accent)',cursor:'pointer',marginTop:2}} onClick={e => { e.stopPropagation(); setActiveOpId(op.id); setViewMode('operation'); }}>↗ {op.name}</div>}
               </div>
@@ -10538,10 +10937,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="stat-sub">{opStats.overdueTasks > 0 ? `${opStats.overdueTasks} vencida(s)` : opStats.openTasks > 0 ? 'em aberto' : 'nenhuma'}</div>
             </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:6,padding:'8px 18px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
-            <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
-              <button className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
-              <button className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
+          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,padding:'6px 14px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
+            <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
+              <button className="btn-secondary btn-xs has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button className="btn-secondary btn-xs" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
               {(() => { const rs = reviewStatus(activeOp); return (<span style={{fontSize:9,color:rs.color,fontWeight:600,padding:'2px 8px',borderRadius:3,background:`${rs.color.replace('var(--','rgba(').replace(')',', 0.1)')}`,border:`1px solid ${rs.color.replace('var(--','rgba(').replace(')',', 0.25)')}`}}>{rs.label}</span>); })()}
@@ -10562,8 +10961,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button type="button" className="op-header-collapse-btn"
               onClick={toggleOpHeaderCollapsed}
               title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-label={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
               aria-expanded={!opHeaderCollapsed}>
-              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+              {opHeaderCollapsed ? '▾' : '▴'}
             </button>
           </div>
           {DEMO_ZONES[demoZone]?.tabs.length > 1 && (
@@ -10596,8 +10996,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button type="button" className="op-header-collapse-btn"
               onClick={toggleOpHeaderCollapsed}
               title={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
+              aria-label={opHeaderCollapsed ? 'Expandir resumo da operação' : 'Recolher resumo da operação'}
               aria-expanded={!opHeaderCollapsed}>
-              {opHeaderCollapsed ? '▾ Resumo' : '▴ Resumo'}
+              {opHeaderCollapsed ? '▾' : '▴'}
             </button>
           </div>
         )}
@@ -11422,8 +11823,10 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       {(() => {
         const sel = Array.isArray(form.classifications) ? form.classifications : (form.classification ? [form.classification] : []);
         const toggle = (k) => { const next = sel.includes(k) ? sel.filter(x=>x!==k) : [...sel, k]; set('classifications', next); };
+        const entries = Object.entries(OP_CLASSIFICATIONS)
+          .sort((a, b) => a[1].label.localeCompare(b[1].label, 'pt-BR', { sensitivity: 'base' }));
         return (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 14px',padding:10,background:'var(--bg-input)',border:'1px solid var(--border)',borderRadius:6}}>
-          {Object.entries(OP_CLASSIFICATIONS).map(([k,v]) => { const on = sel.includes(k); return (
+          {entries.map(([k,v]) => { const on = sel.includes(k); return (
             <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:12,cursor:'pointer',color:on?v.color:'var(--text-secondary)',fontWeight:on?600:400}}>
               <input type="checkbox" checked={on} onChange={()=>toggle(k)} style={{accentColor:'var(--accent)',cursor:'pointer'}} />
               {v.label}
@@ -11747,7 +12150,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-group"><label>Bens Alcançados</label>
         <CheckList
-          options={opAssets.map(a => ({ id: a.id, label: a.description||'Bem', badge: ASSET_SUBTYPES[a.subtype]||a.subtype }))}
+          options={opAssets.map(a => ({ id: a.id, label: formatAssetHeadline(a, opPeople), badge: ASSET_SUBTYPES[a.subtype]||a.subtype }))}
           selected={form.linkedAssetIds||[]}
           onChange={ids => set('linkedAssetIds', ids)}
           emptyText="Cadastre bens primeiro"
@@ -11766,7 +12169,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
     <div className="form-row">
-      <div className="form-group"><label>Registro / Matrícula</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} /></div>
+      <div className="form-group"><label>Registro / Matrícula / Placa</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} placeholder={form.subtype==='veiculo'?'ABC1D23':form.subtype==='imovel'?'45.678':''} /></div>
       <div className="form-group"><label>Titular</label><select value={form.holderId||''} onChange={e=>set('holderId',e.target.value)}><option value="">Nenhum</option>
         {(data?.people||[]).filter(p=>p.operationId===operationId).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     </div>
