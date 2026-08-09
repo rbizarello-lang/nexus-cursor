@@ -1993,22 +1993,24 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .proc-md-hub-meta .risk-warning { color: var(--yellow); font-weight: 700; }
 .proc-md-hub-meta .risk-ok { color: var(--green); font-weight: 600; }
 .proc-md-rail-sec {
-  padding: 10px 14px 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  /* Mesmo corpo tipográfico das faixas do rail (Ativa/Suspensa/Não ajuizadas…). */
+  padding: 10px 14px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-muted); margin-top: 4px;
-  border-left: 3px solid transparent;
+  border-left: 3px solid transparent; line-height: 1.35;
 }
 .proc-md-rail-sec.band {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   width: 100%; text-align: left; cursor: pointer; border: none; background: transparent;
-  font-family: inherit; margin-top: 6px; border-radius: 0 6px 6px 0;
-  padding: 8px 10px 6px 11px;
+  font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  margin-top: 6px; border-radius: 0 6px 6px 0;
+  padding: 8px 10px 6px 11px; line-height: 1.35;
 }
 .proc-md-rail-sec.band:hover { filter: brightness(1.08); }
 .proc-md-rail-sec.band .band-tot {
   font-family: var(--font-mono, ui-monospace, Consolas, monospace);
-  font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.9;
+  font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.9;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58%;
-  color: inherit;
+  color: inherit; line-height: inherit;
 }
 .proc-md-rail-sec.rail-sem {
   margin-top: 12px; padding-top: 12px;
@@ -2024,7 +2026,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   color: var(--text-secondary);
   border-left-color: var(--text-secondary);
   background: color-mix(in srgb, var(--text-secondary) 10%, transparent);
-  font-size: 10px;
 }
 .proc-md-rail-item.band-nao-ajuiz {
   background: color-mix(in srgb, var(--text-secondary) 6%, transparent);
@@ -2241,12 +2242,15 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .ops-kanban-board .kanban-card .kc-alerts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
 
 .proc-md-rail-item {
-  padding: 7px 14px; font-size: 11px; color: var(--text-secondary); cursor: pointer;
+  /* Itens do rail (EF / CDA): mesmo tamanho que as faixas acima. */
+  padding: 7px 14px; font-size: 10px; color: var(--text-secondary); cursor: pointer;
   border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
+  line-height: 1.35;
 }
 .proc-md-rail-item:hover { color: var(--text-primary); background: color-mix(in srgb, var(--bg-card) 45%, transparent); }
 .proc-md-rail-item .mono { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: 10px; }
 .proc-md-rail-item .muted { color: var(--text-muted); font-size: 10px; }
+.proc-md-rail-item .apenso-count { font-size: 10px; }
 .proc-md-rail-item.demoted { opacity: 0.65; }
 .proc-md-rail-item.nested { padding-left: 22px; font-size: 10px; }
 .proc-md-pane {
