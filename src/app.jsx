@@ -1,5 +1,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
+/** Versão de produto (fonte: package.json → window.__NEXUS_VERSION__ no build). Exibida em ⚙. */
+const NEXUS_VERSION = (typeof window !== 'undefined' && window.__NEXUS_VERSION__) || '0.0.0';
 const STORAGE_KEY = 'nexus_fiscal_v2';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const defaultData = () => ({ operations: [], people: [], debts: [], executions: [], measures: [], assets: [], documents: [], prescriptionEvents: [], intimations: [], tasks: [], stickyNotes: [], watchlist: [], hearings: [], desk: [], models: [], importLogs: [], changeLog: [], links: { measurePeople: [], measureAssets: [], cdaResponsibilities: [] } });
@@ -8949,6 +8951,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const hearingsAheadCount = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return (data.hearings || []).filter(h => (h.status === 'agendada' || h.status === 'redesignada') && h.date && new Date(h.date + 'T00:00:00') >= t).length; })();
 
   const renderSettingsPanel = () => (showSettings && <div className="settings-panel" onClick={e => e.stopPropagation()}>
+    <div className="settings-version" title="Versão implantada — se não mudar após deploy, a implantação não pegou este build">
+      <strong>NEXUS {NEXUS_VERSION}</strong>
+      <span>build {typeof window !== 'undefined' && window.__NEXUS_BUILD__ ? window.__NEXUS_BUILD__ : '—'}</span>
+    </div>
     <div className="settings-group">
       <div className="settings-label">Edição da interface</div>
       <div className="settings-options">

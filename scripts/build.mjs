@@ -74,6 +74,10 @@ if (!result || !result.code) {
 // Solução à prova de mangling: empacotar o código em BASE64 (alfabeto A-Za-z0-9+/=,
 // nada que um parser de HTML possa interpretar) e decodificar no navegador.
 const buildStamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+let appVersion = '0.0.0';
+try {
+  appVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version || appVersion;
+} catch (_) { /* ignore */ }
 const b64 = Buffer.from(result.code, 'utf8').toString('base64');
 // Quebra em pedaços para evitar uma única linha de ~1.2M chars
 const CHUNK = 20000;
@@ -87,9 +91,10 @@ function buildInjected(demo) {
   return `<script>
 (function () {
   window.__NEXUS_BUILD__ = '${buildStamp}';
+  window.__NEXUS_VERSION__ = '${appVersion}';
   ${demo ? "window.__NEXUS_DEMO__ = true;" : "window.__NEXUS_DEMO__ = false;"}
   var boot = document.getElementById('nexus-boot');
-  if (boot) boot.textContent = 'Carregando NEXUS${demo ? ' Demo' : ''}… (build ${buildStamp})';
+  if (boot) boot.textContent = 'Carregando NEXUS ${appVersion}${demo ? ' Demo' : ''}… (build ${buildStamp})';
   try {
     var b64 = [
 ${partsJs}
@@ -176,7 +181,7 @@ const ms = Date.now() - t0;
 const jsxKb = (Buffer.byteLength(jsx, 'utf8') / 1024).toFixed(1);
 const outKb = (Buffer.byteLength(classic.html, 'utf8') / 1024).toFixed(1);
 const demoKb = (Buffer.byteLength(demo.html, 'utf8') / 1024).toFixed(1);
-console.log(`OK  src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
+console.log(`OK  NEXUS ${appVersion} · src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
 console.log(`    + Nexus.demo.html / Nexus_demo.html (${demoKb} KB)`);
 console.log(`    + Nexus_demo_experimental.html (${demoKb} KB) — Demo Experimental na raiz`);
 console.log(`    + demo_experimental.html (alias)`);
