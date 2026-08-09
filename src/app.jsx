@@ -4866,6 +4866,20 @@ function App() {
     arr.splice(to, 0, moved);
     return { ...prev, desk: arr };
   });
+  /** Reordena dentro da coluna (mesmo tipo), preservando a posição dos demais tipos. */
+  const reorderDeskInColumn = (type, fromId, toId) => setData(prev => {
+    const desk = prev.desk || [];
+    if (!type || fromId == null || toId == null || fromId === toId) return prev;
+    const col = desk.filter(d => d.type === type);
+    const fi = col.findIndex(d => d.id === fromId);
+    const ti = col.findIndex(d => d.id === toId);
+    if (fi < 0 || ti < 0 || fi === ti) return prev;
+    const nextCol = [...col];
+    const [moved] = nextCol.splice(fi, 1);
+    nextCol.splice(ti, 0, moved);
+    let i = 0;
+    return { ...prev, desk: desk.map(d => d.type === type ? nextCol[i++] : d) };
+  });
   const toggleDesk = (type, id, days) => { if (isOnDesk(type, id)) removeFromDesk(type, id); else addToDesk(type, id, days); };
   const toggleDebt = (id) => setSelectedDebts(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleExec = (id) => setSelectedExecs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -7390,9 +7404,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div> : <span style={{color:'var(--red)',fontWeight:700,fontSize:12}}>⚠ CDAs Não Ajuizadas</span>}
             </div>
 
-            {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo */}
+            {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo (como processos) */}
             {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
-            <div style={{maxHeight: expandedCdas.size ? 420 : 260, overflowY:'auto'}}>
+            <div className="cda-inline-list" style={{maxHeight: expandedCdas.size ? 'none' : 260, overflowY: expandedCdas.size ? 'visible' : 'auto'}}>
               {group.cdas.map(d => {
                 const autoPresc = getPrescDate(d);
                 const prescDate = d.prescriptionDate || autoPresc;
@@ -7467,7 +7481,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); toggleHandled(); }}>{isHandled?'↻':'✓'}{!isHandled&&selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{isHandled?'Reabrir alerta.':selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como tratadas.`:'Marcar como tratada.'}</span></button>
                     </div>
                   </div>
-                  {isExpanded && renderCdaInlineDetail(d)}
+                  {isExpanded && (
+                    <div className="process-detail cda-expand-detail" onClick={ev => ev.stopPropagation()}>
+                      {renderCdaInlineDetail(d)}
+                    </div>
+                  )}
                 </React.Fragment>);
               })}
             </div>}
@@ -7765,7 +7783,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </tr>
                         {isExpanded && (
                           <tr className="demo-proc-table-detail">
-                            <td colSpan={6}>{renderCdaInlineDetail(d)}</td>
+                            <td colSpan={6}>
+                              <div className="process-detail cda-expand-detail">
+                                {renderCdaInlineDetail(d)}
+                              </div>
+                            </td>
                           </tr>
                         )}
                       </React.Fragment>
@@ -8007,14 +8029,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <React.Fragment key="unlinked">
                       {cdas.map(d => (
                         <button type="button" key={d.id}
-                          className={`proc-md-rail-item ${band.cls}`}
-                          onClick={() => {
+                          className={`proc-md-rail-item ${band.cls}${expandedCdas.has(d.id) ? ' open' : ''}`}
+                          onClick={(ev) => {
+                            if (ev.target.closest && ev.target.closest('.copyable')) return;
                             setSelectedProcBand(band.key);
                             setProcFocus('band');
                             openRowDetail(g);
+                            setExpandedCdas(prev => {
+                              const n = new Set(prev);
+                              if (n.has(d.id)) n.delete(d.id); else n.add(d.id);
+                              return n;
+                            });
                           }}
-                          title={d.cdaNumber || 'CDA'}>
-                          <span className="mono">{truncate(d.cdaNumber || 'CDA', 22)}</span>
+                          title="Clique para expandir detalhes · nº copia ao clicar">
+                          <Copyable value={d.cdaNumber || ''} className="mono cda-link">{truncate(d.cdaNumber || 'CDA', 22)}</Copyable>
                           {d.value != null && <span className="apenso-count">{fmtCur(d.value)}</span>}
                         </button>
                       ))}
@@ -10555,16 +10583,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         };
         const daysColor = (dd) => dd === null ? 'var(--text-muted)' : dd <= 2 ? 'var(--red)' : dd <= 7 ? 'var(--yellow)' : 'var(--text-secondary)';
         const daysText = (dd) => dd === null ? '—' : dd < 0 ? `vencido ${Math.abs(dd)}d` : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : `${dd} dias`;
-        const renderCard = ({ d, x, deskIdx }) => {
-          const m = COLS.find(c => c.type === d.type) || COLS[0];
+        const renderCard = ({ d, x }) => {
           const r = rowInfo(d, x);
           return (
             <div key={d.type + ':' + d.id} className="mesa-card" draggable
-              onDragStart={() => { deskDragRef.current = deskIdx; }}
+              onDragStart={() => { deskDragRef.current = { type: d.type, id: d.id }; }}
               onDragOver={e => e.preventDefault()}
-              onDrop={() => { reorderDesk(deskDragRef.current, deskIdx); deskDragRef.current = null; }}>
+              onDrop={e => {
+                e.preventDefault();
+                const from = deskDragRef.current;
+                deskDragRef.current = null;
+                if (!from || from.type !== d.type) return;
+                reorderDeskInColumn(d.type, from.id, d.id);
+              }}>
               <div className="mesa-card-top">
-                <span className="mesa-drag" title="Arraste para reordenar">⠿</span>
+                <span className="mesa-drag" title="Arraste para reordenar na coluna">⠿</span>
                 <div className="mesa-check" onClick={e => { e.stopPropagation(); removeFromDesk(d.type, d.id); }} title="Tirar da mesa (sem concluir)" />
                 <div className="mesa-card-due" style={{ color: daysColor(r.days) }}>
                   <strong>{daysText(r.days)}</strong>
@@ -10603,28 +10636,41 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <span className="mesa-title">Mesa de trabalho</span>
               <span className="muted" style={{ marginLeft: 10, fontSize: 11 }}>{items.length} item(ns) em foco</span>
             </div>
-            {items.length > 0 && <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}>Colunas por tipo · arraste ⠿ para reordenar · ☐ tira da mesa</span>}
+            <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}>
+              Colunas · arraste ⠿ para reordenar na coluna · ☐ tira da mesa
+            </span>
           </div>
-          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">◫</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão Mesa nos cards.</p></div> : (
-            <div className="mesa-board">
-              {COLS.map(col => {
-                const colItems = items.filter(it => it.d.type === col.type);
-                return (
-                  <section key={col.type} className="mesa-col" style={{ '--mesa-col-color': col.color, '--mesa-col-bg': col.bg }}>
-                    <header className="mesa-col-h">
-                      <span>{col.label}</span>
-                      <span className="mesa-col-count">{colItems.length}</span>
-                    </header>
-                    <div className="mesa-col-body">
-                      {colItems.length === 0
-                        ? <div className="mesa-col-empty">Nenhum item</div>
-                        : colItems.map(renderCard)}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+          {items.length === 0 && (
+            <p className="mesa-board-hint muted">Mesa vazia — envie itens com o botão Mesa nos cards de intimações, tarefas ou audiências.</p>
           )}
+          <div className="mesa-board">
+            {COLS.map(col => {
+              const colItems = items.filter(it => it.d.type === col.type);
+              return (
+                <section key={col.type} className="mesa-col" style={{ '--mesa-col-color': col.color, '--mesa-col-bg': col.bg }}>
+                  <header className="mesa-col-h">
+                    <span>{col.label}</span>
+                    <span className="mesa-col-count">{colItems.length}</span>
+                  </header>
+                  <div className="mesa-col-body"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const from = deskDragRef.current;
+                      deskDragRef.current = null;
+                      if (!from || from.type !== col.type || colItems.length === 0) return;
+                      const last = colItems[colItems.length - 1];
+                      if (from.id === last.d.id) return;
+                      reorderDeskInColumn(col.type, from.id, last.d.id);
+                    }}>
+                    {colItems.length === 0
+                      ? <div className="mesa-col-empty">Nenhum item</div>
+                      : colItems.map(renderCard)}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </div>);
       })()}
 

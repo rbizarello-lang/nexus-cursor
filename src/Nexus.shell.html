@@ -673,14 +673,15 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .mesa-title { font-family: var(--font-display, var(--font-ui)); font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .mesa-board {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
-  align-items: start; min-height: 280px;
+  align-items: stretch; min-height: 320px;
 }
+.mesa-board-hint { font-size: 11px; margin: 0 0 12px; }
 @media (max-width: 960px) {
   .mesa-board { grid-template-columns: 1fr; }
 }
 .mesa-col {
   background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  display: flex; flex-direction: column; min-height: 200px; max-height: calc(100vh - 220px); overflow: hidden;
+  display: flex; flex-direction: column; min-height: 240px; max-height: calc(100vh - 200px); overflow: hidden;
 }
 .mesa-col-h {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -1113,6 +1114,14 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cda-row:hover { background: var(--blue-dim) !important; }
 .cda-row.open { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
 .cda-link { color: var(--blue); font-size: 11px; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(91,143,217,.45); text-underline-offset: 2px; }
+.cda-expand-detail {
+  margin: 0 0 8px;
+  border-top: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--bg-elevated, var(--bg-card)) 70%, transparent);
+}
+.cda-expand-detail .cda-inline-detail {
+  border: none; background: transparent; margin: 0; border-radius: 0;
+}
 .cda-inline-detail {
   padding: 10px 12px 12px; margin: 0 0 6px; border: 1px solid var(--border);
   border-top: none; border-radius: 0 0 4px 4px;
