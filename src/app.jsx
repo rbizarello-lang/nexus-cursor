@@ -7449,9 +7449,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   }
                 };
                 return (<React.Fragment key={d.id}>
-                  <div className={`cda-row${isExpanded ? ' open' : ''}`} title="Clique para expandir detalhes · nº copia ao clicar"
+                  <div className={`cda-row${isExpanded ? ' open' : ''}`} title="Clique ao lado do nº para expandir · nº copia ao clicar"
                     onClick={(ev) => {
-                      if (ev.target.closest && ev.target.closest('input,button,.copyable')) return;
+                      if (ev.target.closest && ev.target.closest('input,button,.copyable,.cda-expand-chev')) return;
                       ev.stopPropagation();
                       toggleCdaExpand(d.id);
                     }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:isExpanded?'none':'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:isExpanded?'3px 3px 0 0':3,opacity:isHandled&&!isAguardando?0.85:1}}>
@@ -7459,7 +7459,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
                         <span style={{fontWeight:600,fontSize:11,display:'inline-flex',alignItems:'center',gap:4}}>
-                          <span style={{color:'var(--text-muted)',fontSize:9,width:10}}>{isExpanded ? '▾' : '▸'}</span>
+                          <button type="button" className="cda-expand-chev" aria-expanded={isExpanded}
+                            title={isExpanded ? 'Recolher' : 'Expandir detalhes'}
+                            onClick={(ev) => { ev.stopPropagation(); toggleCdaExpand(d.id); }}>
+                            {isExpanded ? '▾' : '▸'}
+                          </button>
                           {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:2}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
                            : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:2}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
                           <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
@@ -7763,13 +7767,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const isExpanded = expandedCdas.has(d.id);
                     return (
                       <React.Fragment key={d.id}>
-                        <tr className={`demo-proc-table-row risk-${riskClass} band-nao-ajuiz${isExpanded ? ' open' : ''}`}
+                        <tr className={`demo-proc-table-row cda-expand-row risk-${riskClass} band-nao-ajuiz${isExpanded ? ' open' : ''}`}
                           onClick={(ev) => {
-                            if (ev.target.closest && ev.target.closest('.copyable,button')) return;
+                            if (ev.target.closest && ev.target.closest('.copyable,button,.btn-secondary')) return;
                             toggleCdaExpand(d.id);
-                          }}>
+                          }}
+                          title="Clique na linha para expandir · no número para copiar">
                           <td className="mono">
-                            <span style={{ color: 'var(--text-muted)', marginRight: 4, fontSize: 9 }}>{isExpanded ? '▾' : '▸'}</span>
+                            <button type="button" className="cda-expand-chev" aria-expanded={isExpanded}
+                              title={isExpanded ? 'Recolher' : 'Expandir detalhes'}
+                              onClick={(ev) => { ev.stopPropagation(); toggleCdaExpand(d.id); }}>
+                              {isExpanded ? '▾' : '▸'}
+                            </button>
                             <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
                           </td>
                           <td><span className="especie-badge" title={especie}>{especie}</span></td>
@@ -9634,7 +9643,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           Intimações e Tarefas
           {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
         </button>
-        <button className={`top-nav-btn ${viewMode==='mesa'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('mesa'))}>
+        <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
+          onClick={() => { setViewMode('mesa'); }}>
           Mesa
           {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
         </button>

@@ -1113,6 +1113,14 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cda-row { cursor: pointer; transition: background .12s ease; font-family: var(--font-display); }
 .cda-row:hover { background: var(--blue-dim) !important; }
 .cda-row.open { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
+.cda-expand-row { cursor: pointer; }
+.cda-expand-chev {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; margin-right: 4px; flex-shrink: 0;
+  border: none; background: transparent; color: var(--text-muted);
+  font-size: 10px; line-height: 1; cursor: pointer; font-family: inherit;
+}
+.cda-expand-chev:hover { color: var(--accent); }
 .cda-link { color: var(--blue); font-size: 11px; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(91,143,217,.45); text-underline-offset: 2px; }
 .cda-expand-detail {
   margin: 0 0 8px;
