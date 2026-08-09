@@ -4780,6 +4780,14 @@ function App() {
     try { localStorage.removeItem('nexus_dismissed_suggestions'); } catch {}
   };
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
+  const toggleCdaExpand = (id) => {
+    setExpandedCdas(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
   const [selectedProcHubId, setSelectedProcHubId] = useState(null); // Visão D · master–detail
   const [selectedProcBand, setSelectedProcBand] = useState(null); // faixa Ativa/Suspensa/…
   const [procFocus, setProcFocus] = useState('hub'); // 'hub' | 'band'
@@ -7178,6 +7186,67 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         setModal({type:'create', entityType:'prescriptionEvent', initial:{ batchCdaIds: [...selectedCDAs] }});
       };
 
+      // Detalhe inline da CDA (expande abaixo — sem popup).
+      const renderCdaInlineDetail = (d) => {
+        const st = DEBT_STATUSES[d.status] || {};
+        const autoPresc = getPrescDate(d);
+        const prescDate = d.prescriptionDate || autoPresc;
+        const prescDays = daysUntil(prescDate);
+        const notes = d.notesList || (d.notes ? [d.notes] : []);
+        const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
+        const field = (label, value, color) => value ? (
+          <div key={label} className="cda-inline-field">
+            <span className="im-label">{label}</span>
+            <strong style={color ? { color } : undefined}>{value}</strong>
+          </div>
+        ) : null;
+        return (
+          <div className="cda-inline-detail" onClick={ev => ev.stopPropagation()}>
+            <div className="cda-inline-fields">
+              {field('Status', st.label || d.status)}
+              {field('Espécie', cdaEspecie(d))}
+              {field('Tributo', d.tribute)}
+              {field('Valor', d.value != null ? fmtCur(d.value) : null)}
+              {field('Inscrição', fmtDate(d.inscriptionDate))}
+              {field('Prescrição', prescDate
+                ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${!d.prescriptionDate && autoPresc ? ' · auto' : ''}`
+                : '—',
+                prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined)}
+              {d.prescriptionHandled && field('Tratamento',
+                d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')}
+              {d.processNumber && field('Processo', d.processNumber)}
+              {d.rawStatus && field('Situação origem', d.rawStatus)}
+            </div>
+            {responsabilidades.length > 0 && (
+              <div className="cda-inline-resp">
+                <span className="im-label">Responsáveis ({responsabilidades.length})</span>
+                <div className="cda-inline-resp-list">
+                  {responsabilidades.map(r => {
+                    const p = data.people.find(pp => pp.id === r.personId);
+                    if (!p) return null;
+                    return (
+                      <button type="button" key={r.id} className="btn-secondary btn-xs"
+                        onClick={() => setModal({ type: 'edit', entityType: 'person', initial: p })}>
+                        {truncate(p.name, 28)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {notes.length > 0 && (
+              <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
+                {notes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
+              </div>
+            )}
+            <div className="cda-inline-actions">
+              <button type="button" className="btn-secondary btn-xs"
+                onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>✏ Editar inscrição</button>
+            </div>
+          </div>
+        );
+      };
+
       // Build apenso map
       const apensoMap2 = {};
       cdaGroups.forEach(g => {
@@ -7321,9 +7390,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div> : <span style={{color:'var(--red)',fontWeight:700,fontSize:12}}>⚠ CDAs Não Ajuizadas</span>}
             </div>
 
-            {/* CDAs list */}
+            {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo */}
             {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
-            <div style={{maxHeight:260,overflowY:'auto'}}>
+            <div style={{maxHeight: expandedCdas.size ? 420 : 260, overflowY:'auto'}}>
               {group.cdas.map(d => {
                 const autoPresc = getPrescDate(d);
                 const prescDate = d.prescriptionDate || autoPresc;
@@ -7333,6 +7402,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
                 const cdaState = isHandled ? 'tratada' : days === null ? 'sem_dados' : days <= 0 ? 'prescrito' : days <= 180 ? 'critico' : days <= 365 ? 'alerta' : 'correndo';
                 const cdaSt = DEBT_STATUSES[d.status] || {};
+                const isExpanded = expandedCdas.has(d.id);
                 const toggleHandled = () => {
                   // If this CDA is in the selection, apply to ALL selected CDAs
                   const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
@@ -7364,36 +7434,41 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     }});
                   }
                 };
-                return (<div key={d.id} className="cda-row" title="Abrir detalhes da CDA" onClick={(ev) => {
-                  if (ev.target.closest && ev.target.closest('input,button')) return;
-                  ev.stopPropagation();
-                  setModal({type:'cdaDetail',entityType:'debt',initial:d});
-                }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:3,opacity:isHandled&&!isAguardando?0.85:1}}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleCDA2(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
-                      <span style={{fontWeight:600,fontSize:11}}>
-                        {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:4}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
-                         : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
-                        <span className="cda-link">{d.cdaNumber || 'CDA'}</span>
-                      </span>
-                      <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
+                return (<React.Fragment key={d.id}>
+                  <div className={`cda-row${isExpanded ? ' open' : ''}`} title="Clique para expandir detalhes · nº copia ao clicar"
+                    onClick={(ev) => {
+                      if (ev.target.closest && ev.target.closest('input,button,.copyable')) return;
+                      ev.stopPropagation();
+                      toggleCdaExpand(d.id);
+                    }} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:isExpanded?'none':'1px dotted var(--border)',background:isAguardando?'rgba(245,158,11,0.08)':isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:isExpanded?'3px 3px 0 0':3,opacity:isHandled&&!isAguardando?0.85:1}}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleCDA2(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
+                        <span style={{fontWeight:600,fontSize:11,display:'inline-flex',alignItems:'center',gap:4}}>
+                          <span style={{color:'var(--text-muted)',fontSize:9,width:10}}>{isExpanded ? '▾' : '▸'}</span>
+                          {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',marginRight:2}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>
+                           : isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:2}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
+                          <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
+                        </span>
+                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
+                      </div>
+                      <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
+                        <span className="cda-status">{cdaSt.label||d.status}</span>
+                        {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
+                         : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
+                        <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
+                          {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
+                          <span className="tip-content">{cdaState==='prescrito'?'PRESCRIÇÃO CONSUMADA':cdaState==='critico'?'CRÍTICO — <6 meses':cdaState==='alerta'?'Alerta — <1 ano':'Correndo normal'}</span>
+                        </span>}
+                      </div>
                     </div>
-                    <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
-                      <span className="cda-status">{cdaSt.label||d.status}</span>
-                      {isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
-                       : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
-                      <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
-                        {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
-                        <span className="tip-content">{cdaState==='prescrito'?'PRESCRIÇÃO CONSUMADA':cdaState==='critico'?'CRÍTICO — <6 meses':cdaState==='alerta'?'Alerta — <1 ano':'Correndo normal'}</span>
-                      </span>}
+                    <div style={{display:'flex',gap:3,flexShrink:0}}>
+                      {!isHandled && <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); markAsAguardando(); }} style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)',borderColor:'rgba(245,158,11,0.3)'}}>⏳{selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como prescritas.`:'Marcar como prescrita — aguardando reconhecimento.'}</span></button>}
+                      <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); toggleHandled(); }}>{isHandled?'↻':'✓'}{!isHandled&&selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{isHandled?'Reabrir alerta.':selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como tratadas.`:'Marcar como tratada.'}</span></button>
                     </div>
                   </div>
-                  <div style={{display:'flex',gap:3,flexShrink:0}}>
-                    {!isHandled && <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); markAsAguardando(); }} style={{background:'rgba(245,158,11,0.15)',color:'var(--yellow)',borderColor:'rgba(245,158,11,0.3)'}}>⏳{selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como prescritas.`:'Marcar como prescrita — aguardando reconhecimento.'}</span></button>}
-                    <button className="btn-xs btn-secondary has-tip" onClick={(ev) => { ev.stopPropagation(); toggleHandled(); }}>{isHandled?'↻':'✓'}{!isHandled&&selectedCDAs.has(d.id)&&selectedCDAs.size>1?` (${selectedCDAs.size})`:''}<span className="tip-content">{isHandled?'Reabrir alerta.':selectedCDAs.has(d.id)&&selectedCDAs.size>1?`Marcar ${selectedCDAs.size} CDAs selecionadas como tratadas.`:'Marcar como tratada.'}</span></button>
-                  </div>
-                </div>);
+                  {isExpanded && renderCdaInlineDetail(d)}
+                </React.Fragment>);
               })}
             </div>}
           </div>
@@ -7667,19 +7742,33 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       : `${days}d`;
                     const st = DEBT_STATUSES[d.status] || {};
                     const especie = cdaEspecie(d);
+                    const isExpanded = expandedCdas.has(d.id);
                     return (
-                      <tr key={d.id} className={`demo-proc-table-row risk-${riskClass} band-nao-ajuiz`}
-                        onClick={() => setModal({ type: 'cdaDetail', entityType: 'debt', initial: d })}>
-                        <td className="mono">{d.cdaNumber || 'CDA'}</td>
-                        <td><span className="especie-badge" title={especie}>{especie}</span></td>
-                        <td><span className="ef-status-badge nao_ajuizada">{st.label || d.status || '—'}</span></td>
-                        <td>{fmtCur(d.value || 0)}</td>
-                        <td className={`risk-${riskClass}`}>{prescLabel}</td>
-                        <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
-                          <button type="button" className="btn-secondary btn-xs"
-                            onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Abrir</button>
-                        </td>
-                      </tr>
+                      <React.Fragment key={d.id}>
+                        <tr className={`demo-proc-table-row risk-${riskClass} band-nao-ajuiz${isExpanded ? ' open' : ''}`}
+                          onClick={(ev) => {
+                            if (ev.target.closest && ev.target.closest('.copyable,button')) return;
+                            toggleCdaExpand(d.id);
+                          }}>
+                          <td className="mono">
+                            <span style={{ color: 'var(--text-muted)', marginRight: 4, fontSize: 9 }}>{isExpanded ? '▾' : '▸'}</span>
+                            <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
+                          </td>
+                          <td><span className="especie-badge" title={especie}>{especie}</span></td>
+                          <td><span className="ef-status-badge nao_ajuizada">{st.label || d.status || '—'}</span></td>
+                          <td>{fmtCur(d.value || 0)}</td>
+                          <td className={`risk-${riskClass}`}>{prescLabel}</td>
+                          <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
+                            <button type="button" className="btn-secondary btn-xs"
+                              onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Abrir</button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="demo-proc-table-detail">
+                            <td colSpan={6}>{renderCdaInlineDetail(d)}</td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -10443,21 +10532,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
       {/* ═══ MESA DE TRABALHO ═══ */}
       {viewMode === 'mesa' && (() => {
-        const META = {
-          intimation: { label: 'INTIMAÇÃO', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
-          task:       { label: 'TAREFA',    color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
-          hearing:    { label: 'AUDIÊNCIA', color: 'var(--accent)', bg: 'rgba(200,160,74,0.18)' },
-        };
+        const COLS = [
+          { type: 'intimation', label: 'Intimações', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
+          { type: 'task', label: 'Tarefas', color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
+          { type: 'hearing', label: 'Audiências', color: 'var(--accent)', bg: 'rgba(200,160,74,0.18)' },
+        ];
         const resolve = (d) => {
           const coll = d.type === 'intimation' ? data.intimations : d.type === 'task' ? data.tasks : data.hearings;
           const x = (coll || []).find(i => i.id === d.id);
-          return x ? { d, x } : null;
+          return x ? { d, x, deskIdx: (data.desk || []).findIndex(y => y.type === d.type && y.id === d.id) } : null;
         };
         const items = (data.desk || []).map(resolve).filter(Boolean);
         const rowInfo = (d, x) => {
           const op = data.operations.find(o => o.id === x.operationId);
-          const doc = d.type === 'intimation' ? x.minutaUrl : x.docUrl; // intimação: minutaUrl · tarefa/audiência: docUrl
-          // Notas herdadas do card de origem (intimação tem fallback para obs1/obs2 legados)
+          const doc = d.type === 'intimation' ? x.minutaUrl : x.docUrl;
           const notes = d.type === 'intimation'
             ? ((x.notesList && x.notesList.length) ? x.notesList : [x.obs1, x.obs2].filter(Boolean))
             : (x.notesList || (x.notes ? [x.notes] : []));
@@ -10467,47 +10555,76 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         };
         const daysColor = (dd) => dd === null ? 'var(--text-muted)' : dd <= 2 ? 'var(--red)' : dd <= 7 ? 'var(--yellow)' : 'var(--text-secondary)';
         const daysText = (dd) => dd === null ? '—' : dd < 0 ? `vencido ${Math.abs(dd)}d` : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : `${dd} dias`;
-        return (<div className="entity-area">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Mesa de trabalho</span>
-              <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} item(ns) em foco</span>
+        const renderCard = ({ d, x, deskIdx }) => {
+          const m = COLS.find(c => c.type === d.type) || COLS[0];
+          const r = rowInfo(d, x);
+          return (
+            <div key={d.type + ':' + d.id} className="mesa-card" draggable
+              onDragStart={() => { deskDragRef.current = deskIdx; }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { reorderDesk(deskDragRef.current, deskIdx); deskDragRef.current = null; }}>
+              <div className="mesa-card-top">
+                <span className="mesa-drag" title="Arraste para reordenar">⠿</span>
+                <div className="mesa-check" onClick={e => { e.stopPropagation(); removeFromDesk(d.type, d.id); }} title="Tirar da mesa (sem concluir)" />
+                <div className="mesa-card-due" style={{ color: daysColor(r.days) }}>
+                  <strong>{daysText(r.days)}</strong>
+                  {r.dateLbl && <span>{r.dateLbl}</span>}
+                </div>
+              </div>
+              <div className="mesa-card-title" title="Abrir para editar"
+                onClick={() => setModal({ type: 'edit', entityType: d.type, initial: x })}>{r.title}</div>
+              {(r.proc || r.op || r.extra) && (
+                <div className="mesa-card-meta">
+                  {r.proc && <Copyable value={r.proc} className="intim-procnum">{r.proc}</Copyable>}
+                  {r.op && <span className="mesa-op" title="Abrir a operação"
+                    onClick={e => { e.stopPropagation(); setActiveOpId(r.op.id); setViewMode('operation'); }}>◎ {truncate(r.op.name, 22)}</span>}
+                  {r.extra && <span className="muted">{r.extra}</span>}
+                </div>
+              )}
+              {r.notes.length > 0 && (
+                <div className="note-stack mesa-card-notes">
+                  {r.notes.slice(0, 2).map((n, ni) => <div key={ni} className="note-item">{linkify(n)}</div>)}
+                  {r.notes.length > 2 && <div className="muted" style={{ fontSize: 9 }}>+{r.notes.length - 2} nota(s)</div>}
+                </div>
+              )}
+              <div className="mesa-card-actions">
+                {r.doc && <a href={r.doc} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="intim-doc-link">📝 Doc</a>}
+                {d.type === 'intimation' && (
+                  <button className="btn-secondary btn-xs" title="Registrar atuação"
+                    onClick={e => { e.stopPropagation(); setRespondModal({ intim: x, type: null }); }}>✎ Atuação</button>
+                )}
+              </div>
             </div>
-            {items.length > 0 && <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Arraste ⠿ para reordenar · marque ☐ para tirar da mesa</span>}
+          );
+        };
+        return (<div className="entity-area">
+          <div className="mesa-header">
+            <div>
+              <span className="mesa-title">Mesa de trabalho</span>
+              <span className="muted" style={{ marginLeft: 10, fontSize: 11 }}>{items.length} item(ns) em foco</span>
+            </div>
+            {items.length > 0 && <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}>Colunas por tipo · arraste ⠿ para reordenar · ☐ tira da mesa</span>}
           </div>
-          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">◫</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão Mesa nos cards.</p></div> :
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {items.map(({ d, x }, i) => {
-              const m = META[d.type]; const r = rowInfo(d, x);
-              return (<div key={d.type + ':' + d.id} draggable
-                onDragStart={() => { deskDragRef.current = i; }}
-                onDragOver={e => e.preventDefault()}
-                onDrop={() => { reorderDesk(deskDragRef.current, i); deskDragRef.current = null; }}
-                style={{display:'flex',alignItems:'flex-start',gap:10,background:'var(--bg-card)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:6,padding:'9px 12px',cursor:'grab'}}>
-                <span style={{color:'var(--text-muted)',fontSize:14,flexShrink:0,marginTop:1}} title="Arraste para reordenar">⠿</span>
-                <div onClick={e => { e.stopPropagation(); removeFromDesk(d.type, d.id); }} title="Tirar da mesa (sem concluir)" style={{width:16,height:16,borderRadius:4,border:'1.5px solid var(--text-muted)',flexShrink:0,cursor:'pointer',marginTop:2}} />
-                <span style={{fontSize:10,fontWeight:700,padding:'1px 7px',borderRadius:3,background:m.bg,color:m.color,flexShrink:0,marginTop:3}}>{m.label}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,color:'var(--text-primary)',cursor:'pointer',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title="Abrir para editar" onClick={() => setModal({ type:'edit', entityType: d.type, initial: x })}>{r.title}</div>
-                  {(r.proc || r.op || r.extra) && <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:1}}>
-                    {r.proc && <Copyable value={r.proc} className="intim-procnum">{r.proc}</Copyable>}
-                    {r.op && <span style={{fontSize:11,color:'var(--accent)',cursor:'pointer'}} title="Abrir a operação" onClick={e => { e.stopPropagation(); setActiveOpId(r.op.id); setViewMode('operation'); }}>◎ {truncate(r.op.name, 26)}</span>}
-                    {r.extra && <span style={{fontSize:11,color:'var(--text-muted)'}}>{r.extra}</span>}
-                  </div>}
-                  {r.notes.length > 0 && <div className="note-stack" style={{marginTop:4,maxHeight:64,overflowY:'auto'}}>
-                    {r.notes.slice(0,3).map((n,ni) => <div key={ni} className="note-item">{linkify(n)}</div>)}
-                    {r.notes.length > 3 && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:2}}>+{r.notes.length-3} nota(s)</div>}
-                  </div>}
-                </div>
-                {r.doc && <a href={r.doc} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="intim-doc-link" style={{flexShrink:0}}>📝 {r.doc.includes('docs.google') ? 'Google Docs' : 'Documento'}</a>}
-                {d.type === 'intimation' && <button className="btn-secondary btn-xs" style={{flexShrink:0}} title="Registrar atuação — conclui a intimação e tira da mesa" onClick={e => { e.stopPropagation(); setRespondModal({ intim: x, type: null }); }}>✎ Atuação</button>}
-                <div style={{textAlign:'right',flexShrink:0,minWidth:56}}>
-                  <div style={{fontSize:12,fontWeight:600,color:daysColor(r.days)}}>{daysText(r.days)}</div>
-                  {r.dateLbl && <div style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{r.dateLbl}</div>}
-                </div>
-              </div>);
-            })}
-          </div>}
+          {items.length === 0 ? <div className="empty-state"><div className="empty-icon">◫</div><p>Mesa vazia.</p><p style={{fontSize:11}}>Envie intimações, tarefas ou audiências para cá com o botão Mesa nos cards.</p></div> : (
+            <div className="mesa-board">
+              {COLS.map(col => {
+                const colItems = items.filter(it => it.d.type === col.type);
+                return (
+                  <section key={col.type} className="mesa-col" style={{ '--mesa-col-color': col.color, '--mesa-col-bg': col.bg }}>
+                    <header className="mesa-col-h">
+                      <span>{col.label}</span>
+                      <span className="mesa-col-count">{colItems.length}</span>
+                    </header>
+                    <div className="mesa-col-body">
+                      {colItems.length === 0
+                        ? <div className="mesa-col-empty">Nenhum item</div>
+                        : colItems.map(renderCard)}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>);
       })()}
 

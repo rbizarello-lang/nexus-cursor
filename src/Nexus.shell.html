@@ -334,7 +334,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .stat-card .stat-sub { font-size: 9px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; }
 
 .tabs { display: flex; gap: 0; padding: 0 24px; background: var(--bg-main); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
-.tab { padding: 8px 14px; font-size: 11px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-radius: 0; white-space: nowrap; }
+.tab { padding: 8px 14px; font-size: 11px; font-weight: 500; font-family: var(--font-mono); color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-radius: 0; white-space: nowrap; line-height: 1.25; }
 .tab:hover { color: var(--text-secondary); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
@@ -664,6 +664,61 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .kanban-card .kc-deadline { font-size: 10px; font-weight: 600; }
 .kanban-card .kc-obs { font-size: 9px; color: var(--text-muted); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .kanban-col.dragover { background: var(--accent-dim); }
+
+/* Mesa de trabalho — colunas por tipo */
+.mesa-header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.mesa-title { font-family: var(--font-display, var(--font-ui)); font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.mesa-board {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+  align-items: start; min-height: 280px;
+}
+@media (max-width: 960px) {
+  .mesa-board { grid-template-columns: 1fr; }
+}
+.mesa-col {
+  background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; min-height: 200px; max-height: calc(100vh - 220px); overflow: hidden;
+}
+.mesa-col-h {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  font-size: 12px; font-weight: 700; color: var(--mesa-col-color, var(--text-primary));
+  background: var(--mesa-col-bg, transparent);
+}
+.mesa-col-count {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--mesa-col-color, var(--text-muted)) 16%, transparent);
+  color: var(--mesa-col-color, var(--text-secondary));
+}
+.mesa-col-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.mesa-col-empty { font-size: 11px; color: var(--text-muted); font-style: italic; padding: 16px 8px; text-align: center; }
+.mesa-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px; cursor: grab; transition: border-color 0.15s, background 0.15s;
+}
+.mesa-card:hover { border-color: color-mix(in srgb, var(--mesa-col-color, var(--accent)) 45%, var(--border)); background: var(--bg-card-hover); }
+.mesa-card:active { cursor: grabbing; opacity: 0.85; }
+.mesa-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mesa-drag { color: var(--text-muted); font-size: 12px; cursor: grab; user-select: none; }
+.mesa-check {
+  width: 14px; height: 14px; border: 1.5px solid var(--text-muted); border-radius: 3px;
+  cursor: pointer; flex-shrink: 0; background: transparent;
+}
+.mesa-check:hover { border-color: var(--accent); background: var(--accent-dim); }
+.mesa-card-due { margin-left: auto; text-align: right; font-size: 10px; display: flex; flex-direction: column; line-height: 1.25; }
+.mesa-card-due strong { font-weight: 700; }
+.mesa-card-title { font-size: 12px; font-weight: 600; color: var(--text-primary); cursor: pointer; margin-bottom: 4px; }
+.mesa-card-title:hover { color: var(--accent); }
+.mesa-card-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--text-muted); margin-bottom: 4px; align-items: center; }
+.mesa-op { cursor: pointer; color: var(--text-secondary); }
+.mesa-op:hover { color: var(--accent); }
+.mesa-card-notes { margin: 6px 0; }
+.mesa-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
 .view-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .view-toggle button { padding: 4px 10px; font-size: 10px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; }
 .view-toggle button.active { background: var(--pgfn); color: white; }
@@ -1056,7 +1111,25 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 
 .cda-row { cursor: pointer; transition: background .12s ease; font-family: var(--font-display); }
 .cda-row:hover { background: var(--blue-dim) !important; }
+.cda-row.open { background: color-mix(in srgb, var(--accent, #b87333) 6%, transparent); }
 .cda-link { color: var(--blue); font-size: 11px; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(91,143,217,.45); text-underline-offset: 2px; }
+.cda-inline-detail {
+  padding: 10px 12px 12px; margin: 0 0 6px; border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 4px 4px;
+  background: color-mix(in srgb, var(--bg-elevated, var(--bg-card)) 88%, transparent);
+}
+.cda-inline-fields {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+}
+.cda-inline-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cda-inline-field .im-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.cda-inline-field strong { font-size: 11px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); }
+.cda-inline-resp { margin-top: 10px; }
+.cda-inline-resp-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cda-inline-actions { display: flex; gap: 6px; margin-top: 10px; }
+.demo-proc-table-detail td { padding: 0 8px 10px !important; background: color-mix(in srgb, var(--bg-elevated, var(--bg-card)) 70%, transparent); border-bottom: 1px solid var(--border); }
+.demo-proc-table-detail .cda-inline-detail { margin: 0; border: none; border-radius: 0; background: transparent; padding: 8px 4px; }
 .cda-status { color: var(--text-muted); font-family: var(--font-display); font-size: 10px; font-weight: 600; }
 
 .process-meta {
@@ -1687,21 +1760,27 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   background: var(--demo-glass-soft, var(--bg-card));
   animation: demoFadeIn 0.25s ease;
 }
-/* Espelha .demo-zone-btn: mesma fonte, underline reto (sem radius do button global). */
+/* Mesmas medidas tipográficas das abas de entidade (.tab) acima. */
 .demo-inbox-tab {
-  padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--text-muted);
+  padding: 8px 14px; font-size: 11px; font-weight: 500; color: var(--text-muted);
   background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
-  cursor: pointer; font-family: var(--font-ui); margin-bottom: -1px;
-  transition: color 0.2s, border-color 0.2s;
+  cursor: pointer; font-family: var(--font-mono); margin-bottom: -1px;
+  white-space: nowrap; transition: color 0.2s, border-color 0.2s;
+  line-height: 1.25; letter-spacing: inherit;
 }
 .demo-inbox-tab:hover { color: var(--text-secondary); }
 .demo-inbox-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .demo-inbox-panel { animation: demoInboxSlide 0.28s ease; }
 .briefing-sub-switch {
-  /* Alinha com .demo-zones (fora do padding do .entity-area). */
-  padding: 0 24px; margin: -16px -24px 14px; background: transparent;
+  /* Alinha com .tabs (fora do padding do .entity-area). */
+  display: flex; gap: 0; align-items: stretch;
+  padding: 0 24px; margin: -16px -24px 14px;
+  background: var(--bg-main);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  flex-shrink: 0; overflow-x: auto;
+}
+.app-layout.edition-demo .briefing-sub-switch {
+  background: var(--demo-glass-soft, var(--bg-main));
 }
 @keyframes demoInboxSlide {
   from { opacity: 0; transform: translateX(10px); }
