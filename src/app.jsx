@@ -946,9 +946,6 @@ function otherSpecies(e) {
   return { code: 'OUTROS', label: e?.className || 'Outros' };
 }
 /** @deprecated use otherSpecies — mantido para chips legíveis */
-function otherNatureLabel(e) {
-  return otherSpecies(e).code;
-}
 
 /** Card superior = IDPJ / Cautelar / Central / Execução Fiscal. Demais → Outros. */
 function isOtherProcClass(e) {
@@ -1444,9 +1441,6 @@ function calcPrescription(executionId, events) {
   return { status, daysLeft, timeline, detail, phase, prescDaysConsumed, suspDaysConsumed, prescriptionInterrupted, activeSuspensions: activeNow };
 }
 
-// ═══════════════════════════════════════════════
-// EPROC INTIMATION PARSER
-// ═══════════════════════════════════════════════
 const INTIM_STATUSES = {
   pendente_analise: { label: 'Pendente de Análise', badge: 'badge-yellow' },
   aguardando_subsidios: { label: 'Aguardando Subsídios', badge: 'badge-muted' },
@@ -2044,11 +2038,125 @@ async function parseDebcadPDF(file) {
   return records;
 }
 
-const NODE_COLORS = {
-  operation: '#00d4aa', personPJ: '#3b82f6', personPF: '#60a5fa',
-  debt: '#f59e0b', debtRisk: '#f43f5e', execution: '#a78bfa',
-  measure: '#f43f5e', asset: '#22c55e'
-};
+// ═══════════════════════════════════════════════
+// EPROC INTIMATION PARSER
+// ═══════════════════════════════════════════════
+function parseEprocXLS(workbook) {
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
+  const results = { intimations: [], errors: [], fileType: '' };
+
+  // Detect file type from first column header
+  const firstCol = String(raw[0]?.[0] || workbook.SheetNames[0] || '').toLowerCase();
+  if (firstCol.includes('prazo em aberto')) results.fileType = 'prazo_aberto';
+  else if (firstCol.includes('pendente')) results.fileType = 'pendente';
+  else results.fileType = 'desconhecido';
+
+  // Find header row
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(10, raw.length); i++) {
+    const row = raw[i].map(c => String(c || '').trim());
+    if (row.some(c => c === 'Processo' || c.includes('Processo'))) {
+      if (row.some(c => c.includes('Classe') || c.includes('Evento'))) { headerIdx = i; break; }
+    }
+  }
+  if (headerIdx === -1) { results.errors.push('Cabeçalho eproc não encontrado'); return results; }
+
+  const hdr = raw[headerIdx].map(c => String(c || '').trim());
+  const col = {};
+  hdr.forEach((h, i) => {
+    const hl = h.toLowerCase();
+    if (h === 'Processo' || hl === 'processo') col.processo = i;
+    else if (hl.includes('órgão') || hl.includes('orgao')) col.orgao = i;
+    else if (hl === 'partes' || hl === 'doc partes') { if (!col.partes) col.partes = i; }
+    else if (hl.includes('doc parte')) col.docParte = i;
+    else if (hl === 'classe') col.classe = i;
+    else if (hl === 'assunto') col.assunto = i;
+    else if (hl.includes('evento') && hl.includes('prazo')) col.eventoPrazo = i;
+    else if (hl.includes('data envio') || hl.includes('requisição')) col.dataEnvio = i;
+    else if (hl.includes('início prazo') || hl.includes('inicio prazo')) col.inicioPrazo = i;
+    else if (hl.includes('final prazo')) col.finalPrazo = i;
+  });
+
+  const parseDate = parseAnyDate; // use shared utility
+
+  // Extract party opposing União from partes string
+  const extractPartyName = (partesRaw) => {
+    const clean = partesRaw.replace(/\r/g, '\n').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    // Split by X to get opposing sides
+    const sides = clean.split(/\s+X\s+/i);
+
+    // Strategy 1: find the side that does NOT contain Fazenda/União
+    for (const side of sides) {
+      if (side.toUpperCase().includes('FAZENDA NACIONAL') || side.toUpperCase().includes('UNIÃO -')) continue;
+      // Extract name after role keyword
+      const nameMatch = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Impetrante|Exequente|Requerente)\s+(.+?)(?:\s*\(|$)/i);
+      if (nameMatch) {
+        const name = nameMatch[1].trim();
+        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
+      }
+      // Fallback: just take anything after the role word
+      const fallback = side.match(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+(.+)/i);
+      if (fallback) {
+        const name = fallback[1].replace(/\(.*/, '').trim();
+        if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO')) return name;
+      }
+    }
+
+    // Strategy 2: scan all role+name patterns, pick first non-Fazenda
+    const allNames = [...clean.matchAll(/(?:Executado|Requerido|Embargado|Embargante|Autor|Réu|Exequente|Requerente|Impetrante)\s+([^\(X]+)/gi)];
+    for (const m of allNames) {
+      const name = m[1].trim();
+      if (!name.toUpperCase().includes('FAZENDA') && !name.toUpperCase().includes('UNIÃO') && name.length > 2) return name;
+    }
+
+    return '';
+  };
+
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i];
+    const processo = String(row[col.processo] || '').trim();
+    if (!processo || processo.length < 10) continue;
+
+    const partesRaw = String(row[col.partes] || '');
+    const partes = partesRaw.replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+    const partyName = extractPartyName(partesRaw);
+    const orgao = String(row[col.orgao] || '').trim();
+    const classe = String(row[col.classe] || '').trim();
+    const assunto = String(row[col.assunto] || '').trim();
+    const eventoPrazo = String(row[col.eventoPrazo] || '').trim();
+
+    let jurisdiction = '';
+    const orgUp = orgao.toUpperCase();
+    if (orgUp.startsWith('PR')) jurisdiction = 'PR';
+    else if (orgUp.startsWith('RS')) jurisdiction = 'RS';
+    else if (orgUp.startsWith('SC')) jurisdiction = 'SC';
+    else if (orgUp.includes('TJ')) jurisdiction = 'TJ';
+    else jurisdiction = orgao.slice(0, 4);
+
+    results.intimations.push({
+      processNumber: processo,
+      partyName,
+      parties: partes,
+      organ: orgao,
+      jurisdiction,
+      className: classe,
+      subject: assunto,
+      eventDescription: eventoPrazo,
+      dateSent: parseDate(row[col.dataEnvio]),
+      dateStart: parseDate(row[col.inicioPrazo]),
+      dateDeadline: parseDate(row[col.finalPrazo]),
+      status: 'pendente_analise',
+      object: '',
+      obs1: '',
+      obs2: '',
+      minutaUrl: '',
+      operationId: ''
+    });
+  }
+  return results;
+}
+
 
 // ═══════════════════════════════════════════════
 // XLS PARSER — PGFN FORMAT
@@ -2685,270 +2793,7 @@ function classifyProcGroups(cdaGroups, execs) {
   };
 }
 
-// ═══════════════════════════════════════════════
-// GRAPH LAYOUT
-// ═══════════════════════════════════════════════
-function computeGraph(operation, data) {
-  const nodes = [], edges = [];
-  if (!operation) return { nodes, edges };
-  const opId = operation.id;
-  const people = data.people.filter(p => p.operationId === opId);
-  const debts = data.debts.filter(d => d.operationId === opId);
-  const allExecs = data.executions.filter(e => e.operationId === opId);
-  const getPrescDate = createPrescDateLookup(debts, allExecs, data.prescriptionEvents || []);
-  // Graph shows only: IDPJ, MCF, and Execuções Fiscais ativas (omit central, embargos, agravos, extintas)
-  const execs = allExecs.filter(e => {
-    if (e.status === 'extinta' || e.status === 'arquivada') return false;
-    if (e.processTag === 'central') return false;
-    // Keep IDPJ, MCF, and normal/untagged (EFs)
-    const tag = e.processTag || 'normal';
-    if (tag === 'idpj' || tag === 'cautelar_fiscal' || tag === 'normal') return true;
-    return false;
-  });
 
-  // ─── AXIS 1: PEOPLE (left) ───
-  const pjList = people.filter(p => p.subtype === 'PJ');
-  const pfList = people.filter(p => p.subtype === 'PF');
-  const originaria = pjList.find(p => (p.role || '').toLowerCase().match(/originári|devedora|principal/)) || pjList[0];
-  const otherPJ = pjList.filter(p => p !== originaria);
-  const peopleCX = -280, peopleCY = 0;
-
-  if (originaria) {
-    nodes.push({ id: originaria.id, type: 'person', subtype: 'PJ', label: originaria.name, x: peopleCX, y: peopleCY, r: 34, color: NODE_COLORS.personPJ, data: originaria });
-  }
-  const pfR = Math.max(110, pfList.length * 24);
-  pfList.forEach((p, i) => {
-    const a = (2 * Math.PI * i) / Math.max(pfList.length, 1) - Math.PI / 2;
-    nodes.push({ id: p.id, type: 'person', subtype: 'PF', label: p.name, x: peopleCX + pfR * Math.cos(a), y: peopleCY + pfR * Math.sin(a), r: 17, color: NODE_COLORS.personPF, data: p });
-    if (originaria) edges.push({ from: originaria.id, to: p.id, color: 'rgba(96,165,250,0.15)' });
-  });
-  const pjR = pfR + 75;
-  otherPJ.forEach((p, i) => {
-    const a = Math.PI * 0.7 + (i - (otherPJ.length - 1) / 2) * Math.min(1.0, otherPJ.length * 0.35);
-    nodes.push({ id: p.id, type: 'person', subtype: 'PJ', label: p.name, x: peopleCX + pjR * Math.cos(a), y: peopleCY + pjR * Math.sin(a), r: 22, color: '#2563eb', data: p });
-    if (originaria) edges.push({ from: originaria.id, to: p.id, color: 'rgba(37,99,235,0.15)' });
-  });
-
-  // ─── AXIS 2: PROCESSES (right) — Hub-and-spoke layout ───
-  const procCX = 300, procCY = 0;
-  const idpjProcs = execs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-  const centralProcs = execs.filter(e => e.processTag === 'central');
-  const coveredIds = new Set();
-  idpjProcs.forEach(e => { if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => coveredIds.add(id)); });
-
-  // Top-level EFs (not apensos, not covered by IDPJ, not tagged)
-  const efProcs = execs.filter(e => !e.processTag || e.processTag === 'normal');
-  const topLevelEFs = efProcs.filter(e => !e.parentExecutionId);
-  const coveredEFs = topLevelEFs.filter(e => coveredIds.has(e.id));
-  const uncoveredEFs = topLevelEFs.filter(e => !coveredIds.has(e.id));
-
-  // Build apenso map: parentId → [apensos]
-  const apensoMap = {};
-  efProcs.filter(e => e.parentExecutionId).forEach(ap => {
-    if (!apensoMap[ap.parentExecutionId]) apensoMap[ap.parentExecutionId] = [];
-    apensoMap[ap.parentExecutionId].push(ap);
-  });
-
-  // ─── IDPJ/MCF hub nodes ───
-  const hubSpacing = 160;
-  const hubStartY = -(idpjProcs.length - 1) * hubSpacing / 2;
-  idpjProcs.forEach((ip, mi) => {
-    const mx = procCX, my = hubStartY + mi * hubSpacing;
-    const col = ip.processTag === 'idpj' ? '#f43f5e' : '#f59e0b';
-    const tag = ip.processTag === 'idpj' ? 'IDPJ' : 'MCF';
-    // Calculate total CDA value from all linked EFs
-    const linkedEFIds = (ip.linkedExecutionIds||[]);
-    const linkedEFExecs = allExecs.filter(e => linkedEFIds.includes(e.id));
-    const linkedEFProcNums = new Set(linkedEFExecs.map(e => normProc(e.processNumber)).filter(Boolean));
-    const hubTotalValue = debts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber))).reduce((s,d) => s + (d.value||0), 0);
-    nodes.push({ id: ip.id, type: 'execution', label: tag + '\n' + (ip.processNumber||''), x: mx, y: my, r: 30, color: col, data: ip, isHub: true, totalLinkedValue: hubTotalValue });
-
-    // Spoke: linked EFs around this IDPJ in a semicircle to the right
-    const myEFs = coveredEFs.filter(e => (ip.linkedExecutionIds||[]).includes(e.id));
-    if (myEFs.length > 0) {
-      const spokeR = Math.max(80, myEFs.length * 22);
-      const arcSpan = Math.min(Math.PI * 0.8, myEFs.length * 0.35);
-      const arcStart = -arcSpan / 2;
-      myEFs.forEach((ef, ei) => {
-        const a = arcStart + (arcSpan * ei) / Math.max(myEFs.length - 1, 1);
-        const ex = mx + spokeR * Math.cos(a);
-        const ey = my + spokeR * Math.sin(a);
-        nodes.push({ id: ef.id, type: 'execution', label: (ef.processNumber||''), x: ex, y: ey, r: 14, color: 'rgba(148,163,184,0.8)', data: ef });
-        edges.push({ from: ip.id, to: ef.id, color: `${col}33`, width: 1.5 });
-
-        // Apensos of this EF — tiny nodes clustered below
-        const aps = apensoMap[ef.id] || [];
-        aps.forEach((ap, ai) => {
-          const apx = ex + (ai - (aps.length-1)/2) * 22;
-          const apy = ey + 28;
-          nodes.push({ id: ap.id, type: 'execution', label: (ap.processNumber||''), x: apx, y: apy, r: 8, color: 'rgba(148,163,184,0.4)', data: ap, isApenso: true });
-          edges.push({ from: ef.id, to: ap.id, color: 'rgba(148,163,184,0.15)', dashed: true });
-        });
-      });
-    }
-  });
-
-  // ─── Central processes ───
-  if (centralProcs.length > 0) {
-    const centralY = hubStartY - 80;
-    centralProcs.forEach((cp, ci) => {
-      const cx = procCX + (ci - (centralProcs.length-1)/2) * 80;
-      nodes.push({ id: cp.id, type: 'execution', label: '◆ ' + (cp.processNumber||''), x: cx, y: centralY, r: 20, color: 'rgba(122,139,163,0.7)', data: cp });
-    });
-  }
-
-  // ─── Uncovered EFs — Smart display: alert EFs individual, rest collapsed ───
-  if (uncoveredEFs.length > 0) {
-    const areaX = idpjProcs.length > 0 ? procCX + 220 : procCX;
-    const areaY = procCY;
-
-    // Classify: which EFs have alerts (guarantee, prescription ≤180d, open intimations)?
-    const allDebts = data.debts || [];
-    const allIntims = data.intimations || [];
-    const alertEFs = [];
-    const quietEFs = [];
-
-    uncoveredEFs.forEach(ef => {
-      const hasGuarantee = ef.hasGuarantee;
-      // Prescription risk: any CDA linked to this process with ≤180d
-      const linkedCDAs = allDebts.filter(d => d.operationId === opId && sameProc(d.processNumber, ef.processNumber) && d.status !== 'extinta' && !d.prescriptionHandled);
-      const hasPrescRisk = linkedCDAs.some(d => {
-        const pd = getPrescDate(d);
-        const dd = daysUntil(pd);
-        return dd !== null && dd > 0 && dd <= 180;
-      });
-      // Open intimations
-      const hasIntim = allIntims.some(x => x.operationId === opId && sameProc(x.processNumber, ef.processNumber) && !x.responseAction);
-      const cdaValue = linkedCDAs.reduce((s,d) => s + (d.value||0), 0);
-
-      if (hasGuarantee || hasPrescRisk || hasIntim) {
-        alertEFs.push({ ...ef, _hasGuarantee: hasGuarantee, _hasPrescRisk: hasPrescRisk, _hasIntim: hasIntim, _cdaValue: cdaValue });
-      } else {
-        quietEFs.push({ ...ef, _cdaValue: cdaValue });
-      }
-    });
-
-    // Sort alert EFs: presc risk first, then guarantee, then intimations
-    alertEFs.sort((a, b) => (b._hasPrescRisk ? 1 : 0) - (a._hasPrescRisk ? 1 : 0) || b._cdaValue - a._cdaValue);
-
-    // Layout alert EFs in a compact semicircle or small arc
-    const alertCount = Math.min(alertEFs.length, 15); // cap individual display
-    if (alertCount > 0) {
-      const alertR = Math.max(100, alertCount * 20);
-      const arcSpan = Math.min(Math.PI * 1.2, alertCount * 0.28);
-      const arcStart = -arcSpan / 2;
-      alertEFs.slice(0, alertCount).forEach((ef, ei) => {
-        const a = alertCount === 1 ? 0 : arcStart + (arcSpan * ei) / (alertCount - 1);
-        const ex = areaX + alertR * Math.cos(a);
-        const ey = areaY + alertR * Math.sin(a);
-        // Color based on alert type
-        const nodeColor = ef._hasPrescRisk ? 'rgba(244,63,94,0.7)' : ef._hasGuarantee ? 'rgba(34,197,94,0.6)' : 'rgba(59,130,246,0.6)';
-        const r = ef._hasPrescRisk ? 18 : 14;
-        nodes.push({ id: ef.id, type: 'execution', label: (ef.processNumber||''), x: ex, y: ey, r, color: nodeColor, data: ef, alertType: ef._hasPrescRisk ? 'presc' : ef._hasGuarantee ? 'gar' : 'intim' });
-
-        // Apensos
-        const aps = apensoMap[ef.id] || [];
-        aps.forEach((ap, ai) => {
-          nodes.push({ id: ap.id, type: 'execution', label: (ap.processNumber||''), x: ex + (ai - (aps.length-1)/2) * 18, y: ey + 24, r: 7, color: 'rgba(148,163,184,0.3)', data: ap, isApenso: true });
-          edges.push({ from: ef.id, to: ap.id, color: 'rgba(148,163,184,0.12)', dashed: true });
-        });
-      });
-      // Overflow alert EFs beyond cap
-      if (alertEFs.length > alertCount) {
-        const overflowAlerts = alertEFs.length - alertCount;
-        nodes.push({ id: '_alert_overflow', type: 'summary', label: `+${overflowAlerts} EFs\ncom alerta`, x: areaX + alertR + 60, y: areaY, r: 22, color: 'rgba(244,63,94,0.3)', isSummary: true });
-      }
-    }
-
-    // Quiet EFs → single summary block
-    if (quietEFs.length > 0) {
-      const quietValue = quietEFs.reduce((s,e) => s + (e._cdaValue || 0), 0);
-      const summaryY = areaY + (alertCount > 0 ? Math.max(120, alertCount * 15) : 0);
-      nodes.push({
-        id: '_quiet_efs',
-        type: 'summary',
-        label: `${quietEFs.length} EFs sem alerta\n${fmtCur(quietValue)}`,
-        x: areaX,
-        y: summaryY,
-        r: Math.min(40, 18 + quietEFs.length * 0.15),
-        color: 'rgba(148,163,184,0.25)',
-        isSummary: true,
-        data: { count: quietEFs.length, value: quietValue }
-      });
-    }
-  }
-
-  return { nodes, edges };
-}
-
-// ═══════════════════════════════════════════════
-// INSIGHTS
-// ═══════════════════════════════════════════════
-function generateInsights(op, data) {
-  if (!op) return [];
-  const ins = [], opId = op.id;
-  const debts = data.debts.filter(d => d.operationId === opId);
-  const execs = data.executions.filter(e => e.operationId === opId);
-  const measures = data.measures.filter(m => m.operationId === opId);
-  const assets = data.assets.filter(a => a.operationId === opId);
-  const getPrescDate = createPrescDateLookup(debts, execs, data.prescriptionEvents || []);
-
-  const unexecuted = debts.filter(d => (d.status === 'ativa' || d.status === 'ativa_nao_ajuizavel') && !d.processNumber);
-  if (unexecuted.length > 0) ins.push({ type: 'critical', title: `${unexecuted.length} CDA(s) sem execução fiscal`, desc: `${unexecuted.map(d => d.cdaNumber || fmtCur(d.value)).join(', ')}. Avaliar ajuizamento.` });
-
-  debts.forEach(d => {
-    const prescDate = getPrescDate(d);
-    const days = daysUntil(prescDate);
-    if (days !== null && days > 0 && days <= 180) ins.push({ type: days <= 60 ? 'critical' : 'warning', title: `Prescrição iminente: ${d.cdaNumber || 'CDA'}`, desc: `${days}d para prescrição (${fmtDate(prescDate)})${!d.prescriptionDate ? ' [cálculo automático]' : ''}. ${fmtCur(d.value)}.` });
-    if (days !== null && days <= 0) ins.push({ type: 'critical', title: `Possível prescrição: ${d.cdaNumber}`, desc: `Data ${fmtDate(prescDate)} ultrapassada${!d.prescriptionDate ? ' [auto]' : ''}. ${fmtCur(d.value)}.` });
-  });
-
-  execs.forEach(e => {
-    // Use the full prescription calculator if events exist
-    const prescEvts = data.prescriptionEvents || [];
-    const execEvts = prescEvts.filter(pe => pe.executionId === e.id);
-    if (execEvts.length > 0) {
-      const calc = calcPrescription(e.id, prescEvts);
-      if (calc.status === 'prescrito') ins.push({ type: 'critical', title: `PRESCRIÇÃO CONSUMADA: ${truncate(e.processNumber,25)}`, desc: calc.detail });
-      else if (calc.status === 'critico') ins.push({ type: 'critical', title: `Prescrição intercorrente crítica: ${truncate(e.processNumber,25)}`, desc: calc.detail });
-      else if (calc.status === 'alerta') ins.push({ type: 'warning', title: `Alerta prescrição: ${truncate(e.processNumber,25)}`, desc: calc.detail });
-    } else {
-      // Fallback to imported data
-      if (e.prescriptionForecast) {
-        const days = daysUntil(e.prescriptionForecast);
-        if (days !== null && days > 0 && days <= 365) ins.push({ type: days <= 180 ? 'warning' : 'info', title: `Prescrição intercorrente: ${e.processNumber}`, desc: `Previsão: ${fmtDate(e.prescriptionForecast)} (${days}d). ${e.prescriptionInterrupted ? 'Já interrompida.' : 'NÃO interrompida.'}` });
-      }
-    }
-    if (!e.hasGuarantee && e.status === 'ativa') ins.push({ type: 'warning', title: `Execução sem garantia: ${truncate(e.processNumber,25)}`, desc: `${e.court || ''}. Avaliar constrição.` });
-
-    // Suggest registering prescription events if none exist
-    if (execEvts.length === 0) ins.push({ type: 'info', title: `Sem controle de prescrição: ${truncate(e.processNumber,20)}`, desc: 'Registre eventos na aba Prescrição para controle automático dos prazos.' });
-  });
-
-  const constrictedAssets = assets.filter(a => ['indisponibilizado','penhorado','arrestado'].includes(a.status));
-  const uncoveredDebts = debts.filter(d => d.status !== 'extinta' && d.status !== 'garantida' && !d.processNumber);
-  if (constrictedAssets.length > 0 && uncoveredDebts.length > 0) {
-    ins.push({ type: 'opportunity', title: 'Replicar medidas', desc: `${constrictedAssets.length} bem(ns) constrito(s) podem cobrir ${uncoveredDebts.length} dívida(s) a descoberto. Avaliar extensão.` });
-  }
-
-  const pendingAnalytics = assets.filter(a => !a.analyticsRegistered);
-  if (pendingAnalytics.length > 0) ins.push({ type: 'info', title: `${pendingAnalytics.length} bem(ns) sem registro no Analytics`, desc: `Bens: ${pendingAnalytics.map(a => truncate(a.description,30)).join(', ')}` });
-
-  // Intimation alerts
-  const intims = (data.intimations || []).filter(x => x.operationId === opId);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const overdueIntims = intims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && x.status !== 'analisado');
-  if (overdueIntims.length > 0) ins.push({ type: 'critical', title: `${overdueIntims.length} intimação(ões) VENCIDA(S)`, desc: `Processos: ${overdueIntims.map(x => truncate(x.processNumber,22)).join(', ')}` });
-  const urgentIntims = intims.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d >= 0 && d <= 5 && x.status !== 'analisado'; });
-  if (urgentIntims.length > 0) ins.push({ type: 'warning', title: `${urgentIntims.length} intimação(ões) vencendo em ≤5 dias`, desc: `Processos: ${urgentIntims.map(x => `${truncate(x.processNumber,20)} (${daysUntil(x.dateDeadline)}d)`).join(', ')}` });
-
-  const totalDebt = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
-  const guaranteed = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
-  if (totalDebt > 0 && guaranteed < totalDebt * 0.3) ins.push({ type: 'warning', title: 'Cobertura de garantia baixa', desc: `${((guaranteed / totalDebt) * 100).toFixed(0)}% garantido. Total: ${fmtCur(totalDebt)}.` });
-
-  if (ins.length === 0) ins.push({ type: 'info', title: 'Sem alertas', desc: 'Adicione dados para gerar insights.' });
-  return ins;
-}
 
 // ═══════════════════════════════════════════════
 // COMPONENTS
@@ -2962,167 +2807,6 @@ function Modal({ show, onClose, title, children, wide }) {
   </div>);
 }
 
-// Graph SVG
-function GraphView({ operation, data, onSelectNode, onOpenExec }) {
-  const svgRef = useRef(null);
-  const [vb, setVb] = useState({ x: -600, y: -450, w: 1200, h: 900 });
-  const [dragging, setDragging] = useState(false);
-  const [dragStart, setDragStart] = useState(null);
-  const [hovered, setHovered] = useState(null);
-  const [tooltip, setTooltip] = useState(null);
-  const [hideExtinct, setHideExtinct] = useState(false);
-
-  const fullLayout = useMemo(() => computeGraph(operation, data), [operation, data]);
-
-  // Build a map: execution nodeId → status (to style nodes and filter)
-  const execStatusMap = useMemo(() => {
-    const m = {};
-    (data.executions || []).filter(e => e.operationId === operation?.id).forEach(e => { m[e.id] = e.status; });
-    return m;
-  }, [data.executions, operation]);
-
-  const isNodeInactive = (node) => {
-    if (node.type !== 'execution') return false;
-    const st = execStatusMap[node.id] || node.data?.status;
-    return st === 'extinta' || st === 'arquivada';
-  };
-
-  // Filter the layout when hideExtinct is on
-  const layout = useMemo(() => {
-    if (!hideExtinct) return fullLayout;
-    const hiddenIds = new Set(fullLayout.nodes.filter(isNodeInactive).map(n => n.id));
-    return {
-      nodes: fullLayout.nodes.filter(n => !hiddenIds.has(n.id)),
-      edges: fullLayout.edges.filter(e => !hiddenIds.has(e.from) && !hiddenIds.has(e.to))
-    };
-  }, [fullLayout, hideExtinct, execStatusMap]);
-
-  useEffect(() => {
-    if (layout.nodes.length <= 1) return;
-    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity;
-    layout.nodes.forEach(n => { x1 = Math.min(x1, n.x - n.r); x2 = Math.max(x2, n.x + n.r); y1 = Math.min(y1, n.y - n.r); y2 = Math.max(y2, n.y + n.r); });
-    const p = 100; setVb({ x: x1 - p, y: y1 - p, w: (x2 - x1) + p * 2, h: (y2 - y1) + p * 2 });
-  }, [layout]);
-
-  const onWheel = useCallback((e) => {
-    e.preventDefault();
-    const s = e.deltaY > 0 ? 1.12 : 0.88;
-    setVb(v => { const cx = v.x + v.w / 2, cy = v.y + v.h / 2, nw = v.w * s, nh = v.h * s; return { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh }; });
-  }, []);
-  useEffect(() => { const s = svgRef.current; if (s) s.addEventListener('wheel', onWheel, { passive: false }); return () => { if (s) s.removeEventListener('wheel', onWheel); }; }, [onWheel]);
-
-  const onMD = (e) => { if (e.target.closest('.gnode')) return; setDragging(true); setDragStart({ x: e.clientX, y: e.clientY, vb: { ...vb } }); };
-  const onMM = (e) => { if (!dragging || !dragStart) return; const r = svgRef.current.getBoundingClientRect(); const sx = vb.w / r.width, sy = vb.h / r.height; setVb({ ...dragStart.vb, x: dragStart.vb.x - (e.clientX - dragStart.x) * sx, y: dragStart.vb.y - (e.clientY - dragStart.y) * sy }); };
-  const onMU = () => { setDragging(false); setDragStart(null); };
-
-  const resetView = () => {
-    if (layout.nodes.length <= 1) return;
-    let x1=Infinity,x2=-Infinity,y1=Infinity,y2=-Infinity;
-    layout.nodes.forEach(n=>{x1=Math.min(x1,n.x-n.r);x2=Math.max(x2,n.x+n.r);y1=Math.min(y1,n.y-n.r);y2=Math.max(y2,n.y+n.r);});
-    const p=100; setVb({x:x1-p,y:y1-p,w:(x2-x1)+p*2,h:(y2-y1)+p*2});
-  };
-
-  const handleNodeClick = (node) => {
-    // Etapa 6: clicking an execution node opens the edit modal directly (full form with all fields)
-    if (node.type === 'execution' && onOpenExec) {
-      onOpenExec(node.data);
-      return;
-    }
-    onSelectNode(node);
-  };
-
-  return (<div className="graph-container">
-    <svg ref={svgRef} viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU}>
-      <defs>
-        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      {/* Zone labels */}
-      {layout.nodes.length > 1 && <>
-        <text x={-280} y={-260} textAnchor="middle" fill="rgba(59,130,246,0.15)" fontSize="12" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>PESSOAS</text>
-        <text x={300} y={-260} textAnchor="middle" fill="rgba(148,163,184,0.15)" fontSize="12" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>PROCESSOS</text>
-        <line x1={20} y1={-250} x2={20} y2={500} stroke="rgba(255,255,255,0.02)" strokeWidth="1" strokeDasharray="8,8" />
-      </>}
-      {layout.edges.map((e, i) => {
-        const f = layout.nodes.find(n => n.id === e.from), t = layout.nodes.find(n => n.id === e.to);
-        if (!f || !t) return null;
-        const hl = hovered && (e.from === hovered || e.to === hovered);
-        const dimEdge = isNodeInactive(f) || isNodeInactive(t);
-        const baseOp = dimEdge ? 0.25 : 1;
-        return <line key={i} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={hl ? e.color.replace(/[\d.]+\)$/, '0.7)') : e.color} strokeWidth={hl ? 2 : (e.width || 1)} strokeDasharray={e.dashed || dimEdge ? '4,4' : 'none'} opacity={baseOp} />;
-      })}
-      {layout.nodes.map(node => {
-        const isH = hovered === node.id;
-        const isC = hovered && layout.edges.some(e => (e.from === hovered && e.to === node.id) || (e.to === hovered && e.from === node.id));
-        const inactive = isNodeInactive(node);
-        const baseOp = inactive ? 0.35 : 1;
-        const op = hovered ? (isH || isC ? baseOp : 0.25) : baseOp;
-        const execSt = execStatusMap[node.id];
-
-        // ─── Summary block (collapsed EFs) ───
-        if (node.isSummary) {
-          const w = node.r * 4, h = node.r * 2.5;
-          const labelLines = (node.label || '').split('\n');
-          return (<g key={node.id} className="gnode" style={{cursor:'default',opacity:op,transition:'opacity 0.15s'}}
-            onMouseEnter={(e) => { setHovered(node.id); setTooltip({ x: e.clientX + 12, y: e.clientY - 8, node }); }}
-            onMouseLeave={() => { setHovered(null); setTooltip(null); }}>
-            <rect x={node.x - w/2} y={node.y - h/2} width={w} height={h} rx={8} ry={8}
-              fill={node.color} fillOpacity={0.08} stroke={node.color} strokeWidth={1.5} strokeDasharray="6,4" />
-            {labelLines.map((line, li) => (
-              <text key={li} x={node.x} y={node.y + (li - (labelLines.length-1)/2) * 13} textAnchor="middle" dominantBaseline="central"
-                fill={li === 0 ? 'var(--text-primary)' : 'var(--text-muted)'} fontSize={li === 0 ? "10" : "9"} fontWeight={li === 0 ? "600" : "400"} style={{fontFamily:'var(--font-display)'}}>{line}</text>
-            ))}
-          </g>);
-        }
-
-        // ─── Alert indicator ring for EFs with alerts ───
-        const alertRing = node.alertType === 'presc' ? 'rgba(244,63,94,0.4)' : node.alertType === 'gar' ? 'rgba(34,197,94,0.3)' : node.alertType === 'intim' ? 'rgba(59,130,246,0.3)' : null;
-
-        return (<g key={node.id} className="gnode" style={{cursor:'pointer',opacity:op,transition:'opacity 0.15s'}}
-          onClick={() => handleNodeClick(node)}
-          onMouseEnter={(e) => { setHovered(node.id); setTooltip({ x: e.clientX + 12, y: e.clientY - 8, node }); }}
-          onMouseLeave={() => { setHovered(null); setTooltip(null); }}>
-          {isH && <circle cx={node.x} cy={node.y} r={node.r + 4} fill="none" stroke={node.color} strokeWidth={1.5} opacity={0.4} />}
-          {alertRing && <circle cx={node.x} cy={node.y} r={node.r + 3} fill="none" stroke={alertRing} strokeWidth={2} strokeDasharray="4,3" />}
-          <circle cx={node.x} cy={node.y} r={node.r} fill={node.color} fillOpacity={inactive ? 0.04 : node.isHub ? 0.18 : node.isApenso ? 0.06 : 0.1} stroke={node.color} strokeWidth={node.isHub ? 2 : node.isApenso ? 0.5 : 1.5} strokeDasharray={inactive ? '3,3' : 'none'} />
-          {node.type === 'operation' ?
-            <text x={node.x} y={node.y} textAnchor="middle" dominantBaseline="central" fill={node.color} fontSize="9" fontWeight="700" style={{fontFamily:'var(--font-display)'}}>{truncate(node.label, 14)}</text> :
-            <><text x={node.x} y={node.y - 1} textAnchor="middle" dominantBaseline="central" fill="var(--text-primary)" fontSize={node.r >= 26 ? "9" : node.r > 12 ? "7" : "6"} fontWeight="500">
-              {node.type === 'person' ? (node.subtype === 'PJ' ? '🏢' : '👤') : node.type === 'debt' ? '📄' : node.type === 'execution' ? (node.isHub ? (node.data?.processTag === 'idpj' ? '🛡' : '⚡') : '⚖') : node.type === 'measure' ? '🛡️' : '💎'}
-            </text>
-            {node.isHub ? <>
-              {(node.label||'').split('\n').map((line, li) => <text key={li} x={node.x} y={node.y + node.r + 10 + li * 10} textAnchor="middle" fill={li===0?'var(--text-primary)':'var(--text-secondary)'} fontSize={li===0?"7":"5.5"} fontWeight={li===0?"700":"500"} style={{fontFamily: li===0 ? 'var(--font-display)' : 'var(--font-mono)'}}>{line}</text>)}
-              {node.totalLinkedValue > 0 && <text x={node.x} y={node.y + node.r + 10 + (node.label||'').split('\n').length * 10} textAnchor="middle" fill="var(--yellow)" fontSize="6" fontWeight="700" style={{fontFamily:'var(--font-mono)'}}>{fmtCur(node.totalLinkedValue)}</text>}
-            </> :
-            <text x={node.x} y={node.y + node.r + (node.isApenso ? 6 : 9)} textAnchor="middle" fill={node.isApenso ? 'var(--text-muted)' : 'var(--text-secondary)'} fontSize={node.isApenso ? "4.5" : "5.5"} style={{fontFamily:'var(--font-mono)'}}>{node.label}</text>}</>}
-        </g>);
-      })}
-    </svg>
-    <div className="graph-legend">
-      {[['PJ Originária','#3b82f6'],['IDPJ','#f43f5e'],['Cautelar','#f59e0b'],['EF vinculada','rgba(148,163,184,0.8)'],['EF c/ prescrição','rgba(244,63,94,0.7)'],['EF c/ garantia','rgba(34,197,94,0.6)'],['EF c/ intimação','rgba(59,130,246,0.6)']].map(([l,c]) =>
-        <div key={l} className="legend-item"><div className="legend-dot" style={{background:c}}></div><span>{l}</span></div>)}
-      <div className="legend-item" style={{marginTop:4,paddingTop:4,borderTop:'1px dashed var(--border)',fontSize:9,color:'var(--text-muted)'}}>
-        Extintas omitidas. EFs sem alerta colapsadas em bloco resumo.
-      </div>
-    </div>
-    <div className="graph-controls">
-      <button onClick={() => setVb(v=>({...v,x:v.x+v.w*0.1,y:v.y+v.h*0.1,w:v.w*0.8,h:v.h*0.8}))}>+</button>
-      <button onClick={() => setVb(v=>({...v,x:v.x-v.w*0.125,y:v.y-v.h*0.125,w:v.w*1.25,h:v.h*1.25}))}>−</button>
-      <button onClick={resetView}>⊙</button>
-    </div>
-    {tooltip && <div className="tooltip" style={{left:tooltip.x,top:tooltip.y}}>
-      <div style={{fontWeight:600,marginBottom:2}}>{tooltip.node.label}</div>
-      <div style={{fontSize:10,color:'var(--text-muted)'}}>
-        {tooltip.node.type === 'debt' && `CDA · ${tooltip.node.data?.status?.toUpperCase()} · ${fmtCur(tooltip.node.data?.value)}`}
-        {tooltip.node.type === 'execution' && `${tooltip.node.data?.className || 'Execução'} · ${EXEC_STATUSES[tooltip.node.data?.status]?.label || tooltip.node.data?.status || ''} · ${tooltip.node.data?.court || ''}${tooltip.node.alertType === 'presc' ? ' · ⏱ Prescrição próxima' : tooltip.node.alertType === 'gar' ? ' · ✓ Garantida' : tooltip.node.alertType === 'intim' ? ' · 📬 Intimação aberta' : ''}`}
-        {tooltip.node.type === 'person' && `${tooltip.node.subtype} · ${tooltip.node.data?.cpfCnpj || ''}`}
-        {tooltip.node.type === 'summary' && `${tooltip.node.data?.count || ''} execuções fiscais sem alerta ativo (sem prescrição iminente, sem garantia, sem intimação aberta). Consultar na aba Processos e Prescrição.`}
-        {tooltip.node.type === 'measure' && `${MEASURE_SUBTYPES[tooltip.node.data?.subtype] || ''} · ${tooltip.node.data?.status}`}
-        {tooltip.node.type === 'asset' && `${ASSET_SUBTYPES[tooltip.node.data?.subtype] || ''} · ${fmtCur(tooltip.node.data?.value)}`}
-        {tooltip.node.type === 'execution' && <div style={{marginTop:3,fontSize:9,color:'var(--accent)'}}>Clique para editar</div>}
-      </div>
-    </div>}
-  </div>);
-}
 
 // ═══════════════════════════════════════════════
 // MAIN APP
@@ -3356,7 +3040,6 @@ function App() {
     return d;
   });
   const [modal, setModal] = useState(null);
-  const [selectedNode, setSelectedNode] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     try {
       if (typeof window !== 'undefined' && (window.__NEXUS_DEMO__ || /[?&]edition=demo\b/.test(window.location.search || ''))) return 'hoje';
@@ -3406,6 +3089,7 @@ function App() {
   const cloudPushRef = useRef(null);      // populated after cloudPush is declared; breaks circular dep
   const fileInputRef = useRef(null);
   const xlsInputRef = useRef(null);
+  const eprocInputRef = useRef(null);
   const pgfnPdfInputRef = useRef(null);
 
   const hydratedRef = useRef(false);
@@ -3450,14 +3134,13 @@ function App() {
     if (appSettings.uiEdition !== 'demo') return;
     const zoneOf = (tab) => {
       if (['pessoas','bens'].includes(tab)) return 'acervo';
-      if (['prescricao_v2','prescricao','dividas','execucoes','timeline'].includes(tab)) return 'risco';
-      if (['tarefas','importar','docs','grafo','insights'].includes(tab)) return 'ferramentas';
+      if (['prescricao_v2','dividas'].includes(tab)) return 'risco';
+      if (['tarefas','importar','docs'].includes(tab)) return 'ferramentas';
       return 'briefing';
     };
     setDemoZone(zoneOf(activeTab));
   }, [activeTab, appSettings.uiEdition]);
 
-  // Eproc import handler
   // ─── SIDA / DEBCAD PDF IMPORT (complement only — never overwrites) ───
   const handlePGFNPDFImport = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -3797,6 +3480,111 @@ function App() {
       counts: { cdaUpdated, eventsCreated, cdaNotFound, personsCreated, respCreated }
     });
     setImportResult(logs);
+    e.target.value = '';
+  };
+
+  const handleEprocImport = (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const logs = [];
+    let newCount = 0, updCount = 0, unlinkedCount = 0;
+    const processFile = (file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const wb = XLSX.read(ev.target.result, { type: 'binary' });
+          const res = parseEprocXLS(wb);
+          logs.push(`📬 ${file.name}: ${res.intimations.length} intimação(ões) [${res.fileType}]`);
+          res.errors.forEach(err => logs.push(`⚠️ ${err}`));
+          res.intimations.forEach(intim => {
+            // Smart match: same process + same event description
+            // But if the existing intimation is already resolved (analisado/responded) AND
+            // the import has a different dateSent, it's a NEW intimation, not an update.
+            const candidates = (data.intimations || []).filter(x =>
+              sameProc(x.processNumber, intim.processNumber) &&
+              x.eventDescription === intim.eventDescription
+            );
+
+            let existing = null;
+            if (candidates.length > 0) {
+              // Priority 1: find one with matching dateSent (exact same intimation)
+              if (intim.dateSent) {
+                existing = candidates.find(x => x.dateSent === intim.dateSent);
+              }
+              // Priority 2: find an unresolved one (still being worked on)
+              if (!existing) {
+                existing = candidates.find(x => x.status !== 'analisado' && !x.responseAction);
+              }
+              // Priority 3: if all are resolved and dateSent differs → it's a NEW intimation
+              if (!existing) {
+                const allResolved = candidates.every(x => x.status === 'analisado' || x.responseAction);
+                const dateSentDiffers = intim.dateSent && !candidates.some(x => x.dateSent === intim.dateSent);
+                if (allResolved && dateSentDiffers) {
+                  existing = null; // Force creation of new intimation
+                } else if (allResolved && !intim.dateSent) {
+                  // No dateSent to compare — match the most recent resolved one (update scenario)
+                  existing = candidates.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''))[0];
+                } else {
+                  existing = candidates[0]; // Fallback
+                }
+              }
+            }
+            if (existing) {
+              // MERGE: update only dates and system fields, preserve user data
+              const merged = { ...existing };
+              let changed = false;
+              let significantChange = false; // Only flag visually for meaningful changes
+              if (intim.dateStart && intim.dateStart !== existing.dateStart) { merged.dateStart = intim.dateStart; changed = true; significantChange = true; }
+              if (intim.dateDeadline && intim.dateDeadline !== existing.dateDeadline) { merged.dateDeadline = intim.dateDeadline; changed = true; significantChange = true; }
+              if (intim.dateSent && !existing.dateSent) { merged.dateSent = intim.dateSent; changed = true; }
+              if (intim.partyName && !existing.partyName) { merged.partyName = intim.partyName; changed = true; }
+              if (changed) {
+                // Only show visual flag for significant changes (dates, status)
+                if (significantChange) {
+                  merged._importFlag = 'updated';
+                  merged._importFlagAt = new Date().toISOString();
+                }
+                upsert('intimations', merged);
+                updCount++;
+                logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
+              } else {
+                logs.push(`ℹ️ Sem alteração: ${intim.processNumber}`);
+              }
+            } else {
+              // NOVA: vincula operação SOMENTE com evidência concreta.
+              // REGRA: se o processo não consta em nenhum processo/CDA cadastrado,
+              // a intimação fica SEM operação ("Nenhuma"). Antes ela herdava a
+              // operação aberta na tela — causa das vinculações falsas.
+              const matchExec = data.executions.find(ex => ex.operationId && sameProc(ex.processNumber, intim.processNumber));
+              const matchDebt = matchExec ? null : data.debts.find(d => d.operationId && sameProc(d.processNumber, intim.processNumber));
+              if (matchExec) intim.operationId = matchExec.operationId;
+              else if (matchDebt) intim.operationId = matchDebt.operationId;
+              // Intimação irmã do MESMO processo com vínculo já definido pelo usuário
+              else if (candidates.length > 0 && candidates[0].operationId) intim.operationId = candidates[0].operationId;
+              else {
+                intim.operationId = '';
+                unlinkedCount++;
+                logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
+              }
+              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
+              newCount++;
+            }
+          });
+        } catch (err) { logs.push(`❌ ${err.message}`); }
+        resolve();
+      };
+      reader.readAsBinaryString(file);
+    });
+    Promise.all(files.map(processFile)).then(() => {
+      logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
+      if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
+      logImport('eproc', {
+        fileNames: files.map(f => f.name),
+        summary: `${newCount} nova(s), ${updCount} atualizada(s)`,
+        counts: { new: newCount, updated: updCount }
+      });
+      setImportResult(logs);
+    });
     e.target.value = '';
   };
 
@@ -4298,7 +4086,7 @@ function App() {
     if (!confirm(`Confirma exclusão?${cascadeSummary(cas, col)}`)) return;
     pushUndo(`Exclusão de registro (${col})`);
     setData(prev => applyCascade(prev, col, id, cas));
-    setModal(null); setSelectedNode(null);
+    setModal(null);
   };
 
   const saveMeasure = (m) => {
@@ -4764,23 +4552,7 @@ function App() {
   const [importMode, setImportMode] = useState('planilhas'); // planilhas | pdfs | texto — seletor do card unificado de importação
   const [cdaSort, setCdaSort] = useState('status');
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
-  const [execPersonFilter, setExecPersonFilter] = useState('all');
-  const [execSort, setExecSort] = useState('por_devedor');
-  const [tlFilter, setTlFilter] = useState('all');
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
-  const [dismissedSuggestions, setDismissedSuggestions] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('nexus_dismissed_suggestions') || '[]')); }
-    catch { return new Set(); }
-  });
-  const dismissSuggestion = (sid) => {
-    const next = new Set(dismissedSuggestions); next.add(sid);
-    setDismissedSuggestions(next);
-    try { localStorage.setItem('nexus_dismissed_suggestions', JSON.stringify([...next])); } catch {}
-  };
-  const undismissAll = () => {
-    setDismissedSuggestions(new Set());
-    try { localStorage.removeItem('nexus_dismissed_suggestions'); } catch {}
-  };
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const toggleCdaExpand = (id) => {
@@ -5141,100 +4913,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     return { total, guar, unexec, prescA, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, indispLabel, indispHasValue, indispCount: constrictedAssets.length };
   }, [activeOp, data]);
 
-  const insights = useMemo(() => generateInsights(activeOp, data), [activeOp, data]);
-
-  // ─── Sugestões proativas globais (computadas uma vez, filtradas por operação na aba Insights) ───
-  const allSuggestions = useMemo(() => {
-    const suggestions = [];
-    const ops = data.operations.filter(o => o.status !== 'encerrada');
-    const allDebts = data.debts || [];
-    const allExecs = data.executions || [];
-    const allAssets = data.assets || [];
-    const allIntims = data.intimations || [];
-    const allTasks = data.tasks || [];
-    const allPrescEvts = data.prescriptionEvents || [];
-
-    ops.forEach(op => {
-      const opDebts = allDebts.filter(d => d.operationId === op.id);
-      const opExecs = allExecs.filter(e => e.operationId === op.id);
-      const opAssets = allAssets.filter(a => a.operationId === op.id);
-
-      // CDAs sem execução
-      const unexec = opDebts.filter(d => (d.status === 'ativa' || !d.status) && !d.processNumber);
-      if (unexec.length > 0) {
-        const val = unexec.reduce((s,d) => s + (d.value||0), 0);
-        suggestions.push({ id: `cda_unexec:${op.id}`, priority: unexec.length >= 5 ? 'high' : 'medium', icon: '⚖️', opId: op.id, title: `${unexec.length} inscrição(ões) sem execução`, detail: `Total: ${fmtCur(val)}. Avaliar ajuizamento.`, actionLabel: 'Ver Inscrições', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('dividas'); } });
-      }
-      // Bens sem Analytics
-      const pending = opAssets.filter(a => !a.analyticsRegistered && a.status === 'indisponibilidade_ativa');
-      if (pending.length > 0) {
-        suggestions.push({ id: `analytics:${op.id}`, priority: 'low', icon: '💎', opId: op.id, title: `${pending.length} bem(ns) sem registro no Analytics`, detail: 'Registrar para compor base estratégica PGFN.', actionLabel: 'Ver bens', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('bens'); } });
-      }
-      // IDPJs estagnados
-      opExecs.filter(e => (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal')).forEach(idpj => {
-        const lastTouch = idpj.updatedAt || idpj.createdAt;
-        if (!lastTouch) return;
-        const daysSince = Math.floor((Date.now() - new Date(lastTouch).getTime()) / 86400000);
-        if (daysSince > 90) {
-          suggestions.push({ id: `idpj_stale:${idpj.id}`, priority: daysSince > 180 ? 'high' : 'medium', icon: '🛡️', opId: op.id, title: `${idpj.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'} sem movimentação há ${daysSince}d`, detail: `${truncate(idpj.processNumber || 'S/N', 30)}. Avaliar cobrança de andamento.`, actionLabel: 'Ver processo', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); setTimeout(() => setModal({type:'edit',entityType:'execution',initial:idpj}), 100); } });
-        }
-      });
-      // Revisão atrasada
-      const rs = reviewStatus(op);
-      if (rs.overdue && rs.daysLeft > -999) {
-        suggestions.push({ id: `review_overdue:${op.id}`, priority: Math.abs(rs.daysLeft) > 30 ? 'medium' : 'low', icon: '📅', opId: op.id, title: rs.label, detail: `Intervalo: ${REVIEW_INTERVALS[op.reviewInterval||'mensal'].label}.`, actionLabel: 'Abrir operação', action: () => { setActiveOpId(op.id); setViewMode('operation'); } });
-      } else if (rs.overdue && rs.daysLeft === -999) {
-        suggestions.push({ id: `review_never:${op.id}`, priority: 'low', icon: '📅', opId: op.id, title: 'Nunca revisada', detail: 'Realizar primeira revisão.', actionLabel: 'Abrir operação', action: () => { setActiveOpId(op.id); setViewMode('operation'); } });
-      }
-      // Garantia baixa
-      const activeD = opDebts.filter(d => d.status !== 'extinta');
-      const total = activeD.reduce((s,d) => s + (d.value||0), 0);
-      const guar = opDebts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
-      if (total > 1000000 && total > 0 && (guar / total) < 0.3) {
-        suggestions.push({ id: `low_coverage:${op.id}`, priority: 'medium', icon: '🔓', opId: op.id, title: `Cobertura baixa: ${((guar/total)*100).toFixed(0)}%`, detail: `${fmtCur(total)} em crédito, apenas ${fmtCur(guar)} garantido.`, actionLabel: 'Ver bens', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('bens'); } });
-      }
-      // CDAs em risco crítico de prescrição (≤60 dias)
-      const critical = activeD.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd > 0 && dd <= 60 && !d.prescriptionHandled; });
-      if (critical.length > 0) {
-        const cVal = critical.reduce((s,d) => s + (d.value||0), 0);
-        suggestions.push({ id: `presc_crit:${op.id}`, priority: 'high', icon: '⏱', opId: op.id, title: `${critical.length} CDA(s) prescrevendo em ≤60d`, detail: `Risco: ${fmtCur(cVal)}. Agir imediatamente.`, actionLabel: 'Ver prescrição', action: () => { setActiveOpId(op.id); setViewMode('operation'); setActiveTab('prescricao_v2'); } });
-      }
-    });
-    // Intimações vencidas
-    const today = new Date(); today.setHours(0,0,0,0);
-    (data.intimations || []).filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && x.status !== 'analisado' && !x.responseAction).forEach(intim => {
-      suggestions.push({ id: `intim_overdue:${intim.id}`, priority: 'high', icon: '🚨', opId: intim.operationId, title: `Intimação VENCIDA há ${Math.abs(daysUntil(intim.dateDeadline))}d`, detail: truncate(intim.processNumber || '', 30), actionLabel: 'Ver', action: () => { setViewMode('intimacoes'); setTimeout(() => setModal({type:'edit',entityType:'intimation',initial:intim}), 100); } });
-    });
-    // Audiências próximas/vencidas
-    (data.hearings || []).filter(h => h.status !== 'realizada' && h.status !== 'cancelada' && h.date).forEach(h => {
-      const dd = daysUntil(h.date);
-      if (dd === null) return;
-      const lbl = h.parties || h.processNumber || 'Audiência';
-      if (dd < 0) suggestions.push({ id: `hearing_past:${h.id}`, priority: 'medium', icon: '⚖️', opId: h.operationId, title: `Audiência passada há ${Math.abs(dd)}d: ${truncate(lbl, 26)}`, detail: `${fmtDate(h.date)}${h.time?' '+h.time:''}. Atualizar status.`, actionLabel: 'Ver', action: () => { setViewMode('audiencias'); setTimeout(() => setModal({type:'edit',entityType:'hearing',initial:h}), 100); } });
-      else if (dd <= Number(h.remindDays || 7)) suggestions.push({ id: `hearing_soon:${h.id}`, priority: dd <= 2 ? 'high' : 'medium', icon: '⚖️', opId: h.operationId, title: `Audiência em ${dd}d: ${truncate(lbl, 26)}`, detail: `${fmtDate(h.date)}${h.time?' '+h.time:''}.`, actionLabel: 'Ver', action: () => { setViewMode('audiencias'); setTimeout(() => setModal({type:'edit',entityType:'hearing',initial:h}), 100); } });
-    });
-    // Tarefas próximas/vencidas
-    (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada' && t.dueDate).forEach(t => {
-      const dd = daysUntil(t.dueDate);
-      if (dd === null) return;
-      if (dd < 0) suggestions.push({ id: `task_overdue:${t.id}`, priority: 'high', icon: '⚠️', opId: t.operationId, title: `Tarefa VENCIDA há ${Math.abs(dd)}d: ${truncate(t.title, 30)}`, detail: fmtDate(t.dueDate), actionLabel: 'Ver', action: () => { if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); } setTimeout(() => setModal({type:'edit',entityType:'task',initial:t}), 100); } });
-      else if (dd <= 10) suggestions.push({ id: `task_due_soon:${t.id}`, priority: dd <= 3 ? 'high' : 'medium', icon: '✓', opId: t.operationId, title: `Tarefa em ${dd}d: ${truncate(t.title, 30)}`, detail: fmtDate(t.dueDate), actionLabel: 'Ver', action: () => { if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); } setTimeout(() => setModal({type:'edit',entityType:'task',initial:t}), 100); } });
-    });
-    // Pessoas em múltiplas operações
-    const personDocMap = {};
-    (data.people || []).forEach(p => { if (!p.cpfCnpj) return; const doc = p.cpfCnpj.replace(/\D/g, ''); if (!doc) return; if (!personDocMap[doc]) personDocMap[doc] = []; personDocMap[doc].push(p); });
-    Object.entries(personDocMap).forEach(([doc, people]) => {
-      const opsSet = new Set(people.map(p => p.operationId));
-      if (opsSet.size >= 2) {
-        const name = people[0].name;
-        const opNames = [...opsSet].map(id => data.operations.find(o => o.id === id)?.name).filter(Boolean);
-        [...opsSet].forEach(opId => {
-          suggestions.push({ id: `person_cross:${doc}:${opId}`, priority: opsSet.size >= 3 ? 'high' : 'medium', icon: '🔗', opId, title: `${name} aparece em ${opsSet.size} operações`, detail: opNames.join(' · '), actionLabel: null });
-        });
-      }
-    });
-    return suggestions;
-  }, [data]);
 
   const getMeasureInitial = (m) => {
     if (!m) return {};
@@ -5550,10 +5228,37 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
                 return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
               });
-              const renderStageRuler = (ip, STAGES, STAGE_KEYS, recs) => {
+              // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central)
+              const badgeFor = (tag) => tag === 'idpj' ? { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' }
+                : tag === 'cautelar_fiscal' ? { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' }
+                : { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apensa', title: 'Processo central', tagClass: 'tag-central' };
+              const stageCompactMeta = (m) => {
+                if (m.sd.multiRecurso) {
+                  const n = (m.recursos || []).length;
+                  return n ? (n + ' julgamento' + (n !== 1 ? 's' : '')) : '';
+                }
+                // textOnly: texto vai no painel de trabalho — sem placeholder "com texto"
+                if (m.sd.textOnly) return '';
+                // Desfecho fica só no nome (ex.: "Liminar · favorável") — meta traz data/evento
+                const parts = [];
+                if (m.rec?.date) parts.push(fmtDate(m.rec.date));
+                if (m.rec?.evento) parts.push('Ev. ' + m.rec.evento);
+                return parts.join(' · ');
+              };
+              const renderSplitCard = (ip, STAGES, STAGE_KEYS, recs, myEFs, bm) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
-                // Oculta fases sem ocorrência; Ajuizamento permanece sempre na régua
                 const visible = metas.filter(m => m.has || m.alwaysShow);
+                const withHas = visible.filter(m => m.has);
+                const latest = (withHas.length ? withHas[withHas.length - 1] : visible[visible.length - 1]) || null;
+                const workSelPrefix = 'panowork-' + ip.id + ':';
+                const selectedKey = [...collapsedGroups].find(k => k.startsWith(workSelPrefix))?.slice(workSelPrefix.length) || null;
+                const focused = (selectedKey && visible.find(m => m.k === selectedKey)) || latest;
+                const selectWork = (k) => setCollapsedGroups(prev => {
+                  const n = new Set(prev);
+                  [...n].forEach(x => { if (x.startsWith(workSelPrefix)) n.delete(x); });
+                  n.add(workSelPrefix + k);
+                  return n;
+                });
                 const addable = metas.filter(m => !m.has && !m.alwaysShow);
                 const addMenuKey = 'stageadd-' + ip.id;
                 const addOpen = collapsedGroups.has(addMenuKey);
@@ -5565,6 +5270,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   else if (sd.textOnly) setRec(ip.id, sk, { _present: true, texto: '' });
                   else setRec(ip.id, sk, { _present: true, date: '', evento: '', texto: '', outcome: '' });
                   if (addOpen) toggleGroup(addMenuKey);
+                  selectWork(sk);
                   if (!collapsedGroups.has('stagepop-' + ip.id + '-' + sk)) toggleGroup('stagepop-' + ip.id + '-' + sk);
                 };
                 const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
@@ -5574,100 +5280,166 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
                     onClose={() => openPop(m.k)} />
                 );
-                return (<div className="proc-stage-vertical" style={{margin:'2px 0 0',display:'flex',flexDirection:'column',gap:0}}>
-                  {visible.map((m, vi) => {
-                    const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                    const metaInfo = m.sd.textOnly ? '' : (m.info || '').split(' · ').filter(p => p && p !== noteTxt).join(' · ');
-                    const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
-                    const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
-                    const commitNote = (val) => {
-                      const t = String(val || '').trim();
-                      if (t || noteTxt || m.rec?._present) setRec(ip.id, m.k, { texto: t, _present: true });
-                      if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
-                    };
-                    const bodyStyle = {fontSize:10,lineHeight:1.35,color:'var(--text-secondary)',fontFamily:'var(--font-display)',whiteSpace:'pre-wrap',overflowWrap:'anywhere',wordBreak:'break-word',marginTop:1};
-                    return (
-                    <div key={m.k} style={{display:'flex',alignItems:'flex-start',gap:6,padding:'2px 0',borderBottom:'1px solid color-mix(in srgb, var(--border) 45%, transparent)',cursor:'pointer'}} onClick={() => openPop(m.k)} title={m.has ? m.sd.label + ' — editar' : 'Registrar ' + m.sd.label}>
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:12,flexShrink:0,paddingTop:3}}>
-                        <div style={{width:8,height:8,borderRadius:'50%',background:m.has?m.c:'transparent',border:`1.5px solid ${m.has?m.c:'var(--border-light)'}`}} />
-                        {vi < visible.length - 1 && <div style={{width:1.5,flex:1,minHeight:6,marginTop:1,background:m.has?'var(--text-muted)':'var(--border)'}} />}
+                const addFaseBtn = addable.length > 0 && (
+                  <div className="pano-split-add" onClick={e => e.stopPropagation()}>
+                    <button type="button" className="btn-secondary btn-xs"
+                      onClick={() => toggleGroup(addMenuKey)}
+                      title="Incluir fase processual"
+                      style={{fontSize:9,padding:'2px 8px',opacity:0.85,fontWeight:500}}>
+                      + Fase
+                    </button>
+                    {addOpen && (
+                      <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:180,padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
+                        {addable.map(m => (
+                          <button key={m.k} type="button"
+                            onClick={() => addStage(m.k)}
+                            style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
+                            onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+                            {m.sd.label}
+                          </button>
+                        ))}
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',alignItems:'baseline',gap:5,flexWrap:'wrap'}}>
-                          <span style={{fontSize:10.5,fontWeight:m.has?700:500,color:m.has?m.c:'var(--text-secondary)',fontFamily:'var(--font-display)',flexShrink:0}}>{m.sd.label}</span>
-                          {m.outcomeLabel && <span style={{fontSize:10,color:m.c,flexShrink:0}}>{m.outcomeLabel}</span>}
-                          {metaInfo && <span style={{fontSize:10,color:'var(--text-secondary)',fontFamily:'var(--font-mono)',flexShrink:0}}>{metaInfo}</span>}
-                          {!m.has && !m.sd.multiRecurso && !noteTxt && !editingNote && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
-                          {m.sd.multiRecurso && !m.has && <span style={{fontSize:10,color:'var(--text-muted)'}}>—</span>}
-                        </div>
-                        {m.sd.multiRecurso ? (
-                          m.has && (m.recursos || []).length > 0 && (
-                            <div style={{display:'flex',flexDirection:'column',gap:2,marginTop:2}}>
-                              {(m.recursos || []).map((r, ri) => {
-                                const bits = [];
-                                if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
-                                if (r.date) bits.push(fmtDate(r.date));
-                                if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
-                                const freeTxt = (r.texto && String(r.texto).trim()) || '';
-                                return (
-                                  <div key={ri}>
-                                    <div style={{fontSize:10,lineHeight:1.3,color:'var(--text-secondary)',fontFamily:'var(--font-mono)'}}>
-                                      {m.recursos.length > 1 && <span style={{fontWeight:700,color:'var(--text-muted)',marginRight:4}}>{ri + 1}.</span>}
-                                      {bits.length ? bits.join(' · ') : (!freeTxt ? '—' : '')}
-                                    </div>
-                                    {freeTxt && <div style={bodyStyle}>{freeTxt}</div>}
-                                  </div>
-                                );
-                              })}
+                    )}
+                  </div>
+                );
+                const workBody = (() => {
+                  if (!focused) return <div className="pano-split-empty-work">Nenhuma fase registrada</div>;
+                  const m = focused;
+                  const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
+                  const metaLine = stageCompactMeta(m);
+                  const editingNote = !m.sd.multiRecurso && collapsedGroups.has(noteEditKey(m.k));
+                  const startNoteEdit = (ev) => { ev.stopPropagation(); if (!collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); };
+                  const commitNote = (val) => {
+                    const t = String(val || '').trim();
+                    if (t || noteTxt || m.rec?._present) setRec(ip.id, m.k, { texto: t, _present: true });
+                    if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k));
+                  };
+                  const phaseTitle = m.sd.label
+                    + (m.outcomeLabel ? ' · ' + m.outcomeLabel : '')
+                    + (m.sd.multiRecurso && (m.recursos || []).length ? ' · pendências' : '');
+                  if (m.sd.multiRecurso) {
+                    const rs = m.recursos || [];
+                    return (<>
+                      <div className="pano-split-work-phase" style={{color: m.c}}>{phaseTitle}</div>
+                      {rs.length > 0 ? (
+                        <ol className="pano-split-work-list">
+                          {rs.map((r, ri) => {
+                            const bits = [];
+                            if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
+                            if (r.date) bits.push(fmtDate(r.date));
+                            if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
+                            const freeTxt = (r.texto && String(r.texto).trim()) || '';
+                            return (
+                              <li key={ri}>
+                                {bits.length ? bits.join(' · ') : (freeTxt || '—')}
+                                {freeTxt && bits.length ? <div style={{marginTop:2,fontSize:11,lineHeight:1.4}}>{freeTxt}</div> : null}
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      ) : (
+                        <div className="pano-split-empty-work">Sem julgamentos listados</div>
+                      )}
+                    </>);
+                  }
+                  return (<>
+                    <div className="pano-split-work-phase" style={{color: m.c}}>{phaseTitle || m.sd.label}</div>
+                    {metaLine ? (
+                      <div style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)',marginBottom:8}}>{metaLine}</div>
+                    ) : null}
+                    {editingNote ? (
+                      <textarea autoFocus defaultValue={noteTxt}
+                        placeholder="texto da fase"
+                        rows={Math.min(5, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
+                        onBlur={e => commitNote(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
+                        style={{display:'block',width:'100%',marginBottom:8,fontSize:11,padding:'6px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.4,boxSizing:'border-box'}} />
+                    ) : noteTxt ? (
+                      <div className="pano-split-decision is-open" onClick={startNoteEdit} title="Editar texto" style={{cursor:'text'}}>{noteTxt}</div>
+                    ) : m.has ? (
+                      <div className="pano-split-empty-work" onClick={startNoteEdit} style={{cursor:'text'}}>Sem texto nesta fase · clique para adicionar</div>
+                    ) : (
+                      <div className="pano-split-empty-work">—</div>
+                    )}
+                  </>);
+                })();
+                return (<>
+                  <div className="pano-split-grid">
+                    <div className="pano-split-col">
+                      <div className="pano-split-col-label">Contexto</div>
+                      <div className="pano-split-ruler">
+                        {visible.map(m => {
+                          const rulerMeta = stageCompactMeta(m);
+                          return (
+                          <div key={m.k}
+                            className={'pano-split-ruler-item' + (focused && focused.k === m.k ? ' is-now' : '')}
+                            role="button" tabIndex={0}
+                            onClick={() => selectWork(m.k)}
+                            onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); selectWork(m.k); openPop(m.k); }}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectWork(m.k); } }}
+                            title={m.has ? m.sd.label + ' — clique: ver · duplo: editar' : 'Registrar ' + m.sd.label}>
+                            <span className="dot" style={{background: m.has ? m.c : 'transparent', border: '1.5px solid ' + (m.has ? m.c : 'var(--border-light)')}} />
+                            <div>
+                              <div className="name" style={{color: m.has ? m.c : 'var(--text-secondary)'}}>{m.sd.label}{m.outcomeLabel ? ' · ' + m.outcomeLabel : ''}</div>
+                              {rulerMeta ? <div className="meta">{rulerMeta}</div> : null}
                             </div>
-                          )
-                        ) : editingNote ? (
-                          <textarea autoFocus defaultValue={noteTxt}
-                            placeholder="texto da fase"
-                            rows={Math.min(5, Math.max(2, (noteTxt.match(/\n/g) || []).length + 2))}
-                            onClick={ev => ev.stopPropagation()}
-                            onBlur={e => commitNote(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } else if (e.key === 'Escape') { if (collapsedGroups.has(noteEditKey(m.k))) toggleGroup(noteEditKey(m.k)); } }}
-                            style={{display:'block',width:'100%',marginTop:2,fontSize:10,padding:'3px 5px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,fontFamily:'var(--font-display)',resize:'vertical',lineHeight:1.35,boxSizing:'border-box'}} />
-                        ) : noteTxt ? (
-                          <div onClick={startNoteEdit} title="Editar texto" style={{...bodyStyle,cursor:'text'}}>{noteTxt}</div>
-                        ) : m.has ? (
-                          <div onClick={startNoteEdit} title="Adicionar texto" style={{...bodyStyle,color:'var(--text-muted)',cursor:'text',fontStyle:'italic'}}>adicionar texto…</div>
-                        ) : null}
+                          </div>
+                          );
+                        })}
                       </div>
-                      {popupFor(m)}
-                    </div>
-                    );
-                  })}
-                  {addable.length > 0 && (
-                    <div style={{position:'relative',marginTop:4,paddingTop:2}} onClick={e => e.stopPropagation()}>
-                      <button type="button" className="btn-secondary btn-xs"
-                        onClick={() => toggleGroup(addMenuKey)}
-                        title="Incluir fase processual"
-                        style={{fontSize:9,padding:'1px 7px',opacity:0.75,fontWeight:500}}>
-                        + Fase
-                      </button>
-                      {addOpen && (
-                        <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:180,padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
-                          {addable.map(m => (
-                            <button key={m.k} type="button"
-                              onClick={() => addStage(m.k)}
-                              style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
-                              onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                              onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-                              {m.sd.label}
-                            </button>
-                          ))}
+                      {visible.map(m => popupFor(m))}
+                      {addFaseBtn}
+                      <div className="pano-split-col-label">Cobertura · {myEFs.length} {bm.unit}{myEFs.length !== 1 ? 's' : ''}</div>
+                      {myEFs.length > 0 ? (
+                        <div className="pano-split-ef-list">
+                          {myEFs.slice(0, 8).map(ef => {
+                            const est = EXEC_STATUSES[ef.status] || {};
+                            return (
+                              <div key={ef.id} className="pano-split-ef"
+                                role="button" tabIndex={0}
+                                onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModal({type:'edit',entityType:'execution',initial:ef}); } }}>
+                                <span className="num" onClick={e => e.stopPropagation()}><ProcNum exec={ef} /></span>
+                                <span className="val">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
+                                <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
+                              </div>
+                            );
+                          })}
+                          {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{myEFs.length - 8} {bm.unit}(s)</div>}
                         </div>
+                      ) : (
+                        <div className="pano-split-empty-work">Nenhuma {bm.unit} vinculada</div>
                       )}
                     </div>
-                  )}
-                </div>);
+                    <div className="pano-split-col">
+                      <div className="pano-split-col-label">Trabalho</div>
+                      {workBody}
+                      {(() => {
+                        const rawNotes = ip.notesList || (ip.notes ? [ip.notes] : []);
+                        const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !/^[\s·]*classe:\s/i.test(n || ''));
+                        const setNotes = (arr) => upsert('executions', { ...ip, notesList: arr });
+                        const addKey = 'cardnote-' + ip.id; const addOpen = collapsedGroups.has(addKey);
+                        return (
+                          <div className="pano-split-notes">
+                            <div className="pano-split-notes-h">
+                              <span>Notas</span>
+                              {!addOpen && <button type="button" className="pano-split-link" onClick={() => toggleGroup(addKey)} title="Adicionar nota">+</button>}
+                            </div>
+                            {cardNotes.map(({ n, idx }) => (
+                              <div key={idx} className="pano-split-note">
+                                <span style={{flex:1,minWidth:0,wordBreak:'break-word'}}>{linkify(n)}</span>
+                                <button type="button" className="rm" title="Remover nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button>
+                              </div>
+                            ))}
+                            {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:11,padding:'6px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </>);
               };
-              // Badge por tipo de processo-mãe (IDPJ/MCF/Central) e rótulo dos filhos (EF abrangida / apensa)
-              const badgeFor = (tag) => tag === 'idpj' ? { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF' }
-                : tag === 'cautelar_fiscal' ? { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF' }
-                : { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apensa' };
               // Cards do mapa: incidentes (IDPJ/MCF) + centrais — cada um com seu conjunto de fases e seus filhos
               const cards = [
                 ...idpjs.map(ip => ({ ip, STAGES: PROCESS_STAGES, STAGE_KEYS: PROCESS_STAGE_KEYS, apensos: efsByIncident[ip.id] || [] })),
@@ -5698,55 +5470,41 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const myEFs = apensos;
                     const covVal = myEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
                     const cardCollapsed = collapsedGroups.has('panocollapse-' + ip.id);
-                    return (<div key={ip.id} style={{marginBottom:10,padding:'8px 10px',background:'transparent',border:'1px solid var(--border-light, var(--border))',borderRadius:6,opacity:ip.status==='extinta'?0.5:1}}>
-                      <div
-                        style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}}
-                        onClick={() => toggleGroup('panocollapse-' + ip.id)}
-                        title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
-                      >
-                        <span style={{fontSize:9,color:'var(--text-muted)',width:10,flexShrink:0}}>{cardCollapsed ? '▸' : '▾'}</span>
-                        <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
-                        <span onClick={e => e.stopPropagation()} style={{display:'inline-flex'}}>
-                          <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-primary)'}} />
-                        </span>
-                        <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ip}); }}>{est.label}</span>
-                        <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>{myEFs.length} {bm.unit}{myEFs.length!==1?'s':''}{covVal>0?' · '+fmtCur(covVal):''}</span>
-                      </div>
-
-                      {!cardCollapsed && (<>
-                      {/* Régua de fases — só ocorridas (+ Ajuizamento); + Fase para incluir */}
-                      {renderStageRuler(ip, STAGES, STAGE_KEYS, recs)}
-
-                      {myEFs.length > 0 && <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:3}}>
-                        {myEFs.slice(0,8).map(ef => efRow(ef, true))}
-                        {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)',marginLeft:14}}>+{myEFs.length-8} {bm.unit}(s)</div>}
-                      </div>}
-
-                      {/* Notas do processo (complementares — requerimentos pendentes, observações). Grava no notesList da execução; separado do feed da operação. */}
-                      {(() => {
-                        const rawNotes = ip.notesList || (ip.notes ? [ip.notes] : []);
-                        const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !/^[\s·]*classe:\s/i.test(n || ''));
-                        const setNotes = (arr) => upsert('executions', { ...ip, notesList: arr });
-                        const addKey = 'cardnote-' + ip.id; const addOpen = collapsedGroups.has(addKey);
-                        return (<div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}>
-                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:cardNotes.length?4:0}}>
-                            <span style={{fontSize:9,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5}}>📝 Notas</span>
-                            {!addOpen && <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar nota ao processo" style={{fontSize:11,lineHeight:1,padding:'0 7px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
-                          </div>
-                          {cardNotes.length > 0 && <div style={{display:'flex',flexDirection:'column',gap:2,marginBottom:addOpen?5:0}}>
-                            {cardNotes.map(({ n, idx }) => (
-                              <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.4}}>
-                                <span style={{color:'var(--text-muted)',flexShrink:0}}>•</span>
-                                <span style={{flex:1,minWidth:0,wordBreak:'break-word'}}>{linkify(n)}</span>
-                                <span style={{cursor:'pointer',color:'var(--text-muted)',opacity:0.5,flexShrink:0,fontSize:10}} title="Remover nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</span>
+                    const metas = stageMeta(STAGES, STAGE_KEYS, recs);
+                    const withHas = metas.filter(m => m.has);
+                    const current = withHas.length ? withHas[withHas.length - 1] : null;
+                    return (
+                      <div key={ip.id} className={'pano-split ' + (bm.tagClass || '') + (ip.status === 'extinta' ? ' is-extinct' : '')}>
+                        <div
+                          className="pano-split-head"
+                          onClick={() => toggleGroup('panocollapse-' + ip.id)}
+                          title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
+                        >
+                          <div className="pano-split-head-row">
+                            <div className="pano-split-title-row">
+                              <span className="pano-split-chev">{cardCollapsed ? '▸' : '▾'}</span>
+                              <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
+                              <h3>{bm.title}</h3>
+                              <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ip}); }}>{est.label}</span>
+                            </div>
+                            <div className="pano-split-head-right" onClick={e => e.stopPropagation()}>
+                              <div className="pano-split-metrics">
+                                <div><small>Valor total</small><strong>{covVal > 0 ? fmtCur(covVal) : '—'}</strong></div>
+                                <div><small>{bm.unit}s</small><strong>{myEFs.length}</strong></div>
+                                <div><small>Fase</small><strong style={{color: current ? current.c : 'var(--text-muted)', fontFamily: 'var(--font-display)'}}>{current ? current.sd.label : '—'}</strong></div>
                               </div>
-                            ))}
-                          </div>}
-                          {addOpen && <input autoFocus placeholder="nova nota + Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { setNotes([...rawNotes, e.target.value.trim()]); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:'100%',fontSize:10,padding:'3px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />}
-                        </div>);
-                      })()}
-                      </>)}
-                    </div>);
+                              <div className="pano-split-actions">
+                                <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>Dados</button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pano-split-num" onClick={e => e.stopPropagation()}>
+                            <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text-secondary)'}} />
+                          </div>
+                        </div>
+                        {!cardCollapsed && renderSplitCard(ip, STAGES, STAGE_KEYS, recs, myEFs, bm)}
+                      </div>
+                    );
                   })}
 
                   {uncoveredEFs.length > 0 && <div style={{marginTop:cards.length>0?6:0}}>
@@ -5765,41 +5523,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>);
     }
 
-        if (activeTab === 'grafo') {
-      const hasData = getOpSlices(opId).people.length > 0;
-      return (<div style={{flex:1,position:'relative',overflow:'hidden'}}>
-        {!hasData ? <div className="welcome-screen"><div style={{fontSize:40,opacity:0.3}}>◎</div><p>Importe dados ou adicione manualmente para visualizar o grafo.</p></div>
-          : <GraphView operation={activeOp} data={data} onSelectNode={setSelectedNode} onOpenExec={(execData) => setModal({type:'edit',entityType:'execution',initial:execData})} />}
-        {selectedNode && selectedNode.type !== 'operation' && (
-          <div className="detail-panel">
-            <button className="detail-close" onClick={() => setSelectedNode(null)}>✕</button>
-            <h4>{selectedNode.label}</h4>
-            <div className="dp-type" style={{color: selectedNode.color}}>
-              {selectedNode.type === 'person' ? (selectedNode.subtype === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física') : selectedNode.type === 'debt' ? 'CDA' : selectedNode.type === 'execution' ? 'Execução Fiscal' : selectedNode.type === 'measure' ? 'Medida Judicial' : 'Bem'}
-            </div>
-            {selectedNode.data && Object.entries(selectedNode.data).map(([k, v]) => {
-              if (['id', 'operationId', 'createdAt', 'updatedAt', 'linkedPeopleIds', 'linkedAssetIds'].includes(k) || v === '' || v === null || v === undefined) return null;
-              const labels = { name: 'Nome', cpfCnpj: 'CPF/CNPJ', subtype: 'Tipo', role: 'Papel', notes: 'Notas', cdaNumber: 'Nº CDA', value: 'Valor', status: 'Status', prescriptionDate: 'Prescrição', prescriptionForecast: 'Prev. Presc. Intercorrente', prescriptionInterrupted: 'Presc. Interrompida', tribute: 'Tributo', processNumber: 'Nº Processo', processAdmin: 'Proc. Admin', court: 'Vara/Juízo', description: 'Descrição', registry: 'Registro', className: 'Classe', hasGuarantee: 'Garantia', protocolDate: 'Protocolo', inscriptionDate: 'Dt. Inscrição', rawStatus: 'Situação Original', system: 'Sistema', analyticsRegistered: 'Analytics' };
-              let display = v;
-              if (k === 'value') display = fmtCur(v);
-              if (k === 'prescriptionDate' || k === 'prescriptionForecast' || k === 'protocolDate' || k === 'inscriptionDate') display = fmtDate(v);
-              if (k === 'personId') { const pp = data.people.find(p => p.id === v); display = pp?.name || v; }
-              if (k === 'hasGuarantee' || k === 'prescriptionInterrupted' || k === 'analyticsRegistered') display = v ? 'SIM' : 'NÃO';
-              if (k === 'subtype' && selectedNode.type === 'measure') display = MEASURE_SUBTYPES[v] || v;
-              if (k === 'subtype' && selectedNode.type === 'asset') display = ASSET_SUBTYPES[v] || v;
-              if (typeof display === 'boolean') display = display ? 'Sim' : 'Não';
-              return <div key={k} className="dp-field"><div className="dp-label">{labels[k] || k}</div><div className="dp-value">{String(display)}</div></div>;
-            })}
-            <div style={{marginTop:10}}>
-              <button className="btn-secondary btn-sm" onClick={() => {
-                const init = selectedNode.type === 'measure' ? getMeasureInitial(selectedNode.data) : selectedNode.data;
-                setModal({ type: 'edit', entityType: selectedNode.type, initial: init });
-              }}>Editar</button>
-            </div>
-          </div>
-        )}
-      </div>);
-    }
 
     if (activeTab === 'tarefas') {
       const opTasks = (data.tasks || []).filter(t => t.operationId === (activeOp?.id || ''));
@@ -5942,17 +5665,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
 
           {importMode === 'planilhas' && <>
-          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos). O sistema identifica o tipo automaticamente.</div>
-          <div>
-            <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
-            <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-              onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
-              <div className="dz-icon">📂</div>
-              <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
+          <div className="desc">Arraste ou selecione planilhas da Procuradoria (Inscrições / Processos) ou intimações do eproc. O sistema identifica o tipo automaticamente.</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>XLS da Procuradoria</div>
+              <div className="drop-zone" onClick={() => xlsInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
+                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
+                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
+                <div className="dz-icon">📂</div>
+                <div className="dz-text">RelatorioAbaInscricoes*.xls<br/>RelatorioAbaProcessosJudiciais*.xls</div>
+              </div>
+              <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
             </div>
-            <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleXLSImport} />
+            <div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',marginBottom:6}}>Intimações eproc (TRF4)</div>
+              <div className="drop-zone" onClick={() => eprocInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
+                onDragLeave={e => e.currentTarget.classList.remove('dragover')}
+                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); handleEprocImport({ target: { files: e.dataTransfer.files } }); }}>
+                <div className="dz-icon">📬</div>
+                <div className="dz-text">citacaoIntimacao*.xls</div>
+              </div>
+            </div>
           </div>
           </>}
 
@@ -6366,798 +6101,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>);
     }
 
-    if (activeTab === 'execucoes') {
-      const allExecItems = getOpSlices(opId).executions;
-      const opDebts = getOpSlices(opId).debts;
-      const opMeasures = getOpSlices(opId).measures;
-      const opAssets = getOpSlices(opId).assets;
-      const allRespLinks = data.links?.cdaResponsibilities || [];
 
-      // Apply person filter — show executions whose process number matches a CDA in which the selected person has any responsibility
-      const items = execPersonFilter === 'all' ? allExecItems : (() => {
-        const personCdaIds = new Set(allRespLinks.filter(l => l.personId === execPersonFilter).map(l => l.cdaId));
-        const personCdas = opDebts.filter(d => personCdaIds.has(d.id));
-        const procNums = new Set(personCdas.map(d => d.processNumber).filter(Boolean));
-        // Also include apensos of these executions, and the principal if filtered exec is an apenso
-        const direct = allExecItems.filter(e => procNums.has(e.processNumber));
-        const directIds = new Set(direct.map(e => e.id));
-        // Include parents of apensos
-        direct.forEach(e => { if (e.parentExecutionId) directIds.add(e.parentExecutionId); });
-        // Include apensos of principals
-        allExecItems.forEach(e => { if (e.parentExecutionId && directIds.has(e.parentExecutionId)) directIds.add(e.id); });
-        return allExecItems.filter(e => directIds.has(e.id));
-      })();
-
-      // IDPJ and Cautelares — from processTag on executions
-      const idpjProcesses = items.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-      const centralProcesses = items.filter(e => e.processTag === 'central');
-      const idpjLinkedExecIds = new Set();
-      idpjProcesses.forEach(e => {
-        if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => idpjLinkedExecIds.add(id));
-      });
-
-      // Alert helper: detects pending intimação and open task linked to a given process
-      const opIntimations = (data.intimations || []).filter(x => x.operationId === opId);
-      const opTasks = (data.tasks || []).filter(t => t.operationId === opId);
-      const execAlerts = (exec) => {
-        if (!exec?.processNumber) return { intims: [], tasks: [], overdueIntim: false, overdueTask: false };
-        const today = new Date();
-        const intims = opIntimations.filter(x => sameProc(x.processNumber, exec.processNumber) && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
-        const tasks = opTasks.filter(t => sameProc(t.processNumber, exec.processNumber) && t.status !== 'concluida' && t.status !== 'cancelada');
-        const overdueIntim = intims.some(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today);
-        const overdueTask = tasks.some(t => t.dueDate && new Date(t.dueDate+'T00:00:00') < today);
-        return { intims, tasks, overdueIntim, overdueTask };
-      };
-
-      // Reusable alert badges renderer — shows intim (blue) and task (yellow) indicators on process cards
-      const renderAlertBadges = (exec, compact = false) => {
-        const a = execAlerts(exec);
-        if (a.intims.length === 0 && a.tasks.length === 0) return null;
-        return (<React.Fragment>
-          {a.intims.length > 0 && <span className="has-tip" style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:a.overdueIntim?'rgba(244,63,94,0.2)':'rgba(59,130,246,0.2)',color:a.overdueIntim?'var(--red)':'var(--blue)',display:'inline-flex',alignItems:'center',gap:3,animation:'pulse 2s infinite'}}>📬 {a.intims.length}<span className="tip-content">{a.intims.length} intimação(ões) {a.overdueIntim ? 'VENCIDA(S) — prioridade máxima' : 'em aberto'} vinculada(s) a este processo. {!compact && 'Ver aba Intimações.'}</span></span>}
-          {a.tasks.length > 0 && <span className="has-tip" style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:a.overdueTask?'rgba(244,63,94,0.2)':'rgba(245,158,11,0.2)',color:a.overdueTask?'var(--red)':'var(--yellow)',display:'inline-flex',alignItems:'center',gap:3,animation:'pulse 2s infinite'}}>✓ {a.tasks.length}<span className="tip-content">{a.tasks.length} tarefa(s) {a.overdueTask ? 'VENCIDA(S) — prioridade máxima' : 'em aberto'} vinculada(s) a este processo. {!compact && 'Ver aba Tarefas.'}</span></span>}
-        </React.Fragment>);
-      };
-
-      // Generate task from a process — pre-fills the task form with process context
-      const genTaskFromExec = (exec, ev) => {
-        ev.stopPropagation();
-        setModal({type:'create',entityType:'task',initial:{
-          operationId: opId,
-          title: `Atuação no processo ${exec.processNumber || ''}`,
-          description: `Processo: ${exec.processNumber || ''}\nClasse: ${exec.className || ''}\nVara: ${exec.court || ''}`,
-          processNumber: exec.processNumber || '',
-          priority: 'media',
-          status: 'pendente',
-          taskVisibility: 'operation'
-        }});
-      };
-
-      // Classify each exec into bucket: 'idpj_cautelar' | 'central' | 'embargos' | 'recursos' | 'ef' | 'outros'
-      const classifyExec = (e) => {
-        if (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') return 'idpj_cautelar';
-        if (e.processTag === 'central') return 'central';
-        const cn = (e.className || '').toLowerCase();
-        if (/embargo/.test(cn)) return 'embargos';
-        if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recursos';
-        if (/execu[çc][ãa]o fiscal/.test(cn)) return 'ef';
-        return 'outros';
-      };
-
-      const efExecs = items.filter(e => classifyExec(e) === 'ef');
-      const embargosExecs = items.filter(e => classifyExec(e) === 'embargos');
-      const recursosExecs = items.filter(e => classifyExec(e) === 'recursos');
-      const outrosExecs = items.filter(e => classifyExec(e) === 'outros');
-
-      // Sort executions — main list is EFs only; others go to dedicated sections below
-      // Also exclude apensos of central processes — they're rendered under their central principal
-      const centralApensoIds = items.filter(e => e.parentExecutionId && centralProcesses.some(c => c.id === e.parentExecutionId)).map(e => e.id);
-      let sorted = efExecs.filter(e => !centralApensoIds.includes(e.id));
-      if (execSort === 'class') sorted.sort((a,b) => (a.className||'').localeCompare(b.className||''));
-      else if (execSort === 'court') sorted.sort((a,b) => (a.court||'').localeCompare(b.court||''));
-      else if (execSort === 'guarantee') sorted.sort((a,b) => (a.hasGuarantee?0:1) - (b.hasGuarantee?0:1));
-      else if (execSort === 'status') sorted.sort((a,b) => (a.status||'').localeCompare(b.status||''));
-      else if (execSort === 'prescription') sorted.sort((a,b) => (a.prescriptionForecast||'9999').localeCompare(b.prescriptionForecast||'9999'));
-      else if (execSort === 'cdas_desc') sorted.sort((a,b) => { const va = opDebts.filter(d=>d.processNumber===a.processNumber).reduce((s,d)=>s+(d.value||0),0); const vb = opDebts.filter(d=>d.processNumber===b.processNumber).reduce((s,d)=>s+(d.value||0),0); return vb-va; });
-      else if (execSort === 'protocol') sorted.sort((a,b) => (b.protocolDate||'').localeCompare(a.protocolDate||''));
-      else if (execSort === 'idpj') sorted.sort((a,b) => { const aTag = (a.processTag==='idpj'||a.processTag==='cautelar_fiscal')?0:idpjLinkedExecIds.has(a.id)?1:2; const bTag = (b.processTag==='idpj'||b.processTag==='cautelar_fiscal')?0:idpjLinkedExecIds.has(b.id)?1:2; return aTag-bTag; });
-
-      const needsGroup = ['class','court','status','guarantee','idpj','por_devedor'].includes(execSort);
-      const groups = [];
-      if (needsGroup) {
-        const gm = {};
-        sorted.forEach(e => {
-          const st = EXEC_STATUSES[e.status] || {};
-          let gk;
-          if (execSort === 'class') gk = e.className || 'Sem classe';
-          else if (execSort === 'court') gk = e.court || 'Sem vara';
-          else if (execSort === 'status') gk = st.label || e.status || 'Sem status';
-          else if (execSort === 'guarantee') gk = e.hasGuarantee ? 'Com Garantia' : 'Sem Garantia';
-          else if (execSort === 'idpj') gk = (e.processTag==='idpj'||e.processTag==='cautelar_fiscal')?'IDPJ / Cautelares':idpjLinkedExecIds.has(e.id)?'Vinculadas a IDPJ/Cautelar':'Processos comuns';
-          else if (execSort === 'por_devedor') {
-            // Use the originário of any CDA linked to this exec; fallback to "Sem devedor"
-            const linkedCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber));
-            const origLinks = linkedCdas.flatMap(d => allRespLinks.filter(l => l.cdaId === d.id && l.role === 'originario'));
-            const origIds = [...new Set(origLinks.map(l => l.personId))];
-            // Determine devedor name
-            let devedorName;
-            if (origIds.length === 0) devedorName = 'Sem devedor identificado';
-            else if (origIds.length === 1) {
-              const p = data.people.find(pp => pp.id === origIds[0]);
-              devedorName = p?.name || 'Devedor';
-            } else {
-              const names = origIds.map(id => data.people.find(pp => pp.id === id)?.name || '?').slice(0,2).join(' + ');
-              devedorName = `${names}${origIds.length > 2 ? ' + outros' : ''}`;
-            }
-            // Determine if this exec is linked to any IDPJ or Cautelar Fiscal
-            const isIdpjItself = e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal';
-            const isLinkedToIdpj = idpjLinkedExecIds.has(e.id);
-            // Group key: separate IDPJ-linked vs unlinked EFs per devedor
-            // Prefix with a sort marker to keep IDPJ-linked groups right above unlinked ones
-            if (isIdpjItself) {
-              gk = `0::🛡️ Incidentes/Cautelares — ${devedorName}`;
-            } else if (isLinkedToIdpj) {
-              gk = `1::⚖️🔗 Execuções Fiscais vinculadas ao Incidente/Cautelar — ${devedorName}`;
-            } else {
-              gk = `2::⚖️ Execuções Fiscais — ${devedorName}`;
-            }
-          }
-          if (!gm[gk]) gm[gk] = [];
-          gm[gk].push(e);
-        });
-        // Sort by the N:: prefix (0 = IDPJ, 1 = EF vinculada, 2 = EF não vinculada), then by label alpha
-        const sortedEntries = Object.entries(gm).sort(([a],[b]) => a.localeCompare(b));
-        sortedEntries.forEach(([k, v]) => {
-          // Strip the "N::" prefix used only for sorting — display the clean label
-          const displayLabel = k.replace(/^\d+::/, '');
-          groups.push({ label: displayLabel, items: v });
-        });
-      } else {
-        groups.push({ label: null, items: sorted });
-      }
-
-      // CDA inline display helper
-      // Helper: find debtors for a process via CDA responsibilities and CDA devedor field
-      const getDebtorsForProcess = (processNumber) => {
-        if (!processNumber) return [];
-        const linkedCDAs = opDebts.filter(d => sameProc(d.processNumber, processNumber));
-        const seen = new Set();
-        const debtors = [];
-        // From CDA responsibilities
-        linkedCDAs.forEach(d => {
-          (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id).forEach(r => {
-            const p = data.people.find(pp => pp.id === r.personId);
-            if (p && !seen.has(p.name)) { seen.add(p.name); debtors.push({ name: p.name, id: p.id, role: r.role }); }
-          });
-          // Fallback: devedor field from CDA
-          if (d.devedor && !seen.has(d.devedor)) { seen.add(d.devedor); debtors.push({ name: d.devedor, role: 'originario' }); }
-        });
-        // If nothing found, try operation-level alvo people
-        if (debtors.length === 0) {
-          data.people.filter(p => p.operationId === opId && p.operationRole === 'alvo').forEach(p => {
-            if (!seen.has(p.name)) { seen.add(p.name); debtors.push({ name: p.name, id: p.id, role: 'alvo' }); }
-          });
-        }
-        return debtors;
-      };
-      const openEditPersonById = (pid) => setModal({type:'edit',entityType:'person',initial:data.people.find(p=>p.id===pid)});
-
-      
-      return (<div className="entity-area">
-        {/* ═══ IDPJ / CAUTELARES SECTION ═══ */}
-        {idpjProcesses.length > 0 && (
-          <div className="idpj-section">
-            <div className="idpj-section-title">🛡️ Incidentes de Desconsideração / Cautelares Fiscais ({idpjProcesses.length})</div>
-            {idpjProcesses.map(ep => {
-              const linkedExecs = items.filter(e => (ep.linkedExecutionIds||[]).includes(e.id));
-              const linkedCDAs = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber));
-              const linkedEFProcNums = new Set(linkedExecs.map(e => normProc(e.processNumber)).filter(Boolean));
-              const allLinkedCDAs = opDebts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber)));
-              const totalLinkedCDAValue = allLinkedCDAs.reduce((s,d) => s + (d.value||0), 0);
-              const notes = ep.notesList || (ep.notes ? [ep.notes] : []);
-              const st = EXEC_STATUSES[ep.status] || {};
-              return (<div key={ep.id} style={{marginBottom:12}}>
-              <div className="idpj-card" style={ep.status==='extinta'?{opacity:0.4}:{}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ep})}>
-                <div className="idpj-left">
-                  <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:2,flexWrap:'wrap'}}>
-                    <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:600,background:ep.processTag==='idpj'?'rgba(244,63,94,0.2)':'rgba(245,158,11,0.2)',color:ep.processTag==='idpj'?'var(--red)':'var(--yellow)'}}>{tagLabels[ep.processTag]}</span>
-                    <span className={`badge ${st.badge||''}`} style={{fontSize:8}}>{st.label||ep.status}</span>
-                    {renderAlertBadges(ep, true)}
-                  </div>
-                  <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-secondary)',marginBottom:2}}><Copyable value={ep.processNumber}>{ep.processNumber}</Copyable></div>
-                  <div style={{fontSize:10,color:'var(--text-muted)'}}>{ep.court} {ep.className ? `· ${ep.className}` : ''}</div>
-                  <ExecutadoLine processNumber={ep.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
-                </div>
-                <div className="idpj-execs">
-                  <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>Execuções abrangidas</div>
-                  <div className="idpj-linked-execs">
-                    {linkedExecs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma vinculada</span> :
-                    linkedExecs.map(e => <span key={e.id} className="idpj-linked-exec">{truncate(e.processNumber,25)}</span>)}
-                  </div>
-                  {linkedCDAs.length > 0 && <div style={{marginTop:4,fontSize:10}}><span style={{color:'var(--text-muted)'}}>CDAs:</span> <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} onShowAll={setCdaPopup} /></div>}
-                  {totalLinkedCDAValue > 0 && <div style={{marginTop:6,padding:'4px 8px',background:'rgba(245,158,11,0.08)',borderRadius:4,borderLeft:'2px solid var(--gold)'}}>
-                    <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor total das EFs abrangidas</span><br/>
-                    <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalLinkedCDAValue)}</strong>
-                    <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:6}}>({allLinkedCDAs.length} CDAs · {linkedExecs.length} EFs)</span>
-                  </div>}
-                </div>
-                <div className="idpj-center">
-                  <div style={{display:'flex',gap:14,marginBottom:4}}>
-                    <div><span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>Garantia</span><br/>
-                      <span style={{fontSize:11,fontWeight:600,color:ep.hasGuarantee?'var(--green)':'var(--red)'}}>{ep.hasGuarantee ? 'Sim' : 'Não'}</span></div>
-                    <div><span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>Analytics</span><br/>
-                      <span>{ep.analyticsRegistered ? '✅' : '❌'}</span></div>
-                  </div>
-                  {notes.length > 0 && <div className="note-stack" style={{maxHeight:200,overflowY:'auto',marginTop:4}}>
-                    {notes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                  </div>}
-                </div>
-                <div className="idpj-right">
-                  <span className={`badge ${st.badge||''}`}>{st.label||ep.status}</span>
-                  {ep.hasGuarantee && <span className="badge badge-green has-tip" style={{fontSize:8}}>GAR<span className="tip-content">Garantia idônea oferecida no incidente.</span></span>}
-                  <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',marginTop:4,fontWeight:600}} onClick={ev => genTaskFromExec(ep, ev)}>📋 Gerar Tarefa<span className="tip-content">Cria uma nova tarefa já preenchida com os dados deste processo.</span></button>
-                </div>
-              </div>
-              {/* Recursos vinculados (agravos, embargos, etc) */}
-              {(() => {
-                const recursos = allExecItems.filter(r => r.parentExecutionId === ep.id);
-                if (recursos.length === 0) return null;
-                return (<div style={{marginLeft:24,borderLeft:'3px solid rgba(122,139,163,0.2)',paddingLeft:10,display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
-                  {recursos.map(r => {
-                    const rSt = EXEC_STATUSES[r.status] || {};
-                    return (<div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',background:'rgba(255,255,255,0.02)',borderRadius:4,fontSize:10,cursor:'pointer',opacity:r.status==='extinta'?0.4:1}} onClick={() => setModal({type:'edit',entityType:'execution',initial:r})}>
-                      <span style={{color:'var(--text-muted)',fontSize:9}}>↳</span>
-                      <ProcNum exec={r} style={{fontFamily:'var(--font-mono)',fontSize:10}} />
-                      <span style={{color:'var(--text-muted)',fontSize:9,flex:1}}>{r.className || ''}</span>
-                      <span className={`badge ${rSt.badge||''}`} style={{fontSize:8}}>{rSt.label}</span>
-                    </div>);
-                  })}
-                </div>);
-              })()}
-              </div>);
-            })}
-          </div>
-        )}
-
-        {/* ═══ PROCESSOS CENTRAIS SECTION ═══ */}
-        {centralProcesses.length > 0 && (
-          <div className="idpj-section" style={{background:'rgba(122,139,163,0.06)',borderColor:'rgba(122,139,163,0.2)'}}>
-            <div className="idpj-section-title" style={{color:'var(--purple)'}}>◆ Processos Centrais da Operação ({centralProcesses.length})</div>
-            {centralProcesses.map(ep => {
-              const linkedCDAs = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber));
-              const totalCDA = linkedCDAs.reduce((s,d)=>s+(d.value||0),0);
-              const notes = ep.notesList || (ep.notes ? [ep.notes] : []);
-              const st = EXEC_STATUSES[ep.status] || {};
-              const prescDays = daysUntil(ep.prescriptionForecast);
-              const myApensos = items.filter(x => x.parentExecutionId === ep.id);
-              return (<div key={ep.id} style={{marginBottom:12}}>
-                <div className="idpj-card" style={{borderLeftColor:'var(--purple)',borderColor:'rgba(122,139,163,0.3)',marginBottom:myApensos.length>0?6:0}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ep})}>
-                  <div className="idpj-left">
-                    <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:2,flexWrap:'wrap'}}>
-                      <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:600,background:'rgba(122,139,163,0.2)',color:'var(--purple)'}}>{tagLabels.central || 'Central'}</span>
-                      <span className={`badge ${st.badge||''}`} style={{fontSize:8}}>{st.label||ep.status}</span>
-                      {ep.hasGuarantee && <span className="badge badge-green has-tip" style={{fontSize:8}}>GAR<span className="tip-content">Garantia idônea.</span></span>}
-                      {ep.prescriptionInterrupted && <span className="badge badge-cyan has-tip" style={{fontSize:8}}>PI<span className="tip-content">Prescrição interrompida.</span></span>}
-                      {myApensos.length > 0 && <span className="has-tip" style={{fontSize:9,color:'var(--accent)',fontWeight:600}}>📎{myApensos.length}<span className="tip-content">{myApensos.length} processo(s) apensado(s) ao central.</span></span>}
-                      {renderAlertBadges(ep, true)}
-                    </div>
-                    <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,marginBottom:2}}><Copyable value={ep.processNumber}>{ep.processNumber}</Copyable></div>
-                    <div style={{fontSize:10,color:'var(--text-muted)'}}>{ep.court || ''}{ep.className ? ` · ${ep.className}` : ''}</div>
-                    <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
-                      {ep.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(ep.protocolDate)}</strong></span>}
-                      {ep.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:prescDays!==null&&prescDays<=365?prescDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(ep.prescriptionForecast)}{prescDays!==null&&prescDays<=365?` (${prescDays}d)`:''}</strong></span>}
-                    </div>
-                  </div>
-                  <div className="idpj-execs">
-                    <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>CDAs vinculadas</div>
-                    {linkedCDAs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                    <CDAList cdas={linkedCDAs} processNumber={ep.processNumber} onShowAll={setCdaPopup} />}
-                    <div style={{marginTop:6,fontSize:11}}><span style={{color:'var(--text-muted)',fontSize:9}}>Valor da causa: </span><strong style={{color:'var(--gold)'}}>{fmtCur(totalCDA)}</strong></div>
-                  </div>
-                  <div className="idpj-center">
-                    {notes.length > 0 && <div className="note-stack" style={{maxHeight:200,overflowY:'auto'}}>
-                      {notes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                    </div>}
-                    {notes.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Sem notas</div>}
-                  </div>
-                  <div className="idpj-right">
-                    <button className="btn-secondary btn-xs" onClick={e => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ep}); }}>✎ Editar</button>
-                    <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',marginTop:4,fontWeight:600}} onClick={ev => genTaskFromExec(ep, ev)}>📋 Gerar Tarefa<span className="tip-content">Cria uma nova tarefa já preenchida com os dados deste processo central.</span></button>
-                  </div>
-                </div>
-
-                {/* Apensos indentados sob o central */}
-                {myApensos.length > 0 && <div style={{marginLeft:24,borderLeft:'3px solid rgba(122,139,163,0.4)',paddingLeft:10,display:'flex',flexDirection:'column',gap:6}}>
-                  {myApensos.map(ap => {
-                    const apCdas = opDebts.filter(d => sameProc(d.processNumber, ap.processNumber));
-                    const apTotal = apCdas.reduce((s,d)=>s+(d.value||0),0);
-                    const apSt = EXEC_STATUSES[ap.status] || {};
-                    const apNotes = ap.notesList || (ap.notes ? [ap.notes] : []);
-                    const apPrescDays = daysUntil(ap.prescriptionForecast);
-                    return (<div key={ap.id} className="idpj-card" style={{background:'var(--bg-elevated)',borderLeftColor:'var(--purple)',borderColor:'rgba(122,139,163,0.2)',opacity:0.95}} onClick={e => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ap}); }}>
-                      <div className="idpj-left">
-                        <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:2}}>
-                          <span style={{color:'var(--purple)',fontSize:9,fontWeight:600}}>↳ apenso</span>
-                          <span className={`badge ${apSt.badge||''}`} style={{fontSize:8}}>{apSt.label||ap.status}</span>
-                          {ap.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
-                          {ap.prescriptionInterrupted && <span className="badge badge-cyan" style={{fontSize:8}}>PI</span>}
-                        </div>
-                        <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,marginBottom:2}}><Copyable value={ap.processNumber}>{ap.processNumber}</Copyable></div>
-                        <div style={{fontSize:10,color:'var(--text-muted)'}}>{ap.court || ''}{ap.className ? ` · ${ap.className}` : ''}</div>
-                        <ExecutadoLine processNumber={ap.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
-                        <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
-                          {ap.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(ap.protocolDate)}</strong></span>}
-                          {ap.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:apPrescDays!==null&&apPrescDays<=365?apPrescDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(ap.prescriptionForecast)}{apPrescDays!==null&&apPrescDays<=365?` (${apPrescDays}d)`:''}</strong></span>}
-                        </div>
-                      </div>
-                      <div className="idpj-execs">
-                        <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3}}>CDAs vinculadas</div>
-                        {apCdas.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                        <CDAList cdas={apCdas} processNumber={ap.processNumber} onShowAll={setCdaPopup} />}
-                        <div style={{marginTop:6,fontSize:11}}><span style={{color:'var(--text-muted)',fontSize:9}}>Valor da causa: </span><strong style={{color:'var(--gold)'}}>{fmtCur(apTotal)}</strong></div>
-                      </div>
-                      <div className="idpj-center">
-                        {apNotes.length > 0 && <div style={{fontSize:10,color:'var(--text-muted)'}}>{truncate(apNotes[0], 80)}{apNotes.length>1?` (+${apNotes.length-1})`:''}</div>}
-                        {apNotes.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Sem notas</div>}
-                      </div>
-                      <div className="idpj-right">
-                        <button className="btn-secondary btn-xs" onClick={e => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ap}); }}>✎ Editar</button>
-                      </div>
-                    </div>);
-                  })}
-                </div>}
-              </div>);
-            })}
-          </div>
-        )}
-
-        {/* ═══ EXECUTIONS LIST ═══ */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} processo(s){execPersonFilter !== 'all' && ` (filtrado de ${allExecItems.length})`}</span>
-          <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            <select value={execSort} onChange={e=>{setExecSort(e.target.value);setCollapsedGroups(new Set());}} style={{width:'auto',fontSize:10,padding:'4px 8px'}}>
-              <option value="por_devedor">Por Devedor (Empresa)</option>
-              <option value="class">Agrupar por Classe</option>
-              <option value="court">Agrupar por Vara</option>
-              <option value="status">Agrupar por Status</option>
-              <option value="guarantee">Com/Sem Garantia</option>
-              <option value="idpj">Vinculados/Não vinculados a IDPJ</option>
-              <option value="prescription">Prescrição (mais próxima)</option>
-              <option value="cdas_desc">Valor CDAs (maior)</option>
-              <option value="protocol">Data Protocolo (recente)</option>
-            </select>
-            <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
-          </div>
-        </div>
-
-        <PersonSubtabs data={data} opId={opId} currentFilter={execPersonFilter} onChange={setExecPersonFilter} mode="exec" />
-
-        {selectedExecs.size > 0 && (<div className="bulk-bar">
-          <span>{selectedExecs.size} selecionada(s)</span>
-          <button className="btn-danger btn-sm" onClick={() => bulkDelete('executions', selectedExecs)}>Excluir selecionadas</button>
-          <button className="btn-secondary btn-xs" onClick={() => setSelectedExecs(new Set())}>Limpar</button>
-        </div>)}
-
-        {items.length === 0 ? <div className="empty-state"><div className="empty-icon">⚖️</div><p>Nenhum processo</p></div> :
-        <div className="entity-list">{(() => {
-          // Separate priority groups (IDPJ/MCF/EF) from others, and push Embargos to the very end
-          const priorityClasses = ['execução fiscal','execucao fiscal','cautelar fiscal','incidente de desconsideração','incidente de desconsideracao'];
-          const isPriority = (g) => {
-            const lbl = (g.label||'').toLowerCase();
-            return lbl.includes('idpj') || lbl.includes('cautelar') || lbl.includes('execuções fiscais') || lbl.includes('execução fiscal') || lbl.includes('vinculad') || priorityClasses.some(pc => lbl.includes(pc));
-          };
-          const isEmbargos = (g) => {
-            const lbl = (g.label||'').toLowerCase();
-            return lbl.includes('embargo');
-          };
-          const priorityGroups = groups.filter(g => !g.label || isPriority(g));
-          const embargosGroups = groups.filter(g => g.label && isEmbargos(g));
-          const otherGroups = groups.filter(g => g.label && !isPriority(g) && !isEmbargos(g));
-          const allOrdered = [...priorityGroups, ...otherGroups, ...embargosGroups];
-
-          return allOrdered.map((g, gi) => {
-            const isOther = g.label && !isPriority(g);
-            const defaultCollapsed = isOther && !collapsedGroups.has('exec-'+g.label+'-opened');
-            const isCollapsed = defaultCollapsed || collapsedGroups.has('exec-'+g.label);
-            const groupCDATotal = g.items.reduce((s,e) => s + opDebts.filter(d=>d.processNumber===e.processNumber).reduce((ss,d)=>ss+(d.value||0),0), 0);
-            return (<React.Fragment key={gi}>
-              {g.label && <div className="group-header" onClick={() => {
-                if (defaultCollapsed) { toggleGroup('exec-'+g.label+'-opened'); }
-                else { toggleGroup('exec-'+g.label); }
-              }}>
-                <span className={`gh-toggle ${isCollapsed?'':'open'}`}>▶</span>
-                <span className="gh-label">{g.label}</span>
-                <span className="gh-count">({g.items.length})</span>
-                <span className="gh-total">{fmtCur(groupCDATotal)}</span>
-                <input type="checkbox" style={{marginLeft:8,cursor:'pointer'}} onClick={ev => ev.stopPropagation()}
-                  checked={g.items.every(e=>selectedExecs.has(e.id))}
-                  onChange={() => { const ids = g.items.map(e=>e.id); setSelectedExecs(prev => { const n = new Set(prev); const allIn = ids.every(id=>n.has(id)); ids.forEach(id => allIn ? n.delete(id) : n.add(id)); return n; }); }} />
-              </div>}
-              {!isCollapsed && (() => {
-                // Reusable full card renderer for executions
-                const ExecCard = ({ e, isApenso = false }) => {
-                  const linkedCDAs = opDebts.filter(d => sameProc(d.processNumber, e.processNumber));
-                  const totalCDA = linkedCDAs.reduce((s,d)=>s+(d.value||0),0);
-                  const st = EXEC_STATUSES[e.status] || {};
-                  const prescDays = daysUntil(e.prescriptionForecast);
-                  const isLinkedToIDPJ = idpjLinkedExecIds.has(e.id);
-                  const isTagged = e.processTag && e.processTag !== 'normal';
-                  const notes = e.notesList || (e.notes ? [e.notes] : []);
-                  const myApensos = items.filter(x => {
-                    if (x.parentExecutionId !== e.id) return false;
-                    const xcn = (x.className || '').toLowerCase();
-                    if (/embargo/.test(xcn)) return false;
-                    if (/agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(xcn)) return false;
-                    return true;
-                  });
-                  const apensosCollapseKey = 'apensos-'+e.id;
-                  const apensosCollapsed = collapsedGroups.has(apensosCollapseKey);
-                  return (<div className="entity-card-selectable" style={{display:'flex',flexDirection:'column',alignItems:'stretch',width:'100%'}}>
-                    <div style={{display:'flex',alignItems:'flex-start',gap:6,width:'100%'}}>
-                      <input type="checkbox" checked={selectedExecs.has(e.id)} onChange={() => toggleExec(e.id)} style={{marginTop:14}} />
-                      <div className={`idpj-card ${isLinkedToIDPJ ? 'linked-idpj' : ''}`} style={{flex:1,minWidth:0,background:e.isRelevant?'rgba(200,160,74,0.04)':(isApenso?'var(--bg-elevated)':'var(--bg-card)'),borderLeftColor:e.isRelevant?'var(--gold)':(isApenso?'var(--accent)':isLinkedToIDPJ?'var(--pgfn)':'var(--border)'),borderLeftWidth:e.isRelevant||isApenso||isLinkedToIDPJ?3:1,opacity:e.status==='extinta'||e.status==='arquivada'?0.45:1}} onClick={() => setModal({type:'edit',entityType:'execution',initial:e})}>
-                        {/* COL 1: Nº processo + badges + vara/classe */}
-                        <div className="idpj-left">
-                          <div style={{display:'flex',gap:5,alignItems:'center',marginBottom:3,flexWrap:'wrap'}}>
-                            <span onClick={ev => { ev.stopPropagation(); upsert('executions', { ...e, isRelevant: !e.isRelevant }); }} style={{cursor:'pointer',fontSize:12,lineHeight:1,opacity:e.isRelevant?1:0.3,transition:'opacity 0.15s'}} title={e.isRelevant?'Remover destaque':'Marcar como relevante'}>{e.isRelevant?'★':'☆'}</span>
-                            <span onClick={ev => { ev.stopPropagation(); const el = ev.currentTarget; copyText(buildExecQualification(e, data)); el.textContent = '✓'; setTimeout(() => { try { el.textContent = '📋'; } catch(x){} }, 1500); }} style={{cursor:'pointer',fontSize:11,lineHeight:1,opacity:0.4,transition:'opacity 0.15s'}} title="Copiar resumo do processo (nº, classe, juízo, CDAs, executados) para colar em petição">📋</span>
-                            {isApenso && <span style={{fontSize:9,color:'var(--accent)',fontWeight:700}}>↳ apenso</span>}
-                            {myApensos.length > 0 && <span className="has-tip" style={{fontSize:9,color:'var(--accent)',fontWeight:700,cursor:'pointer'}} onClick={ev => { ev.stopPropagation(); toggleGroup(apensosCollapseKey); }}>📎{myApensos.length}<span className="tip-content">Processo PRINCIPAL com {myApensos.length} apenso(s). Clique para colapsar/expandir.</span></span>}
-                            {isTagged && <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:e.processTag==='idpj'?'rgba(244,63,94,0.2)':e.processTag==='cautelar_fiscal'?'rgba(245,158,11,0.2)':'rgba(122,139,163,0.2)',color:e.processTag==='idpj'?'var(--red)':e.processTag==='cautelar_fiscal'?'var(--yellow)':'var(--purple)'}}>{tagLabels[e.processTag]||e.processTag}</span>}
-                            {isLinkedToIDPJ && !isTagged && <span className="badge badge-red has-tip" style={{fontSize:9}}>↗ IDPJ<span className="tip-content">Execução abrangida por incidente.</span></span>}
-                            {renderAlertBadges(e)}
-                          </div>
-                          <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700,marginBottom:3}}>
-                            {e.processNumber ? <Copyable value={e.processNumber}>{e.processNumber}</Copyable> : 'Sem nº'}
-                          </div>
-                          <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
-                          <ExecutadoLine processNumber={e.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
-                          <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
-                            {e.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(e.protocolDate)}</strong></span>}
-                            {e.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:prescDays!==null&&prescDays<=365?prescDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(e.prescriptionForecast)}{prescDays!==null&&prescDays<=365?` (${prescDays}d)`:''}</strong></span>}
-                          </div>
-                        </div>
-                        {/* COL 2: CDAs vinculadas + valor */}
-                        <div className="idpj-execs">
-                          <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3,fontWeight:600,letterSpacing:0.3}}>CDAs vinculadas ({linkedCDAs.length})</div>
-                          {linkedCDAs.length === 0 ? <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhuma CDA</span> :
-                          <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} onShowAll={setCdaPopup} /></div>}
-                          <div style={{marginTop:6,fontSize:11}}>
-                            <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor da causa</span><br/>
-                            <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalCDA)}</strong>
-                          </div>
-                        </div>
-                        {/* COL 3: Notas */}
-                        <div className="idpj-center">
-                          {(() => {
-                            const filteredNotes = notes.filter(n => {
-                              const nl = (n || '').toLowerCase();
-                              if (/^[\s·]*classe:\s/i.test(n)) return false;
-                              if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
-                              return true;
-                            });
-                            return filteredNotes.length > 0 ? <div className="note-stack" style={{maxHeight:220,overflowY:'auto'}}>
-                              {filteredNotes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                            </div> : <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Sem notas</div>;
-                          })()}
-                        </div>
-                        {/* COL 4: Badges + ações */}
-                        <div className="idpj-right">
-                          <span className={`badge ${st.badge||''}`} style={{fontSize:10,fontWeight:700}}>{st.label||e.status}</span>
-                          {e.hasGuarantee && <span className="badge badge-green has-tip" style={{fontSize:9}}>GAR<span className="tip-content">Garantia idônea.</span></span>}
-                          {e.prescriptionInterrupted && <span className="badge badge-cyan has-tip" style={{fontSize:9}}>PI<span className="tip-content">Prescrição interrompida.</span></span>}
-                          <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',marginTop:4,fontWeight:600}} onClick={ev => genTaskFromExec(e, ev)}>📋 Gerar Tarefa<span className="tip-content">Cria uma nova tarefa já preenchida com os dados deste processo. Útil para planejar próxima atuação proativa.</span></button>
-                        </div>
-                      </div>
-                    </div>
-                    {myApensos.length > 0 && !apensosCollapsed && <div style={{marginLeft:24,marginTop:6,borderLeft:'3px solid var(--accent-dim)',paddingLeft:10,display:'flex',flexDirection:'column',gap:6}}>
-                      {myApensos.map(ap => <React.Fragment key={ap.id}>{ExecCard({ e: ap, isApenso: true })}</React.Fragment>)}
-                    </div>}
-                  </div>);
-                };
-
-                const topLevelExecs = g.items.filter(e => !e.parentExecutionId || !items.some(p => p.id === e.parentExecutionId));
-                return (<div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:4}}>
-                  {topLevelExecs.map(e => <React.Fragment key={e.id}>{ExecCard({ e, isApenso: false })}</React.Fragment>)}
-                </div>);
-              })()}
-            </React.Fragment>);
-          });
-        })()}</div>}
-
-        {/* ═══ EMBARGOS / RECURSOS / OUTROS SECTIONS ═══ */}
-        {(() => {
-          // Build a reusable renderer for these auxiliary sections.
-          // Cards are rendered via the same ExecCard closure-scoped above? No — we need a standalone renderer
-          // since ExecCard was defined inside a group callback. We'll render inline.
-          const renderAuxCard = (e, isApenso = false, sectionColor = 'var(--border)') => {
-            const linkedCDAs = opDebts.filter(d => sameProc(d.processNumber, e.processNumber));
-            const totalCDA = linkedCDAs.reduce((s,d)=>s+(d.value||0),0);
-            const st = EXEC_STATUSES[e.status] || {};
-            const prescDays = daysUntil(e.prescriptionForecast);
-            const isTagged = e.processTag && e.processTag !== 'normal';
-            const notes = e.notesList || (e.notes ? [e.notes] : []);
-            // Find parent EF if this is apenso to one (to show linkage)
-            const parentEF = e.parentExecutionId ? items.find(x => x.id === e.parentExecutionId) : null;
-            return (<div key={e.id} className="entity-card-selectable" style={{display:'flex',flexDirection:'column',alignItems:'stretch',width:'100%',marginBottom:8}}>
-              <div style={{display:'flex',alignItems:'flex-start',gap:6,width:'100%'}}>
-                <input type="checkbox" checked={selectedExecs.has(e.id)} onChange={() => toggleExec(e.id)} style={{marginTop:14}} />
-                <div className="idpj-card" style={{flex:1,minWidth:0,background:isApenso?'var(--bg-elevated)':'var(--bg-card)',borderLeftColor:sectionColor,borderLeftWidth:3}} onClick={() => setModal({type:'edit',entityType:'execution',initial:e})}>
-                  <div className="idpj-left">
-                    <div style={{display:'flex',gap:5,alignItems:'center',marginBottom:3,flexWrap:'wrap'}}>
-                      {isApenso && <span style={{fontSize:9,color:'var(--accent)',fontWeight:700}}>↳ apenso</span>}
-                      {parentEF && <span className="has-tip" style={{fontSize:9,color:'var(--accent)',fontWeight:700}}>🔗 vinculado<span className="tip-content">Vinculado à EF {parentEF.processNumber}</span></span>}
-                      {renderAlertBadges(e)}
-                    </div>
-                    <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700,marginBottom:3}}>
-                      {e.processNumber ? <Copyable value={e.processNumber}>{e.processNumber}</Copyable> : 'Sem nº'}
-                    </div>
-                    <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
-                    <ExecutadoLine processNumber={e.processNumber} getDebtors={getDebtorsForProcess} onEditPerson={openEditPersonById} />
-                    {parentEF && <div style={{fontSize:9,color:'var(--accent)',marginTop:3}}>↳ EF principal: <ProcNum exec={parentEF} /></div>}
-                  </div>
-                  <div className="idpj-execs">
-                    {linkedCDAs.length > 0 ? <>
-                      <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:3,fontWeight:600,letterSpacing:0.3}}>CDAs vinculadas ({linkedCDAs.length})</div>
-                      <div style={{fontSize:11}}><CDAList cdas={linkedCDAs} processNumber={e.processNumber} onShowAll={setCdaPopup} /></div>
-                      <div style={{marginTop:6,fontSize:11}}>
-                        <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Valor da causa</span><br/>
-                        <strong style={{color:'var(--gold)',fontSize:13}}>{fmtCur(totalCDA)}</strong>
-                      </div>
-                    </> : <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>Sem CDAs vinculadas diretamente</div>}
-                  </div>
-                  <div className="idpj-center">
-                    <div style={{display:'flex',gap:14,marginBottom:6,flexWrap:'wrap'}}>
-                      {e.protocolDate && <div><span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Protocolo</span><br/>
-                        <span style={{fontSize:11,fontWeight:600}}>{fmtDate(e.protocolDate)}</span></div>}
-                      {e.prescriptionForecast && <div><span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3}}>Prev. Presc.</span><br/>
-                        <span style={{fontSize:11,fontWeight:700,color:prescDays!==null&&prescDays<=365?prescDays<=180?'var(--red)':'var(--yellow)':'var(--text-primary)'}}>{fmtDate(e.prescriptionForecast)}{prescDays!==null&&prescDays<=365?` (${prescDays}d)`:''}</span></div>}
-                    </div>
-                    {notes.length > 0 && <div className="note-stack" style={{maxHeight:220,overflowY:'auto'}}>
-                      {notes.map((n,i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-                    </div>}
-                  </div>
-                  <div className="idpj-right">
-                    <span className={`badge ${st.badge||''}`} style={{fontSize:10,fontWeight:700}}>{st.label||e.status}</span>
-                    {e.hasGuarantee && <span className="badge badge-green has-tip" style={{fontSize:9}}>GAR<span className="tip-content">Garantia idônea.</span></span>}
-                    {e.prescriptionInterrupted && <span className="badge badge-cyan has-tip" style={{fontSize:9}}>PI<span className="tip-content">Prescrição interrompida.</span></span>}
-                    <button className="btn-secondary btn-xs has-tip" style={{fontSize:9,padding:'2px 8px',marginTop:4,fontWeight:600}} onClick={ev => genTaskFromExec(e, ev)}>📋 Gerar Tarefa<span className="tip-content">Cria uma nova tarefa já preenchida com os dados deste processo.</span></button>
-                  </div>
-                </div>
-              </div>
-            </div>);
-          };
-
-          // Embargos, Recursos and Outros ALWAYS appear in their dedicated sections.
-          // When they have a parentExecutionId pointing to an EF/IDPJ/MCF, a "🔗 vinculado" badge
-          // is shown in the card (see renderAuxCard), but they do NOT appear indented under the parent.
-          const embargosTop = embargosExecs;
-          const recursosTop = recursosExecs;
-          const outrosTop = outrosExecs;
-
-          return (<>
-            {embargosTop.length > 0 && <div style={{marginTop:20}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--yellow)',marginBottom:10,textTransform:'uppercase',letterSpacing:0.5,paddingBottom:6,borderBottom:'1px solid rgba(245,158,11,0.25)'}}>📎 Embargos à Execução ({embargosTop.length})</div>
-              {embargosTop.map(e => renderAuxCard(e, false, 'var(--yellow)'))}
-            </div>}
-            {recursosTop.length > 0 && <div style={{marginTop:20}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--blue)',marginBottom:10,textTransform:'uppercase',letterSpacing:0.5,paddingBottom:6,borderBottom:'1px solid rgba(59,130,246,0.25)'}}>⚖️ Recursos ({recursosTop.length}) <span style={{fontSize:10,fontWeight:400,color:'var(--text-muted)',textTransform:'none',letterSpacing:0}}>— Agravos, apelações, mandados de segurança, etc.</span></div>
-              {recursosTop.map(e => renderAuxCard(e, false, 'var(--blue)'))}
-            </div>}
-            {outrosTop.length > 0 && <div style={{marginTop:20}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--text-muted)',marginBottom:10,textTransform:'uppercase',letterSpacing:0.5,paddingBottom:6,borderBottom:'1px solid var(--border)'}}>📋 Outros Processos ({outrosTop.length})</div>
-              {outrosTop.map(e => renderAuxCard(e, false, 'var(--text-muted)'))}
-            </div>}
-          </>);
-        })()}
-
-        {/* CDA Popup */}
-        {cdaPopup && (<div className="cda-popup-overlay" onClick={() => setCdaPopup(null)}>
-          <div className="cda-popup" onClick={e => e.stopPropagation()}>
-            <h4>CDAs vinculadas — <ProcNum value={cdaPopup.processNumber} /></h4>
-            {cdaPopup.cdas.map(d => (
-              <div key={d.id} className="cda-popup-row">
-                <span style={{fontWeight:600}}>{d.cdaNumber||'CDA'}</span>
-                <span>{d.tribute||''}</span>
-                <span style={{fontWeight:600}}>{fmtCur(d.value)}</span>
-                <span className={`badge ${(DEBT_STATUSES[d.status]||{}).badge||''}`} style={{fontSize:9}}>{(DEBT_STATUSES[d.status]||{}).label||d.status}</span>
-              </div>
-            ))}
-            <div style={{marginTop:8,fontSize:11,color:'var(--text-muted)'}}>Total: {fmtCur(cdaPopup.cdas.reduce((s,d)=>s+(d.value||0),0))}</div>
-            <div className="cda-popup-copy">
-              <button className="btn-secondary btn-sm" onClick={() => {
-                const txt = cdaPopup.cdas.map(d => `${d.cdaNumber||'CDA'} — ${fmtCur(d.value)} — ${(DEBT_STATUSES[d.status]||{}).label||d.status}`).join('\n');
-                copyText(txt);
-              }}>📋 Copiar lista</button>
-              <button className="btn-secondary btn-sm" style={{marginLeft:8}} onClick={() => setCdaPopup(null)}>Fechar</button>
-            </div>
-          </div>
-        </div>)}
-      </div>);
-    }
-
-    if (activeTab === 'prescricao') {
-      const execs = getOpSlices(opId).executions;
-      const allDebts = getOpSlices(opId).debts;
-      const prescEvents = data.prescriptionEvents || [];
-
-      // Group CDAs: by execution, then unlinked
-      const cdaGroups = [];
-      execs.forEach(exec => {
-        const cdas = allDebts.filter(d => d.processNumber && sameProc(d.processNumber, exec.processNumber));
-        if (cdas.length > 0) cdaGroups.push({ type: 'exec', exec, cdas });
-      });
-      const unlinkedCDAs = allDebts.filter(d => !d.processNumber || !execs.some(e => sameProc(e.processNumber, d.processNumber)));
-      if (unlinkedCDAs.length > 0) cdaGroups.push({ type: 'unlinked', exec: null, cdas: unlinkedCDAs });
-
-      const toggleCDA = (id) => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-      const selectGroup = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const allIn = cdas.every(d => n.has(d.id)); cdas.forEach(d => allIn ? n.delete(d.id) : n.add(d.id)); return n; });
-
-      const addBatchEvent = () => {
-        if (selectedCDAs.size === 0) return;
-        setModal({type:'create', entityType:'prescriptionEvent', initial:{ batchCdaIds: [...selectedCDAs] }});
-      };
-
-      return (<div className="entity-area">
-        <div className="presc-legal-ref">
-          <strong>Prescrição por CDA</strong> — Ajuizadas: data mais recente (inscrição ou protocolo) + 6 anos (1a suspensão + 5a arquivamento, Art. 40 LEF). Não ajuizadas: inscrição + 5 anos (Art. 174 CTN). Eventos interruptivos reiniciam a contagem; eventos suspensivos pausam.
-        </div>
-
-        {selectedCDAs.size > 0 && (
-          <div style={{display:'flex',gap:8,alignItems:'center',padding:'8px 12px',background:'var(--accent-dim)',borderRadius:'var(--radius)',marginBottom:12,flexWrap:'wrap'}}>
-            <span style={{fontSize:12,fontWeight:600,color:'var(--accent)'}}>{selectedCDAs.size} CDA(s) selecionada(s)</span>
-            <button className="btn-primary btn-sm" onClick={addBatchEvent}>+ Evento em Lote</button>
-            <button className="btn-secondary btn-sm" onClick={() => {
-              if (!confirm(`Marcar ${selectedCDAs.size} CDA(s) como prescrição tratada?`)) return;
-              const ids = [...selectedCDAs];
-              const now = new Date().toISOString();
-              const today = now.slice(0,10);
-              setData(prev => ({...prev, debts: prev.debts.map(d => ids.includes(d.id) ? {...d, prescriptionHandled: true, prescriptionHandledAt: d.prescriptionHandledAt || today, prescriptionHandledType: d.prescriptionHandledType || 'declarada', updatedAt: now} : d)}));
-              setSelectedCDAs(new Set());
-            }}>✓ Marcar como tratadas</button>
-            <button className="btn-secondary btn-sm" onClick={() => {
-              if (!confirm(`Reabrir ${selectedCDAs.size} CDA(s) (remover marcação de tratada)?`)) return;
-              const ids = [...selectedCDAs];
-              const now = new Date().toISOString();
-              setData(prev => ({...prev, debts: prev.debts.map(d => ids.includes(d.id) ? {...d, prescriptionHandled: false, updatedAt: now} : d)}));
-              setSelectedCDAs(new Set());
-            }}>↻ Reabrir alertas</button>
-            <button className="btn-secondary btn-xs" onClick={() => setSelectedCDAs(new Set())} style={{marginLeft:'auto'}}>Limpar seleção</button>
-          </div>
-        )}
-
-        {allDebts.length === 0 ? <div className="empty-state"><div className="empty-icon">⏱</div><p>Importe CDAs para controlar prescrição.</p></div> :
-        <div className="entity-list">{(() => {
-          // Build map: principalId → [apenso groups]
-          const apensoMap = {};
-          cdaGroups.forEach(g => {
-            if (g.type === 'exec' && g.exec.parentExecutionId) {
-              if (!apensoMap[g.exec.parentExecutionId]) apensoMap[g.exec.parentExecutionId] = [];
-              apensoMap[g.exec.parentExecutionId].push(g);
-            }
-          });
-          // Filter top-level: principals + non-apensos + unlinked. Apensos render under their principal.
-          const topLevel = cdaGroups.filter(g => g.type !== 'exec' || !g.exec.parentExecutionId);
-
-          // Reusable card renderer — same single-line layout for principal AND apensos
-          const PrescCard = ({ group, isApenso = false }) => {
-            const isExec = group.type === 'exec';
-            const groupAllSelected = group.cdas.every(d => selectedCDAs.has(d.id));
-            const groupEvents = prescEvents.filter(pe =>
-              (isExec && pe.executionId === group.exec.id) ||
-              group.cdas.some(d => pe.cdaId === d.id || (pe.batchCdaIds && pe.batchCdaIds.includes(d.id)))
-            ).sort((a,b) => (b.date||'').localeCompare(a.date||''));
-            // For apensos, also show inherited events from principal
-            const inheritedFromParent = isExec && group.exec.parentExecutionId
-              ? prescEvents.filter(pe => pe.executionId === group.exec.parentExecutionId && !pe.cdaId && (!pe.batchCdaIds || pe.batchCdaIds.length === 0))
-              : [];
-            const allDisplayedEvents = [...groupEvents, ...inheritedFromParent.filter(ie => !groupEvents.some(ge => ge._inheritedFromParent === group.exec.parentExecutionId && ge.date === ie.date && ge.type === ie.type))];
-            const apensos = isExec ? cdaGroups.filter(x => x.type === 'exec' && x.exec.parentExecutionId === group.exec.id) : [];
-
-            return (<div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1.3fr 0.8fr',gap:14,alignItems:'start',marginBottom:8,background:isApenso?'var(--bg-elevated)':'var(--bg-card)'}}>
-              {/* COL 1: Process header + CDAs list */}
-              <div style={{minWidth:0}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                  <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup(group.cdas)} style={{width:16,cursor:'pointer'}} />
-                  {isExec ? <div style={{minWidth:0,flex:1}}>
-                    <div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:600}}>
-                      {isApenso && <span style={{color:'var(--accent)',marginRight:4,fontSize:10}}>↳ apenso</span>}
-                      {apensos.length > 0 && <span style={{color:'var(--accent)',marginRight:4}} title={`${apensos.length} apenso(s)`}>📎{apensos.length}</span>}
-                      <Copyable value={group.exec.processNumber}>{group.exec.processNumber}</Copyable>
-                    </div>
-                    <div style={{fontSize:10,color:'var(--text-muted)'}}>{group.exec.court} {group.exec.className?'· '+group.exec.className:''}</div>
-                  </div> : <span style={{color:'var(--red)',fontWeight:600,fontSize:12}}>⚠ CDAs Não Ajuizadas</span>}
-                </div>
-                <div style={{maxHeight:200,overflowY:'auto'}}>
-                  {group.cdas.map(d => {
-                    const autoPresc = getPrescDate(d);
-                    const prescDate = d.prescriptionDate || autoPresc;
-                    const days = daysUntil(prescDate);
-                    const isSelected = selectedCDAs.has(d.id);
-                    const isHandled = !!d.prescriptionHandled;
-                    const st = isHandled ? 'tratada' : days === null ? 'sem_dados' : days <= 0 ? 'prescrito' : days <= 180 ? 'critico' : days <= 365 ? 'alerta' : 'correndo';
-                    const cdaSt = DEBT_STATUSES[d.status] || {};
-                    const toggleHandled = () => {
-                      setData(prev => ({...prev, debts: prev.debts.map(x => x.id === d.id ? {...x, prescriptionHandled: !x.prescriptionHandled, prescriptionHandledAt: !x.prescriptionHandled ? new Date().toISOString().slice(0,10) : x.prescriptionHandledAt, updatedAt: new Date().toISOString()} : x)}));
-                    };
-                    return (<div key={d.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 6px',borderBottom:'1px dotted var(--border)',background:isHandled?'rgba(64,168,112,0.06)':isSelected?'var(--accent-dim)':'transparent',borderRadius:3,opacity:isHandled?0.85:1}}>
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleCDA(d.id)} style={{width:14,cursor:'pointer',flexShrink:0}} />
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center'}}>
-                          <span style={{fontWeight:600,fontSize:11}}>
-                            {isHandled && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição já tratada — declarada/baixada no processo ou após análise.</span></span>}
-                            <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable>
-                          </span>
-                          <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
-                        </div>
-                        <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
-                          <span className={`badge ${cdaSt.badge||''}`} style={{fontSize:8,padding:'1px 5px'}}>{cdaSt.label||d.status}</span>
-                          {isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA marcada como tratada. Use ↻ para reabrir.</span></span> :
-                          <span className="has-tip" style={{color: st==='critico'||st==='prescrito'?'var(--red)':st==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
-                            {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
-                            <span className="tip-content">{st==='prescrito'?'PRESCRIÇÃO INTERCORRENTE CONSUMADA — verificar.':st==='critico'?'CRÍTICO — menos de 6 meses para prescrição.':st==='alerta'?'Alerta — menos de 1 ano para prescrição.':'Prazo correndo normalmente.'}</span>
-                          </span>}
-                        </div>
-                      </div>
-                      <button className="btn-xs btn-secondary has-tip" onClick={toggleHandled} style={{flexShrink:0}}>{isHandled?'↻':'✓'}<span className="tip-content">{isHandled?'Reabrir alerta.':'Marcar como tratada.'}</span></button>
-                    </div>);
-                  })}
-                </div>
-              </div>
-
-              {/* COL 2: Events timeline */}
-              <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
-                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:600}}>Eventos Prescricionais ({allDisplayedEvents.length})</div>
-                {allDisplayedEvents.length === 0 ? <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Nenhum evento registrado</div> :
-                <div style={{maxHeight:200,overflowY:'auto'}}>
-                  {allDisplayedEvents.map(evt => {
-                    const evtType = PRESC_EVENT_TYPES[evt.type] || {};
-                    const cat = evtType.category;
-                    const catColor = cat==='interruptiva'?'var(--green)':cat==='suspensiva'?'var(--blue)':cat==='marco'?'var(--red)':'var(--text-muted)';
-                    const catIcon = cat==='interruptiva'?'🟢':cat==='suspensiva'?'🔵':cat==='marco'?'⏱':'ℹ';
-                    const isInherited = evt._inheritedFromParent || (isApenso && evt.executionId === group.exec.parentExecutionId);
-                    const isFromIDPJ = !!evt._inheritedFromIDPJ;
-                    const evtBg = isFromIDPJ ? 'rgba(155,40,72,0.08)' : isInherited ? 'rgba(91,143,217,0.06)' : 'color-mix(in srgb, var(--bg-main) 45%, transparent)';
-                    const evtPrefix = isFromIDPJ ? '🛡️ ' : isInherited ? '⤷ ' : '';
-                    return (<div key={evt.id} style={{padding:'6px 8px',marginBottom:4,background:evtBg,borderRadius:4,borderLeft:`2px solid ${isFromIDPJ?'var(--pgfn)':catColor}`,cursor:'pointer'}}
-                      onClick={() => setModal({type:'edit',entityType:'prescriptionEvent',initial:evt})}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
-                        <span style={{fontSize:11,fontWeight:600,color:isFromIDPJ?'var(--pgfn-light)':catColor}}>{evtPrefix}{catIcon} {evtType.label || evt.type}</span>
-                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtDate(evt.date)}</span>
-                      </div>
-                      {isFromIDPJ && <div style={{fontSize:9,color:'var(--pgfn-light)',marginTop:1}}>Proveniente do {data.executions.find(e=>e.id===evt._inheritedFromIDPJ)?.processTag==='idpj'?'IDPJ':'Cautelar'} {truncate((data.executions.find(e=>e.id===evt._inheritedFromIDPJ)||{}).processNumber||'',30)}</div>}
-                      {evt.endDate && <div style={{fontSize:9,color:'var(--text-muted)'}}>até {fmtDate(evt.endDate)}</div>}
-                      {evt.legalBasis && <div style={{fontSize:9,color:'var(--text-secondary)',marginTop:1}}>{truncate(evt.legalBasis,40)}</div>}
-                      {evt.notes && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:1,fontStyle:'italic'}}>{truncate(evt.notes,50)}</div>}
-                    </div>);
-                  })}
-                </div>}
-              </div>
-
-              {/* COL 3: Action buttons */}
-              <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-                <button className="btn-secondary btn-sm" onClick={() => {
-                  const cdaIds = group.cdas.map(d => d.id);
-                  setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? group.exec.id : ''}});
-                }}>+ Evento</button>
-                <button className="btn-secondary btn-xs" onClick={() => selectGroup(group.cdas)}>{groupAllSelected?'Desmarcar':'Marcar todas'}</button>
-                <div style={{fontSize:9,color:'var(--text-muted)',textAlign:'center',marginTop:4}}>{group.cdas.length} CDA(s)<br/>{fmtCur(group.cdas.reduce((s,d)=>s+(d.value||0),0))}</div>
-              </div>
-            </div>);
-          };
-
-          return topLevel.map((group, gi) => {
-            const myApensos = group.type === 'exec' ? (apensoMap[group.exec.id] || []) : [];
-            return (<React.Fragment key={gi}>
-              {PrescCard({ group, isApenso: false })}
-              {myApensos.length > 0 && <div style={{marginLeft:24,borderLeft:'3px solid var(--accent-dim)',paddingLeft:10,marginTop:-4,marginBottom:8}}>
-                {myApensos.map((ag, ai) => <React.Fragment key={`ap-${ai}`}>{PrescCard({ group: ag, isApenso: true })}</React.Fragment>)}
-              </div>}
-            </React.Fragment>);
-          });
-        })()}</div>}
-      </div>);
-    }
 
     if (activeTab === 'prescricao_v2') {
       // ═══════════════════════════════════════════════════════════════════
@@ -8624,111 +7568,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>);
     }
 
-    if (activeTab === 'timeline') {
-      // ═══ LINHA DO TEMPO UNIFICADA ═══
-      // Agrega eventos de todas as fontes em ordem cronológica
-      const events = [];
-      const opDebts = getOpSlices(opId).debts;
-      const opExecs = getOpSlices(opId).executions;
-      const opMeasures = getOpSlices(opId).measures;
-      const opAssets = getOpSlices(opId).assets;
-      const opIntims = (data.intimations || []).filter(x => x.operationId === opId);
-      const opTasks = (data.tasks || []).filter(t => t.operationId === opId);
-      const opPrescEvts = (data.prescriptionEvents || []).filter(pe => opExecs.some(e => e.id === pe.executionId));
-      const opPeople = getOpSlices(opId).people;
-      const PRESC_EVT = PRESC_EVENT_TYPES || {};
-
-      // CDAs — inscrição
-      opDebts.forEach(d => {
-        if (d.inscriptionDate) events.push({ date: d.inscriptionDate, type: 'cda', icon: '📄', color: 'var(--gold)', title: `CDA inscrita: ${d.cdaNumber || 'S/N'}`, detail: `${fmtCur(d.value || 0)} · Status: ${d.status || '-'}`, entity: d });
-      });
-
-      // Execuções — protocolo
-      opExecs.forEach(e => {
-        if (e.protocolDate) events.push({ date: e.protocolDate, type: 'exec', icon: '⚖️', color: 'var(--blue)', title: `Ajuizamento: ${e.className || 'Execução'}`, detail: `${e.processNumber || ''}${e.court ? ` · ${e.court}` : ''}`, entity: e });
-      });
-
-      // Eventos de prescrição
-      opPrescEvts.forEach(pe => {
-        const evtDef = PRESC_EVT[pe.type] || {};
-        const exec = opExecs.find(e => e.id === pe.executionId);
-        events.push({ date: pe.date, type: 'presc', icon: '⏱', color: evtDef.color || 'var(--text-muted)', title: `${evtDef.label || pe.type}`, detail: `${exec ? truncate(exec.processNumber, 25) : ''}${pe.notes ? ` · ${pe.notes}` : ''}`, entity: pe });
-      });
-
-      // Intimações — data de recebimento
-      opIntims.forEach(x => {
-        const intimDate = x.dateReceived || x.createdAt?.slice(0, 10);
-        if (intimDate) events.push({ date: intimDate, type: 'intim', icon: '📬', color: 'var(--blue)', title: `Intimação: ${x.partyName || truncate(x.processNumber, 25)}`, detail: `Prazo: ${x.dateDeadline ? fmtDate(x.dateDeadline) : 'N/I'} · ${x.status || ''}`, entity: x });
-      });
-
-      // Medidas — data de criação
-      opMeasures.forEach(m => {
-        const mDate = m.date || m.createdAt?.slice(0, 10);
-        if (mDate) events.push({ date: mDate, type: 'measure', icon: '🛡️', color: 'var(--green)', title: `Medida: ${m.type || m.description || 'Medida'}`, detail: m.description || '', entity: m });
-      });
-
-      // Tarefas concluídas
-      opTasks.filter(t => t.status === 'concluida' && t.completedAt).forEach(t => {
-        events.push({ date: t.completedAt.slice(0, 10), type: 'task_done', icon: '✅', color: 'var(--green)', title: `Tarefa concluída: ${truncate(t.title, 40)}`, detail: t.processNumber || '', entity: t });
-      });
-
-      // Ordenar por data decrescente
-      events.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-
-      // Filtro por tipo
-      const typeOptions = [
-        { key: 'all', label: 'Todos' },
-        { key: 'cda', label: '📄 Inscrições' },
-        { key: 'exec', label: '⚖️ Processos' },
-        { key: 'presc', label: '⏱ Prescrição' },
-        { key: 'intim', label: '📬 Intimações' },
-        { key: 'measure', label: '🛡️ Medidas' },
-      ];
-      const filtered = tlFilter === 'all' ? events : events.filter(e => e.type === tlFilter);
-
-      // Agrupar por mês/ano para cabeçalhos
-      const monthGroups = {};
-      filtered.forEach(e => {
-        const key = e.date ? e.date.slice(0, 7) : 'sem-data';
-        if (!monthGroups[key]) monthGroups[key] = [];
-        monthGroups[key].push(e);
-      });
-
-      return (<div className="entity-area">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          <span style={{color:'var(--text-muted)',fontSize:11}}>{filtered.length} evento(s) · {events.length} total</span>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {typeOptions.map(o => <button key={o.key} className={`btn-xs ${tlFilter===o.key?'btn-primary':'btn-secondary'}`} style={{fontSize:9,padding:'2px 8px'}} onClick={() => setTlFilter(o.key)}>{o.label}</button>)}
-          </div>
-        </div>
-
-        {filtered.length === 0 ? <div className="empty-state"><div className="empty-icon">📅</div><p>Nenhum evento com data registrada</p><p style={{fontSize:11}}>Importe dados ou cadastre processos/CDAs com datas para popular a linha do tempo</p></div> : (
-          <div className="timeline-container">
-            {Object.entries(monthGroups).map(([monthKey, monthEvents]) => {
-              const [y, m] = monthKey.split('-');
-              const monthLabel = monthKey === 'sem-data' ? 'Sem data' : `${['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m)-1] || m} ${y}`;
-              return (<div key={monthKey} style={{marginBottom:20}}>
-                <div style={{fontSize:10,fontWeight:700,color:'var(--accent)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:8,padding:'4px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--bg-primary)',zIndex:2}}>{monthLabel} ({monthEvents.length})</div>
-                {monthEvents.map((ev, i) => (
-                  <div key={i} className="tl-event" style={{display:'flex',gap:12,padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,0.03)',alignItems:'flex-start'}}>
-                    <div style={{width:70,flexShrink:0,textAlign:'right'}}>
-                      <div style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--text-secondary)',fontWeight:600}}>{ev.date ? fmtDate(ev.date) : '—'}</div>
-                    </div>
-                    <div style={{width:2,flexShrink:0,background:ev.color||'var(--border)',borderRadius:1,minHeight:32,position:'relative'}}>
-                      <div style={{position:'absolute',top:4,left:-8,width:18,height:18,borderRadius:'50%',background:'var(--bg-card)',border:`2px solid ${ev.color||'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10}}>{ev.icon}</div>
-                    </div>
-                    <div style={{flex:1,paddingLeft:12,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:600,color:'var(--text-primary)',marginBottom:2}}>{ev.title}</div>
-                      {ev.detail && <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4}}>{ev.detail}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>);
-            })}
-          </div>
-        )}
-      </div>);
-    }
 
     if (activeTab === 'docs') {
       const docs = (data.documents || []).filter(d => d.operationId === opId);
@@ -8766,52 +7605,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>);
     }
 
-    if (activeTab === 'insights') {
-      const opSugs = allSuggestions.filter(s => s.opId === opId && !dismissedSuggestions.has(s.id));
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      opSugs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-      const priorityColors = {
-        high: { bg: 'rgba(244,63,94,0.08)', border: 'var(--red)', dot: 'var(--red)', label: 'ALTA' },
-        medium: { bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.3)', dot: 'var(--yellow)', label: 'MÉDIA' },
-        low: { bg: 'rgba(59,130,246,0.05)', border: 'rgba(59,130,246,0.2)', dot: 'var(--blue)', label: 'BAIXA' }
-      };
-      const hasHigh = opSugs.some(s => s.priority === 'high');
-      return (<div className="entity-area">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-          <span style={{color:'var(--text-muted)',fontSize:11}}>
-            {opSugs.length > 0 ? `${opSugs.length} sugestão(ões) ativa(s)${hasHigh ? ' — atenção requerida' : ''}` : '✓ Nenhuma sugestão pendente para esta operação.'}
-          </span>
-          {dismissedSuggestions.size > 0 && <button className="btn-secondary btn-xs" onClick={undismissAll} style={{fontSize:10}}>↺ Restaurar descartadas</button>}
-        </div>
-        {/* Sugestões proativas (primeiro) */}
-        {opSugs.length > 0 && (<div style={{marginBottom:16}}>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {opSugs.map(s => {
-              const pc = priorityColors[s.priority];
-              return (<div key={s.id} style={{background:pc.bg,border:`1px solid ${pc.border}`,borderLeft:`3px solid ${pc.dot}`,borderRadius:'var(--radius)',padding:'10px 12px',display:'flex',gap:10,alignItems:'flex-start'}}>
-                <div style={{fontSize:16,flexShrink:0,lineHeight:1}}>{s.icon}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2,flexWrap:'wrap'}}>
-                    <span style={{fontSize:12,fontWeight:600,color:'var(--text-primary)'}}>{s.title}</span>
-                    <span style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:pc.dot,color:'#fff',fontWeight:700,letterSpacing:0.3}}>{pc.label}</span>
-                  </div>
-                  <div style={{fontSize:10,color:'var(--text-secondary)',lineHeight:1.4}}>{s.detail}</div>
-                </div>
-                <div style={{display:'flex',gap:4,flexShrink:0,alignItems:'center'}}>
-                  {s.actionLabel && s.action && <button className="btn-secondary btn-xs" onClick={s.action} style={{fontSize:10,whiteSpace:'nowrap'}}>{s.actionLabel}</button>}
-                  <button className="btn-xs" onClick={() => dismissSuggestion(s.id)} style={{fontSize:10,padding:'2px 6px',background:'transparent',color:'var(--text-muted)',border:'1px solid var(--border)',borderRadius:3,cursor:'pointer'}}>✕</button>
-                </div>
-              </div>);
-            })}
-          </div>
-        </div>)}
-        {/* Análise automática (depois) */}
-        {insights.length > 0 && (<div>
-          <div style={{fontSize:10,fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,marginBottom:8}}>Análise automática</div>
-          {insights.map((ins, i) => <div key={i} className={`insight-card ${ins.type}`}><div className="ic-title">{ins.title}</div><div className="ic-desc">{ins.desc}</div></div>)}
-        </div>)}
-      </div>);
-    }
 
     return null;
   };
@@ -8916,7 +7709,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   };
   const setDemoZoneAndTab = (zone, tab) => {
     setDemoZone(zone);
-    startTabSwitch(() => { setActiveTab(tab || DEMO_ZONES[zone].tabs[0]); setSelectedNode(null); });
+    startTabSwitch(() => { setActiveTab(tab || DEMO_ZONES[zone].tabs[0]); });
   };
   const switchEdition = (edition) => {
     updateSetting('uiEdition', edition);
@@ -9164,7 +7957,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     setDemoTrabalhoOpen(false);
     startTabSwitch(() => {
       setViewMode('operacoes');
-      setSelectedNode(null);
+      
       setImportResult(null);
     });
   };
@@ -9174,7 +7967,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     try { localStorage.setItem('nexus_sidebar_collapsed', '0'); } catch {}
     startTabSwitch(() => {
       setActiveOpId(op.id);
-      setSelectedNode(null);
+      
       setImportResult(null);
       setViewMode('operation');
       setDemoZone(tabToDemoZone(activeTab));
@@ -9543,7 +8336,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado');
           const openTasks = (data.tasks||[]).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
           const alerts = data.debts.filter(d => { if (d.operationId!==op.id) return false; const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setSelectedNode(null); setImportResult(null); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
+          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setImportResult(null); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
             <div className="op-name">
               {op.name}
               {overdueIntims.length > 0 && <span className="op-intim-dot op-intim-overdue urgent has-tip" title={`${overdueIntims.length} intimação(ões) vencida(s)`}><span className="tip-content">{overdueIntims.length} intimação(ões) VENCIDA(S) nesta operação.</span></span>}
@@ -9635,6 +8428,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button className="btn-secondary btn-sm" onClick={handleBackup}>⬇</button>
         <button className="btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()}>⬆</button>
         <input ref={fileInputRef} type="file" accept=".json" style={{display:'none'}} onChange={handleRestore} />
+        <input ref={eprocInputRef} type="file" accept=".xls,.xlsx" multiple style={{display:'none'}} onChange={handleEprocImport} />
       </div>
     </div>
 
@@ -10211,6 +9005,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <option value="sent">Data de envio (recente)</option>
             </select>
             <button className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'intimation',initial:{status:'pendente_analise',priority:'normal',difficulty:'media',urgent:false}})}>+ Intimação</button>
+            <button className="btn-secondary btn-sm" onClick={() => eprocInputRef.current?.click()}>📬 Importar eproc</button>
             <div className="view-toggle" style={{marginLeft:'auto'}}>
               <button className={intimView==='list'?'active':''} onClick={()=>setIntimView('list')}>☰ Lista</button>
               <button className={intimView==='kanban'?'active':''} onClick={()=>setIntimView('kanban')}>▦ Kanban</button>
@@ -10781,8 +9576,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,alignItems:'center'}}>
             <div>
-              <span style={{color:'var(--text-muted)',fontSize:11}}>{open.length} em acompanhamento</span>
-              {closed.length > 0 && <span style={{color:'var(--text-muted)',fontSize:11,marginLeft:8}}>· {closed.length} encerrado(s)</span>}
+              <span style={{color:'var(--text-muted)',fontSize:12}}>{open.length} em acompanhamento</span>
+              {closed.length > 0 && <span style={{color:'var(--text-muted)',fontSize:12,marginLeft:8}}>· {closed.length} encerrado(s)</span>}
             </div>
             <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'watch',initial:{}})}>+ Acompanhar</button>
           </div>
@@ -10795,20 +9590,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             const notes = w.notesList || (w.notes ? [w.notes] : []);
             const days = w.createdAt ? Math.floor((new Date() - new Date(w.createdAt))/(1000*60*60*24)) : null;
             const lastCheck = w.lastCheckedAt ? Math.floor((new Date() - new Date(w.lastCheckedAt))/(1000*60*60*24)) : null;
-            return (<div key={w.id} className="entity-card" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr auto',gap:12,alignItems:'start',borderLeft:`3px solid ${w.status==='aguardando'?'var(--yellow)':w.status==='movimentado'?'var(--blue)':'var(--green)'}`}} onClick={() => setModal({type:'edit',entityType:'watch',initial:w})}>
+            return (<div key={w.id} className="entity-card watch-card" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr auto',gap:12,alignItems:'start',borderLeft:`3px solid ${w.status==='aguardando'?'var(--yellow)':w.status==='movimentado'?'var(--blue)':'var(--green)'}`}} onClick={() => setModal({type:'edit',entityType:'watch',initial:w})}>
               <div style={{minWidth:0}}>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
+                <div style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>
                   <ProcNum value={w.processNumber} empty="Sem nº" />
                 </div>
-                <div className="ec-sub">{w.parties || ''}</div>
-                {op && <div style={{fontSize:10,color:'var(--accent)',cursor:'pointer',marginTop:2}} onClick={e => { e.stopPropagation(); setActiveOpId(op.id); setViewMode('operation'); }}>↗ {op.name}</div>}
+                <div className="ec-sub" style={{fontSize:12}}>{w.parties || ''}</div>
+                {op && <div style={{fontSize:11,color:'var(--accent)',cursor:'pointer',marginTop:3}} onClick={e => { e.stopPropagation(); setActiveOpId(op.id); setViewMode('operation'); }}>↗ {op.name}</div>}
               </div>
-              <div style={{fontSize:10,color:'var(--text-muted)'}}>
+              <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.4}}>
                 {w.reason ? <div className="intim-center-text-wrap"><div><span style={{color:'var(--text-secondary)'}}>Motivo:</span> <span style={{display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{truncate(w.reason, 50)}</span></div><div className="intim-tooltip"><div style={{fontWeight:600,marginBottom:6,color:'var(--accent)'}}>Motivo</div>{w.reason}</div></div> : <div><span style={{color:'var(--text-secondary)'}}>Motivo:</span> —</div>}
-                {days !== null && <div style={{marginTop:2}}>Acompanhando há <strong>{days}d</strong></div>}
-                {lastCheck !== null && <div style={{marginTop:2}}>Última verif.: {lastCheck}d atrás</div>}
+                {days !== null && <div style={{marginTop:3}}>Acompanhando há <strong>{days}d</strong></div>}
+                {lastCheck !== null && <div style={{marginTop:3}}>Última verif.: {lastCheck}d atrás</div>}
               </div>
-              <div style={{fontSize:10}}>
+              <div style={{fontSize:12,lineHeight:1.4}}>
                 {notes.length > 0 ? <div className="intim-center-text-wrap">
                   <div style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',color:'var(--text-muted)'}}>{notes[0]}{notes.length>1?` (+${notes.length-1})`:''}</div>
                   <div className="intim-tooltip"><div style={{fontWeight:600,marginBottom:6,color:'var(--accent)'}}>Notas ({notes.length})</div>{notes.map((n,i)=><div key={i} style={{marginBottom:4}}>• {n}</div>)}</div>
@@ -10968,30 +9763,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
           {DEMO_ZONES[demoZone]?.tabs.length > 1 && (
             <div className="demo-zone-sub">
-              {DEMO_ZONES[demoZone].tabs.map(t => {
-                const isInsights = t === 'insights';
-                const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
-                return (
-                  <button key={t} className={`demo-zone-chip ${activeTab===t?'active':''}`}
-                    onClick={() => startTabSwitch(() => { setActiveTab(t); setSelectedNode(null); })}>
-                    {tabLabels[t]}
-                    {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle'}}></span>}
-                  </button>
-                );
-              })}
+              {DEMO_ZONES[demoZone].tabs.map(t => (
+                <button key={t} className={`demo-zone-chip ${activeTab===t?'active':''}`}
+                  onClick={() => startTabSwitch(() => setActiveTab(t))}>
+                  {tabLabels[t]}
+                </button>
+              ))}
             </div>
           )}
         </>) : (
           <div className="tabs tabs-row-with-collapse">
             <div className="tabs-row-main">
-              {tabList.map(t => {
-                const isInsights = t === 'insights';
-                const insightAlerts = isInsights && activeOp ? allSuggestions.filter(s => s.opId === activeOp.id && s.priority === 'high' && !dismissedSuggestions.has(s.id)).length : 0;
-                return <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => {setActiveTab(t);setSelectedNode(null);})} style={isTabSwitching?{opacity:0.6}:undefined}>
+              {tabList.map(t => (
+                <button key={t} className={`tab ${activeTab===t?'active':''}`} onClick={() => startTabSwitch(() => setActiveTab(t))} style={isTabSwitching?{opacity:0.6}:undefined}>
                   {tabLabels[t]}
-                  {insightAlerts > 0 && <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--red)',marginLeft:4,verticalAlign:'middle',boxShadow:'0 0 6px rgba(244,63,94,0.6)',animation:'pulse 2s infinite'}}></span>}
-                </button>;
-              })}
+                </button>
+              ))}
             </div>
             <button type="button" className="op-header-collapse-btn"
               onClick={toggleOpHeaderCollapsed}
