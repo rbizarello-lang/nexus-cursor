@@ -2981,8 +2981,11 @@ function App() {
   // Temas válidos clássicos: theme-mar (padrão), theme-claro, theme-ferro.
   // Noite Azulada ('') removida → Claro; Obsidian → Mar Profundo.
   const THEMES_OK = ['theme-mar', 'theme-claro', 'theme-ferro'];
-  // Temas da Demo: Mar Profundo é o padrão experimental; Clara/Ardósia/Grafite opcionais.
+  // Temas da Demo: no HTML standalone (Nexus.demo.html) o padrão é Clara;
+  // no app (edição Demo via ⚙) o padrão continua Mar Profundo.
   const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite'];
+  const isDemoStandalone = typeof window !== 'undefined' && window.__NEXUS_DEMO__ === true;
+  const demoThemeDefault = isDemoStandalone ? 'clara' : 'mar';
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
@@ -2991,7 +2994,7 @@ function App() {
       if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
       // Migra Noite Azulada ('' / theme-noite) → Claro (tokens Clara da Demo)
       if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
-      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : 'mar';
+      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : demoThemeDefault;
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
       let bootstrapped = false;
@@ -3007,17 +3010,19 @@ function App() {
         try { pvm = localStorage.getItem('nexus_demo_proc_view'); } catch { pvm = null; }
       }
       if (!['A', 'B', 'C', 'D'].includes(pvm)) pvm = 'D';
+      // HTML Demo standalone: força visão D (sem modo experimental A/B/C)
+      if (isDemoStandalone) pvm = 'D';
       const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm };
       // Persiste bootstrap (?edition=demo / Nexus.demo.html) e migração de tema legado
       if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
       return next;
-    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: 'mar', uiEdition: (typeof window !== 'undefined' && window.__NEXUS_DEMO__) ? 'demo' : 'classic', processViewModel: 'D' }; }
+    } catch { return { zoom: 100, font: '', theme: 'theme-mar', demoTheme: demoThemeDefault, uiEdition: isDemoStandalone ? 'demo' : 'classic', processViewModel: 'D' }; }
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} if (key === 'processViewModel') { try { localStorage.setItem('nexus_demo_proc_view', val); } catch {} } return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
-  const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : 'mar';
+  const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : demoThemeDefault;
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
   const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
 
@@ -5163,26 +5168,46 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
         {/* ═══ SUB: Panorama processual — cards de processos (IDPJ/MCF/centrais) ═══ */}
         {briefingSub === 'panorama' && ((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central')) ? (() => {
+              // Cobertura alinhada a Processos (classifyProcGroups): linkedExecutionIds ∪ apensas ao hub,
+              // incluindo EFs principais e apensas (arquivadas mantidas; extintas excluídas).
+              const withCda = (ef) => ({
+                ...ef,
+                _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s, d) => s + (d.value || 0), 0),
+              });
+              const isHubTag = (e) => e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
+              const keepCoveredEF = (e) => e && !isHubTag(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+              const sortEFsArquivadasLast = (arr) => [...(arr || [])].sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
+              const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
+
+              const efsByIncident = {};
+              idpjs.forEach(ip => {
+                const ids = new Set(ip.linkedExecutionIds || []);
+                opExecs.forEach(e => { if (e.parentExecutionId === ip.id) ids.add(e.id); });
+                efsByIncident[ip.id] = sortEFsArquivadasLast([...ids]
+                  .map(id => execById[id])
+                  .filter(keepCoveredEF)
+                  .map(withCda));
+              });
+
               const coveredMap = {};
-              idpjs.forEach(ip => { (ip.linkedExecutionIds || []).forEach(efId => { coveredMap[efId] = ip; }); });
-              const coveredEFs = mainEFs.filter(ef => coveredMap[ef.id]);
-              // Rol "Sem incidente": só processos da classe Execução Fiscal (exclui MCF/IDPJ duplicados, embargos, recursos e outras classes)
-              const isEFClass = (e) => /^\s*execu[cç][aã]o\s+fiscal/i.test(e.className || '');
-              const uncoveredEFs = mainEFs.filter(ef => !coveredMap[ef.id] && isEFClass(ef));
-              const coveredTotal = coveredEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
-              const uncoveredTotal = uncoveredEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
+              idpjs.forEach(ip => {
+                (efsByIncident[ip.id] || []).forEach(ef => { if (!coveredMap[ef.id]) coveredMap[ef.id] = ip; });
+              });
+              const coveredEFs = sortEFsArquivadasLast(Object.values(coveredMap));
+              // Rol "Sem incidente": EFs top-level ainda sem vínculo a incidente (exclui apensas já cobertas)
+              const uncoveredEFs = mainEFs.filter(ef => !coveredMap[ef.id] && isExecucaoFiscalClass(ef));
+              const coveredTotal = coveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
+              const uncoveredTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
               const grand = coveredTotal + uncoveredTotal;
               const pct = grand > 0 ? Math.round(coveredTotal / grand * 100) : 0;
-              const efsByIncident = {};
-              coveredEFs.forEach(ef => { const id = coveredMap[ef.id].id; (efsByIncident[id] = efsByIncident[id] || []).push(ef); });
 
               // Processos CENTRAIS (EF marcada como central) — geram card próprio com régua e EFs apensas
               const centrais = opExecs.filter(e => e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada');
               const apensosByCentral = {};
               centrais.forEach(c => {
-                apensosByCentral[c.id] = opExecs
+                apensosByCentral[c.id] = sortEFsArquivadasLast(opExecs
                   .filter(e => e.parentExecutionId === c.id)
-                  .map(ef => ({ ...ef, _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s,d) => s + (d.value||0), 0) }));
+                  .map(withCda));
               });
 
               const getRecords = (id) => getStageRecords(briefing, id); // helper compartilhado com a Passagem de Serviço
@@ -6517,10 +6542,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </React.Fragment>);
       };
 
-      // Visão D no clássico; Demo Experimental mantém seletor A/B/C/D (padrão D se unset)
-      const procViewModel = isDemo
-        ? (['A', 'B', 'C', 'D'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'D')
-        : 'D';
+      // App clássico: sempre D. HTML Demo standalone: sempre D (sem experimental).
+      // App com edição Demo (⚙): mantém seletor A/B/C/D.
+      const procViewModel = isDemoStandalone
+        ? 'D'
+        : (isDemo
+          ? (['A', 'B', 'C', 'D'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'D')
+          : 'D');
       const classified = classifyProcGroups(cdaGroups, execs);
       const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
       const hubTagShort = (tag) => ({ idpj: 'IDPJ', cautelar_fiscal: 'Cautelar fiscal', central: 'Central' }[tag] || tag || 'Hub');
@@ -7316,7 +7344,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
           <span style={{color:'var(--text-muted)',fontSize:11}}>{execs.length} processo(s) · {allDebts.length} CDA(s)</span>
           <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-            {isDemo && (
+            {isDemo && !isDemoStandalone && (
               <div className="demo-proc-view-switch" role="group" aria-label="Modelo de visualização de processos">
                 <span className="demo-proc-view-switch-label">Visão</span>
                 {[
@@ -7714,7 +7742,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const switchEdition = (edition) => {
     updateSetting('uiEdition', edition);
     if (edition === 'demo') {
-      if (!DEMO_THEMES_OK.includes(appSettings.demoTheme)) updateSetting('demoTheme', 'mar');
+      if (!DEMO_THEMES_OK.includes(appSettings.demoTheme)) updateSetting('demoTheme', demoThemeDefault);
       setViewMode(prev => (prev === 'painel' ? 'hoje' : prev));
       setDemoZone(tabToDemoZone(activeTab));
     } else {
@@ -7752,7 +7780,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="settings-label">Edição da interface</div>
       <div className="settings-options">
         <button className={`settings-opt ${!isDemo ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
-        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Demo Experimental</button>
+        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>{isDemoStandalone ? 'Demo' : 'Demo Experimental'}</button>
       </div>
       <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A Demo remodela navegação e layout (Central de Comando). Dados e funcionalidades permanecem os mesmos.</div>
     </div>
@@ -7785,12 +7813,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     {isDemo && <div className="settings-group">
       <div className="settings-label">Tema da Demo</div>
       <div className="settings-options demo-theme-opts">
-        {[
-          { id: 'mar', label: 'Mar Profundo', tip: 'Padrão experimental · azul-marinho' },
-          { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro' },
-          { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
-          { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
-        ].map(t => (
+        {(isDemoStandalone
+          ? [
+              { id: 'clara', label: 'Clara', tip: 'Padrão · papel-ardósia claro' },
+              { id: 'mar', label: 'Mar Profundo', tip: 'Azul-marinho' },
+              { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
+              { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
+            ]
+          : [
+              { id: 'mar', label: 'Mar Profundo', tip: 'Padrão experimental · azul-marinho' },
+              { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro' },
+              { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
+              { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
+            ]
+        ).map(t => (
           <button key={t.id} type="button" title={t.tip}
             className={`settings-opt demo-theme-opt ${demoThemeId === t.id ? 'active' : ''}`}
             onClick={() => updateSetting('demoTheme', t.id)}>
@@ -7799,7 +7835,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </button>
         ))}
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Padrão: Mar Profundo. Obsidian removido.</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>{isDemoStandalone ? 'Padrão: Clara (tema claro).' : 'Padrão: Mar Profundo. Obsidian removido.'}</div>
     </div>}
     <div className="settings-group">
       <div className="settings-label">Dados / Sync</div>
@@ -8490,7 +8526,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
              viewMode === 'operation' ? 'Workspace da operação · briefing, acervo, risco e ferramentas' :
-             'NEXUS Demo Experimental'}
+             isDemoStandalone ? 'NEXUS Demo' : 'NEXUS Demo Experimental'}
           </div>
         </div>
         <div className="demo-topbar-actions">
