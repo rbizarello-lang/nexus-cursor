@@ -89,20 +89,36 @@ function _lerDados_() {
   try { return JSON.parse(it.next().getBlob().getDataAsString()); } catch (e) { return null; }
 }
 
-/** Dias entre hoje e uma data 'YYYY-MM-DD' (negativo = vencido). */
+/** Normaliza qualquer data para YYYY-MM-DD (eproc, ISO com hora, DD/MM/AAAA). */
+function _diaKey_(iso) {
+  if (iso == null || iso === '') return '';
+  var s = String(iso).trim();
+  var m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if (m) {
+    var y = m[3];
+    if (y.length === 2) y = (parseInt(y, 10) > 50 ? '19' : '20') + y;
+    return y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  return '';
+}
+
+/** Dias entre hoje e uma data (negativo = vencido). */
 function _dias_(iso) {
-  if (!iso) return null;
-  var p = String(iso).slice(0, 10).split('-');
-  if (p.length !== 3) return null;
+  var k = _diaKey_(iso);
+  if (!k) return null;
+  var p = k.split('-');
   var alvo = new Date(+p[0], +p[1] - 1, +p[2]);
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   return Math.round((alvo - hoje) / 86400000);
 }
 
 function _fmtData_(iso) {
-  if (!iso) return '—';
-  var p = String(iso).slice(0, 10).split('-');
-  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  var k = _diaKey_(iso);
+  if (!k) return iso ? String(iso) : '—';
+  var p = k.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
 }
 
 function _hojeBR_() {
@@ -126,9 +142,11 @@ function _coletar_(d) {
   // Intimações em aberto com prazo
   var futuras = [];
   (d.intimations || []).forEach(function (x) {
-    if (x.responseAction || x.status === 'analisado' || !x.dateDeadline) return;
+    if (x.responseAction || !x.dateDeadline) return;
     var dias = _dias_(x.dateDeadline);
     if (dias === null) return;
+    // Analisado sem atuação: só some depois que o prazo vence (análise ≠ peticionamento).
+    if (x.status === 'analisado' && dias < 0) return;
     var item = {
       dias: dias, data: x.dateDeadline,
       titulo: x.partyName || x.parties || x.processNumber || 'Intimação',

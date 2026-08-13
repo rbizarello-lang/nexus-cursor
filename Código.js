@@ -317,10 +317,12 @@ function filterGeminiData_(data, scope, operationId) {
     today.setHours(0, 0, 0, 0);
     var hot = {};
     intimations.forEach(function(x) {
-      var open = (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction;
-      if (!open || !x.operationId) return;
-      if (!x.dateDeadline) { hot[x.operationId] = true; return; }
-      var dd = Math.ceil((new Date(x.dateDeadline + 'T00:00:00') - today) / 86400000);
+      if (x.responseAction || !x.operationId) return;
+      var raw = x.dateDeadline ? String(x.dateDeadline) : '';
+      var dk = (raw.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+      if (!dk) { if (x.status !== 'analisado') hot[x.operationId] = true; return; }
+      var dd = Math.round((new Date(dk + 'T00:00:00') - today) / 86400000);
+      if (x.status === 'analisado' && dd < 0) return;
       if (dd <= 7) hot[x.operationId] = true;
     });
     tasks.forEach(function(t) {

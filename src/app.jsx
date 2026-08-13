@@ -462,7 +462,11 @@ const applyMigrations = (parsed) => {
   // Migration: ensure every person has operationRole field (default 'alvo')
   (merged.people || []).forEach(p => { if (!p.operationRole) p.operationRole = 'alvo'; });
   // Migration: 'prazo_fechado' deixou de ser status — aberto/fechado deriva do prazo (dateDeadline).
-  (merged.intimations || []).forEach(x => { if (x.status === 'prazo_fechado') x.status = 'pendente_analise'; });
+  (merged.intimations || []).forEach(x => {
+    if (x.status === 'prazo_fechado') x.status = 'pendente_analise';
+    const n = coerceIntimDates(x);
+    x.dateSent = n.dateSent; x.dateStart = n.dateStart; x.dateDeadline = n.dateDeadline;
+  });
   // Mesa de trabalho: descarta refs de itens que não existem mais
   if (Array.isArray(merged.desk) && merged.desk.length > 0) {
     const alive = { intimation: new Set((merged.intimations||[]).map(i => i.id)), task: new Set((merged.tasks||[]).map(t => t.id)), hearing: new Set((merged.hearings||[]).map(h => h.id)) };
@@ -546,6 +550,12 @@ const runDiagnostics = (data) => {
   add('media', 'intimsemop', 'Intimações que podem ser vinculadas', semOp,
     'O processo dessas intimações já existe numa operação cadastrada — dá para vincular automaticamente.', 'vincular');
 
+  // 8b. Intimação ativa sem prazo final parseável — some da agenda e do e-mail
+  add('alta', 'intimsemprazo', 'Intimações ativas sem prazo final',
+    intims.filter(x => !x.responseAction && x.status !== 'analisado' && !toDayKey(x.dateDeadline))
+      .map(x => ({ id: x.id, texto: x.processNumber || 's/nº', sub: (x.eventDescription || 'sem Final Prazo').slice(0, 48) })),
+    'Sem data de prazo final reconhecível, a intimação não entra no e-mail diário nem na agenda da semana. Reimporte o XLS do eproc (Prazos em aberto) ou preencha Final Prazo à mão.');
+
   // 9. CDA cujo processo não está cadastrado
   add('info', 'cdasemproc', 'CDAs com processo não cadastrado',
     debts.filter(x => x.processNumber && x.status !== 'extinta' && !execs.some(e => sameProc(e.processNumber, x.processNumber)))
@@ -592,8 +602,52 @@ const saveData = (d) => {
   }
 };
 const fmtCur = (v) => { if (!v && v !== 0) return '—'; return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v); };
-const fmtDate = (d) => { if (!d) return '—'; return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR'); };
-const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d + 'T00:00:00') - new Date()) / 86400000); };
+const _pad2 = (n) => String(n).padStart(2, '0');
+const localIso = (d) => `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
+// Parser de data — eproc/SheetJS/serial/BR. Sempre interpreta DD/MM como brasileiro (nunca US).
+const parseAnyDate = (v) => {
+  if (v == null || v === '') return '';
+  if (v instanceof Date && !isNaN(v.getTime())) return localIso(v);
+  const s = String(v).trim();
+  if (!s || s === '-' || /^nan|undefined|null$/i.test(s)) return '';
+  const iso = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${_pad2(iso[2])}-${_pad2(iso[3])}`;
+  const dmy = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if (dmy) {
+    let y = dmy[3];
+    if (y.length === 2) y = (parseInt(y, 10) > 50 ? '19' : '20') + y;
+    return `${y}-${_pad2(dmy[2])}-${_pad2(dmy[1])}`;
+  }
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 30000 && num < 60000) {
+    return new Date(Date.UTC(1899, 11, 30) + Math.round(num) * 86400000).toISOString().slice(0, 10);
+  }
+  return '';
+};
+const toDayKey = (v) => parseAnyDate(v);
+const extractPrazoDias = (desc) => {
+  const m = String(desc || '').match(/(\d+)\s*dias?/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return (n > 0 && n <= 365) ? n : null;
+};
+const fmtDate = (d) => { const k = toDayKey(d); if (!k) return '—'; return new Date(k + 'T00:00:00').toLocaleDateString('pt-BR'); };
+const daysUntil = (d) => {
+  const k = toDayKey(d);
+  if (!k) return null;
+  const alvo = new Date(k + 'T00:00:00');
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.round((alvo - hoje) / 86400000);
+};
+// Intimação entra na agenda/e-mail: tem prazo parseável e ainda não houve atuação.
+// "Analisado" sem responseAction só some depois que o prazo vence (análise ≠ peticionamento).
+const intimPrazoNaAgenda = (x) => {
+  if (!x || x.responseAction) return false;
+  const dl = toDayKey(x.dateDeadline);
+  if (!dl) return false;
+  if (x.status === 'analisado') return dl >= localIso(new Date());
+  return true;
+};
 // ─── Nº de processo: comparar SEMPRE por dígitos ───
 // As planilhas de origem divergem no formato (eproc traz "5001234-56.2023.4.04.7001",
 // a Procuradoria traz "50012345620234047001"). Comparar string crua fazia o cruzamento
@@ -639,7 +693,23 @@ const isBusinessDay = (d) => {
   const pad = (n) => String(n).padStart(2,'0');
   return !_nationalHolidays(d.getFullYear()).has(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);
 };
-const addBusinessDays = (dateStr, n) => { if (!dateStr) return null; const d = new Date(dateStr + 'T00:00:00'); let added = 0; while (added < n) { d.setDate(d.getDate() + 1); if (isBusinessDay(d)) added++; } return d.toISOString().slice(0, 10); };
+const addBusinessDays = (dateStr, n) => {
+  const key = toDayKey(dateStr);
+  if (!key || !n) return null;
+  const d = new Date(key + 'T00:00:00');
+  let added = 0, guard = 0;
+  while (added < n && guard++ < 400) { d.setDate(d.getDate() + 1); if (isBusinessDay(d)) added++; }
+  return localIso(d);
+};
+const coerceIntimDates = (intim) => {
+  const out = { ...intim };
+  ['dateSent', 'dateStart', 'dateDeadline'].forEach(f => { if (out[f]) { const n = parseAnyDate(out[f]); if (n) out[f] = n; } });
+  if (!toDayKey(out.dateDeadline) && out.dateStart) {
+    const dias = extractPrazoDias(out.eventDescription);
+    if (dias) out.dateDeadline = addBusinessDays(out.dateStart, dias);
+  }
+  return out;
+};
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : s;
 
 // ─── Validação do dígito verificador CNJ (Res. CNJ 65/2008) ───
@@ -715,32 +785,6 @@ const buildExecQualification = (e, data) => {
     lines.push(`Executado(s): ${people.map(p => `${p.name}${p.cpfCnpj ? ' (' + p.cpfCnpj + ')' : ''}`).join('; ')}`);
   }
   return lines.join('\n');
-};
-
-// Shared robust date parser — handles SheetJS formats, serial numbers, DD/MM/YYYY, ISO
-const parseAnyDate = (v) => {
-  if (!v || v === 'nan' || v === 'undefined') return '';
-  const s = String(v).trim();
-  if (!s || s === '-') return '';
-  // ISO: YYYY-MM-DD
-  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  // DD/MM/YYYY (BR)
-  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
-  // M/D/YY or M/D/YYYY (US — SheetJS raw:false may produce this)
-  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (mdy) {
-    let y = mdy[3]; if (y.length === 2) y = (parseInt(y) > 50 ? '19' : '20') + y;
-    return `${y}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
-  }
-  // Excel serial number
-  const num = parseFloat(s);
-  if (!isNaN(num) && num > 30000 && num < 60000) {
-    const d = new Date((num - 25569) * 86400000);
-    return d.toISOString().slice(0, 10);
-  }
-  return '';
 };
 
 // Auto-calculate prescription date from imported data
@@ -2073,9 +2117,9 @@ function parseEprocXLS(workbook) {
     else if (hl === 'classe') col.classe = i;
     else if (hl === 'assunto') col.assunto = i;
     else if (hl.includes('evento') && hl.includes('prazo')) col.eventoPrazo = i;
-    else if (hl.includes('data envio') || hl.includes('requisição')) col.dataEnvio = i;
-    else if (hl.includes('início prazo') || hl.includes('inicio prazo')) col.inicioPrazo = i;
-    else if (hl.includes('final prazo')) col.finalPrazo = i;
+    else if (hl.includes('data envio') || hl.includes('requisição') || hl.includes('requisicao') || hl.includes('data da intim') || hl.includes('dt. envio') || hl.includes('dt envio') || hl.includes('disponibiliza')) col.dataEnvio = i;
+    else if ((hl.includes('início') || hl.includes('inicio')) && hl.includes('prazo')) col.inicioPrazo = i;
+    else if ((hl.includes('final') || hl.includes('término') || hl.includes('termino') || hl.includes('fim')) && hl.includes('prazo')) col.finalPrazo = i;
   });
 
   const parseDate = parseAnyDate; // use shared utility
@@ -2134,7 +2178,7 @@ function parseEprocXLS(workbook) {
     else if (orgUp.includes('TJ')) jurisdiction = 'TJ';
     else jurisdiction = orgao.slice(0, 4);
 
-    results.intimations.push({
+    results.intimations.push(coerceIntimDates({
       processNumber: processo,
       partyName,
       parties: partes,
@@ -2143,16 +2187,16 @@ function parseEprocXLS(workbook) {
       className: classe,
       subject: assunto,
       eventDescription: eventoPrazo,
-      dateSent: parseDate(row[col.dataEnvio]),
-      dateStart: parseDate(row[col.inicioPrazo]),
-      dateDeadline: parseDate(row[col.finalPrazo]),
+      dateSent: col.dataEnvio != null ? parseDate(row[col.dataEnvio]) : '',
+      dateStart: col.inicioPrazo != null ? parseDate(row[col.inicioPrazo]) : '',
+      dateDeadline: col.finalPrazo != null ? parseDate(row[col.finalPrazo]) : '',
       status: 'pendente_analise',
       object: '',
       obs1: '',
       obs2: '',
       minutaUrl: '',
       operationId: ''
-    });
+    }));
   }
   return results;
 }
@@ -3520,19 +3564,7 @@ function App() {
               if (!existing) {
                 existing = candidates.find(x => x.status !== 'analisado' && !x.responseAction);
               }
-              // Priority 3: if all are resolved and dateSent differs → it's a NEW intimation
-              if (!existing) {
-                const allResolved = candidates.every(x => x.status === 'analisado' || x.responseAction);
-                const dateSentDiffers = intim.dateSent && !candidates.some(x => x.dateSent === intim.dateSent);
-                if (allResolved && dateSentDiffers) {
-                  existing = null; // Force creation of new intimation
-                } else if (allResolved && !intim.dateSent) {
-                  // No dateSent to compare — match the most recent resolved one (update scenario)
-                  existing = candidates.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''))[0];
-                } else {
-                  existing = candidates[0]; // Fallback
-                }
-              }
+              // Sem match aberto: cria nova. Não gravar prazo novo em cima de resolvida.
             }
             if (existing) {
               // MERGE: update only dates and system fields, preserve user data
@@ -3573,6 +3605,7 @@ function App() {
               }
               upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
               newCount++;
+              if (!toDayKey(intim.dateDeadline)) logs.push(`⚠️ Sem prazo final: ${intim.processNumber} — não entra na agenda/e-mail até preencher Final Prazo`);
             }
           });
         } catch (err) { logs.push(`❌ ${err.message}`); }
@@ -7876,9 +7909,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const items = [];
     (data.intimations || []).forEach(x => {
-      const open = (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction;
-      if (!open) return;
-      const dd = x.dateDeadline ? daysUntil(x.dateDeadline) : null;
+      if (!intimPrazoNaAgenda(x)) return;
+      const dd = daysUntil(x.dateDeadline);
       if (dd === null || dd > 7) return;
       const op = data.operations.find(o => o.id === x.operationId);
       items.push({
@@ -8162,21 +8194,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
     const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
-    const inWeek = (iso) => { const k = localDayKey(iso); return k && k >= weekStartKey && k <= weekEndKey; };
+    const inWeek = (iso) => { const k = toDayKey(iso) || localDayKey(iso); return k && k >= weekStartKey && k <= weekEndKey; };
 
     // Coleta por dia: prazo (intimação), tarefa (com data limite), audiência, termo final de prescrição
     const byDay = {};
     days.forEach(d => { byDay[localDayKey(d)] = []; });
     const pushDay = (iso, card) => {
-      const k = localDayKey(iso);
+      const k = toDayKey(iso) || localDayKey(iso);
       if (!k || !byDay[k]) return;
       byDay[k].push(card);
     };
 
     (data.intimations || []).forEach(x => {
-      if (!x.dateDeadline || x.responseAction || x.status === 'analisado') return;
-      if (!inWeek(x.dateDeadline)) return;
-      pushDay(x.dateDeadline, {
+      if (!intimPrazoNaAgenda(x)) return;
+      const dl = toDayKey(x.dateDeadline);
+      if (!inWeek(dl)) return;
+      pushDay(dl, {
         id: 'intim-' + x.id, kind: 'prazo', sub: 'intim',
         title: truncate(x.processNumber || x.partyName || 'Intimação', 32),
         meta: opName(x.operationId),
