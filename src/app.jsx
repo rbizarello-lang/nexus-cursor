@@ -3980,8 +3980,9 @@ function App() {
     return e.id;
   };
   const upsert = (col, entity) => {
+    if (!col) return;
     setData(prev => {
-      const list = prev[col];
+      const list = prev[col] || [];
       const idx = list.findIndex(e => e.id === entity.id);
       const now = new Date().toISOString();
       // ─── CHANGE LOG: diffa campos auditáveis em edições (não em criações) ───
@@ -4209,7 +4210,7 @@ function App() {
   };
 
   const handleSave = (type, entity) => {
-    const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings' };
+    const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings', model: 'models' };
     const wantsWatch = entity._openWatch;
     const cleanEntity = { ...entity };
     delete cleanEntity._openWatch;
@@ -4371,7 +4372,7 @@ function App() {
     }
   };
   const handleDelete = (type, id) => {
-    const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', measure: 'measures', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings' };
+    const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', measure: 'measures', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings', model: 'models' };
     remove(colMap[type], id);
   };
 
@@ -7750,7 +7751,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       onDelete={isEdit ? (id) => handleDelete(entityType, id) : null} />;
   };
 
-  const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da Inscrição' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência'}[modal.entityType]||'')) : '';
+  const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da Inscrição' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||'')) : '';
 
   const tabList = ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
   const tabLabels = { notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
@@ -10638,6 +10639,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     // For intimations and tasks, operationId comes from the form (user can unlink)
     const entityOpId = (entityType === 'intimation' || entityType === 'task' || entityType === 'watch' || entityType === 'hearing') ? (form.operationId || '') : (operationId || form.operationId || '');
     let payload = { ...form, operationId: entityOpId, id: form.id || uid() };
+    if (entityType === 'model') delete payload.operationId;
     // Operação: consolida classificações múltiplas e aposenta o campo legado `classification`.
     // = null (não delete) porque upsert faz merge {...old, ...new}.
     if (entityType === 'operation') {
