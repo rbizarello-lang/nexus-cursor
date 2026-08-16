@@ -6,11 +6,13 @@
  * e a Mesa de trabalho.
  *
  * COMO INSTALAR
- *   1. No editor do Apps Script: Arquivo → Novo → Script, nomeie "resumo-diario".
- *   2. Cole este conteúdo inteiro.
- *   3. Rode uma vez a função  testarResumoAgora   (autoriza o acesso e já envia
- *      um e-mail de teste para você conferir o formato).
- *   4. Rode a função  instalarResumoDiario  — cria o agendamento das 7h.
+ *   Prefira o mesmo projeto Apps Script do NEXUS (npm run push já inclui
+ *   este arquivo). Assim o resumo usa o mesmo arquivo pinado por ID que o app.
+ *   Se colar à mão: Arquivo → Novo → Script, nomeie "resumo-diario", cole
+ *   o conteúdo, rode testarResumoAgora e depois instalarResumoDiario.
+ *
+ * NÃO busca nexus_data.json pelo nome no Drive inteiro — isso pegava o
+ * primeiro arquivo homônimo (cópia de teste, outro acervo).
  *
  * PARA DESLIGAR: rode  removerResumoDiario
  * PARA MUDAR O HORÁRIO: altere HORA_ENVIO e rode instalarResumoDiario de novo.
@@ -67,7 +69,7 @@ function removerResumoDiario() {
 
 function enviarResumoNexus() {
   var dados = _lerDados_();
-  if (!dados) return 'ERRO: ' + CONFIG.ARQUIVO + ' não encontrado no Drive.';
+  if (!dados) return 'ERRO: arquivo de dados do NEXUS não encontrado na pasta da planilha.';
 
   var r = _coletar_(dados);
   // O radar é informativo (horizonte) e não conta como pendência para decidir o envio.
@@ -82,11 +84,32 @@ function enviarResumoNexus() {
   return 'Resumo enviado para ' + email + ' (' + total + ' itens).';
 }
 
-/** Lê e desserializa o nexus_data.json do Drive. */
+/** Resolve o mesmo arquivo que o app (ID persistido / pasta da planilha). Nunca varre o Drive pelo nome. */
+function _resolverArquivoDados_() {
+  if (typeof resolveDataFile_ === 'function') return resolveDataFile_();
+  if (typeof findDataFile_ === 'function') return findDataFile_();
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty('NEXUS_DATA_FILE_ID');
+    if (id) {
+      var pinned = DriveApp.getFileById(id);
+      if (pinned && !pinned.isTrashed()) return pinned;
+    }
+  } catch (e) {}
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var parents = DriveApp.getFileById(ss.getId()).getParents();
+    var folder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+    var files = folder.getFilesByName(CONFIG.ARQUIVO);
+    if (files.hasNext()) return files.next();
+  } catch (e2) {}
+  return null;
+}
+
+/** Lê e desserializa o nexus_data.json canônico. */
 function _lerDados_() {
-  var it = DriveApp.getFilesByName(CONFIG.ARQUIVO);
-  if (!it.hasNext()) return null;
-  try { return JSON.parse(it.next().getBlob().getDataAsString()); } catch (e) { return null; }
+  var file = _resolverArquivoDados_();
+  if (!file) return null;
+  try { return JSON.parse(file.getBlob().getDataAsString()); } catch (e) { return null; }
 }
 
 /** Normaliza qualquer data para YYYY-MM-DD (eproc, ISO com hora, DD/MM/AAAA). */

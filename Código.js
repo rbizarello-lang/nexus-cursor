@@ -1,26 +1,30 @@
 
 // ══════════════════════════════════════════════════════════
-// NEXUS Cloud — Google Apps Script Backend v4
+// NEXUS Cloud — Google Apps Script Backend v5
 // ══════════════════════════════════════════════════════════
 // Salva JSON como arquivo no Google Drive (sem limite de 50k)
 // A planilha serve apenas como log de sincronizações.
 //
-// v4 — Backup versionado (abril/2026):
-//   - Backup diário automático (nexus_backup_YYYY-MM-DD.json)
-//   - Rotação: mantém últimos 7 dias
-//   - listBackups() e restoreBackup() para o frontend
-//   (mantém tudo de v3: LockService, JSON.parse, DEFAULT)
+// v5 — Integridade (ago/2026):
+//   - Arquivo de dados pinado por ID (PropertiesService), não por nome no Drive
+//   - Save atômico: compare-and-swap da revisão dentro do LockService
+//   - Snapshot do conteúdo ANTERIOR à gravação + diários 14d + semanais 8w
+//   (mantém v4: listBackups/restoreBackup; v3: LockService, JSON.parse)
 
 var DATA_FILENAME = 'nexus_data.json';
+var DATA_FILE_ID_KEY = 'NEXUS_DATA_FILE_ID';
+var DATA_REV_KEY = 'NEXUS_DATA_REV';
 var BACKUP_PREFIX = 'nexus_backup_';
-var BACKUP_KEEP_DAYS = 7;
+var BACKUP_WEEK_PREFIX = 'nexus_backup_week_';
+var BACKUP_KEEP_DAYS = 14;
+var BACKUP_KEEP_WEEKS = 8;
 
 function doGet(e) {
   var action = e && e.parameter ? e.parameter.action : null;
 
   if (action === 'ping') {
     return ContentService.createTextOutput(
-      JSON.stringify({ success: true, message: 'NEXUS Cloud v4 ativo' })
+      JSON.stringify({ success: true, message: 'NEXUS Cloud v5 ativo' })
     ).setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -40,76 +44,191 @@ function getDataFolder_() {
   return parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
 }
 
+function scriptProps_() {
+  return PropertiesService.getScriptProperties();
+}
+
+function getStoredDataFileId_() {
+  return scriptProps_().getProperty(DATA_FILE_ID_KEY);
+}
+
+function storeDataFileId_(id) {
+  if (id) scriptProps_().setProperty(DATA_FILE_ID_KEY, id);
+}
+
+function getDataRev_() {
+  var r = scriptProps_().getProperty(DATA_REV_KEY);
+  var n = r ? parseInt(r, 10) : 0;
+  return isNaN(n) ? 0 : n;
+}
+
+function setDataRev_(n) {
+  scriptProps_().setProperty(DATA_REV_KEY, String(n));
+}
+
 function findDataFile_() {
   var folder = getDataFolder_();
   var files = folder.getFilesByName(DATA_FILENAME);
-  return files.hasNext() ? files.next() : null;
+  if (!files.hasNext()) return null;
+  var file = files.next();
+  if (files.hasNext()) {
+    Logger.log('AVISO: mais de um ' + DATA_FILENAME + ' na pasta da planilha; usando id=' + file.getId());
+  }
+  return file;
+}
+
+/** Arquivo canônico: ID persistido, com fallback para a pasta da planilha. */
+function resolveDataFile_() {
+  var id = getStoredDataFileId_();
+  if (id) {
+    try {
+      var pinned = DriveApp.getFileById(id);
+      if (pinned && !pinned.isTrashed()) return pinned;
+    } catch (e) {
+      Logger.log('ID de dados obsoleto (' + id + '): ' + e.message);
+    }
+  }
+  var file = findDataFile_();
+  if (file) storeDataFileId_(file.getId());
+  return file;
 }
 
 function createDataFile_(content) {
   var folder = getDataFolder_();
-  return folder.createFile(DATA_FILENAME, content || '{}', 'application/json');
+  var file = folder.createFile(DATA_FILENAME, content || '{}', 'application/json');
+  storeDataFileId_(file.getId());
+  return file;
+}
+
+function conflictResult_(file, rev, extraMsg) {
+  var mtime = file ? file.getLastUpdated().toISOString() : null;
+  return {
+    success: false,
+    conflict: true,
+    rev: rev,
+    mtime: mtime,
+    error: extraMsg || 'Conflito de versão: a nuvem mudou desde o último save desta máquina. Use ⬇ para carregar ou confirme sobrescrever.'
+  };
 }
 
 // ── Backup helpers ──
 
-function todayStr_() {
+function nowLocal_() {
   var now = new Date();
   var offset = -3; // BRT
-  var local = new Date(now.getTime() + offset * 3600000);
-  return local.toISOString().slice(0, 10);
+  return new Date(now.getTime() + offset * 3600000);
 }
 
-function createDailyBackup_(jsonString) {
+function todayStr_() {
+  return nowLocal_().toISOString().slice(0, 10);
+}
+
+function isoWeekKeyFromYmd_(ymd) {
+  var parts = String(ymd).split('-');
+  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  var date = new Date(Date.UTC(y, m - 1, d));
+  var dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  var weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  var wy = date.getUTCFullYear();
+  return wy + '-W' + ('0' + weekNo).slice(-2);
+}
+
+function mondayOfIsoWeekKey_(key) {
+  var y = parseInt(String(key).slice(0, 4), 10);
+  var w = parseInt(String(key).replace(/^.*W/, ''), 10);
+  if (isNaN(y) || isNaN(w)) return null;
+  var jan4 = new Date(Date.UTC(y, 0, 4));
+  var day = jan4.getUTCDay() || 7;
+  var monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - (day - 1) + (w - 1) * 7);
+  return monday;
+}
+
+function writeBackupIfAbsent_(folder, name, jsonString) {
+  var existing = folder.getFilesByName(name);
+  if (existing.hasNext()) return false;
+  folder.createFile(name, jsonString, 'application/json');
+  return true;
+}
+
+/** Snapshot do conteúdo ANTERIOR à gravação: rolling + 1º save do dia + 1º save da semana. */
+function createPreWriteBackups_(oldContent) {
+  if (oldContent == null || oldContent === '') return;
   var folder = getDataFolder_();
-  var today = todayStr_();
-  var backupName = BACKUP_PREFIX + today + '.json';
-  var existing = folder.getFilesByName(backupName);
-  if (existing.hasNext()) return;
-  folder.createFile(backupName, jsonString, 'application/json');
+  var prewriteName = BACKUP_PREFIX + 'prewrite.json';
+  var existing = folder.getFilesByName(prewriteName);
+  if (existing.hasNext()) {
+    existing.next().setContent(oldContent);
+  } else {
+    folder.createFile(prewriteName, oldContent, 'application/json');
+  }
+  writeBackupIfAbsent_(folder, BACKUP_PREFIX + todayStr_() + '.json', oldContent);
+  writeBackupIfAbsent_(folder, BACKUP_WEEK_PREFIX + isoWeekKeyFromYmd_(todayStr_()) + '.json', oldContent);
 }
 
 function pruneOldBackups_() {
   var folder = getDataFolder_();
-  var cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - BACKUP_KEEP_DAYS);
+  var today = todayStr_();
+  var todayParts = today.split('-');
+  var dailyCutoff = new Date(parseInt(todayParts[0], 10), parseInt(todayParts[1], 10) - 1, parseInt(todayParts[2], 10));
+  dailyCutoff.setDate(dailyCutoff.getDate() - BACKUP_KEEP_DAYS);
+  var weekCutoff = mondayOfIsoWeekKey_(isoWeekKeyFromYmd_(today));
+  if (weekCutoff) weekCutoff = new Date(weekCutoff.getTime() - BACKUP_KEEP_WEEKS * 7 * 86400000);
+
   var files = folder.getFiles();
   while (files.hasNext()) {
     var f = files.next();
     var name = f.getName();
     if (name.indexOf(BACKUP_PREFIX) !== 0) continue;
     if (!name.endsWith('.json')) continue;
-    if (name.indexOf('pre-restore') !== -1) continue; // nunca apaga backups de emergência
+    if (name.indexOf('pre-restore') !== -1) continue;
+    if (name.indexOf('prewrite') !== -1) continue;
+
+    if (name.indexOf(BACKUP_WEEK_PREFIX) === 0) {
+      var weekKey = name.replace(BACKUP_WEEK_PREFIX, '').replace('.json', '');
+      var monday = mondayOfIsoWeekKey_(weekKey);
+      if (monday && weekCutoff && monday < weekCutoff) f.setTrashed(true);
+      continue;
+    }
+
     var dateStr = name.replace(BACKUP_PREFIX, '').replace('.json', '');
     var parts = dateStr.split('-');
     if (parts.length !== 3) continue;
-    var fileDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    if (fileDate < cutoff) {
-      f.setTrashed(true);
-    }
+    var fileDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    if (fileDate < dailyCutoff) f.setTrashed(true);
   }
 }
 
 // ── API chamada pelo frontend via google.script.run ──
 
 function loadNexusData() {
-  var file = findDataFile_();
+  var file = resolveDataFile_();
   if (!file) return '{}';
   return file.getBlob().getDataAsString();
 }
 
 function getRemoteMtime() {
-  var file = findDataFile_();
-  if (!file) return { success: true, exists: false, mtime: null, size: 0 };
+  var file = resolveDataFile_();
+  if (!file) return { success: true, exists: false, mtime: null, size: 0, rev: getDataRev_() };
   return {
     success: true,
     exists: true,
     mtime: file.getLastUpdated().toISOString(),
-    size: file.getSize()
+    size: file.getSize(),
+    rev: getDataRev_(),
+    fileId: file.getId()
   };
 }
 
-function saveNexusData(jsonString) {
+/**
+ * Grava o JSON canônico.
+ * expectedRev: revisão que o cliente viu por último (número).
+ * force: true só após o usuário confirmar sobrescrita explícita.
+ * A comparação ocorre DENTRO do lock — não há janela entre checagem e escrita.
+ */
+function saveNexusData(jsonString, expectedRev, force) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
     return { success: false, error: 'Outra sincronização em andamento. Tente novamente em alguns segundos.' };
@@ -122,19 +241,38 @@ function saveNexusData(jsonString) {
       return { success: false, error: 'JSON inválido — arquivo NÃO foi sobrescrito. ' + parseErr.message };
     }
 
-    var file = findDataFile_();
+    var file = resolveDataFile_();
+    var currentRev = getDataRev_();
+    var forced = force === true || force === 'true';
+
+    if (!forced && file) {
+      var sent = expectedRev !== null && expectedRev !== undefined && expectedRev !== '';
+      if (!sent) {
+        if (currentRev > 0) return conflictResult_(file, currentRev, 'Revisão não enviada. Recarregue os dados (⬇) e tente de novo.');
+      } else if (Number(expectedRev) !== Number(currentRev)) {
+        return conflictResult_(file, currentRev);
+      }
+    }
+
     if (file) {
+      try {
+        createPreWriteBackups_(file.getBlob().getDataAsString());
+      } catch (bkErr) {
+        Logger.log('Backup pré-gravação: ' + bkErr.message);
+      }
       file.setContent(jsonString);
     } else {
       file = createDataFile_(jsonString);
     }
+    storeDataFileId_(file.getId());
 
-    // Backup diário + rotação (best-effort, não impede o save principal)
+    var newRev = currentRev + 1;
+    setDataRev_(newRev);
+
     try {
-      createDailyBackup_(jsonString);
       pruneOldBackups_();
-    } catch (bkErr) {
-      Logger.log('Backup warning: ' + bkErr.message);
+    } catch (pruneErr) {
+      Logger.log('Backup prune: ' + pruneErr.message);
     }
 
     // Log na planilha
@@ -145,7 +283,13 @@ function saveNexusData(jsonString) {
     sheet.getRange('A' + nextRow).setValue(new Date().toLocaleString('pt-BR'));
     sheet.getRange('B' + nextRow).setValue((jsonString.length / 1024).toFixed(1) + ' KB');
 
-    return { success: true, size: jsonString.length, mtime: file.getLastUpdated().toISOString() };
+    return {
+      success: true,
+      size: jsonString.length,
+      mtime: file.getLastUpdated().toISOString(),
+      rev: newRev,
+      fileId: file.getId()
+    };
   } catch (err) {
     return { success: false, error: 'Erro ao salvar: ' + err.message };
   } finally {
@@ -189,7 +333,7 @@ function restoreBackup(backupName) {
       return { success: false, error: 'Backup corrompido (JSON inválido).' };
     }
     // Salva estado atual como backup de emergência antes de restaurar
-    var mainFile = findDataFile_();
+    var mainFile = resolveDataFile_();
     if (mainFile) {
       var emergName = BACKUP_PREFIX + 'pre-restore-' + todayStr_() + '.json';
       var existing = folder.getFilesByName(emergName);
@@ -198,9 +342,19 @@ function restoreBackup(backupName) {
       }
       mainFile.setContent(content);
     } else {
-      createDataFile_(content);
+      mainFile = createDataFile_(content);
     }
-    return { success: true, size: content.length, restoredFrom: backupName };
+    storeDataFileId_(mainFile.getId());
+    var newRev = getDataRev_() + 1;
+    setDataRev_(newRev);
+    return {
+      success: true,
+      size: content.length,
+      restoredFrom: backupName,
+      rev: newRev,
+      mtime: mainFile.getLastUpdated().toISOString(),
+      fileId: mainFile.getId()
+    };
   } catch (err) {
     return { success: false, error: 'Erro ao restaurar: ' + err.message };
   } finally {
@@ -210,7 +364,7 @@ function restoreBackup(backupName) {
 
 // ── Teste ──
 
-function testPing() { Logger.log('Script OK — v4 Backup'); }
+function testPing() { Logger.log('Script OK — v5 integridade'); }
 
 function testLoad() {
   var data = loadNexusData();

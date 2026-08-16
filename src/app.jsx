@@ -3135,6 +3135,23 @@ function App() {
   const dirtyRef = useRef(false);         // true when local data changed since last push
   const lastEditRef = useRef(0);          // timestamp of last edit — used for debounce
   const lastPushMtimeRef = useRef(null);  // mtime returned by last successful push (server clock)
+  const lastPushRevRef = useRef((() => {
+    const v = localStorage.getItem('nexus_remote_rev');
+    if (v == null || v === '') return null;
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? null : n;
+  })());
+  const rememberRemoteMeta = (m) => {
+    if (!m) return;
+    if (m.mtime) {
+      lastPushMtimeRef.current = m.mtime;
+      localStorage.setItem('nexus_remote_mtime', m.mtime);
+    }
+    if (m.rev === 0 || m.rev) {
+      lastPushRevRef.current = Number(m.rev);
+      localStorage.setItem('nexus_remote_rev', String(m.rev));
+    }
+  };
   const cloudPushRef = useRef(null);      // populated after cloudPush is declared; breaks circular dep
   const fileInputRef = useRef(null);
   const xlsInputRef = useRef(null);
@@ -3739,36 +3756,30 @@ function App() {
   const cloudPush = async (opts = {}) => {
     const silent = !!opts.silent;
     if (isGAS) {
-      // ─── GUARDA DE CONFLITO: se o arquivo remoto mudou desde o último push
-      // desta máquina (outra máquina salvou no meio tempo), NÃO sobrescrever às cegas.
-      if (!opts._skipConflictCheck) {
-        google.script.run.withSuccessHandler(m => {
-          if (m && m.success && m.exists && m.mtime && lastPushMtimeRef.current) {
-            const remote = new Date(m.mtime).getTime();
-            const known = new Date(lastPushMtimeRef.current).getTime();
-            if (remote - known > 60000) { // remoto avançou >1min desde nosso último push
-              if (silent) {
-                // Auto-sync: nunca sobrescrever silenciosamente — pausa e avisa
-                setCloudStatus('error');
-                setCloudMsg('⚠ Conflito: a nuvem foi alterada por outra máquina. Auto-sync pausado — use ⬆ (sobrescrever) ou ⬇ (carregar) manualmente.');
-                return;
-              }
-              if (!confirm(`⚠ CONFLITO DE VERSÕES\n\nA nuvem foi alterada em ${new Date(m.mtime).toLocaleString('pt-BR')} — depois do último save desta máquina.\n\nProvavelmente você salvou de OUTRA máquina.\n\n• OK: SOBRESCREVER a nuvem com os dados desta máquina (a versão da outra máquina será perdida — mas há backup diário)\n• Cancelar: nada é salvo (use ⬇ para carregar a versão da nuvem)`)) {
-                setCloudStatus('connected'); setCloudMsg('Save cancelado (conflito)');
-                return;
-              }
-            }
-          }
-          cloudPush({ ...opts, _skipConflictCheck: true });
-        }).withFailureHandler(() => {
-          // Se o check falhar, segue com o push normal (comportamento anterior)
-          cloudPush({ ...opts, _skipConflictCheck: true });
-        }).getRemoteMtime();
-        return;
-      }
-      if (!silent) { setCloudStatus('syncing'); setCloudMsg('Salvando no Google Sheets...'); }
+      // A guarda de conflito é atômica no servidor: saveNexusData compara a
+      // revisão esperada dentro do LockService. Forçar só após confirmação explícita.
+      if (!silent) { setCloudStatus('syncing'); setCloudMsg('Salvando no Google Drive...'); }
       google.script.run
         .withSuccessHandler((result) => {
+          if (result && result.conflict) {
+            if (silent) {
+              setCloudStatus('error');
+              setCloudMsg('⚠ Conflito: a nuvem foi alterada por outra máquina. Auto-sync pausado — use ⬆ (sobrescrever) ou ⬇ (carregar) manualmente.');
+              return;
+            }
+            if (opts._force) {
+              setCloudStatus('error');
+              setCloudMsg('Erro: ' + (result.error || 'conflito persistente'));
+              return;
+            }
+            const when = result.mtime ? new Date(result.mtime).toLocaleString('pt-BR') : 'outro momento';
+            if (!confirm(`⚠ CONFLITO DE VERSÕES\n\nA nuvem foi alterada em ${when} (rev ${result.rev}) — depois do último save desta máquina.\n\n• OK: SOBRESCREVER a nuvem com os dados desta máquina (a versão da outra máquina fica no backup pré-gravação)\n• Cancelar: nada é salvo (use ⬇ para carregar a versão da nuvem)`)) {
+              setCloudStatus('connected'); setCloudMsg('Save cancelado (conflito)');
+              return;
+            }
+            cloudPush({ ...opts, _force: true });
+            return;
+          }
           if (!result || !result.success) {
             setCloudStatus('error');
             setCloudMsg('Erro: ' + (result && result.error ? result.error : 'resposta inválida do servidor'));
@@ -3778,13 +3789,13 @@ function App() {
           setCloudStatus('connected');
           setCloudMsg((silent ? 'Auto-sync ✓' : 'Salvo ✓') + ` (${(result.size/1024).toFixed(1)}KB)`);
           setCloudLastSync(now); localStorage.setItem('nexus_cloud_lastsync', now);
-          if (result.mtime) { lastPushMtimeRef.current = result.mtime; localStorage.setItem('nexus_remote_mtime', result.mtime); }
+          rememberRemoteMeta(result);
           dirtyRef.current = false;
         })
         .withFailureHandler((err) => {
           setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + err.message);
         })
-        .saveNexusData(JSON.stringify(data));
+        .saveNexusData(JSON.stringify(data), lastPushRevRef.current, !!opts._force);
       return;
     }
     setCloudStatus('error'); setCloudMsg('Ambiente não suportado.');
@@ -3841,6 +3852,7 @@ function App() {
               setCloudStatus('connected'); setCloudMsg('Sincronizado da nuvem ✓');
               setCloudLastSync(now); localStorage.setItem('nexus_cloud_lastsync', now);
               lastPushMtimeRef.current = m.mtime; localStorage.setItem('nexus_remote_mtime', m.mtime);
+              rememberRemoteMeta(m);
               dirtyRef.current = false; hydratedRef.current = false;
             }
           } catch (e) { setCloudMsg('Erro ao carregar: ' + e.message); }
@@ -3853,7 +3865,7 @@ function App() {
         const hasLocal = ((latestDataRef.current && latestDataRef.current.operations) || []).length > 0;
         if (!hasLocal) { pullNow(); return; } // local vazio: puxa a nuvem direto
         if (confirm(`Este navegador não tem registro de sincronização, mas a nuvem tem dados (${new Date(m.mtime).toLocaleString('pt-BR')}).\n\nCARREGAR a versão da nuvem? (recomendado)\n\n• OK: carrega a nuvem — os dados locais deste navegador serão substituídos\n• Cancelar: mantém os dados locais — nenhum save sobrescreverá a nuvem sem avisar`)) { pullNow(); }
-        else { lastPushMtimeRef.current = '1970-01-01T00:00:00.000Z'; } // arma a guarda: próximo push detecta conflito e avisa
+        else { lastPushMtimeRef.current = '1970-01-01T00:00:00.000Z'; lastPushRevRef.current = -1; } // arma a guarda: próximo push detecta conflito e avisa
         return;
       }
       // Arma a guarda de conflito mesmo antes do primeiro push desta sessão
@@ -3866,6 +3878,8 @@ function App() {
         }
         // Recusou o pull: lastPushMtimeRef permanece no mtime antigo → a guarda de
         // conflito dispara no próximo push em vez de sobrescrever silenciosamente.
+      } else {
+        rememberRemoteMeta(m);
       }
     }).getRemoteMtime();
 
@@ -3892,7 +3906,7 @@ function App() {
               hydratedRef.current = false; // next data effect won't re-dirty
               if (isGAS) {
                 google.script.run.withSuccessHandler(m => {
-                  if (m && m.mtime) { lastPushMtimeRef.current = m.mtime; localStorage.setItem('nexus_remote_mtime', m.mtime); }
+                  if (m && m.mtime) { lastPushMtimeRef.current = m.mtime; localStorage.setItem('nexus_remote_mtime', m.mtime); rememberRemoteMeta(m); }
                 }).getRemoteMtime();
               }
             } else { setCloudStatus('connected'); setCloudMsg('Cancelado'); }
@@ -8461,7 +8475,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const list = res.backups;
                 if (list.length === 0) { alert('Nenhum backup encontrado.\n\nO primeiro backup é criado automaticamente no primeiro save do dia.'); return; }
                 const msg = list.map((b,i) => `${i+1}. ${b.date}  (${(b.size/1024).toFixed(0)} KB)`).join('\n');
-                const choice = prompt(`📦 Backups disponíveis (últimos 7 dias):\n\n${msg}\n\nDigite o NÚMERO para restaurar, ou cancele:`);
+                const choice = prompt(`Backups disponíveis (14 diários + semanais):\n\n${msg}\n\nDigite o NÚMERO para restaurar, ou cancele:`);
                 if (!choice) return;
                 const idx = parseInt(choice) - 1;
                 if (isNaN(idx) || idx < 0 || idx >= list.length) { alert('Número inválido.'); return; }
@@ -8482,7 +8496,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               alert('✅ Cache local limpo. A página será recarregada.');
               window.location.reload();
             }}>🔒 Limpar cache local</button>
-            <div style={{fontSize:9,color:'var(--text-muted)',lineHeight:1.4}}>📦 Backups diários automáticos (7 dias). 🔒 Limpa localStorage deste navegador.</div>
+            <div style={{fontSize:9,color:'var(--text-muted)',lineHeight:1.4}}>📦 Backups: snapshot antes de cada save, 14 diários e 8 semanais. 🔒 Limpa localStorage deste navegador.</div>
           </div>}
         </>) : (<>
           {/* Modo fora do Apps Script (ex.: abrindo nexus_demo.html diretamente) — só informativo */}
