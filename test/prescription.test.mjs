@@ -2,7 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { addBusinessDays, daysBetween, daysUntil, isBusinessDay, setExtraHolidays } from '../src/lib/dates.js';
 import {
+  buildPrescricaoReport,
+  buildProcessPrescricaoReport,
   calcPrescription,
+  computeCdaLegalTimeline,
+  computeDecadencia,
+  computeOrdinaria,
   computePrescription,
   createPrescDateLookup,
   fillRequestDate,
@@ -11,6 +16,7 @@ import {
   idpjPropagationPayload,
   migratePrescriptionEvents,
   shouldPropagateIdpjAsSuspension,
+  suggestLaunchMode,
 } from '../src/lib/prescription.js';
 
 const ASOF = '2026-08-16';
@@ -245,5 +251,158 @@ describe('calendário de prazos', () => {
     assert.equal(without, '2026-08-18');
     assert.equal(withLocal, '2026-08-19');
     setExtraHolidays([]);
+  });
+});
+
+describe('decadência e prescrição ordinária', () => {
+  it('150 §4º obstada: homologação com pagamento, constituição dentro do quinquênio', () => {
+    const r = computeDecadencia({
+      launchMode: 'homologacao_pagamento',
+      taxPeriodEnd: '2019-06-30',
+      constitutionDate: '2023-05-10'
+    }, ASOF);
+    assert.equal(r.rule, '150_4');
+    assert.equal(r.diesAQuo, '2019-06-30');
+    assert.equal(r.diesAdQuem, '2024-06-30');
+    assert.equal(r.status, 'obstada');
+  });
+
+  it('regra geral sem modalidade + constituição tardia: 173 I consumada, com gap', () => {
+    const r = computeDecadencia({
+      taxPeriodEnd: '2019-03-31',
+      constitutionDate: '2026-02-01'
+    }, ASOF);
+    assert.equal(r.diesAQuo, '2020-01-01');
+    assert.equal(r.diesAdQuem, '2025-01-01');
+    assert.equal(r.status, 'consumada');
+    assert.ok(r.gaps.length > 0);
+  });
+
+  it('declarado: obstada pela Súmula 436', () => {
+    const r = computeDecadencia({
+      launchMode: 'declarado',
+      constitutionDate: '2020-05-05'
+    }, ASOF);
+    assert.equal(r.status, 'obstada');
+    assert.equal(r.rule, 'declarado');
+    assert.ok(r.detail.includes('436'));
+  });
+
+  it('sem âncoras: sem_dados e gaps', () => {
+    const r = computeDecadencia({}, ASOF);
+    assert.equal(r.status, 'sem_dados');
+    assert.ok(r.gaps.length > 0);
+  });
+
+  it('presunção pela inscrição: ofício obstada com origem estimativa', () => {
+    const r = computeDecadencia({
+      launchMode: 'oficio',
+      taxPeriodEnd: '2018-12-31',
+      inscriptionDate: '2022-06-01'
+    }, ASOF);
+    assert.equal(r.diesAQuo, '2019-01-01');
+    assert.equal(r.diesAdQuem, '2024-01-01');
+    assert.equal(r.status, 'obstada');
+    assert.equal(r.origin, 'estimativa');
+  });
+
+  it('ordinária ajuizada dentro do quinquênio: interrompida (Tema 383)', () => {
+    const r = computeOrdinaria({
+      debt: cda({ constitutionDate: '2020-06-01' }),
+      executions: [ef()],
+      events: [],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'interrompido');
+    assert.equal(r.status, 'seguro');
+    assert.equal(r.diesAdQuem, null);
+    assert.ok(r.detail.includes('383'));
+  });
+
+  it('ordinária ajuizada fora do quinquênio: consumada', () => {
+    const r = computeOrdinaria({
+      debt: cda({ constitutionDate: '2014-01-01' }),
+      executions: [ef()],
+      events: [],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'consumado');
+    assert.equal(r.status, 'prescrito');
+  });
+
+  it('não ajuizada inalterada: inscrição + 5 anos', () => {
+    const r = computeOrdinaria({
+      debt: { id: 'd1', inscriptionDate: '2022-01-10' },
+      executions: [],
+      events: [],
+      asOf: ASOF
+    });
+    assert.equal(r.diesAdQuem, '2027-01-10');
+  });
+
+  it('citação sem marco não inaugura a intercorrente', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [{ id: 'c', executionId: 'e1', type: 'int_citacao', date: '2024-12-25' }],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'nao_iniciado');
+    assert.equal(r.status, 'seguro');
+    assert.ok(r.memory.some(m => /não inaugura/i.test(m.effect)));
+  });
+
+  it('computeCdaLegalTimeline: ajuizada tem os três segmentos; não ajuizada sem intercorrente', () => {
+    const ajuizada = computeCdaLegalTimeline({
+      debt: cda({ constitutionDate: '2020-06-01', taxPeriodEnd: '2019-12-31', launchMode: 'oficio' }),
+      executions: [ef()],
+      events: [],
+      asOf: ASOF
+    });
+    assert.ok(ajuizada.decadencia);
+    assert.ok(ajuizada.ordinaria);
+    assert.ok(ajuizada.intercorrente);
+    assert.ok(ajuizada.worst.key);
+
+    const naoAjuizada = computeCdaLegalTimeline({
+      debt: { id: 'x', inscriptionDate: '2022-01-10' },
+      executions: [],
+      events: [],
+      asOf: ASOF
+    });
+    assert.equal(naoAjuizada.intercorrente, null);
+  });
+
+  it('relatórios: memória técnica, recorte de decadência e consolidado de 2 inscrições', () => {
+    const debt = cda({ constitutionDate: '2020-06-01', taxPeriodEnd: '2019-12-31', launchMode: 'oficio' });
+    const timeline = computeCdaLegalTimeline({
+      debt,
+      executions: [ef()],
+      events: [],
+      asOf: ASOF
+    });
+    const full = buildPrescricaoReport({ debt, timeline, personName: 'Fulano', exec: ef(), scope: 'completo', asOf: ASOF });
+    assert.ok(full.includes('MEMÓRIA TÉCNICA'));
+
+    const onlyDec = buildPrescricaoReport({ debt, timeline, personName: 'Fulano', exec: ef(), scope: 'decadencia', asOf: ASOF });
+    assert.ok(!onlyDec.includes('PRESCRIÇÃO ORDINÁRIA'));
+
+    const other = { id: 'd2', inscriptionDate: '2022-01-10' };
+    const process = buildProcessPrescricaoReport({
+      exec: ef(),
+      entries: [
+        { debt, timeline, personName: 'Fulano' },
+        { debt: other, timeline: computeCdaLegalTimeline({ debt: other, executions: [], events: [], asOf: ASOF }), personName: 'Beltrano' }
+      ],
+      scope: 'completo',
+      asOf: ASOF
+    });
+    assert.ok(process.includes('2 inscrição'));
+  });
+
+  it('suggestLaunchMode: DCTF, auto de infração e vazio', () => {
+    assert.equal(suggestLaunchMode('DCTF ...'), 'declarado');
+    assert.equal(suggestLaunchMode('AUTO DE INFRAÇÃO'), 'oficio');
+    assert.equal(suggestLaunchMode(''), '');
   });
 });

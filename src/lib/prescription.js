@@ -70,6 +70,24 @@ export function fillRequestDate(evt) {
   return next;
 }
 
+/** Modalidades de lançamento — definem a regra do dies a quo da decadência. */
+export const LAUNCH_MODES = {
+  homologacao_pagamento: { label: 'Homologação — com pagamento antecipado', rule: '150_4', desc: 'Art. 150, §4º, CTN: decadência conta da data do fato gerador (Tema 163/STJ).' },
+  homologacao_sem_pagamento: { label: 'Homologação — sem pagamento nem declaração', rule: '173_1', desc: 'Art. 173, I, CTN: 1º dia do exercício seguinte (Súmula 555/STJ).' },
+  oficio: { label: 'Lançamento de ofício / auto de infração', rule: '173_1', desc: 'Art. 173, I, CTN: 1º dia do exercício seguinte àquele em que o lançamento poderia ter sido efetuado.' },
+  declarado: { label: 'Declarado pelo contribuinte (DCTF/GFIP/GIA)', rule: 'declarado', desc: 'Súmula 436/STJ: a declaração constitui o crédito — decadência prejudicada; prescrição conta da entrega ou do vencimento, o que for posterior.' },
+  vicio_formal: { label: 'Relançamento — anulação por vício formal', rule: '173_2', desc: 'Art. 173, II, CTN: novo quinquênio conta da decisão definitiva que anulou o lançamento.' },
+};
+
+/** Heurística: sugere a modalidade a partir do texto do SIDA (Forma de Constituição / Doc. de Origem). */
+export function suggestLaunchMode(text) {
+  const t = String(text || '').toLowerCase();
+  if (!t.trim()) return '';
+  if (/dctf|gfip|gia\b|dirf|per\/?dcomp|declara|confiss/.test(t)) return 'declarado';
+  if (/auto de infra|notifica[çc][ãa]o de lan[çc]amento|lan[çc]amento de of[ií]cio|\bai\b|nfld/.test(t)) return 'oficio';
+  return '';
+}
+
 const asIso = (v) => toDayKey(v) || '';
 
 const emptyResult = (overrides = {}) => ({
@@ -215,8 +233,22 @@ function applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup, originario })
   return pauses;
 }
 
-function computeOriginario({ debt, cdaEvents, asOfIso, informed, memory, gaps, timeline }) {
-  const start = asIso(debt.inscriptionDate);
+function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, memory, gaps, timeline }) {
+  const constitution = asIso(debt.constitutionDate);
+  const start = constitution || asIso(debt.inscriptionDate);
+  if (!start && exec) {
+    gaps.push('Sem âncora de constituição/inscrição para o quinquênio do art. 174.');
+    return {
+      ...emptyResult(),
+      segment: 'credito',
+      origin: 'estimativa',
+      phase: 'interrompido',
+      status: 'seguro',
+      detail: 'Ajuizada — prescrição ordinária interrompida com retroação à propositura (Tema 383). Sem âncora para reconstituir o quinquênio.',
+      prescriptionInterrupted: true,
+      memory, gaps, timeline
+    };
+  }
   if (!start && !informed) {
     return emptyResult({
       segment: 'credito',
@@ -225,7 +257,7 @@ function computeOriginario({ debt, cdaEvents, asOfIso, informed, memory, gaps, t
     });
   }
   if (!start) gaps.push('Sem inscrição — usando só a data informada.');
-  else if (!asIso(debt.constitutionDate) && !asIso(debt.firstChargeDate)) {
+  else if (!constitution && !asIso(debt.firstChargeDate)) {
     gaps.push('Âncora é a inscrição, não a constituição definitiva.');
   }
 
@@ -275,14 +307,51 @@ function computeOriginario({ debt, cdaEvents, asOfIso, informed, memory, gaps, t
   const need = yearSpanDays(originStart, 5);
   const diesAdQuemComputed = addUnpausedDays(originStart, need, pauses);
   const activeNow = pauses.filter(p => p.ongoing);
+
+  // ─── Ajuizada: o quinquênio do art. 174 termina no ajuizamento (Tema 383) ───
+  if (exec) {
+    const protocol = asIso(exec.protocolDate) || asIso(debt.protocolDate);
+    const originExec = constitution || cdaEvents.some(e => PRESC_EVENT_TYPES[normalizePrescEventType(e.type)]) ? 'calculo_validado' : 'estimativa';
+    memPush(memory, originStart, 'Dies a quo', constitution
+      ? 'Constituição definitiva do crédito (art. 174, caput, CTN).'
+      : 'Inscrição em dívida ativa — estimativa; a âncora legal é a constituição definitiva.');
+    memPush(memory, diesAdQuemComputed, 'Termo final projetado', '5 anos civis, descontadas suspensões do art. 151 CTN.');
+    if (protocol && protocol > diesAdQuemComputed) {
+      memPush(memory, protocol, 'Ajuizamento', 'APÓS o termo final do quinquênio — risco de prescrição ordinária consumada antes da propositura.');
+      return {
+        segment: 'credito', origin: originExec, phase: 'consumado', status: 'prescrito',
+        diesAQuo: originStart, diesAdQuem: diesAdQuemComputed, daysLeft: daysUntil(diesAdQuemComputed, asOfIso),
+        detail: `Prescrição ordinária consumada em ${fmtDate(diesAdQuemComputed)}, ANTES do ajuizamento (${fmtDate(protocol)}). Verificar causas interruptivas não registradas (parcelamento, confissão — Súmula 653).`,
+        memory, gaps, timeline,
+        prescriptionInterrupted: false, prescDaysConsumed: need, suspDaysConsumed: 0,
+        activeSuspensions: activeNow.map(p => p.id)
+      };
+    }
+    if (protocol) {
+      memPush(memory, protocol, 'Ajuizamento', 'Interrompe a prescrição com retroação à propositura (art. 174, p.ú., I, CTN; Tema 383/STJ).');
+    } else {
+      gaps.push('Data de protocolo da execução não informada — interrupção presumida pelo ajuizamento (Tema 383).');
+    }
+    return {
+      segment: 'credito', origin: originExec, phase: 'interrompido', status: 'seguro',
+      diesAQuo: originStart, diesAdQuem: null, daysLeft: null,
+      detail: `Prescrição ordinária interrompida pelo ajuizamento${protocol ? ' em ' + fmtDate(protocol) : ''} (Tema 383) — dentro do quinquênio iniciado em ${fmtDate(originStart)}. O risco passa à intercorrente.`,
+      memory, gaps, timeline,
+      prescriptionInterrupted: true, prescDaysConsumed: 0, suspDaysConsumed: 0,
+      activeSuspensions: activeNow.map(p => p.id)
+    };
+  }
+
   const diesAdQuem = informed || diesAdQuemComputed;
-  const origin = informed ? 'data_informada' : (cdaEvents.some(e => PRESC_EVENT_TYPES[normalizePrescEventType(e.type)]) ? 'calculo_validado' : 'estimativa');
+  const origin = informed ? 'data_informada' : (constitution || cdaEvents.some(e => PRESC_EVENT_TYPES[normalizePrescEventType(e.type)]) ? 'calculo_validado' : 'estimativa');
   const daysLeft = daysUntil(diesAdQuem, asOfIso);
   let phase = 'originario';
   if (activeNow.length) phase = 'suspenso';
   else if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
 
-  memPush(memory, originStart, 'Dies a quo', `Início do quinquênio originário (${origin === 'estimativa' ? 'inscrição + 5, estimativa' : 'após último interruptivo'}).`);
+  memPush(memory, originStart, 'Dies a quo', constitution
+    ? 'Constituição definitiva do crédito (art. 174, caput, CTN).'
+    : `Início do quinquênio originário (${origin === 'estimativa' ? 'inscrição + 5, estimativa' : 'após último interruptivo'}).`);
   memPush(memory, diesAdQuemComputed, 'Dies ad quem (calculado)', `5 anos civis, descontadas suspensões.`);
 
   return {
@@ -340,9 +409,8 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
 
     if (isConstriction && efetivacao <= asOfIso) {
       if (!marco) {
-        interrupted = true;
-        memPush(memory, effectDate, meta.label, 'Constrição/citação na EF. Sem marco ativo — ciclo do art. 40 continua não iniciado.');
-        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'interrompido' });
+        memPush(memory, effectDate, meta.label, 'Constrição/citação efetiva sem ciclo do art. 40 em curso — não inaugura a intercorrente (Tema 566). Originária já interrompida pelo ajuizamento (Tema 383).');
+        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'pre_marco' });
         continue;
       }
       const art40Need = yearSpanDays(marco, 1);
@@ -609,3 +677,219 @@ export const shouldPropagateIdpjAsSuspension = (type) => {
   const t = normalizePrescEventType(type);
   return EF_CONSTRICTION_TYPES.has(t) || t === IDPJ_CONSTRICTION_TYPE;
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DECADÊNCIA (arts. 150, §4º, e 173 CTN) e PRESCRIÇÃO ORDINÁRIA (art. 174 CTN)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const decResult = (over = {}) => ({
+  segment: 'decadencia', rule: '', status: 'sem_dados', origin: 'estimativa',
+  diesAQuo: null, diesAdQuem: null, daysLeft: null, detail: '', memory: [], gaps: [], ...over
+});
+
+/**
+ * Decadência do direito de constituir o crédito.
+ * Âncoras: debt.launchMode (regra), debt.taxPeriodEnd (fato gerador / decisão
+ * anulatória no 173, II), debt.constitutionDate (constituição definitiva).
+ */
+export function computeDecadencia(debt, asOf) {
+  if (!debt) return decResult({ detail: 'Sem dados.' });
+  const asOfIso = asIso(asOf) || localIso(new Date());
+  const memory = [];
+  const gaps = [];
+  const mode = LAUNCH_MODES[debt.launchMode] ? debt.launchMode : '';
+  const anchor = asIso(debt.taxPeriodEnd);
+  const constitution = asIso(debt.constitutionDate);
+  const inscription = asIso(debt.inscriptionDate);
+
+  if (mode === 'declarado') {
+    memPush(memory, constitution || anchor || null, 'Crédito declarado pelo contribuinte',
+      'Súmula 436/STJ — a entrega da declaração constitui o crédito, dispensado lançamento. Não há decadência a discutir.');
+    return decResult({
+      rule: 'declarado', status: 'obstada',
+      origin: constitution ? 'calculo_validado' : 'estimativa',
+      detail: 'Decadência prejudicada — crédito constituído pela própria declaração (Súmula 436/STJ).',
+      memory, gaps
+    });
+  }
+
+  if (!anchor) {
+    gaps.push('Sem período de apuração/fato gerador' + (mode ? '' : ' nem modalidade de lançamento') + ' — informe na inscrição para calcular a decadência.');
+    return decResult({ rule: mode ? LAUNCH_MODES[mode].rule : '', detail: 'Sem âncoras para o cálculo da decadência.', memory, gaps });
+  }
+
+  const rule = mode ? LAUNCH_MODES[mode].rule : '173_1';
+  if (!mode) gaps.push('Modalidade de lançamento não informada — aplicada a regra geral do art. 173, I, CTN (Súmula 555/STJ).');
+
+  let diesAQuo;
+  if (rule === '150_4') {
+    diesAQuo = anchor;
+    memPush(memory, diesAQuo, 'Dies a quo — fato gerador', 'Art. 150, §4º, CTN: homologação com pagamento antecipado (Tema 163/STJ). Dolo/fraude comprovados deslocam para o art. 173, I.');
+  } else if (rule === '173_2') {
+    diesAQuo = anchor;
+    memPush(memory, diesAQuo, 'Dies a quo — decisão anulatória definitiva', 'Art. 173, II, CTN: novo quinquênio após anulação por vício formal.');
+  } else {
+    diesAQuo = `${parseInt(anchor.slice(0, 4), 10) + 1}-01-01`;
+    memPush(memory, diesAQuo, 'Dies a quo — 1º dia do exercício seguinte', 'Art. 173, I, CTN' + (mode ? '' : ' (regra geral — Súmula 555/STJ)') + '.');
+  }
+  const diesAdQuem = addCalendarYears(diesAQuo, 5);
+  memPush(memory, diesAdQuem, 'Termo final do quinquênio decadencial', '5 anos civis. A decadência não se suspende nem se interrompe.');
+
+  if (constitution) {
+    if (constitution <= diesAdQuem) {
+      memPush(memory, constitution, 'Constituição definitiva', 'Notificação/constituição dentro do quinquênio — decadência obstada (Súmula 622/STJ).');
+      return decResult({
+        rule, status: 'obstada', origin: 'calculo_validado', diesAQuo, diesAdQuem,
+        detail: `Decadência obstada — constituição em ${fmtDate(constitution)}, dentro do quinquênio (termo final ${fmtDate(diesAdQuem)}).`,
+        memory, gaps
+      });
+    }
+    memPush(memory, constitution, 'Constituição definitiva', 'APÓS o termo final do quinquênio decadencial.');
+    return decResult({
+      rule, status: 'consumada', origin: 'calculo_validado', diesAQuo, diesAdQuem,
+      detail: `Constituição em ${fmtDate(constitution)}, APÓS o termo final (${fmtDate(diesAdQuem)}) — decadência consumada (art. 156, V, CTN). Verificar a modalidade e eventual dolo/fraude (art. 173, I).`,
+      memory, gaps
+    });
+  }
+
+  if (inscription) {
+    if (inscription <= diesAdQuem) {
+      gaps.push('Sem data de constituição definitiva — presunção pela inscrição, anterior ao termo final. Confirmar a notificação do lançamento nos autos.');
+      return decResult({
+        rule, status: 'obstada', origin: 'estimativa', diesAQuo, diesAdQuem,
+        detail: `Decadência presumidamente obstada — inscrição em ${fmtDate(inscription)}, anterior ao termo final (${fmtDate(diesAdQuem)}). Constituição necessariamente anterior à inscrição.`,
+        memory, gaps
+      });
+    }
+    gaps.push('Inscrição posterior ao termo final do quinquênio — apurar a data exata da constituição definitiva.');
+    return decResult({
+      rule, status: 'risco', origin: 'estimativa', diesAQuo, diesAdQuem,
+      detail: `Inscrição (${fmtDate(inscription)}) posterior ao termo final (${fmtDate(diesAdQuem)}). Se a constituição também foi posterior, a decadência consumou-se — verificar.`,
+      memory, gaps
+    });
+  }
+
+  const daysLeft = daysUntil(diesAdQuem, asOfIso);
+  gaps.push('Sem constituição nem inscrição informadas.');
+  return decResult({
+    rule, status: daysLeft != null && daysLeft <= 0 ? 'risco' : 'em_curso', origin: 'estimativa',
+    diesAQuo, diesAdQuem, daysLeft,
+    detail: daysLeft != null && daysLeft <= 0
+      ? `Quinquênio decadencial vencido em ${fmtDate(diesAdQuem)} sem constituição registrada — verificar.`
+      : `Prazo decadencial em curso até ${fmtDate(diesAdQuem)} (${daysLeft}d).`,
+    memory, gaps
+  });
+}
+
+/** Prescrição ordinária (art. 174 CTN) — mesmo motor do originário, com a checagem do Tema 383 quando ajuizada. */
+export function computeOrdinaria({ debt, executions = [], events = [], asOf } = {}) {
+  if (!debt) return emptyResult();
+  const asOfIso = asIso(asOf) || localIso(new Date());
+  const { exec, events: cdaEvents } = collectEventsForCda(debt, executions, events);
+  return computeOriginario({
+    debt, exec, cdaEvents, asOfIso,
+    informed: exec ? '' : asIso(debt.prescriptionDate),
+    memory: [], gaps: [], timeline: []
+  });
+}
+
+const LEGAL_SEVERITY = {
+  prescrito: 6, consumada: 6, consumado: 6,
+  critico: 5, alerta: 4, risco: 3,
+  correndo: 2, em_curso: 2, originario: 2,
+  suspenso: 1,
+  seguro: 0, obstada: 0,
+  sem_dados: -1
+};
+export const legalSeverity = (status) => (LEGAL_SEVERITY[status] != null ? LEGAL_SEVERITY[status] : -1);
+
+/** Os três segmentos extintivos da CDA + o pior status para radar. */
+export function computeCdaLegalTimeline({ debt, executions = [], events = [], asOf } = {}) {
+  const decadencia = computeDecadencia(debt, asOf);
+  const ordinaria = computeOrdinaria({ debt, executions, events, asOf });
+  const { exec } = collectEventsForCda(debt, executions, events);
+  const intercorrente = exec ? computePrescription({ debt, executions, events, asOf }) : null;
+  const segs = [
+    { key: 'decadencia', r: decadencia },
+    { key: 'ordinaria', r: ordinaria },
+    { key: 'intercorrente', r: intercorrente }
+  ].filter(s => s.r);
+  let worst = { key: null, status: 'sem_dados', sev: -1 };
+  segs.forEach(s => {
+    const sev = legalSeverity(s.r.status);
+    if (sev > worst.sev) worst = { key: s.key, status: s.r.status, sev };
+  });
+  return { decadencia, ordinaria, intercorrente, exec: exec || null, worst };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEMÓRIA TÉCNICA EXPORTÁVEL (texto para colar em peça)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const _money = (v) => (v == null || isNaN(Number(v))) ? '—'
+  : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const REPORT_SECTION_TITLES = {
+  decadencia: 'DECADÊNCIA (arts. 150, §4º, e 173 do CTN; Súmulas 555 e 622/STJ; Tema 163/STJ)',
+  ordinaria: 'PRESCRIÇÃO ORDINÁRIA (art. 174 do CTN; Tema 383/STJ; Súmulas 436 e 653/STJ)',
+  intercorrente: 'PRESCRIÇÃO INTERCORRENTE (art. 40 da LEF; Súmula 314/STJ; Temas 566–571/STJ; Tema 390/STF)'
+};
+
+function reportSection(lines, roman, key, result) {
+  if (!result) return;
+  lines.push(`${roman}. ${REPORT_SECTION_TITLES[key]}`);
+  let n = 1;
+  (result.memory || []).forEach(m => {
+    lines.push(`${n++}. ${m.date ? fmtDate(m.date) + ' — ' : ''}${m.event}: ${m.effect}`);
+  });
+  if (result.detail) lines.push(`Conclusão: ${result.detail}`);
+  (result.gaps || []).forEach(g => lines.push(`🔴 ${g}`));
+  lines.push('');
+}
+
+/**
+ * Memória técnica de uma CDA — texto numerado e neutro, pronto para colar.
+ * scope: 'completo' | 'decadencia' | 'ordinaria' | 'intercorrente'
+ */
+export function buildPrescricaoReport({ debt, timeline, personName = '', exec = null, scope = 'completo', asOf, includeHeader = true } = {}) {
+  if (!debt || !timeline) return '';
+  const L = [];
+  if (includeHeader) {
+    L.push('MEMÓRIA TÉCNICA — DECADÊNCIA E PRESCRIÇÃO');
+    L.push('');
+  }
+  L.push(`CDA ${debt.cdaNumber || 's/nº'}${debt.tribute ? ' · ' + debt.tribute : ''}${debt.value != null ? ' · ' + _money(debt.value) : ''}`);
+  if (personName) L.push(`Devedor: ${personName}`);
+  if (debt.inscriptionDate) L.push(`Inscrição em dívida ativa: ${fmtDate(debt.inscriptionDate)}`);
+  if (debt.processNumber) L.push(`Execução fiscal: ${debt.processNumber}${exec && exec.court ? ' — ' + exec.court : ''}${exec && exec.protocolDate ? ' — ajuizada em ' + fmtDate(exec.protocolDate) : ''}`);
+  if (includeHeader) {
+    L.push(`Gerada em ${fmtDate(asIso(asOf) || localIso(new Date()))} pelo NEXUS. Conferir os marcos nos autos antes de utilizar; itens 🔴 pendem de confirmação.`);
+  }
+  L.push('');
+  const romans = { decadencia: 'I', ordinaria: 'II', intercorrente: 'III' };
+  ['decadencia', 'ordinaria', 'intercorrente'].forEach(key => {
+    if (scope !== 'completo' && scope !== key) return;
+    reportSection(L, romans[key], key, timeline[key]);
+  });
+  return L.join('\n').trim();
+}
+
+/** Memória técnica consolidada de um processo — todas as CDAs vinculadas. */
+export function buildProcessPrescricaoReport({ exec, entries = [], scope = 'completo', asOf } = {}) {
+  const L = [];
+  L.push('MEMÓRIA TÉCNICA CONSOLIDADA — DECADÊNCIA E PRESCRIÇÃO');
+  L.push('');
+  if (exec) {
+    L.push(`Execução fiscal: ${exec.processNumber || 's/nº'}${exec.court ? ' — ' + exec.court : ''}${exec.protocolDate ? ' — ajuizada em ' + fmtDate(exec.protocolDate) : ''}`);
+  }
+  const total = entries.reduce((s, e) => s + (e.debt && e.debt.value ? e.debt.value : 0), 0);
+  L.push(`${entries.length} inscrição(ões) — total ${_money(total)}`);
+  L.push(`Gerada em ${fmtDate(asIso(asOf) || localIso(new Date()))} pelo NEXUS. Conferir os marcos nos autos antes de utilizar; itens 🔴 pendem de confirmação.`);
+  L.push('');
+  entries.forEach((e, i) => {
+    L.push(`═══ ${i + 1}/${entries.length} ═══`);
+    L.push(buildPrescricaoReport({ debt: e.debt, timeline: e.timeline, personName: e.personName || '', exec: e.exec || exec || null, scope, asOf, includeHeader: false }));
+    L.push('');
+  });
+  return L.join('\n').trim();
+}

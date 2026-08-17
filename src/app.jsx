@@ -149,19 +149,19 @@ const generateDemoData = () => {
 
   const debts = [
     // Op1
-    { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ', notesList:['Prescrição iminente — priorizar'] },
+    { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ', launchMode:'oficio', taxPeriodEnd: iso(-2600), constitutionDate: iso(-1700), notesList:['Prescrição iminente — priorizar'] },
     { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
-    { id:'cda-16', operationId:'op-demo-1', personId:'pe-2', cdaNumber:'90.6.23.000200-45', value:180000, system:'SIDA', status:'ativa', prescriptionDate: iso(240), tribute:'IRPF' },
+    { id:'cda-16', operationId:'op-demo-1', personId:'pe-2', cdaNumber:'90.6.23.000200-45', value:180000, system:'SIDA', status:'ativa', prescriptionDate: iso(240), constitutionDate: iso(-1100), tribute:'IRPF' },
     { id:'cda-19', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000125-45', value:92000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(180), inscriptionDate: iso(-1400), processNumber:'5001234-56.2023.4.04.7001', tribute:'PIS' },
     { id:'cda-20', operationId:'op-demo-1', personId:'pe-19', cdaNumber:'90.6.23.000300-45', value:350000, system:'Pandora', status:'ativa', prescriptionDate: iso(300), tribute:'IRPJ' },
     // Op2
-    { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS' },
+    { id:'cda-3', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000777-01', value:2340000, system:'Pandora', status:'ativa_ajuizada', prescriptionDate: iso(95), inscriptionDate: iso(-1800), processNumber:'5007777-88.2022.4.04.7002', tribute:'PIS/COFINS', launchMode:'declarado', constitutionDate: iso(-1900) },
     { id:'cda-4', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000778-01', value:150000, system:'SIDA', status:'parcelada', prescriptionDate: iso(620), tribute:'IRPJ' },
     { id:'cda-21', operationId:'op-demo-2', personId:'pe-4', cdaNumber:'90.6.22.000779-01', value:410000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(140), inscriptionDate: iso(-1700), processNumber:'5007777-88.2022.4.04.7002', tribute:'CSLL' },
     { id:'cda-22', operationId:'op-demo-2', personId:'pe-5', cdaNumber:'90.6.22.000800-01', value:75000, system:'SIDA', status:'ativa', prescriptionDate: iso(260), tribute:'IRPF' },
     { id:'cda-23', operationId:'op-demo-2', personId:'pe-22', cdaNumber:'90.6.22.000810-01', value:220000, system:'SIDA', status:'ativa', prescriptionDate: iso(200), tribute:'IRPJ' },
     // Op3
-    { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ' },
+    { id:'cda-5', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000045-88', value:5600000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(130), inscriptionDate: iso(-2400), processNumber:'5000045-12.2019.4.04.7003', tribute:'IRPJ', launchMode:'homologacao_sem_pagamento', taxPeriodEnd: iso(-3100), constitutionDate: iso(-2600) },
     { id:'cda-6', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000046-88', value:320000, system:'SIDA', status:'ativa', prescriptionDate: iso(60), prescriptionHandled:true, prescriptionHandledAt: iso(-10), prescriptionHandledType:'declarada', tribute:'CSLL' },
     { id:'cda-24', operationId:'op-demo-3', personId:'pe-6', cdaNumber:'90.6.19.000047-88', value:890000, system:'SIDA', status:'suspensa_judicial', prescriptionDate: iso(200), inscriptionDate: iso(-2300), processNumber:'5000045-12.2019.4.04.7003', tribute:'PIS/COFINS' },
     { id:'cda-25', operationId:'op-demo-3', personId:'pe-7', cdaNumber:'90.6.24.000900-88', value:145000, system:'SIDA', status:'ativa', prescriptionDate: iso(320), tribute:'IRPJ' },
@@ -175,9 +175,9 @@ const generateDemoData = () => {
     { id:'cda-28', operationId:'op-demo-4', personId:'pe-27', cdaNumber:'90.6.21.000320-30', value:55000, system:'SIDA', status:'ativa', prescriptionDate: iso(280), tribute:'IRPF' },
     // Op5
     { id:'cda-12', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.20.000880-40', value:540000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(110), inscriptionDate: iso(-1200), processNumber:'5006600-22.2020.4.04.7006', tribute:'ITR' },
-    { id:'cda-13', operationId:'op-demo-5', personId:'pe-15', cdaNumber:'90.6.20.000881-40', value:95000, system:'SIDA', status:'ativa', prescriptionDate: iso(160), tribute:'IRPF' },
+    { id:'cda-13', operationId:'op-demo-5', personId:'pe-15', cdaNumber:'90.6.20.000881-40', value:95000, system:'SIDA', status:'ativa', prescriptionDate: iso(160), tribute:'IRPF', launchMode:'oficio', taxPeriodEnd: iso(-4500) },
     { id:'cda-29', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.20.000882-40', value:380000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(45), inscriptionDate: iso(-1100), processNumber:'5006600-22.2020.4.04.7006', tribute:'IRPJ' },
-    { id:'cda-30', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.22.000883-40', value:125000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(28), inscriptionDate: iso(-900), processNumber:'5006610-22.2022.4.04.7006', tribute:'CSLL' },
+    { id:'cda-30', operationId:'op-demo-5', personId:'pe-14', cdaNumber:'90.6.22.000883-40', value:125000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(28), inscriptionDate: iso(-900), processNumber:'5006610-22.2022.4.04.7006', tribute:'CSLL', launchMode:'homologacao_pagamento', taxPeriodEnd: iso(-1400), constitutionDate: iso(-1000) },
     { id:'cda-31', operationId:'op-demo-5', personId:'pe-15', cdaNumber:'90.6.23.000884-40', value:48000, system:'SIDA', status:'ativa', prescriptionDate: iso(70), tribute:'ITR' },
   ];
 
@@ -2866,6 +2866,17 @@ function App() {
           if (rec.periodo && !existing.periodo) { merged.periodo = rec.periodo; touched = true; }
           if (rec.valueTotal && !existing.value) { merged.value = rec.valueTotal; touched = true; }
           if (rec.valueInscrito && !existing.valueInscrito) { merged.valueInscrito = rec.valueInscrito; touched = true; }
+          if (rec.formaConstituicao && !existing.formaConstituicao) { merged.formaConstituicao = rec.formaConstituicao; touched = true; }
+          if (rec.docOrigem && !existing.docOrigem) { merged.docOrigem = rec.docOrigem; touched = true; }
+          // Heurística: sugere a modalidade de lançamento pelo texto do SIDA (só quando vazio)
+          if (!existing.launchMode) {
+            const lmSuggested = suggestLaunchMode(`${rec.formaConstituicao || ''} ${rec.docOrigem || ''}`);
+            if (lmSuggested) {
+              merged.launchMode = lmSuggested;
+              touched = true;
+              logs.push(`  ⏱ Modalidade de lançamento sugerida p/ CDA ${rec.cdaNumber}: ${LAUNCH_MODES[lmSuggested].label} (heurística: "${truncate(rec.formaConstituicao || rec.docOrigem, 40)}")`);
+            }
+          }
 // ─── Situação → status canônico (SIDA e Debcad) ───
           // O campo "Situação:" do PDF reflete o estado ATUAL da inscrição (ex.:
           // "ATIVA AJUIZADA NEGOCIADA NO SISPAR"). Diferente dos demais campos
@@ -5656,6 +5667,34 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {selectedDebts.size > 0 && (<div className="bulk-bar">
           <span>{selectedDebts.size} selecionada(s)</span>
           <button className="btn-danger btn-sm" onClick={() => bulkDelete('debts', selectedDebts)}>Excluir selecionadas</button>
+          <button className="btn-secondary btn-sm" onClick={() => {
+            const selected = (data.debts || []).filter(d => selectedDebts.has(d.id));
+            const groups = new Map();
+            selected.forEach(d => {
+              const entry = {
+                debt: d,
+                timeline: computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }),
+                personName: (data.people || []).find(p => p.id === d.personId)?.name || d.devedor || ''
+              };
+              const key = d.processNumber || `__cda_${d.id}`;
+              if (!groups.has(key)) groups.set(key, { processNumber: d.processNumber || '', entries: [] });
+              groups.get(key).entries.push(entry);
+            });
+            const reports = [];
+            groups.forEach(group => {
+              const exec = group.processNumber
+                ? (data.executions || []).find(e => sameProc(e.processNumber, group.processNumber))
+                : null;
+              if (exec) reports.push(buildProcessPrescricaoReport({ exec, entries: group.entries }));
+              else group.entries.forEach(entry => reports.push(buildPrescricaoReport({
+                debt: entry.debt,
+                timeline: entry.timeline,
+                personName: entry.personName,
+                exec: entry.timeline.exec
+              })));
+            });
+            copyText(reports.join('\n\n\n')).then(() => alert(`Memória técnica copiada — ${selected.length} CDA(s).`));
+          }}>📋 Memória presc.</button>
           <button className="btn-secondary btn-xs" onClick={() => setSelectedDebts(new Set())}>Limpar</button>
         </div>)}
 
@@ -5671,15 +5710,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
             const sysAlerts = d.systemAlerts || [];
             const procStatusAlert = sysAlerts.find(a => a.type === 'process_status');
+            const deca = d.launchMode || d.taxPeriodEnd ? computeDecadencia(d) : null;
             return (<div key={d.id} className="entity-card-selectable">
               <input type="checkbox" checked={selectedDebts.has(d.id)} onChange={() => toggleDebt(d.id)} />
-              <div className="entity-card" style={{flex:1,borderLeft:procStatusAlert?`3px solid var(--${procStatusAlert.processStatus==='extinta'?'text-muted':'blue'})`:undefined,opacity:d.status==='extinta'?0.45:1}} onClick={() => setModal({type:'cdaDetail',entityType:'debt',initial:d})}>
+              <div style={{flex:1,minWidth:0}}>
+              <div className="entity-card" title="Clique para expandir" style={{borderLeft:procStatusAlert?`3px solid var(--${procStatusAlert.processStatus==='extinta'?'text-muted':'blue'})`:undefined,opacity:d.status==='extinta'?0.45:1,cursor:'pointer'}} onClick={(ev) => { if (ev.target.closest && ev.target.closest('input,button,a,select,.copyable')) return; toggleCdaExpand(d.id); }}>
                 <div className="ec-header"><div><div className="ec-title">
                   {isAguardando && <span className="has-tip" style={{color:'var(--yellow)',marginRight:4,fontSize:13}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>}
                   {isHandled && !isAguardando && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
                   <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable></div><div className="ec-sub">{d.system?`${d.system}`:''}{d.system && d.tribute?' · ':''}{d.tribute||''}</div></div>
                   <div style={{display:'flex',gap:4,alignItems:'center'}}>
                     <span className={`badge ${st.badge||''}`}>{st.label||d.status}</span>
+                    {deca && (deca.status === 'consumada' || deca.status === 'risco') && <span className={`badge ${deca.status === 'consumada' ? 'badge-red' : 'badge-yellow'} has-tip`} style={{fontSize:8}}>Decad.<span className="tip-content">{deca.detail}</span></span>}
                     {isAjuizada ? <span className="badge badge-green has-tip" style={{fontSize:8}}>AJ<span className="tip-content">CDA ajuizada — vinculada a uma execução fiscal.</span></span> : <span className="badge badge-red has-tip" style={{fontSize:8}}>NÃO AJ<span className="tip-content">CDA ainda não ajuizada — apenas inscrita em dívida ativa.</span></span>}
                     {procStatusAlert && <span className="has-tip" style={{fontSize:9,padding:'2px 6px',borderRadius:3,fontWeight:700,background:procStatusAlert.processStatus==='extinta'?'rgba(122,139,163,0.2)':'rgba(59,130,246,0.2)',color:procStatusAlert.processStatus==='extinta'?'var(--purple)':'var(--blue)'}}>⚠ Proc. {procStatusAlert.processStatus==='extinta'?'extinto':'arquivado'}<span className="tip-content">{procStatusAlert.label}<br/>Verificar se a CDA também deve ser marcada como extinta/baixada.</span></span>}
                   </div></div>
@@ -5708,6 +5750,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 {procStatusAlert && <div style={{marginTop:8,padding:'6px 10px',background:procStatusAlert.processStatus==='extinta'?'rgba(122,139,163,0.08)':'rgba(59,130,246,0.08)',borderRadius:4,borderLeft:`2px solid var(--${procStatusAlert.processStatus==='extinta'?'purple':'blue'})`,fontSize:10,color:'var(--text-secondary)'}}>
                   {procStatusAlert.label} — processo <ProcNum value={procStatusAlert.processNumber} />. Verifique pendência de baixa.
                 </div>}
+              </div>
+              {expandedCdas.has(d.id) && <div className="process-detail cda-expand-detail" onClick={ev=>ev.stopPropagation()}><CdaLegalDetail d={d} data={data} setModal={setModal} /></div>}
               </div>
             </div>);
           };
@@ -5741,6 +5785,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <span style={{fontSize:10,color:'var(--text-muted)',flex:1}}>{u.umbrella.court || ''}{u.umbrella.className?` · ${truncate(u.umbrella.className,40)}`:''}</span>
                     <span style={{fontSize:11,color:'var(--text-secondary)',fontWeight:600}}>{totalCdas} CDA(s)</span>
                     <span style={{fontSize:13,color:'var(--gold)',fontWeight:700}}>{fmtCur(total)}</span>
+                    <button className="btn-secondary btn-xs" style={{fontSize:9,padding:'2px 7px'}} onClick={ev => {
+                      ev.stopPropagation();
+                      const entries = u.allCdas.map(d => ({
+                        debt: d,
+                        timeline: computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }),
+                        personName: (data.people || []).find(p => p.id === d.personId)?.name || d.devedor || ''
+                      }));
+                      copyText(buildProcessPrescricaoReport({ exec: u.umbrella, entries }))
+                        .then(() => alert(`Memória técnica copiada — ${entries.length} CDA(s).`));
+                    }}>📋 Presc.</button>
                     <button className="btn-secondary btn-xs" style={{fontSize:9,padding:'2px 7px'}} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:u.umbrella}); }}>✎ Proc</button>
                   </div>
                   {/* Subgroups (EFs within the umbrella) */}
@@ -7355,74 +7409,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     if (!modal) return null;
     const { type, entityType, initial } = modal;
 
-    // ─── CDA DETAIL VIEW ───
-    if (type === 'cdaDetail' && entityType === 'debt' && initial) {
-      const d = initial;
-      const st = DEBT_STATUSES[d.status] || {};
-      const opExecsLocal = data.executions.filter(e => e.operationId === d.operationId);
-      const autoPresc = getPrescDate(d);
-      const prescDate = d.prescriptionDate || autoPresc;
-      const prescDays = daysUntil(prescDate);
-      const linkedExec = d.processNumber ? data.executions.find(e => sameProc(e.processNumber, d.processNumber) && e.operationId === d.operationId) : null;
-      const notes = d.notesList || (d.notes ? [d.notes] : []);
-      const responsibilities = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
-      const respPeople = responsibilities.map(r => {
-        const person = data.people.find(p => p.id === r.personId);
-        return person ? { ...r, personName: person.name, cpfCnpj: person.cpfCnpj } : null;
-      }).filter(Boolean);
-      const row = (label, value, color) => value ? (<div style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.03)',fontSize:11}}>
-        <span style={{color:'var(--text-muted)',minWidth:130,flexShrink:0}}>{label}</span>
-        <span style={{color:color||'var(--text-primary)',fontWeight:500}}>{value}</span>
-      </div>) : null;
-      return (<div style={{maxHeight:'80vh',overflowY:'auto'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div><span className={`badge ${st.badge||''}`} style={{fontSize:10,marginRight:8}}>{st.label||d.status}</span>
-            {d.processNumber && linkedExec && <span className="badge badge-muted" style={{fontSize:9}}>Ajuizada</span>}
-            {!d.processNumber && <span className="badge badge-muted" style={{fontSize:9}}>Não ajuizada</span>}
-          </div>
-          <button className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>✏ Editar</button>
-        </div>
-        {row('Nº CDA / Debcad', d.cdaNumber)}
-        {row('Devedor', d.devedor)}
-        {row('CPF/CNPJ (principal)', d.cnpj)}
-        {row('Situação (SIDA/Debcad)', d.rawStatus)}
-        {row('Tributo / Natureza', d.tribute)}
-        {row('Sistema / Receita', d.system)}
-        {row('Valor inscrito', d.valueInscrito ? fmtCur(d.valueInscrito) : null)}
-        {row('Valor total', d.value ? fmtCur(d.value) : null)}
-        {row('Período da dívida', d.periodo)}
-        {row('Data de inscrição', fmtDate(d.inscriptionDate))}
-        {row('Forma de constituição', d.formaConstituicao || d.docOrigem)}
-        {row('Nº processo judicial', d.processNumber)}
-        {d.processNumber && linkedExec && row('Vara/Juízo', linkedExec.court)}
-        {row('Data protocolo', fmtDate(d.protocolDate))}
-        {row('Prescrição' + (prescTag(d) ? ` (${prescTag(d)})` : ''),
-          prescDate ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}` : '—',
-          prescDays !== null && prescDays <= 180 ? 'var(--red)' : null)}
-        {d.prescriptionHandled && row('Prescrição tratada', d.prescriptionHandledType === 'aguardando_reconhecimento' ? '⏳ Aguardando reconhecimento' : '✓ Tratada')}
-        {respPeople.length > 0 && (<div style={{marginTop:12}}>
-          <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,fontWeight:700,color:'var(--text-muted)',marginBottom:6}}>Responsáveis ({respPeople.length})</div>
-          {respPeople.map((r, i) => (
-            <div key={i} style={{display:'flex',gap:8,alignItems:'center',padding:'3px 0',fontSize:11}}>
-              <span style={{color:'var(--text-primary)',fontWeight:500,cursor:'pointer'}} onClick={() => { const p = data.people.find(pp => pp.id === r.personId); if (p) setModal({type:'edit',entityType:'person',initial:p}); }}>{r.personName}</span>
-              <span style={{fontSize:9,color:'var(--text-muted)'}}>{r.cpfCnpj}</span>
-              <span className="badge badge-muted" style={{fontSize:8}}>{r.role === 'originario' ? 'Originário' : 'Corresponsável'}</span>
-            </div>
-          ))}
-        </div>)}
-        {notes.length > 0 && (<div style={{marginTop:12}}>
-          <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,fontWeight:700,color:'var(--text-muted)',marginBottom:6}}>Notas ({notes.length})</div>
-          <div className="note-stack" style={{maxHeight:150,overflowY:'auto'}}>
-            {notes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
-          </div>
-        </div>)}
-        <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
-          <button className="btn-secondary" onClick={() => setModal(null)}>Fechar</button>
-          <button className="btn-primary" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>✏ Editar Inscrição</button>
-        </div>
-      </div>);
-    }
-
     const isEdit = type === 'edit';
     return <EntityFormRouter entityType={entityType} initial={initial} data={data} operationId={activeOpId}
       addResponsibility={addResponsibility} removeResponsibility={removeResponsibility}
@@ -7430,7 +7416,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       onDelete={isEdit ? (id) => handleDelete(entityType, id) : null} />;
   };
 
-  const modalTitle = modal ? (modal.type === 'cdaDetail' ? 'Detalhes da Inscrição' : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||'')) : '';
+  const modalTitle = modal ? (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||'') : '';
 
   const tabList = ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
   const tabLabels = { notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
@@ -9788,6 +9774,183 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   </div>);
 }
 
+const CDA_SEGMENT_STATUS = {
+  obstada: { label: 'Obstada', color: 'var(--green)' },
+  seguro: { label: 'Sem risco atual', color: 'var(--green)' },
+  suspenso: { label: 'Suspensa', color: 'var(--blue)' },
+  em_curso: { label: 'Em curso', color: 'var(--text-secondary)' },
+  correndo: { label: 'Correndo', color: 'var(--text-secondary)' },
+  alerta: { label: 'Alerta', color: 'var(--yellow)' },
+  risco: { label: 'Verificar', color: 'var(--yellow)' },
+  critico: { label: 'Crítico', color: 'var(--red)' },
+  prescrito: { label: 'Prescrita', color: 'var(--red)' },
+  consumada: { label: 'Consumada', color: 'var(--red)' },
+  sem_dados: { label: 'Sem dados', color: 'var(--text-muted)' }
+};
+
+function CdaLegalDetail({ d, data, setModal }) {
+  const tl = useMemo(() => computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }), [d, data.executions, data.prescriptionEvents]);
+  const [scope, setScope] = useState('completo');
+  const [copied, setCopied] = useState(false);
+  const person = (data.people || []).find(p => p.id === d.personId);
+  const personName = person?.name || d.devedor || '';
+  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(Boolean);
+  const segments = [
+    { key: 'decadencia', title: 'Decadência', seg: tl.decadencia },
+    { key: 'ordinaria', title: 'Prescrição ordinária', seg: tl.ordinaria },
+    { key: 'intercorrente', title: 'Intercorrente', seg: tl.intercorrente }
+  ].filter(item => item.seg);
+  const field = (label, value) => value !== null && value !== undefined && value !== '' ? (
+    <div key={label} className="cda-inline-field">
+      <span className="im-label">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  ) : null;
+  const reportText = () => buildPrescricaoReport({
+    debt: d,
+    timeline: tl,
+    personName,
+    exec: tl.exec,
+    scope
+  });
+  const handleCopy = () => {
+    copyText(reportText()).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  const handleDownload = () => {
+    const escapeHtml = (value) => String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const report = reportText();
+    const title = `Memória técnica — CDA ${d.cdaNumber || 's/nº'}`;
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body><h1>${escapeHtml(title)}</h1><pre style="white-space:pre-wrap;font-family:'Consolas',monospace;font-size:13px">${escapeHtml(report)}</pre></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeCda = String(d.cdaNumber || 'sem_numero').replace(/[^a-z0-9_.-]+/gi, '_');
+    a.href = url;
+    a.download = `memoria_prescricao_${safeCda}_${localIso(new Date())}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  return (
+    <div className="cda-inline-detail" onClick={ev => ev.stopPropagation()}>
+      <div className="cda-inline-fields">
+        {field('Devedor', personName)}
+        {field('CPF/CNPJ', d.cnpj)}
+        {field('Situação origem', d.rawStatus)}
+        {field('Sistema', d.system)}
+        {field('Tributo', d.tribute)}
+        {field('Valor', d.value !== null && d.value !== undefined ? fmtCur(d.value) : null)}
+        {field('Valor inscrito', d.valueInscrito)}
+        {field('Período da dívida', d.periodo)}
+        {field('Forma de constituição', d.formaConstituicao || d.docOrigem)}
+        {field('Modalidade de lançamento', LAUNCH_MODES[d.launchMode]?.label)}
+        {field('Fim do período de apuração', d.taxPeriodEnd ? fmtDate(d.taxPeriodEnd) : null)}
+        {field('Constituição definitiva', d.constitutionDate ? fmtDate(d.constitutionDate) : null)}
+        {field('Inscrição', d.inscriptionDate ? fmtDate(d.inscriptionDate) : null)}
+        {field('Processo', d.processNumber ? `${d.processNumber}${tl.exec?.court ? ` · ${tl.exec.court}` : ''}` : null)}
+        {field('Protocolo', tl.exec?.protocolDate ? fmtDate(tl.exec.protocolDate) : null)}
+        {field('Data prescrição informada', d.prescriptionDate ? fmtDate(d.prescriptionDate) : null)}
+        {field('Tratamento', d.prescriptionHandled
+          ? (d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')
+          : null)}
+      </div>
+
+      <div className="cda-inline-resp">
+        <span className="im-label">Responsáveis</span>
+        <div style={{marginTop:4}}>
+          <ResponsibilityChips cdaId={d.id} data={data} onClickPerson={(p) => setModal({type:'edit',entityType:'person',initial:p})} />
+        </div>
+      </div>
+
+      {notes.length > 0 && (
+        <div className="note-stack" style={{maxHeight:120,overflowY:'auto',marginTop:8}}>
+          {notes.map((note, index) => (
+            <div key={index} className="note-item note-item-full">
+              {typeof note === 'string' ? note : (note.text || note.content || '')}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:8,marginTop:12}}>
+        {segments.map(({ key, title, seg }) => {
+          const status = CDA_SEGMENT_STATUS[seg.status] || CDA_SEGMENT_STATUS.sem_dados;
+          return (
+            <div key={key} style={{flex:1,minWidth:0,borderTop:`2px solid ${status.color}`,padding:'6px 8px',background:'var(--bg-card)'}}>
+              <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,color:'var(--text-muted)'}}>{title}</div>
+              <div style={{fontSize:11,fontWeight:700,color:status.color,marginTop:2}}>{status.label}</div>
+              <div style={{fontSize:9,fontFamily:'var(--font-mono)',color:'var(--text-secondary)',marginTop:2}}>
+                {seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—'} → {seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:8,marginTop:10}}>
+        {segments.map(({ key, title, seg }) => {
+          const status = CDA_SEGMENT_STATUS[seg.status] || CDA_SEGMENT_STATUS.sem_dados;
+          const origin = prescOriginLabel(seg);
+          const memory = seg.memory || [];
+          const gaps = seg.gaps || [];
+          const row = (label, value) => (
+            <div style={{display:'flex',justifyContent:'space-between',gap:8,fontSize:10,padding:'2px 0'}}>
+              <span style={{color:'var(--text-muted)'}}>{label}</span>
+              <strong style={{color:'var(--text-secondary)',fontFamily:'var(--font-mono)',textAlign:'right'}}>{value}</strong>
+            </div>
+          );
+          return (
+            <div key={key} style={{border:'1px solid var(--border)',borderRadius:4,padding:8,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:6}}>
+                <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,fontWeight:700,color:'var(--text-secondary)',flex:1}}>{title}</span>
+                <span style={{fontSize:9,fontWeight:700,color:status.color,border:`1px solid ${status.color}`,borderRadius:3,padding:'1px 5px'}}>{status.label}</span>
+                {origin && <span style={{fontSize:9,color:'var(--text-muted)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 5px'}}>{origin}</span>}
+              </div>
+              {d.prescriptionDate && (key === 'intercorrente' || (key === 'ordinaria' && !tl.intercorrente))
+                && row('Prescrição informada', fmtDate(d.prescriptionDate))}
+              {row('Dies a quo', seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—')}
+              {row('Dies ad quem', `${seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}${seg.daysLeft !== null && seg.daysLeft !== undefined ? ` (${seg.daysLeft}d)` : ''}`)}
+              {seg.detail && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',marginTop:6}}>{seg.detail}</div>}
+              <details style={{marginTop:6}}>
+                <summary style={{fontSize:10,color:'var(--text-secondary)',cursor:'pointer'}}>Memória de cálculo ({memory.length})</summary>
+                <ul style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',margin:'4px 0 0 16px',padding:0}}>
+                  {memory.map((m, index) => (
+                    <li key={index}>{m.date ? fmtDate(m.date) : '—'} — {m.event}: {m.effect}</li>
+                  ))}
+                </ul>
+              </details>
+              {gaps.map((gap, index) => (
+                <div key={index} style={{fontSize:10,lineHeight:1.45,color:'var(--text-muted)',marginTop:3}}>🔴 {gap}</div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="cda-inline-actions" style={{alignItems:'center',flexWrap:'wrap'}}>
+        <select className="btn-secondary btn-xs" value={scope} onChange={ev => setScope(ev.target.value)} style={{width:'auto'}}>
+          <option value="completo">Completo</option>
+          <option value="decadencia">Decadência</option>
+          <option value="ordinaria">Prescrição ordinária</option>
+          {tl.intercorrente && <option value="intercorrente">Intercorrente</option>}
+        </select>
+        <button type="button" className="btn-secondary btn-xs" onClick={handleCopy}>{copied ? 'Copiado ✓' : 'Copiar memória técnica'}</button>
+        <button type="button" className="btn-secondary btn-xs" onClick={handleDownload}>Baixar HTML</button>
+        <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>✏ Editar inscrição</button>
+        <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'create',entityType:'prescriptionEvent',initial:{cdaId:d.id, executionId:tl.exec?.id || ''}})}>+ Evento</button>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════
 // FORM ROUTER
 // ═══════════════════════════════════════════════
@@ -10451,6 +10614,28 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-row">
         <div className="form-group"><label>Processo Judicial</label><input value={form.processNumber||''} onChange={e=>set('processNumber',e.target.value)} placeholder="Nº do processo vinculado" /></div>
         <div className="form-group"><label>Tributo</label><input value={form.tribute||''} onChange={e=>set('tribute',e.target.value)} placeholder="IRPJ, CSLL, PIS..." /></div>
+      </div>
+
+      {/* Marcos do crédito — decadência e prescrição ordinária */}
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:12}}>
+        <label style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>⏱ Marcos do crédito (decadência / prescrição ordinária)
+          <HelpIcon tip="Âncoras do cálculo: a modalidade de lançamento define a regra da decadência (art. 150, §4º ou art. 173 CTN); o fim do período de apuração dá o dies a quo; a constituição definitiva obsta a decadência (Súmula 622) e abre o quinquênio do art. 174." />
+        </label>
+        <div className="form-row-3" style={{marginBottom:0}}>
+          <div className="form-group"><label>Modalidade de lançamento</label>
+            <select value={form.launchMode||''} onChange={e=>set('launchMode',e.target.value)} style={{fontSize:11}}>
+              <option value="">Não informada</option>
+              {Object.entries(LAUNCH_MODES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group"><label>{form.launchMode==='vicio_formal'?'Decisão anulatória definitiva':'Fim do período de apuração'}</label>
+            <input type="date" value={form.taxPeriodEnd||''} onChange={e=>set('taxPeriodEnd',e.target.value)} />
+          </div>
+          <div className="form-group"><label>Constituição definitiva</label>
+            <input type="date" value={form.constitutionDate||''} onChange={e=>set('constitutionDate',e.target.value)} />
+          </div>
+        </div>
+        {form.launchMode && LAUNCH_MODES[form.launchMode] && <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:4}}>{LAUNCH_MODES[form.launchMode].desc}</span>}
       </div>
 
       {/* Corresponsáveis section */}
