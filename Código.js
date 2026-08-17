@@ -493,8 +493,10 @@ function filterGeminiData_(data, scope, operationId) {
     debts.forEach(function(d) {
       if (!d.operationId || d.prescriptionHandled) return;
       var pd = d.prescriptionDate;
+      var snap = d.prescriptionSnapshot || {};
+      if (!pd && (snap.status === 'critico' || snap.status === 'alerta' || snap.status === 'prescrito')) pd = snap.diesAdQuem;
       if (!pd) return;
-      var dd = Math.ceil((new Date(pd + 'T00:00:00') - today) / 86400000);
+      var dd = snap.daysLeft != null && !d.prescriptionDate ? snap.daysLeft : Math.ceil((new Date(pd + 'T00:00:00') - today) / 86400000);
       if (dd <= 180) hot[d.operationId] = true;
     });
     ops = ops.filter(function(o) { return hot[o.id]; });
@@ -635,7 +637,7 @@ function buildGeminiPresc_(filtered) {
   today.setHours(0, 0, 0, 0);
   (filtered.debts || []).forEach(function(d) {
     if (d.status === 'extinta') return;
-    var pd = d.prescriptionDate;
+    var pd = d.prescriptionDate || (d.prescriptionSnapshot && d.prescriptionSnapshot.diesAdQuem) || '';
     if (!pd && !d.prescriptionHandled) {
       // ainda lista CDAs sem data se forem do recorte pequeno
       if ((filtered.operations || []).length > 5) return;

@@ -15,6 +15,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 const jsxPath = path.join(root, 'src', 'app.jsx');
+const datesPath = path.join(root, 'src', 'lib', 'dates.js');
+const prescPath = path.join(root, 'src', 'lib', 'prescription.js');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
 const outDemoPath = path.join(root, 'Nexus.demo.html');
@@ -24,7 +26,20 @@ const outDemoExperimentalPath = path.join(root, 'Nexus_demo_experimental.html');
 const outDemoExperimentalAlias = path.join(root, 'demo_experimental.html');
 const MARKER = '<!--INJECT_APP_JS-->';
 
-const jsx = fs.readFileSync(jsxPath, 'utf8');
+function unwrapModule(src) {
+  return src
+    .replace(/^import\s+[^;]+;\s*$/gm, '')
+    .replace(/^export\s+/gm, '');
+}
+
+const jsx = [
+  '/* --- src/lib/dates.js --- */',
+  unwrapModule(fs.readFileSync(datesPath, 'utf8')),
+  '/* --- src/lib/prescription.js --- */',
+  unwrapModule(fs.readFileSync(prescPath, 'utf8')),
+  '/* --- src/app.jsx --- */',
+  fs.readFileSync(jsxPath, 'utf8'),
+].join('\n');
 const shell = fs.readFileSync(shellPath, 'utf8');
 
 if (!shell.includes(MARKER)) {

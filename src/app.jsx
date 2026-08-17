@@ -4,7 +4,7 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const NEXUS_VERSION = (typeof window !== 'undefined' && window.__NEXUS_VERSION__) || '0.0.0';
 const STORAGE_KEY = 'nexus_fiscal_v2';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const defaultData = () => ({ operations: [], people: [], debts: [], executions: [], measures: [], assets: [], documents: [], prescriptionEvents: [], intimations: [], tasks: [], stickyNotes: [], watchlist: [], hearings: [], desk: [], models: [], importLogs: [], changeLog: [], links: { measurePeople: [], measureAssets: [], cdaResponsibilities: [] } });
+const defaultData = () => ({ operations: [], people: [], debts: [], executions: [], measures: [], assets: [], documents: [], prescriptionEvents: [], intimations: [], tasks: [], stickyNotes: [], watchlist: [], hearings: [], desk: [], models: [], importLogs: [], changeLog: [], calendar: { extraHolidays: [] }, links: { measurePeople: [], measureAssets: [], cdaResponsibilities: [] } });
 // Sugestões de classificação da biblioteca de modelos (texto livre — só orientam o formulário)
 const MODEL_CATEGORIES = ['Execução Fiscal', 'IDPJ', 'Cautelar Fiscal', 'Embargos', 'Exceção de pré-executividade', 'Recursos', 'Constrição / Penhora', 'Parcelamento / Suspensão', 'Outros'];
 const MODEL_SUBCATEGORIES = ['Prescrição', 'Redirecionamento', 'Dissolução irregular', 'Grupo econômico', 'Sucessão empresarial', 'Fraude à execução', 'Excesso de execução', 'Nulidade da CDA', 'Indisponibilidade de bens', 'Outros'];
@@ -298,13 +298,13 @@ const generateDemoData = () => {
 
   const prescriptionEvents = [
     { id:'pev-1', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_citacao', date: iso(-480), notes:'Citação válida do devedor originário.' },
-    { id:'pev-2', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_penhora', date: iso(-200), notes:'Penhora do imóvel matrícula 45.678.' },
+    { id:'pev-2', operationId:'op-demo-1', cdaId:'cda-1', executionId:'ex-1', type:'int_penhora', requestDate: iso(-220), date: iso(-200), notes:'Penhora do imóvel matrícula 45.678.' },
     { id:'pev-11', operationId:'op-demo-1', cdaId:'cda-2', executionId:'ex-1', type:'int_sisbajud', date: iso(-150), notes:'Bloqueio parcial de conta PJ.' },
     { id:'pev-3', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'marco_sem_bens', date: iso(-400), notes:'Ciência de ausência de bens penhoráveis — art. 40.' },
     { id:'pev-4', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'susp_art40', date: iso(-400), notes:'Suspensão automática 1 ano.' },
     { id:'pev-12', operationId:'op-demo-3', cdaId:'cda-5', executionId:'ex-5', type:'info_arquivamento', date: iso(-30), notes:'Arquivamento provisório após art. 40.' },
     { id:'pev-13', operationId:'op-demo-2', cdaId:'cda-3', executionId:'ex-3', type:'int_citacao', date: iso(-750), notes:'Citação da distribuidora.' },
-    { id:'pev-14', operationId:'op-demo-2', cdaId:'cda-3', executionId:'ex-3', type:'int_sisbajud', date: iso(-60), notes:'Bloqueio Sisbajud via MCF.' },
+    { id:'pev-14', operationId:'op-demo-2', cdaId:'cda-3', executionId:'ex-3', type:'susp_idpj_mcf_constricao', requestDate: iso(-80), date: iso(-60), _inheritedFromIDPJ:'ex-4', notes:'Bloqueio Sisbajud via MCF — suspende desde o pedido (tese fazendária).' },
     { id:'pev-15', operationId:'op-demo-2', cdaId:'cda-4', executionId:'ex-3', type:'susp_parcelamento', date: iso(-200), endDate: '', notes:'Parcelamento IRPJ vigente.' },
     { id:'pev-16', operationId:'op-demo-4', cdaId:'cda-11', executionId:'ex-10', type:'int_citacao', date: iso(-1900), notes:'Citação da holding.' },
     { id:'pev-17', operationId:'op-demo-4', cdaId:'cda-11', executionId:'ex-10', type:'int_penhora', date: iso(-1600), notes:'Penhora cobertura Batel.' },
@@ -472,6 +472,10 @@ const applyMigrations = (parsed) => {
     const alive = { intimation: new Set((merged.intimations||[]).map(i => i.id)), task: new Set((merged.tasks||[]).map(t => t.id)), hearing: new Set((merged.hearings||[]).map(h => h.id)) };
     merged.desk = merged.desk.filter(x => x && alive[x.type] && alive[x.type].has(x.id));
   }
+  if (!merged.calendar) merged.calendar = { extraHolidays: [] };
+  if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
+  merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
+  setExtraHolidays(merged.calendar.extraHolidays);
   return merged;
 };
 // ─── DIAGNÓSTICO DE INTEGRIDADE ───
@@ -582,6 +586,8 @@ const loadData = () => {
 let _quotaWarned = false;
 const LZ_PREFIX = 'LZS1|'; // marca payload comprimido no localStorage (JSON cru começa com '{')
 const saveData = (d) => {
+  try { attachPrescriptionSnapshots(d); } catch (e) { console.error('prescription snapshot', e); }
+  try { setExtraHolidays(d && d.calendar && d.calendar.extraHolidays); } catch (e) { /* ignore */ }
   const json = JSON.stringify(d);
   try {
     // Compressão UTF-16 (~5x menor): datasets grandes estouravam a cota de ~5MB do
@@ -602,113 +608,18 @@ const saveData = (d) => {
   }
 };
 const fmtCur = (v) => { if (!v && v !== 0) return '—'; return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v); };
-const _pad2 = (n) => String(n).padStart(2, '0');
-const localIso = (d) => `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
-// Parser de data — eproc/SheetJS/serial/BR. Sempre interpreta DD/MM como brasileiro (nunca US).
-const parseAnyDate = (v) => {
-  if (v == null || v === '') return '';
-  if (v instanceof Date && !isNaN(v.getTime())) return localIso(v);
-  const s = String(v).trim();
-  if (!s || s === '-' || /^nan|undefined|null$/i.test(s)) return '';
-  const iso = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) return `${iso[1]}-${_pad2(iso[2])}-${_pad2(iso[3])}`;
-  const dmy = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
-  if (dmy) {
-    let y = dmy[3];
-    if (y.length === 2) y = (parseInt(y, 10) > 50 ? '19' : '20') + y;
-    return `${y}-${_pad2(dmy[2])}-${_pad2(dmy[1])}`;
-  }
-  const num = parseFloat(s);
-  if (!isNaN(num) && num > 30000 && num < 60000) {
-    return new Date(Date.UTC(1899, 11, 30) + Math.round(num) * 86400000).toISOString().slice(0, 10);
-  }
-  return '';
-};
-const toDayKey = (v) => parseAnyDate(v);
-const extractPrazoDias = (desc) => {
-  const m = String(desc || '').match(/(\d+)\s*dias?/i);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  return (n > 0 && n <= 365) ? n : null;
-};
-const fmtDate = (d) => { const k = toDayKey(d); if (!k) return '—'; return new Date(k + 'T00:00:00').toLocaleDateString('pt-BR'); };
-const daysUntil = (d) => {
-  const k = toDayKey(d);
-  if (!k) return null;
-  const alvo = new Date(k + 'T00:00:00');
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  return Math.round((alvo - hoje) / 86400000);
-};
-// Intimação entra na agenda/e-mail: tem prazo parseável e ainda não houve atuação.
-// "Analisado" sem responseAction só some depois que o prazo vence (análise ≠ peticionamento).
+// ─── Nº de processo: comparar SEMPRE por dígitos ───
+// As planilhas de origem divergem no formato (eproc traz "5001234-56.2023.4.04.7001",
+// a Procuradoria traz "50012345620234047001"). Comparar string crua fazia o cruzamento
+// falhar em silêncio (CDA sem valor, EF "sem CDAs", intimação sem processo).
+// localIso, parseAnyDate, toDayKey, fmtDate, daysUntil, isBusinessDay, addBusinessDays,
+// coerceIntimDates, normProc e sameProc vêm de src/lib/dates.js (concatenados no build).
 const intimPrazoNaAgenda = (x) => {
   if (!x || x.responseAction) return false;
   const dl = toDayKey(x.dateDeadline);
   if (!dl) return false;
   if (x.status === 'analisado') return dl >= localIso(new Date());
   return true;
-};
-// ─── Nº de processo: comparar SEMPRE por dígitos ───
-// As planilhas de origem divergem no formato (eproc traz "5001234-56.2023.4.04.7001",
-// a Procuradoria traz "50012345620234047001"). Comparar string crua fazia o cruzamento
-// falhar em silêncio (CDA sem valor, EF "sem CDAs", intimação sem processo).
-const normProc = (s) => String(s == null ? '' : s).replace(/\D/g, '');
-const sameProc = (a, b) => { const x = normProc(a); return !!x && x === normProc(b); };
-// ─── Feriados nacionais + recesso forense (art. 220 CPC) ───
-// Calcula a Páscoa (algoritmo de Meeus) para feriados móveis.
-const _easterDate = (y) => {
-  const a = y % 19, b = Math.floor(y/100), cc = y % 100, dd = Math.floor(b/4), e = b % 4,
-        f = Math.floor((b+8)/25), g = Math.floor((b-f+1)/3), h = (19*a+b-dd-g+15) % 30,
-        i = Math.floor(cc/4), k = cc % 4, l = (32+2*e+2*i-h-k) % 7, m = Math.floor((a+11*h+22*l)/451),
-        month = Math.floor((h+l-7*m+114)/31), day = ((h+l-7*m+114) % 31) + 1;
-  return new Date(y, month-1, day);
-};
-const _holidayCache = {};
-const _nationalHolidays = (y) => {
-  if (_holidayCache[y]) return _holidayCache[y];
-  const pad = (n) => String(n).padStart(2,'0');
-  const iso = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
-  const easter = _easterDate(y);
-  const shift = (base, days) => { const d = new Date(base); d.setDate(d.getDate()+days); return d; };
-  const set = new Set([
-    `${y}-01-01`, `${y}-04-21`, `${y}-05-01`, `${y}-09-07`, `${y}-10-12`,
-    `${y}-11-02`, `${y}-11-15`, `${y}-11-20`, `${y}-12-25`,
-    iso(shift(easter,-48)), iso(shift(easter,-47)),  // Carnaval (seg/ter)
-    iso(shift(easter,-2)),                            // Sexta-feira Santa
-    iso(shift(easter,60)),                            // Corpus Christi
-    `${y}-08-11`, `${y}-11-01`, `${y}-12-08`          // feriados forenses (Lei 5.010/66, art. 62)
-  ]);
-  _holidayCache[y] = set;
-  return set;
-};
-// Recesso forense: 20/dez a 20/jan — prazos suspensos (art. 220 CPC)
-const _inForensicRecess = (d) => {
-  const m = d.getMonth(), day = d.getDate();
-  return (m === 11 && day >= 20) || (m === 0 && day <= 20);
-};
-const isBusinessDay = (d) => {
-  const dow = d.getDay();
-  if (dow === 0 || dow === 6) return false;
-  if (_inForensicRecess(d)) return false;
-  const pad = (n) => String(n).padStart(2,'0');
-  return !_nationalHolidays(d.getFullYear()).has(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);
-};
-const addBusinessDays = (dateStr, n) => {
-  const key = toDayKey(dateStr);
-  if (!key || !n) return null;
-  const d = new Date(key + 'T00:00:00');
-  let added = 0, guard = 0;
-  while (added < n && guard++ < 400) { d.setDate(d.getDate() + 1); if (isBusinessDay(d)) added++; }
-  return localIso(d);
-};
-const coerceIntimDates = (intim) => {
-  const out = { ...intim };
-  ['dateSent', 'dateStart', 'dateDeadline'].forEach(f => { if (out[f]) { const n = parseAnyDate(out[f]); if (n) out[f] = n; } });
-  if (!toDayKey(out.dateDeadline) && out.dateStart) {
-    const dias = extractPrazoDias(out.eventDescription);
-    if (dias) out.dateDeadline = addBusinessDays(out.dateStart, dias);
-  }
-  return out;
 };
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : s;
 
@@ -787,130 +698,8 @@ const buildExecQualification = (e, data) => {
   return lines.join('\n');
 };
 
-// Auto-calculate prescription date from imported data
-// Art. 40 LEF: 1 ano suspensão + 5 anos arquivamento = 6 anos total
-// Para CDA ajuizada: conta a partir da última data entre inscrição e ajuizamento (protocolo)
-// Para CDA não ajuizada: prescrição originária de 5 anos a partir da inscrição (art. 174 CTN)
-const calcAutoPresc = (debt, executions, events = []) => {
-  if (debt.prescriptionDate) return debt.prescriptionDate; // data manual prevalece
-  const inscDate = debt.inscriptionDate;
-  const exec = debt.processNumber ? executions.find(e => sameProc(e.processNumber, debt.processNumber)) : null;
-  const protDate = exec?.protocolDate;
-
-  // Need at least one date to calculate
-  if (!inscDate && !protDate) return '';
-
-  // Get events affecting this CDA (directly or via batch)
-  // Also include events of the PARENT execution if this CDA is linked to an apensa execution
-  const directEvents = events.filter(e =>
-    e.cdaId === debt.id ||
-    (e.batchCdaIds && e.batchCdaIds.includes(debt.id)) ||
-    (exec && e.executionId === exec.id && !e.cdaId && (!e.batchCdaIds || e.batchCdaIds.length === 0))
-  );
-  let inheritedEvents = [];
-  if (exec && exec.parentExecutionId) {
-    const parent = executions.find(e => e.id === exec.parentExecutionId);
-    if (parent) {
-      // Inherit events linked to parent execution itself, or to CDAs of the parent
-      const parentCdaIds = new Set(); // would need debts here, but we only have events
-      inheritedEvents = events.filter(e =>
-        (e.executionId === parent.id && !e.cdaId && (!e.batchCdaIds || e.batchCdaIds.length === 0)) ||
-        e._inheritedFromParent === parent.id
-      );
-    }
-  }
-  const cdaEvents = [...directEvents, ...inheritedEvents].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-
-  let baseDate;
-  if (exec) {
-    // Ajuizada: max(inscrição, protocolo) + 6 anos
-    let baseMs;
-    if (inscDate && protDate) {
-      baseMs = Math.max(new Date(inscDate + 'T00:00:00').getTime(), new Date(protDate + 'T00:00:00').getTime());
-    } else {
-      baseMs = new Date((protDate || inscDate) + 'T00:00:00').getTime();
-    }
-    baseDate = new Date(baseMs);
-    baseDate.setFullYear(baseDate.getFullYear() + 6);
-  } else {
-    // Não ajuizada: 5 anos da inscrição
-    if (!inscDate) return '';
-    baseDate = new Date(inscDate + 'T00:00:00');
-    baseDate.setFullYear(baseDate.getFullYear() + 5);
-  }
-
-  // Apply events: interruptive resets, suspensive shifts forward.
-  // Special handling: constriction events (penhora, arresto, SISBAJUD, CNIB) END the Art. 40 cycle.
-  // After a constriction, there's no active prescription unless a new marco is registered.
-  const CONSTRICTION_TYPES = new Set(['int_penhora', 'int_arresto', 'int_sisbajud', 'int_cnib', 'int_citacao_devedor']);
-  let lastEventWasConstriction = false;
-
-  for (const evt of cdaEvents) {
-    if (!evt.date || !evt.type) continue;
-    const evtType = PRESC_EVENT_TYPES[evt.type];
-    if (!evtType) continue;
-    const evtDate = new Date(evt.date + 'T00:00:00');
-    const isParcelamento = evt.type === 'susp_parcelamento';
-
-    // Check if this is a marco (restarts the Art. 40 cycle after a constriction)
-    if (evtType.category === 'marco') {
-      lastEventWasConstriction = false;
-      // Marco after constriction: new cycle starts
-      const newBase = new Date(evtDate);
-      newBase.setFullYear(newBase.getFullYear() + 6); // 1 year suspension + 5 years
-      baseDate = newBase;
-      continue;
-    }
-
-    // Step 1: interruptive effect (also applies to parcelamento)
-    if (evtType.category === 'interruptiva' || isParcelamento) {
-      if (CONSTRICTION_TYPES.has(evt.type)) {
-        // Constriction = Art. 40 cycle ENDS (assets found)
-        lastEventWasConstriction = true;
-      } else {
-        lastEventWasConstriction = false;
-      }
-      const newBase = new Date(evtDate);
-      newBase.setFullYear(newBase.getFullYear() + 5);
-      baseDate = newBase;
-    }
-
-    // Step 2: suspensive effect (also applies after parcelamento's interruption)
-    if (evtType.category === 'suspensiva') {
-      lastEventWasConstriction = false;
-      const endDate = evt.endDate ? new Date(evt.endDate + 'T00:00:00') : new Date(); // ongoing → up to today
-      const suspDays = Math.max(0, Math.floor((endDate - evtDate) / 86400000));
-      baseDate = new Date(baseDate.getTime() + suspDays * 86400000);
-    }
-  }
-
-  // If the last significant event was a constriction, the Art. 40 cycle is over.
-  // No prescription is running — return empty (safe).
-  if (lastEventWasConstriction) return '';
-
-  return baseDate.toISOString().slice(0, 10);
-};
-
-/**
- * Lookup O(1) do termo final de prescrição por CDA.
- * Pré-calcula uma vez por conjunto (debts/executions/events) e reutiliza no render.
- * Data manual (debt.prescriptionDate) sempre prevalece.
- */
-const createPrescDateLookup = (debts, executions, events = []) => {
-  const map = new Map();
-  const execs = executions || [];
-  const evts = events || [];
-  for (const d of debts || []) {
-    if (!d || !d.id) continue;
-    map.set(d.id, calcAutoPresc(d, execs, evts));
-  }
-  return (debt) => {
-    if (!debt) return '';
-    if (debt.prescriptionDate) return debt.prescriptionDate;
-    if (debt.id && map.has(debt.id)) return map.get(debt.id);
-    return calcAutoPresc(debt, execs, evts);
-  };
-};
+// Motor de prescrição: PRESC_EVENT_TYPES, computePrescription, createPrescLookup,
+// createPrescDateLookup, calcPrescription — src/lib/prescription.js (concatenado no build).
 
 const DEBT_STATUSES = {
   ativa: { label: 'Ativa', badge: 'badge-muted' },
@@ -1301,190 +1090,7 @@ const getBriefingEntries = (briefing) => {
   return out;
 };
 
-// ═══════════════════════════════════════════════
-// PRESCRIÇÃO INTERCORRENTE — Art. 40 LEF + Temas 566-571 STJ (REsp 1.340.553/RS)
-// Súmula 314/STJ · RE 636.562/SC (Tema 390 STF)
-// ═══════════════════════════════════════════════
-const PRESC_EVENT_TYPES = {
-  // Marcos iniciais (Tema 566)
-  marco_nao_localizacao: { label: 'Não localização do devedor', category: 'marco', color: 'var(--red)', desc: 'Ciência pela FP da não localização do devedor (art. 40, §1º LEF). Inicia automaticamente 1 ano de suspensão.' },
-  marco_sem_bens: { label: 'Ausência de bens penhoráveis', category: 'marco', color: 'var(--red)', desc: 'Ciência pela FP da inexistência de bens penhoráveis. Inicia automaticamente 1 ano de suspensão (Tema 566).' },
-  marco_insuficiencia_bens: { label: 'Insuficiência de bens penhoráveis', category: 'marco', color: 'var(--red)', desc: 'Aplicação analógica — insuficiência equiparada à inexistência (STJ).' },
-  // Causas interruptivas (Tema 568 + evolução jurisprudencial)
-  int_citacao: { label: 'Citação do devedor', category: 'interruptiva', color: 'var(--green)', desc: 'Citação válida interrompe prescrição (art. 174, p.ú., I CTN).' },
-  int_penhora: { label: 'Penhora efetiva', category: 'interruptiva', color: 'var(--green)', desc: 'Efetiva constrição patrimonial. Mero peticionamento NÃO basta (Tema 568).' },
-  int_arresto: { label: 'Arresto / Bloqueio de bens', category: 'interruptiva', color: 'var(--green)', desc: 'Arresto ou bloqueio com resultado positivo (Tema 568 + AREsp 2.619.243/PE).' },
-  int_sisbajud: { label: 'Bloqueio via Sisbajud', category: 'interruptiva', color: 'var(--green)', desc: 'Constrição via Sisbajud com resultado positivo. STJ: qualquer modalidade de constrição exitosa interrompe (2025).' },
-  int_cnib: { label: 'Indisponibilidade CNIB/CCS', category: 'interruptiva', color: 'var(--green)', desc: 'Decretação de indisponibilidade com resultado útil.' },
-  int_reconhecimento: { label: 'Reconhecimento da dívida', category: 'interruptiva', color: 'var(--green)', desc: 'Ato inequívoco do devedor reconhecendo a dívida (art. 174, p.ú., IV CTN).' },
-  int_despacho_citacao: { label: 'Despacho que ordena citação', category: 'interruptiva', color: 'var(--green)', desc: 'Despacho do juiz que ordena citação (art. 174, p.ú., I CTN — LC 118/2005).' },
-  int_protesto_judicial: { label: 'Protesto judicial', category: 'interruptiva', color: 'var(--green)', desc: 'Protesto judicial (art. 174, p.ú., II CTN).' },
-  int_protesto_extrajudicial: { label: 'Protesto extrajudicial da CDA', category: 'interruptiva', color: 'var(--green)', desc: 'Protesto extrajudicial da Certidão de Dívida Ativa como causa interruptiva da prescrição, nos termos do art. 174, p.ú., CTN, com redação dada pela LC 208/2024. Antes da LC 208/2024, o STJ já admitia a legitimidade do protesto de CDA (Tema 777 / REsp 1.686.659-SP), mas a eficácia interruptiva específica passou a ser expressa pela lei complementar. A data do evento é a data do registro do protesto no cartório.' },
-  int_outra: { label: 'Outra causa interruptiva', category: 'interruptiva', color: 'var(--green)', desc: 'Outra causa interruptiva com fundamentação.' },
-  // Causas suspensivas
-  susp_parcelamento: { label: 'Parcelamento (efeito duplo)', category: 'suspensiva', color: 'var(--blue)', desc: 'Efeito DUPLO: (1) interrompe a prescrição — pedido de parcelamento configura reconhecimento inequívoco do débito (art. 174, p.ú., IV CTN; STJ REsp 1.355.947/SP — Tema 980); (2) suspende a exigibilidade enquanto vigente (art. 151, VI CTN). O prazo prescricional reinicia do zero na data do parcelamento e fica pausado durante a vigência.' },
-  int_rescisao_parcelamento: { label: 'Rescisão de parcelamento', category: 'interruptiva', color: 'var(--red)', desc: 'Fim da vigência do parcelamento. A exigibilidade do crédito é restabelecida e o prazo prescricional quinquenal reinicia da data da rescisão (art. 174, p.ú., IV CTN c/c art. 151, VI CTN). Marco crítico para controle de prescrição.' },
-  susp_embargos: { label: 'Embargos com efeito suspensivo', category: 'suspensiva', color: 'var(--blue)', desc: 'Embargos à execução recebidos com efeito suspensivo.' },
-  susp_decisao_judicial: { label: 'Decisão judicial suspensiva', category: 'suspensiva', color: 'var(--blue)', desc: 'Liminar, tutela antecipada ou decisão judicial que suspende a exigibilidade.' },
-  susp_deposito: { label: 'Depósito judicial integral', category: 'suspensiva', color: 'var(--blue)', desc: 'Depósito integral suspende exigibilidade (art. 151, II CTN).' },
-  susp_falencia: { label: 'Falência / Recuperação judicial', category: 'suspensiva', color: 'var(--blue)', desc: 'Processo de falência ou recuperação judicial suspende prescrição.' },
-  susp_art40: { label: 'Suspensão art. 40 LEF (1 ano)', category: 'suspensiva', color: 'var(--blue)', desc: 'Período de 1 ano de suspensão automática (art. 40, §§1-2 LEF / Tema 566).' },
-  susp_outra: { label: 'Outra causa suspensiva', category: 'suspensiva', color: 'var(--blue)', desc: 'Outra causa suspensiva com fundamentação.' },
-  // Eventos informativos
-  info_peticao_sem_resultado: { label: 'Petição sem resultado útil', category: 'info', color: 'var(--text-muted)', desc: 'Mero peticionamento. NÃO interrompe prescrição (Tema 568). Registro para controle.' },
-  info_arquivamento: { label: 'Arquivamento (art. 40, §3º)', category: 'info', color: 'var(--text-muted)', desc: 'Arquivamento provisório após 1 ano de suspensão. Prazo quinquenal em curso.' },
-  info_desarquivamento: { label: 'Desarquivamento', category: 'info', color: 'var(--text-muted)', desc: 'Desarquivamento do feito.' },
-  info_decisao_prescricao: { label: 'Decisão sobre prescrição', category: 'info', color: 'var(--text-muted)', desc: 'Decisão judicial relacionada à prescrição intercorrente.' },
-  info_outro: { label: 'Outro evento', category: 'info', color: 'var(--text-muted)', desc: 'Registro informativo sem efeito no cômputo.' }
-};
-
-// Prescription Calculator — implements Art. 40 LEF + Temas 566-571
-function calcPrescription(executionId, events) {
-  const evts = events
-    .filter(e => e.executionId === executionId)
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  if (evts.length === 0) return { status: 'sem_dados', daysLeft: null, timeline: [], detail: 'Sem eventos registrados.' };
-
-  const SUSP_PERIOD = 365; // 1 year
-  const PRESC_PERIOD = 5 * 365; // 5 years
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  let timeline = [];
-  let currentMarco = null; // Date of the triggering event
-  let suspDaysConsumed = 0; // days of art.40 suspension consumed
-  let prescDaysConsumed = 0; // days of prescriptive period consumed
-  let activeSuspensions = []; // stack of active suspensive causes
-  let lastCalcDate = null;
-  let prescriptionInterrupted = false;
-  let phase = 'pre_marco'; // pre_marco | suspensao_art40 | prescricao_correndo | prescrito | interrompido
-
-  for (const evt of evts) {
-    const evtDate = new Date(evt.date + 'T00:00:00');
-    const evtType = PRESC_EVENT_TYPES[evt.type];
-    const cat = evtType?.category || 'info';
-
-    // Advance time from last event
-    if (lastCalcDate && (phase === 'suspensao_art40' || phase === 'prescricao_correndo')) {
-      const daysBetween = Math.floor((evtDate - lastCalcDate) / 86400000);
-      if (activeSuspensions.length === 0) { // not independently suspended
-        if (phase === 'suspensao_art40') {
-          const remaining = SUSP_PERIOD - suspDaysConsumed;
-          const used = Math.min(daysBetween, remaining);
-          suspDaysConsumed += used;
-          if (suspDaysConsumed >= SUSP_PERIOD) {
-            phase = 'prescricao_correndo';
-            const overflow = daysBetween - used;
-            prescDaysConsumed += overflow;
-          }
-        } else if (phase === 'prescricao_correndo') {
-          prescDaysConsumed += daysBetween;
-        }
-      }
-    }
-
-    // Process event
-    if (cat === 'marco') {
-      if (!currentMarco) {
-        currentMarco = evtDate;
-        phase = 'suspensao_art40';
-        suspDaysConsumed = 0;
-        prescDaysConsumed = 0;
-        timeline.push({ ...evt, effect: 'Inicia suspensão de 1 ano (art. 40 LEF)', phase: 'suspensao_art40' });
-      } else {
-        // New triggering event restarts the cycle
-        currentMarco = evtDate;
-        phase = 'suspensao_art40';
-        suspDaysConsumed = 0;
-        prescDaysConsumed = 0;
-        timeline.push({ ...evt, effect: 'Novo marco — reinicia suspensão de 1 ano', phase: 'suspensao_art40' });
-      }
-    } else if (cat === 'interruptiva') {
-      prescDaysConsumed = 0;
-      prescriptionInterrupted = true;
-      phase = currentMarco ? 'interrompido' : 'pre_marco';
-      timeline.push({ ...evt, effect: 'INTERROMPE prescrição — prazo quinquenal reinicia do zero. Ciclo Art. 40 encerrado (bens/devedor localizados).', phase });
-    } else if (cat === 'suspensiva') {
-      if (!evt.endDate) {
-        activeSuspensions.push(evt.id);
-      }
-      timeline.push({ ...evt, effect: `SUSPENDE cômputo da prescrição${evt.endDate ? ` até ${fmtDate(evt.endDate)}` : ' (em vigor)'}`, phase });
-    } else {
-      timeline.push({ ...evt, effect: evtType?.desc || 'Registro informativo', phase });
-    }
-
-    lastCalcDate = evtDate;
-  }
-
-  // Advance to today
-  if (lastCalcDate && (phase === 'suspensao_art40' || phase === 'prescricao_correndo')) {
-    const daysBetween = Math.floor((today - lastCalcDate) / 86400000);
-    // Check if any suspensions have ended
-    const activeNow = activeSuspensions.filter(sid => {
-      const sevt = evts.find(e => e.id === sid);
-      return sevt && (!sevt.endDate || new Date(sevt.endDate + 'T00:00:00') > today);
-    });
-    if (activeNow.length === 0) {
-      if (phase === 'suspensao_art40') {
-        const remaining = SUSP_PERIOD - suspDaysConsumed;
-        const used = Math.min(daysBetween, remaining);
-        suspDaysConsumed += used;
-        if (suspDaysConsumed >= SUSP_PERIOD) {
-          phase = 'prescricao_correndo';
-          prescDaysConsumed += daysBetween - used;
-        }
-      } else if (phase === 'prescricao_correndo') {
-        prescDaysConsumed += daysBetween;
-      }
-    }
-  }
-
-  // Determine final status
-  let status, daysLeft, detail;
-  const activeNow = activeSuspensions.filter(sid => {
-    const sevt = evts.find(e => e.id === sid);
-    return sevt && (!sevt.endDate || new Date(sevt.endDate + 'T00:00:00') > today);
-  });
-
-  if (phase === 'pre_marco' || phase === 'interrompido') {
-    status = 'seguro';
-    daysLeft = null;
-    detail = prescriptionInterrupted
-      ? 'Prescrição interrompida (constrição/citação efetiva). Ciclo Art. 40 LEF encerrado — prazo só reinicia se novo marco for registrado (ex: frustração da penhora, não localização de bens).'
-      : 'Nenhum marco prescricional ativo. Ciclo Art. 40 LEF não iniciado.';
-  } else if (activeNow.length > 0) {
-    status = 'suspenso';
-    daysLeft = PRESC_PERIOD - prescDaysConsumed + (SUSP_PERIOD - suspDaysConsumed);
-    detail = `Prescrição suspensa (causa ativa). Dias consumidos: ${prescDaysConsumed} de ${PRESC_PERIOD}.`;
-  } else if (phase === 'suspensao_art40') {
-    daysLeft = (SUSP_PERIOD - suspDaysConsumed) + PRESC_PERIOD;
-    status = daysLeft <= 365 ? 'alerta' : 'correndo';
-    detail = `Fase de suspensão art. 40: ${suspDaysConsumed}/${SUSP_PERIOD} dias. Faltam ${SUSP_PERIOD - suspDaysConsumed}d para iniciar prazo quinquenal.`;
-  } else if (phase === 'prescricao_correndo') {
-    daysLeft = PRESC_PERIOD - prescDaysConsumed;
-    if (daysLeft <= 0) {
-      status = 'prescrito';
-      detail = `PRESCRIÇÃO INTERCORRENTE CONSUMADA. Prazo expirou há ${Math.abs(daysLeft)} dias.`;
-    } else if (daysLeft <= 365) {
-      status = 'critico';
-      detail = `CRÍTICO: ${daysLeft} dias restantes para prescrição intercorrente.`;
-    } else if (daysLeft <= 730) {
-      status = 'alerta';
-      detail = `Alerta: ${daysLeft} dias restantes (${(daysLeft / 365).toFixed(1)} anos).`;
-    } else {
-      status = 'correndo';
-      detail = `Prazo quinquenal em curso: ${prescDaysConsumed}/${PRESC_PERIOD} dias consumidos. Restam ${daysLeft}d (${(daysLeft / 365).toFixed(1)}a).`;
-    }
-  } else {
-    status = 'sem_dados';
-    daysLeft = null;
-    detail = 'Estado indeterminado.';
-  }
-
-  return { status, daysLeft, timeline, detail, phase, prescDaysConsumed, suspDaysConsumed, prescriptionInterrupted, activeSuspensions: activeNow };
-}
-
+// Catalogo e calculadora: src/lib/prescription.js (concatenado no build).
 const INTIM_STATUSES = {
   pendente_analise: { label: 'Pendente de Análise', badge: 'badge-yellow' },
   aguardando_subsidios: { label: 'Aguardando Subsídios', badge: 'badge-muted' },
@@ -3651,10 +3257,16 @@ function App() {
   }, [data.operations]);
 
   // ─── PERF: termo final de prescrição por CDA (1 cálculo por debt ao mudar dados) ───
-  const getPrescDate = useMemo(
-    () => createPrescDateLookup(data.debts, data.executions, data.prescriptionEvents || []),
+  const prescLookup = useMemo(
+    () => createPrescLookup(data.debts, data.executions, data.prescriptionEvents || []),
     [data.debts, data.executions, data.prescriptionEvents]
   );
+  const getPrescDate = useMemo(() => (d) => prescLookup.date(d), [prescLookup]);
+  const prescTag = (d) => {
+    if (!d) return '';
+    if (d.prescriptionDate) return 'informada';
+    return prescOriginLabel(prescLookup(d));
+  };
 
   // Global search results (filtro adiado via deferredGsQuery)
   const gsResults = useMemo(() => {
@@ -4228,6 +3840,15 @@ function App() {
     const wantsWatch = entity._openWatch;
     const cleanEntity = { ...entity };
     delete cleanEntity._openWatch;
+    let noApensoPropagation = false;
+    let propagateToLinkedEFs = true;
+    if (type === 'prescriptionEvent') {
+      Object.assign(cleanEntity, fillRequestDate(cleanEntity));
+      noApensoPropagation = !!cleanEntity._noApensoPropagation;
+      propagateToLinkedEFs = cleanEntity._propagateToLinkedEFs !== false;
+      delete cleanEntity._noApensoPropagation;
+      delete cleanEntity._propagateToLinkedEFs;
+    }
     // ─── ETAPA 5: Propagação de status de processo → CDAs vinculadas ───
     // Quando um processo é marcado como extinto ou arquivado, as CDAs vinculadas
     // recebem aviso visual automático (via systemAlerts), e é oferecido ao usuário
@@ -4312,6 +3933,7 @@ function App() {
             int_arresto: 'garantida',
             int_sisbajud: 'garantida',
             int_cnib: 'garantida',
+            susp_idpj_mcf_constricao: 'garantida',
           };
           const newStatus = statusMap[cleanEntity.type];
           if (newStatus) {
@@ -4324,7 +3946,8 @@ function App() {
       }
 
       // Propagate event to apensos when source is a principal execution and propagation isn't disabled
-      if (cleanEntity.executionId && !cleanEntity._noApensoPropagation && !cleanEntity._inheritedFromParent) {
+      const isNewPrescEvent = !(data.prescriptionEvents || []).some(e => e.id === cleanEntity.id);
+      if (isNewPrescEvent && cleanEntity.executionId && !noApensoPropagation && !cleanEntity._inheritedFromParent) {
         const principal = data.executions.find(e => e.id === cleanEntity.executionId);
         if (principal && !principal.parentExecutionId) {
           const apensos = data.executions.filter(e => e.parentExecutionId === principal.id);
@@ -4347,23 +3970,26 @@ function App() {
       }
 
       // Propagate event from IDPJ/Cautelar to linked EFs
-      if (cleanEntity.executionId && cleanEntity._propagateToLinkedEFs !== false && !cleanEntity._inheritedFromIDPJ) {
+      if (isNewPrescEvent && cleanEntity.executionId && propagateToLinkedEFs && !cleanEntity._inheritedFromIDPJ) {
         const idpjExec = data.executions.find(e => e.id === cleanEntity.executionId && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal'));
         if (idpjExec && idpjExec.linkedExecutionIds && idpjExec.linkedExecutionIds.length > 0) {
           const linkedEFs = idpjExec.linkedExecutionIds.map(id => data.executions.find(e => e.id === id)).filter(Boolean);
           if (linkedEFs.length > 0) {
             const now = new Date().toISOString();
             const tagLabel = idpjExec.processTag === 'idpj' ? 'IDPJ' : 'Cautelar Fiscal';
+            const payload = shouldPropagateIdpjAsSuspension(cleanEntity.type)
+              ? idpjPropagationPayload(cleanEntity)
+              : { ...cleanEntity };
             const newEvents = linkedEFs.map(ef => ({
-              ...cleanEntity,
+              ...payload,
               id: uid(),
               executionId: ef.id,
               cdaId: '',
               batchCdaIds: [],
               _inheritedFromIDPJ: idpjExec.id,
-              _propagateToLinkedEFs: false, // prevent recursive propagation
-              _noApensoPropagation: true, // don't double-propagate to apensos of the EF (user can do that separately)
-              notes: (cleanEntity.notes || '') + ` [propagado do ${tagLabel} ${idpjExec.processNumber||''}]`,
+              _propagateToLinkedEFs: false,
+              _noApensoPropagation: true,
+              notes: (payload.notes || '') + ` [propagado do ${tagLabel} ${idpjExec.processNumber||''}${shouldPropagateIdpjAsSuspension(cleanEntity.type) ? ' · suspensão desde o pedido' : ''}]`,
               createdAt: now,
               updatedAt: now
             }));
@@ -4946,7 +4572,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const prescExec = execs.filter(e => {
       const evts = (data.prescriptionEvents || []).filter(pe => pe.executionId === e.id);
       if (evts.length > 0) {
-        const calc = calcPrescription(e.id, data.prescriptionEvents || []);
+        const calc = calcPrescription(e.id, data.prescriptionEvents || [], { debts, executions: execs });
         return calc.status === 'critico' || calc.status === 'alerta' || calc.status === 'prescrito';
       }
       const dd = daysUntil(e.prescriptionForecast); return dd !== null && dd <= 365;
@@ -6062,7 +5688,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div className="ec-row"><span className="label">Valor:</span><span style={{fontWeight:600}}>{fmtCur(d.value)}</span></div>
                 {d.processNumber && <div className="ec-row"><span className="label">Proc. Judicial:</span><Copyable value={d.processNumber} style={{fontSize:10,fontFamily:'var(--font-mono)'}}>{d.processNumber}</Copyable></div>}
                 {d.inscriptionDate && <div className="ec-row"><span className="label">Inscrição:</span><span>{fmtDate(d.inscriptionDate)}</span></div>}
-                <div className="ec-row"><span className="label">Prescrição{!d.prescriptionDate&&autoPresc?' (auto)':''}:</span>
+                <div className="ec-row"><span className="label">Prescrição{prescTag(d) ? ` (${prescTag(d)})` : ''}:</span>
                   {isAguardando ? <span style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}</span>
                    : <span style={{color:days!==null&&days<=365?days<=180?'var(--red)':'var(--yellow)':'inherit',fontWeight:days!==null&&days<=365?600:400}}>
                     {prescDate?fmtDate(prescDate):'—'} {days!==null&&days<=365?` (${days}d)`:''}
@@ -6242,8 +5868,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {field('Valor', d.value != null ? fmtCur(d.value) : null)}
               {field('Inscrição', fmtDate(d.inscriptionDate))}
               {field('Prescrição', prescDate
-                ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${!d.prescriptionDate && autoPresc ? ' · auto' : ''}`
-                : '—',
+                ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${prescTag(d) ? ` · ${prescTag(d)}` : ''}`
+                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (Tema 383 / sem marco)' : '—'),
                 prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined)}
               {d.prescriptionHandled && field('Tratamento',
                 d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')}
@@ -6265,6 +5891,45 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     );
                   })}
                 </div>
+              </div>
+            )}
+            {(() => {
+              const pevs = collectEventsForCda(d, data.executions, data.prescriptionEvents || []).events;
+              if (!pevs.length) return null;
+              return (
+                <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
+                  <span className="im-label">Eventos ({pevs.length})</span>
+                  <ul style={{margin:'4px 0 0',padding:0,listStyle:'none'}}>
+                    {pevs.map(ev => {
+                      const meta = PRESC_EVENT_TYPES[normalizePrescEventType(ev.type)] || {};
+                      const pedido = ev.requestDate && ev.requestDate !== ev.date;
+                      return (
+                        <li key={ev.id} style={{display:'flex',gap:6,alignItems:'baseline',padding:'3px 0',borderBottom:'1px dotted var(--border)'}}>
+                          <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
+                            onClick={() => setModal({ type: 'edit', entityType: 'prescriptionEvent', initial: ev })}>✎</button>
+                          <span>
+                            <strong>{meta.label || ev.type}</strong>
+                            {pedido ? ` · pedido ${fmtDate(ev.requestDate)}` : ''}
+                            {ev.date ? ` · ${pedido ? 'efetiva ' : ''}${fmtDate(ev.date)}` : ''}
+                            {ev.endDate ? ` · até ${fmtDate(ev.endDate)}` : ''}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })()}
+            {prescLookup(d).memory && prescLookup(d).memory.length > 0 && (
+              <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
+                <span className="im-label">Memória de cálculo</span>
+                <div style={{marginTop:4}}>{prescLookup(d).detail}</div>
+                <ul style={{margin:'4px 0 0 16px',padding:0}}>
+                  {prescLookup(d).memory.slice(0, 8).map((m, i) => (
+                    <li key={i}>{m.date ? fmtDate(m.date) + ' — ' : ''}{m.event}: {m.effect}</li>
+                  ))}
+                </ul>
+                {prescLookup(d).gaps.length > 0 && <div style={{marginTop:4,color:'var(--text-muted)'}}>{prescLookup(d).gaps.join(' ')}</div>}
               </div>
             )}
             {notes.length > 0 && (
@@ -7731,7 +7396,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {row('Nº processo judicial', d.processNumber)}
         {d.processNumber && linkedExec && row('Vara/Juízo', linkedExec.court)}
         {row('Data protocolo', fmtDate(d.protocolDate))}
-        {row('Prescrição' + (!d.prescriptionDate && autoPresc ? ' (auto)' : ''),
+        {row('Prescrição' + (prescTag(d) ? ` (${prescTag(d)})` : ''),
           prescDate ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}` : '—',
           prescDays !== null && prescDays <= 180 ? 'var(--red)' : null)}
         {d.prescriptionHandled && row('Prescrição tratada', d.prescriptionHandledType === 'aguardando_reconhecimento' ? '⏳ Aguardando reconhecimento' : '✓ Tratada')}
@@ -7913,6 +7578,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('hoje')}>Atualizar · Fila de hoje</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('operacao')} disabled={!activeOpId}>Atualizar · Operação atual</button>
       </div>
+    </div>
+    <div className="settings-group">
+      <div className="settings-label">Calendário local (prazos processuais)</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6,lineHeight:1.4}}>
+        Feriados e suspensões da comarca, um por linha (AAAA-MM-DD). Não entram na contagem de prescrição — só nos prazos em dias úteis. Sem esta lista, o vencimento calculado é estimativa.
+      </div>
+      <textarea rows={4} value={(data.calendar && (data.calendar.extraHolidays||[]).join('\n')) || ''}
+        onChange={e => {
+          const extraHolidays = e.target.value.split(/\s+/).map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
+          setData(prev => ({ ...prev, calendar: { ...(prev.calendar||{}), extraHolidays } }));
+        }}
+        placeholder="2026-12-19&#10;2026-03-17"
+        style={{width:'100%',fontSize:11,fontFamily:'var(--font-mono)',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,padding:6}} />
     </div>
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
@@ -8266,7 +7944,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
         title: truncate(d.cdaNumber || 'CDA', 28),
         meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
-        tip: `Termo final de prescrição · ${fmtDate(pd)}${!d.prescriptionDate ? ' (auto)' : ''}`,
+        tip: `Termo final de prescrição · ${fmtDate(pd)}${prescTag(d) ? ' (' + prescTag(d) + ')' : ''}`,
         onClick: () => {
           if (d.operationId) { setActiveOpId(d.operationId); setViewMode('operation'); setActiveTab('prescricao_v2'); }
         },
@@ -11114,6 +10792,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     const opExecs = (data?.executions||[]).filter(e=>e.operationId===operationId);
     const opDebts = (data?.debts||[]).filter(d=>d.operationId===operationId);
     const selectedType = PRESC_EVENT_TYPES[form.type];
+    const needsRequestDate = eventNeedsRequestDate(form.type);
     const batchCdas = form.batchCdaIds ? opDebts.filter(d => form.batchCdaIds.includes(d.id)) : [];
     const singleCda = form.cdaId ? opDebts.find(d => d.id === form.cdaId) : null;
     const categories = [
@@ -11154,7 +10833,16 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         {selectedType && <div style={{marginTop:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.5,padding:'6px 8px',background:'var(--bg-elevated)',borderRadius:'var(--radius)'}}>{selectedType.desc}</div>}
       </div>
       <div className="form-row">
-        <div className="form-group"><label>Data do Evento</label><input type="date" value={form.date||''} onChange={e=>set('date',e.target.value)} /></div>
+        {needsRequestDate && (
+          <div className="form-group"><label>Data do pedido</label><input type="date" value={form.requestDate||''} onChange={e=>set('requestDate',e.target.value)} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Protocolo da petição que requereu a constrição. O efeito retroage a esta data. Se vazio, grava igual à efetivação.</span></div>
+        )}
+        <div className="form-group"><label>{needsRequestDate ? 'Constrição efetiva' : 'Data do Evento'}</label><input type="date" value={form.date||''} onChange={e=>set('date',e.target.value)} />
+          {needsRequestDate && <span style={{fontSize:9,color:'var(--text-muted)'}}>Data em que a constrição se concretizou. Sem ela o efeito não se aplica.</span>}
+          {needsRequestDate && form.requestDate && form.date && form.requestDate > form.date && (
+            <span style={{display:'block',fontSize:9,color:'var(--red)',marginTop:2}}>O pedido não pode ser posterior à efetivação.</span>
+          )}
+        </div>
         {selectedType?.category === 'suspensiva' && (
           <div className="form-group"><label>Data de Cessação (se encerrada)</label><input type="date" value={form.endDate||''} onChange={e=>set('endDate',e.target.value)} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Deixe vazio se ainda vigente</span></div>
@@ -11207,7 +10895,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <input type="checkbox" checked={willPropagateIDPJ} onChange={e => set('_propagateToLinkedEFs', e.target.checked)} style={{width:16,height:16,cursor:'pointer',marginTop:1,flexShrink:0}} />
             <span>
               <strong>🛡️ Estender este evento às {linkedEFs.length} Execução(ões) Fiscal(is) vinculadas</strong> ao {idpjExec.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'} {truncate(idpjExec.processNumber, 30)}.
-              <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Eventos interruptivos/suspensivos praticados no Incidente/Cautelar podem se estender às EFs que dele dependem. Os eventos gerados nas EFs ficam marcados como "proveniente do IDPJ/Cautelar" com cor distinta.</div>
+              <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Constrição efetiva no incidente suspende o prazo das EFs abrangidas desde a data do pedido — não interrompe o ciclo da originária. Outros tipos copiam-se como estão.</div>
               {willPropagateIDPJ && <div style={{fontSize:9,color:'var(--pgfn-light)',marginTop:4,fontFamily:'var(--font-mono)'}}>{linkedEFs.map(e => '• ' + e.processNumber).join('\n')}</div>}
             </span>
           </label>

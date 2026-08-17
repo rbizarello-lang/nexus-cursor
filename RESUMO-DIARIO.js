@@ -198,16 +198,27 @@ function _coletar_(d) {
     });
   });
 
-  // CDAs prescrevendo (usa a data explícita; o cálculo automático fica no app)
+  // CDAs prescrevendo: data informada, ou snapshot do motor (fase crítica/alerta/prescrita).
+  // Estimativa de inscrição+5 não entra no e-mail (só no radar da operação).
   (d.debts || []).forEach(function (x) {
-    if (x.prescriptionHandled || x.status === 'extinta' || !x.prescriptionDate) return;
-    var dias = _dias_(x.prescriptionDate);
+    if (x.prescriptionHandled || x.status === 'extinta') return;
+    var snap = x.prescriptionSnapshot || {};
+    var pd = x.prescriptionDate || '';
+    var dias = null;
+    if (pd) {
+      dias = _dias_(pd);
+    } else if (snap.status === 'critico' || snap.status === 'alerta' || snap.status === 'prescrito') {
+      pd = snap.diesAdQuem || '';
+      dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
+    } else {
+      return;
+    }
     if (dias === null || dias > CONFIG.DIAS_PRESCRICAO) return;
     out.prescricoes.push({
-      dias: dias, data: x.prescriptionDate,
+      dias: dias, data: pd,
       titulo: 'CDA ' + (x.cdaNumber || 's/nº'),
       proc: x.processNumber || '', op: nomeOp(x.operationId),
-      extra: _fmtMoeda_(x.value)
+      extra: _fmtMoeda_(x.value) + (snap.origin ? ' · ' + snap.origin : '')
     });
   });
 
