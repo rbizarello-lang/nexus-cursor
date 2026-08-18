@@ -17,6 +17,7 @@ import {
   migratePrescriptionEvents,
   shouldPropagateIdpjAsSuspension,
   suggestLaunchMode,
+  inferParcelamentoEnds,
 } from '../src/lib/prescription.js';
 
 const ASOF = '2026-08-16';
@@ -404,5 +405,62 @@ describe('decadência e prescrição ordinária', () => {
     assert.equal(suggestLaunchMode('DCTF ...'), 'declarado');
     assert.equal(suggestLaunchMode('AUTO DE INFRAÇÃO'), 'oficio');
     assert.equal(suggestLaunchMode(''), '');
+  });
+});
+
+describe('parcelamento sem cessação no originário', () => {
+  it('adesões intermediárias sem endDate não projetam asOf+5 (CDA não ajuizada)', () => {
+    const events = [
+      { id: 'p1', cdaId: 'd1', type: 'susp_parcelamento', date: '2000-04-20', endDate: '2009-11-25' },
+      { id: 'p2', cdaId: 'd1', type: 'susp_parcelamento', date: '2009-11-25' },
+      { id: 'p3', cdaId: 'd1', type: 'susp_parcelamento', date: '2011-05-22' },
+      { id: 'p4', cdaId: 'd1', type: 'susp_parcelamento', date: '2016-06-11', endDate: '2017-10-31' },
+      { id: 'cit', cdaId: 'd1', type: 'int_despacho_citacao', date: '2017-10-31' },
+      { id: 'p5', cdaId: 'd1', type: 'susp_parcelamento', date: '2019-07-09', endDate: '2021-10-04' }
+    ];
+    const r = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '1999-05-20' },
+      executions: [],
+      events,
+      asOf: '2026-08-17'
+    });
+    assert.notEqual(r.diesAdQuem, '2031-08-17');
+    assert.notEqual(r.phase, 'suspenso');
+    assert.ok(r.diesAdQuem >= '2026-10-01' && r.diesAdQuem <= '2026-10-10', r.diesAdQuem);
+    assert.ok(r.daysLeft != null && r.daysLeft < 90, String(r.daysLeft));
+    assert.ok(r.gaps.some(g => /cessação|adesão seguinte/i.test(g)));
+    assert.ok(r.gaps.some(g => /citação|ajuiz/i.test(g)));
+    const inferred = inferParcelamentoEnds(events);
+    assert.equal(inferred.get('p2').end, '2011-05-22');
+    assert.equal(inferred.get('p3').end, '2016-06-11');
+    assert.equal(inferred.has('p5'), false);
+  });
+
+  it('último parcelamento sem cessação permanece vigente', () => {
+    const r = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2020-01-15' },
+      executions: [],
+      events: [{ id: 'p', cdaId: 'd1', type: 'susp_parcelamento', date: '2024-03-01' }],
+      asOf: '2026-08-17'
+    });
+    assert.equal(r.phase, 'suspenso');
+    assert.ok(r.diesAdQuem === '2031-08-16' || r.diesAdQuem === '2031-08-17', r.diesAdQuem);
+    assert.ok(r.daysLeft >= 1820, String(r.daysLeft));
+  });
+
+  it('rescisão posterior encerra parcelamento aberto mesmo sem nova adesão', () => {
+    const events = [
+      { id: 'p', cdaId: 'd1', type: 'susp_parcelamento', date: '2020-01-10' },
+      { id: 'r', cdaId: 'd1', type: 'int_rescisao_parcelamento', date: '2021-06-01' }
+    ];
+    const r = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2018-01-01' },
+      executions: [],
+      events,
+      asOf: '2026-08-17'
+    });
+    assert.notEqual(r.phase, 'suspenso');
+    assert.equal(r.diesAdQuem, '2026-06-01');
+    assert.equal(inferParcelamentoEnds(events).get('p').reason, 'rescisao');
   });
 });

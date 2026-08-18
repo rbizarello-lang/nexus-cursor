@@ -171,6 +171,49 @@ function pausedAt(iso, pauses) {
   return pauses.some(p => p.start <= iso && (!p.end || iso < p.end));
 }
 
+/**
+ * Parcelamento sem cessação no cadastro não permanece vigente se há adesão ou
+ * rescisão posterior — a importação Debcad/SIDA costuma omitir o encerramento
+ * dos parcelamentos intermediários, e tratar o intervalo até hoje infla o originário.
+ * Map: eventId → { end, reason: 'adesao_seguinte'|'rescisao' }
+ */
+export function inferParcelamentoEnds(cdaEvents) {
+  const parcs = (cdaEvents || [])
+    .filter(e => normalizePrescEventType(e.type) === 'susp_parcelamento' && asIso(e.date))
+    .sort((a, b) => asIso(a.date).localeCompare(asIso(b.date)) || String(a.id || '').localeCompare(String(b.id || '')));
+  const rescisoes = (cdaEvents || [])
+    .filter(e => normalizePrescEventType(e.type) === 'int_rescisao_parcelamento' && asIso(e.date))
+    .map(e => asIso(e.date))
+    .sort();
+  const inferred = new Map();
+  for (let i = 0; i < parcs.length; i++) {
+    if (asIso(parcs[i].endDate)) continue;
+    const start = asIso(parcs[i].date);
+    const nextStart = parcs[i + 1] ? asIso(parcs[i + 1].date) : '';
+    const nextParc = nextStart && nextStart > start ? nextStart : '';
+    const nextResc = rescisoes.find(d => d > start && (!nextParc || d < nextParc));
+    if (nextResc) inferred.set(parcs[i].id, { end: nextResc, reason: 'rescisao' });
+    else if (nextParc) inferred.set(parcs[i].id, { end: nextParc, reason: 'adesao_seguinte' });
+  }
+  return inferred;
+}
+
+function resolvedSuspEnd(evt, asOfIso, inferredEnds) {
+  const type = normalizePrescEventType(evt.type);
+  const stored = asIso(evt.endDate);
+  const inferred = (!stored && type === 'susp_parcelamento') ? inferredEnds.get(evt.id) : null;
+  const rawEnd = stored || (inferred && inferred.end) || '';
+  let end = rawEnd || asOfIso;
+  if (end > asOfIso) end = asOfIso;
+  return {
+    stored,
+    inferred,
+    rawEnd,
+    end,
+    ongoing: !rawEnd || rawEnd > asOfIso
+  };
+}
+
 /** Avança `need` dias não pausados a partir de start. */
 function addUnpausedDays(startIso, need, pauses) {
   if (need <= 0) return startIso;
@@ -215,6 +258,7 @@ export function computePrescription({ debt, executions = [], events = [], asOf }
 
 function applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup, originario }) {
   const pauses = [];
+  const inferredEnds = inferParcelamentoEnds(cdaEvents);
   for (const evt of cdaEvents) {
     const type = normalizePrescEventType(evt.type);
     const meta = PRESC_EVENT_TYPES[type];
@@ -225,10 +269,17 @@ function applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup, originario })
     if (!efetivacao) continue;
     const start = asIso(evt.requestDate) || efetivacao;
     if (start > asOfIso) continue;
-    let end = asIso(evt.endDate) || asOfIso;
-    if (end > asOfIso) end = asOfIso;
-    if (end <= start) continue;
-    pauses.push({ id: evt.id, start, end, type, originario, ongoing: !asIso(evt.endDate) || asIso(evt.endDate) > asOfIso });
+    const resolved = resolvedSuspEnd(evt, asOfIso, inferredEnds);
+    if (resolved.end <= start) continue;
+    pauses.push({
+      id: evt.id,
+      start,
+      end: resolved.end,
+      type,
+      originario,
+      ongoing: resolved.ongoing,
+      inferredEnd: resolved.inferred || null
+    });
   }
   return pauses;
 }
@@ -263,6 +314,17 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
 
   let originStart = start;
   const pauses = applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup: true, originario: true });
+  const inferredEnds = inferParcelamentoEnds(cdaEvents);
+
+  if (!exec) {
+    const citacaoOrdem = cdaEvents.some(e => {
+      const t = normalizePrescEventType(e.type);
+      return (t === 'int_despacho_citacao' || CITACAO_ALIASES.has(t)) && asIso(e.date);
+    });
+    if (citacaoOrdem) {
+      gaps.push('Há despacho que ordena citação (ou citação) sem execução vinculada. Conferir se a CDA foi ajuizada ou se o ajuizamento foi desfeito (retrocesso).');
+    }
+  }
 
   for (const evt of cdaEvents) {
     const type = normalizePrescEventType(evt.type);
@@ -272,12 +334,21 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
     if (!efetivacao || efetivacao > asOfIso) continue;
     const effectDate = (EF_CONSTRICTION_TYPES.has(type) || CITACAO_ALIASES.has(type)) && asIso(evt.requestDate)
       ? asIso(evt.requestDate) : efetivacao;
+    const inferred = type === 'susp_parcelamento' ? inferredEnds.get(evt.id) : null;
 
     if (meta.category === 'interruptiva' || type === 'susp_parcelamento') {
       if (type === 'int_rescisao_parcelamento' || type === 'susp_parcelamento' || meta.category === 'interruptiva') {
-        originStart = type === 'susp_parcelamento' ? effectDate : effectDate;
+        originStart = effectDate;
+        let parcEffect = 'Interrompe o originário (Súmula 653) e suspende enquanto vigente.';
+        if (type === 'susp_parcelamento' && inferred) {
+          const how = inferred.reason === 'rescisao' ? 'rescisão posterior' : 'adesão seguinte';
+          parcEffect = `Interrompe o originário (Súmula 653) e suspende enquanto vigente. Sem cessação no cadastro — suspensão encerrada pela ${how} em ${fmtDate(inferred.end)}.`;
+          gaps.push(`Parcelamento de ${fmtDate(efetivacao)} sem data de cessação — tratado como encerrado em ${fmtDate(inferred.end)} (${how}). Conferir se ainda está vigente.`);
+        } else if (type === 'susp_parcelamento' && !asIso(evt.endDate)) {
+          parcEffect = 'Interrompe o originário (Súmula 653) e suspende enquanto vigente (sem cessação — tratado como em vigor).';
+        }
         memPush(memory, effectDate, meta.label, type === 'susp_parcelamento'
-          ? 'Interrompe o originário (Súmula 653) e suspende enquanto vigente.'
+          ? parcEffect
           : 'Interrompe — quinquênio reinicia.');
         timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'originario' });
       }
@@ -377,6 +448,7 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
 
 function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, memory, gaps, timeline }) {
   const pauses = applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup: true, originario: false });
+  const inferredEnds = inferParcelamentoEnds(cdaEvents);
   let marco = null;
   let interrupted = false;
   let interruptAt = null;
@@ -453,7 +525,14 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
 
     if (meta.category === 'suspensiva') {
       const from = asIso(evt.requestDate) || efetivacao;
-      memPush(memory, from, meta.label, `Suspende o cômputo até ${evt.endDate ? fmtDate(evt.endDate) : 'hoje'} (art. 151 / causa diversa do art. 40).`);
+      const inferred = type === 'susp_parcelamento' ? inferredEnds.get(evt.id) : null;
+      const until = evt.endDate
+        ? fmtDate(evt.endDate)
+        : (inferred ? `${fmtDate(inferred.end)} (inferido — ${inferred.reason === 'rescisao' ? 'rescisão posterior' : 'adesão seguinte'})` : 'hoje');
+      if (inferred) {
+        gaps.push(`Parcelamento de ${fmtDate(efetivacao)} sem data de cessação — tratado como encerrado em ${fmtDate(inferred.end)}. Conferir se ainda está vigente.`);
+      }
+      memPush(memory, from, meta.label, `Suspende o cômputo até ${until} (art. 151 / causa diversa do art. 40).`);
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'suspenso' });
       continue;
     }

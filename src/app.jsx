@@ -5950,6 +5950,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {(() => {
               const pevs = collectEventsForCda(d, data.executions, data.prescriptionEvents || []).events;
               if (!pevs.length) return null;
+              const inferredEnds = inferParcelamentoEnds(pevs);
               return (
                 <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
                   <span className="im-label">Eventos ({pevs.length})</span>
@@ -5957,6 +5958,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     {pevs.map(ev => {
                       const meta = PRESC_EVENT_TYPES[normalizePrescEventType(ev.type)] || {};
                       const pedido = ev.requestDate && ev.requestDate !== ev.date;
+                      const inferred = !ev.endDate ? inferredEnds.get(ev.id) : null;
                       return (
                         <li key={ev.id} style={{display:'flex',gap:6,alignItems:'baseline',padding:'3px 0',borderBottom:'1px dotted var(--border)'}}>
                           <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
@@ -5965,7 +5967,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             <strong>{meta.label || ev.type}</strong>
                             {pedido ? ` · pedido ${fmtDate(ev.requestDate)}` : ''}
                             {ev.date ? ` · ${pedido ? 'efetiva ' : ''}${fmtDate(ev.date)}` : ''}
-                            {ev.endDate ? ` · até ${fmtDate(ev.endDate)}` : ''}
+                            {ev.endDate ? ` · até ${fmtDate(ev.endDate)}` : (inferred ? ` · até ${fmtDate(inferred.end)} (inferido)` : '')}
                           </span>
                         </li>
                       );
