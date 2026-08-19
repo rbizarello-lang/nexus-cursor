@@ -1259,6 +1259,17 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   width: 100%;
   text-align: left;
 }
+.pano-split-ef.is-apenso {
+  margin-left: 12px;
+  width: calc(100% - 12px);
+  border-left-color: var(--border-light, #444);
+}
+.pano-split-ef .apenso-mark {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
 .pano-split-ef:hover {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
@@ -2741,6 +2752,47 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .demo-proc-table-row.is-apenso td { opacity: 0.95; }
 .proc-md-rail-item.nested { padding-left: 22px; font-size: 10px; }
+.proc-apenso-parent-ref { font-size: 10px; color: var(--text-muted); margin-left: 4px; font-weight: normal; }
+
+/* ── Processo Relevante (★ e destaque de linha mesmo recolhida) ── */
+.relevant-star {
+  display: inline-block;
+  color: var(--gold, #c8a04a);
+  font-size: 11px;
+  margin-left: 4px;
+  vertical-align: middle;
+  cursor: help;
+  line-height: 1;
+}
+.demo-proc-table-row.is-relevant td {
+  background: color-mix(in srgb, var(--gold, #c8a04a) 10%, transparent);
+}
+.demo-proc-table-row.is-relevant:hover td {
+  background: color-mix(in srgb, var(--gold, #c8a04a) 16%, transparent);
+}
+.proc-md-rail-item.is-relevant {
+  background: color-mix(in srgb, var(--gold, #c8a04a) 10%, transparent);
+  border-left: 3px solid var(--gold, #c8a04a);
+}
+.proc-md-rail-item.is-relevant:hover {
+  background: color-mix(in srgb, var(--gold, #c8a04a) 16%, transparent);
+}
+.process-summary.is-relevant {
+  border-left: 3px solid var(--gold, #c8a04a);
+  background: color-mix(in srgb, var(--gold, #c8a04a) 6%, transparent);
+}
+.demo-proc-ef-chip.is-relevant {
+  border-color: color-mix(in srgb, var(--gold, #c8a04a) 60%, var(--border));
+  background: color-mix(in srgb, var(--gold, #c8a04a) 10%, var(--bg-elevated));
+}
+.proc-md-hub.is-relevant {
+  border-left: 3px solid var(--gold, #c8a04a);
+  background: color-mix(in srgb, var(--gold, #c8a04a) 10%, transparent);
+}
+.pano-split-ef.is-relevant {
+  border-left-color: var(--gold, #c8a04a);
+  background: color-mix(in srgb, var(--gold, #c8a04a) 8%, var(--bg-elevated));
+}
 .proc-dup-banner {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px;
   margin: 0 0 10px; padding: 8px 12px; border-radius: 6px;

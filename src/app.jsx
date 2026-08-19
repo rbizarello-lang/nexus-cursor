@@ -1,3 +1,5 @@
+import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 /** Versão de produto (fonte: package.json → window.__NEXUS_VERSION__ no build). Exibida em ⚙. */
@@ -150,6 +152,7 @@ const generateDemoData = () => {
   const debts = [
     // Op1
     { id:'cda-1', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000123-45', value:1250000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(6), inscriptionDate: iso(-1500), processNumber:'5001234-56.2023.4.04.7001', tribute:'IRPJ', launchMode:'oficio', taxPeriodEnd: iso(-2600), constitutionDate: iso(-1700), notesList:['Prescrição iminente — priorizar'] },
+    { id:'cda-1b', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000129-45', value:310000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(290), inscriptionDate: iso(-1450), processNumber:'5001235-56.2023.4.04.7001', tribute:'COFINS' },
     { id:'cda-2', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000124-45', value:480000, system:'SIDA', status:'garantida', prescriptionDate: iso(410), inscriptionDate: iso(-1490), processNumber:'5001234-56.2023.4.04.7001', tribute:'CSLL' },
     { id:'cda-16', operationId:'op-demo-1', personId:'pe-2', cdaNumber:'90.6.23.000200-45', value:180000, system:'SIDA', status:'ativa', prescriptionDate: iso(240), constitutionDate: iso(-1100), tribute:'IRPF' },
     { id:'cda-19', operationId:'op-demo-1', personId:'pe-1', cdaNumber:'90.6.23.000125-45', value:92000, system:'SIDA', status:'ativa_ajuizada', prescriptionDate: iso(180), inscriptionDate: iso(-1400), processNumber:'5001234-56.2023.4.04.7001', tribute:'PIS' },
@@ -184,7 +187,8 @@ const generateDemoData = () => {
   const executions = [
     // Op1
     { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500), notesList:['Penhora imóvel ativa', 'Exceção de pré-executividade pendente'] },
-    { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1'], protocolDate: iso(-120) },
+    { id:'ex-1b', operationId:'op-demo-1', processNumber:'5001235-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', parentExecutionId:'ex-1', protocolDate: iso(-450), notesList:['Execução apensada à principal'] },
+    { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1', 'ex-1b'], protocolDate: iso(-120) },
     { id:'ex-18', operationId:'op-demo-1', processNumber:'5001240-56.2024.4.04.7001', className:'Exceção de Pré-Executividade', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', parentExecutionId:'ex-1', protocolDate: iso(-40) },
     { id:'ex-19', operationId:'op-demo-1', processNumber:'5001250-56.2025.4.04.7001', className:'Agravo de Instrumento', court:'TRF4', processTag:'normal', status:'ativa', parentExecutionId:'ex-2', protocolDate: iso(-20) },
     // Op2
@@ -512,10 +516,18 @@ const runDiagnostics = (data) => {
     'O mesmo processo aparece mais de uma vez. Os vínculos (CDAs, apensos) ficam divididos entre eles.');
 
   // 3. Pessoas duplicadas por CPF/CNPJ na mesma operação
-  const pByDoc = {};
-  people.forEach(p => { const doc = String(p.cpfCnpj || '').replace(/\D/g, ''); if (doc) (pByDoc[doc + '|' + p.operationId] = pByDoc[doc + '|' + p.operationId] || []).push(p); });
+  const dupPersonGroups = [];
+  const handledP = new Set();
+  people.forEach(p => {
+    if (handledP.has(p.id) || !p.cpfCnpj) return;
+    const group = people.filter(other => other.operationId === p.operationId && other.cpfCnpj && docsCompatible(p.cpfCnpj, other.cpfCnpj));
+    if (group.length > 1) {
+      group.forEach(g => handledP.add(g.id));
+      dupPersonGroups.push(group);
+    }
+  });
   add('media', 'duppessoa', 'Pessoas duplicadas (mesmo CPF/CNPJ)',
-    Object.values(pByDoc).filter(a => a.length > 1).map(a => ({ id: a[0].id, texto: a[0].name || 's/nome', sub: a.length + ' cadastros · ' + (a[0].cpfCnpj || '') })),
+    dupPersonGroups.map(a => ({ id: a[0].id, texto: a[0].name || 's/nome', sub: a.length + ' cadastros · ' + (a[0].cpfCnpj || '') })),
     'Mesmo documento cadastrado mais de uma vez na operação — divide responsabilidades e bens.');
 
   // 4. Registros apontando para operação inexistente
@@ -763,6 +775,11 @@ function isExecucaoFiscalClass(e) {
   // "Execução Fiscal", "Execução Fiscal Previdenciária", "Execução Fiscal (SIDA)", etc.
   // Não inclui "Embargos à Execução Fiscal" nem "Cumprimento de Sentença".
   return /^execu[çc][ãa]o\s+fiscal\b/.test(cn);
+}
+
+/** IDPJ, cautelar fiscal ou processo marcado como central. */
+function isHubProcess(e) {
+  return !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
 }
 
 /** Espécie curta para Outros processos (coluna Espécie + chips). */
@@ -1821,9 +1838,9 @@ function parseInscricoesXLS(workbook) {
     const row = raw[i];
     for (const cell of row) {
       const s = String(cell || '');
-      const m = s.match(/Devedor:\s*([\d.]+)\s*-\s*(.+)/i);
+      const m = s.match(/Devedor:\s*([\d./\-]+)\s*-\s*(.+)/i);
       if (m) {
-        results.debtorCnpj = m[1].replace(/\D/g, '');
+        results.debtorCnpj = digitsOnly(m[1]);
         results.debtorName = m[2].trim();
         break;
       }
@@ -2035,8 +2052,8 @@ function parseProcessosXLS(workbook) {
   // Debtor
   for (let i = 0; i < Math.min(10, raw.length); i++) {
     for (const cell of raw[i]) {
-      const m = String(cell || '').match(/Devedor:\s*([\d.]+)\s*-\s*(.+)/i);
-      if (m) { results.debtorCnpj = m[1].replace(/\D/g, ''); results.debtorName = m[2].trim(); break; }
+      const m = String(cell || '').match(/Devedor:\s*([\d./\-]+)\s*-\s*(.+)/i);
+      if (m) { results.debtorCnpj = digitsOnly(m[1]); results.debtorName = m[2].trim(); break; }
     }
     if (results.debtorName) break;
   }
@@ -2246,7 +2263,7 @@ function parseAssetsBulk(text, people, operationId) {
 
     let holderId = '';
     if (holderDoc && people) {
-      const match = people.find(pp => pp.operationId === operationId && pp.cpfCnpj && pp.cpfCnpj.replace(/\D/g, '') === holderDoc);
+      const match = findPersonByDoc(people, { operationId, cpfCnpj: holderDoc });
       if (match) holderId = match.id;
     }
 
@@ -2324,7 +2341,7 @@ function classifyProcGroups(cdaGroups, execs) {
   });
 
   const isExtinct = (e) => !!e && e.status === 'extinta';
-  const isHub = (e) => !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
+  const isHub = isHubProcess;
   const isOtherClass = (e) => isOtherProcClass(e);
   const isEF = (e) => isExecucaoFiscalClass(e);
 
@@ -2347,15 +2364,40 @@ function classifyProcGroups(cdaGroups, execs) {
   // Só EFs no card superior (abrangidas / sem vínculo)
   const keepUpper = (g) => g && g.exec && !isHub(g.exec) && isEF(g.exec) && !isOtherClass(g.exec);
 
+  const apensosByParent = {};
   const coveredByHub = {};
   hubs.forEach(h => {
     const ids = new Set(h.exec.linkedExecutionIds || []);
     (cdaGroups || []).forEach(g => {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) ids.add(g.exec.id);
     });
-    coveredByHub[h.exec.id] = sortArquivadasLast([...ids]
+    const allCovered = [...ids]
       .map(id => groupByExecId[id])
-      .filter(g => keepUpper(g) && !isExtinct(g.exec)));
+      .filter(g => keepUpper(g) && !isExtinct(g.exec));
+
+    const coveredIdsInHub = new Set(allCovered.map(g => g.exec.id));
+
+    // Aninha apensos EF-a-EF pertencentes ao mesmo hub
+    allCovered.forEach(g => {
+      const pid = g.exec.parentExecutionId;
+      if (!pid || pid === h.exec.id) return;
+      const parent = byId[pid];
+      if (parent && !isHub(parent) && isEF(parent)) {
+        if (!apensosByParent[pid]) apensosByParent[pid] = [];
+        if (!apensosByParent[pid].some(x => x.exec.id === g.exec.id)) {
+          apensosByParent[pid].push(g);
+        }
+      }
+    });
+
+    // Top-level no hub: mantém apenas EFs principais do hub (exclui apensos cujo principal também está no hub)
+    coveredByHub[h.exec.id] = sortArquivadasLast(allCovered.filter(g => {
+      const pid = g.exec.parentExecutionId;
+      if (pid && pid !== h.exec.id && coveredIdsInHub.has(pid)) {
+        return false;
+      }
+      return true;
+    }));
   });
   const coveredEFs = sortArquivadasLast([...coveredIds]
     .map(id => groupByExecId[id])
@@ -2363,7 +2405,6 @@ function classifyProcGroups(cdaGroups, execs) {
 
   // Sem vínculo: EFs top-level. Apensos de outra EF saem daqui e aninham sob o pai.
   // Apensos de hub já entram em coveredByHub.
-  const apensosByParent = {};
   const uncoveredRaw = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
@@ -2377,7 +2418,9 @@ function classifyProcGroups(cdaGroups, execs) {
       if (parent && isHub(parent)) return false; // já em coveredByHub
       if (parent && keepUpper({ type: 'exec', exec: parent })) {
         if (!apensosByParent[parent.id]) apensosByParent[parent.id] = [];
-        apensosByParent[parent.id].push(g);
+        if (!apensosByParent[parent.id].some(x => x.exec.id === g.exec.id)) {
+          apensosByParent[parent.id].push(g);
+        }
         return false; // aninha sob a EF principal
       }
       // Pai inexistente ou não-EF → permanece visível no nível superior (órfão)
@@ -3114,7 +3157,7 @@ function App() {
             for (const cr of rec.coresponsibles) {
               if (!cr.cpfCnpj) continue;
               // Find or create the person within the active operation
-              let crPerson = data.people.find(p => p.operationId === activeOpId && p.cpfCnpj && p.cpfCnpj.replace(/\D/g, '') === cr.cpfCnpj);
+              let crPerson = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: cr.cpfCnpjFormatted || cr.cpfCnpj, name: cr.name });
               if (!crPerson) {
                 // Auto-create as relacionada (não-alvo) — user can promote to alvo later
                 const hasName = cr.name && cr.name.length > 2;
@@ -3136,6 +3179,12 @@ function App() {
                 };
                 upsert('people', crPerson);
                 personsCreated++;
+              } else {
+                const updatedCr = mergePersonDoc(crPerson, cr.cpfCnpjFormatted || cr.cpfCnpj);
+                if (updatedCr !== crPerson) {
+                  crPerson = updatedCr;
+                  upsert('people', crPerson);
+                }
               }
               // Create responsibility link if not already there
               const existingLink = (data.links?.cdaResponsibilities || []).find(r => r.cdaId === existing.id && r.personId === crPerson.id && r.role === 'coresponsavel_legal');
@@ -4074,9 +4123,14 @@ function App() {
               // Resolver vínculo a pessoa (holderId) pelo CPF/CNPJ titular
               let linkedHolderId = '';
               if (a._titularDoc) {
-                const docDigits = a._titularDoc.replace(/\D/g, '');
-                const person = data.people.find(p => p.operationId === activeOpId && p.cpfCnpj && p.cpfCnpj.replace(/\D/g, '') === docDigits);
-                if (person) linkedHolderId = person.id;
+                const person = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: a._titularDoc, name: a._titularRaw });
+                if (person) {
+                  linkedHolderId = person.id;
+                  const updatedP = mergePersonDoc(person, a._titularDoc);
+                  if (updatedP !== person) {
+                    upsert('people', updatedP);
+                  }
+                }
               }
               // Notas — apenas o que sobrar (titular/processo/origem têm campos próprios)
               const noteParts = [];
@@ -4132,7 +4186,7 @@ function App() {
 
             // Auto-create PJ if not exists
             if (res.debtorName && res.debtorCnpj) {
-              const exists = data.people.find(p => p.operationId === activeOpId && p.cpfCnpj && p.cpfCnpj.replace(/\D/g, '') === res.debtorCnpj.replace(/\D/g, ''));
+              const exists = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: res.debtorCnpj, name: res.debtorName });
               let personId;
               if (!exists) {
                 personId = uid();
@@ -4141,6 +4195,11 @@ function App() {
                 importCount++;
               } else {
                 personId = exists.id;
+                const updatedPerson = mergePersonDoc(exists, res.debtorCnpj);
+                if (updatedPerson !== exists) {
+                  upsert('people', updatedPerson);
+                  logs.push(`🔄 PJ atualizada com doc completo: ${updatedPerson.name} (${updatedPerson.cpfCnpj})`);
+                }
                 logs.push(`ℹ️ PJ já existe: ${exists.name}`);
               }
 
@@ -4376,7 +4435,7 @@ function App() {
       }
       // CPF or CNPJ
       const docDigits = p.value.replace(/\D/g, '');
-      const person = data.people.find(pp => pp.cpfCnpj && pp.cpfCnpj.replace(/\D/g, '') === docDigits);
+      const person = findPersonByDoc(data.people, { cpfCnpj: docDigits });
       if (!person) return <span key={i} style={{...style, textDecoration:'none', cursor:'default', color:'inherit'}}>{p.value}</span>;
       return <span key={i} style={style} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:person}); }} title={`Abrir pessoa: ${person.name}`}>{p.value}</span>;
     });
@@ -4405,12 +4464,17 @@ function App() {
     const logs = [];
     let count = 0;
     res.people.forEach(p => {
-      const exists = data.people.find(pp => pp.operationId === activeOpId && pp.cpfCnpj && pp.cpfCnpj.replace(/\D/g, '') === p.cpfCnpj.replace(/\D/g, ''));
+      const exists = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: p.cpfCnpj, name: p.name });
       if (!exists) {
         upsert('people', { ...p, id: uid(), operationId: activeOpId });
         logs.push(`✅ Pessoa: ${p.name} (${p.cpfCnpj}) — ${p.role}`);
         count++;
       } else {
+        const updated = mergePersonDoc(exists, p.cpfCnpj);
+        if (updated !== exists) {
+          upsert('people', updated);
+          logs.push(`🔄 Doc atualizado: ${updated.name} (${updated.cpfCnpj})`);
+        }
         logs.push(`ℹ️ Já existe: ${exists.name}`);
       }
     });
@@ -4906,9 +4970,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               };
               const efRow = (ef, nested) => {
                 const est = EXEC_STATUSES[ef.status] || {};
-                return (<div key={ef.id} className="briefing-proc-item" style={nested?{marginLeft:14,borderLeft:'2px solid var(--border)',borderRadius:0}:{}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}>
+                return (<div key={ef.id} className={`briefing-proc-item${ef.isRelevant ? ' is-relevant' : ''}`} style={nested?{marginLeft:14,borderLeft:'2px solid var(--border)',borderRadius:0}:{}} onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}>
                   {nested && <span style={{color:'var(--text-muted)',fontSize:10,flexShrink:0}}>↳</span>}
                   <ProcNum exec={ef} style={{fontFamily:'var(--font-mono)',fontSize:10,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} />
+                  {ef.isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
                   {ef._cdaValue > 0 && <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(ef._cdaValue)}</span>}
                   <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
                   {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
@@ -5103,19 +5168,48 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <div className="pano-split-col-label">Cobertura · {myEFs.length} {bm.unit}{myEFs.length !== 1 ? 's' : ''}</div>
                       {myEFs.length > 0 ? (
                         <div className="pano-split-ef-list">
-                          {myEFs.slice(0, 8).map(ef => {
-                            const est = EXEC_STATUSES[ef.status] || {};
-                            return (
-                              <div key={ef.id} className="pano-split-ef"
-                                role="button" tabIndex={0}
-                                onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModal({type:'edit',entityType:'execution',initial:ef}); } }}>
-                                <span className="num" onClick={e => e.stopPropagation()}><ProcNum exec={ef} /></span>
-                                <span className="val">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
-                                <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
-                              </div>
-                            );
-                          })}
+                          {(() => {
+                            const efsInCard = new Set(myEFs.map(e => e.id));
+                            const apensosMap = {};
+                            const topEFs = [];
+                            myEFs.forEach(ef => {
+                              const pid = ef.parentExecutionId;
+                              if (pid && efsInCard.has(pid)) {
+                                if (!apensosMap[pid]) apensosMap[pid] = [];
+                                apensosMap[pid].push(ef);
+                              } else {
+                                topEFs.push(ef);
+                              }
+                            });
+                            const ordered = [];
+                            topEFs.forEach(ef => {
+                              const parent = ef.parentExecutionId ? (execById[ef.parentExecutionId] || opExecs.find(x => x.id === ef.parentExecutionId)) : null;
+                              ordered.push({ ef, nested: false, parent });
+                              (apensosMap[ef.id] || []).forEach(ap => {
+                                ordered.push({ ef: ap, nested: true, parent: ef });
+                              });
+                            });
+                            return ordered.slice(0, 8).map(({ ef, nested, parent }) => {
+                              const est = EXEC_STATUSES[ef.status] || {};
+                              const isStandaloneApenso = !nested && parent && isExecucaoFiscalClass(parent) && !isHubProcess(parent);
+                              return (
+                                <div key={ef.id} className={`pano-split-ef${nested ? ' is-apenso' : ''}${ef.isRelevant ? ' is-relevant' : ''}`}
+                                  role="button" tabIndex={0}
+                                  onClick={() => setModal({type:'edit',entityType:'execution',initial:ef})}
+                                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModal({type:'edit',entityType:'execution',initial:ef}); } }}>
+                                  {nested && <span className="apenso-mark" aria-hidden="true">↳</span>}
+                                  <span className="num" onClick={e => e.stopPropagation()}>
+                                    <ProcNum exec={ef} />
+                                    {ef.isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
+                                    {nested && <span className="apenso-badge" style={{fontSize:8,padding:'1px 4px',marginLeft:4}} title="Apenso">Apenso</span>}
+                                    {isStandaloneApenso && <span className="apenso-badge" style={{fontSize:8,padding:'1px 4px',marginLeft:4}} title={`Apenso aos autos ${parent.processNumber || ''}`}>Apenso</span>}
+                                  </span>
+                                  <span className="val">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
+                                  <span className={`badge ${est.badge||''}`} style={{fontSize:8}}>{est.label}</span>
+                                </div>
+                              );
+                            });
+                          })()}
                           {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{myEFs.length - 8} {bm.unit}(s)</div>}
                         </div>
                       ) : (
@@ -6097,10 +6191,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
         return (<div className={`process-group ${processExpanded || hideProcessNumber ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
           {!hideProcessNumber && (
-          <button type="button" className="process-summary" onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
+          <button type="button" className={`process-summary${isRelevant ? ' is-relevant' : ''}`} onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
             <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
             <span className="process-id">
-              <strong>{isExec ? <ProcNum exec={e} empty="Processo sem número" /> : 'CDAs sem processo'}</strong>
+              <strong>{isExec ? <><ProcNum exec={e} empty="Processo sem número" />{isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}</> : 'CDAs sem processo'}</strong>
               <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
             </span>
             <span className="process-stat"><small>Status</small><strong>{isExec ? (EXEC_STATUSES[e.status]?.label || e.status) : 'Não ajuizadas'}</strong></span>
@@ -6357,10 +6451,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const meta = efRiskMeta(cg);
                 const pk = 'process-row-' + cg.exec.id;
                 return (
-                  <button type="button" key={cg.exec.id} className={`demo-proc-ef-chip risk-${meta.riskClass}`}
+                  <button type="button" key={cg.exec.id} className={`demo-proc-ef-chip risk-${meta.riskClass}${cg.exec.isRelevant ? ' is-relevant' : ''}`}
                     onClick={(ev) => { ev.stopPropagation(); toggleGroup(pk); }}
                     title="Abrir detalhe da EF">
-                    <span className="demo-proc-ef-num"><ProcNum exec={cg.exec} empty="S/N" /></span>
+                    <span className="demo-proc-ef-num">
+                      <ProcNum exec={cg.exec} empty="S/N" />
+                      {cg.exec.isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
+                    </span>
                     <span className="demo-proc-ef-st">{meta.st.label || cg.exec.status}</span>
                     <span className="demo-proc-ef-val">{fmtCur(meta.total)}</span>
                     <span className="demo-proc-ef-risk">{meta.label}</span>
@@ -6431,6 +6528,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           ? <span className="dup-badge" title="Mesmo nº cadastrado mais de uma vez nesta operação">Duplicado</span>
           : null;
         const apensosOf = (execId) => (apensosByParent && apensosByParent[execId]) || [];
+        const withNestedApensos = (groups) => {
+          const out = [];
+          (groups || []).forEach(g => {
+            out.push(g);
+            if (g && g.type === 'exec') (apensosOf(g.exec.id) || []).forEach(ap => out.push(ap));
+          });
+          return out;
+        };
         const apensoBadge = <span className="apenso-badge" title="Apenso a outra execução fiscal">Apenso</span>;
         const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
           ? selectedProcHubId
@@ -6439,7 +6544,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const covered = selectedHub
           ? sortArquivadasLast((coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta'))
           : [];
-        const hubMeta = selectedHub ? hubRailMeta(selectedHub, covered) : null;
+        const coveredAll = withNestedApensos(covered);
+        const hubMeta = selectedHub ? hubRailMeta(selectedHub, coveredAll) : null;
 
         const bandOf = (list) => {
           const map = { ativa: [], suspensa: [], suspensa_parcelamento: [], arquivada: [], extinta: [], nao_ajuizada: [] };
@@ -6666,14 +6772,23 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               : null;
             const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
             const childApensos = (!isOthers && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
+            const isRelevant = g.type === 'exec' && !!g.exec.isRelevant;
+            const isStandaloneApenso = !nested && !isOthers && g.type === 'exec' && relatedParent
+              && isExecucaoFiscalClass(relatedParent) && !isHubProcess(relatedParent);
             return (
               <React.Fragment key={rowId}>
-                <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}${nested ? ' is-apenso' : ''}`}
+                <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}${nested ? ' is-apenso' : ''}${isRelevant ? ' is-relevant' : ''}`}
                   onClick={() => toggleGroup(pk)}>
                   <td className={`mono${nested ? ' proc-apenso-cell' : ''}`}>
                     {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
                     {g.type === 'unlinked' ? 'CDAs sem processo' : <ProcNum exec={g.exec} />}
-                    {nested && apensoBadge}
+                    {isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
+                    {(nested || isStandaloneApenso) && apensoBadge}
+                    {isStandaloneApenso && (
+                      <span className="proc-apenso-parent-ref" title={`Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
+                        (apenso de <ProcNum exec={relatedParent} maxLen={18} />)
+                      </span>
+                    )}
                     {g.type === 'exec' && dupBadge(g.exec.id)}
                     {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
                     {!isOthers && childApensos.length > 0 && (
@@ -6804,10 +6919,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const pk = 'process-row-' + g.exec.id;
                 const rowOpen = collapsedGroups.has(pk);
                 const kids = apensosOf(g.exec.id);
+                const isRel = !!g.exec.isRelevant;
                 return (
                   <React.Fragment key={g.exec.id}>
                     <button type="button"
-                      className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}`}
+                      className={`proc-md-rail-item ${band.cls}${rowOpen ? ' open' : ''}${isRel ? ' is-relevant' : ''}`}
                       onClick={() => {
                         setSelectedProcBand(band.key);
                         setProcFocus('band');
@@ -6815,15 +6931,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       }}
                       title="Abrir detalhe da EF">
                       <span className="mono"><ProcNum exec={g.exec} empty="S/N" /></span>
+                      {isRel && <span className="relevant-star" title="Processo relevante">★</span>}
                       {dupBadge(g.exec.id)}
                       {kids.length > 0 && <span className="apenso-count">{kids.length} ap.</span>}
                     </button>
                     {kids.map(ap => {
                       const apk = 'process-row-' + ap.exec.id;
                       const apOpen = collapsedGroups.has(apk);
+                      const apRel = !!ap.exec.isRelevant;
                       return (
                         <button type="button" key={ap.exec.id}
-                          className={`proc-md-rail-item nested ${band.cls}${apOpen ? ' open' : ''}`}
+                          className={`proc-md-rail-item nested ${band.cls}${apOpen ? ' open' : ''}${apRel ? ' is-relevant' : ''}`}
                           onClick={() => {
                             setSelectedProcBand(band.key);
                             setProcFocus('band');
@@ -6831,6 +6949,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           }}
                           title="Apenso — abrir detalhe">
                           <span className="mono"><ProcNum exec={ap.exec} empty="S/N" prefix="↳ " /></span>
+                          {apRel && <span className="relevant-star" title="Processo relevante">★</span>}
                           {apensoBadge}
                           {dupBadge(ap.exec.id)}
                         </button>
@@ -6872,14 +6991,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum IDPJ, cautelar ou central nesta operação</div>}
                     {hubs.map(h => {
                       const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
-                      const meta = hubRailMeta(h, cov);
+                      const meta = hubRailMeta(h, withNestedApensos(cov));
                       const active = focusIsHub && h.exec.id === effectiveHubId;
+                      const isHubRel = !!h.exec.isRelevant;
                       return (
                         <button type="button" key={h.exec.id}
-                          className={`proc-md-hub${active ? ' active' : ''}`}
+                          className={`proc-md-hub${active ? ' active' : ''}${isHubRel ? ' is-relevant' : ''}`}
                           onClick={() => selectHub(h.exec.id)}>
                           <span className="proc-md-hub-tag">{hubTagShort(h.exec.processTag)}</span>
-                          <span className="proc-md-hub-num"><ProcNum exec={h.exec} empty="S/N" />{dupBadge(h.exec.id)}</span>
+                          <span className="proc-md-hub-num">
+                            <ProcNum exec={h.exec} empty="S/N" />
+                            {isHubRel && <span className="relevant-star" title="Processo relevante">★</span>}
+                            {dupBadge(h.exec.id)}
+                          </span>
                           <span className="proc-md-hub-meta">
                             <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
                             <span>{fmtCur(meta.total)}</span>
@@ -6898,6 +7022,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             <h2>{hubTagShort(selectedHub.exec.processTag)}{selectedHub.exec.className ? ` · ${selectedHub.exec.className}` : ''}</h2>
                             <div className="proc-md-pane-num">
                               <ProcNum exec={selectedHub.exec} empty="S/N" />
+                              {selectedHub.exec.isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
                               {selectedHub.exec.court ? <span className="muted"> · {selectedHub.exec.court}</span> : null}
                             </div>
                           </div>
@@ -6906,7 +7031,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
                             <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => {
-                                const cdaIds = covered.flatMap(g => (g.cdas || []).map(d => d.id));
+                                const cdaIds = coveredAll.flatMap(g => (g.cdas || []).map(d => d.id));
                                 setModal({
                                   type: 'create',
                                   entityType: 'prescriptionEvent',
@@ -6952,7 +7077,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               </div>
                             );
                           })()}
-                          <div className="proc-md-block-label band-anchor">Execuções fiscais abrangidas <span className="count">({covered.length})</span></div>
+                          <div className="proc-md-block-label band-anchor">Execuções fiscais abrangidas <span className="count">({coveredAll.length})</span></div>
                           {renderEfTable(covered, 'Nenhuma EF vinculada a este processo')}
                           {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
                             <div className="proc-hub-rel">

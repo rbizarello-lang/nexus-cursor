@@ -198,22 +198,25 @@ function _coletar_(d) {
     });
   });
 
-  // CDAs prescrevendo: data informada, ou snapshot do motor (fase crítica/alerta/prescrita).
-  // Estimativa de inscrição+5 não entra no e-mail (só no radar da operação).
+  // CDAs prescrevendo: data informada, ou snapshot do motor (fase crítica/alerta).
+  // Estimativa de inscrição+5 e prescrições já consumidas/vencidas não entram no e-mail.
   (d.debts || []).forEach(function (x) {
     if (x.prescriptionHandled || x.status === 'extinta') return;
     var snap = x.prescriptionSnapshot || {};
+    if (snap.origin === 'estimativa') return;
+    if (snap.status === 'prescrito') return;
     var pd = x.prescriptionDate || '';
     var dias = null;
     if (pd) {
       dias = _dias_(pd);
-    } else if (snap.status === 'critico' || snap.status === 'alerta' || snap.status === 'prescrito') {
+    } else if (snap.status === 'critico' || snap.status === 'alerta') {
+      if (snap.origin !== 'calculo_validado' && snap.origin !== 'data_informada') return;
       pd = snap.diesAdQuem || '';
       dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
     } else {
       return;
     }
-    if (dias === null || dias > CONFIG.DIAS_PRESCRICAO) return;
+    if (dias === null || dias < 0 || dias > CONFIG.DIAS_PRESCRICAO) return;
     out.prescricoes.push({
       dias: dias, data: pd,
       titulo: 'CDA ' + (x.cdaNumber || 's/nº'),
@@ -306,16 +309,6 @@ function _secao_(titulo, itens, cor, mostrarValor) {
 }
 
 function _html_(r) {
-  var corpo = '' +
-    _secao_('Prazos vencidos', r.vencidas, '#c0392b') +
-    _secao_('Prazos a vencer', r.prazos, '#b8860b') +
-    _secao_('No radar — próximos prazos', r.radar, '#5a6b7d') +
-    _secao_('Audiências', r.audiencias, '#8a6d1f') +
-    _secao_('Prescrição se aproximando', r.prescricoes, '#c0392b') +
-    _secao_('Tarefas urgentes', r.tarefas, '#2c6ba0');
-
-  if (!corpo) corpo = '<div style="padding:26px;text-align:center;color:#7b8896;background:#fff;border:1px solid #e4e8ee;border-radius:6px">Nenhuma pendência no período. ✓</div>';
-
   var mesa = '';
   if (r.mesa.length) {
     mesa = '<div style="margin:0 0 22px">' +
@@ -328,6 +321,16 @@ function _html_(r) {
       }).join('') + '</div></div>';
   }
 
+  var corpo = '' +
+    _secao_('Prazos vencidos', r.vencidas, '#c0392b') +
+    _secao_('Prazos a vencer', r.prazos, '#b8860b') +
+    _secao_('No radar — próximos prazos', r.radar, '#5a6b7d') +
+    _secao_('Audiências', r.audiencias, '#8a6d1f') +
+    _secao_('Prescrição se aproximando', r.prescricoes, '#c0392b') +
+    _secao_('Tarefas urgentes', r.tarefas, '#2c6ba0');
+
+  if (!corpo && !mesa) corpo = '<div style="padding:26px;text-align:center;color:#7b8896;background:#fff;border:1px solid #e4e8ee;border-radius:6px">Nenhuma pendência no período. ✓</div>';
+
   return '' +
     '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f4f6f9;padding:22px;margin:0">' +
     '<div style="max-width:640px;margin:0 auto">' +
@@ -335,7 +338,7 @@ function _html_(r) {
     '<div style="font-size:17px;font-weight:700;letter-spacing:.5px">NEXUS</div>' +
     '<div style="font-size:12px;color:#9fb0c8;margin-top:2px">Resumo de ' + _hojeBR_() + '</div>' +
     '</div>' +
-    '<div style="background:#f4f6f9;padding:18px 0 0">' + corpo + mesa + '</div>' +
+    '<div style="background:#f4f6f9;padding:18px 0 0">' + mesa + corpo + '</div>' +
     '<div style="color:#9aa7b4;font-size:11px;text-align:center;padding:10px 0 0;border-top:1px solid #e4e8ee">' +
     'Enviado automaticamente pelo NEXUS · para desativar, rode <code>removerResumoDiario</code> no Apps Script' +
     '</div></div></div>';
