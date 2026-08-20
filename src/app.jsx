@@ -2779,7 +2779,7 @@ function App() {
   // Digitação da busca fica responsiva; o filtro pesado roda com prioridade baixa.
   const deferredGsQuery = React.useDeferredValue(gsQuery);
   const [intimFilter, setIntimFilter] = useState('all');
-  const [intimSort, setIntimSort] = useState('attention');
+  const [intimSort, setIntimSort] = useState('deadline');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
   const [intimWork, setIntimWork] = useState(false); // overlay p/ trabalhar intimações dentro da operação
   const [intimView, setIntimView] = useState('list');
@@ -6344,24 +6344,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           )}
           {hubCoveredBlock}
           {(processExpanded || hideProcessNumber) && <div className="process-detail">
-            <div className="entity-card" style={{display:'grid',gridTemplateColumns:'1.2fr 1.9fr 0.7fr',gap:12,alignItems:'start',marginBottom:8,background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,width:'100%',opacity:statusOpacity,transition:'opacity 0.2s'}}>
+            <div className="entity-card proc-expand-grid" style={{background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
-          <div style={{minWidth:0}}>
+          <div className="proc-expand-main">
             {/* Process header row — sem repetir o nº (já está no summary / linha da tabela) */}
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
               {isExec && group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} style={{width:16,cursor:'pointer',flexShrink:0}} title="Selecionar todas as CDAs do processo" />}
               {isExec ? <div style={{minWidth:0,flex:1}}>
                 <div className="process-meta">
                   {isExec && <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>}
-                  {isApenso && <span>Apenso</span>}
-                  {myApensosGroups.length > 0 && <span>{myApensosGroups.length} apenso(s)</span>}
-                  {isTagged && <strong>{tagLabels[e.processTag]||e.processTag}</strong>}
-                  {isLinkedToIDPJ2 && !isTagged && <span>Vinculada a IDPJ</span>}
+                  {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                  {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
+                  {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
+                  {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
                   <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
-                  {e.hasGuarantee && <span>Garantia</span>}
-                  {e.prescriptionInterrupted && <span>PI</span>}
-                  {procAlerts.intims.length > 0 && <span className={procAlerts.overdueIntim?'overdue':''}>{procAlerts.intims.length} intimação(ões)</span>}
-                  {procAlerts.tasks.length > 0 && <span className={procAlerts.overdueTask?'overdue':''}>{procAlerts.tasks.length} tarefa(s)</span>}
+                  {e.hasGuarantee && <span className="proc-meta-chip">Garantia</span>}
+                  {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
+                  {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
+                  {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4,marginTop:2}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
                 {/* Executado (devedor) */}
@@ -6469,8 +6469,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>}
           </div>
 
-          {/* ═══ COL 2: Notas do processo (espaço ampliado; eventos via botão + Evento) ═══ */}
-          <div style={{minWidth:0,borderLeft:'1px solid var(--border)',paddingLeft:12}}>
+          {/* ═══ COL 2: Notas (coluna média, à direita da ficha) ═══ */}
+          <div className="proc-expand-notes">
             <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'space-between',gap:4}}>
               <span>Notas ({notes.length})</span>
               {isExec && <button className="btn-secondary btn-xs" style={{fontSize:8,padding:'1px 5px'}} onClick={(ev) => {
@@ -6496,18 +6496,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             })()}
           </div>
 
-          {/* ═══ COL 3: Ações ═══ */}
-          <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'stretch'}}>
-            <button className="btn-secondary btn-sm" onClick={(ev) => {
+          {/* ═══ COL 3: Ações compactas ═══ */}
+          <div className="proc-expand-actions">
+            <button className="btn-secondary btn-xs" onClick={(ev) => {
               ev.stopPropagation();
               const cdaIds = group.cdas.map(d => d.id);
               setModal({type:'create',entityType:'prescriptionEvent',initial:{batchCdaIds:cdaIds, executionId: isExec ? e.id : ''}});
             }}>+ Evento</button>
-            {isExec && <button className="btn-secondary btn-sm" onClick={(ev) => {
+            {isExec && <button className="btn-secondary btn-xs" onClick={(ev) => {
               ev.stopPropagation();
               setModal({type:'edit',entityType:'execution',initial:{...e, _editMode: 'dados'}});
             }}>Dados do Processo</button>}
-            {isExec && <button className="btn-secondary btn-sm" onClick={(ev) => {
+            {isExec && <button className="btn-secondary btn-xs" onClick={(ev) => {
               ev.stopPropagation();
               setModal({type:'create',entityType:'task',initial:{
                 operationId: opId,
@@ -8353,9 +8353,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               })()}
               {m.openTasks > 0 && (() => {
                 const isUrgent = m.soonestTask !== null && m.soonestTask <= 5;
-                return <span className={`op-task-dot${isUrgent?' urgent':''} has-tip`}><span className="tip-content">{m.openTasks} tarefa(s){isUrgent?` — prazo mais próximo em ${m.soonestTask}d`:''}</span></span>;
+                return <span className="op-task-dot has-tip" title={`${m.openTasks} tarefa(s) pendente(s)`}><span className="tip-content">{m.openTasks} tarefa(s) pendente(s){isUrgent?` — prazo mais próximo em ${m.soonestTask}d`:''}</span></span>;
               })()}
-              {m.alerts > 0 && <span style={{color:'var(--red)',marginLeft:4,fontSize:10}}>● {m.alerts}</span>}
+              {m.alerts > 0 && <span className="op-presc-dot has-tip" title={`${m.alerts} CDA(s) com prescrição iminente`}><span className="tip-content">{m.alerts} CDA(s) com prescrição iminente (≤6 meses), sem tratamento.</span></span>}
             </div>
             <div className="op-meta">{m.pCount}P · {m.dCount}CDAs {m.openTasks > 0 ? `· ${m.openTasks}✓` : ''}</div>
           </div>);
@@ -8994,7 +8994,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {Object.entries(INTIM_STATUSES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               <option value="resolvidas">✓ Resolvidas ({resolvidasCount})</option>
             </select>
-            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Urgente primeiro; depois importância, complexidade e prazo">
+            <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Padrão: prazo final mais próximo. Sem prazo vai para o fim da lista.">
               <option value="attention">Atenção: Urgente → Imp. → Complexidade → Prazo</option>
               <option value="importance">Importância</option>
               <option value="difficulty">Complexidade</option>
@@ -9113,8 +9113,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Urgente no topo (exceto agrupamentos)
-            if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
+            // Urgente no topo só nos critérios qualitativos — prazos e agrupamentos respeitam a ordem escolhida
+            if (['attention','importance','difficulty'].includes(intimSort)) {
               const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
@@ -10795,11 +10795,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         const toggle = (k) => { const next = sel.includes(k) ? sel.filter(x=>x!==k) : [...sel, k]; set('classifications', next); };
         const entries = Object.entries(OP_CLASSIFICATIONS)
           .sort((a, b) => a[1].label.localeCompare(b[1].label, 'pt-BR', { sensitivity: 'base' }));
-        return (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 14px',padding:10,background:'var(--bg-input)',border:'1px solid var(--border)',borderRadius:6}}>
+        return (<div className="op-classif-grid">
           {entries.map(([k,v]) => { const on = sel.includes(k); return (
-            <label key={k} style={{display:'flex',alignItems:'center',gap:7,fontSize:12,cursor:'pointer',color:on?v.color:'var(--text-secondary)',fontWeight:on?600:400}}>
-              <input type="checkbox" checked={on} onChange={()=>toggle(k)} style={{accentColor:'var(--accent)',cursor:'pointer'}} />
-              {v.label}
+            <label key={k} style={{color:on?v.color:undefined,fontWeight:on?600:400}}>
+              <input type="checkbox" checked={on} onChange={()=>toggle(k)} />
+              <span>{v.label}</span>
             </label>
           ); })}
         </div>);
