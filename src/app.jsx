@@ -598,7 +598,9 @@ const loadData = () => {
 let _quotaWarned = false;
 const LZ_PREFIX = 'LZS1|'; // marca payload comprimido no localStorage (JSON cru começa com '{')
 const saveData = (d) => {
-  try { attachPrescriptionSnapshots(d); } catch (e) { console.error('prescription snapshot', e); }
+  // Snapshots de prescrição NÃO rodam no save local — o motor já corre no render
+  // (prescLookup). Recalcular todas as CDAs aqui congelava a UI 800ms após cada edição.
+  // O e-mail diário lê o JSON da nuvem; attachPrescriptionSnapshots vai em cloudPush.
   try { setExtraHolidays(d && d.calendar && d.calendar.extraHolidays); } catch (e) { /* ignore */ }
   const json = JSON.stringify(d);
   try {
@@ -2309,6 +2311,31 @@ function sortArquivadasLast(groups) {
   });
 }
 
+/** Agrupa CDAs por execução em O(D+E), sem sameProc aninhado a cada render. */
+function buildCdaGroups(execs, allDebts) {
+  const byProc = new Map();
+  (allDebts || []).forEach(d => {
+    const k = normProc(d.processNumber);
+    if (!k) return;
+    let arr = byProc.get(k);
+    if (!arr) { arr = []; byProc.set(k, arr); }
+    arr.push(d);
+  });
+  const execProc = new Set();
+  const cdaGroups = [];
+  (execs || []).forEach(exec => {
+    const k = normProc(exec.processNumber);
+    if (k) execProc.add(k);
+    cdaGroups.push({ type: 'exec', exec, cdas: (k && byProc.get(k)) || [] });
+  });
+  const unlinkedCDAs = (allDebts || []).filter(d => {
+    const k = normProc(d.processNumber);
+    return !k || !execProc.has(k);
+  });
+  if (unlinkedCDAs.length > 0) cdaGroups.push({ type: 'unlinked', exec: null, cdas: unlinkedCDAs });
+  return cdaGroups;
+}
+
 function classifyProcGroups(cdaGroups, execs) {
   const byId = Object.fromEntries((execs || []).map(e => [e.id, e]));
   const groupByExecId = {};
@@ -2813,25 +2840,49 @@ function App() {
   // no localStorage A CADA tecla — causa do congelamento ao digitar.
   const saveTimerRef = useRef(null);
   const latestDataRef = useRef(null);
+  // lastAccessed não passa por setData: um upsert 800ms após abrir a operação
+  // re-renderizava o App inteiro e disparava compressão LZ + motor de prescrição.
+  const lastAccessedPendingRef = useRef({});
+  const applyPendingLastAccessed = (d) => {
+    const pending = lastAccessedPendingRef.current;
+    const ids = Object.keys(pending);
+    if (!ids.length || !d || !Array.isArray(d.operations)) return d;
+    lastAccessedPendingRef.current = {};
+    return { ...d, operations: d.operations.map(o => pending[o.id] ? { ...o, lastAccessed: pending[o.id] } : o) };
+  };
+  const persistLocal = (d) => {
+    if (!d) return;
+    const merged = applyPendingLastAccessed(d);
+    latestDataRef.current = merged;
+    saveData(merged);
+  };
+  const touchOperationAccess = (opId) => {
+    if (!opId) return;
+    lastAccessedPendingRef.current[opId] = new Date().toISOString();
+  };
   const flushLocalSave = () => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
-    if (latestDataRef.current) saveData(latestDataRef.current);
+    persistLocal(latestDataRef.current);
   };
   useEffect(() => {
     latestDataRef.current = data;
     if (!hydratedRef.current) {
-      saveData(data);            // primeira hidratação (ou pós-pull da nuvem): save imediato, não marca dirty
+      persistLocal(data);        // primeira hidratação (ou pós-pull da nuvem): save imediato, não marca dirty
       hydratedRef.current = true;
       return;
     }
     dirtyRef.current = true; lastEditRef.current = Date.now();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => { saveTimerRef.current = null; saveData(latestDataRef.current); }, 800);
+    saveTimerRef.current = setTimeout(() => { saveTimerRef.current = null; persistLocal(latestDataRef.current); }, 800);
   }, [data]);
   // Flush do save pendente ao fechar/ocultar a aba — nada se perde
   useEffect(() => {
-    const onHide = () => { if (saveTimerRef.current) flushLocalSave(); };
-    const onVis = () => { if (document.visibilityState === 'hidden' && saveTimerRef.current) flushLocalSave(); };
+    const onHide = () => {
+      if (saveTimerRef.current || Object.keys(lastAccessedPendingRef.current).length) flushLocalSave();
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'hidden' && (saveTimerRef.current || Object.keys(lastAccessedPendingRef.current).length)) flushLocalSave();
+    };
     window.addEventListener('beforeunload', onHide);
     document.addEventListener('visibilitychange', onVis);
     return () => { window.removeEventListener('beforeunload', onHide); document.removeEventListener('visibilitychange', onVis); };
@@ -3322,6 +3373,50 @@ function App() {
     [data.debts, data.executions, data.prescriptionEvents]
   );
   const getPrescDate = useMemo(() => (d) => prescLookup.date(d), [prescLookup]);
+  // Uma passada no acervo — a sidebar não pode filtrar o banco inteiro por operação a cada render.
+  const sidebarOpMeta = useMemo(() => {
+    const meta = {};
+    (data.operations || []).forEach(op => {
+      meta[op.id] = { dCount: 0, pCount: 0, openIntims: 0, overdueIntims: 0, openTasks: 0, alerts: 0, soonestIntim: null, soonestTask: null };
+    });
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (const d of data.debts || []) {
+      const m = meta[d.operationId];
+      if (!m) continue;
+      m.dCount++;
+      if (!d.prescriptionHandled) {
+        const dd = daysUntil(getPrescDate(d));
+        if (dd !== null && dd <= 180) m.alerts++;
+      }
+    }
+    for (const p of data.people || []) {
+      const m = meta[p.operationId];
+      if (m) m.pCount++;
+    }
+    for (const x of data.intimations || []) {
+      const m = meta[x.operationId];
+      if (!m) continue;
+      const open = (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction;
+      if (open) {
+        m.openIntims++;
+        if (x.dateDeadline) {
+          const dd = daysUntil(x.dateDeadline);
+          if (dd !== null && (m.soonestIntim === null || dd < m.soonestIntim)) m.soonestIntim = dd;
+        }
+      }
+      if (x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < today && x.status !== 'analisado') m.overdueIntims++;
+    }
+    for (const t of data.tasks || []) {
+      const m = meta[t.operationId];
+      if (!m || t.status === 'concluida' || t.status === 'cancelada') continue;
+      m.openTasks++;
+      if (t.dueDate) {
+        const dd = daysUntil(t.dueDate);
+        if (dd !== null && (m.soonestTask === null || dd < m.soonestTask)) m.soonestTask = dd;
+      }
+    }
+    return meta;
+  }, [data.operations, data.debts, data.people, data.intimations, data.tasks, getPrescDate]);
   const prescTag = (d) => {
     if (!d) return '';
     if (d.prescriptionDate) return 'informada';
@@ -3467,7 +3562,10 @@ function App() {
         .withFailureHandler((err) => {
           setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + err.message);
         })
-        .saveNexusData(JSON.stringify(data), lastPushRevRef.current, !!opts._force);
+        .saveNexusData((() => {
+          try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
+          return JSON.stringify(data);
+        })(), lastPushRevRef.current, !!opts._force);
       return;
     }
     setCloudStatus('error'); setCloudMsg('Ambiente não suportado.');
@@ -3637,7 +3735,10 @@ function App() {
       .exportGeminiView({
         scope: sc,
         operationId: sc === 'operacao' ? activeOpId : '',
-        jsonString: JSON.stringify(data),
+        jsonString: (() => {
+          try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
+          return JSON.stringify(data);
+        })(),
       });
   };
 
@@ -4354,9 +4455,19 @@ function App() {
     }
     return s;
   };
+  // Processos/prescrição: agrupar + classificar só quando dívidas/execuções mudam — não a cada colapso de card.
+  const processTabModel = useMemo(() => {
+    if (!activeOpId) return { execs: [], allDebts: [], cdaGroups: [], classified: classifyProcGroups([], []) };
+    const execs = (data.executions || []).filter(e => e.operationId === activeOpId);
+    const allDebts = (data.debts || []).filter(d => d.operationId === activeOpId);
+    const cdaGroups = buildCdaGroups(execs, allDebts);
+    return { execs, allDebts, cdaGroups, classified: classifyProcGroups(cdaGroups, execs) };
+  }, [activeOpId, data.executions, data.debts]);
   // Transição não-bloqueante ao trocar de aba/operação (React 18)
   const [isTabSwitching, startTabSwitch] = React.useTransition();
-  const toggleGroup = (gk) => setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(gk)) n.delete(gk); else n.add(gk); return n; });
+  const toggleGroup = (gk) => startTabSwitch(() => {
+    setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(gk)) n.delete(gk); else n.add(gk); return n; });
+  });
   // Colapso dos cards do Painel (prescrição, agenda) — preferência de UI lembrada entre sessões
   const [painelCollapsed, setPainelCollapsed] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('nexus_painel_collapsed') || '[]')); } catch { return new Set(); } });
   const togglePainel = (k) => setPainelCollapsed(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); try { localStorage.setItem('nexus_painel_collapsed', JSON.stringify([...n])); } catch {} return n; });
@@ -4409,6 +4520,22 @@ function App() {
   const toggleAsset = (id) => setSelectedAssets(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // ─── Item 13: Auto-linkify process numbers & CPF/CNPJ in text ───
   // Detects patterns in note text and renders them as clickable links that open the matching entity
+  const execByProcDigits = useMemo(() => {
+    const m = new Map();
+    for (const e of data.executions || []) {
+      const k = normProc(e.processNumber);
+      if (k && !m.has(k)) m.set(k, e);
+    }
+    return m;
+  }, [data.executions]);
+  const peopleByDocDigits = useMemo(() => {
+    const m = new Map();
+    for (const p of data.people || []) {
+      const d = digitsOnly(p.cpfCnpj);
+      if (d && !m.has(d)) m.set(d, p);
+    }
+    return m;
+  }, [data.people]);
   const linkify = (text) => {
     if (!text || typeof text !== 'string') return text;
     // Regex for: process number, CNPJ, CPF
@@ -4429,13 +4556,13 @@ function App() {
       if (p.type === 'text') return <React.Fragment key={i}>{p.value}</React.Fragment>;
       const style = { color: 'var(--accent)', textDecoration: 'underline', textDecorationColor: 'rgba(209,154,102,0.3)', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 'inherit' };
       if (p.type === 'proc') {
-        const exec = data.executions.find(e => sameProc(e.processNumber, p.value));
+        const exec = execByProcDigits.get(normProc(p.value));
         if (!exec) return <span key={i} style={{...style, textDecoration:'none', cursor:'default', color:'inherit'}}>{p.value}</span>;
         return <span key={i} style={style} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:exec}); }} title={`Abrir processo ${p.value}`}>{p.value}</span>;
       }
       // CPF or CNPJ
       const docDigits = p.value.replace(/\D/g, '');
-      const person = findPersonByDoc(data.people, { cpfCnpj: docDigits });
+      const person = peopleByDocDigits.get(docDigits) || findPersonByDoc(data.people, { cpfCnpj: docDigits });
       if (!person) return <span key={i} style={{...style, textDecoration:'none', cursor:'default', color:'inherit'}}>{p.value}</span>;
       return <span key={i} style={style} onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:person}); }} title={`Abrir pessoa: ${person.name}`}>{p.value}</span>;
     });
@@ -4635,18 +4762,30 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   // Stats
   const opStats = useMemo(() => {
     if (!activeOp) return null;
-    const debts = data.debts.filter(d => d.operationId === activeOp.id);
-    const execs = data.executions.filter(e => e.operationId === activeOp.id);
-    const measures = data.measures.filter(m => m.operationId === activeOp.id);
-    const assets = data.assets.filter(a => a.operationId === activeOp.id);
-    const people = data.people.filter(p => p.operationId === activeOp.id);
+    const slices = getOpSlices(activeOp.id);
+    const debts = slices.debts;
+    const execs = slices.executions;
+    const measures = slices.measures;
+    const assets = slices.assets;
+    const people = slices.people;
     const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
     const guar = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
     const unexec = debts.filter(d => (d.status === 'ativa' || d.status === 'ativa_nao_ajuizavel') && !d.processNumber).length;
     const prescA = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+    const execsWithEvents = new Set();
+    for (const pe of data.prescriptionEvents || []) {
+      if (pe && pe.executionId) execsWithEvents.add(pe.executionId);
+    }
     const prescExec = execs.filter(e => {
-      const evts = (data.prescriptionEvents || []).filter(pe => pe.executionId === e.id);
-      if (evts.length > 0) {
+      if (execsWithEvents.has(e.id)) {
+        const k = normProc(e.processNumber);
+        const cdas = k ? debts.filter(d => normProc(d.processNumber) === k) : [];
+        if (cdas.length) {
+          return cdas.some(d => {
+            const st = prescLookup(d).status;
+            return st === 'critico' || st === 'alerta' || st === 'prescrito';
+          });
+        }
         const calc = calcPrescription(e.id, data.prescriptionEvents || [], { debts, executions: execs });
         return calc.status === 'critico' || calc.status === 'alerta' || calc.status === 'prescrito';
       }
@@ -4665,7 +4804,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const indispLabel = constrictedAssets.length === 0 ? 'Sem bens' : constrictedWithValue.length === 0 ? 'Sem avaliação' : fmtCur(constrictedTotal);
     const indispHasValue = constrictedWithValue.length > 0;
     return { total, guar, unexec, prescA, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, indispLabel, indispHasValue, indispCount: constrictedAssets.length };
-  }, [activeOp, data]);
+  }, [activeOp, data, prescLookup, getPrescDate]);
 
 
   const getMeasureInitial = (m) => {
@@ -5958,24 +6097,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       //           + edit button → modal with sub-tabs (process data | prescription control)
       //           + generate task button → opens task modal pre-filled from process
       // ═══════════════════════════════════════════════════════════════════
-      const execs = getOpSlices(opId).executions;
-      const allDebts = getOpSlices(opId).debts;
+      const { execs, allDebts, cdaGroups, classified } = processTabModel;
       const prescEvents = data.prescriptionEvents || [];
-
-      // Build group list — same as prescription tab
-      const cdaGroups = [];
-      execs.forEach(exec => {
-        const cdas = allDebts.filter(d => d.processNumber && sameProc(d.processNumber, exec.processNumber));
-        if (cdas.length > 0) cdaGroups.push({ type: 'exec', exec, cdas });
-      });
-      // Also include processes without CDAs (so the tab is the source of truth for processes too)
-      execs.forEach(exec => {
-        if (!cdaGroups.some(g => g.type === 'exec' && g.exec.id === exec.id)) {
-          cdaGroups.push({ type: 'exec', exec, cdas: [] });
-        }
-      });
-      const unlinkedCDAs = allDebts.filter(d => !d.processNumber || !execs.some(e => sameProc(e.processNumber, d.processNumber)));
-      if (unlinkedCDAs.length > 0) cdaGroups.push({ type: 'unlinked', exec: null, cdas: unlinkedCDAs });
 
       // Linked-to-IDPJ set (badges no card) — hierarquia de seções vem de classifyProcGroups / Visão D
       const idpjLinkedExecIds2 = new Set();
@@ -6104,6 +6227,26 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         }
       });
 
+      const openIntimsByProc = new Map();
+      const openTasksByProc = new Map();
+      for (const x of data.intimations || []) {
+        if (x.operationId !== opId || x.responseAction) continue;
+        if (!(x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao')) continue;
+        const k = normProc(x.processNumber);
+        if (!k) continue;
+        let arr = openIntimsByProc.get(k);
+        if (!arr) { arr = []; openIntimsByProc.set(k, arr); }
+        arr.push(x);
+      }
+      for (const t of data.tasks || []) {
+        if (t.operationId !== opId || t.status === 'concluida' || t.status === 'cancelada') continue;
+        const k = normProc(t.processNumber);
+        if (!k) continue;
+        let arr = openTasksByProc.get(k);
+        if (!arr) { arr = []; openTasksByProc.set(k, arr); }
+        arr.push(t);
+      }
+
       // ─── THE CARD RENDERER ───
       const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null, hideProcessNumber = false }) => {
         const isExec = group.type === 'exec';
@@ -6112,24 +6255,26 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const prescForecastDays = isExec ? daysUntil(e.prescriptionForecast) : null;
         const groupAllSelected = group.cdas.length > 0 && group.cdas.every(d => selectedCDAs.has(d.id));
 
-        const myApensosGroups = isExec ? cdaGroups.filter(x => x.type === 'exec' && x.exec.parentExecutionId === e.id) : [];
+        const processKey = 'process-row-' + (isExec ? e.id : 'unlinked');
+        const processExpanded = collapsedGroups.has(processKey);
+        const needDetail = processExpanded || hideProcessNumber;
+
+        const myApensosGroups = (needDetail && isExec) ? (apensoMap2[e.id] || []) : [];
         const isTagged = isExec && e.processTag && e.processTag !== 'normal';
         const isLinkedToIDPJ2 = isExec && idpjLinkedExecIds2.has(e.id);
-        const notes = isExec ? (e.notesList || (e.notes ? [e.notes] : [])) : [];
+        const notes = (needDetail && isExec) ? (e.notesList || (e.notes ? [e.notes] : [])) : [];
         const totalCDAValue = group.cdas.reduce((s,d)=>s+(d.value||0),0);
-        // For IDPJ/MCF: calculate total value of CDAs from ALL linked EFs
         const isIdpjOrMcf = isExec && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-        const totalLinkedEFValue = isIdpjOrMcf ? (() => {
+        const totalLinkedEFValue = (needDetail && isIdpjOrMcf) ? (() => {
           const linkedEFExecs = execs.filter(ex => (e.linkedExecutionIds||[]).includes(ex.id));
           const linkedProcNums = new Set(linkedEFExecs.map(ex => ex.processNumber).filter(Boolean));
           return allDebts.filter(d => d.processNumber && linkedProcNums.has(d.processNumber)).reduce((s,d) => s + (d.value||0), 0);
         })() : 0;
 
-        // Alert badges: open intimations and tasks for this process
-        const procAlerts = isExec ? (() => {
+        const procAlerts = (needDetail && isExec) ? (() => {
           const today = new Date();
-          const intims = (data.intimations||[]).filter(x => x.operationId === opId && sameProc(x.processNumber, e.processNumber) && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
-          const tasks = (data.tasks||[]).filter(t => t.operationId === opId && sameProc(t.processNumber, e.processNumber) && t.status !== 'concluida' && t.status !== 'cancelada');
+          const intims = openIntimsByProc.get(normProc(e.processNumber)) || [];
+          const tasks = openTasksByProc.get(normProc(e.processNumber)) || [];
           return { intims, tasks, overdueIntim: intims.some(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today), overdueTask: tasks.some(t => t.dueDate && new Date(t.dueDate+'T00:00:00') < today) };
         })() : { intims: [], tasks: [] };
 
@@ -6155,23 +6300,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const statusOpacity = isExec ? (e.status === 'extinta' ? 0.3 : e.status === 'arquivada' ? 0.45 : e.status === 'suspensa' ? 0.7 : 1) : 1;
 
         // Find the main debtor (devedor) for this execution
-        const execDebtor = isExec ? (() => {
-          // Try via CDA responsibilities
+        const execDebtor = (needDetail && isExec) ? (() => {
           const firstCda = group.cdas[0];
           if (firstCda) {
             const resp = (data.links?.cdaResponsibilities || []).find(r => r.cdaId === firstCda.id && r.role === 'originario');
             if (resp) { const p = data.people.find(pp => pp.id === resp.personId); if (p) return p; }
-            // Try devedor field from CDA itself
             if (firstCda.devedor) return { name: firstCda.devedor, cpfCnpj: firstCda.cnpj };
           }
-          // Try matching people by operationRole
           const alvos = data.people.filter(p => p.operationId === opId && p.operationRole === 'alvo');
           if (alvos.length === 1) return alvos[0];
           return null;
         })() : null;
 
-        const processKey = 'process-row-' + (isExec ? e.id : 'unlinked');
-        const processExpanded = collapsedGroups.has(processKey);
         const riskDays = group.cdas
           .filter(d => !d.prescriptionHandled)
           .map(d => daysUntil(getPrescDate(d)))
@@ -6412,7 +6552,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         : (isDemo
           ? (['A', 'B', 'C', 'D'].includes(appSettings.processViewModel) ? appSettings.processViewModel : 'D')
           : 'D');
-      const classified = classifyProcGroups(cdaGroups, execs);
       const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
       const hubTagShort = (tag) => ({ idpj: 'IDPJ', cautelar_fiscal: 'Cautelar fiscal', central: 'Central' }[tag] || tag || 'Hub');
       const efRiskMeta = (group) => {
@@ -7846,7 +7985,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       setViewMode('operation');
       setDemoZone(tabToDemoZone(activeTab));
     });
-    setTimeout(() => upsert('operations', { ...op, lastAccessed: new Date().toISOString() }), 800);
+    setTimeout(() => touchOperationAccess(op.id), 800);
   };
   const carteiraContext = isDemo && (viewMode === 'operacoes' || viewMode === 'operation' || viewMode === 'painel');
   const alphaOps = (data.operations || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
@@ -8203,31 +8342,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="sidebar-ops">
         {filteredOps.length === 0 && <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:11}}>{data.operations.length===0?'Crie sua primeira operação':'Nenhum resultado'}</div>}
         {filteredOps.map(op => {
-          const dCount = data.debts.filter(d => d.operationId === op.id).length;
-          const pCount = data.people.filter(p => p.operationId === op.id).length;
-          const opExecsForPresc = data.executions.filter(e => e.operationId === op.id);
-          const opIntims = (data.intimations||[]).filter(x => x.operationId === op.id);
-          const openIntims = opIntims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
-          const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado');
-          const openTasks = (data.tasks||[]).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
-          const alerts = data.debts.filter(d => { if (d.operationId!==op.id) return false; const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setImportResult(null); setViewMode('operation'); }); setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800); }}>
+          const m = sidebarOpMeta[op.id] || { dCount: 0, pCount: 0, openIntims: 0, overdueIntims: 0, openTasks: 0, alerts: 0, soonestIntim: null, soonestTask: null };
+          return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setImportResult(null); setViewMode('operation'); }); setTimeout(() => touchOperationAccess(op.id), 800); }}>
             <div className="op-name">
               {op.name}
-              {overdueIntims.length > 0 && <span className="op-intim-dot op-intim-overdue urgent has-tip" title={`${overdueIntims.length} intimação(ões) vencida(s)`}><span className="tip-content">{overdueIntims.length} intimação(ões) VENCIDA(S) nesta operação.</span></span>}
-              {overdueIntims.length === 0 && openIntims.length > 0 && (() => {
-                const soonest = openIntims.filter(x => x.dateDeadline).map(x => daysUntil(x.dateDeadline)).filter(d => d !== null).sort((a,b) => a-b)[0];
-                const isUrgent = soonest !== undefined && soonest <= 5;
-                return <span className={`op-intim-dot${isUrgent?' urgent':''} has-tip`}><span className="tip-content">{openIntims.length} intimação(ões) abertas{isUrgent?` — prazo mais próximo em ${soonest}d`:''}</span></span>;
+              {m.overdueIntims > 0 && <span className="op-intim-dot op-intim-overdue urgent has-tip" title={`${m.overdueIntims} intimação(ões) vencida(s)`}><span className="tip-content">{m.overdueIntims} intimação(ões) VENCIDA(S) nesta operação.</span></span>}
+              {m.overdueIntims === 0 && m.openIntims > 0 && (() => {
+                const isUrgent = m.soonestIntim !== null && m.soonestIntim <= 5;
+                return <span className={`op-intim-dot${isUrgent?' urgent':''} has-tip`}><span className="tip-content">{m.openIntims} intimação(ões) abertas{isUrgent?` — prazo mais próximo em ${m.soonestIntim}d`:''}</span></span>;
               })()}
-              {openTasks.length > 0 && (() => {
-                const soonest = openTasks.filter(t => t.dueDate).map(t => daysUntil(t.dueDate)).filter(d => d !== null).sort((a,b) => a-b)[0];
-                const isUrgent = soonest !== undefined && soonest <= 5;
-                return <span className={`op-task-dot${isUrgent?' urgent':''} has-tip`}><span className="tip-content">{openTasks.length} tarefa(s){isUrgent?` — prazo mais próximo em ${soonest}d`:''}</span></span>;
+              {m.openTasks > 0 && (() => {
+                const isUrgent = m.soonestTask !== null && m.soonestTask <= 5;
+                return <span className={`op-task-dot${isUrgent?' urgent':''} has-tip`}><span className="tip-content">{m.openTasks} tarefa(s){isUrgent?` — prazo mais próximo em ${m.soonestTask}d`:''}</span></span>;
               })()}
-              {alerts > 0 && <span style={{color:'var(--red)',marginLeft:4,fontSize:10}}>● {alerts}</span>}
+              {m.alerts > 0 && <span style={{color:'var(--red)',marginLeft:4,fontSize:10}}>● {m.alerts}</span>}
             </div>
-            <div className="op-meta">{pCount}P · {dCount}CDAs {openTasks.length > 0 ? `· ${openTasks.length}✓` : ''}</div>
+            <div className="op-meta">{m.pCount}P · {m.dCount}CDAs {m.openTasks > 0 ? `· ${m.openTasks}✓` : ''}</div>
           </div>);
         })}
       </div>
@@ -8760,7 +8890,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   if (isDemo) openCarteiraOp(op);
                   else {
                     startTabSwitch(() => { setActiveOpId(op.id); setViewMode('operation'); });
-                    setTimeout(() => upsert('operations', {...op, lastAccessed: new Date().toISOString()}), 800);
+                    setTimeout(() => touchOperationAccess(op.id), 800);
                   }
                 };
 

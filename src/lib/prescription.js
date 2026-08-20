@@ -10,6 +10,7 @@ import {
   daysUntil,
   fmtDate,
   localIso,
+  normProc,
   sameProc,
   toDayKey,
 } from './dates.js';
@@ -127,23 +128,78 @@ export const prescOriginLabel = (r) => {
   return '';
 };
 
-export function collectEventsForCda(debt, executions, events) {
+function isBareExecEvent(e) {
+  return !!(e && e.executionId && !e.cdaId && (!e.batchCdaIds || e.batchCdaIds.length === 0));
+}
+
+/** Índices O(1) para collectEventsForCda — createPrescLookup monta uma vez e reusa em todas as CDAs. */
+function buildPrescCollectIndex(executions, events) {
+  const execByProc = new Map();
+  const execById = new Map();
+  for (const e of executions || []) {
+    if (e && e.id) execById.set(e.id, e);
+    const n = normProc(e && e.processNumber);
+    if (n && !execByProc.has(n)) execByProc.set(n, e);
+  }
+  const byCda = new Map();
+  const byExecBare = new Map();
+  const byInheritedParent = new Map();
+  const push = (map, key, ev) => {
+    if (!key) return;
+    let arr = map.get(key);
+    if (!arr) { arr = []; map.set(key, arr); }
+    arr.push(ev);
+  };
+  for (const ev of events || []) {
+    if (!ev) continue;
+    if (ev.cdaId) push(byCda, ev.cdaId, ev);
+    if (ev.batchCdaIds && ev.batchCdaIds.length) {
+      for (const id of ev.batchCdaIds) push(byCda, id, ev);
+    }
+    if (isBareExecEvent(ev)) push(byExecBare, ev.executionId, ev);
+    if (ev._inheritedFromParent) push(byInheritedParent, ev._inheritedFromParent, ev);
+  }
+  return { execByProc, execById, byCda, byExecBare, byInheritedParent };
+}
+
+export function collectEventsForCda(debt, executions, events, collectIndex) {
   const execs = executions || [];
   const evts = events || [];
-  const exec = debt && debt.processNumber ? execs.find(e => sameProc(e.processNumber, debt.processNumber)) : null;
-  const direct = evts.filter(e =>
-    e.cdaId === debt.id ||
-    (e.batchCdaIds && e.batchCdaIds.includes(debt.id)) ||
-    (exec && e.executionId === exec.id && !e.cdaId && (!e.batchCdaIds || e.batchCdaIds.length === 0))
-  );
+  const exec = debt && debt.processNumber
+    ? (collectIndex
+      ? (collectIndex.execByProc.get(normProc(debt.processNumber)) || null)
+      : (execs.find(e => sameProc(e.processNumber, debt.processNumber)) || null))
+    : null;
+  let direct;
+  if (collectIndex) {
+    direct = [
+      ...(collectIndex.byCda.get(debt && debt.id) || []),
+      ...(exec ? (collectIndex.byExecBare.get(exec.id) || []) : []),
+    ];
+  } else {
+    direct = evts.filter(e =>
+      e.cdaId === debt.id ||
+      (e.batchCdaIds && e.batchCdaIds.includes(debt.id)) ||
+      (exec && isBareExecEvent(e) && e.executionId === exec.id)
+    );
+  }
   let inherited = [];
   if (exec && exec.parentExecutionId) {
-    const parent = execs.find(e => e.id === exec.parentExecutionId);
+    const parent = collectIndex
+      ? (collectIndex.execById.get(exec.parentExecutionId) || null)
+      : (execs.find(e => e.id === exec.parentExecutionId) || null);
     if (parent) {
-      inherited = evts.filter(e =>
-        (e.executionId === parent.id && !e.cdaId && (!e.batchCdaIds || e.batchCdaIds.length === 0)) ||
-        e._inheritedFromParent === parent.id
-      );
+      if (collectIndex) {
+        inherited = [
+          ...(collectIndex.byExecBare.get(parent.id) || []),
+          ...(collectIndex.byInheritedParent.get(parent.id) || []),
+        ];
+      } else {
+        inherited = evts.filter(e =>
+          (isBareExecEvent(e) && e.executionId === parent.id) ||
+          e._inheritedFromParent === parent.id
+        );
+      }
     }
   }
   const seen = new Set();
@@ -239,10 +295,10 @@ function memPush(memory, date, label, effect) {
 /**
  * @param {{ debt: object, executions?: object[], events?: object[], asOf?: string|Date }} args
  */
-export function computePrescription({ debt, executions = [], events = [], asOf } = {}) {
+export function computePrescription({ debt, executions = [], events = [], asOf, collectIndex } = {}) {
   if (!debt) return emptyResult();
   const asOfIso = asIso(asOf) || localIso(new Date());
-  const { exec, events: cdaEvents } = collectEventsForCda(debt, executions, events);
+  const { exec, events: cdaEvents } = collectEventsForCda(debt, executions, events, collectIndex);
   const memory = [];
   const gaps = [];
   const timeline = [];
@@ -640,14 +696,15 @@ export function createPrescLookup(debts, executions, events = [], asOf) {
   const map = new Map();
   const execs = executions || [];
   const evts = events || [];
+  const collectIndex = buildPrescCollectIndex(execs, evts);
   for (const d of debts || []) {
     if (!d || !d.id) continue;
-    map.set(d.id, computePrescription({ debt: d, executions: execs, events: evts, asOf }));
+    map.set(d.id, computePrescription({ debt: d, executions: execs, events: evts, asOf, collectIndex }));
   }
   const get = (debt) => {
     if (!debt) return emptyResult();
     if (debt.id && map.has(debt.id)) return map.get(debt.id);
-    return computePrescription({ debt, executions: execs, events: evts, asOf });
+    return computePrescription({ debt, executions: execs, events: evts, asOf, collectIndex });
   };
   get.date = (debt) => {
     if (!debt) return '';

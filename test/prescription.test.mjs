@@ -10,6 +10,7 @@ import {
   computeOrdinaria,
   computePrescription,
   createPrescDateLookup,
+  createPrescLookup,
   fillRequestDate,
   eventNeedsRequestDate,
   IDPJ_CONSTRICTION_TYPE,
@@ -462,5 +463,30 @@ describe('parcelamento sem cessação no originário', () => {
     assert.notEqual(r.phase, 'suspenso');
     assert.equal(r.diesAdQuem, '2026-06-01');
     assert.equal(inferParcelamentoEnds(events).get('p').reason, 'rescisao');
+  });
+});
+
+describe('createPrescLookup — índice de eventos', () => {
+  it('bate com computePrescription isolado (evento em lote + evento da execução)', () => {
+    const debts = [
+      cda({ id: 'd1' }),
+      cda({ id: 'd2', processNumber: '50099995620234047001' })
+    ];
+    const execs = [
+      ef({ id: 'e1' }),
+      ef({ id: 'e2', processNumber: '50099995620234047001' })
+    ];
+    const events = [
+      { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2024-02-29' },
+      { id: 'b', batchCdaIds: ['d1', 'd2'], type: 'int_citacao', date: '2024-03-10' }
+    ];
+    const lookup = createPrescLookup(debts, execs, events, ASOF);
+    for (const d of debts) {
+      const a = lookup(d);
+      const b = computePrescription({ debt: d, executions: execs, events, asOf: ASOF });
+      assert.equal(a.phase, b.phase, d.id);
+      assert.equal(a.diesAdQuem, b.diesAdQuem, d.id);
+      assert.equal(a.origin, b.origin, d.id);
+    }
   });
 });
