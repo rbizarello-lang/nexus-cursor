@@ -73,13 +73,7 @@ describe('computePrescription — decisões fechadas', () => {
     assert.equal(a.diesAdQuem, b.diesAdQuem);
   });
 
-  it('5. parcelamento encerrado: intervalo pausado e descontado', () => {
-    const without = computePrescription({
-      debt: cda(),
-      executions: [ef()],
-      events: [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2020-01-01' }],
-      asOf: ASOF
-    });
+  it('5. parcelamento encerrado: quinquênio integral da rescisão, sem o ano do art. 40', () => {
     const withParc = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -89,8 +83,10 @@ describe('computePrescription — decisões fechadas', () => {
       ],
       asOf: ASOF
     });
-    assert.ok(withParc.diesAdQuem > without.diesAdQuem, `${withParc.diesAdQuem} should be after ${without.diesAdQuem}`);
-    assert.ok(daysBetween(without.diesAdQuem, withParc.diesAdQuem) >= 360);
+    assert.equal(withParc.diesAQuo, '2021-06-01');
+    assert.equal(withParc.diesAdQuem, '2026-06-01');
+    assert.equal(withParc.phase, 'consumado');
+    assert.ok(withParc.detail.includes('rescisão') || withParc.memory.some(m => /rescisão/i.test(m.effect)));
   });
 
   it('6. penhora na EF com pedido anterior: interrompe retroagindo ao pedido', () => {
@@ -463,6 +459,67 @@ describe('parcelamento sem cessação no originário', () => {
     assert.notEqual(r.phase, 'suspenso');
     assert.equal(r.diesAdQuem, '2026-06-01');
     assert.equal(inferParcelamentoEnds(events).get('p').reason, 'rescisao');
+  });
+});
+
+describe('parcelamento na intercorrente (TRF4)', () => {
+  it('vigente: suspende a exigibilidade e não deixa o quinquênio fluir', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [
+        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2020-01-01' },
+        { id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2024-03-01' }
+      ],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'suspenso');
+    assert.equal(r.status, 'suspenso');
+    assert.ok(/interrompe/i.test(r.detail));
+    assert.ok(r.memory.some(m => /174|Súmula 653|TRF4/i.test(m.effect)));
+  });
+
+  it('sem marco: rescisão já deflagra o quinquênio (não fica não-iniciado)', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-10', endDate: '2021-06-01' }],
+      asOf: ASOF
+    });
+    assert.notEqual(r.phase, 'nao_iniciado');
+    assert.equal(r.diesAQuo, '2021-06-01');
+    assert.equal(r.diesAdQuem, '2026-06-01');
+    assert.equal(r.phase, 'consumado');
+  });
+
+  it('dois parcelamentos: relógio da última rescisão', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [
+        { id: 'p1', executionId: 'e1', type: 'susp_parcelamento', date: '2018-01-01', endDate: '2019-01-01' },
+        { id: 'p2', executionId: 'e1', type: 'susp_parcelamento', date: '2022-01-01', endDate: '2023-01-01' }
+      ],
+      asOf: ASOF
+    });
+    assert.equal(r.diesAQuo, '2023-01-01');
+    assert.equal(r.diesAdQuem, '2028-01-01');
+    assert.equal(r.phase, 'correndo');
+  });
+
+  it('marco posterior à rescisão não soma o ano do art. 40', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [
+        { id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-01', endDate: '2022-08-16' },
+        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2023-01-10' }
+      ],
+      asOf: ASOF
+    });
+    assert.equal(r.diesAQuo, '2022-08-16');
+    assert.equal(r.diesAdQuem, '2027-08-16');
+    assert.ok(r.memory.some(m => /não se soma o ano/i.test(m.effect)));
   });
 });
 

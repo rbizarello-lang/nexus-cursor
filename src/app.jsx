@@ -11240,7 +11240,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     const categories = [
       { key: 'marco', label: '⏱ Marcos Iniciais (Tema 566)', desc: 'Eventos que disparam a contagem do art. 40 LEF' },
       { key: 'interruptiva', label: '🟢 Causas Interruptivas (Tema 568)', desc: 'Reiniciam o prazo prescricional do zero' },
-      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes' },
+      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; o quinquênio recomeça por inteiro na rescisão (TRF4).' },
       { key: 'info', label: 'ℹ️ Eventos Informativos', desc: 'Sem efeito no cômputo — registro para controle' },
     ];
     return (<>
