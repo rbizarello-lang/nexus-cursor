@@ -135,11 +135,16 @@ function isBareExecEvent(e) {
 /** Índices O(1) para collectEventsForCda — createPrescLookup monta uma vez e reusa em todas as CDAs. */
 function buildPrescCollectIndex(executions, events) {
   const execByProc = new Map();
+  const execsByProc = new Map();
   const execById = new Map();
   for (const e of executions || []) {
     if (e && e.id) execById.set(e.id, e);
     const n = normProc(e && e.processNumber);
-    if (n && !execByProc.has(n)) execByProc.set(n, e);
+    if (n) {
+      if (!execByProc.has(n)) execByProc.set(n, e); // compatibilidade: primeiro registro
+      if (!execsByProc.has(n)) execsByProc.set(n, []);
+      execsByProc.get(n).push(e);
+    }
   }
   const byCda = new Map();
   const byExecBare = new Map();
@@ -159,47 +164,45 @@ function buildPrescCollectIndex(executions, events) {
     if (isBareExecEvent(ev)) push(byExecBare, ev.executionId, ev);
     if (ev._inheritedFromParent) push(byInheritedParent, ev._inheritedFromParent, ev);
   }
-  return { execByProc, execById, byCda, byExecBare, byInheritedParent };
+  return { execByProc, execsByProc, execById, byCda, byExecBare, byInheritedParent };
 }
 
 export function collectEventsForCda(debt, executions, events, collectIndex) {
   const execs = executions || [];
   const evts = events || [];
-  const exec = debt && debt.processNumber
+  const matchingExecs = debt && debt.processNumber
     ? (collectIndex
-      ? (collectIndex.execByProc.get(normProc(debt.processNumber)) || null)
-      : (execs.find(e => sameProc(e.processNumber, debt.processNumber)) || null))
-    : null;
+      ? (collectIndex.execsByProc?.get(normProc(debt.processNumber)) || (collectIndex.execByProc.get(normProc(debt.processNumber)) ? [collectIndex.execByProc.get(normProc(debt.processNumber))] : []))
+      : execs.filter(e => sameProc(e.processNumber, debt.processNumber)))
+    : [];
+  const exec = matchingExecs[0] || null;
   let direct;
   if (collectIndex) {
     direct = [
       ...(collectIndex.byCda.get(debt && debt.id) || []),
-      ...(exec ? (collectIndex.byExecBare.get(exec.id) || []) : []),
+      ...matchingExecs.flatMap(item => collectIndex.byExecBare.get(item.id) || []),
     ];
   } else {
+    const matchingIds = new Set(matchingExecs.map(item => item.id));
     direct = evts.filter(e =>
       e.cdaId === debt.id ||
       (e.batchCdaIds && e.batchCdaIds.includes(debt.id)) ||
-      (exec && isBareExecEvent(e) && e.executionId === exec.id)
+      (isBareExecEvent(e) && matchingIds.has(e.executionId))
     );
   }
   let inherited = [];
-  if (exec && exec.parentExecutionId) {
-    const parent = collectIndex
-      ? (collectIndex.execById.get(exec.parentExecutionId) || null)
-      : (execs.find(e => e.id === exec.parentExecutionId) || null);
-    if (parent) {
-      if (collectIndex) {
-        inherited = [
-          ...(collectIndex.byExecBare.get(parent.id) || []),
-          ...(collectIndex.byInheritedParent.get(parent.id) || []),
-        ];
-      } else {
-        inherited = evts.filter(e =>
-          (isBareExecEvent(e) && e.executionId === parent.id) ||
-          e._inheritedFromParent === parent.id
-        );
-      }
+  const parentIds = new Set(matchingExecs.map(item => item.parentExecutionId).filter(Boolean));
+  if (parentIds.size > 0) {
+    if (collectIndex) {
+      inherited = [...parentIds].flatMap(parentId => [
+        ...(collectIndex.byExecBare.get(parentId) || []),
+        ...(collectIndex.byInheritedParent.get(parentId) || []),
+      ]);
+    } else {
+      inherited = evts.filter(e =>
+        (isBareExecEvent(e) && parentIds.has(e.executionId)) ||
+        parentIds.has(e._inheritedFromParent)
+      );
     }
   }
   const seen = new Set();
@@ -1082,6 +1085,126 @@ export function computeCdaLegalTimeline({ debt, executions = [], events = [], as
     if (sev > worst.sev) worst = { key: s.key, status: s.r.status, sev };
   });
   return { decadencia, ordinaria, intercorrente, exec: exec || null, worst };
+}
+
+const PAINEL_PRESC_WINDOW = 180;
+
+function isPainelPrescCandidate(debt) {
+  if (!debt || debt.status === 'extinta') return false;
+  if (debt.prescriptionHandled) return false;
+  return true;
+}
+
+/** Ciclo do art. 40 já tem gatilho (marco ou quinquênio pós-parcelamento). */
+function intercorrenteCycleStarted(inter) {
+  if (!inter) return false;
+  const p = inter.phase;
+  if (!p || p === 'nao_iniciado' || p === 'sem_dados' || p === 'pre_marco') return false;
+  return true;
+}
+
+function isOverdueResult(r) {
+  if (!r) return false;
+  if (r.status === 'prescrito' || r.status === 'consumado' || r.status === 'consumada') return true;
+  return r.diesAdQuem && r.daysLeft != null && r.daysLeft <= 0;
+}
+
+function isImminentResult(r) {
+  if (!r || !r.diesAdQuem || r.daysLeft == null) return false;
+  return r.daysLeft > 0 && r.daysLeft <= PAINEL_PRESC_WINDOW;
+}
+
+/**
+ * Um aviso operacional por CDA ativa, sem decadência.
+ * kind: iminente | vencido | avaliar_174 | avaliar_intercorrente | null
+ */
+export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf) {
+  if (!isPainelPrescCandidate(debt)) return null;
+  const tl = computeCdaLegalTimeline({ debt, executions, events, asOf });
+  const ordinaria = tl.ordinaria;
+  const inter = tl.intercorrente;
+  const ajuizada = !!tl.exec;
+  const cycle = intercorrenteCycleStarted(inter);
+
+  const origOverdue = !ajuizada && isOverdueResult(ordinaria);
+  const interOverdue = ajuizada && cycle && isOverdueResult(inter);
+  if (origOverdue || interOverdue) {
+    const r = origOverdue ? ordinaria : inter;
+    return {
+      kind: 'vencido',
+      segment: origOverdue ? 'ordinaria' : 'intercorrente',
+      days: r.daysLeft,
+      date: r.diesAdQuem || '',
+      status: r.status
+    };
+  }
+
+  const origImminent = !ajuizada && isImminentResult(ordinaria);
+  const interImminent = ajuizada && cycle && isImminentResult(inter);
+  if (origImminent || interImminent) {
+    const r = origImminent ? ordinaria : inter;
+    return {
+      kind: 'iminente',
+      segment: origImminent ? 'ordinaria' : 'intercorrente',
+      days: r.daysLeft,
+      date: r.diesAdQuem || '',
+      status: r.status
+    };
+  }
+
+  if (ajuizada && !cycle) {
+    return {
+      kind: 'avaliar_intercorrente',
+      segment: 'intercorrente',
+      days: null,
+      date: '',
+      status: (inter && inter.status) || 'sem_dados'
+    };
+  }
+
+  if (!ajuizada) {
+    if (ordinaria && ordinaria.diesAdQuem && (ordinaria.daysLeft == null || ordinaria.daysLeft > PAINEL_PRESC_WINDOW)) {
+      return null;
+    }
+    return {
+      kind: 'avaliar_174',
+      segment: 'ordinaria',
+      days: ordinaria ? ordinaria.daysLeft : null,
+      date: (ordinaria && ordinaria.diesAdQuem) || '',
+      status: (ordinaria && ordinaria.status) || 'sem_dados'
+    };
+  }
+
+  return null;
+}
+
+export function buildPainelPrescAlerts(data, asOf) {
+  const buckets = { iminente: [], vencido: [], avaliar_174: [], avaliar_intercorrente: [] };
+  if (!data) return buckets;
+  const ops = {};
+  (data.operations || []).forEach(o => {
+    if (o && o.status !== 'encerrada') ops[o.id] = o;
+  });
+  const executions = data.executions || [];
+  const events = data.prescriptionEvents || [];
+  (data.debts || []).forEach(d => {
+    const op = ops[d.operationId];
+    if (!op) return;
+    const alert = classifyPainelPrescAlert(d, executions, events, asOf);
+    if (!alert || !buckets[alert.kind]) return;
+    buckets[alert.kind].push({
+      ...d,
+      prescDate: alert.date,
+      prescDays: alert.days,
+      prescKind: alert.kind,
+      prescSegment: alert.segment,
+      opName: op.name,
+      opId: op.id
+    });
+  });
+  buckets.iminente.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
+  buckets.vencido.sort((a, b) => (a.prescDays ?? 0) - (b.prescDays ?? 0));
+  return buckets;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

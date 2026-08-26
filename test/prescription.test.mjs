@@ -5,6 +5,7 @@ import {
   buildPrescricaoReport,
   buildProcessPrescricaoReport,
   calcPrescription,
+  collectEventsForCda,
   computeCdaLegalTimeline,
   computeDecadencia,
   computeOrdinaria,
@@ -545,5 +546,18 @@ describe('createPrescLookup — índice de eventos', () => {
       assert.equal(a.diesAdQuem, b.diesAdQuem, d.id);
       assert.equal(a.origin, b.origin, d.id);
     }
+  });
+
+  it('agrega eventos vinculados a todos os IDs duplicados do mesmo processo', () => {
+    const debt = cda();
+    const executions = [ef({ id: 'e1' }), ef({ id: 'e2' })];
+    const events = [
+      { id: 'm1', executionId: 'e1', type: 'marco_sem_bens', date: '2020-01-01' },
+      { id: 'p2', executionId: 'e2', type: 'int_penhora', date: '2022-01-01' },
+    ];
+    const collected = collectEventsForCda(debt, executions, events);
+    assert.deepEqual(new Set(collected.events.map(e => e.id)), new Set(['m1', 'p2']));
+    const lookup = createPrescLookup([debt], executions, events, ASOF);
+    assert.equal(lookup(debt).phase, 'interrompido');
   });
 });

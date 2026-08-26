@@ -1,4 +1,12 @@
 import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+import {
+  countExecutionReferences,
+  findDuplicateExecutionGroups,
+  getExecutionMergeConflicts,
+  mergeDuplicateExecutions,
+  mergeImportedExecution,
+  relinkExecutionToOperation,
+} from './lib/processes.js';
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -508,12 +516,20 @@ const runDiagnostics = (data) => {
   add('media', 'formato', 'Mesmo processo com formatos diferentes', divergentes,
     'O cruzamento já é feito por dígitos, então não há mais perda de dados — mas padronizar deixa as buscas e a leitura consistentes.', 'padronizar');
 
-  // 2. Execuções duplicadas (mesmo processo cadastrado 2x)
-  const execByDigits = {};
-  execs.forEach(e => { const n = normProc(e.processNumber); if (n) (execByDigits[n] = execByDigits[n] || []).push(e); });
+  // 2. Execuções duplicadas: mesmo número DENTRO da mesma operação.
+  // Repetição entre operações pode ser intencional e exige diagnóstico separado.
+  const duplicateExecutionGroups = findDuplicateExecutionGroups(d);
   add('alta', 'dupexec', 'Processos cadastrados em duplicidade',
-    Object.values(execByDigits).filter(a => a.length > 1).map(a => ({ id: a[0].id, texto: a[0].processNumber || 's/nº', sub: a.length + ' cadastros' })),
-    'O mesmo processo aparece mais de uma vez. Os vínculos (CDAs, apensos) ficam divididos entre eles.');
+    duplicateExecutionGroups.map(group => {
+      const op = ops.find(o => o.id === group.operationId);
+      return {
+        id: group.recommendedId,
+        texto: group.processNumber || group.processDigits || 's/nº',
+        sub: `${group.executionIds.length} cadastros · ${op?.name || 'operação não localizada'} · ${group.conflicts.length} conflito(s)`,
+        group,
+      };
+    }),
+    'Há mais de um cadastro interno para o mesmo processo na mesma operação. Use “Consolidar” para escolher o registro principal e migrar eventos, apensamentos, incidentes e histórico sem perda.');
 
   // 3. Pessoas duplicadas por CPF/CNPJ na mesma operação
   const dupPersonGroups = [];
@@ -530,9 +546,20 @@ const runDiagnostics = (data) => {
     dupPersonGroups.map(a => ({ id: a[0].id, texto: a[0].name || 's/nome', sub: a.length + ' cadastros · ' + (a[0].cpfCnpj || '') })),
     'Mesmo documento cadastrado mais de uma vez na operação — divide responsabilidades e bens.');
 
-  // 4. Registros apontando para operação inexistente
+  // 4. Processos sem operação válida — ficam invisíveis na aba da operação.
+  const execSemOperacao = execs.filter(x => !x.operationId || !opIds.has(x.operationId));
+  add('alta', 'execsemop', 'Processos sem operação válida',
+    execSemOperacao.map(x => ({
+      id: x.id,
+      executionId: x.id,
+      texto: x.processNumber || x.id,
+      sub: x.operationId ? 'operação inexistente' : 'sem operação',
+    })),
+    'Esses processos existem no banco, mas não entram em nenhuma operação. Use “Vincular” para escolher a operação correta; registros processuais órfãos do mesmo número também podem ser reassociados.');
+
+  // 4b. Demais registros apontando para operação inexistente
   const orfaos = [];
-  [['debts', debts, 'CDA'], ['executions', execs, 'processo'], ['intimations', intims, 'intimação'], ['hearings', hearings, 'audiência'], ['people', people, 'pessoa'], ['assets', assets, 'bem']]
+  [['debts', debts, 'CDA'], ['intimations', intims, 'intimação'], ['hearings', hearings, 'audiência'], ['people', people, 'pessoa'], ['assets', assets, 'bem']]
     .forEach(([col, arr, lbl]) => arr.forEach(x => { if (x.operationId && !opIds.has(x.operationId)) orfaos.push({ id: x.id, texto: lbl + ': ' + (x.processNumber || x.cdaNumber || x.name || x.parties || x.description || x.id), sub: 'operação inexistente' }); }));
   add('alta', 'orfaos', 'Registros de operação excluída', orfaos,
     'Sobraram apontando para uma operação que não existe mais — invisíveis na interface, mas ocupam espaço e distorcem totais.', 'desvincular');
@@ -2372,7 +2399,9 @@ function classifyProcGroups(cdaGroups, execs) {
   const isOtherClass = (e) => isOtherProcClass(e);
   const isEF = (e) => isExecucaoFiscalClass(e);
 
-  const hubs = (cdaGroups || []).filter(g => g.type === 'exec' && isHub(g.exec) && !isExtinct(g.exec));
+  // Hubs extintos continuam visíveis. Antes eles eram removidos daqui e, quando
+  // possuíam uma EF filha via parentExecutionId, ambos desapareciam da partição.
+  const hubs = (cdaGroups || []).filter(g => g.type === 'exec' && isHub(g.exec));
   const hubProcNums = new Set(hubs.map(h => normProc(h.exec.processNumber)).filter(Boolean));
 
   const coveredIds = new Set();
@@ -2400,7 +2429,7 @@ function classifyProcGroups(cdaGroups, execs) {
     });
     const allCovered = [...ids]
       .map(id => groupByExecId[id])
-      .filter(g => keepUpper(g) && !isExtinct(g.exec));
+      .filter(g => keepUpper(g));
 
     const coveredIdsInHub = new Set(allCovered.map(g => g.exec.id));
 
@@ -2428,7 +2457,7 @@ function classifyProcGroups(cdaGroups, execs) {
   });
   const coveredEFs = sortArquivadasLast([...coveredIds]
     .map(id => groupByExecId[id])
-    .filter(g => keepUpper(g) && !isExtinct(g.exec)));
+    .filter(g => keepUpper(g)));
 
   // Sem vínculo: EFs top-level. Apensos de outra EF saem daqui e aninham sob o pai.
   // Apensos de hub já entram em coveredByHub.
@@ -2458,20 +2487,12 @@ function classifyProcGroups(cdaGroups, execs) {
     apensosByParent[pid] = sortArquivadasLast(apensosByParent[pid]);
   });
 
-  // Dentro de Sem vínculo, se houver 2+ cadastros do mesmo nº, mantém um (mais CDAs) e marca todos como dup
-  const uncoveredByNum = {};
-  uncoveredRaw.forEach(g => {
-    const n = normProc(g.exec.processNumber) || ('id:' + g.exec.id);
-    (uncoveredByNum[n] = uncoveredByNum[n] || []).push(g);
-  });
-  const uncoveredEFs = sortArquivadasLast(Object.values(uncoveredByNum).map(arr => {
-    if (arr.length === 1) return arr[0];
-    arr.sort((a, b) => (b.cdas || []).length - (a.cdas || []).length);
-    return arr[0];
-  }));
+  // Duplicidades precisam permanecer acessíveis até a consolidação assistida.
+  // O banner sinaliza o problema, mas nenhuma linha é mais suprimida.
+  const uncoveredEFs = sortArquivadasLast(uncoveredRaw);
 
   // Extintas: só EFs top-level; apensos extintos aninham se o pai também for listado em Extintas
-  const extinctRaw = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && isEF(g.exec) && !isHub(g.exec));
+  const extinctRaw = (cdaGroups || []).filter(g => g.type === 'exec' && isExtinct(g.exec) && isEF(g.exec) && !isHub(g.exec) && !coveredIds.has(g.exec.id));
   const extinct = sortArquivadasLast(extinctRaw.filter(g => {
     const e = g.exec;
     if (!e.parentExecutionId) return true;
@@ -2491,12 +2512,9 @@ function classifyProcGroups(cdaGroups, execs) {
     if (isHub(e)) return false;
     return isOtherClass(e);
   });
-  // Evita Outros com mesmo nº de hub (cadastro duplicado da âncora)
-  const othersFiltered = others.filter(g => {
-    const n = normProc(g.exec.processNumber);
-    if (n && hubProcNums.has(n)) return false;
-    return true;
-  });
+  // Mesmo número de um hub pode representar cadastro duplicado com dados úteis.
+  // Mantém a linha visível para que o consolidador possa resolver o conflito.
+  const othersFiltered = others;
 
   const othersByParent = {};
   othersFiltered.forEach(g => {
@@ -2506,10 +2524,30 @@ function classifyProcGroups(cdaGroups, execs) {
     othersByParent[pid].push(g);
   });
 
+  // Invariante de completude: todo registro de execution da operação precisa
+  // pertencer a pelo menos uma seção renderizada. Qualquer combinação legada
+  // ainda não reconhecida cai em "Outros", nunca desaparece silenciosamente.
+  const representedIds = new Set([
+    ...hubs,
+    ...Object.values(coveredByHub).flat(),
+    ...uncoveredEFs,
+    ...extinct,
+    ...othersFiltered,
+    ...Object.values(apensosByParent).flat(),
+  ].filter(g => g?.exec?.id).map(g => g.exec.id));
+  const recovered = (cdaGroups || []).filter(g => g.type === 'exec' && g.exec && !representedIds.has(g.exec.id));
+  const allOthers = [...othersFiltered, ...recovered];
+  recovered.forEach(g => {
+    const pid = g.exec.parentExecutionId;
+    if (!pid) return;
+    if (!othersByParent[pid]) othersByParent[pid] = [];
+    if (!othersByParent[pid].some(x => x.exec.id === g.exec.id)) othersByParent[pid].push(g);
+  });
+
   return {
     hubs, coveredByHub, coveredEFs, uncoveredEFs, extinct,
-    others: othersFiltered, othersByParent, apensosByParent,
-    unlinked, coveredIds, duplicates, dupExecIds, dupDigits,
+    others: allOthers, othersByParent, apensosByParent,
+    unlinked, coveredIds, duplicates, dupExecIds, dupDigits, recovered,
   };
 }
 
@@ -2518,13 +2556,105 @@ function classifyProcGroups(cdaGroups, execs) {
 // ═══════════════════════════════════════════════
 // COMPONENTS
 // ═══════════════════════════════════════════════
-function Modal({ show, onClose, title, children, wide }) {
+function Modal({ show, onClose, title, children, wide, stacked = false }) {
   if (!show) return null;
-  return (<div className="modal-overlay" onClick={onClose}>
+  return (<div className={`modal-overlay${stacked ? ' modal-overlay-stacked' : ''}`} onClick={onClose}>
     <div className="modal" onClick={e => e.stopPropagation()} style={wide ? {maxWidth:'780px'} : {}}>
       <h3>{title}</h3>{children}
     </div>
   </div>);
+}
+
+const EXECUTION_MERGE_LABELS = {
+  processNumber: 'Número do processo', className: 'Classe', court: 'Juízo', status: 'Status',
+  processTag: 'Natureza', protocolDate: 'Protocolo', prescriptionForecast: 'Previsão prescricional',
+  parentExecutionId: 'Processo principal/origem', apensadoEm: 'Data do vínculo', hasGuarantee: 'Garantia',
+  prescriptionInterrupted: 'Prescrição interrompida', analyticsRegistered: 'Analytics',
+  digraTracked: 'Acompanhamento', isRelevant: 'Relevante',
+};
+
+function executionMergeValue(field, value, data) {
+  if (field === 'parentExecutionId') {
+    const parent = (data.executions || []).find(ex => ex.id === value);
+    return parent ? (parent.processNumber || parent.id) : (value || '—');
+  }
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  if (field === 'status') return EXEC_STATUSES[value]?.label || value || '—';
+  if (field === 'processTag') return tagLabels[value] || (value === 'normal' ? 'Processo comum' : value || '—');
+  if (field === 'protocolDate' || field === 'prescriptionForecast' || field === 'apensadoEm') return fmtDate(value);
+  return String(value ?? '—');
+}
+
+function DuplicateExecutionMergeForm({ group, data, onConfirm, onCancel }) {
+  const records = (group?.executionIds || []).map(id => data.executions.find(ex => ex.id === id)).filter(Boolean);
+  const fallbackId = records.some(ex => ex.id === group?.recommendedId) ? group.recommendedId : records[0]?.id;
+  const [canonicalId, setCanonicalId] = useState(fallbackId || '');
+  const [fieldSources, setFieldSources] = useState({});
+  const conflicts = getExecutionMergeConflicts(records);
+  if (records.length < 2) return <div><p>O grupo não possui mais dois registros. Atualize o diagnóstico.</p><div className="form-actions"><button className="btn-secondary" onClick={onCancel}>Fechar</button></div></div>;
+  const canonical = records.find(ex => ex.id === canonicalId) || records[0];
+  const chooseCanonical = (id) => { setCanonicalId(id); setFieldSources({}); };
+  return (<>
+    <div style={{fontSize:11,color:'var(--text-secondary)',lineHeight:1.5,marginBottom:10}}>
+      Selecione o cadastro principal. Eventos prescricionais, apensamentos, incidentes e histórico dos demais IDs serão transferidos. Uma cópia integral dos registros absorvidos permanecerá no arquivo de consolidação da operação.
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:8,marginBottom:12}}>
+      {records.map(ex => {
+        const refs = countExecutionReferences(data, ex.id);
+        const selected = ex.id === canonical.id;
+        return <label key={ex.id} style={{display:'block',cursor:'pointer',padding:10,border:`1px solid ${selected?'var(--accent)':'var(--border)'}`,borderRadius:6,background:selected?'var(--accent-dim)':'var(--bg-elevated)'}}>
+          <div style={{display:'flex',gap:7,alignItems:'center'}}><input type="radio" name="canonical-exec" checked={selected} onChange={() => chooseCanonical(ex.id)} /><strong>{ex.processNumber || 'S/N'}</strong></div>
+          <div style={{fontSize:9,fontFamily:'var(--font-mono)',color:'var(--text-muted)',marginTop:4}}>ID {ex.id}</div>
+          <div style={{fontSize:10,color:'var(--text-secondary)',marginTop:4}}>{ex.className || 'Classe não informada'} · {EXEC_STATUSES[ex.status]?.label || ex.status || 'sem status'}</div>
+          <div style={{fontSize:9,color:'var(--text-muted)',marginTop:4}}>{refs.total} referência(s): {refs.events} evento(s), {refs.parentLinks + refs.coveredLinks} vínculo(s), {refs.stages} histórico(s)</div>
+          {ex.id === group.recommendedId && <div style={{fontSize:9,color:'var(--green)',fontWeight:700,marginTop:4}}>Recomendado pelo sistema</div>}
+        </label>;
+      })}
+    </div>
+    {conflicts.length > 0 && <div style={{border:'1px solid var(--border)',borderRadius:6,overflow:'hidden',marginBottom:12}}>
+      <div style={{padding:'7px 9px',background:'var(--bg-elevated)',fontSize:10,fontWeight:700}}>Resolver campos divergentes ({conflicts.length})</div>
+      {conflicts.map(conflict => {
+        const defaultSource = conflict.values.some(item => item.executionId === canonical.id) ? canonical.id : conflict.values[0].executionId;
+        const selectedSource = fieldSources[conflict.field] || defaultSource;
+        return <div key={conflict.field} style={{display:'grid',gridTemplateColumns:'180px minmax(0,1fr)',gap:8,alignItems:'center',padding:'6px 9px',borderTop:'1px solid var(--border)',fontSize:10}}>
+          <span style={{color:'var(--text-muted)'}}>{EXECUTION_MERGE_LABELS[conflict.field] || conflict.field}</span>
+          <select value={selectedSource} onChange={e => setFieldSources(prev => ({...prev,[conflict.field]:e.target.value}))}>
+            {conflict.values.map(item => <option key={item.executionId} value={item.executionId}>{executionMergeValue(conflict.field, item.value, data)} · ID {item.executionId}</option>)}
+          </select>
+        </div>;
+      })}
+    </div>}
+    <div style={{padding:8,background:'rgba(64,168,112,0.08)',borderLeft:'3px solid var(--green)',fontSize:10,color:'var(--text-secondary)',marginBottom:10}}>
+      Resultado previsto: {records.length} cadastros → 1 cadastro; {records.length - 1} ID(s) removido(s), sem redução da quantidade de eventos prescricionais.
+    </div>
+    <div className="form-actions">
+      <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
+      <button className="btn-primary" onClick={() => {
+        const resolvedSources = { ...fieldSources };
+        conflicts.forEach(conflict => {
+          if (!resolvedSources[conflict.field]) resolvedSources[conflict.field] = conflict.values.some(item => item.executionId === canonical.id) ? canonical.id : conflict.values[0].executionId;
+        });
+        onConfirm({ canonicalId: canonical.id, duplicateIds: records.filter(ex => ex.id !== canonical.id).map(ex => ex.id), fieldSources: resolvedSources });
+      }}>Consolidar com segurança</button>
+    </div>
+  </>);
+}
+
+function ExecutionRelinkForm({ execution, data, onConfirm, onCancel }) {
+  const operations = [...(data.operations || [])].sort((a,b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+  const [operationId, setOperationId] = useState('');
+  const [includeRelated, setIncludeRelated] = useState(true);
+  return (<>
+    <div style={{fontSize:11,color:'var(--text-secondary)',lineHeight:1.5,marginBottom:10}}>
+      O processo <strong>{execution?.processNumber || execution?.id}</strong> está fora de todas as operações. Escolha o destino correto.
+    </div>
+    <div className="form-group"><label>Operação de destino</label><select value={operationId} onChange={e => setOperationId(e.target.value)}><option value="">— Selecione —</option>{operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}</select></div>
+    <label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,color:'var(--text-secondary)',padding:8,background:'var(--bg-elevated)',borderRadius:5}}>
+      <input type="checkbox" checked={includeRelated} onChange={e => setIncludeRelated(e.target.checked)} />
+      <span>Reassociar também CDAs, intimações, tarefas, audiências, documentos e acompanhamentos órfãos com o mesmo número de processo.</span>
+    </label>
+    <div className="form-actions"><button className="btn-secondary" onClick={onCancel}>Cancelar</button><button className="btn-primary" disabled={!operationId} onClick={() => onConfirm({operationId,includeRelated})}>Vincular processo</button></div>
+  </>);
 }
 
 
@@ -2693,6 +2823,8 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
   const [showDiagnostico, setShowDiagnostico] = useState(false);
+  const [duplicateMergeGroup, setDuplicateMergeGroup] = useState(null);
+  const [executionToRelink, setExecutionToRelink] = useState(null);
   const [expandedActions, setExpandedActions] = useState(new Set()); // intimações com a descrição da atuação aberta
   const toggleAction = (id) => setExpandedActions(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — nó selecionado na árvore
@@ -3809,6 +3941,20 @@ function App() {
       return newPrev;
     });
   };
+  // Importações podem terminar em paralelo. A busca do processo existente precisa
+  // ocorrer dentro do updater funcional, nunca no snapshot `data` capturado antes.
+  const upsertImportedExecution = (incoming, operationId) => {
+    setData(prev => {
+      const list = prev.executions || [];
+      const existing = list.find(ex => ex.operationId === operationId && sameProc(ex.processNumber, incoming.processNumber));
+      const now = new Date().toISOString();
+      if (existing) {
+        const merged = { ...mergeImportedExecution(existing, incoming), id: existing.id, operationId, updatedAt: now };
+        return { ...prev, executions: list.map(ex => ex.id === existing.id ? merged : ex) };
+      }
+      return { ...prev, executions: [...list, { ...incoming, operationId, createdAt: incoming.createdAt || now, updatedAt: now }] };
+    });
+  };
   // Log an import run — type is one of: xls, eproc, pdf_sida, pdf_debcad, ai, assets
   const logImport = (type, detail) => {
     const entry = {
@@ -4001,6 +4147,19 @@ function App() {
     const wantsWatch = entity._openWatch;
     const cleanEntity = { ...entity };
     delete cleanEntity._openWatch;
+    if (type === 'execution' && cleanEntity.processNumber) {
+      const previous = data.executions.find(ex => ex.id === cleanEntity.id);
+      const collision = data.executions.find(ex =>
+        ex.id !== cleanEntity.id &&
+        ex.operationId === cleanEntity.operationId &&
+        sameProc(ex.processNumber, cleanEntity.processNumber)
+      );
+      const numberChanged = !previous || !sameProc(previous.processNumber, cleanEntity.processNumber);
+      if (collision && numberChanged) {
+        alert(`Já existe o processo ${collision.processNumber || cleanEntity.processNumber} nesta operação.\n\nO novo cadastro foi bloqueado para evitar duplicidade. Abra o registro existente ou use Diagnóstico → Processos cadastrados em duplicidade para consolidar dados legados.`);
+        return;
+      }
+    }
     let noApensoPropagation = false;
     let propagateToLinkedEFs = true;
     if (type === 'prescriptionEvent') {
@@ -4183,6 +4342,12 @@ function App() {
     if (!files.length || !activeOpId) return;
     const logs = [];
     let importCount = 0;
+    const knownProcessKeys = new Set(
+      data.executions
+        .filter(ex => ex.operationId === activeOpId)
+        .map(ex => normProc(ex.processNumber))
+        .filter(Boolean)
+    );
 
     // ─── Snapshot pré-import para diff ───
     const preSnap = {
@@ -4334,13 +4499,13 @@ function App() {
             res.errors.forEach(e => logs.push(`⚠️ ${e}`));
 
             res.executions.forEach(ex => {
-              const exists = data.executions.find(e => e.operationId === activeOpId && sameProc(e.processNumber, ex.processNumber));
-              if (!exists) {
-                upsert('executions', { ...ex, id: uid(), operationId: activeOpId });
+              const key = normProc(ex.processNumber);
+              const existsInRun = key && knownProcessKeys.has(key);
+              upsertImportedExecution({ ...ex, id: uid(), operationId: activeOpId }, activeOpId);
+              if (!existsInRun) {
+                if (key) knownProcessKeys.add(key);
                 importCount++;
               } else {
-                // Update with new data
-                upsert('executions', { ...exists, ...ex, id: exists.id });
                 logs.push(`ℹ️ Execução atualizada: ${ex.processNumber}`);
               }
             });
@@ -4405,6 +4570,7 @@ function App() {
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
+  const cdaFocusRef = useRef(null);
   const toggleCdaExpand = (id) => {
     setExpandedCdas(prev => {
       const n = new Set(prev);
@@ -5947,7 +6113,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             return (<div key={d.id} className="entity-card-selectable">
               <input type="checkbox" checked={selectedDebts.has(d.id)} onChange={() => toggleDebt(d.id)} />
               <div style={{flex:1,minWidth:0}}>
-              <div className="entity-card" title="Clique para expandir" style={{borderLeft:procStatusAlert?`3px solid var(--${procStatusAlert.processStatus==='extinta'?'text-muted':'blue'})`:undefined,opacity:d.status==='extinta'?0.45:1,cursor:'pointer'}} onClick={(ev) => { if (ev.target.closest && ev.target.closest('input,button,a,select,.copyable')) return; toggleCdaExpand(d.id); }}>
+              <div className="entity-card" data-cda-id={d.id} title="Clique para expandir" style={{borderLeft:procStatusAlert?`3px solid var(--${procStatusAlert.processStatus==='extinta'?'text-muted':'blue'})`:undefined,opacity:d.status==='extinta'?0.45:1,cursor:'pointer'}} onClick={(ev) => { if (ev.target.closest && ev.target.closest('input,button,a,select,.copyable')) return; toggleCdaExpand(d.id); }}>
                 <div className="ec-header"><div><div className="ec-title">
                   {isAguardando && <span className="has-tip" style={{color:'var(--yellow)',marginRight:4,fontSize:13}}>⏳<span className="tip-content">Prescrita — aguardando reconhecimento judicial.</span></span>}
                   {isHandled && !isAguardando && <span className="has-tip" style={{color:'var(--green)',marginRight:4}}>✓<span className="tip-content">Prescrição tratada.</span></span>}
@@ -6347,36 +6513,48 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div className="entity-card proc-expand-grid" style={{background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,opacity:statusOpacity,transition:'opacity 0.2s'}}>
           {/* ═══ COL 1: Processo + CDAs ═══ */}
           <div className="proc-expand-main">
-            {/* Process header row — sem repetir o nº (já está no summary / linha da tabela) */}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
-              {isExec && group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} style={{width:16,cursor:'pointer',flexShrink:0}} title="Selecionar todas as CDAs do processo" />}
-              {isExec ? <div style={{minWidth:0,flex:1}}>
-                <div className="process-meta">
-                  {isExec && <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>}
-                  {isApenso && <span className="proc-meta-chip">Apenso</span>}
-                  {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
-                  {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
-                  {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
-                  <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
-                  {e.hasGuarantee && <span className="proc-meta-chip">Garantia</span>}
-                  {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
-                  {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
-                  {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
+            {isExec ? (
+              <>
+                <div className="proc-expand-toolbar">
+                  {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
+                  <div className="process-meta">
+                    <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>
+                    {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                    {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
+                    {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
+                    {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
+                    <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
+                    {e.hasGuarantee && <span className="proc-meta-chip">Garantia</span>}
+                    {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
+                    {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
+                    {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
+                  </div>
                 </div>
-                <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.4,marginTop:2}}>{e.court || ''}{e.className?` · ${e.className}`:''}</div>
-                {/* Executado (devedor) */}
-                {execDebtor && <div style={{fontSize:10,marginTop:2}}>
-                  <span style={{color:'var(--text-muted)'}}>Executado: </span>
-                  <span style={{color:'var(--text-secondary)',fontWeight:500,cursor:execDebtor.id?'pointer':'default'}} onClick={e2 => { if (execDebtor.id) { e2.stopPropagation(); setModal({type:'edit',entityType:'person',initial:execDebtor}); }}}>{truncate(execDebtor.name, 35)}</span>
-                  {execDebtor.cpfCnpj && <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)',marginLeft:4}}>{execDebtor.cpfCnpj}</span>}
-                </div>}
-                {/* Protocol + Prescription dates */}
-                <div style={{display:'flex',gap:12,marginTop:4,fontSize:10,flexWrap:'wrap'}}>
-                  {e.protocolDate && <span style={{color:'var(--text-muted)'}}>Protocolo: <strong style={{color:'var(--text-secondary)'}}>{fmtDate(e.protocolDate)}</strong></span>}
-                  {e.prescriptionForecast && <span style={{color:'var(--text-muted)'}}>Prev. Presc.: <strong style={{color:prescForecastDays!==null&&prescForecastDays<=365?prescForecastDays<=180?'var(--red)':'var(--yellow)':'var(--text-secondary)'}}>{fmtDate(e.prescriptionForecast)}{prescForecastDays!==null&&prescForecastDays<=365?` (${prescForecastDays}d)`:''}</strong></span>}
+                <div className="proc-expand-facts">
+                  {(e.court || e.className) && (
+                    <div className="proc-expand-fact">
+                      <span className="lbl">Juízo</span>
+                      <span className="val">{[e.court, e.className].filter(Boolean).join(' · ')}</span>
+                    </div>
+                  )}
+                  {execDebtor && (
+                    <div className="proc-expand-fact">
+                      <span className="lbl">Executado</span>
+                      <span className="val">
+                        <span style={{fontWeight:500,cursor:execDebtor.id?'pointer':'default'}} onClick={e2 => { if (execDebtor.id) { e2.stopPropagation(); setModal({type:'edit',entityType:'person',initial:execDebtor}); }}}>{execDebtor.name}</span>
+                        {execDebtor.cpfCnpj && <span className="doc">{execDebtor.cpfCnpj}</span>}
+                      </span>
+                    </div>
+                  )}
+                  {(e.protocolDate || e.prescriptionForecast) && (
+                    <div className="proc-expand-fact proc-expand-fact-dates">
+                      {e.protocolDate && <span><span className="lbl">Protocolo</span> <strong>{fmtDate(e.protocolDate)}</strong></span>}
+                      {e.prescriptionForecast && <span><span className="lbl">Prev. presc.</span> <strong style={{color:prescForecastDays!==null&&prescForecastDays<=365?prescForecastDays<=180?'var(--red)':'var(--yellow)':'inherit'}}>{fmtDate(e.prescriptionForecast)}{prescForecastDays!==null&&prescForecastDays<=365?` (${prescForecastDays}d)`:''}</strong></span>}
+                    </div>
+                  )}
                 </div>
-              </div> : <span style={{color:'var(--red)',fontWeight:700,fontSize:12}}>⚠ CDAs Não Ajuizadas</span>}
-            </div>
+              </>
+            ) : <span className="proc-expand-unlinked">⚠ CDAs Não Ajuizadas</span>}
 
             {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo (como processos) */}
             {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
@@ -6680,8 +6858,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           ? selectedProcHubId
           : (hubs[0]?.exec.id || null);
         const selectedHub = hubs.find(h => h.exec.id === effectiveHubId) || null;
+        // O status não retira a EF da operação: abrangidas extintas permanecem
+        // sob o respectivo hub, com a apresentação visual atenuada pelo card.
         const covered = selectedHub
-          ? sortArquivadasLast((coveredByHub[selectedHub.exec.id] || []).filter(g => g.exec.status !== 'extinta'))
+          ? sortArquivadasLast(coveredByHub[selectedHub.exec.id] || [])
           : [];
         const coveredAll = withNestedApensos(covered);
         const hubMeta = selectedHub ? hubRailMeta(selectedHub, coveredAll) : null;
@@ -7129,7 +7309,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="proc-md-rail-h">IDPJ / Cautelar / Central ({hubs.length})</div>
                     {hubs.length === 0 && <div className="proc-md-empty rail">Nenhum IDPJ, cautelar ou central nesta operação</div>}
                     {hubs.map(h => {
-                      const cov = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
+                      const cov = sortArquivadasLast(coveredByHub[h.exec.id] || []);
                       const meta = hubRailMeta(h, withNestedApensos(cov));
                       const active = focusIsHub && h.exec.id === effectiveHubId;
                       const isHubRel = !!h.exec.isRelevant;
@@ -7305,7 +7485,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         if (model === 'D') return renderProcViewMasterDetail();
 
         const hubBlocks = hubs.map(h => {
-          const covered = sortArquivadasLast((coveredByHub[h.exec.id] || []).filter(g => g.exec.status !== 'extinta'));
+          const covered = sortArquivadasLast(coveredByHub[h.exec.id] || []);
           const cv = hubVariant(h.exec);
           if (model === 'A') {
             return (
@@ -7704,6 +7884,28 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     setDemoZone(zone);
     startTabSwitch(() => { setActiveTab(tab || DEMO_ZONES[zone].tabs[0]); });
   };
+  const openCdaInscricoes = (d) => {
+    const opId = d.opId || d.operationId;
+    if (!opId || !d.id) return;
+    cdaFocusRef.current = d.id;
+    setCdaPersonFilter('all');
+    setCdaSort('status');
+    setExpandedCdas(new Set([d.id]));
+    setActiveOpId(opId);
+    setViewMode('operation');
+    if (isDemo) setDemoZoneAndTab('risco', 'dividas');
+    else startTabSwitch(() => setActiveTab('dividas'));
+  };
+  useEffect(() => {
+    if (activeTab !== 'dividas' || !cdaFocusRef.current) return;
+    const id = cdaFocusRef.current;
+    const t = setTimeout(() => {
+      const el = document.querySelector('[data-cda-id="' + id + '"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+      cdaFocusRef.current = null;
+    }, 280);
+    return () => clearTimeout(t);
+  }, [activeTab, expandedCdas]);
   const switchEdition = (edition) => {
     updateSetting('uiEdition', edition);
     if (edition === 'demo') {
@@ -8590,62 +8792,68 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </>);
             })()}
 
-            {/* ═══ PRESCRIÇÃO IMINENTE — CDAs em risco ═══ */}
+            {/* ═══ AVISOS DE PRAZO EXTINTIVO — iminente, vencido, verificar ═══ */}
             {(() => {
-              const allDebts = data.debts || [];
+              const buckets = buildPainelPrescAlerts(data);
+              const renderPainelPrescCard = (collapseKey, title, hint, items, tone) => {
+                if (!items.length) return null;
+                const open = !painelCollapsed.has(collapseKey);
+                const titleColor = tone === 'sutil' ? 'var(--text-secondary)' : 'var(--text-primary)';
+                const daysColor = (dd) => {
+                  if (dd == null) return 'var(--text-muted)';
+                  if (dd <= 0) return 'var(--red)';
+                  if (dd <= 30) return 'var(--red)';
+                  if (dd <= 90) return tone === 'sutil' ? 'var(--text-secondary)' : 'var(--yellow)';
+                  return 'var(--text-secondary)';
+                };
+                const total = items.reduce((s, d) => s + (d.value || 0), 0);
+                return (<div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden',opacity: tone === 'sutil' ? 0.92 : 1}}>
+                  <div style={{padding:'12px 16px',borderBottom:open?'1px solid var(--border)':'none',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={() => togglePainel(collapseKey)} title={open?'Recolher':'Expandir'}>
+                    <div style={{fontSize:12,fontWeight:700,color:titleColor,display:'flex',alignItems:'center',gap:7}}>
+                      <span style={{fontSize:9,color:'var(--text-muted)',display:'inline-block',transform:open?'rotate(90deg)':'none',transition:'transform 0.15s'}}>▶</span>
+                      {title} — {items.length} CDA(s)
+                    </div>
+                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{hint}{total > 0 ? <> · <strong style={{color: tone === 'sutil' ? 'var(--text-muted)' : 'var(--red)'}}>{fmtCur(total)}</strong></> : null}</div>
+                  </div>
+                  {open && <>
+                  <div style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'8px 16px',borderBottom:'1px solid var(--border)',fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,fontWeight:600}}>
+                    <span>Prazo</span><span>CDA</span><span>Processo</span><span>Status</span><span>Valor</span><span>IDPJ</span><span>Operação</span>
+                  </div>
+                  <div style={{maxHeight:350,overflowY:'auto'}}>
+                    {items.slice(0, 20).map(d => {
+                      const st = DEBT_STATUSES[d.status] || {};
+                      const prazoTxt = d.prescDays == null ? '—' : (d.prescDays <= 0 ? (d.prescDays === 0 ? 'hoje' : d.prescDays + 'd') : d.prescDays + 'd');
+                      return (<div key={d.id} style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'6px 16px',borderBottom:'1px solid rgba(255,255,255,0.03)',fontSize:10,cursor:'pointer',alignItems:'center'}} onClick={() => openCdaInscricoes(d)}>
+                        <span style={{fontWeight:700,fontFamily:'var(--font-mono)',color:daysColor(d.prescDays)}}>{prazoTxt}</span>
+                        <span style={{fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.cdaNumber || 'S/N'}</span>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}><ProcNum value={d.processNumber} empty="—" /></span>
+                        <span className={`badge ${st.badge||''}`} style={{fontSize:8,justifySelf:'start'}}>{st.label||d.status}</span>
+                        <span style={{color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(d.value)}</span>
+                        <span style={{fontSize:9,color:d.hasIDPJ ? 'var(--text-secondary)' : 'var(--text-muted)'}}>{d.hasIDPJ ? '✓' : '—'}</span>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}>◎ {d.opName}</span>
+                      </div>);
+                    })}
+                    {items.length > 20 && <div style={{fontSize:10,color:'var(--text-muted)',textAlign:'center',padding:8}}>+{items.length - 20} CDA(s)</div>}
+                  </div>
+                  </>}
+                </div>);
+              };
               const allExecs = data.executions || [];
-              const allPrescEvts = data.prescriptionEvents || [];
-              const prescRisk = [];
-              data.operations.filter(o => o.status !== 'encerrada').forEach(op => {
-                const opExecs = allExecs.filter(e => e.operationId === op.id);
+              const markIdpj = (list) => list.map(d => {
+                const opExecs = allExecs.filter(e => e.operationId === d.operationId);
                 const idpjIds = new Set();
                 opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(e => {
                   if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => idpjIds.add(id));
                 });
-                allDebts.filter(d => d.operationId === op.id && d.status !== 'extinta' && !d.prescriptionHandled).forEach(d => {
-                  const pd = getPrescDate(d);
-                  const dd = daysUntil(pd);
-                  if (dd !== null && dd > 0 && dd <= 180) {
-                    const linkedExec = d.processNumber ? opExecs.find(e => sameProc(e.processNumber, d.processNumber)) : null;
-                    const hasIDPJ = linkedExec ? idpjIds.has(linkedExec.id) : false;
-                    prescRisk.push({ ...d, prescDate: pd, prescDays: dd, opName: op.name, opId: op.id, linkedExec, hasIDPJ });
-                  }
-                });
+                const linkedExec = d.processNumber ? opExecs.find(e => sameProc(e.processNumber, d.processNumber)) : null;
+                return { ...d, hasIDPJ: linkedExec ? idpjIds.has(linkedExec.id) : false };
               });
-              if (prescRisk.length === 0) return null;
-              prescRisk.sort((a, b) => a.prescDays - b.prescDays);
-              const totalRisk = prescRisk.reduce((s,d) => s + (d.value||0), 0);
-              const prescOpen = !painelCollapsed.has('presc');
-              return (<div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
-                <div style={{padding:'12px 16px',borderBottom:prescOpen?'1px solid var(--border)':'none',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={() => togglePainel('presc')} title={prescOpen?'Recolher':'Expandir'}>
-                  <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)',display:'flex',alignItems:'center',gap:7}}>
-                    <span style={{fontSize:9,color:'var(--text-muted)',display:'inline-block',transform:prescOpen?'rotate(90deg)':'none',transition:'transform 0.15s'}}>▶</span>
-                    Prescrição iminente — {prescRisk.length} CDA(s)
-                  </div>
-                  <div style={{fontSize:11,color:'var(--text-muted)'}}>Total exposto: <strong style={{color:prescRisk.length > 0 ? 'var(--red)' : 'var(--text-muted)'}}>{fmtCur(totalRisk)}</strong></div>
-                </div>
-                {prescOpen && <>
-                {/* Header */}
-                <div style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'8px 16px',borderBottom:'1px solid var(--border)',fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,fontWeight:600}}>
-                  <span>Prazo</span><span>CDA</span><span>Processo</span><span>Status</span><span>Valor</span><span>IDPJ</span><span>Operação</span>
-                </div>
-                <div style={{maxHeight:350,overflowY:'auto'}}>
-                  {prescRisk.slice(0, 20).map(d => {
-                    const st = DEBT_STATUSES[d.status] || {};
-                    return (<div key={d.id} style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'6px 16px',borderBottom:'1px solid rgba(255,255,255,0.03)',fontSize:10,cursor:'pointer',alignItems:'center'}} onClick={() => { setActiveOpId(d.opId); setViewMode('operation'); setActiveTab('prescricao_v2'); }}>
-                      <span style={{fontWeight:700,fontFamily:'var(--font-mono)',color:d.prescDays <= 30 ? 'var(--red)' : d.prescDays <= 90 ? 'var(--yellow)' : 'var(--text-secondary)'}}>{d.prescDays}d</span>
-                      <span style={{fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.cdaNumber || 'S/N'}</span>
-                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}><ProcNum value={d.processNumber} empty="—" /></span>
-                      <span className={`badge ${st.badge||''}`} style={{fontSize:8,justifySelf:'start'}}>{st.label||d.status}</span>
-                      <span style={{color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(d.value)}</span>
-                      <span style={{fontSize:9,color:d.hasIDPJ ? 'var(--text-secondary)' : 'var(--text-muted)'}}>{d.hasIDPJ ? '✓' : '—'}</span>
-                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}>◎ {d.opName}</span>
-                    </div>);
-                  })}
-                  {prescRisk.length > 20 && <div style={{fontSize:10,color:'var(--text-muted)',textAlign:'center',padding:8}}>+{prescRisk.length - 20} CDA(s)</div>}
-                </div>
-                </>}
-              </div>);
+              return <>
+                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Total exposto', markIdpj(buckets.iminente), 'grave')}
+                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Conferir cálculo e autos', markIdpj(buckets.vencido), 'grave')}
+                {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', markIdpj(buckets.avaliar_174), 'sutil')}
+                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Feito ajuizado, sem marco cadastrado', markIdpj(buckets.avaliar_intercorrente), 'sutil')}
+              </>;
             })()}
 
             {/* ═══ AGENDA DA SEMANA — prazos, audiências, termo final de prescrição ═══ */}
@@ -9881,6 +10089,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {f.itens.slice(0,40).map((it,ix) => (<div key={ix} style={{display:'flex',gap:8,fontSize:11,padding:'2px 6px',background:'var(--bg-elevated)',borderRadius:3}}>
                     <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.texto}</span>
                     <span style={{color:'var(--text-muted)',fontSize:10,flexShrink:0}}>{it.sub}</span>
+                    {f.id === 'dupexec' && it.group && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setDuplicateMergeGroup(it.group)}>Consolidar</button>}
+                    {f.id === 'execsemop' && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setExecutionToRelink(data.executions.find(ex => ex.id === it.executionId) || null)}>Vincular</button>}
                   </div>))}
                   {f.itens.length > 40 && <div style={{fontSize:10,color:'var(--text-muted)',padding:'2px 6px'}}>+{f.itens.length-40} …</div>}
                 </div>
@@ -9890,6 +10100,49 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
       </div>);
     })()}
+
+    <Modal show={!!duplicateMergeGroup} onClose={() => setDuplicateMergeGroup(null)} title="Consolidar processos duplicados" wide stacked>
+      {duplicateMergeGroup && <DuplicateExecutionMergeForm
+        group={duplicateMergeGroup}
+        data={data}
+        onCancel={() => setDuplicateMergeGroup(null)}
+        onConfirm={(options) => {
+          try {
+            const result = mergeDuplicateExecutions(data, options);
+            const canonical = result.data.executions.find(ex => ex.id === result.report.canonicalId);
+            const log = {
+              id: uid(), date: new Date().toISOString(), col: 'executions', entityId: result.report.canonicalId,
+              ref: `Proc. ${canonical?.processNumber || result.report.canonicalId}`, operationId: canonical?.operationId || '',
+              field: 'merge', from: `${result.report.removedIds.length + 1} cadastros`, to: '1 cadastro consolidado',
+              mergedExecutionIds: result.report.removedIds,
+            };
+            pushUndo(`Consolidação do processo ${duplicateMergeGroup.processNumber || duplicateMergeGroup.processDigits}`);
+            setData({ ...result.data, changeLog: [log, ...(result.data.changeLog || [])].slice(0, 500) });
+            setDuplicateMergeGroup(null);
+          } catch (error) {
+            alert(`Não foi possível consolidar:\n${error.message || error}`);
+          }
+        }}
+      />}
+    </Modal>
+
+    <Modal show={!!executionToRelink} onClose={() => setExecutionToRelink(null)} title="Vincular processo a uma operação" wide stacked>
+      {executionToRelink && <ExecutionRelinkForm
+        execution={executionToRelink}
+        data={data}
+        onCancel={() => setExecutionToRelink(null)}
+        onConfirm={({operationId, includeRelated}) => {
+          try {
+            const next = relinkExecutionToOperation(data, executionToRelink.id, operationId, { includeRelated });
+            pushUndo(`Vinculação do processo ${executionToRelink.processNumber || executionToRelink.id}`);
+            setData(next);
+            setExecutionToRelink(null);
+          } catch (error) {
+            alert(`Não foi possível vincular:\n${error.message || error}`);
+          }
+        }}
+      />}
+    </Modal>
 
     {/* Change log modal */}
     {showChangeLog && (
@@ -9904,7 +10157,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div style={{padding:20,textAlign:'center',color:'var(--text-muted)',fontSize:11}}>Nenhuma alteração registrada ainda.<br/><span style={{fontSize:10}}>Mudanças de status, prescrição, prazos e classificações passam a ser registradas automaticamente a partir de agora.</span></div>
             ) : (data.changeLog||[]).map(le => {
               const op = data.operations.find(o => o.id === le.operationId);
-              const fieldLabels = { status:'Status', prescriptionHandled:'Prescrição tratada', prescriptionDate:'Data de prescrição', value:'Valor', processTag:'Natureza', hasGuarantee:'Garantia', prescriptionInterrupted:'Presc. interrompida', responseAction:'Resposta', dateDeadline:'Prazo', classifications:'Classificações', dueDate:'Vencimento' };
+              const fieldLabels = { status:'Status', prescriptionHandled:'Prescrição tratada', prescriptionDate:'Data de prescrição', value:'Valor', processTag:'Natureza', hasGuarantee:'Garantia', prescriptionInterrupted:'Presc. interrompida', responseAction:'Resposta', dateDeadline:'Prazo', classifications:'Classificações', dueDate:'Vencimento', merge:'Consolidação de duplicidades' };
               return (<div key={le.id} style={{padding:'7px 0',borderBottom:'1px solid var(--border)',fontSize:11}}>
                 <div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
                   <span style={{fontWeight:600,color:'var(--text-primary)'}}>{le.ref}</span>
