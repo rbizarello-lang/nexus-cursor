@@ -1,11 +1,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
+  isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
   mergeImportedExecution,
   relinkExecutionToOperation,
+  sanitizeImportedExecutionNotes,
 } from '../src/lib/processes.js';
 
 const baseData = () => ({
@@ -109,5 +112,40 @@ describe('reassociação e prevenção', () => {
     assert.equal(merged.className, 'Execução Fiscal');
     assert.equal(merged.hasGuarantee, true);
     assert.deepEqual(merged.notesList, ['Manual', 'Importada']);
+  });
+
+  it('não grava espécie da inscrição (SIDA/DEBCAD) como nota na reimportação', () => {
+    const existing = { id: 'a', notesList: ['Classe: SIDA', 'Penhora imóvel'] };
+    const incoming = { notes: 'DEBCAD' };
+    const merged = mergeImportedExecution(existing, incoming);
+    assert.deepEqual(merged.notesList, ['Penhora imóvel']);
+    assert.equal(merged.notes, undefined);
+  });
+});
+
+describe('notas automáticas da planilha de processos', () => {
+  it('reconhece classe e espécie importadas como nota redundante', () => {
+    assert.equal(isRedundantImportedProcessNote('Classe: Execução Fiscal'), true);
+    assert.equal(isRedundantImportedProcessNote('Classe: SIDA'), true);
+    assert.equal(isRedundantImportedProcessNote('SIDA'), true);
+    assert.equal(isRedundantImportedProcessNote('DEBCAD'), true);
+    assert.equal(isRedundantImportedProcessNote('Execução Fiscal (SIDA)'), true);
+    assert.equal(isRedundantImportedProcessNote('Execução Fiscal (DEBCAD)'), true);
+    assert.equal(isRedundantImportedProcessNote('Penhora imóvel ativa'), false);
+  });
+
+  it('descarta nota só de espécie quando o processo é novo', () => {
+    const clean = sanitizeImportedExecutionNotes({ processNumber: '1', notes: 'Classe: DEBCAD' });
+    assert.equal(clean.notesList, undefined);
+    assert.equal(clean.notes, undefined);
+    assert.equal(clean.processNumber, '1');
+  });
+
+  it('a planilha de processos não copia classe/espécie para nota', () => {
+    const app = fs.readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
+    const start = app.indexOf('function parseProcessosXLS');
+    const next = app.indexOf('\nfunction ', start + 1);
+    const fn = app.slice(start, next > start ? next : undefined);
+    assert.equal(fn.includes('notes: `Classe:'), false);
   });
 });

@@ -371,9 +371,42 @@ export function relinkExecutionToOperation(data, executionId, operationId, optio
   return next;
 }
 
+/**
+ * Notas geradas pela planilha de processos (classe/espécie).
+ * SIDA, DEBCAD e similares já aparecem no selo do card — não devem ir para notas.
+ */
+export function isRedundantImportedProcessNote(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  if (/^[\s·]*classe\s*:/i.test(raw)) return true;
+  const n = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^[\s·]+|[\s·]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  if (/^(sida|debcad|deb cad|fgts|pandora|caixa)$/.test(n)) return true;
+  if (/^execucao fiscal\s*\(?\s*(sida|debcad|deb cad|fgts|pandora|caixa)\s*\)?$/.test(n)) return true;
+  return false;
+}
+
+export function filterImportedProcessNotes(notes) {
+  return uniqueStrings(notes).filter((n) => !isRedundantImportedProcessNote(n));
+}
+
+export function sanitizeImportedExecutionNotes(record) {
+  if (!record) return record;
+  const notes = filterImportedProcessNotes(record.notesList || (record.notes ? [record.notes] : []));
+  const out = { ...record };
+  delete out.notes;
+  if (notes.length) out.notesList = notes;
+  else delete out.notesList;
+  return out;
+}
+
 /** Merge conservador para reimportações: preenche lacunas sem apagar decisões manuais. */
 export function mergeImportedExecution(existing, incoming) {
-  if (!existing) return { ...incoming };
+  if (!existing) return sanitizeImportedExecutionNotes({ ...incoming });
   const out = { ...existing };
   for (const field of ['className', 'court', 'protocolDate', 'prescriptionForecast']) {
     if (isEmpty(out[field]) && !isEmpty(incoming[field])) out[field] = incoming[field];
@@ -381,10 +414,12 @@ export function mergeImportedExecution(existing, incoming) {
   for (const field of ['hasGuarantee', 'prescriptionInterrupted', 'digraTracked']) {
     if (incoming[field] === true) out[field] = true;
   }
-  const notes = uniqueStrings([
+  const notes = filterImportedProcessNotes([
     ...(existing.notesList || (existing.notes ? [existing.notes] : [])),
     ...(incoming.notesList || (incoming.notes ? [incoming.notes] : [])),
   ]);
+  delete out.notes;
   if (notes.length) out.notesList = notes;
+  else delete out.notesList;
   return out;
 }

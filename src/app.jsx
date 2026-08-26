@@ -3,9 +3,11 @@ import {
   countExecutionReferences,
   findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
+  isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
   mergeImportedExecution,
   relinkExecutionToOperation,
+  sanitizeImportedExecutionNotes,
 } from './lib/processes.js';
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -848,12 +850,7 @@ function relatedParentLabel(exec, byId) {
 }
 
 function filterProcNotes(notes) {
-  return (notes || []).filter(n => {
-    const nl = (n || '').toLowerCase();
-    if (/^[\s·]*classe:\s/i.test(n)) return false;
-    if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
-    return true;
-  });
+  return (notes || []).filter(n => !isRedundantImportedProcessNote(n));
 }
 const MEASURE_SUBTYPES = { cautelar: 'Cautelar Fiscal', desconsideracao: 'Desc. Pers. Jurídica', arresto: 'Arresto', penhora_online: 'Penhora Online', outro: 'Outro' };
 const WATCH_STATUSES = {
@@ -2138,8 +2135,7 @@ function parseProcessosXLS(workbook) {
       prescriptionForecast: prescDateISO,
       hasGuarantee: garantia.toUpperCase() === 'SIM',
       digraTracked: digra.toUpperCase() === 'SIM',
-      status: 'ativa',
-      notes: `Classe: ${classe}`
+      status: 'ativa'
     });
   }
   return results;
@@ -3956,7 +3952,13 @@ function App() {
         const merged = { ...mergeImportedExecution(existing, incoming), id: existing.id, operationId, updatedAt: now };
         return { ...prev, executions: list.map(ex => ex.id === existing.id ? merged : ex) };
       }
-      return { ...prev, executions: [...list, { ...incoming, operationId, createdAt: incoming.createdAt || now, updatedAt: now }] };
+      const created = sanitizeImportedExecutionNotes({
+        ...incoming,
+        operationId,
+        createdAt: incoming.createdAt || now,
+        updatedAt: now
+      });
+      return { ...prev, executions: [...list, created] };
     });
   };
   // Log an import run — type is one of: xls, eproc, pdf_sida, pdf_debcad, ai, assets
@@ -5530,7 +5532,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       {workBody}
                       {(() => {
                         const rawNotes = ip.notesList || (ip.notes ? [ip.notes] : []);
-                        const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !/^[\s·]*classe:\s/i.test(n || ''));
+                        const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
                         const setNotes = (arr) => upsert('executions', { ...ip, notesList: arr });
                         const addKey = 'cardnote-' + ip.id; const addOpen = collapsedGroups.has(addKey);
                         return (
@@ -6654,21 +6656,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {/* ═══ COL 2: Notas (coluna média, à direita da ficha) ═══ */}
           <div className="proc-expand-notes">
             <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'space-between',gap:4}}>
-              <span>Notas ({notes.length})</span>
+              <span>Notas ({filterProcNotes(notes).length})</span>
               {isExec && <button className="btn-secondary btn-xs" style={{fontSize:8,padding:'1px 5px'}} onClick={(ev) => {
                 ev.stopPropagation();
                 setModal({type:'edit',entityType:'execution',initial:e});
               }} title="Editar processo para adicionar notas">✎</button>}
             </div>
-            {/* Filter out redundant notes that duplicate info shown in col 1 (class, court, SIDA origin) */}
             {(() => {
-              const filteredNotes = notes.filter(n => {
-                const nl = (n || '').toLowerCase();
-                // Skip notes that just say "Classe: X" or "Execução Fiscal (SIDA)" — already visible
-                if (/^[\s·]*classe:\s/i.test(n)) return false;
-                if (/^[\s·]*execu[çc][ãa]o fiscal\s*\(?sida\)?$/i.test(nl.trim())) return false;
-                return true;
-              });
+              const filteredNotes = filterProcNotes(notes);
               if (filteredNotes.length === 0) return null;
               return (
                 <div className="note-stack" style={{maxHeight:260,overflowY:'auto'}}>
