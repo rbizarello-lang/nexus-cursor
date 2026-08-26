@@ -3505,6 +3505,10 @@ function App() {
     [data.debts, data.executions, data.prescriptionEvents]
   );
   const getPrescDate = useMemo(() => (d) => prescLookup.date(d), [prescLookup]);
+  const painelPrescAlerts = useMemo(
+    () => buildPainelPrescAlerts(data, undefined, prescLookup),
+    [data.debts, data.executions, data.prescriptionEvents, data.operations, prescLookup]
+  );
   // Uma passada no acervo — a sidebar não pode filtrar o banco inteiro por operação a cada render.
   const sidebarOpMeta = useMemo(() => {
     const meta = {};
@@ -8794,7 +8798,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
             {/* ═══ AVISOS DE PRAZO EXTINTIVO — iminente, vencido, verificar ═══ */}
             {(() => {
-              const buckets = buildPainelPrescAlerts(data);
+              const buckets = painelPrescAlerts;
               const renderPainelPrescCard = (collapseKey, title, hint, items, tone) => {
                 if (!items.length) return null;
                 const open = !painelCollapsed.has(collapseKey);
@@ -8838,21 +8842,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   </>}
                 </div>);
               };
-              const allExecs = data.executions || [];
-              const markIdpj = (list) => list.map(d => {
-                const opExecs = allExecs.filter(e => e.operationId === d.operationId);
-                const idpjIds = new Set();
-                opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(e => {
-                  if (e.linkedExecutionIds) e.linkedExecutionIds.forEach(id => idpjIds.add(id));
-                });
-                const linkedExec = d.processNumber ? opExecs.find(e => sameProc(e.processNumber, d.processNumber)) : null;
-                return { ...d, hasIDPJ: linkedExec ? idpjIds.has(linkedExec.id) : false };
-              });
               return <>
-                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Total exposto', markIdpj(buckets.iminente), 'grave')}
-                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Conferir cálculo e autos', markIdpj(buckets.vencido), 'grave')}
-                {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', markIdpj(buckets.avaliar_174), 'sutil')}
-                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Feito ajuizado, sem marco cadastrado', markIdpj(buckets.avaliar_intercorrente), 'sutil')}
+                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Total exposto', buckets.iminente, 'grave')}
+                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Conferir cálculo e autos', buckets.vencido, 'grave')}
+                {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', buckets.avaliar_174, 'sutil')}
+                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Feito ajuizado, sem marco cadastrado', buckets.avaliar_intercorrente, 'sutil')}
               </>;
             })()}
 

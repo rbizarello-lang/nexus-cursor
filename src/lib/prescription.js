@@ -1117,68 +1117,44 @@ function isImminentResult(r) {
 /**
  * Um aviso operacional por CDA ativa, sem decadência.
  * kind: iminente | vencido | avaliar_174 | avaliar_intercorrente | null
+ * prescResult: resultado já calculado de computePrescription (lookup do app).
  */
-export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf) {
+export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf, prescResult) {
   if (!isPainelPrescCandidate(debt)) return null;
-  const tl = computeCdaLegalTimeline({ debt, executions, events, asOf });
-  const ordinaria = tl.ordinaria;
-  const inter = tl.intercorrente;
-  const ajuizada = !!tl.exec;
-  const cycle = intercorrenteCycleStarted(inter);
+  const r = prescResult || computePrescription({ debt, executions, events, asOf });
+  const ajuizada = r.segment === 'intercorrente';
+  const cycle = ajuizada && intercorrenteCycleStarted(r);
 
-  const origOverdue = !ajuizada && isOverdueResult(ordinaria);
-  const interOverdue = ajuizada && cycle && isOverdueResult(inter);
-  if (origOverdue || interOverdue) {
-    const r = origOverdue ? ordinaria : inter;
-    return {
-      kind: 'vencido',
-      segment: origOverdue ? 'ordinaria' : 'intercorrente',
-      days: r.daysLeft,
-      date: r.diesAdQuem || '',
-      status: r.status
-    };
-  }
-
-  const origImminent = !ajuizada && isImminentResult(ordinaria);
-  const interImminent = ajuizada && cycle && isImminentResult(inter);
-  if (origImminent || interImminent) {
-    const r = origImminent ? ordinaria : inter;
-    return {
-      kind: 'iminente',
-      segment: origImminent ? 'ordinaria' : 'intercorrente',
-      days: r.daysLeft,
-      date: r.diesAdQuem || '',
-      status: r.status
-    };
-  }
-
-  if (ajuizada && !cycle) {
-    return {
-      kind: 'avaliar_intercorrente',
-      segment: 'intercorrente',
-      days: null,
-      date: '',
-      status: (inter && inter.status) || 'sem_dados'
-    };
-  }
-
-  if (!ajuizada) {
-    if (ordinaria && ordinaria.diesAdQuem && (ordinaria.daysLeft == null || ordinaria.daysLeft > PAINEL_PRESC_WINDOW)) {
-      return null;
+  if (ajuizada) {
+    if (cycle && isOverdueResult(r)) {
+      return { kind: 'vencido', segment: 'intercorrente', days: r.daysLeft, date: r.diesAdQuem || '', status: r.status };
     }
-    return {
-      kind: 'avaliar_174',
-      segment: 'ordinaria',
-      days: ordinaria ? ordinaria.daysLeft : null,
-      date: (ordinaria && ordinaria.diesAdQuem) || '',
-      status: (ordinaria && ordinaria.status) || 'sem_dados'
-    };
+    if (cycle && isImminentResult(r)) {
+      return { kind: 'iminente', segment: 'intercorrente', days: r.daysLeft, date: r.diesAdQuem || '', status: r.status };
+    }
+    if (!cycle) {
+      return { kind: 'avaliar_intercorrente', segment: 'intercorrente', days: null, date: '', status: r.status || 'sem_dados' };
+    }
+    return null;
   }
 
-  return null;
+  if (isOverdueResult(r)) {
+    return { kind: 'vencido', segment: 'ordinaria', days: r.daysLeft, date: r.diesAdQuem || '', status: r.status };
+  }
+  if (isImminentResult(r)) {
+    return { kind: 'iminente', segment: 'ordinaria', days: r.daysLeft, date: r.diesAdQuem || '', status: r.status };
+  }
+  if (r.diesAdQuem && (r.daysLeft == null || r.daysLeft > PAINEL_PRESC_WINDOW)) return null;
+  return {
+    kind: 'avaliar_174',
+    segment: 'ordinaria',
+    days: r.daysLeft,
+    date: r.diesAdQuem || '',
+    status: r.status || 'sem_dados'
+  };
 }
 
-export function buildPainelPrescAlerts(data, asOf) {
+export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   const buckets = { iminente: [], vencido: [], avaliar_174: [], avaliar_intercorrente: [] };
   if (!data) return buckets;
   const ops = {};
@@ -1187,19 +1163,40 @@ export function buildPainelPrescAlerts(data, asOf) {
   });
   const executions = data.executions || [];
   const events = data.prescriptionEvents || [];
+  const lookup = prescLookup || createPrescLookup(data.debts || [], executions, events, asOf);
+
+  const idpjCovered = new Set();
+  const execIdByOpProc = new Map();
+  for (let i = 0; i < executions.length; i++) {
+    const e = executions[i];
+    if (!e) continue;
+    if ((e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') && e.linkedExecutionIds) {
+      for (let j = 0; j < e.linkedExecutionIds.length; j++) idpjCovered.add(e.linkedExecutionIds[j]);
+    }
+    const n = normProc(e.processNumber);
+    if (n && e.operationId && e.id) execIdByOpProc.set(e.operationId + '|' + n, e.id);
+  }
+
   (data.debts || []).forEach(d => {
     const op = ops[d.operationId];
     if (!op) return;
-    const alert = classifyPainelPrescAlert(d, executions, events, asOf);
+    const alert = classifyPainelPrescAlert(d, executions, events, asOf, lookup(d));
     if (!alert || !buckets[alert.kind]) return;
+    const execId = d.processNumber ? execIdByOpProc.get(d.operationId + '|' + normProc(d.processNumber)) : null;
     buckets[alert.kind].push({
-      ...d,
+      id: d.id,
+      cdaNumber: d.cdaNumber,
+      processNumber: d.processNumber,
+      status: d.status,
+      value: d.value,
+      operationId: d.operationId,
       prescDate: alert.date,
       prescDays: alert.days,
       prescKind: alert.kind,
       prescSegment: alert.segment,
       opName: op.name,
-      opId: op.id
+      opId: op.id,
+      hasIDPJ: !!(execId && idpjCovered.has(execId))
     });
   });
   buckets.iminente.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));

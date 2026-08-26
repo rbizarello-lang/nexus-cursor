@@ -86,4 +86,19 @@ describe('buildPainelPrescAlerts', () => {
     assert.ok(b.avaliar_174.some(x => x.id === 'd-174'));
     assert.ok(!ids.includes('d-far'));
   });
+
+  it('marca IDPJ uma vez, sem varrer execuções por linha', () => {
+    const data = {
+      operations: [op],
+      executions: [
+        ef({ id: 'e1', operationId: 'op1' }),
+        { id: 'idpj1', operationId: 'op1', processTag: 'idpj', linkedExecutionIds: ['e1'], processNumber: '50099999920234047000' }
+      ],
+      prescriptionEvents: [],
+      debts: [cda({ id: 'd-idpj', processNumber: '50012345620234047001' })]
+    };
+    const b = buildPainelPrescAlerts(data, ASOF);
+    const row = [...b.iminente, ...b.vencido, ...b.avaliar_174, ...b.avaliar_intercorrente].find(x => x.id === 'd-idpj');
+    assert.equal(row.hasIDPJ, true);
+  });
 });
