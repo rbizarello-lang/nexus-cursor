@@ -12,6 +12,15 @@ O JSX é compilado **na sua máquina** antes do `clasp push`.
 | `Nexus.html` | **Gerado** pelo build — não edite à mão |
 | `scripts/build.mjs` | Compila JSX e monta `Nexus.html` |
 
+## Deploy (Apps Script)
+
+O `npm run push` agora:
+1. Compila `src/app.jsx` → `Nexus.html`
+2. Copia só os 4 arquivos necessários para `gas/`
+3. Roda `clasp push` com `rootDir: gas` (evita varrer `node_modules` e demos)
+
+**Não cole** o `Nexus.html` (~1,5 MB) no editor do Apps Script — o editor não aguenta. Use só o `clasp push`.
+
 ## Comandos
 
 ```powershell

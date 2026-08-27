@@ -1,11 +1,21 @@
 {
   "name": "nexus-fiscal",
-  "version": "2.0.0",
+  "version": "1.2.9",
   "private": true,
+  "type": "module",
   "description": "NEXUS — Painel de Operações Fiscais (build local do JSX)",
   "scripts": {
+    "test": "node --test test/*.test.mjs",
     "build": "node scripts/build.mjs",
-    "push": "npm run build && clasp push"
+    "version:bump": "node scripts/bump-version.mjs",
+    "version:patch": "node scripts/bump-version.mjs patch",
+    "version:minor": "node scripts/bump-version.mjs minor",
+    "version:major": "node scripts/bump-version.mjs major",
+    "push": "node scripts/bump-version.mjs patch && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
+    "push:minor": "node scripts/bump-version.mjs minor && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
+    "push:major": "node scripts/bump-version.mjs major && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
+    "push:check": "node scripts/assert-gas-sync.mjs",
+    "clasp:push": "node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

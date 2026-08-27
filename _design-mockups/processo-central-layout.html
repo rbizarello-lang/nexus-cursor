@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout · Processo central</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #e8eef2; --bg-main: #f2f5f8; --bg-card: #ffffff;
+  --bg-elevated: #f7f9fb; --border: #c5d0dc; --border-light: #d8e0e8;
+  --text-primary: #1a2836; --text-secondary: #4a5c6e; --text-muted: #7a8c9e;
+  --accent: #b87333; --accent-dim: rgba(184,115,51,0.10);
+  --gold: #b87333; --pgfn: #7a1f35; --pgfn-light: #9b2848;
+  --red: #c43048; --yellow: #b8860b; --green: #2d7a4f;
+  --purple: #5a6a88; --purple-dim: rgba(90,106,136,0.12);
+  --font: 'Public Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font); background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(184,115,51,0.07), transparent 50%),
+    linear-gradient(180deg, #dfe8ef 0%, var(--bg-deep) 40%, #e4ebf1 100%);
+  color: var(--text-primary); padding: 28px 24px 80px; min-height: 100vh;
+}
+.tag {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; background: var(--accent-dim);
+}
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+.lead { color: var(--text-secondary); font-size: 13px; margin: 8px 0 20px; max-width: 760px; line-height: 1.5; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.seg {
+  display: inline-flex; border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; background: var(--bg-card);
+}
+.seg button {
+  font-family: inherit; font-size: 11px; font-weight: 600; padding: 7px 12px;
+  border: none; background: transparent; color: var(--text-secondary); cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.seg button:last-child { border-right: none; }
+.seg button.on { background: var(--pgfn); color: #fff; }
+.seg button:hover:not(.on) { background: var(--accent-dim); color: var(--text-primary); }
+.hint {
+  font-size: 12px; color: var(--text-secondary); max-width: 980px; margin: 0 0 16px;
+  padding: 10px 12px; border-left: 3px solid var(--accent); background: rgba(255,255,255,0.6); line-height: 1.45;
+}
+.hint.bad { border-left-color: var(--red); }
+.hint.good { border-left-color: var(--green); }
+.hint strong { color: var(--text-primary); }
+
+.frame {
+  display: grid; grid-template-columns: 260px 1fr; gap: 0;
+  max-width: 1040px; min-height: 520px; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; background: var(--bg-card);
+}
+.rail { border-right: 1px solid var(--border); background: var(--bg-elevated); }
+.rail-h {
+  padding: 12px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--pgfn-light); border-bottom: 1px solid var(--border);
+}
+.hub {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  padding: 11px 14px; border: none; border-bottom: 1px solid var(--border-light);
+  background: transparent; cursor: default; font-family: inherit; color: inherit;
+}
+.hub.active {
+  background: color-mix(in srgb, var(--purple) 10%, white);
+  border-left: 3px solid var(--purple); padding-left: 11px;
+}
+.hub.idpj { opacity: 0.55; }
+.hub-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--purple); }
+.hub.idpj .hub-tag { color: var(--pgfn); }
+.hub-num { font-family: var(--mono); font-size: 11px; font-weight: 600; margin-top: 2px; }
+.hub-meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 8px; }
+.hub-meta .zero { color: var(--red); font-weight: 700; }
+.pane { display: flex; flex-direction: column; min-width: 0; }
+.pane-h {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.pane-h h2 { font-size: 14px; font-weight: 700; }
+.pane-h .num { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.btn {
+  font-family: inherit; font-size: 11px; font-weight: 600; padding: 6px 10px;
+  border-radius: 4px; border: 1px solid var(--border); background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.pane-body { padding: 14px 18px 20px; }
+.stats {
+  display: grid; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: color-mix(in srgb, var(--purple) 5%, white); margin-bottom: 4px;
+}
+.stats.hoje { grid-template-columns: repeat(3, 1fr); }
+.stats.novo { grid-template-columns: repeat(4, 1fr); }
+.stats div small { display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stats div strong { font-size: 13px; font-weight: 700; }
+.own-block {
+  margin-top: 14px; border: 1px solid color-mix(in srgb, var(--purple) 28%, var(--border));
+  border-radius: 6px; overflow: hidden; background: #fff;
+}
+.own-h {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 8px 12px; background: color-mix(in srgb, var(--purple) 8%, white);
+  border-bottom: 1px solid var(--border-light); font-size: 11px; font-weight: 700;
+}
+.own-h span { font-family: var(--mono); font-size: 12px; color: var(--text-primary); }
+.block-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin: 16px 0 8px;
+}
+.block-label .count { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted); padding: 6px 8px;
+  border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+}
+td { padding: 8px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); }
+td.mono { font-family: var(--mono); font-weight: 600; color: var(--text-primary); font-size: 11px; }
+.empty {
+  font-size: 12px; color: var(--text-muted); padding: 14px 8px;
+  border: 1px dashed var(--border); border-radius: 6px; background: var(--bg-elevated);
+}
+.empty.bad { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, var(--border)); }
+.chip {
+  display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px;
+  border-radius: 3px; background: var(--purple-dim); color: var(--purple); margin-left: 6px;
+}
+.chip.emb { background: var(--accent-dim); color: var(--accent); }
+
+/* panorama card */
+.pano {
+  max-width: 1040px; border: 1px solid color-mix(in srgb, var(--purple) 28%, var(--border));
+  border-left: 3px solid var(--purple); border-radius: 8px; background: var(--bg-card); overflow: hidden;
+}
+.pano-head { padding: 12px 16px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--purple) 7%, white); }
+.pano-head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.pano-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pano-title h3 { font-size: 13px; }
+.badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: var(--purple-dim); color: var(--purple); }
+.badge.st { background: color-mix(in srgb, var(--green) 16%, white); color: var(--green); }
+.pano-num { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); padding-left: 0; margin-top: 4px; }
+.metrics { display: flex; gap: 18px; }
+.metrics div { text-align: right; }
+.metrics small { display: block; font-size: 8px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.metrics strong { font-family: var(--mono); font-size: 12px; }
+.pano-grid { display: grid; grid-template-columns: 0.7fr 1.3fr; }
+.pano-col { padding: 12px 16px 16px; }
+.pano-col + .pano-col { border-left: 1px solid var(--border); background: var(--bg-elevated); }
+.col-lab { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 8px; }
+.ruler-item { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 12px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+.now .name { font-weight: 700; color: var(--accent); }
+.ef-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border-light); font-size: 11px; }
+.ef-row .n { font-family: var(--mono); font-weight: 600; }
+.self-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 10px; margin-bottom: 8px; border-radius: 5px;
+  background: color-mix(in srgb, var(--purple) 8%, white); border: 1px solid color-mix(in srgb, var(--purple) 22%, var(--border));
+  font-size: 12px;
+}
+.work-phase { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.work-txt { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+
+.presc {
+  max-width: 1040px; border: 1px solid var(--border); border-left: 3px solid var(--purple);
+  border-radius: 8px; background: var(--bg-card); overflow: hidden;
+}
+.presc-sum {
+  display: grid; grid-template-columns: 1fr 120px 160px 130px; gap: 8px;
+  padding: 12px 14px; align-items: center; border-bottom: 1px solid var(--border);
+}
+.presc-sum strong { display: block; font-size: 13px; }
+.presc-sum small { color: var(--text-muted); font-size: 11px; }
+.presc-sum .st, .presc-sum .val, .presc-sum .risk { font-size: 11px; color: var(--text-muted); }
+.presc-sum .st strong, .presc-sum .val strong, .presc-sum .risk strong { font-size: 13px; color: var(--text-primary); }
+.presc-detail { padding: 12px 14px; background: var(--bg-elevated); font-size: 12px; color: var(--text-secondary); }
+.cda { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border-light); }
+.apenso-nest { margin: 8px 0 0 18px; padding-left: 12px; border-left: 3px solid color-mix(in srgb, var(--purple) 40%, var(--border)); }
+
+.screen { display: none; }
+.screen.on { display: block; }
+.view { display: none; }
+.view.on { display: block; }
+
+.legend { margin-top: 28px; max-width: 1040px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.legend h2 { font-size: 14px; color: var(--text-primary); margin: 16px 0 6px; }
+.legend ol { padding-left: 18px; }
+.legend li { margin: 4px 0; }
+@media (max-width: 800px) {
+  .frame, .pano-grid, .presc-sum, .stats.hoje, .stats.novo { grid-template-columns: 1fr; }
+  .rail { border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+  <div class="tag">Proposta de layout · não altera o app</div>
+  <h1>Processo <span>central</span> como execução de destaque</h1>
+  <p class="lead">
+    Marcar uma execução como <strong>central</strong> serve para dar relevo ao processo em que as principais medidas de constrição estão sendo adotadas — sem ser IDPJ nem cautelar.
+    O valor do card deve ser o da <strong>própria causa</strong>, somado às execuções fiscais apensas, se houver.
+  </p>
+
+  <div class="toolbar">
+    <div class="seg" id="mode">
+      <button type="button" data-mode="hoje">Como está hoje</button>
+      <button type="button" class="on" data-mode="novo">Layout proposto</button>
+    </div>
+    <div class="seg" id="caso">
+      <button type="button" class="on" data-caso="solo">Só a execução</button>
+      <button type="button" data-caso="apenso">Com apenso fiscal</button>
+    </div>
+    <div class="seg" id="tela">
+      <button type="button" class="on" data-tela="processos">Processos</button>
+      <button type="button" data-tela="panorama">Panorama</button>
+      <button type="button" data-tela="prescricao">Prescrição</button>
+    </div>
+  </div>
+
+  <!-- ════ PROCESSOS · HOJE ════ -->
+  <div class="screen" id="s-processos-hoje">
+    <p class="hint bad"><strong>Hoje.</strong> O app trata o central como se fosse um incidente. Procura “execuções abrangidas”, não acha nenhuma e mostra valor zero. A causa da própria execução some da tela.</p>
+    <div class="frame">
+      <aside class="rail">
+        <div class="rail-h">IDPJ / Cautelar / Central (2)</div>
+        <button type="button" class="hub active">
+          <span class="hub-tag">Central</span>
+          <span class="hub-num">5007777-88.2022.4.04.7002</span>
+          <span class="hub-meta"><span class="zero">0 EFs</span><span class="zero">R$ 0,00</span><span>—</span></span>
+        </button>
+        <button type="button" class="hub idpj">
+          <span class="hub-tag">IDPJ</span>
+          <span class="hub-num">5003340-22.2025.4.04.7002</span>
+          <span class="hub-meta"><span>1 EF</span><span>R$ 1,85 mi</span></span>
+        </button>
+      </aside>
+      <section class="pane">
+        <div class="pane-h">
+          <div>
+            <h2>Central · Execução Fiscal</h2>
+            <div class="num">5007777-88.2022.4.04.7002 · 2ª VF Londrina</div>
+          </div>
+          <div><button type="button" class="btn">Dados</button></div>
+        </div>
+        <div class="pane-body">
+          <div class="stats hoje">
+            <div><small>Status</small><strong>Ativa</strong></div>
+            <div><small>EFs abrangidas</small><strong style="color:var(--red)">0 · R$ 0,00</strong></div>
+            <div><small>Presc. mais próxima</small><strong>—</strong></div>
+          </div>
+          <div class="block-label">Execuções fiscais abrangidas <span class="count">(0)</span></div>
+          <div class="empty bad">Nenhuma EF vinculada a este processo</div>
+          <div class="block-label">Recursos / embargos vinculados</div>
+          <table>
+            <thead><tr><th>Processo</th><th>Espécie</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">5007780-88.2023.4.04.7002</td><td>Embargos à execução</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ════ PROCESSOS · NOVO · SOLO ════ -->
+  <div class="screen" id="s-processos-novo-solo">
+    <p class="hint good"><strong>Proposto — só a execução.</strong> O central continua em destaque à esquerda. À direita aparecem as CDAs e o valor da própria causa. Não se fala em “abrangidas”.</p>
+    <div class="frame">
+      <aside class="rail">
+        <div class="rail-h">IDPJ / Cautelar / Central (2)</div>
+        <button type="button" class="hub active">
+          <span class="hub-tag">Central</span>
+          <span class="hub-num">5007777-88.2022.4.04.7002</span>
+          <span class="hub-meta"><span>esta EF</span><span>R$ 1,85 mi</span><span>412d</span></span>
+        </button>
+        <button type="button" class="hub idpj">
+          <span class="hub-tag">IDPJ</span>
+          <span class="hub-num">5003340-22.2025.4.04.7002</span>
+          <span class="hub-meta"><span>1 EF</span><span>R$ 1,85 mi</span></span>
+        </button>
+      </aside>
+      <section class="pane">
+        <div class="pane-h">
+          <div>
+            <h2>Central · Execução Fiscal</h2>
+            <div class="num">5007777-88.2022.4.04.7002 · 2ª VF Londrina</div>
+          </div>
+          <div><button type="button" class="btn">Dados</button></div>
+        </div>
+        <div class="pane-body">
+          <div class="stats novo">
+            <div><small>Status</small><strong>Ativa</strong></div>
+            <div><small>Valor da causa</small><strong>R$ 1,85 mi</strong></div>
+            <div><small>Prescrição</small><strong>412d</strong></div>
+            <div><small>Apensos fiscais</small><strong>—</strong></div>
+          </div>
+          <div class="own-block">
+            <div class="own-h">Esta execução <span>2 CDAs · R$ 1,85 mi</span></div>
+            <table>
+              <thead><tr><th>CDA</th><th>Status</th><th>Valor</th><th>Prescrição</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">12.345-6</td><td>Ativa</td><td>R$ 1.200.000</td><td>412d</td></tr>
+                <tr><td class="mono">12.346-7</td><td>Ativa</td><td>R$ 650.000</td><td>580d</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="block-label">Execuções fiscais apensas</div>
+          <div class="empty">Nenhum apenso fiscal. O valor acima é só desta execução.</div>
+          <div class="block-label">Recursos / embargos vinculados</div>
+          <table>
+            <thead><tr><th>Processo</th><th>Espécie</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">5007780-88.2023.4.04.7002</td><td>Embargos à execução</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ════ PROCESSOS · NOVO · APENSO ════ -->
+  <div class="screen" id="s-processos-novo-apenso">
+    <p class="hint good"><strong>Proposto — com apenso fiscal.</strong> O valor do card é a soma: esta execução + a execução apensa. Embargos continuam em “recursos vinculados”, sem entrar no valor.</p>
+    <div class="frame">
+      <aside class="rail">
+        <div class="rail-h">IDPJ / Cautelar / Central (2)</div>
+        <button type="button" class="hub active">
+          <span class="hub-tag">Central</span>
+          <span class="hub-num">5007777-88.2022.4.04.7002</span>
+          <span class="hub-meta"><span>1 apenso</span><span>R$ 2,27 mi</span><span>210d</span></span>
+        </button>
+        <button type="button" class="hub idpj">
+          <span class="hub-tag">IDPJ</span>
+          <span class="hub-num">5003340-22.2025.4.04.7002</span>
+          <span class="hub-meta"><span>1 EF</span><span>R$ 2,27 mi</span></span>
+        </button>
+      </aside>
+      <section class="pane">
+        <div class="pane-h">
+          <div>
+            <h2>Central · Execução Fiscal</h2>
+            <div class="num">5007777-88.2022.4.04.7002 · 2ª VF Londrina</div>
+          </div>
+          <div><button type="button" class="btn">Dados</button></div>
+        </div>
+        <div class="pane-body">
+          <div class="stats novo">
+            <div><small>Status</small><strong>Ativa</strong></div>
+            <div><small>Valor da causa</small><strong>R$ 2,27 mi</strong></div>
+            <div><small>Prescrição</small><strong>210d</strong></div>
+            <div><small>Apensos fiscais</small><strong>1</strong></div>
+          </div>
+          <div class="own-block">
+            <div class="own-h">Esta execução <span>2 CDAs · R$ 1,85 mi</span></div>
+            <table>
+              <thead><tr><th>CDA</th><th>Status</th><th>Valor</th><th>Prescrição</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">12.345-6</td><td>Ativa</td><td>R$ 1.200.000</td><td>412d</td></tr>
+                <tr><td class="mono">12.346-7</td><td>Ativa</td><td>R$ 650.000</td><td>580d</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="block-label">Execuções fiscais apensas <span class="count">(1)</span></div>
+          <table>
+            <thead><tr><th>Processo</th><th>Status</th><th>Valor</th><th>Prescrição</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono">5007790-10.2023.4.04.7002 <span class="chip">Apenso</span></td>
+                <td>Ativa</td>
+                <td>R$ 420.000</td>
+                <td>210d</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="block-label">Recursos / embargos vinculados</div>
+          <table>
+            <thead><tr><th>Processo</th><th>Espécie</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">5007780-88.2023.4.04.7002</td><td>Embargos à execução</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ════ PANORAMA · HOJE ════ -->
+  <div class="screen" id="s-panorama-hoje">
+    <p class="hint bad"><strong>Hoje no panorama.</strong> A régua de fases do central continua (ajuizamento, redirecionamento…). Mas o valor total soma só os “abrangidos”, que não existem — e o campo fica em branco.</p>
+    <div class="pano">
+      <div class="pano-head">
+        <div class="pano-head-row">
+          <div class="pano-title">
+            <span class="badge">◆ Central</span>
+            <h3>Processo central</h3>
+            <span class="badge st">Ativa</span>
+          </div>
+          <div class="metrics">
+            <div><small>Valor total</small><strong>—</strong></div>
+            <div><small>Apensas</small><strong>0</strong></div>
+            <div><small>Fase</small><strong>Pedido de redirecionamento</strong></div>
+          </div>
+        </div>
+        <div class="pano-num">5007777-88.2022.4.04.7002</div>
+      </div>
+      <div class="pano-grid">
+        <div class="pano-col">
+          <div class="col-lab">Contexto</div>
+          <div class="ruler-item"><span class="dot" style="background:var(--green)"></span><div><div class="name">Ajuizamento da EF</div></div></div>
+          <div class="ruler-item now"><span class="dot" style="background:var(--accent)"></span><div><div class="name">Pedido de redirecionamento</div></div></div>
+          <div class="ruler-item"><span class="dot" style="border:1.5px solid var(--border);background:transparent"></span><div>Decisão</div></div>
+          <div class="col-lab" style="margin-top:14px">Cobertura · 0 apensas</div>
+          <div class="empty bad">Nenhuma apensa vinculada</div>
+        </div>
+        <div class="pano-col">
+          <div class="col-lab">Trabalho</div>
+          <div class="work-phase">Pedido de redirecionamento</div>
+          <div class="work-txt">Pedido de redirecionamento formulado nos próprios autos da execução, com pedido de Sisbajud e CNIB contra os sócios.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANORAMA · NOVO SOLO ════ -->
+  <div class="screen" id="s-panorama-novo-solo">
+    <p class="hint good"><strong>Proposto no panorama.</strong> A régua de fases permanece (são os dados próprios do central). O valor passa a ser o desta execução. Sem apenso, isso fica explícito — não parece um erro.</p>
+    <div class="pano">
+      <div class="pano-head">
+        <div class="pano-head-row">
+          <div class="pano-title">
+            <span class="badge">◆ Central</span>
+            <h3>Execução de destaque</h3>
+            <span class="badge st">Ativa</span>
+          </div>
+          <div class="metrics">
+            <div><small>Valor da causa</small><strong>R$ 1,85 mi</strong></div>
+            <div><small>Apensos fiscais</small><strong>—</strong></div>
+            <div><small>Fase</small><strong>Pedido de redirecionamento</strong></div>
+          </div>
+        </div>
+        <div class="pano-num">5007777-88.2022.4.04.7002</div>
+      </div>
+      <div class="pano-grid">
+        <div class="pano-col">
+          <div class="col-lab">Contexto</div>
+          <div class="ruler-item"><span class="dot" style="background:var(--green)"></span><div><div class="name">Ajuizamento da EF</div></div></div>
+          <div class="ruler-item now"><span class="dot" style="background:var(--accent)"></span><div><div class="name">Pedido de redirecionamento</div></div></div>
+          <div class="ruler-item"><span class="dot" style="border:1.5px solid var(--border);background:transparent"></span><div>Decisão</div></div>
+          <div class="col-lab" style="margin-top:14px">Esta execução</div>
+          <div class="self-row"><span class="n" style="font-family:var(--mono);font-weight:600;font-size:11px">5007777-88.2022.4.04.7002</span><strong>R$ 1,85 mi</strong></div>
+          <div class="col-lab">Apensos fiscais</div>
+          <div class="empty">Sem apenso fiscal</div>
+        </div>
+        <div class="pano-col">
+          <div class="col-lab">Trabalho</div>
+          <div class="work-phase">Pedido de redirecionamento</div>
+          <div class="work-txt">Pedido de redirecionamento formulado nos próprios autos da execução, com pedido de Sisbajud e CNIB contra os sócios.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANORAMA · NOVO APENSO ════ -->
+  <div class="screen" id="s-panorama-novo-apenso">
+    <p class="hint good"><strong>Proposto no panorama — com apenso.</strong> Valor da causa = esta execução + apenso fiscal. A régua segue no central.</p>
+    <div class="pano">
+      <div class="pano-head">
+        <div class="pano-head-row">
+          <div class="pano-title">
+            <span class="badge">◆ Central</span>
+            <h3>Execução de destaque</h3>
+            <span class="badge st">Ativa</span>
+          </div>
+          <div class="metrics">
+            <div><small>Valor da causa</small><strong>R$ 2,27 mi</strong></div>
+            <div><small>Apensos fiscais</small><strong>1</strong></div>
+            <div><small>Fase</small><strong>Pedido de redirecionamento</strong></div>
+          </div>
+        </div>
+        <div class="pano-num">5007777-88.2022.4.04.7002</div>
+      </div>
+      <div class="pano-grid">
+        <div class="pano-col">
+          <div class="col-lab">Contexto</div>
+          <div class="ruler-item"><span class="dot" style="background:var(--green)"></span><div><div class="name">Ajuizamento da EF</div></div></div>
+          <div class="ruler-item now"><span class="dot" style="background:var(--accent)"></span><div><div class="name">Pedido de redirecionamento</div></div></div>
+          <div class="ruler-item"><span class="dot" style="border:1.5px solid var(--border);background:transparent"></span><div>Decisão</div></div>
+          <div class="col-lab" style="margin-top:14px">Esta execução</div>
+          <div class="self-row"><span class="n" style="font-family:var(--mono);font-weight:600;font-size:11px">5007777-88.2022.4.04.7002</span><strong>R$ 1,85 mi</strong></div>
+          <div class="col-lab">Apensos fiscais · 1</div>
+          <div class="ef-row"><span class="n">↳ 5007790-10.2023.4.04.7002</span><span>R$ 420.000</span></div>
+        </div>
+        <div class="pano-col">
+          <div class="col-lab">Trabalho</div>
+          <div class="work-phase">Pedido de redirecionamento</div>
+          <div class="work-txt">Pedido de redirecionamento formulado nos próprios autos da execução, com pedido de Sisbajud e CNIB contra os sócios.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PRESCRIÇÃO · HOJE ════ -->
+  <div class="screen" id="s-prescricao-hoje">
+    <p class="hint bad"><strong>Hoje na prescrição.</strong> O card do central não usa as CDAs dele para o valor de destaque. Procura execuções abrangidas e acaba zerado.</p>
+    <div class="presc">
+      <div class="presc-sum">
+        <div>
+          <strong>5007777-88.2022.4.04.7002</strong>
+          <small>Execução Fiscal · 2ª VF Londrina · ◆ Central</small>
+        </div>
+        <div class="st"><small>Status</small><strong>Ativa</strong></div>
+        <div class="val"><small>CDAs</small><strong>0 · R$ 0,00</strong></div>
+        <div class="risk"><small>Prescrição</small><strong>Sem dados</strong></div>
+      </div>
+      <div class="presc-detail">Nenhuma EF abrangida vinculada a este processo.</div>
+    </div>
+  </div>
+
+  <!-- ════ PRESCRIÇÃO · NOVO SOLO ════ -->
+  <div class="screen" id="s-prescricao-novo-solo">
+    <p class="hint good"><strong>Proposto na prescrição.</strong> O card mostra as CDAs e o valor desta execução. Continua marcado como central.</p>
+    <div class="presc">
+      <div class="presc-sum">
+        <div>
+          <strong>5007777-88.2022.4.04.7002</strong>
+          <small>Execução Fiscal · 2ª VF Londrina · ◆ Central</small>
+        </div>
+        <div class="st"><small>Status</small><strong>Ativa</strong></div>
+        <div class="val"><small>CDAs</small><strong>2 · R$ 1,85 mi</strong></div>
+        <div class="risk"><small>Prescrição</small><strong>412d</strong></div>
+      </div>
+      <div class="presc-detail">
+        <div class="cda"><span>CDA 12.345-6</span><span>R$ 1.200.000 · 412d</span></div>
+        <div class="cda"><span>CDA 12.346-7</span><span>R$ 650.000 · 580d</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PRESCRIÇÃO · NOVO APENSO ════ -->
+  <div class="screen" id="s-prescricao-novo-apenso">
+    <p class="hint good"><strong>Proposto na prescrição — com apenso.</strong> O resumo soma esta execução + apenso. O apenso aparece aninhado, como nas demais EFs.</p>
+    <div class="presc">
+      <div class="presc-sum">
+        <div>
+          <strong>5007777-88.2022.4.04.7002</strong>
+          <small>Execução Fiscal · 2ª VF Londrina · ◆ Central · 1 apenso</small>
+        </div>
+        <div class="st"><small>Status</small><strong>Ativa</strong></div>
+        <div class="val"><small>Valor da causa</small><strong>R$ 2,27 mi</strong></div>
+        <div class="risk"><small>Prescrição</small><strong>210d</strong></div>
+      </div>
+      <div class="presc-detail">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Esta execução · R$ 1,85 mi</div>
+        <div class="cda"><span>CDA 12.345-6</span><span>R$ 1.200.000 · 412d</span></div>
+        <div class="cda"><span>CDA 12.346-7</span><span>R$ 650.000 · 580d</span></div>
+        <div class="apenso-nest">
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px">↳ 5007790-10.2023.4.04.7002 <span class="chip">Apenso</span> · R$ 420.000</div>
+          <div class="cda"><span>CDA 44.100-2</span><span>R$ 420.000 · 210d</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>O que muda, em resumo</h2>
+    <ol>
+      <li>IDPJ e cautelar continuam iguais: valor = execuções fiscais abrangidas.</li>
+      <li>Central deixa de procurar abrangidas. Usa a própria causa + execuções fiscais apensas.</li>
+      <li>Embargos, agravos e incidentes não entram no valor. Continuam em “recursos vinculados”.</li>
+      <li>A régua de fases do central (ajuizamento, redirecionamento, decisão…) permanece.</li>
+    </ol>
+  </div>
+
+<script>
+const state = { mode: 'novo', caso: 'solo', tela: 'processos' };
+function show() {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('on'));
+  const id = state.mode === 'hoje'
+    ? 's-' + state.tela + '-hoje'
+    : 's-' + state.tela + '-novo-' + state.caso;
+  const el = document.getElementById(id);
+  if (el) el.classList.add('on');
+}
+function bind(id, key) {
+  document.getElementById(id).querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(id).querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      state[key] = btn.dataset[key];
+      show();
+    });
+  });
+}
+bind('mode', 'mode');
+bind('caso', 'caso');
+bind('tela', 'tela');
+show();
+</script>
+</body>
+</html>

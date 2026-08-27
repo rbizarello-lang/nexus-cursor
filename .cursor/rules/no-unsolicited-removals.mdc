@@ -1,0 +1,33 @@
+---
+description: Não remover features vivas sob rótulo YAGNI/não utilizada sem pedido explícito
+alwaysApply: true
+---
+
+# Sem remoções não pedidas
+
+## Regra
+
+Não apague botões, parsers, importações, abas ou fluxos de UI só porque parecem “não usados”, “mortos” ou “YAGNI”.
+
+O precedente: commit `4b06307` removeu a importação eproc (`citacaoIntimacao*.xls`) com a justificativa “via não utilizada” — era feature viva e a remoção não foi pedida.
+
+## Quando pode remover
+
+Só remova código ou UI se **uma** destas for verdadeira:
+
+1. O usuário pediu explicitamente a remoção.
+2. É claramente residual após uma restauração/migração (comentário órfão, import sem símbolo, variável nunca lida) e a remoção não muda comportamento visível.
+3. Há um PR/tarefa dedicada de limpeza, com escopo combinado.
+
+## O que não fazer
+
+- Não justifique remoção de feature com “via não utilizada”, “código morto”, “YAGNI” ou Ponytail sem confirmação do usuário.
+- Não remova handler + botão + parser juntos só porque o botão não aparece no caminho que você testou.
+- Em dúvida: pergunte. Prefira deixar código inalcançável anotado a apagar capacidade do app.
+
+## Exemplo
+
+```text
+❌ Remover "Importar eproc" porque a aba Importar já tem XLS da Procuradoria
+✅ Manter; só remover se o usuário pedir ou se for residual sem UI/handler
+```
