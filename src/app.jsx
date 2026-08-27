@@ -813,6 +813,11 @@ function isHubProcess(e) {
   return !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
 }
 
+/** Execução fiscal de destaque (não é incidente). */
+function isCentralProcess(e) {
+  return !!e && e.processTag === 'central';
+}
+
 /** Espécie curta para Outros processos (coluna Espécie + chips). */
 function otherSpecies(e) {
   const cn = (e?.className || '').toLowerCase();
@@ -2402,7 +2407,10 @@ function classifyProcGroups(cdaGroups, execs) {
 
   const coveredIds = new Set();
   hubs.forEach(h => {
-    (h.exec.linkedExecutionIds || []).forEach(id => coveredIds.add(id));
+    // Central é a própria EF: só apensos (parentExecutionId). IDPJ/MCF usam abrangidas.
+    if (h.exec.processTag !== 'central') {
+      (h.exec.linkedExecutionIds || []).forEach(id => coveredIds.add(id));
+    }
     (cdaGroups || []).forEach(g => {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) coveredIds.add(g.exec.id);
     });
@@ -2419,7 +2427,7 @@ function classifyProcGroups(cdaGroups, execs) {
   const apensosByParent = {};
   const coveredByHub = {};
   hubs.forEach(h => {
-    const ids = new Set(h.exec.linkedExecutionIds || []);
+    const ids = new Set(h.exec.processTag === 'central' ? [] : (h.exec.linkedExecutionIds || []));
     (cdaGroups || []).forEach(g => {
       if (g.type === 'exec' && g.exec.parentExecutionId === h.exec.id) ids.add(g.exec.id);
     });
@@ -5266,7 +5274,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const apensosByCentral = {};
               centrais.forEach(c => {
                 apensosByCentral[c.id] = sortEFsArquivadasLast(opExecs
-                  .filter(e => e.parentExecutionId === c.id)
+                  .filter(e => e.parentExecutionId === c.id && keepCoveredEF(e))
                   .map(withCda));
               });
 
@@ -5317,7 +5325,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central)
               const badgeFor = (tag) => tag === 'idpj' ? { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' }
                 : tag === 'cautelar_fiscal' ? { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' }
-                : { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apensa', title: 'Processo central', tagClass: 'tag-central' };
+                : { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
               const stageCompactMeta = (m) => {
                 if (m.sd.multiRecurso) {
                   const n = (m.recursos || []).length;
@@ -5476,7 +5484,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       </div>
                       {visible.map(m => popupFor(m))}
                       {addFaseBtn}
-                      <div className="pano-split-col-label">Cobertura · {myEFs.length} {bm.unit}{myEFs.length !== 1 ? 's' : ''}</div>
+                      {ip.processTag === 'central' && (() => {
+                        const ownVal = opDebts.filter(d => sameProc(d.processNumber, ip.processNumber)).reduce((s, d) => s + (d.value || 0), 0);
+                        return (
+                          <>
+                            <div className="pano-split-col-label">Esta execução</div>
+                            <div className="pano-split-ef pano-split-self" role="button" tabIndex={0}
+                              onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModal({type:'edit',entityType:'execution',initial:ip}); } }}>
+                              <span className="num"><ProcNum exec={ip} /></span>
+                              <span className="val">{ownVal > 0 ? fmtCur(ownVal) : '—'}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                      <div className="pano-split-col-label">{ip.processTag === 'central' ? `Apensos fiscais · ${myEFs.length}` : `Cobertura · ${myEFs.length} ${bm.unit}${myEFs.length !== 1 ? 's' : ''}`}</div>
                       {myEFs.length > 0 ? (
                         <div className="pano-split-ef-list">
                           {(() => {
@@ -5524,7 +5546,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{myEFs.length - 8} {bm.unit}(s)</div>}
                         </div>
                       ) : (
-                        <div className="pano-split-empty-work">Nenhuma {bm.unit} vinculada</div>
+                        <div className="pano-split-empty-work">{ip.processTag === 'central' ? 'Nenhum apenso fiscal. O valor acima é só desta execução.' : `Nenhuma ${bm.unit} vinculada`}</div>
                       )}
                     </div>
                     <div className="pano-split-col">
@@ -5584,6 +5606,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     const bm = badgeFor(ip.processTag);
                     const myEFs = apensos;
                     const covVal = myEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
+                    const ownVal = ip.processTag === 'central'
+                      ? opDebts.filter(d => sameProc(d.processNumber, ip.processNumber)).reduce((s, d) => s + (d.value || 0), 0)
+                      : 0;
+                    const displayVal = ip.processTag === 'central' ? ownVal + covVal : covVal;
+                    const isCentralCard = ip.processTag === 'central';
                     const cardCollapsed = collapsedGroups.has('panocollapse-' + ip.id);
                     const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                     const withHas = metas.filter(m => m.has);
@@ -5604,8 +5631,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             </div>
                             <div className="pano-split-head-right" onClick={e => e.stopPropagation()}>
                               <div className="pano-split-metrics">
-                                <div><small>Valor total</small><strong>{covVal > 0 ? fmtCur(covVal) : '—'}</strong></div>
-                                <div><small>{bm.unit}s</small><strong>{myEFs.length}</strong></div>
+                                <div><small>{isCentralCard ? 'Valor da causa' : 'Valor total'}</small><strong>{displayVal > 0 ? fmtCur(displayVal) : '—'}</strong></div>
+                                <div><small>{isCentralCard ? 'Apensos fiscais' : `${bm.unit}s`}</small><strong>{isCentralCard && myEFs.length === 0 ? '—' : myEFs.length}</strong></div>
                                 <div><small>Fase</small><strong style={{color: current ? current.c : 'var(--text-muted)', fontFamily: 'var(--font-display)'}}>{current ? current.sd.label : '—'}</strong></div>
                               </div>
                               <div className="pano-split-actions">
@@ -6742,26 +6769,32 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         return { total, st, label, riskClass, minRiskDays };
       };
       const hubRailMeta = (hubGroup, covered) => {
+        const isCentral = hubGroup?.exec?.processTag === 'central';
+        const ownMeta = isCentral && hubGroup ? efRiskMeta(hubGroup) : null;
         const metas = (covered || []).map(efRiskMeta);
-        const total = metas.reduce((s, m) => s + (m.total || 0), 0);
-        const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
+        const allMetas = ownMeta ? [ownMeta, ...metas] : metas;
+        const total = allMetas.reduce((s, m) => s + (m.total || 0), 0);
+        const riskVals = allMetas.map(m => m.minRiskDays).filter(v => v !== null);
         const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
-        const allHandled = metas.length > 0 && metas.every(m => m.riskClass === 'ok');
+        const allHandled = allMetas.length > 0 && allMetas.every(m => m.riskClass === 'ok');
         const label = allHandled ? 'OK' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
         const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
         const st = EXEC_STATUSES[hubGroup.exec?.status] || {};
-        return { total, st, label, riskClass, minRiskDays, coveredCount: (covered || []).length };
+        return { total, st, label, riskClass, minRiskDays, coveredCount: (covered || []).length, ownTotal: ownMeta?.total || 0 };
       };
       const renderHubCoveredBlock = (hubGroup, covered) => {
+        const isCentral = hubGroup?.exec?.processTag === 'central';
+        const emptyLabel = isCentral ? 'Execuções fiscais apensas' : 'EFs abrangidas';
+        const emptyText = isCentral ? 'Nenhum apenso fiscal' : 'Nenhuma EF vinculada';
         if (!covered || covered.length === 0) return (
           <div className="demo-proc-hub-efs empty">
-            <span className="demo-proc-hub-efs-label">EFs abrangidas</span>
-            <span className="demo-proc-hub-efs-empty">Nenhuma EF vinculada</span>
+            <span className="demo-proc-hub-efs-label">{emptyLabel}</span>
+            <span className="demo-proc-hub-efs-empty">{emptyText}</span>
           </div>
         );
         return (
           <div className="demo-proc-hub-efs">
-            <div className="demo-proc-hub-efs-label">EFs abrangidas ({covered.length})</div>
+            <div className="demo-proc-hub-efs-label">{isCentral ? `Execuções fiscais apensas (${covered.length})` : `EFs abrangidas (${covered.length})`}</div>
             <div className="demo-proc-hub-efs-list">
               {covered.map(cg => {
                 const meta = efRiskMeta(cg);
@@ -7062,7 +7095,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         };
 
         const renderEfTable = (items, emptyMsg, opts = {}) => {
-          const { idPrefix = 'process-row-', variant = 'ef' } = opts;
+          const { idPrefix = 'process-row-', variant = 'ef', skipNested = false } = opts;
           const isOthers = variant === 'others';
           if (!items || items.length === 0) {
             return <div className="proc-md-empty">{emptyMsg || 'Nenhum processo'}</div>;
@@ -7089,7 +7122,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 : null)
               : null;
             const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
-            const childApensos = (!isOthers && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
+            const childApensos = (!isOthers && !skipNested && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
             const isRelevant = g.type === 'exec' && !!g.exec.isRelevant;
             const isStandaloneApenso = !nested && !isOthers && g.type === 'exec' && relatedParent
               && isExecucaoFiscalClass(relatedParent) && !isHubProcess(relatedParent);
@@ -7299,7 +7332,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               onClick={() => setHubsCardOpen(v => !v)}
               aria-expanded={hubsCardOpen}>
               <span>{hubsCardOpen ? '▾' : '▸'} IDPJ / Cautelar / Central <span className="count">({hubs.length})</span></span>
-              <span className="muted">Incidentes e execuções fiscais abrangidas</span>
+              <span className="muted">Incidentes e execução de destaque</span>
             </button>
             {hubsCardOpen && (
               <div className="proc-section-card-body">
@@ -7323,7 +7356,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             {dupBadge(h.exec.id)}
                           </span>
                           <span className="proc-md-hub-meta">
-                            <span>{meta.coveredCount} EF{meta.coveredCount === 1 ? '' : 's'}</span>
+                            <span>{h.exec.processTag === 'central'
+                              ? (meta.coveredCount > 0 ? `${meta.coveredCount} apenso${meta.coveredCount === 1 ? '' : 's'}` : 'esta EF')
+                              : `${meta.coveredCount} EF${meta.coveredCount === 1 ? '' : 's'}`}</span>
                             <span>{fmtCur(meta.total)}</span>
                             <span className={`risk-${meta.riskClass}`}>{meta.label}</span>
                           </span>
@@ -7349,7 +7384,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: selectedHub.exec })}>Dados</button>
                             <button type="button" className="btn-secondary btn-xs proc-md-quiet-btn"
                               onClick={() => {
-                                const cdaIds = coveredAll.flatMap(g => (g.cdas || []).map(d => d.id));
+                                const ownIds = isCentralProcess(selectedHub.exec) ? (selectedHub.cdas || []).map(d => d.id) : [];
+                                const coveredIds = coveredAll.flatMap(g => (g.cdas || []).map(d => d.id));
+                                const cdaIds = [...ownIds, ...coveredIds];
                                 setModal({
                                   type: 'create',
                                   entityType: 'prescriptionEvent',
@@ -7361,8 +7398,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         <div className="proc-md-pane-body">
                           {(() => {
                             const hub = selectedHub.exec;
+                            const isCentral = isCentralProcess(hub);
                             const rawNotes = hub.notesList || (hub.notes ? [hub.notes] : []);
                             const hubNotes = filterProcNotes(rawNotes);
+                            const ownCdas = selectedHub.cdas || [];
+                            const ownTotal = ownCdas.reduce((s, d) => s + (d.value || 0), 0);
                             return (
                               <div className="proc-md-hub-meta-block">
                                 <div className="proc-md-hub-stats">
@@ -7371,13 +7411,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                                     <strong>{hubMeta.st.label || hub.status || '—'}</strong>
                                   </div>
                                   <div className="proc-md-hub-stat">
-                                    <span className="im-label">EFs abrangidas</span>
-                                    <strong>{hubMeta.coveredCount} · {fmtCur(hubMeta.total)}</strong>
+                                    <span className="im-label">{isCentral ? 'Valor da causa' : 'EFs abrangidas'}</span>
+                                    <strong>{isCentral
+                                      ? fmtCur(hubMeta.total)
+                                      : `${hubMeta.coveredCount} · ${fmtCur(hubMeta.total)}`}</strong>
                                   </div>
                                   <div className="proc-md-hub-stat">
                                     <span className="im-label">Presc. mais próxima</span>
                                     <strong className={`risk-${hubMeta.riskClass}`}>{hubMeta.label}</strong>
                                   </div>
+                                  {isCentral && (
+                                    <div className="proc-md-hub-stat">
+                                      <span className="im-label">Apensos fiscais</span>
+                                      <strong>{hubMeta.coveredCount > 0 ? hubMeta.coveredCount : '—'}</strong>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="proc-md-hub-notes-flat">
                                   <div className="proc-md-hub-notes-h">
@@ -7392,11 +7440,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                                     </div>
                                   )}
                                 </div>
+                                {isCentral && (
+                                  <div className="proc-md-own-block">
+                                    <div className="proc-md-own-h">
+                                      <span>Esta execução</span>
+                                      <span>{ownCdas.length} CDA{ownCdas.length === 1 ? '' : 's'} · {fmtCur(ownTotal)}</span>
+                                    </div>
+                                    {ownCdas.length === 0
+                                      ? <div className="proc-md-empty">Sem CDAs vinculadas a este processo</div>
+                                      : renderEfTable([{ ...selectedHub, exec: hub }], 'Sem CDAs vinculadas a este processo', { skipNested: true })}
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
-                          <div className="proc-md-block-label band-anchor">Execuções fiscais abrangidas <span className="count">({coveredAll.length})</span></div>
-                          {renderEfTable(covered, 'Nenhuma EF vinculada a este processo')}
+                          <div className="proc-md-block-label band-anchor">{isCentralProcess(selectedHub.exec) ? 'Execuções fiscais apensas' : 'Execuções fiscais abrangidas'} <span className="count">({coveredAll.length})</span></div>
+                          {renderEfTable(covered, isCentralProcess(selectedHub.exec) ? 'Nenhum apenso fiscal. O valor acima é só desta execução.' : 'Nenhuma EF vinculada a este processo')}
                           {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
                             <div className="proc-hub-rel">
                               <div className="proc-md-block-label">Recursos / embargos vinculados</div>
@@ -7492,7 +7551,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 {renderGroupTree(h, cv)}
                 {covered.length > 0 && (
                   <div className="demo-proc-tree-children">
-                    <div className="demo-proc-tree-hint">EFs abrangidas · {covered.length}</div>
+                    <div className="demo-proc-tree-hint">{h.exec.processTag === 'central' ? `EFs apensas · ${covered.length}` : `EFs abrangidas · ${covered.length}`}</div>
                     {covered.map(cg => <div key={cg.exec.id} className="demo-proc-tree-child">{renderGroupTree(cg, 'normal')}</div>)}
                   </div>
                 )}
@@ -7508,14 +7567,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <span className="demo-proc-section-chev">{hubOpen ? '▾' : '▸'}</span>
                   <strong>{tagLabels[h.exec.processTag] || h.exec.processTag}</strong>
                   <span className="mono"><ProcNum exec={h.exec} empty="S/N" /></span>
-                  <span className="muted">{covered.length} EF(s)</span>
+                  <span className="muted">{h.exec.processTag === 'central' ? `${covered.length} apenso(s)` : `${covered.length} EF(s)`}</span>
                 </button>
                 {hubOpen && (
                   <div className="demo-proc-hub-acc-body">
                     {renderGroupTree(h, cv)}
                     {covered.length > 0
-                      ? renderDemoSection('EFs abrangidas', covered, { table: true, sectionKey: 'demo-hub-tbl-' + h.exec.id, defaultOpen: true })
-                      : <div className="demo-proc-hub-efs empty"><span className="demo-proc-hub-efs-empty">Nenhuma EF vinculada</span></div>}
+                      ? renderDemoSection(h.exec.processTag === 'central' ? 'EFs apensas' : 'EFs abrangidas', covered, { table: true, sectionKey: 'demo-hub-tbl-' + h.exec.id, defaultOpen: true })
+                      : <div className="demo-proc-hub-efs empty"><span className="demo-proc-hub-efs-empty">{h.exec.processTag === 'central' ? 'Nenhum apenso fiscal' : 'Nenhuma EF vinculada'}</span></div>}
                   </div>
                 )}
               </div>

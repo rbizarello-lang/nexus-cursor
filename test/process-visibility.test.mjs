@@ -79,4 +79,27 @@ describe('partição visual de Processos e Prescrição', () => {
     const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
     assert.equal(representedIds(classified).has('legacy'), true);
   });
+
+  it('central lista só apensos fiscais e ignora abrangidas', () => {
+    const executions = [
+      { id: 'c', processNumber: '50077778820224047002', className: 'Execução Fiscal', processTag: 'central', status: 'ativa', linkedExecutionIds: ['other'] },
+      { id: 'ap', processNumber: '50077901020234047002', className: 'Execução Fiscal', status: 'ativa', parentExecutionId: 'c' },
+      { id: 'emb', processNumber: '50077808820234047002', className: 'Embargos à Execução Fiscal', status: 'ativa', parentExecutionId: 'c' },
+      { id: 'other', processNumber: '50000000020234047002', className: 'Execução Fiscal', status: 'ativa' },
+    ];
+    const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
+    assert.equal(classified.hubs.some(group => group.exec.id === 'c'), true);
+    assert.deepEqual((classified.coveredByHub.c || []).map(group => group.exec.id), ['ap']);
+    assert.equal(classified.uncoveredEFs.some(group => group.exec.id === 'other'), true);
+    assert.equal(classified.others.some(group => group.exec.id === 'emb'), true);
+  });
+
+  it('central sem apenso fiscal não mostra execuções abrangidas', () => {
+    const executions = [
+      { id: 'c', processNumber: '50077778820224047002', className: 'Execução Fiscal', processTag: 'central', status: 'ativa' },
+    ];
+    const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
+    assert.deepEqual((classified.coveredByHub.c || []).map(group => group.exec.id), []);
+    assert.equal(classified.hubs.some(group => group.exec.id === 'c'), true);
+  });
 });
