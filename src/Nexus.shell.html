@@ -2785,44 +2785,45 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .ef-status-badge.extinta { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); }
 
-/* Operações · Kanban — não herda height/overflow do .kanban-board (isso esmagava
-   linhas quando há muitas classificações e gerava cards sobrepostos). */
-.ops-kanban-board.kanban-board,
-.ops-kanban-board {
+/* Operações · lista de cards (alfabética + filtro) */
+.ops-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.ops-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
   align-items: stretch;
-  grid-auto-rows: minmax(220px, auto);
-  min-height: 0;
-  height: auto;
-  overflow: visible;
 }
-.ops-kanban-board .kanban-col {
-  max-height: min(62vh, 560px);
-  min-height: 200px;
-  height: 100%;
-  overflow: hidden;
-}
-.ops-kanban-board .kanban-col-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+.ops-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  min-height: 0;
 }
-.ops-kanban-board .kanban-card {
-  cursor: grab;
-  flex: 0 0 auto;
-  margin-bottom: 0;
-  min-height: fit-content;
+.ops-card:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+.ops-card.is-encerrada { opacity: 0.62; }
+.ops-card .kc-name { font-weight: 700; font-size: 13px; color: var(--text-primary); line-height: 1.3; }
+.ops-card .kc-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ops-card .kc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.ops-card .kc-tag {
+  font-size: 8px; font-weight: 600; letter-spacing: 0.2px;
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+  background: rgba(255,255,255,0.04);
 }
-.ops-kanban-board .kanban-card .kc-name { font-weight: 700; font-size: 12px; margin-bottom: 4px; color: var(--text-primary); }
-.ops-kanban-board .kanban-card .kc-stats { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
-.ops-kanban-board .kanban-card .kc-alerts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.ops-card .kc-stats { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10px; color: var(--text-muted); }
+.ops-card .kc-alerts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
+.ops-card .kc-obs { font-size: 9px; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .proc-md-rail-item {
   /* Itens do rail (EF / CDA): mesmo tamanho que as faixas acima. */

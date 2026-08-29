@@ -1010,6 +1010,17 @@ function getOpClassifications(op) {
   if (op.classification && OP_CLASSIFICATIONS[op.classification]) return [op.classification];
   return [];
 }
+function opMatchesClassFilter(op, filter) {
+  if (!filter || filter === 'all') return true;
+  if (filter === 'encerrada') return op.status === 'encerrada';
+  if (getOpClassifications(op).includes(filter)) return true;
+  if (filter === 'alta_relevancia' && op.opCategory === 'alta_relevancia') return true;
+  if (filter === 'parceladas' && op.opCategory === 'parcelada') return true;
+  return false;
+}
+function sortOpsByName(a, b) {
+  return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+}
 const ASSET_SUBTYPES = { imovel: 'Imóvel', veiculo: 'Veículo', conta_bancaria: 'Conta Bancária', investimento: 'Investimento', participacao: 'Participação Societária', outro: 'Outro' };
 const ASSET_STATUSES = {
   indisponibilidade_ativa: { label: 'Indisponibilidade Ativa', badge: 'badge-green' },
@@ -3030,6 +3041,7 @@ function App() {
   // Digitação da busca fica responsiva; o filtro pesado roda com prioridade baixa.
   const deferredGsQuery = React.useDeferredValue(gsQuery);
   const [intimFilter, setIntimFilter] = useState('all');
+  const [opClassFilter, setOpClassFilter] = useState('all');
   const [intimSort, setIntimSort] = useState('deadline');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
   const [intimWork, setIntimWork] = useState(false); // overlay p/ trabalhar intimações dentro da operação
@@ -8904,7 +8916,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Uma aba · alterne entre Intimações e Tarefas' :
-             viewMode === 'operacoes' ? 'Kanban por classificação · arraste os cards entre colunas' :
+             viewMode === 'operacoes' ? 'Lista alfabética · filtre por classificação para focar o trabalho' :
              viewMode === 'painel' ? 'KPIs · quadro semanal de prazos, audiências e prescrição' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
@@ -9244,7 +9256,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
       )}
 
-      {/* ═══ OPERAÇÕES (Kanban por classificação) ═══ */}
+      {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
       {viewMode === 'operacoes' && (
         <div className="painel-container">
           {data.operations.length === 0 ? (
@@ -9259,42 +9271,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
               </div>
               {(() => {
-                const getOpKanbanCol = (op) => {
-                  if (op.status === 'encerrada') return 'encerrada';
-                  const cls = getOpClassifications(op);
-                  if (cls.length > 0) return cls[0];
-                  return '';
-                };
-                const colOrder = [...Object.keys(OP_CLASSIFICATIONS), '', 'encerrada'];
-                const groups = {};
-                colOrder.forEach(k => { groups[k] = []; });
-                data.operations.forEach(op => {
-                  const k = getOpKanbanCol(op);
-                  if (!groups[k]) groups[k] = [];
-                  groups[k].push(op);
-                });
-                const always = ['novas', 'em_andamento', 'alta_relevancia', 'replicar', 'suspenso', 'parceladas', '', 'encerrada'];
-                const cols = [...new Set([...always, ...colOrder.filter(k => (groups[k]||[]).length > 0)])];
+                const usedKeys = new Set();
+                data.operations.forEach(op => getOpClassifications(op).forEach(k => usedKeys.add(k)));
+                const pinned = ['alta_relevancia', 'parceladas'];
+                const rest = [...usedKeys]
+                  .filter(k => !pinned.includes(k))
+                  .sort((a, b) => (OP_CLASSIFICATIONS[a].label).localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR', { sensitivity: 'base' }));
+                const chipKeys = [...pinned, ...rest];
+                const encerradaCount = data.operations.filter(op => op.status === 'encerrada').length;
 
-                const moveOpToCol = (opId, colKey) => {
-                  setData(prev => ({
-                    ...prev,
-                    operations: prev.operations.map(op => {
-                      if (op.id !== opId) return op;
-                      if (colKey === 'encerrada') {
-                        return { ...op, status: 'encerrada', updatedAt: new Date().toISOString() };
-                      }
-                      const next = { ...op, status: op.status === 'encerrada' ? 'ativa' : (op.status || 'ativa'), updatedAt: new Date().toISOString() };
-                      if (colKey === '') {
-                        next.classifications = [];
-                      } else {
-                        const rest = getOpClassifications(op).filter(c => c !== colKey);
-                        next.classifications = [colKey, ...rest];
-                      }
-                      return next;
-                    })
-                  }));
-                };
+                const matches = data.operations.filter(op => opMatchesClassFilter(op, opClassFilter));
+                const ativas = matches.filter(op => op.status !== 'encerrada').sort(sortOpsByName);
+                const encerradas = matches.filter(op => op.status === 'encerrada').sort(sortOpsByName);
+                const shown = opClassFilter === 'encerrada' ? encerradas : [...ativas, ...encerradas];
 
                 const openOp = (op) => {
                   if (isDemo) openCarteiraOp(op);
@@ -9304,70 +9293,85 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   }
                 };
 
+                const countFor = (key) => data.operations.filter(op => opMatchesClassFilter(op, key)).length;
+
                 return (
-                  <div className="ops-kanban-board kanban-board">
-                    {cols.map(colKey => {
-                      const cls = colKey === 'encerrada'
-                        ? { label: 'Encerrada', color: 'var(--text-muted)', border: 'var(--border)' }
-                        : (OP_CLASSIFICATIONS[colKey] || { label: 'Sem classificação', color: 'var(--text-muted)', border: 'var(--border)' });
-                      const opsInCol = groups[colKey] || [];
-                      const groupTotal = opsInCol.reduce((s, op) => s + data.debts.filter(d => d.operationId === op.id && d.status !== 'extinta').reduce((ss, d) => ss + (d.value || 0), 0), 0);
-                      return (
-                        <div key={colKey || 'none'} className="kanban-col"
-                          onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                          onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                          onDrop={e => {
-                            e.preventDefault();
-                            e.currentTarget.classList.remove('dragover');
-                            const opId = e.dataTransfer.getData('text/op-id');
-                            if (opId) moveOpToCol(opId, colKey);
-                          }}>
-                          <div className="kanban-col-header" style={{borderBottom:`2px solid ${cls.border}`}}>
-                            <span style={{color: cls.color}}>{cls.label}</span>
-                            <span style={{fontSize:10,color:'var(--text-muted)'}}>{opsInCol.length} · {fmtCur(groupTotal)}</span>
-                          </div>
-                          <div className="kanban-col-body">
-                            {opsInCol.map(op => {
-                              const debts = data.debts.filter(d => d.operationId === op.id);
-                              const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
-                              const people = data.people.filter(p => p.operationId === op.id).length;
-                              const execs = data.executions.filter(e => e.operationId === op.id).length;
-                              const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
-                              const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
-                              const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-                              const notes = op.notesList || (op.notes ? [op.notes] : []);
-                              return (
-                                <div key={op.id} className="kanban-card"
-                                  draggable
-                                  onDragStart={e => { e.dataTransfer.setData('text/op-id', op.id); e.dataTransfer.effectAllowed = 'move'; }}
-                                  onClick={() => openOp(op)}
-                                  style={{borderLeft: `3px solid ${cls.border}`}}>
-                                  <div className="kc-name">{op.name}</div>
-                                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
-                                    <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
-                                    {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
-                                  </div>
-                                  <div className="kc-stats">
-                                    <span>{people} pes.</span>
-                                    <span>{debts.length} CDAs</span>
-                                    <span>{execs} EFs</span>
-                                    <span style={{fontWeight:600,color:'var(--text-secondary)'}}>{fmtCur(total)}</span>
-                                  </div>
-                                  {notes.length > 0 && <div className="kc-obs">{notes[0]}</div>}
-                                  <div className="kc-alerts">
-                                    {opIntims.length > 0 && <span className="badge badge-yellow">📬 {opIntims.length}</span>}
-                                    {opTasks.length > 0 && <span className="badge badge-blue">✓ {opTasks.length}</span>}
-                                    {prescAlerts > 0 && <span className="badge badge-red">⏱ {prescAlerts}</span>}
-                                  </div>
+                  <>
+                    <div className="ops-filter-bar">
+                      <button className={`settings-opt ${opClassFilter==='all'?'active':''}`} onClick={() => setOpClassFilter('all')}>Todas ({data.operations.length})</button>
+                      {chipKeys.map(k => {
+                        const meta = OP_CLASSIFICATIONS[k];
+                        const n = countFor(k);
+                        return (
+                          <button key={k} className={`settings-opt ${opClassFilter===k?'active':''}`}
+                            style={opClassFilter===k ? { color: meta.color, borderColor: meta.border } : undefined}
+                            onClick={() => setOpClassFilter(k)}>
+                            {meta.label} ({n})
+                          </button>
+                        );
+                      })}
+                      {encerradaCount > 0 && (
+                        <button className={`settings-opt ${opClassFilter==='encerrada'?'active':''}`} onClick={() => setOpClassFilter('encerrada')}>
+                          Encerradas ({encerradaCount})
+                        </button>
+                      )}
+                    </div>
+                    {opClassFilter !== 'all' && (
+                      <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10}}>
+                        Mostrando {shown.length} de {data.operations.length}
+                      </div>
+                    )}
+                    {shown.length === 0 ? (
+                      <div className="empty-state"><p>Nenhuma operação neste filtro.</p></div>
+                    ) : (
+                      <div className="ops-card-grid">
+                        {shown.map(op => {
+                          const debts = data.debts.filter(d => d.operationId === op.id);
+                          const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
+                          const people = data.people.filter(p => p.operationId === op.id).length;
+                          const execs = data.executions.filter(e => e.operationId === op.id).length;
+                          const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
+                          const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
+                          const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+                          const notes = op.notesList || (op.notes ? [op.notes] : []);
+                          const clsKeys = getOpClassifications(op);
+                          const rs = reviewStatus(op);
+                          return (
+                            <div key={op.id} className={`ops-card${op.status === 'encerrada' ? ' is-encerrada' : ''}`}
+                              onClick={() => openOp(op)}>
+                              <div className="kc-name">{op.name}</div>
+                              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                                <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
+                                {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
+                                {rs.overdue && <span className="badge badge-red" style={{fontSize:8}}>📅 {rs.label}</span>}
+                              </div>
+                              {clsKeys.length > 0 && (
+                                <div className="kc-tags">
+                                  {clsKeys.map(k => {
+                                    const meta = OP_CLASSIFICATIONS[k];
+                                    return <span key={k} className="kc-tag" style={{color: meta.color, border: `1px solid ${meta.border}`}}>{meta.label}</span>;
+                                  })}
                                 </div>
-                              );
-                            })}
-                            {opsInCol.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:8}}>Arraste operações aqui</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                              )}
+                              {op.description && <div className="kc-desc">{op.description}</div>}
+                              <div className="kc-stats">
+                                <span>{people} pes.</span>
+                                <span>{debts.length} CDAs</span>
+                                <span>{execs} EFs</span>
+                                <span style={{fontWeight:600,color:'var(--text-secondary)'}}>{fmtCur(total)}</span>
+                              </div>
+                              {notes.length > 0 && <div className="kc-obs">{notes[0]}</div>}
+                              <div className="kc-alerts">
+                                {opIntims.length > 0 && <span className="badge badge-yellow">📬 {opIntims.length}</span>}
+                                {opTasks.length > 0 && <span className="badge badge-blue">✓ {opTasks.length}</span>}
+                                {prescAlerts > 0 && <span className="badge badge-red">⏱ {prescAlerts}</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 );
               })()}
               {isDemo && renderCarteiraRankingPanel()}
