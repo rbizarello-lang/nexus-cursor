@@ -1,4 +1,5 @@
-import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+import { digitsOnly, docsCompatible, findPersonByDoc, formatCpfCnpj, mergePersonDoc } from './lib/docs.js';
+import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors } from './lib/import-guard.js';
 import {
   countExecutionReferences,
   findDuplicateExecutionGroups,
@@ -3163,6 +3164,7 @@ function App() {
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
     let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0;
+    const parsedFiles = [];
 
     for (const file of files) {
       try {
@@ -3185,7 +3187,29 @@ function App() {
         } else {
           logs.push(`📄 ${file.name}: ${records.length} inscrição(ões) SIDA extraída(s)${records.reduce((s,r)=>s+(r.protestos||[]).length,0) > 0 ? ` · ${records.reduce((s,r)=>s+(r.protestos||[]).length,0)} protesto(s) estruturado(s)` : ''}`);
         }
+        parsedFiles.push({ file, isSIDA, records });
+      } catch (err) {
+        logs.push(`❌ ${file.name}: ${err.message}`);
+      }
+    }
 
+    const allRecords = parsedFiles.flatMap(p => p.records || []);
+    if (allRecords.length > 0) {
+      const debtors = collectPdfDebtors(allRecords);
+      const assessment = assessPdfDebtorsAgainstOperation(debtors, data.people || [], data.operations || [], activeOpId);
+      if (assessment.needsConfirmation) {
+        const opName = ((data.operations || []).find(o => o.id === activeOpId) || {}).name || '';
+        if (!confirm(buildPdfImportConfirmMessage(assessment, opName))) {
+          logs.push('Importação cancelada. Os devedores do relatório não coincidem com as pessoas desta operação.');
+          setImportResult(logs);
+          try { e.target.value = ''; } catch (_) {}
+          return;
+        }
+      }
+    }
+
+    for (const { file, isSIDA, records } of parsedFiles) {
+      try {
         for (const rec of records) {
           if (!rec.cdaNumber) continue;
 
@@ -3197,6 +3221,22 @@ function App() {
             cdaNotFound++;
             logs.push(`⚠️ CDA ${rec.cdaNumber} não encontrada (importe primeiro a planilha XLS)`);
             continue;
+          }
+
+          // Completar CNPJ encurtado da planilha com o documento completo do PDF
+          const principalDoc = rec.cnpj || '';
+          if (principalDoc) {
+            const linked = existing.personId ? (data.people || []).find(p => p.id === existing.personId) : null;
+            const targetPerson = (linked && (!linked.cpfCnpj || docsCompatible(linked.cpfCnpj, principalDoc)))
+              ? linked
+              : findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: principalDoc, name: rec.devedor || '' });
+            if (targetPerson) {
+              const updatedPerson = mergePersonDoc(targetPerson, principalDoc);
+              if (updatedPerson !== targetPerson) {
+                upsert('people', updatedPerson);
+                logs.push(`  🔄 CNPJ completado: ${updatedPerson.name} (${updatedPerson.cpfCnpj})`);
+              }
+            }
           }
 
           // SMART MERGE — accumulate all field changes, single upsert at the end
@@ -3469,8 +3509,8 @@ function App() {
                 crPerson = {
                   id: uid(),
                   operationId: activeOpId,
-                  name: hasName ? cr.name : `[Importado SIDA] ${cr.cpfCnpjFormatted}`,
-                  cpfCnpj: cr.cpfCnpjFormatted,
+                  name: hasName ? cr.name : `[Importado SIDA] ${formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted}`,
+                  cpfCnpj: formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted,
                   subtype: cr.cpfCnpj.length > 11 ? 'PJ' : 'PF',
                   operationRole: 'relacionada',
                   role: 'Corresponsável',
@@ -4584,8 +4624,8 @@ function App() {
               let personId;
               if (!exists) {
                 personId = uid();
-                upsert('people', { id: personId, operationId: activeOpId, name: res.debtorName, cpfCnpj: res.debtorCnpj, subtype: 'PJ', role: 'Devedora originária' });
-                logs.push(`✅ PJ criada: ${res.debtorName} (${res.debtorCnpj})`);
+                upsert('people', { id: personId, operationId: activeOpId, name: res.debtorName, cpfCnpj: formatCpfCnpj(res.debtorCnpj) || res.debtorCnpj, subtype: 'PJ', role: 'Devedora originária' });
+                logs.push(`✅ PJ criada: ${res.debtorName} (${formatCpfCnpj(res.debtorCnpj) || res.debtorCnpj})`);
                 importCount++;
               } else {
                 personId = exists.id;
@@ -4887,7 +4927,7 @@ function App() {
     res.people.forEach(p => {
       const exists = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: p.cpfCnpj, name: p.name });
       if (!exists) {
-        upsert('people', { ...p, id: uid(), operationId: activeOpId });
+        upsert('people', { ...p, id: uid(), operationId: activeOpId, cpfCnpj: formatCpfCnpj(p.cpfCnpj) || p.cpfCnpj });
         logs.push(`✅ Pessoa: ${p.name} (${p.cpfCnpj}) — ${p.role}`);
         count++;
       } else {
@@ -5949,7 +5989,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
           {importMode === 'pdfs' && <>
           <div className="desc">
-            Enriquece CDAs já cadastradas com datas de inscrição, eventos prescricionais (parcelamentos, ajuizamentos) e protestos. Importe a planilha primeiro — o match é por nº da CDA.
+            Enriquece CDAs já cadastradas com datas de inscrição, eventos prescricionais (parcelamentos, ajuizamentos) e protestos. Importe a planilha primeiro — o match é por nº da CDA. Se os devedores do PDF não estiverem entre as pessoas desta operação, o app pede confirmação antes de gravar.
           </div>
           <div className="drop-zone" onClick={() => pgfnPdfInputRef.current?.click()}
             onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}

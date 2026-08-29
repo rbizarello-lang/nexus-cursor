@@ -7,7 +7,8 @@ import {
   docsCompatible,
   preferCompleteDoc,
   findPersonByDoc,
-  mergePersonDoc
+  mergePersonDoc,
+  formatCpfCnpj
 } from '../src/lib/docs.js';
 
 describe('src/lib/docs.js — utilitários de documentos e resolução de pessoas', () => {
@@ -136,12 +137,32 @@ describe('src/lib/docs.js — utilitários de documentos e resolução de pessoa
     });
   });
 
+  describe('formatCpfCnpj', () => {
+    it('formats CPF, CNPJ raiz, 12 digits and full CNPJ', () => {
+      assert.equal(formatCpfCnpj('12345678900'), '123.456.789-00');
+      assert.equal(formatCpfCnpj('12345678'), '12.345.678');
+      assert.equal(formatCpfCnpj('123456780001'), '12.345.678/0001');
+      assert.equal(formatCpfCnpj('12345678000195'), '12.345.678/0001-95');
+    });
+
+    it('keeps original when length is not a known document', () => {
+      assert.equal(formatCpfCnpj('123'), '123');
+      assert.equal(formatCpfCnpj(''), '');
+    });
+  });
+
   describe('mergePersonDoc', () => {
     it('updates person with more complete document', () => {
       const p = { id: 'p1', name: 'Empresa', cpfCnpj: '12.345.678' };
       const merged = mergePersonDoc(p, '12.345.678/0001-95');
       assert.equal(merged.cpfCnpj, '12.345.678/0001-95');
       assert.notEqual(merged, p);
+    });
+
+    it('completes 8-digit raiz with unformatted 14 and stores formatted CNPJ', () => {
+      const p = { id: 'p1', name: 'Empresa', cpfCnpj: '12345678' };
+      const merged = mergePersonDoc(p, '12345678000195');
+      assert.equal(merged.cpfCnpj, '12.345.678/0001-95');
     });
 
     it('returns original person when incoming doc is shorter or equal', () => {
