@@ -12,6 +12,7 @@ describe('fluxo de ações dentro do diagnóstico', () => {
     assert.match(appSource, /title="Vincular processo a uma operação"[^>]*\bwide\s+stacked>/);
     assert.match(appSource, /Diagnóstico desta operação/);
     assert.match(appSource, /openDiagnostico\(activeOpId\)/);
+    assert.match(appSource, /openDiagnostico\(activeOp\.id\)[\s\S]{0,500}generateHandoverReport\(activeOp\)[\s\S]{0,500}lastReviewedAt/s);
     assert.match(appSource, /runDiagnostics\(data, diagnosticoOpId \? \{ operationId: diagnosticoOpId \} : \{\}\)/);
     assert.match(shellSource, /\.modal-overlay\.modal-overlay-stacked\s*\{\s*z-index:\s*1200;/);
     assert.match(shellSource, /\.global-search-overlay\s*\{[^}]*z-index:\s*1100;/s);

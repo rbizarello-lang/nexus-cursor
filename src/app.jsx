@@ -10182,8 +10182,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ); })}
               </div>;
             })()}
-            <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
         {!opHeaderCollapsed && opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch',flexShrink:0}}>
@@ -10209,10 +10207,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="stat-sub">{opStats.overdueTasks > 0 ? `${opStats.overdueTasks} vencida(s)` : opStats.openTasks > 0 ? 'em aberto' : 'nenhuma'}</div>
             </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,padding:'6px 14px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
-            <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
-              <button className="btn-secondary btn-xs has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
-              <button className="btn-secondary btn-xs" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
+          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:6,padding:'6px 14px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'auto auto',gap:6,justifyContent:'end'}}>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
+              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
               {(() => { const rs = reviewStatus(activeOp); return (<span style={{fontSize:9,color:rs.color,fontWeight:600,padding:'2px 8px',borderRadius:3,background:`${rs.color.replace('var(--','rgba(').replace(')',', 0.1)')}`,border:`1px solid ${rs.color.replace('var(--','rgba(').replace(')',', 0.25)')}`}}>{rs.label}</span>); })()}
