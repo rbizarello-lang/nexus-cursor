@@ -27,10 +27,10 @@ export const PRESC_EVENT_TYPES = {
   int_reconhecimento: { label: 'Reconhecimento da dívida', category: 'interruptiva', color: 'var(--green)', desc: 'Ato inequívoco do devedor reconhecendo a dívida (art. 174, p.ú., IV CTN).' },
   int_despacho_citacao: { label: 'Despacho que ordena citação', category: 'interruptiva', color: 'var(--green)', desc: 'Despacho do juiz que ordena citação (art. 174, p.ú., I CTN — LC 118/2005).' },
   int_protesto_judicial: { label: 'Protesto judicial', category: 'interruptiva', color: 'var(--green)', desc: 'Protesto judicial (art. 174, p.ú., II CTN).' },
-  int_protesto_extrajudicial: { label: 'Protesto extrajudicial da CDA', category: 'interruptiva', color: 'var(--green)', desc: 'Protesto extrajudicial da CDA (art. 174, p.ú., CTN, LC 208/2024). Data: registro no cartório.' },
+  int_protesto_extrajudicial: { label: 'Protesto extrajudicial da CDA', category: 'interruptiva', color: 'var(--green)', desc: 'Protesto extrajudicial da CDA (art. 174, p.ú., CTN, LC 208/2024). Só interrompe se lavrado a partir de 03/07/2024. Data: registro no cartório.' },
   int_outra: { label: 'Outra causa interruptiva', category: 'interruptiva', color: 'var(--green)', desc: 'Outra causa interruptiva com fundamentação.' },
-  susp_parcelamento: { label: 'Parcelamento (efeito duplo)', category: 'suspensiva', color: 'var(--blue)', desc: 'Pedido/adesão interrompe (art. 174, p.ú., IV CTN; Súmula 653; TRF4) e suspende a exigibilidade enquanto vigente (art. 151, VI). Na intercorrente, a rescisão faz o quinquênio fluir por inteiro, sem o ano do art. 40.' },
-  int_rescisao_parcelamento: { label: 'Rescisão de parcelamento', category: 'interruptiva', color: 'var(--red)', desc: 'Fim da vigência. Originário e intercorrente: o quinquênio recomeça por inteiro nesta data. Na intercorrente, não se aplica o ano de suspensão do art. 40 (TRF4).' },
+  susp_parcelamento: { label: 'Parcelamento (efeito duplo)', category: 'suspensiva', color: 'var(--blue)', desc: 'Pedido/adesão interrompe (art. 174, p.ú., IV CTN; Súmula 653; TRF4) e suspende a exigibilidade enquanto vigente (art. 151, VI). Na intercorrente, após a rescisão conta-se 1 ano + 5 anos (modo 1+5, por equiparação ao art. 40 / Tema 566).' },
+  int_rescisao_parcelamento: { label: 'Rescisão de parcelamento', category: 'interruptiva', color: 'var(--red)', desc: 'Fim da vigência. Originário: o quinquênio recomeça nesta data. Intercorrente: inicia o ciclo 1+5 (1 ano de suspensão + 5 anos), por equiparação da rescisão ao marco do art. 40.' },
   susp_embargos: { label: 'Embargos com efeito suspensivo', category: 'suspensiva', color: 'var(--blue)', desc: 'Embargos à execução recebidos com efeito suspensivo.' },
   susp_decisao_judicial: { label: 'Decisão judicial suspensiva', category: 'suspensiva', color: 'var(--blue)', desc: 'Liminar, tutela antecipada ou decisão judicial que suspende a exigibilidade.' },
   susp_deposito: { label: 'Depósito judicial integral', category: 'suspensiva', color: 'var(--blue)', desc: 'Depósito integral suspende exigibilidade (art. 151, II CTN).' },
@@ -90,6 +90,14 @@ export function suggestLaunchMode(text) {
 }
 
 const asIso = (v) => toDayKey(v) || '';
+
+/** Vigência da LC 208/2024 — protesto extrajudicial só interrompe a partir desta data. */
+export const LC208_VIGENCIA = '2024-07-03';
+
+export function protestoExtrajudicialInterrompe(iso) {
+  const d = asIso(iso);
+  return !!(d && d >= LC208_VIGENCIA);
+}
 
 const emptyResult = (overrides = {}) => ({
   segment: null,
@@ -291,6 +299,29 @@ function yearSpanDays(startIso, years) {
   return Math.max(0, daysBetween(startIso, end));
 }
 
+/** 1 ano de suspensão (art. 40) + 5 anos civis, descontadas pausas. */
+function addArt40PlusFive(startIso, pauses) {
+  const art40End = addUnpausedDays(startIso, yearSpanDays(startIso, 1), pauses);
+  return { art40End, diesAdQuem: addUnpausedDays(art40End, yearSpanDays(art40End, 5), pauses) };
+}
+
+function noteDuplicateConstriction(cdaEvents, gaps) {
+  const byDay = new Map();
+  for (const e of cdaEvents || []) {
+    const t = normalizePrescEventType(e.type);
+    if (!EF_CONSTRICTION_TYPES.has(t) && t !== IDPJ_CONSTRICTION_TYPE) continue;
+    const day = asIso(e.requestDate) || asIso(e.date);
+    if (!day) continue;
+    if (!byDay.has(day)) byDay.set(day, new Set());
+    byDay.get(day).add(t);
+  }
+  for (const [day, types] of byDay) {
+    if (types.has('int_sisbajud') && types.has(IDPJ_CONSTRICTION_TYPE)) {
+      gaps.push(`Sisbajud e constrição via IDPJ/cautelar no mesmo pedido (${fmtDate(day)}). Conferir se é a mesma diligência — o efeito não se duplica.`);
+    }
+  }
+}
+
 function memPush(memory, date, label, effect) {
   memory.push({ date, event: label, effect });
 }
@@ -395,6 +426,13 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
       ? asIso(evt.requestDate) : efetivacao;
     const inferred = type === 'susp_parcelamento' ? inferredEnds.get(evt.id) : null;
 
+    if (type === 'int_protesto_extrajudicial' && !protestoExtrajudicialInterrompe(effectDate)) {
+      memPush(memory, effectDate, meta.label, `Protesto anterior à vigência da LC 208/2024 (${fmtDate(LC208_VIGENCIA)}) — não interrompe o art. 174.`);
+      gaps.push(`Protesto extrajudicial de ${fmtDate(effectDate)} é anterior a ${fmtDate(LC208_VIGENCIA)} e não interrompe.`);
+      timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'originario' });
+      continue;
+    }
+
     if (meta.category === 'interruptiva' || type === 'susp_parcelamento') {
       if (type === 'int_rescisao_parcelamento' || type === 'susp_parcelamento' || meta.category === 'interruptiva') {
         originStart = effectDate;
@@ -476,8 +514,8 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
   const origin = informed ? 'data_informada' : (constitution || cdaEvents.some(e => PRESC_EVENT_TYPES[normalizePrescEventType(e.type)]) ? 'calculo_validado' : 'estimativa');
   const daysLeft = daysUntil(diesAdQuem, asOfIso);
   let phase = 'originario';
-  if (activeNow.length) phase = 'suspenso';
-  else if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
+  if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
+  else if (activeNow.filter(p => !diesAdQuem || p.start < diesAdQuem).length) phase = 'suspenso';
 
   memPush(memory, originStart, 'Dies a quo', constitution
     ? 'Constituição definitiva do crédito (art. 174, caput, CTN).'
@@ -492,10 +530,10 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
     diesAQuo: originStart,
     diesAdQuem,
     daysLeft,
-    detail: activeNow.length
-      ? `Originário suspenso. Termo final projetado: ${fmtDate(diesAdQuem)}.`
-      : (phase === 'consumado'
-        ? `Prescrição originária consumada em ${fmtDate(diesAdQuem)}.`
+    detail: phase === 'consumado'
+      ? `Prescrição originária consumada em ${fmtDate(diesAdQuem)}.`
+      : (phase === 'suspenso'
+        ? `Originário suspenso. Termo final projetado: ${fmtDate(diesAdQuem)}.`
         : `Prescrição originária: ${fmtDate(originStart)} + 5 anos → ${fmtDate(diesAdQuem)}${origin === 'estimativa' ? ' (estimativa: inscrição)' : ''}.`),
     memory, gaps, timeline,
     prescriptionInterrupted: false,
@@ -508,11 +546,10 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
 function intercorrenteWindowEnd({ marco, parcRestartAt, pauses, beforeIso }) {
   const relevant = beforeIso ? pauses.filter(p => p.start < beforeIso) : pauses;
   if (parcRestartAt) {
-    return addUnpausedDays(parcRestartAt, yearSpanDays(parcRestartAt, 5), relevant);
+    return addArt40PlusFive(parcRestartAt, relevant).diesAdQuem;
   }
   if (!marco) return null;
-  const art40End = addUnpausedDays(marco, yearSpanDays(marco, 1), relevant);
-  return addUnpausedDays(art40End, yearSpanDays(art40End, 5), relevant);
+  return addArt40PlusFive(marco, relevant).diesAdQuem;
 }
 
 function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, memory, gaps, timeline }) {
@@ -531,8 +568,10 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
   const noteParcRule = () => {
     if (notedParcRule) return;
     notedParcRule = true;
-    gaps.push('Após parcelamento no curso da execução, a intercorrente segue a orientação das 1ª e 2ª Turmas do TRF4: o pedido interrompe; o quinquênio flui por inteiro da rescisão, sem o ano do art. 40. Não é precedente qualificado do STJ (Tema 568 lista citação e constrição efetiva).');
+    gaps.push('Modo de contagem após parcelamento na execução: o pedido interrompe (art. 174, p.ú., IV CTN; Súmula 653; TRF4). Com a rescisão, inicia-se o ciclo 1+5 (1 ano de suspensão + 5 anos), por equiparação da rescisão ao marco do art. 40 / Tema 566. A 1ª Turma do TRF4 (Pitten) em alguns acórdãos dispensa o ano do art. 40 — aqui o ano é contado.');
   };
+
+  noteDuplicateConstriction(cdaEvents, gaps);
 
   for (const evt of cdaEvents) {
     const type = normalizePrescEventType(evt.type);
@@ -551,7 +590,7 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
         continue;
       }
       if (parcMode && parcRestartAt) {
-        memPush(memory, efetivacao, meta.label, 'Após rescisão do parcelamento o quinquênio já corre por inteiro; não se soma o ano do art. 40 (TRF4, 1ª Turma).');
+        memPush(memory, efetivacao, meta.label, 'O ciclo 1+5 já corre da rescisão do parcelamento; este marco não inicia segundo ciclo.');
         timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'prescricao_correndo' });
         continue;
       }
@@ -590,7 +629,7 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
       if (prescEnd && effectDate > prescEnd) {
         tooLate = true;
         memPush(memory, effectDate, meta.label, restartClock
-          ? 'Pedido fora do quinquênio contado da rescisão do parcelamento — não salva o feito.'
+          ? 'Pedido fora da janela 1+5 contada da rescisão do parcelamento — não salva o feito.'
           : 'Pedido fora da janela de 1+5 anos — não salva o feito.');
         timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'consumado' });
       } else {
@@ -614,12 +653,19 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
       interrupted = false;
       interruptAt = null;
       tooLate = false;
-      memPush(memory, efetivacao, meta.label, 'Rescisão: exigibilidade restabelecida. Quinquênio intercorrente recomeça por inteiro nesta data — não se aplica o ano do art. 40 (TRF4).');
+      memPush(memory, efetivacao, meta.label, 'Rescisão: exigibilidade restabelecida. Inicia o ciclo 1+5 (1 ano + 5 anos), por equiparação ao marco do art. 40 / Tema 566.');
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'prescricao_correndo' });
       continue;
     }
 
     if (meta.category === 'interruptiva') {
+      if (type === 'int_protesto_extrajudicial') {
+        memPush(memory, effectDate, meta.label, protestoExtrajudicialInterrompe(efetivacao)
+          ? 'Interrompe a originária (LC 208/2024, a partir de 03/07/2024). Na intercorrente, o Tema 568 não lista o protesto como interruptivo do ciclo do art. 40.'
+          : `Anterior à vigência da LC 208/2024 (${fmtDate(LC208_VIGENCIA)}) — não interrompe.`);
+        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: marco || parcMode ? 'prescricao_correndo' : 'pre_marco' });
+        continue;
+      }
       memPush(memory, effectDate, meta.label, 'Causa interruptiva do art. 174 — na intercorrente não encerra o ciclo do art. 40 (salvo constrição/citação efetiva).');
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: marco || parcMode ? 'prescricao_correndo' : 'pre_marco' });
       continue;
@@ -627,6 +673,17 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
 
     if (type === IDPJ_CONSTRICTION_TYPE) {
       const from = asIso(evt.requestDate) || efetivacao;
+      const windowEnd = intercorrenteWindowEnd({
+        marco,
+        parcRestartAt: parcMode && parcRestartAt && !parcOngoing ? parcRestartAt : null,
+        pauses,
+        beforeIso: from
+      });
+      if (windowEnd && from > windowEnd) {
+        memPush(memory, from, meta.label, `Pedido após o termo (${fmtDate(windowEnd)}) — não suspende prazo já consumado.`);
+        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'consumado' });
+        continue;
+      }
       const tag = exec && (evt._inheritedFromIDPJ) ? ' Tese fazendária se a origem for MCF.' : '';
       memPush(memory, from, meta.label, `Suspende as EFs abrangidas desde o pedido (${fmtDate(from)}). Não interrompe o ciclo.${tag}`);
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'suspenso' });
@@ -655,8 +712,8 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
       const until = resolved.rawEnd ? fmtDate(resolved.rawEnd) : 'hoje';
       const inferTag = inferred ? ` (cessação inferida — ${inferred.reason === 'rescisao' ? 'rescisão posterior' : 'adesão seguinte'})` : '';
       memPush(memory, efetivacao, meta.label, resolved.ongoing
-        ? `INTERROMPE a intercorrente (art. 174, p.ú., IV CTN; Súmula 653; TRF4) e suspende a exigibilidade enquanto vigente (art. 151, VI). O quinquênio só volta a fluir por inteiro a partir da rescisão.`
-        : `INTERROMPE a intercorrente (art. 174, p.ú., IV CTN; TRF4). Vigente até ${until}${inferTag}. Quinquênio recomeça por inteiro em ${fmtDate(parcRestartAt)}, sem o ano do art. 40.`);
+        ? `INTERROMPE a intercorrente (art. 174, p.ú., IV CTN; Súmula 653; TRF4) e suspende a exigibilidade enquanto vigente (art. 151, VI). Após a rescisão, conta-se 1+5 (modo art. 40 / Tema 566).`
+        : `INTERROMPE a intercorrente (art. 174, p.ú., IV CTN; TRF4). Vigente até ${until}${inferTag}. Modo de contagem: 1 ano + 5 anos a partir de ${fmtDate(parcRestartAt)} (equiparação da rescisão ao marco do art. 40).`);
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: resolved.ongoing ? 'suspenso' : 'prescricao_correndo' });
       continue;
     }
@@ -674,10 +731,10 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
   const activeNow = pauses.filter(p => p.ongoing);
 
   if (parcOngoing) {
-    const diesAdQuemComputed = addCalendarYears(asOfIso, 5);
+    const diesAdQuemComputed = addCalendarYears(asOfIso, 6);
     const diesAdQuem = informed || diesAdQuemComputed;
     memPush(memory, lastParcAdesao, 'Dies a quo', 'Pedido/adesão ao parcelamento — interrupção (art. 174, p.ú., IV).');
-    memPush(memory, diesAdQuemComputed, 'Termo final projetado', 'Parcelamento vigente: o quinquênio só fluirá por inteiro a partir da rescisão. Projeção: hoje + 5 anos.');
+    memPush(memory, diesAdQuemComputed, 'Termo final projetado', 'Parcelamento vigente. Após a rescisão, o ciclo será 1+5. Projeção: hoje + 1 ano + 5 anos.');
     return {
       segment: 'intercorrente',
       origin: informed ? 'data_informada' : 'calculo_validado',
@@ -686,7 +743,7 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
       diesAQuo: lastParcAdesao,
       diesAdQuem,
       daysLeft: daysUntil(diesAdQuem, asOfIso),
-      detail: `Parcelamento vigente (art. 151, VI). Interrompe a intercorrente; o quinquênio só volta a fluir por inteiro a partir da rescisão. Termo projetado: ${fmtDate(diesAdQuem)}.`,
+      detail: `Parcelamento vigente (art. 151, VI). Interrompe a intercorrente; após a rescisão conta-se 1+5. Termo projetado: ${fmtDate(diesAdQuem)}.`,
       memory, gaps, timeline,
       prescriptionInterrupted: true,
       prescDaysConsumed: 0,
@@ -714,35 +771,39 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
   }
 
   if (parcMode && parcRestartAt) {
-    const need = yearSpanDays(parcRestartAt, 5);
-    const diesAdQuemComputed = addUnpausedDays(parcRestartAt, need, pauses);
+    const { art40End, diesAdQuem: diesAdQuemComputed } = addArt40PlusFive(parcRestartAt, pauses);
     const diesAdQuem = informed || diesAdQuemComputed;
     const origin = informed ? 'data_informada' : 'calculo_validado';
     const daysLeft = daysUntil(diesAdQuem, asOfIso);
+    const activeBeforeTerm = activeNow.filter(p => !diesAdQuem || p.start < diesAdQuem);
     let phase = 'correndo';
-    if (activeNow.length) phase = 'suspenso';
-    else if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
-    memPush(memory, parcRestartAt, 'Dies a quo (rescisão)', 'Quinquênio intercorrente recomeça por inteiro, sem o ano do art. 40 (TRF4).');
-    memPush(memory, diesAdQuemComputed, 'Dies ad quem (calculado)', '5 anos civis a partir da rescisão, descontadas outras suspensões do art. 151.');
+    if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
+    else if (activeBeforeTerm.length) phase = 'suspenso';
+    else if (asOfIso < art40End) phase = 'suspensao_art40';
+    memPush(memory, parcRestartAt, 'Dies a quo (rescisão)', 'Modo de contagem 1+5: a rescisão é equiparada ao marco do art. 40 / Tema 566.');
+    memPush(memory, art40End, 'Fim do 1º ano', '1 ano civil de suspensão a partir da rescisão.');
+    memPush(memory, diesAdQuemComputed, 'Dies ad quem (calculado)', '5 anos civis após o ano de suspensão, descontadas outras causas do art. 151.');
     const detail = phase === 'suspenso'
       ? `Prescrição suspensa (causa ativa). Termo final projetado: ${fmtDate(diesAdQuem)}.`
-      : (phase === 'consumado'
-        ? `PRESCRIÇÃO INTERCORRENTE CONSUMADA em ${fmtDate(diesAdQuem)} (quinquênio contado da rescisão do parcelamento).`
-        : `Quinquênio em curso desde a rescisão do parcelamento (${fmtDate(parcRestartAt)}). Termo final: ${fmtDate(diesAdQuem)} (${daysLeft}d).`);
+      : (phase === 'suspensao_art40'
+        ? `Fase de suspensão (1º ano após a rescisão). O quinquênio começa em ${fmtDate(art40End)}. Termo final: ${fmtDate(diesAdQuem)}.`
+        : (phase === 'consumado'
+          ? `PRESCRIÇÃO INTERCORRENTE CONSUMADA em ${fmtDate(diesAdQuem)} (ciclo 1+5 contado da rescisão do parcelamento).`
+          : `Ciclo 1+5 em curso desde a rescisão (${fmtDate(parcRestartAt)}). Termo final: ${fmtDate(diesAdQuem)} (${daysLeft}d).`));
     return {
       segment: 'intercorrente',
       origin,
       phase,
-      status: statusFrom(phase, daysLeft),
+      status: statusFrom(phase === 'suspensao_art40' ? 'correndo' : phase, daysLeft),
       diesAQuo: parcRestartAt,
       diesAdQuem,
       daysLeft,
       detail,
       memory, gaps, timeline,
       prescriptionInterrupted: false,
-      prescDaysConsumed: Math.max(0, need - Math.max(0, daysLeft || 0)),
+      prescDaysConsumed: Math.max(0, yearSpanDays(parcRestartAt, 6) - Math.max(0, daysLeft || 0)),
       suspDaysConsumed: 0,
-      activeSuspensions: activeNow.map(p => p.id)
+      activeSuspensions: activeBeforeTerm.map(p => p.id)
     };
   }
 
@@ -781,9 +842,9 @@ function computeIntercorrente({ exec, cdaEvents, asOfIso, informed, forecast, me
   const daysLeft = daysUntil(diesAdQuem, asOfIso);
 
   let phase;
-  if (activeNow.length) phase = 'suspenso';
+  if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
+  else if (activeNow.filter(p => !diesAdQuem || p.start < diesAdQuem).length) phase = 'suspenso';
   else if (asOfIso < art40End) phase = 'suspensao_art40';
-  else if (daysLeft != null && daysLeft <= 0) phase = 'consumado';
   else phase = 'correndo';
 
   const unpaused = Math.max(0, daysBetween(marco, asOfIso) - pauses.reduce((s, p) => {
@@ -1214,7 +1275,7 @@ const _money = (v) => (v == null || isNaN(Number(v))) ? '—'
 const REPORT_SECTION_TITLES = {
   decadencia: 'DECADÊNCIA (arts. 150, §4º, e 173 do CTN; Súmulas 555 e 622/STJ; Tema 163/STJ)',
   ordinaria: 'PRESCRIÇÃO ORDINÁRIA (art. 174 do CTN; Tema 383/STJ; Súmulas 436 e 653/STJ)',
-  intercorrente: 'PRESCRIÇÃO INTERCORRENTE (art. 40 da LEF; Súmula 314/STJ; Temas 566–571/STJ; Tema 390/STF; parcelamento: art. 174, p.ú., IV, e art. 151, VI, CTN — orientação TRF4)'
+  intercorrente: 'PRESCRIÇÃO INTERCORRENTE (art. 40 da LEF; Súmula 314/STJ; Temas 566–571/STJ; Tema 390/STF; parcelamento: art. 174, p.ú., IV + ciclo 1+5 da rescisão)'
 };
 
 function reportSection(lines, roman, key, result) {

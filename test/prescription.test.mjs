@@ -20,6 +20,7 @@ import {
   shouldPropagateIdpjAsSuspension,
   suggestLaunchMode,
   inferParcelamentoEnds,
+  protestoExtrajudicialInterrompe,
 } from '../src/lib/prescription.js';
 
 const ASOF = '2026-08-16';
@@ -74,7 +75,7 @@ describe('computePrescription — decisões fechadas', () => {
     assert.equal(a.diesAdQuem, b.diesAdQuem);
   });
 
-  it('5. parcelamento encerrado: quinquênio integral da rescisão, sem o ano do art. 40', () => {
+  it('5. parcelamento encerrado: ciclo 1+5 a partir da rescisão', () => {
     const withParc = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -85,9 +86,9 @@ describe('computePrescription — decisões fechadas', () => {
       asOf: ASOF
     });
     assert.equal(withParc.diesAQuo, '2021-06-01');
-    assert.equal(withParc.diesAdQuem, '2026-06-01');
-    assert.equal(withParc.phase, 'consumado');
-    assert.ok(withParc.detail.includes('rescisão') || withParc.memory.some(m => /rescisão/i.test(m.effect)));
+    assert.equal(withParc.diesAdQuem, '2027-06-01');
+    assert.equal(withParc.phase, 'correndo');
+    assert.ok(withParc.memory.some(m => /1\+5|1 ano/i.test(m.effect)));
   });
 
   it('6. penhora na EF com pedido anterior: interrompe retroagindo ao pedido', () => {
@@ -463,8 +464,8 @@ describe('parcelamento sem cessação no originário', () => {
   });
 });
 
-describe('parcelamento na intercorrente (TRF4)', () => {
-  it('vigente: suspende a exigibilidade e não deixa o quinquênio fluir', () => {
+describe('parcelamento na intercorrente (ciclo 1+5 da rescisão)', () => {
+  it('vigente: suspende a exigibilidade e não deixa o ciclo fluir', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -477,10 +478,9 @@ describe('parcelamento na intercorrente (TRF4)', () => {
     assert.equal(r.phase, 'suspenso');
     assert.equal(r.status, 'suspenso');
     assert.ok(/interrompe/i.test(r.detail));
-    assert.ok(r.memory.some(m => /174|Súmula 653|TRF4/i.test(m.effect)));
   });
 
-  it('sem marco: rescisão já deflagra o quinquênio (não fica não-iniciado)', () => {
+  it('sem marco: rescisão deflagra o ciclo 1+5 (não fica não-iniciado)', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -489,11 +489,11 @@ describe('parcelamento na intercorrente (TRF4)', () => {
     });
     assert.notEqual(r.phase, 'nao_iniciado');
     assert.equal(r.diesAQuo, '2021-06-01');
-    assert.equal(r.diesAdQuem, '2026-06-01');
-    assert.equal(r.phase, 'consumado');
+    assert.equal(r.diesAdQuem, '2027-06-01');
+    assert.equal(r.phase, 'correndo');
   });
 
-  it('dois parcelamentos: relógio da última rescisão', () => {
+  it('dois parcelamentos: relógio 1+5 da última rescisão', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -504,11 +504,11 @@ describe('parcelamento na intercorrente (TRF4)', () => {
       asOf: ASOF
     });
     assert.equal(r.diesAQuo, '2023-01-01');
-    assert.equal(r.diesAdQuem, '2028-01-01');
+    assert.equal(r.diesAdQuem, '2029-01-01');
     assert.equal(r.phase, 'correndo');
   });
 
-  it('marco posterior à rescisão não soma o ano do art. 40', () => {
+  it('marco posterior à rescisão não inicia segundo ciclo 1+5', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -519,8 +519,63 @@ describe('parcelamento na intercorrente (TRF4)', () => {
       asOf: ASOF
     });
     assert.equal(r.diesAQuo, '2022-08-16');
-    assert.equal(r.diesAdQuem, '2027-08-16');
-    assert.ok(r.memory.some(m => /não se soma o ano/i.test(m.effect)));
+    assert.equal(r.diesAdQuem, '2028-08-16');
+    assert.ok(r.memory.some(m => /não inicia segundo ciclo/i.test(m.effect)));
+  });
+
+  it('SSALTTEC: 1+5 da rescisão = 27/05/2026; Sisbajud tardio não suspende nem salva', () => {
+    const r = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2016-11-18', processNumber: '50032035320174047108' },
+      executions: [{ id: 'e1', processNumber: '50032035320174047108', protocolDate: '2017-02-23' }],
+      events: [
+        { id: 'p', cdaId: 'd1', type: 'susp_parcelamento', date: '2020-04-24', endDate: '2020-05-27' },
+        { id: 'r', cdaId: 'd1', type: 'int_rescisao_parcelamento', date: '2020-05-27' },
+        { id: 's', cdaId: 'd1', type: 'int_sisbajud', requestDate: '2026-06-12', date: '2026-08-26' },
+        { id: 'i', cdaId: 'd1', type: IDPJ_CONSTRICTION_TYPE, requestDate: '2026-06-12', date: '2026-08-26' }
+      ],
+      asOf: '2026-09-01'
+    });
+    assert.equal(r.diesAdQuem, '2026-05-27');
+    assert.equal(r.phase, 'consumado');
+    assert.notEqual(r.phase, 'suspenso');
+    assert.ok(r.daysLeft < 0);
+    assert.ok(r.gaps.some(g => /Sisbajud e constrição/i.test(g)));
+    assert.ok(r.memory.some(m => /1\+5|modo de contagem/i.test(m.effect) || /1 ano/i.test(m.effect)));
+  });
+});
+
+describe('protesto extrajudicial e LC 208/2024', () => {
+  it('só interrompe a partir de 03/07/2024', () => {
+    assert.equal(protestoExtrajudicialInterrompe('2024-04-11'), false);
+    assert.equal(protestoExtrajudicialInterrompe('2024-07-03'), true);
+  });
+
+  it('protesto de 11/04/2024 não reinicia o originário', () => {
+    const without = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2020-01-15' },
+      executions: [],
+      events: [],
+      asOf: '2026-09-01'
+    });
+    const withProt = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2020-01-15' },
+      executions: [],
+      events: [{ id: 'pr', cdaId: 'd1', type: 'int_protesto_extrajudicial', date: '2024-04-11' }],
+      asOf: '2026-09-01'
+    });
+    assert.equal(withProt.diesAdQuem, without.diesAdQuem);
+    assert.ok(withProt.gaps.some(g => /não interrompe/i.test(g)));
+  });
+
+  it('protesto de 03/07/2024 reinicia o originário', () => {
+    const r = computePrescription({
+      debt: { id: 'd1', inscriptionDate: '2020-01-15' },
+      executions: [],
+      events: [{ id: 'pr', cdaId: 'd1', type: 'int_protesto_extrajudicial', date: '2024-07-03' }],
+      asOf: '2026-09-01'
+    });
+    assert.equal(r.diesAQuo, '2024-07-03');
+    assert.equal(r.diesAdQuem, '2029-07-03');
   });
 });
 

@@ -3491,13 +3491,18 @@ function App() {
               usedDates.add(ps.date);
               const dup = existingEvents.find(pe => pe.type === 'int_protesto_extrajudicial' && pe.date === ps.date);
               if (dup) continue;
+              const aposLc = ps.date >= '2024-07-03';
               upsert('prescriptionEvents', {
                 id: uid(),
                 cdaId: existing.id,
                 type: 'int_protesto_extrajudicial',
                 date: ps.date,
-                legalBasis: 'Art. 174, p.ú., CTN (com redação da LC 208/2024) — extraído de ' + ps.origin,
-                notes: `Protesto extrajudicial detectado automaticamente — ${ps.desc}. ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}Verificar se a eficácia interruptiva se aplica (LC 208/2024 publicada em 02/07/2024; protestos anteriores dependem de interpretação caso a caso — Tema 777/STJ como antecedente).`,
+                legalBasis: aposLc
+                  ? 'Art. 174, p.ú., CTN (LC 208/2024) — extraído de ' + ps.origin
+                  : 'Protesto extrajudicial anterior à LC 208/2024 — extraído de ' + ps.origin,
+                notes: aposLc
+                  ? `Protesto lavrado em ${fmtDate(ps.date)}, após 03/07/2024 — interrompe a prescrição originária (LC 208/2024). ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}${ps.desc}`
+                  : `Protesto lavrado em ${fmtDate(ps.date)}, antes de 03/07/2024 (vigência da LC 208/2024) — não interrompe. ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}${ps.desc}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               });
@@ -11958,7 +11963,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     const categories = [
       { key: 'marco', label: '⏱ Marcos Iniciais (Tema 566)', desc: 'Eventos que disparam a contagem do art. 40 LEF' },
       { key: 'interruptiva', label: '🟢 Causas Interruptivas (Tema 568)', desc: 'Reiniciam o prazo prescricional do zero' },
-      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; o quinquênio recomeça por inteiro na rescisão (TRF4).' },
+      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; após a rescisão conta-se 1+5 (1 ano + 5 anos).' },
       { key: 'info', label: 'ℹ️ Eventos Informativos', desc: 'Sem efeito no cômputo — registro para controle' },
     ];
     return (<>
