@@ -1,7 +1,7 @@
 import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+import { applyDiagnosticFix, runDiagnostics } from './lib/diagnostics.js';
 import {
   countExecutionReferences,
-  findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
   isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
@@ -491,123 +491,6 @@ const applyMigrations = (parsed) => {
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
   setExtraHolidays(merged.calendar.extraHolidays);
   return merged;
-};
-// ─── DIAGNÓSTICO DE INTEGRIDADE ───
-// Varre os dados procurando inconsistências silenciosas (as que não quebram a tela,
-// mas fazem número sumir): formatos divergentes de processo, órfãos, duplicatas.
-// Cada achado traz `fix` quando a correção é segura e automatizável.
-const runDiagnostics = (data) => {
-  const d = data || {};
-  const ops = d.operations || [], execs = d.executions || [], debts = d.debts || [];
-  const intims = d.intimations || [], people = d.people || [], hearings = d.hearings || [];
-  const tasks = d.tasks || [], assets = d.assets || [], desk = d.desk || [];
-  const opIds = new Set(ops.map(o => o.id));
-  const execIds = new Set(execs.map(e => e.id));
-  const out = [];
-  const add = (sev, id, titulo, itens, detalhe, fix) => { if (itens.length) out.push({ sev, id, titulo, itens, detalhe, fix }); };
-
-  // 1. Mesmo processo gravado com formatos diferentes (raiz do cruzamento que falhava)
-  const byDigits = {};
-  const push = (col, x, label) => { const n = normProc(x.processNumber); if (!n) return; (byDigits[n] = byDigits[n] || []).push({ col, label, raw: x.processNumber }); };
-  execs.forEach(x => push('executions', x, 'processo'));
-  debts.forEach(x => push('debts', x, 'CDA ' + (x.cdaNumber || 's/n')));
-  intims.forEach(x => push('intimations', x, 'intimação'));
-  const divergentes = Object.entries(byDigits)
-    .filter(([, arr]) => new Set(arr.map(a => a.raw)).size > 1)
-    .map(([n, arr]) => ({ id: n, texto: [...new Set(arr.map(a => a.raw))].join('  ↔  '), sub: arr.length + ' registro(s)' }));
-  add('media', 'formato', 'Mesmo processo com formatos diferentes', divergentes,
-    'O cruzamento já é feito por dígitos, então não há mais perda de dados — mas padronizar deixa as buscas e a leitura consistentes.', 'padronizar');
-
-  // 2. Execuções duplicadas: mesmo número DENTRO da mesma operação.
-  // Repetição entre operações pode ser intencional e exige diagnóstico separado.
-  const duplicateExecutionGroups = findDuplicateExecutionGroups(d);
-  add('alta', 'dupexec', 'Processos cadastrados em duplicidade',
-    duplicateExecutionGroups.map(group => {
-      const op = ops.find(o => o.id === group.operationId);
-      return {
-        id: group.recommendedId,
-        texto: group.processNumber || group.processDigits || 's/nº',
-        sub: `${group.executionIds.length} cadastros · ${op?.name || 'operação não localizada'} · ${group.conflicts.length} conflito(s)`,
-        group,
-      };
-    }),
-    'Há mais de um cadastro interno para o mesmo processo na mesma operação. Use “Consolidar” para escolher o registro principal e migrar eventos, apensamentos, incidentes e histórico sem perda.');
-
-  // 3. Pessoas duplicadas por CPF/CNPJ na mesma operação
-  const dupPersonGroups = [];
-  const handledP = new Set();
-  people.forEach(p => {
-    if (handledP.has(p.id) || !p.cpfCnpj) return;
-    const group = people.filter(other => other.operationId === p.operationId && other.cpfCnpj && docsCompatible(p.cpfCnpj, other.cpfCnpj));
-    if (group.length > 1) {
-      group.forEach(g => handledP.add(g.id));
-      dupPersonGroups.push(group);
-    }
-  });
-  add('media', 'duppessoa', 'Pessoas duplicadas (mesmo CPF/CNPJ)',
-    dupPersonGroups.map(a => ({ id: a[0].id, texto: a[0].name || 's/nome', sub: a.length + ' cadastros · ' + (a[0].cpfCnpj || '') })),
-    'Mesmo documento cadastrado mais de uma vez na operação — divide responsabilidades e bens.');
-
-  // 4. Processos sem operação válida — ficam invisíveis na aba da operação.
-  const execSemOperacao = execs.filter(x => !x.operationId || !opIds.has(x.operationId));
-  add('alta', 'execsemop', 'Processos sem operação válida',
-    execSemOperacao.map(x => ({
-      id: x.id,
-      executionId: x.id,
-      texto: x.processNumber || x.id,
-      sub: x.operationId ? 'operação inexistente' : 'sem operação',
-    })),
-    'Esses processos existem no banco, mas não entram em nenhuma operação. Use “Vincular” para escolher a operação correta; registros processuais órfãos do mesmo número também podem ser reassociados.');
-
-  // 4b. Demais registros apontando para operação inexistente
-  const orfaos = [];
-  [['debts', debts, 'CDA'], ['intimations', intims, 'intimação'], ['hearings', hearings, 'audiência'], ['people', people, 'pessoa'], ['assets', assets, 'bem']]
-    .forEach(([col, arr, lbl]) => arr.forEach(x => { if (x.operationId && !opIds.has(x.operationId)) orfaos.push({ id: x.id, texto: lbl + ': ' + (x.processNumber || x.cdaNumber || x.name || x.parties || x.description || x.id), sub: 'operação inexistente' }); }));
-  add('alta', 'orfaos', 'Registros de operação excluída', orfaos,
-    'Sobraram apontando para uma operação que não existe mais — invisíveis na interface, mas ocupam espaço e distorcem totais.', 'desvincular');
-
-  // 5. Vínculos entre processos apontando para o vazio
-  const vinculos = [];
-  execs.forEach(e => {
-    if (e.parentExecutionId && !execIds.has(e.parentExecutionId)) vinculos.push({ id: e.id, texto: e.processNumber || e.id, sub: 'apensado a processo inexistente' });
-    (e.linkedExecutionIds || []).forEach(x => { if (!execIds.has(x)) vinculos.push({ id: e.id, texto: e.processNumber || e.id, sub: 'abrange execução inexistente' }); });
-  });
-  add('media', 'vinculos', 'Vínculos entre processos quebrados', vinculos,
-    'Apensamento ou abrangência de incidente apontando para processo excluído.', 'limpar');
-
-  // 6. Refs mortas na Mesa
-  const alive = { intimation: new Set(intims.map(i => i.id)), task: new Set(tasks.map(t => t.id)), hearing: new Set(hearings.map(h => h.id)) };
-  add('info', 'mesa', 'Itens da Mesa que não existem mais',
-    desk.filter(x => !x || !alive[x.type] || !alive[x.type].has(x.id)).map((x, i) => ({ id: 'desk' + i, texto: (x && x.type) || '?', sub: 'registro excluído' })),
-    'Restos na fila de foco. Não aparecem na tela, mas viajam para a nuvem.', 'limpar');
-
-  // 7. CDA sem responsável originário
-  const respCda = new Set(((d.links || {}).cdaResponsibilities || []).filter(r => r.role === 'originario').map(r => r.cdaId));
-  add('info', 'semresp', 'CDAs sem devedor originário',
-    debts.filter(x => x.status !== 'extinta' && !respCda.has(x.id) && !x.personId).map(x => ({ id: x.id, texto: 'CDA ' + (x.cdaNumber || 's/n'), sub: fmtCur(x.value || 0) })),
-    'Sem devedor vinculado, a CDA não entra na exposição por pessoa.');
-
-  // 8. Intimação sem operação, mas cujo processo existe numa operação
-  const semOp = intims.filter(x => !x.operationId && x.processNumber && !x.responseAction).map(x => {
-    const e = execs.find(ex => sameProc(ex.processNumber, x.processNumber));
-    return e && e.operationId ? { id: x.id, texto: x.processNumber, sub: '→ ' + ((ops.find(o => o.id === e.operationId) || {}).name || '?'), opId: e.operationId } : null;
-  }).filter(Boolean);
-  add('media', 'intimsemop', 'Intimações que podem ser vinculadas', semOp,
-    'O processo dessas intimações já existe numa operação cadastrada — dá para vincular automaticamente.', 'vincular');
-
-  // 8b. Intimação ativa sem prazo final parseável — some da agenda e do e-mail
-  add('alta', 'intimsemprazo', 'Intimações ativas sem prazo final',
-    intims.filter(x => !x.responseAction && x.status !== 'analisado' && !toDayKey(x.dateDeadline))
-      .map(x => ({ id: x.id, texto: x.processNumber || 's/nº', sub: (x.eventDescription || 'sem Final Prazo').slice(0, 48) })),
-    'Sem data de prazo final reconhecível, a intimação não entra no e-mail diário nem na agenda da semana. Reimporte o XLS do eproc (Prazos em aberto) ou preencha Final Prazo à mão.');
-
-  // 9. CDA cujo processo não está cadastrado
-  add('info', 'cdasemproc', 'CDAs com processo não cadastrado',
-    debts.filter(x => x.processNumber && x.status !== 'extinta' && !execs.some(e => sameProc(e.processNumber, x.processNumber)))
-      .map(x => ({ id: x.id, texto: 'CDA ' + (x.cdaNumber || 's/n'), sub: x.processNumber })),
-    'A execução correspondente não existe no cadastro — o valor não é somado ao processo.');
-
-  return out;
 };
 const loadData = () => {
   try {
@@ -2827,6 +2710,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
   const [showDiagnostico, setShowDiagnostico] = useState(false);
+  const [diagnosticoOpId, setDiagnosticoOpId] = useState(null); // null = carteira inteira
   const [duplicateMergeGroup, setDuplicateMergeGroup] = useState(null);
   const [executionToRelink, setExecutionToRelink] = useState(null);
   const [expandedActions, setExpandedActions] = useState(new Set()); // intimações com a descrição da atuação aberta
@@ -3883,6 +3767,11 @@ function App() {
   };
 
   const activeOp = data.operations.find(o => o.id === activeOpId);
+  const openDiagnostico = (opId) => {
+    setDiagnosticoOpId(opId || null);
+    setShowDiagnostico(true);
+    setShowSettings(false);
+  };
   const filteredOps = data.operations.filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase())).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
 
   // CRUD
@@ -8106,7 +7995,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
-      <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowDiagnostico(true); setShowSettings(false); }}>🩺 Diagnóstico de integridade</button>
+      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
+      <div style={{fontSize:10,color:'var(--text-muted)',margin:'6px 0 4px',lineHeight:1.4}}>Toda a carteira. Para corrigir um caso, use o diagnóstico da operação.</div>
+      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>🩺 Diagnóstico desta operação</button>
+      {!activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Abra uma operação para restringir o diagnóstico.</div>}
     </div>
   </div>);
 
@@ -9967,6 +9859,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ); })}
               </div>;
             })()}
+            <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
             <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
@@ -10080,50 +9973,38 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
     {/* Diagnóstico de integridade */}
     {showDiagnostico && (() => {
-      const achados = runDiagnostics(data);
+      const scopedOp = diagnosticoOpId ? data.operations.find(o => o.id === diagnosticoOpId) : null;
+      const achados = runDiagnostics(data, diagnosticoOpId ? { operationId: diagnosticoOpId } : {});
+      const nItens = achados.reduce((s,f)=>s+f.itens.length,0);
+      const itemCap = diagnosticoOpId ? 80 : 40;
       const SEV = { alta: { c:'var(--red)', l:'ALTA' }, media: { c:'var(--yellow)', l:'MÉDIA' }, info: { c:'var(--blue)', l:'INFO' } };
       const aplicar = (f) => {
         const n = f.itens.length;
-        if (!confirm(`Aplicar correção em ${n} registro(s)?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
+        const escopo = diagnosticoOpId ? ' desta operação' : '';
+        if (!confirm(`Aplicar correção em ${n} registro(s)${escopo}?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
         pushUndo('Correção do diagnóstico: ' + f.titulo);
-        setData(prev => {
-          const next = { ...prev };
-          if (f.id === 'mesa') {
-            const alive = { intimation: new Set((next.intimations||[]).map(i=>i.id)), task: new Set((next.tasks||[]).map(t=>t.id)), hearing: new Set((next.hearings||[]).map(h=>h.id)) };
-            next.desk = (next.desk||[]).filter(x => x && alive[x.type] && alive[x.type].has(x.id));
-          } else if (f.id === 'vinculos') {
-            const ids = new Set((next.executions||[]).map(e=>e.id));
-            next.executions = (next.executions||[]).map(e => {
-              let ch = e;
-              if (ch.parentExecutionId && !ids.has(ch.parentExecutionId)) ch = { ...ch, parentExecutionId: null };
-              if (Array.isArray(ch.linkedExecutionIds) && ch.linkedExecutionIds.some(x => !ids.has(x))) ch = { ...ch, linkedExecutionIds: ch.linkedExecutionIds.filter(x => ids.has(x)) };
-              return ch;
-            });
-          } else if (f.id === 'orfaos') {
-            const kill = new Set(f.itens.map(i => i.id));
-            ['debts','executions','intimations','hearings','people','assets'].forEach(col => { next[col] = (next[col]||[]).map(x => kill.has(x.id) ? { ...x, operationId: '' } : x); });
-          } else if (f.id === 'intimsemop') {
-            const map = {}; f.itens.forEach(i => { map[i.id] = i.opId; });
-            next.intimations = (next.intimations||[]).map(x => map[x.id] ? { ...x, operationId: map[x.id] } : x);
-          } else if (f.id === 'formato') {
-            // Padroniza pelo formato do processo cadastrado em executions (a fonte mais confiável)
-            const canon = {}; (next.executions||[]).forEach(e => { const n = normProc(e.processNumber); if (n && e.processNumber) canon[n] = e.processNumber; });
-            ['debts','intimations','hearings'].forEach(col => { next[col] = (next[col]||[]).map(x => { const n = normProc(x.processNumber); return (n && canon[n] && canon[n] !== x.processNumber) ? { ...x, processNumber: canon[n] } : x; }); });
-          }
-          return next;
-        });
+        setData(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
       };
       return (<div className="global-search-overlay" onClick={() => setShowDiagnostico(false)}>
         <div className="global-search-box" onClick={e => e.stopPropagation()} style={{maxHeight:'85vh',display:'flex',flexDirection:'column',maxWidth:760}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',borderBottom:'1px solid var(--border)'}}>
-            <div>
-              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>🩺 Diagnóstico de integridade</div>
-              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{achados.length === 0 ? 'Nenhum problema encontrado.' : achados.reduce((s,f)=>s+f.itens.length,0) + ' registro(s) em ' + achados.length + ' categoria(s)'}</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'14px 16px',borderBottom:'1px solid var(--border)',gap:12}}>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>{diagnosticoOpId ? '🩺 Diagnóstico desta operação' : '🩺 Diagnóstico de integridade'}</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                {diagnosticoOpId
+                  ? (scopedOp ? scopedOp.name : 'Operação') + (achados.length === 0 ? ' · nenhum problema neste recorte.' : ` · ${nItens} registro(s) em ${achados.length} categoria(s)`)
+                  : (achados.length === 0 ? 'Nenhum problema encontrado.' : nItens + ' registro(s) em ' + achados.length + ' categoria(s)')}
+              </div>
+              {activeOpId && <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <button type="button" className="btn-secondary btn-xs" style={diagnosticoOpId ? undefined : {borderColor:'var(--accent)',color:'var(--accent)'}} onClick={() => setDiagnosticoOpId(null)}>Carteira inteira</button>
+                <button type="button" className="btn-secondary btn-xs" style={diagnosticoOpId === activeOpId ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => setDiagnosticoOpId(activeOpId)}>Esta operação</button>
+              </div>}
             </div>
-            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowDiagnostico(false)}>✕</span>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18,flexShrink:0}} onClick={() => setShowDiagnostico(false)}>✕</span>
           </div>
           <div style={{overflowY:'auto',padding:'12px 16px'}}>
-            {achados.length === 0 && <div style={{padding:'28px 10px',textAlign:'center',color:'var(--text-muted)',fontSize:12}}>✓ Dados consistentes — nada a corrigir.</div>}
+            {achados.length === 0 && <div style={{padding:'28px 10px',textAlign:'center',color:'var(--text-muted)',fontSize:12}}>{diagnosticoOpId ? '✓ Esta operação está consistente — nada a corrigir neste recorte.' : '✓ Dados consistentes — nada a corrigir.'}</div>}
+            {diagnosticoOpId && <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.45,marginBottom:10}}>Órfãos de operação excluída, processos sem operação e restos da Mesa ficam no diagnóstico da carteira.</div>}
             {achados.map(f => { const sv = SEV[f.sev];
               return (<div key={f.id} style={{marginBottom:12,border:'1px solid var(--border)',borderLeft:`3px solid ${sv.c}`,borderRadius:6,padding:'10px 12px'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
@@ -10133,14 +10014,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {f.fix && <button className="btn-secondary btn-xs" style={{marginLeft:'auto'}} onClick={() => aplicar(f)}>⚙ corrigir</button>}
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.5,marginBottom:6}}>{f.detalhe}</div>
-                <div style={{maxHeight:132,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>
-                  {f.itens.slice(0,40).map((it,ix) => (<div key={ix} style={{display:'flex',gap:8,fontSize:11,padding:'2px 6px',background:'var(--bg-elevated)',borderRadius:3}}>
+                <div style={{maxHeight:diagnosticoOpId?220:132,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>
+                  {f.itens.slice(0,itemCap).map((it,ix) => (<div key={ix} style={{display:'flex',gap:8,fontSize:11,padding:'2px 6px',background:'var(--bg-elevated)',borderRadius:3}}>
                     <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.texto}</span>
                     <span style={{color:'var(--text-muted)',fontSize:10,flexShrink:0}}>{it.sub}</span>
                     {f.id === 'dupexec' && it.group && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setDuplicateMergeGroup(it.group)}>Consolidar</button>}
                     {f.id === 'execsemop' && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setExecutionToRelink(data.executions.find(ex => ex.id === it.executionId) || null)}>Vincular</button>}
                   </div>))}
-                  {f.itens.length > 40 && <div style={{fontSize:10,color:'var(--text-muted)',padding:'2px 6px'}}>+{f.itens.length-40} …</div>}
+                  {f.itens.length > itemCap && <div style={{fontSize:10,color:'var(--text-muted)',padding:'2px 6px'}}>+{f.itens.length-itemCap} …</div>}
                 </div>
               </div>);
             })}
