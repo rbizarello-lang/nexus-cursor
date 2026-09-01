@@ -218,7 +218,7 @@ html.font-source .app-layout.edition-demo {
 /* ─── Settings panel ─── */
 .settings-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 15px; padding: 4px 8px; border-radius: var(--radius); transition: all 0.15s; }
 .settings-btn:hover { color: var(--gold); background: rgba(200,160,74,0.08); }
-.settings-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; min-width: 280px; z-index: 200; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.settings-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; min-width: 280px; max-height: calc(100vh - 80px); overflow-y: auto; z-index: 200; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
 .settings-version {
   display: flex; flex-direction: column; gap: 2px;
   margin: -4px 0 14px; padding: 10px 12px;
@@ -2118,7 +2118,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 }
 .app-layout.edition-demo .demo-rail .settings-panel {
   top: auto; bottom: 100%; right: 0; left: 8px; margin-top: 0; margin-bottom: 8px;
-  min-width: 280px; max-width: min(340px, 80vw); background: var(--demo-settings-bg); border-color: rgba(255,255,255,0.12); color: var(--demo-rail-fg);
+  min-width: 280px; max-width: min(340px, 80vw); max-height: min(70vh, 560px); overflow-y: auto; background: var(--demo-settings-bg); border-color: rgba(255,255,255,0.12); color: var(--demo-rail-fg);
 }
 .app-layout.edition-demo .demo-rail .settings-version {
   border-color: rgba(255,255,255,0.14);
