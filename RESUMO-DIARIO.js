@@ -6,11 +6,13 @@
  * e a Mesa de trabalho.
  *
  * COMO INSTALAR
- *   1. No editor do Apps Script: Arquivo → Novo → Script, nomeie "resumo-diario".
- *   2. Cole este conteúdo inteiro.
- *   3. Rode uma vez a função  testarResumoAgora   (autoriza o acesso e já envia
- *      um e-mail de teste para você conferir o formato).
- *   4. Rode a função  instalarResumoDiario  — cria o agendamento das 7h.
+ *   Prefira o mesmo projeto Apps Script do NEXUS (npm run push já inclui
+ *   este arquivo). Assim o resumo usa o mesmo arquivo pinado por ID que o app.
+ *   Se colar à mão: Arquivo → Novo → Script, nomeie "resumo-diario", cole
+ *   o conteúdo, rode testarResumoAgora e depois instalarResumoDiario.
+ *
+ * NÃO busca nexus_data.json pelo nome no Drive inteiro — isso pegava o
+ * primeiro arquivo homônimo (cópia de teste, outro acervo).
  *
  * PARA DESLIGAR: rode  removerResumoDiario
  * PARA MUDAR O HORÁRIO: altere HORA_ENVIO e rode instalarResumoDiario de novo.
@@ -67,7 +69,7 @@ function removerResumoDiario() {
 
 function enviarResumoNexus() {
   var dados = _lerDados_();
-  if (!dados) return 'ERRO: ' + CONFIG.ARQUIVO + ' não encontrado no Drive.';
+  if (!dados) return 'ERRO: arquivo de dados do NEXUS não encontrado na pasta da planilha.';
 
   var r = _coletar_(dados);
   // O radar é informativo (horizonte) e não conta como pendência para decidir o envio.
@@ -82,27 +84,64 @@ function enviarResumoNexus() {
   return 'Resumo enviado para ' + email + ' (' + total + ' itens).';
 }
 
-/** Lê e desserializa o nexus_data.json do Drive. */
-function _lerDados_() {
-  var it = DriveApp.getFilesByName(CONFIG.ARQUIVO);
-  if (!it.hasNext()) return null;
-  try { return JSON.parse(it.next().getBlob().getDataAsString()); } catch (e) { return null; }
+/** Resolve o mesmo arquivo que o app (ID persistido / pasta da planilha). Nunca varre o Drive pelo nome. */
+function _resolverArquivoDados_() {
+  if (typeof resolveDataFile_ === 'function') return resolveDataFile_();
+  if (typeof findDataFile_ === 'function') return findDataFile_();
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty('NEXUS_DATA_FILE_ID');
+    if (id) {
+      var pinned = DriveApp.getFileById(id);
+      if (pinned && !pinned.isTrashed()) return pinned;
+    }
+  } catch (e) {}
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var parents = DriveApp.getFileById(ss.getId()).getParents();
+    var folder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+    var files = folder.getFilesByName(CONFIG.ARQUIVO);
+    if (files.hasNext()) return files.next();
+  } catch (e2) {}
+  return null;
 }
 
-/** Dias entre hoje e uma data 'YYYY-MM-DD' (negativo = vencido). */
+/** Lê e desserializa o nexus_data.json canônico. */
+function _lerDados_() {
+  var file = _resolverArquivoDados_();
+  if (!file) return null;
+  try { return JSON.parse(file.getBlob().getDataAsString()); } catch (e) { return null; }
+}
+
+/** Normaliza qualquer data para YYYY-MM-DD (eproc, ISO com hora, DD/MM/AAAA). */
+function _diaKey_(iso) {
+  if (iso == null || iso === '') return '';
+  var s = String(iso).trim();
+  var m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if (m) {
+    var y = m[3];
+    if (y.length === 2) y = (parseInt(y, 10) > 50 ? '19' : '20') + y;
+    return y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  return '';
+}
+
+/** Dias entre hoje e uma data (negativo = vencido). */
 function _dias_(iso) {
-  if (!iso) return null;
-  var p = String(iso).slice(0, 10).split('-');
-  if (p.length !== 3) return null;
+  var k = _diaKey_(iso);
+  if (!k) return null;
+  var p = k.split('-');
   var alvo = new Date(+p[0], +p[1] - 1, +p[2]);
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   return Math.round((alvo - hoje) / 86400000);
 }
 
 function _fmtData_(iso) {
-  if (!iso) return '—';
-  var p = String(iso).slice(0, 10).split('-');
-  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  var k = _diaKey_(iso);
+  if (!k) return iso ? String(iso) : '—';
+  var p = k.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
 }
 
 function _hojeBR_() {
@@ -126,9 +165,11 @@ function _coletar_(d) {
   // Intimações em aberto com prazo
   var futuras = [];
   (d.intimations || []).forEach(function (x) {
-    if (x.responseAction || x.status === 'analisado' || !x.dateDeadline) return;
+    if (x.responseAction || !x.dateDeadline) return;
     var dias = _dias_(x.dateDeadline);
     if (dias === null) return;
+    // Analisado sem atuação: só some depois que o prazo vence (análise ≠ peticionamento).
+    if (x.status === 'analisado' && dias < 0) return;
     var item = {
       dias: dias, data: x.dateDeadline,
       titulo: x.partyName || x.parties || x.processNumber || 'Intimação',
@@ -157,16 +198,30 @@ function _coletar_(d) {
     });
   });
 
-  // CDAs prescrevendo (usa a data explícita; o cálculo automático fica no app)
+  // CDAs prescrevendo: data informada, ou snapshot do motor (fase crítica/alerta).
+  // Estimativa de inscrição+5 e prescrições já consumidas/vencidas não entram no e-mail.
   (d.debts || []).forEach(function (x) {
-    if (x.prescriptionHandled || x.status === 'extinta' || !x.prescriptionDate) return;
-    var dias = _dias_(x.prescriptionDate);
-    if (dias === null || dias > CONFIG.DIAS_PRESCRICAO) return;
+    if (x.prescriptionHandled || x.status === 'extinta') return;
+    var snap = x.prescriptionSnapshot || {};
+    if (snap.origin === 'estimativa') return;
+    if (snap.status === 'prescrito') return;
+    var pd = x.prescriptionDate || '';
+    var dias = null;
+    if (pd) {
+      dias = _dias_(pd);
+    } else if (snap.status === 'critico' || snap.status === 'alerta') {
+      if (snap.origin !== 'calculo_validado' && snap.origin !== 'data_informada') return;
+      pd = snap.diesAdQuem || '';
+      dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
+    } else {
+      return;
+    }
+    if (dias === null || dias < 0 || dias > CONFIG.DIAS_PRESCRICAO) return;
     out.prescricoes.push({
-      dias: dias, data: x.prescriptionDate,
+      dias: dias, data: pd,
       titulo: 'CDA ' + (x.cdaNumber || 's/nº'),
       proc: x.processNumber || '', op: nomeOp(x.operationId),
-      extra: _fmtMoeda_(x.value)
+      extra: _fmtMoeda_(x.value) + (snap.origin ? ' · ' + snap.origin : '')
     });
   });
 
@@ -254,16 +309,6 @@ function _secao_(titulo, itens, cor, mostrarValor) {
 }
 
 function _html_(r) {
-  var corpo = '' +
-    _secao_('Prazos vencidos', r.vencidas, '#c0392b') +
-    _secao_('Prazos a vencer', r.prazos, '#b8860b') +
-    _secao_('No radar — próximos prazos', r.radar, '#5a6b7d') +
-    _secao_('Audiências', r.audiencias, '#8a6d1f') +
-    _secao_('Prescrição se aproximando', r.prescricoes, '#c0392b') +
-    _secao_('Tarefas urgentes', r.tarefas, '#2c6ba0');
-
-  if (!corpo) corpo = '<div style="padding:26px;text-align:center;color:#7b8896;background:#fff;border:1px solid #e4e8ee;border-radius:6px">Nenhuma pendência no período. ✓</div>';
-
   var mesa = '';
   if (r.mesa.length) {
     mesa = '<div style="margin:0 0 22px">' +
@@ -276,6 +321,16 @@ function _html_(r) {
       }).join('') + '</div></div>';
   }
 
+  var corpo = '' +
+    _secao_('Prazos vencidos', r.vencidas, '#c0392b') +
+    _secao_('Prazos a vencer', r.prazos, '#b8860b') +
+    _secao_('No radar — próximos prazos', r.radar, '#5a6b7d') +
+    _secao_('Audiências', r.audiencias, '#8a6d1f') +
+    _secao_('Prescrição se aproximando', r.prescricoes, '#c0392b') +
+    _secao_('Tarefas urgentes', r.tarefas, '#2c6ba0');
+
+  if (!corpo && !mesa) corpo = '<div style="padding:26px;text-align:center;color:#7b8896;background:#fff;border:1px solid #e4e8ee;border-radius:6px">Nenhuma pendência no período. ✓</div>';
+
   return '' +
     '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f4f6f9;padding:22px;margin:0">' +
     '<div style="max-width:640px;margin:0 auto">' +
@@ -283,7 +338,7 @@ function _html_(r) {
     '<div style="font-size:17px;font-weight:700;letter-spacing:.5px">NEXUS</div>' +
     '<div style="font-size:12px;color:#9fb0c8;margin-top:2px">Resumo de ' + _hojeBR_() + '</div>' +
     '</div>' +
-    '<div style="background:#f4f6f9;padding:18px 0 0">' + corpo + mesa + '</div>' +
+    '<div style="background:#f4f6f9;padding:18px 0 0">' + mesa + corpo + '</div>' +
     '<div style="color:#9aa7b4;font-size:11px;text-align:center;padding:10px 0 0;border-top:1px solid #e4e8ee">' +
     'Enviado automaticamente pelo NEXUS · para desativar, rode <code>removerResumoDiario</code> no Apps Script' +
     '</div></div></div>';
