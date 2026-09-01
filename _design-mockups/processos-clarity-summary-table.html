@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Processos — E · Resumo + tabela única</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #e8eef2; --bg-main: #f2f5f8; --bg-card: #ffffff;
+  --bg-elevated: #f7f9fb; --border: #c5d0dc; --border-light: #d8e0e8;
+  --text-primary: #1a2836; --text-secondary: #4a5c6e; --text-muted: #7a8c9e;
+  --accent: #b87333; --accent-dim: rgba(184,115,51,0.10);
+  --gold: #b87333; --pgfn: #7a1f35; --pgfn-light: #9b2848;
+  --red: #c43048; --yellow: #b8860b; --green: #2d7a4f;
+  --font: 'Public Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font); background:
+    radial-gradient(ellipse 70% 40% at 90% 0%, rgba(122,31,53,0.06), transparent 45%),
+    linear-gradient(180deg, #dfe8ef 0%, var(--bg-deep) 45%, #e4ebf1 100%);
+  color: var(--text-primary); padding: 28px 24px 72px; min-height: 100vh;
+}
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+.sub { color: var(--text-secondary); font-size: 13px; margin: 6px 0 22px; max-width: 760px; line-height: 1.45; }
+.tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; background: var(--accent-dim); }
+.shell {
+  max-width: 980px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-card); box-shadow: 0 8px 28px rgba(26,40,54,0.08); overflow: hidden;
+}
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+}
+.toolbar .count { font-size: 11px; color: var(--text-muted); }
+.btn {
+  font-family: inherit; font-size: 11px; font-weight: 600; padding: 6px 12px;
+  border-radius: 4px; border: 1px solid var(--border); background: #fff;
+  color: var(--text-secondary); cursor: pointer;
+}
+.btn.primary { background: var(--pgfn); color: #fff; border-color: var(--pgfn); }
+.hubs {
+  display: flex; gap: 8px; flex-wrap: wrap; padding: 14px 16px;
+  border-bottom: 1px solid var(--border); background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pgfn) 4%, white), white);
+}
+.chip {
+  display: flex; flex-direction: column; gap: 3px; min-width: 200px; flex: 1;
+  padding: 10px 12px; border-radius: 6px; text-align: left; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--pgfn) 28%, var(--border));
+  background: #fff; font-family: inherit; color: inherit;
+}
+.chip:hover { border-color: var(--accent); }
+.chip.on {
+  border-color: var(--pgfn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pgfn) 35%, transparent);
+  background: color-mix(in srgb, var(--pgfn) 6%, white);
+}
+.chip .k { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--pgfn); }
+.chip .n { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+.chip .m { font-size: 10px; color: var(--text-muted); display: flex; gap: 10px; }
+.chip .m .r { color: var(--red); font-weight: 700; }
+.filters {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 10px 16px; border-bottom: 1px solid var(--border-light);
+}
+.pill {
+  font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+  cursor: pointer; font-family: inherit;
+}
+.pill.on { background: var(--accent-dim); border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); color: var(--accent); }
+.pill.dim { opacity: 0.55; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted); padding: 8px 12px;
+  border-bottom: 1px solid var(--border); background: var(--bg-elevated); position: sticky; top: 0;
+}
+td { padding: 9px 12px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); vertical-align: middle; }
+td.mono { font-family: var(--mono); font-weight: 600; color: var(--text-primary); font-size: 11px; }
+tr.g-hub td { background: color-mix(in srgb, var(--pgfn) 5%, white); font-weight: 600; color: var(--text-primary); }
+tr.g-hub td .role { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--pgfn); margin-right: 8px; }
+tr.child td:first-child { padding-left: 28px; }
+tr.child td:first-child::before {
+  content: '↳'; color: var(--text-muted); margin-right: 6px; font-size: 10px;
+}
+tr:hover:not(.g-hub) td { background: var(--accent-dim); cursor: pointer; }
+tr.selected td { background: color-mix(in srgb, var(--accent) 12%, white); }
+.risk-c { color: var(--red); font-weight: 700; }
+.risk-w { color: var(--yellow); font-weight: 700; }
+.risk-ok { color: var(--green); font-weight: 600; }
+.drawer {
+  border-top: 1px solid var(--border); padding: 14px 16px; background: var(--bg-elevated);
+  display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 16px; align-items: start;
+}
+.drawer h3 { font-size: 12px; margin-bottom: 6px; }
+.drawer p { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+.drawer .actions { display: flex; flex-direction: column; gap: 6px; }
+.sec-break td {
+  padding: 10px 12px 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted); background: #fff; border-bottom: none;
+}
+.note {
+  margin-top: 22px; max-width: 980px; font-size: 12px; color: var(--text-secondary);
+  padding: 12px 14px; border-left: 3px solid var(--accent); background: rgba(255,255,255,0.55);
+  line-height: 1.5;
+}
+.note strong { color: var(--text-primary); }
+@media (max-width: 700px) {
+  .drawer { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+  <div class="tag">Mockup · alternativa E</div>
+  <h1>Resumo + tabela única <span>· varredura</span></h1>
+  <p class="sub">Camada 1: chips de hub (contagem + valor + risco). Camada 2: uma tabela só, com agrupamento visual hub→EF. Filtros por papel. Detalhe abre em faixa inferior — nunca um segundo accordion dentro do card.</p>
+
+  <div class="shell">
+    <div class="toolbar">
+      <span class="count">6 processos · 6 CDAs</span>
+      <button type="button" class="btn primary">+ Processo</button>
+    </div>
+
+    <div class="hubs">
+      <button type="button" class="chip on">
+        <span class="k">IDPJ</span>
+        <span class="n">5009876-11.2024…</span>
+        <span class="m"><span>2 EFs</span><span>R$ 1,73 mi</span><span class="r">5d</span></span>
+      </button>
+      <button type="button" class="chip">
+        <span class="k">Cautelar</span>
+        <span class="n">5003333-22.2024…</span>
+        <span class="m"><span>1 EF</span><span>R$ 2,34 mi</span><span class="r" style="color:var(--yellow)">95d</span></span>
+      </button>
+    </div>
+
+    <div class="filters">
+      <button type="button" class="pill on">Todos ativos</button>
+      <button type="button" class="pill">Cobertas</button>
+      <button type="button" class="pill">Sem vínculo</button>
+      <button type="button" class="pill dim">Extintas</button>
+      <button type="button" class="pill dim">Outros</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Nº</th>
+          <th>Vínculo</th>
+          <th>Valor</th>
+          <th>Presc.</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="g-hub">
+          <td><span class="role">Hub</span>IDPJ</td>
+          <td class="mono">5009876-11.2024.4.04.7001</td>
+          <td>—</td>
+          <td>R$ 1,73 mi*</td>
+          <td class="risk-c">5d</td>
+          <td>Ativa</td>
+        </tr>
+        <tr class="child selected">
+          <td>EF</td>
+          <td class="mono">5001234-56.2023.4.04.7001</td>
+          <td>via IDPJ</td>
+          <td>R$ 1,73 mi</td>
+          <td class="risk-c">5d</td>
+          <td>Ativa</td>
+        </tr>
+        <tr class="child">
+          <td>EF</td>
+          <td class="mono">5001235-12.2023.4.04.7001</td>
+          <td>via IDPJ</td>
+          <td>R$ 480 mil</td>
+          <td class="risk-ok">410d</td>
+          <td>Ativa</td>
+        </tr>
+        <tr class="g-hub">
+          <td><span class="role">Hub</span>Cautelar</td>
+          <td class="mono">5003333-22.2024.4.04.7002</td>
+          <td>—</td>
+          <td>R$ 2,34 mi*</td>
+          <td class="risk-w">95d</td>
+          <td>Ativa</td>
+        </tr>
+        <tr class="child">
+          <td>EF</td>
+          <td class="mono">5007777-88.2022.4.04.7002</td>
+          <td>via MCF</td>
+          <td>R$ 2,34 mi</td>
+          <td class="risk-w">95d</td>
+          <td>Ativa</td>
+        </tr>
+        <tr class="sec-break"><td colspan="6">Sem vínculo</td></tr>
+        <tr>
+          <td>EF</td>
+          <td class="mono">5000045-12.2019.4.04.7003</td>
+          <td>—</td>
+          <td>R$ 5,60 mi</td>
+          <td class="risk-w">130d</td>
+          <td>Suspensa</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="drawer">
+      <div>
+        <h3>EF selecionada</h3>
+        <p>5001234-56.2023.4.04.7001 · Execução Fiscal · 1ª VF Maringá<br>
+        2 CDAs · IRPJ + CSLL · vínculo IDPJ 5009876…</p>
+      </div>
+      <div>
+        <h3>Prescrição</h3>
+        <p>Mais próxima: <strong class="risk-c">5d</strong> (CDA 90.6.23.000123-45)<br>
+        Clique “Abrir” para CDAs, eventos e notas.</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn primary">Abrir detalhe</button>
+        <button type="button" class="btn">Dados do processo</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    <strong>O que some:</strong> N cards/process-groups empilhados, chrome duplicado (header accordion + summary), tabela dentro de accordion.
+    <strong>O que permanece:</strong> ordem Hubs → cobertas → livres → Extintas/Outros (filtros), vínculo hub legível na coluna, editar/+ Processo.
+  </p>
+</body>
+</html>

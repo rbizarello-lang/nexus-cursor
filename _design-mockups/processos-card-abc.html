@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processos — Cards A · B · C</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0c1524;
+  --bg-main: #0f1a2c;
+  --bg-card: #101a2c;
+  --bg-elevated: #142032;
+  --bg-hover: #18263a;
+  --border: #1e2c42;
+  --border-light: #2a3d58;
+  --text-primary: #e8eef6;
+  --text-secondary: #9aacc2;
+  --text-muted: #6b7f96;
+  --accent: #c4a36a;
+  --accent-dim: rgba(196,163,106,0.12);
+  --pgfn: #b84a66;
+  --pgfn-light: #d0607c;
+  --pgfn-dim: rgba(184,74,102,0.16);
+  --blue: #4a8fd4;
+  --blue-dim: rgba(74,143,212,0.14);
+  --green: #3d9a6a;
+  --green-dim: rgba(61,154,106,0.14);
+  --orange: #d4893a;
+  --orange-dim: rgba(212,137,58,0.16);
+  --red: #d45a6a;
+  --font: 'Public Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  background:
+    radial-gradient(ellipse 70% 40% at 15% 0%, rgba(184,74,102,0.10), transparent 50%),
+    radial-gradient(ellipse 50% 35% at 90% 10%, rgba(196,163,106,0.06), transparent 45%),
+    linear-gradient(180deg, #0e1828 0%, var(--bg-deep) 40%, #0a1220 100%);
+  color: var(--text-primary);
+  padding: 32px 28px 80px;
+  min-height: 100vh;
+  line-height: 1.4;
+}
+.page-tag {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; background: var(--accent-dim);
+}
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+.lead {
+  color: var(--text-secondary); font-size: 13px; margin: 8px 0 28px;
+  max-width: 720px; line-height: 1.5;
+}
+.toc {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 36px;
+}
+.toc a {
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  text-decoration: none; padding: 6px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--bg-card);
+}
+.toc a:hover { border-color: var(--accent); color: var(--accent); }
+.toc a .rec {
+  margin-left: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--pgfn-light);
+}
+
+section.opt { margin-bottom: 48px; max-width: 920px; }
+.opt-head { margin-bottom: 14px; }
+.opt-head h2 {
+  font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px;
+}
+.opt-head h2 .badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 3px; background: var(--pgfn-dim); color: var(--pgfn-light);
+  border: 1px solid color-mix(in srgb, var(--pgfn) 35%, var(--border));
+}
+.opt-head h2 .badge.alt {
+  background: var(--accent-dim); color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.opt-head p { font-size: 12px; color: var(--text-muted); margin-top: 4px; max-width: 640px; }
+
+/* shared bits */
+.type-pill {
+  display: inline-flex; align-items: center; font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px;
+  background: var(--pgfn-dim); color: var(--pgfn-light);
+  border: 1px solid color-mix(in srgb, var(--pgfn) 40%, transparent);
+}
+.mono { font-family: var(--mono); }
+.status-ok {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--green); background: var(--green-dim); padding: 2px 6px; border-radius: 3px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.blue { background: var(--blue); }
+.dot.green { background: var(--green); }
+.dot.orange { background: var(--orange); }
+.btn-ghost {
+  font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-secondary);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-link {
+  font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  border: none; background: none; color: var(--blue); padding: 0;
+}
+.btn-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ═══════ A — Signal card ═══════ */
+.card-a {
+  background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--pgfn) 30%, var(--border));
+  border-left: 3px solid var(--pgfn); border-radius: var(--radius);
+  padding: 0; overflow: hidden;
+}
+.card-a + .card-a { margin-top: 10px; }
+.a-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.a-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.a-id .num {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.a-kpi {
+  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
+  white-space: nowrap; flex-shrink: 0;
+}
+.a-kpi strong { color: var(--text-primary); font-weight: 600; }
+.a-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.a-row {
+  display: grid; grid-template-columns: 88px 1fr; gap: 10px; align-items: baseline;
+}
+.a-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); padding-top: 2px;
+}
+.a-val { font-size: 12px; color: var(--text-primary); min-width: 0; }
+.a-val .muted { color: var(--text-muted); font-size: 11px; }
+.a-val .phase-name { font-weight: 700; color: var(--orange); }
+.a-val .phase-name.green { color: var(--green); }
+.a-ef {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-elevated); font-size: 11px; max-width: 100%;
+  border-left: 3px solid color-mix(in srgb, var(--pgfn) 55%, var(--border));
+}
+.a-ef .num { font-family: var(--mono); font-weight: 600; font-size: 11px; }
+.a-note {
+  font-size: 11px; color: var(--text-secondary); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.a-note em { font-style: normal; color: var(--text-muted); }
+.a-foot {
+  display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px;
+}
+.a-detail {
+  display: none; border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.18); padding: 12px 14px;
+}
+.card-a.open .a-detail { display: block; }
+.a-ruler {
+  display: flex; align-items: flex-start; gap: 0; margin-bottom: 12px;
+}
+.a-step {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0;
+}
+.a-step .lab { font-size: 9px; color: var(--text-muted); text-align: center; }
+.a-step.done .lab { color: var(--text-secondary); }
+.a-step.now .lab { color: var(--orange); font-weight: 700; }
+.a-conn {
+  flex: 0.5; height: 2px; background: var(--border-light); margin-top: 3px;
+}
+.a-conn.on { background: color-mix(in srgb, var(--green) 50%, var(--border)); }
+.a-pend {
+  font-size: 11px; color: var(--text-secondary); margin: 0; padding-left: 16px;
+}
+.a-pend li { margin-bottom: 3px; }
+.a-pend .d { color: var(--text-muted); font-family: var(--mono); font-size: 10px; }
+
+/* ═══════ B — Split record ═══════ */
+.card-b {
+  background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--pgfn) 30%, var(--border));
+  border-left: 3px solid var(--pgfn); border-radius: var(--radius); overflow: hidden;
+}
+.card-b + .card-b { margin-top: 12px; }
+.b-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pgfn) 8%, var(--bg-card)), var(--bg-card));
+}
+.b-head-left { min-width: 0; }
+.b-head-left .title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.b-head-left h3 { font-size: 13px; font-weight: 700; }
+.b-head-left .num {
+  font-family: var(--mono); font-size: 12px; color: var(--text-secondary);
+}
+.b-metrics {
+  display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap;
+}
+.b-metrics div small {
+  display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.b-metrics div strong { font-size: 13px; font-weight: 700; font-family: var(--mono); }
+.b-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.b-grid {
+  display: grid; grid-template-columns: 1fr 1.15fr; min-height: 200px;
+}
+.b-col { padding: 14px 16px; min-width: 0; }
+.b-col + .b-col { border-left: 1px solid var(--border); background: rgba(0,0,0,0.12); }
+.b-col-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 10px;
+}
+.b-ruler {
+  display: flex; flex-direction: column; gap: 0; margin-bottom: 16px;
+}
+.b-ruler-item {
+  display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: start;
+  position: relative; padding-bottom: 12px;
+}
+.b-ruler-item:not(:last-child)::before {
+  content: ''; position: absolute; left: 3px; top: 10px; bottom: 0;
+  width: 2px; background: var(--border);
+}
+.b-ruler-item .dot { margin-top: 3px; width: 8px; height: 8px; }
+.b-ruler-item .name { font-size: 12px; font-weight: 600; }
+.b-ruler-item .meta { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-top: 1px; }
+.b-ruler-item.now .name { color: var(--orange); }
+.b-ef-list { display: flex; flex-direction: column; gap: 6px; }
+.b-ef {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+  padding: 7px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-elevated); font-size: 11px;
+  border-left: 3px solid color-mix(in srgb, var(--pgfn) 55%, var(--border));
+}
+.b-ef .num { font-family: var(--mono); font-weight: 600; font-size: 11px; }
+.b-ef .val { color: var(--text-secondary); font-family: var(--mono); font-size: 10px; }
+.b-work-phase {
+  font-size: 12px; font-weight: 700; color: var(--orange); margin-bottom: 6px;
+}
+.b-work-list {
+  font-size: 11px; color: var(--text-secondary); padding-left: 16px; margin-bottom: 12px;
+}
+.b-work-list li { margin-bottom: 4px; }
+.b-work-list .d { color: var(--text-muted); font-family: var(--mono); font-size: 10px; }
+.b-decision {
+  font-size: 11px; color: var(--text-secondary); line-height: 1.45;
+  max-height: 4.4em; overflow: hidden; position: relative;
+  margin-bottom: 8px;
+}
+.b-decision.expanded { max-height: none; }
+.b-decision:not(.expanded)::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.6em;
+  background: linear-gradient(transparent, rgba(10,16,28,0.95));
+}
+.b-notes {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.b-notes .lab {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between;
+}
+.b-notes p {
+  font-size: 11px; color: var(--text-secondary); line-height: 1.4;
+  padding: 8px 10px; background: var(--bg-elevated); border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.b-notes .empty { font-style: italic; color: var(--text-muted); border-style: dashed; }
+
+@media (max-width: 720px) {
+  .b-grid { grid-template-columns: 1fr; }
+  .b-col + .b-col { border-left: none; border-top: 1px solid var(--border); }
+}
+
+/* ═══════ C — Accordion zones ═══════ */
+.card-c {
+  background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--pgfn) 30%, var(--border));
+  border-left: 3px solid var(--pgfn); border-radius: var(--radius); overflow: hidden;
+}
+.card-c + .card-c { margin-top: 12px; }
+.c-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.c-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.c-id .num { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.c-kpi { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.c-kpi strong { color: var(--text-primary); }
+.c-zone {
+  border-bottom: 1px solid var(--border);
+}
+.c-zone:last-child { border-bottom: none; }
+.c-zone-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 14px; border: none; background: transparent; cursor: pointer;
+  color: var(--text-primary); font-family: inherit; text-align: left;
+}
+.c-zone-btn:hover { background: rgba(255,255,255,0.02); }
+.c-chev {
+  font-size: 10px; color: var(--text-muted); width: 12px; flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.c-zone.open .c-chev { transform: rotate(90deg); color: var(--accent); }
+.c-zone-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-muted); flex-shrink: 0;
+}
+.c-zone.open .c-zone-title { color: var(--accent); }
+.c-zone-summary {
+  font-size: 12px; color: var(--text-secondary); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+}
+.c-zone-summary strong { color: var(--text-primary); font-weight: 600; }
+.c-zone-summary .hot { color: var(--orange); font-weight: 700; }
+.c-zone-body {
+  display: none; padding: 0 14px 12px 36px;
+}
+.c-zone.open .c-zone-body { display: block; }
+.c-timeline { display: flex; flex-direction: column; gap: 0; }
+.c-tl-item {
+  display: grid; grid-template-columns: 12px 1fr; gap: 10px;
+  position: relative; padding-bottom: 12px;
+}
+.c-tl-item:not(:last-child)::before {
+  content: ''; position: absolute; left: 3px; top: 10px; bottom: 0;
+  width: 2px; background: var(--border);
+}
+.c-tl-item .dot { margin-top: 3px; }
+.c-tl-item .name { font-size: 12px; font-weight: 600; }
+.c-tl-item .meta { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+.c-tl-item .body { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+.c-tl-item .body ol { padding-left: 16px; margin-top: 4px; }
+.c-tl-item .body li { margin-bottom: 2px; }
+.c-ef-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-elevated); font-size: 11px; margin-bottom: 6px;
+  border-left: 3px solid color-mix(in srgb, var(--pgfn) 55%, var(--border));
+}
+.c-ef-row .num { font-family: var(--mono); font-weight: 600; }
+.c-ef-row .val { color: var(--text-secondary); font-family: var(--mono); font-size: 10px; }
+.c-note-box {
+  font-size: 11px; color: var(--text-secondary); line-height: 1.4;
+  padding: 8px 10px; background: var(--bg-elevated); border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.c-note-box.empty { font-style: italic; color: var(--text-muted); border-style: dashed; }
+.c-zone-actions { margin-top: 8px; }
+
+.footnote {
+  max-width: 920px; margin-top: 8px; font-size: 12px; color: var(--text-secondary);
+  padding: 12px 14px; border-left: 3px solid var(--accent);
+  background: rgba(16,26,44,0.6); line-height: 1.5;
+}
+.footnote strong { color: var(--text-primary); }
+.hint {
+  font-size: 11px; color: var(--text-muted); margin-top: 8px;
+}
+</style>
+</head>
+<body>
+  <div class="page-tag">Mockup · comparação visual</div>
+  <h1>Card IDPJ <span>· A · B · C</span></h1>
+  <p class="lead">
+    Três apresentações do mesmo conteúdo (dados da Fachada Norte). Interaja:
+    em <strong>A</strong> abra a timeline; em <strong>B</strong> expanda a decisão;
+    em <strong>C</strong> alterne as zonas.
+  </p>
+  <nav class="toc">
+    <a href="#opt-a">A · Signal card <span class="rec">recomendada</span></a>
+    <a href="#opt-b">B · Split record</a>
+    <a href="#opt-c">C · Accordion</a>
+  </nav>
+
+  <!-- ═══ A ═══ -->
+  <section class="opt" id="opt-a">
+    <div class="opt-head">
+      <h2><span class="badge">A</span> Signal card</h2>
+      <p>Radar compacto: identidade + fase atual + próximo marco + cobertura + nota. Timeline só sob demanda.</p>
+    </div>
+
+    <article class="card-a" id="card-a1">
+      <div class="a-head">
+        <div class="a-id">
+          <span class="type-pill">IDPJ</span>
+          <span class="num">5807848-48.2023.4.04.7105</span>
+        </div>
+        <div class="a-kpi">1 EF · <strong>R$ 3.091.349,19</strong></div>
+      </div>
+      <div class="a-body">
+        <div class="a-row">
+          <span class="a-label">Fase atual</span>
+          <div class="a-val"><span class="phase-name">Recurso</span> <span class="muted">· 5 julgamentos pendentes</span></div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Próximo</span>
+          <div class="a-val">17/06/2026 · <span class="mono muted">1053550-97.2020.4.01.3400</span></div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Cobertura</span>
+          <div class="a-val">
+            <div class="a-ef">
+              <span class="num">1053550-97.2020.4.01.3400</span>
+              <span class="muted">R$ 1.262.615,49</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Nota</span>
+          <div class="a-val a-note">5 julgamentos pendentes — próximos em 17/06/2026 <em>· editar</em></div>
+        </div>
+        <div class="a-foot">
+          <button type="button" class="btn-ghost" onclick="toggleA('card-a1', this)">Ver timeline</button>
+          <button type="button" class="btn-ghost">+ Fase</button>
+        </div>
+      </div>
+      <div class="a-detail">
+        <div class="a-ruler">
+          <div class="a-step done"><span class="dot blue"></span><span class="lab">Ajuizamento</span></div>
+          <div class="a-conn on"></div>
+          <div class="a-step done"><span class="dot green"></span><span class="lab">Decisão final</span></div>
+          <div class="a-conn on"></div>
+          <div class="a-step now"><span class="dot orange"></span><span class="lab">Recurso</span></div>
+        </div>
+        <ol class="a-pend">
+          <li>Julgamento pendente — <span class="d">17/06/2026 · 1053550-97…</span></li>
+          <li>Julgamento pendente — <span class="d">17/06/2026 · 1008555-27…</span></li>
+          <li>Julgamento pendente — <span class="d">17/06/2026 · 0008517-76…</span></li>
+          <li>Julgamento pendente — <span class="d">17/06/2026 · 1002947-98…</span></li>
+          <li>Julgamento pendente — <span class="d">17/06/2026 · 1019173-52…</span></li>
+        </ol>
+      </div>
+    </article>
+
+    <article class="card-a" id="card-a2">
+      <div class="a-head">
+        <div class="a-id">
+          <span class="type-pill">IDPJ</span>
+          <span class="num">5012345-67.2024.4.04.7001</span>
+        </div>
+        <div class="a-kpi">2 EFs · <strong>R$ 1.716.381,55</strong></div>
+      </div>
+      <div class="a-body">
+        <div class="a-row">
+          <span class="a-label">Fase atual</span>
+          <div class="a-val"><span class="phase-name green">Liminar</span> <span class="muted">· favorável · 03/08/2026</span></div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Decisão</span>
+          <div class="a-val">
+            Indeferimento do pedido de reconsideração… bloqueio RENAJUD, SISBAJUD e CNIB
+            <button type="button" class="btn-link" style="margin-left:6px">ler decisão</button>
+          </div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Cobertura</span>
+          <div class="a-val" style="display:flex;flex-direction:column;gap:6px">
+            <div class="a-ef">
+              <span class="num">5001111-22.2023.4.04.7001</span>
+              <span class="muted">R$ 980.200,00</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+            <div class="a-ef">
+              <span class="num">5002222-33.2023.4.04.7001</span>
+              <span class="muted">R$ 736.181,55</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row">
+          <span class="a-label">Nota</span>
+          <div class="a-val a-note"><em>sem notas · adicionar</em></div>
+        </div>
+        <div class="a-foot">
+          <button type="button" class="btn-ghost" onclick="toggleA('card-a2', this)">Ver timeline</button>
+          <button type="button" class="btn-ghost">+ Fase</button>
+        </div>
+      </div>
+      <div class="a-detail">
+        <div class="a-ruler">
+          <div class="a-step done"><span class="dot blue"></span><span class="lab">Ajuizamento</span></div>
+          <div class="a-conn on"></div>
+          <div class="a-step now"><span class="dot green"></span><span class="lab">Liminar</span></div>
+        </div>
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.45">
+          Indeferimento do pedido de reconsideração. Mantida a decisão que deferiu a tutela de urgência para bloqueio de bens e valores via RENAJUD, SISBAJUD e CNIB, até o limite do crédito.
+        </p>
+      </div>
+    </article>
+    <p class="hint">Clique em “Ver timeline” para revelar o histórico sem poluir o scan da lista.</p>
+  </section>
+
+  <!-- ═══ B ═══ -->
+  <section class="opt" id="opt-b">
+    <div class="opt-head">
+      <h2><span class="badge alt">B</span> Split record</h2>
+      <p>Header de identidade + duas colunas: contexto (régua + EFs) e trabalho (fase atual, decisão, notas).</p>
+    </div>
+
+    <article class="card-b">
+      <div class="b-head">
+        <div class="b-head-left">
+          <div class="title-row">
+            <span class="type-pill">IDPJ</span>
+            <h3>Incidente de desconsideração</h3>
+          </div>
+          <div class="num">5807848-48.2023.4.04.7105</div>
+          <div class="b-metrics">
+            <div><small>Valor total</small><strong>R$ 3.091.349,19</strong></div>
+            <div><small>EFs</small><strong>1</strong></div>
+            <div><small>Fase</small><strong style="color:var(--orange);font-family:var(--font)">Recurso</strong></div>
+          </div>
+        </div>
+        <div class="b-actions">
+          <button type="button" class="btn-ghost">Dados</button>
+          <button type="button" class="btn-ghost">+ Fase</button>
+        </div>
+      </div>
+      <div class="b-grid">
+        <div class="b-col">
+          <div class="b-col-label">Contexto</div>
+          <div class="b-ruler">
+            <div class="b-ruler-item">
+              <span class="dot blue"></span>
+              <div>
+                <div class="name">Ajuizamento</div>
+                <div class="meta">—</div>
+              </div>
+            </div>
+            <div class="b-ruler-item">
+              <span class="dot green"></span>
+              <div>
+                <div class="name">Decisão final · favorável</div>
+                <div class="meta">27/03/2025 · Ev. 264</div>
+              </div>
+            </div>
+            <div class="b-ruler-item now">
+              <span class="dot orange"></span>
+              <div>
+                <div class="name">Recurso</div>
+                <div class="meta">5 julgamentos pendentes</div>
+              </div>
+            </div>
+          </div>
+          <div class="b-col-label">Cobertura · 1 EF</div>
+          <div class="b-ef-list">
+            <div class="b-ef">
+              <span class="num">1053550-97.2020.4.01.3400</span>
+              <span class="val">R$ 1.262.615,49</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+          </div>
+        </div>
+        <div class="b-col">
+          <div class="b-col-label">Trabalho</div>
+          <div class="b-work-phase">Recurso · pendências</div>
+          <ol class="b-work-list">
+            <li>Julgamento pendente <span class="d">17/06/2026 · 1053550-97…</span></li>
+            <li>Julgamento pendente <span class="d">17/06/2026 · 1008555-27…</span></li>
+            <li>Julgamento pendente <span class="d">17/06/2026 · 0008517-76…</span></li>
+            <li>Julgamento pendente <span class="d">17/06/2026 · 1002947-98…</span></li>
+            <li>Julgamento pendente <span class="d">17/06/2026 · 1019173-52…</span></li>
+          </ol>
+          <div class="b-notes">
+            <div class="lab"><span>Notas</span><button type="button" class="btn-link">+</button></div>
+            <p>5 julgamentos pendentes — próximos em 17/06/2026 nos processos listados.</p>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="card-b">
+      <div class="b-head">
+        <div class="b-head-left">
+          <div class="title-row">
+            <span class="type-pill">IDPJ</span>
+            <h3>Incidente de desconsideração</h3>
+          </div>
+          <div class="num">5012345-67.2024.4.04.7001</div>
+          <div class="b-metrics">
+            <div><small>Valor total</small><strong>R$ 1.716.381,55</strong></div>
+            <div><small>EFs</small><strong>2</strong></div>
+            <div><small>Fase</small><strong style="color:var(--green);font-family:var(--font)">Liminar</strong></div>
+          </div>
+        </div>
+        <div class="b-actions">
+          <button type="button" class="btn-ghost">Dados</button>
+          <button type="button" class="btn-ghost">+ Fase</button>
+        </div>
+      </div>
+      <div class="b-grid">
+        <div class="b-col">
+          <div class="b-col-label">Contexto</div>
+          <div class="b-ruler">
+            <div class="b-ruler-item">
+              <span class="dot blue"></span>
+              <div>
+                <div class="name">Ajuizamento</div>
+                <div class="meta">03/07/2026</div>
+              </div>
+            </div>
+            <div class="b-ruler-item now">
+              <span class="dot green"></span>
+              <div>
+                <div class="name">Liminar · favorável</div>
+                <div class="meta">03/08/2026</div>
+              </div>
+            </div>
+          </div>
+          <div class="b-col-label">Cobertura · 2 EFs</div>
+          <div class="b-ef-list">
+            <div class="b-ef">
+              <span class="num">5001111-22.2023.4.04.7001</span>
+              <span class="val">R$ 980.200,00</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+            <div class="b-ef">
+              <span class="num">5002222-33.2023.4.04.7001</span>
+              <span class="val">R$ 736.181,55</span>
+              <span class="status-ok">Ativa</span>
+            </div>
+          </div>
+        </div>
+        <div class="b-col">
+          <div class="b-col-label">Trabalho</div>
+          <div class="b-work-phase" style="color:var(--green)">Liminar · decisão</div>
+          <div class="b-decision" id="b-dec">
+            Indeferimento do pedido de reconsideração. Mantida a decisão que deferiu a tutela de urgência para o bloqueio de bens e valores dos requeridos, via sistemas RENAJUD, SISBAJUD e CNIB, até o limite do crédito exequendo, enquanto pendente o julgamento do incidente.
+          </div>
+          <button type="button" class="btn-link" onclick="toggleDec(this)">ler decisão completa</button>
+          <div class="b-notes">
+            <div class="lab"><span>Notas</span><button type="button" class="btn-link">+</button></div>
+            <p class="empty">Nenhuma nota · clique + para adicionar</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══ C ═══ -->
+  <section class="opt" id="opt-c">
+    <div class="opt-head">
+      <h2><span class="badge alt">C</span> Accordion de zonas</h2>
+      <p>Mesmo card único; quatro zonas. Só a situação atual abre por padrão — histórico, cobertura e notas sob demanda.</p>
+    </div>
+
+    <article class="card-c" data-acc>
+      <div class="c-head">
+        <div class="c-id">
+          <span class="type-pill">IDPJ</span>
+          <span class="num">5807848-48.2023.4.04.7105</span>
+        </div>
+        <div class="c-kpi">1 EF · <strong>R$ 3.091.349,19</strong></div>
+      </div>
+
+      <div class="c-zone open" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Situação</span>
+          <span class="c-zone-summary"><span class="hot">Recurso</span> · 5 pendentes · próximo 17/06/2026</span>
+        </button>
+        <div class="c-zone-body">
+          <ol style="font-size:11px;color:var(--text-secondary);padding-left:16px">
+            <li style="margin-bottom:3px">Julgamento pendente — <span class="mono" style="color:var(--text-muted);font-size:10px">17/06/2026 · 1053550-97…</span></li>
+            <li style="margin-bottom:3px">Julgamento pendente — <span class="mono" style="color:var(--text-muted);font-size:10px">17/06/2026 · 1008555-27…</span></li>
+            <li style="margin-bottom:3px">Julgamento pendente — <span class="mono" style="color:var(--text-muted);font-size:10px">17/06/2026 · 0008517-76…</span></li>
+            <li style="margin-bottom:3px">Julgamento pendente — <span class="mono" style="color:var(--text-muted);font-size:10px">17/06/2026 · 1002947-98…</span></li>
+            <li>Julgamento pendente — <span class="mono" style="color:var(--text-muted);font-size:10px">17/06/2026 · 1019173-52…</span></li>
+          </ol>
+          <div class="c-zone-actions"><button type="button" class="btn-ghost">+ Fase</button></div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Timeline</span>
+          <span class="c-zone-summary">3 fases · <strong>Recurso</strong> atual</span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-timeline">
+            <div class="c-tl-item">
+              <span class="dot blue"></span>
+              <div>
+                <div class="name">Ajuizamento</div>
+                <div class="meta">—</div>
+              </div>
+            </div>
+            <div class="c-tl-item">
+              <span class="dot green"></span>
+              <div>
+                <div class="name">Decisão final · favorável</div>
+                <div class="meta">27/03/2025 · Ev. 264</div>
+              </div>
+            </div>
+            <div class="c-tl-item">
+              <span class="dot orange"></span>
+              <div>
+                <div class="name">Recurso</div>
+                <div class="meta">em curso</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Cobertura</span>
+          <span class="c-zone-summary">1 EF · <strong>R$ 1.262.615,49</strong></span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-ef-row">
+            <span class="num">1053550-97.2020.4.01.3400</span>
+            <span class="val">R$ 1.262.615,49</span>
+            <span class="status-ok">Ativa</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Notas</span>
+          <span class="c-zone-summary">1 nota</span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-note-box">5 julgamentos pendentes — próximos em 17/06/2026 nos processos listados.</div>
+        </div>
+      </div>
+    </article>
+
+    <article class="card-c" data-acc style="margin-top:12px">
+      <div class="c-head">
+        <div class="c-id">
+          <span class="type-pill">IDPJ</span>
+          <span class="num">5012345-67.2024.4.04.7001</span>
+        </div>
+        <div class="c-kpi">2 EFs · <strong>R$ 1.716.381,55</strong></div>
+      </div>
+
+      <div class="c-zone open" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Situação</span>
+          <span class="c-zone-summary"><span class="hot" style="color:var(--green)">Liminar</span> · favorável · 03/08/2026</span>
+        </button>
+        <div class="c-zone-body">
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.45;margin-bottom:8px">
+            Indeferimento do pedido de reconsideração. Mantida a tutela com bloqueio RENAJUD, SISBAJUD e CNIB…
+            <button type="button" class="btn-link">ler completa</button>
+          </p>
+          <div class="c-zone-actions"><button type="button" class="btn-ghost">+ Fase</button></div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Timeline</span>
+          <span class="c-zone-summary">2 fases · <strong>Liminar</strong> atual</span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-timeline">
+            <div class="c-tl-item">
+              <span class="dot blue"></span>
+              <div><div class="name">Ajuizamento</div><div class="meta">03/07/2026</div></div>
+            </div>
+            <div class="c-tl-item">
+              <span class="dot green"></span>
+              <div><div class="name">Liminar · favorável</div><div class="meta">03/08/2026</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Cobertura</span>
+          <span class="c-zone-summary">2 EFs · <strong>R$ 1.716.381,55</strong></span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-ef-row">
+            <span class="num">5001111-22.2023.4.04.7001</span>
+            <span class="val">R$ 980.200,00</span>
+            <span class="status-ok">Ativa</span>
+          </div>
+          <div class="c-ef-row">
+            <span class="num">5002222-33.2023.4.04.7001</span>
+            <span class="val">R$ 736.181,55</span>
+            <span class="status-ok">Ativa</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="c-zone" data-zone>
+        <button type="button" class="c-zone-btn" onclick="toggleZone(this)">
+          <span class="c-chev">▸</span>
+          <span class="c-zone-title">Notas</span>
+          <span class="c-zone-summary">vazia</span>
+        </button>
+        <div class="c-zone-body">
+          <div class="c-note-box empty">Nenhuma nota · adicionar</div>
+        </div>
+      </div>
+    </article>
+    <p class="hint">Em C, abrir uma zona fecha as outras do mesmo card (uma pergunta por vez).</p>
+  </section>
+
+  <p class="footnote">
+    <strong>Como usar:</strong> abra o arquivo no navegador e compare altura, escaneabilidade e onde a prosa jurídica “vive”.
+    Arquivo: <span class="mono">_design-mockups/processos-card-abc.html</span>
+  </p>
+
+<script>
+function toggleA(id, btn) {
+  const card = document.getElementById(id);
+  const open = card.classList.toggle('open');
+  btn.textContent = open ? 'Ocultar timeline' : 'Ver timeline';
+}
+function toggleDec(btn) {
+  const el = document.getElementById('b-dec');
+  const open = el.classList.toggle('expanded');
+  btn.textContent = open ? 'recolher' : 'ler decisão completa';
+}
+function toggleZone(btn) {
+  const zone = btn.closest('[data-zone]');
+  const card = btn.closest('[data-acc]');
+  const wasOpen = zone.classList.contains('open');
+  card.querySelectorAll('[data-zone]').forEach(z => z.classList.remove('open'));
+  if (!wasOpen) zone.classList.add('open');
+}
+</script>
+</body>
+</html>
