@@ -394,6 +394,33 @@ export function filterImportedProcessNotes(notes) {
   return uniqueStrings(notes).filter((n) => !isRedundantImportedProcessNote(n));
 }
 
+/** Nota automática no card do processo (aba Processos e Prescrição) após registro de atuação. */
+export function buildAtuacaoProcessNote(intim, action, respondedAt) {
+  const ra = action || {};
+  const typeLabels = { peticionamento: ra.peticionType || 'Peticionamento', ciencia: 'Ciência', outra: 'Outra medida' };
+  const lbl = typeLabels[ra.type] || 'Atuação';
+  let datePart = '';
+  const iso = String(respondedAt || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split('-');
+    datePart = ` · ${d}/${m}/${y}`;
+  }
+  const chunks = [`[Atuação · ${lbl}${datePart}]`];
+  const desc = String(ra.description || '').trim();
+  if (desc) chunks.push(desc);
+  const ev = String(intim?.eventDescription || '').trim();
+  if (ev && !desc.includes(ev)) chunks.push(`(${ev})`);
+  const linkUrl = ra.type === 'peticionamento' ? ra.peticionUrl : ra.docUrl;
+  if (linkUrl && String(linkUrl).trim()) chunks.push(`Peça: ${String(linkUrl).trim()}`);
+  return chunks.join(' ');
+}
+
+export function appendAtuacaoNoteToExecution(execution, noteText) {
+  if (!execution || !noteText) return execution;
+  const existing = execution.notesList || (execution.notes ? [execution.notes] : []);
+  return { ...execution, notesList: [...existing, noteText] };
+}
+
 export function sanitizeImportedExecutionNotes(record) {
   if (!record) return record;
   const notes = filterImportedProcessNotes(record.notesList || (record.notes ? [record.notes] : []));
