@@ -421,6 +421,39 @@ export function appendAtuacaoNoteToExecution(execution, noteText) {
   return { ...execution, notesList: [...existing, noteText] };
 }
 
+/**
+ * Migra atuações já registradas para notesList do processo correspondente.
+ * Idempotente via responseAction._noteOnProcessCard. Sem processo cadastrado, tenta de novo na próxima carga.
+ */
+export function migrateAtuacaoNotesToProcessCards(data) {
+  if (!data) return data;
+  (data.intimations || []).forEach((intim) => {
+    const ra = intim.responseAction;
+    if (!ra || ra._noteOnProcessCard || !intim.operationId) return;
+    if (!intim.processNumber) {
+      intim.responseAction = { ...ra, _noteOnProcessCard: true };
+      return;
+    }
+    const targetDigits = normalizeExecutionProcessNumber(intim.processNumber);
+    const idx = (data.executions || []).findIndex((e) =>
+      e.operationId === intim.operationId &&
+      normalizeExecutionProcessNumber(e.processNumber) === targetDigits
+    );
+    if (idx < 0) return;
+    data.executions[idx] = appendAtuacaoNoteToExecution(
+      data.executions[idx],
+      buildAtuacaoProcessNote(intim, ra, ra.respondedAt || intim.updatedAt)
+    );
+    intim.responseAction = { ...ra, _noteOnProcessCard: true };
+  });
+  (data.operations || []).forEach((op) => {
+    if (!op.briefing?.entries?.length) return;
+    const filtered = op.briefing.entries.filter((e) => !(e.type === 'atuacao' && e.sourceIntimationId));
+    if (filtered.length !== op.briefing.entries.length) op.briefing.entries = filtered;
+  });
+  return data;
+}
+
 export function sanitizeImportedExecutionNotes(record) {
   if (!record) return record;
   const notes = filterImportedProcessNotes(record.notesList || (record.notes ? [record.notes] : []));

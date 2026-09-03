@@ -8,6 +8,7 @@ import {
   isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
   mergeImportedExecution,
+  migrateAtuacaoNotesToProcessCards,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
 } from './lib/processes.js';
@@ -491,30 +492,7 @@ const applyMigrations = (parsed) => {
   if (!merged.calendar) merged.calendar = { extraHolidays: [] };
   if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
-  // Migration: notas de atuação retroativas no card do processo (executions.notesList)
-  const intimsWithAction = (merged.intimations || []).filter(x => x.responseAction && x.operationId && !x.responseAction._noteOnProcessCard);
-  intimsWithAction.forEach(intim => {
-    const ra = intim.responseAction;
-    const exec = (merged.executions || []).find(e =>
-      e.operationId === intim.operationId && intim.processNumber && sameProc(e.processNumber, intim.processNumber)
-    );
-    if (exec) {
-      const idx = merged.executions.findIndex(e => e.id === exec.id);
-      if (idx >= 0) {
-        merged.executions[idx] = appendAtuacaoNoteToExecution(
-          merged.executions[idx],
-          buildAtuacaoProcessNote(intim, ra, ra.respondedAt || intim.updatedAt)
-        );
-      }
-    }
-    intim.responseAction = { ...ra, _noteOnProcessCard: true };
-  });
-  // Limpa entradas de atuação migradas erroneamente para briefing (versão anterior)
-  (merged.operations || []).forEach(op => {
-    if (!op.briefing?.entries?.length) return;
-    const filtered = op.briefing.entries.filter(e => !(e.type === 'atuacao' && e.sourceIntimationId));
-    if (filtered.length !== op.briefing.entries.length) op.briefing.entries = filtered;
-  });
+  migrateAtuacaoNotesToProcessCards(merged);
   setExtraHolidays(merged.calendar.extraHolidays);
   return merged;
 };
@@ -8023,7 +8001,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     if (hasData && !force) {
       if (!confirm('Resetar dados demo?\n\nIsso SUBSTITUI todo o dataset deste navegador pelas 5 operações de demonstração (não soma / não duplica).\n\nContinuar?')) return;
     }
-    const demo = generateDemoData();
+    const demo = applyMigrations(generateDemoData());
     // Sempre substitui — nunca mescla (evitar duplicatas ao recarregar).
     setData(demo);
     setActiveOpId(null);

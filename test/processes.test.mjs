@@ -2,11 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
+  appendAtuacaoNoteToExecution,
+  buildAtuacaoProcessNote,
   findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
   isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
   mergeImportedExecution,
+  migrateAtuacaoNotesToProcessCards,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
 } from '../src/lib/processes.js';
@@ -147,5 +150,65 @@ describe('notas automáticas da planilha de processos', () => {
     const next = app.indexOf('\nfunction ', start + 1);
     const fn = app.slice(start, next > start ? next : undefined);
     assert.equal(fn.includes('notes: `Classe:'), false);
+  });
+});
+
+describe('nota de atuação no card do processo', () => {
+  it('monta nota com tipo, data, texto do usuário e link da peça', () => {
+    const note = buildAtuacaoProcessNote(
+      { eventDescription: 'Intimação pessoal — redirecionamento' },
+      {
+        type: 'peticionamento',
+        peticionType: 'Manifestação',
+        description: 'Peticionado sustentando art. 135 CTN.',
+        peticionUrl: 'https://docs.google.com/document/d/exemplo',
+      },
+      '2026-09-03T12:00:00.000Z'
+    );
+    assert.match(note, /^\[Atuação · Manifestação · 03\/09\/2026\]/);
+    assert.match(note, /Peticionado sustentando art\. 135 CTN\./);
+    assert.match(note, /Peça: https:\/\/docs\.google\.com\/document\/d\/exemplo/);
+    assert.equal(isRedundantImportedProcessNote(note), false);
+  });
+
+  it('migra atuações legadas para notesList e não duplica na segunda passagem', () => {
+    const data = {
+      operations: [{
+        id: 'op1',
+        briefing: { entries: [{ id: 'be1', type: 'atuacao', sourceIntimationId: 'i1', html: 'errada' }, { id: 'be2', type: 'observacao', html: 'ok' }] },
+      }],
+      executions: [{ id: 'a', operationId: 'op1', processNumber: '5001234-56.2023.4.04.7001', notesList: ['Penhora imóvel'] }],
+      intimations: [{
+        id: 'i1',
+        operationId: 'op1',
+        processNumber: '50012345620234047001',
+        eventDescription: 'Vista',
+        responseAction: { type: 'ciencia', description: 'Ciência registrada.', respondedAt: '2026-08-01T00:00:00.000Z' },
+      }],
+    };
+    migrateAtuacaoNotesToProcessCards(data);
+    const notes = data.executions[0].notesList;
+    assert.equal(notes.length, 2);
+    assert.match(notes[1], /\[Atuação · Ciência · 01\/08\/2026\]/);
+    assert.match(notes[1], /Ciência registrada\./);
+    assert.equal(data.intimations[0].responseAction._noteOnProcessCard, true);
+    assert.deepEqual(data.operations[0].briefing.entries.map(e => e.id), ['be2']);
+    migrateAtuacaoNotesToProcessCards(data);
+    assert.equal(data.executions[0].notesList.length, 2);
+  });
+
+  it('não marca a intimação se o processo ainda não está cadastrado', () => {
+    const data = {
+      operations: [{ id: 'op1' }],
+      executions: [],
+      intimations: [{
+        id: 'i1',
+        operationId: 'op1',
+        processNumber: '5001234-56.2023.4.04.7001',
+        responseAction: { type: 'ciencia', description: 'Ciência.' },
+      }],
+    };
+    migrateAtuacaoNotesToProcessCards(data);
+    assert.equal(data.intimations[0].responseAction._noteOnProcessCard, undefined);
   });
 });
