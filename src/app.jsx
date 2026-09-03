@@ -1,7 +1,15 @@
 import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+import { applyDiagnosticFix, runDiagnostics } from './lib/diagnostics.js';
+import {
+  DEFAULT_EXPORT_SELECTION,
+  EXPORT_DATASETS,
+  buildExportWorkbook,
+  countExportItems,
+  filterDataForExport,
+  sheetsToCsvParts,
+} from './lib/export.js';
 import {
   countExecutionReferences,
-  findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
   isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
@@ -491,123 +499,6 @@ const applyMigrations = (parsed) => {
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
   setExtraHolidays(merged.calendar.extraHolidays);
   return merged;
-};
-// ─── DIAGNÓSTICO DE INTEGRIDADE ───
-// Varre os dados procurando inconsistências silenciosas (as que não quebram a tela,
-// mas fazem número sumir): formatos divergentes de processo, órfãos, duplicatas.
-// Cada achado traz `fix` quando a correção é segura e automatizável.
-const runDiagnostics = (data) => {
-  const d = data || {};
-  const ops = d.operations || [], execs = d.executions || [], debts = d.debts || [];
-  const intims = d.intimations || [], people = d.people || [], hearings = d.hearings || [];
-  const tasks = d.tasks || [], assets = d.assets || [], desk = d.desk || [];
-  const opIds = new Set(ops.map(o => o.id));
-  const execIds = new Set(execs.map(e => e.id));
-  const out = [];
-  const add = (sev, id, titulo, itens, detalhe, fix) => { if (itens.length) out.push({ sev, id, titulo, itens, detalhe, fix }); };
-
-  // 1. Mesmo processo gravado com formatos diferentes (raiz do cruzamento que falhava)
-  const byDigits = {};
-  const push = (col, x, label) => { const n = normProc(x.processNumber); if (!n) return; (byDigits[n] = byDigits[n] || []).push({ col, label, raw: x.processNumber }); };
-  execs.forEach(x => push('executions', x, 'processo'));
-  debts.forEach(x => push('debts', x, 'CDA ' + (x.cdaNumber || 's/n')));
-  intims.forEach(x => push('intimations', x, 'intimação'));
-  const divergentes = Object.entries(byDigits)
-    .filter(([, arr]) => new Set(arr.map(a => a.raw)).size > 1)
-    .map(([n, arr]) => ({ id: n, texto: [...new Set(arr.map(a => a.raw))].join('  ↔  '), sub: arr.length + ' registro(s)' }));
-  add('media', 'formato', 'Mesmo processo com formatos diferentes', divergentes,
-    'O cruzamento já é feito por dígitos, então não há mais perda de dados — mas padronizar deixa as buscas e a leitura consistentes.', 'padronizar');
-
-  // 2. Execuções duplicadas: mesmo número DENTRO da mesma operação.
-  // Repetição entre operações pode ser intencional e exige diagnóstico separado.
-  const duplicateExecutionGroups = findDuplicateExecutionGroups(d);
-  add('alta', 'dupexec', 'Processos cadastrados em duplicidade',
-    duplicateExecutionGroups.map(group => {
-      const op = ops.find(o => o.id === group.operationId);
-      return {
-        id: group.recommendedId,
-        texto: group.processNumber || group.processDigits || 's/nº',
-        sub: `${group.executionIds.length} cadastros · ${op?.name || 'operação não localizada'} · ${group.conflicts.length} conflito(s)`,
-        group,
-      };
-    }),
-    'Há mais de um cadastro interno para o mesmo processo na mesma operação. Use “Consolidar” para escolher o registro principal e migrar eventos, apensamentos, incidentes e histórico sem perda.');
-
-  // 3. Pessoas duplicadas por CPF/CNPJ na mesma operação
-  const dupPersonGroups = [];
-  const handledP = new Set();
-  people.forEach(p => {
-    if (handledP.has(p.id) || !p.cpfCnpj) return;
-    const group = people.filter(other => other.operationId === p.operationId && other.cpfCnpj && docsCompatible(p.cpfCnpj, other.cpfCnpj));
-    if (group.length > 1) {
-      group.forEach(g => handledP.add(g.id));
-      dupPersonGroups.push(group);
-    }
-  });
-  add('media', 'duppessoa', 'Pessoas duplicadas (mesmo CPF/CNPJ)',
-    dupPersonGroups.map(a => ({ id: a[0].id, texto: a[0].name || 's/nome', sub: a.length + ' cadastros · ' + (a[0].cpfCnpj || '') })),
-    'Mesmo documento cadastrado mais de uma vez na operação — divide responsabilidades e bens.');
-
-  // 4. Processos sem operação válida — ficam invisíveis na aba da operação.
-  const execSemOperacao = execs.filter(x => !x.operationId || !opIds.has(x.operationId));
-  add('alta', 'execsemop', 'Processos sem operação válida',
-    execSemOperacao.map(x => ({
-      id: x.id,
-      executionId: x.id,
-      texto: x.processNumber || x.id,
-      sub: x.operationId ? 'operação inexistente' : 'sem operação',
-    })),
-    'Esses processos existem no banco, mas não entram em nenhuma operação. Use “Vincular” para escolher a operação correta; registros processuais órfãos do mesmo número também podem ser reassociados.');
-
-  // 4b. Demais registros apontando para operação inexistente
-  const orfaos = [];
-  [['debts', debts, 'CDA'], ['intimations', intims, 'intimação'], ['hearings', hearings, 'audiência'], ['people', people, 'pessoa'], ['assets', assets, 'bem']]
-    .forEach(([col, arr, lbl]) => arr.forEach(x => { if (x.operationId && !opIds.has(x.operationId)) orfaos.push({ id: x.id, texto: lbl + ': ' + (x.processNumber || x.cdaNumber || x.name || x.parties || x.description || x.id), sub: 'operação inexistente' }); }));
-  add('alta', 'orfaos', 'Registros de operação excluída', orfaos,
-    'Sobraram apontando para uma operação que não existe mais — invisíveis na interface, mas ocupam espaço e distorcem totais.', 'desvincular');
-
-  // 5. Vínculos entre processos apontando para o vazio
-  const vinculos = [];
-  execs.forEach(e => {
-    if (e.parentExecutionId && !execIds.has(e.parentExecutionId)) vinculos.push({ id: e.id, texto: e.processNumber || e.id, sub: 'apensado a processo inexistente' });
-    (e.linkedExecutionIds || []).forEach(x => { if (!execIds.has(x)) vinculos.push({ id: e.id, texto: e.processNumber || e.id, sub: 'abrange execução inexistente' }); });
-  });
-  add('media', 'vinculos', 'Vínculos entre processos quebrados', vinculos,
-    'Apensamento ou abrangência de incidente apontando para processo excluído.', 'limpar');
-
-  // 6. Refs mortas na Mesa
-  const alive = { intimation: new Set(intims.map(i => i.id)), task: new Set(tasks.map(t => t.id)), hearing: new Set(hearings.map(h => h.id)) };
-  add('info', 'mesa', 'Itens da Mesa que não existem mais',
-    desk.filter(x => !x || !alive[x.type] || !alive[x.type].has(x.id)).map((x, i) => ({ id: 'desk' + i, texto: (x && x.type) || '?', sub: 'registro excluído' })),
-    'Restos na fila de foco. Não aparecem na tela, mas viajam para a nuvem.', 'limpar');
-
-  // 7. CDA sem responsável originário
-  const respCda = new Set(((d.links || {}).cdaResponsibilities || []).filter(r => r.role === 'originario').map(r => r.cdaId));
-  add('info', 'semresp', 'CDAs sem devedor originário',
-    debts.filter(x => x.status !== 'extinta' && !respCda.has(x.id) && !x.personId).map(x => ({ id: x.id, texto: 'CDA ' + (x.cdaNumber || 's/n'), sub: fmtCur(x.value || 0) })),
-    'Sem devedor vinculado, a CDA não entra na exposição por pessoa.');
-
-  // 8. Intimação sem operação, mas cujo processo existe numa operação
-  const semOp = intims.filter(x => !x.operationId && x.processNumber && !x.responseAction).map(x => {
-    const e = execs.find(ex => sameProc(ex.processNumber, x.processNumber));
-    return e && e.operationId ? { id: x.id, texto: x.processNumber, sub: '→ ' + ((ops.find(o => o.id === e.operationId) || {}).name || '?'), opId: e.operationId } : null;
-  }).filter(Boolean);
-  add('media', 'intimsemop', 'Intimações que podem ser vinculadas', semOp,
-    'O processo dessas intimações já existe numa operação cadastrada — dá para vincular automaticamente.', 'vincular');
-
-  // 8b. Intimação ativa sem prazo final parseável — some da agenda e do e-mail
-  add('alta', 'intimsemprazo', 'Intimações ativas sem prazo final',
-    intims.filter(x => !x.responseAction && x.status !== 'analisado' && !toDayKey(x.dateDeadline))
-      .map(x => ({ id: x.id, texto: x.processNumber || 's/nº', sub: (x.eventDescription || 'sem Final Prazo').slice(0, 48) })),
-    'Sem data de prazo final reconhecível, a intimação não entra no e-mail diário nem na agenda da semana. Reimporte o XLS do eproc (Prazos em aberto) ou preencha Final Prazo à mão.');
-
-  // 9. CDA cujo processo não está cadastrado
-  add('info', 'cdasemproc', 'CDAs com processo não cadastrado',
-    debts.filter(x => x.processNumber && x.status !== 'extinta' && !execs.some(e => sameProc(e.processNumber, x.processNumber)))
-      .map(x => ({ id: x.id, texto: 'CDA ' + (x.cdaNumber || 's/n'), sub: x.processNumber })),
-    'A execução correspondente não existe no cadastro — o valor não é somado ao processo.');
-
-  return out;
 };
 const loadData = () => {
   try {
@@ -2826,7 +2717,11 @@ function App() {
   const [search, setSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
+  const [showExportPicker, setShowExportPicker] = useState(false);
+  const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
+  const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
+  const [diagnosticoOpId, setDiagnosticoOpId] = useState(null); // null = carteira inteira
   const [duplicateMergeGroup, setDuplicateMergeGroup] = useState(null);
   const [executionToRelink, setExecutionToRelink] = useState(null);
   const [expandedActions, setExpandedActions] = useState(new Set()); // intimações com a descrição da atuação aberta
@@ -3834,7 +3729,7 @@ function App() {
   // Visão Gemini (Workspace): materializa abas Gemini_* na Planilha ativa
   const exportGeminiView = (scope) => {
     if (!isGAS) {
-      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar JSON / dossiê manual.');
+      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar em ⚙ / dossiê manual.');
       return;
     }
     const sc = scope || 'carteira';
@@ -3883,6 +3778,23 @@ function App() {
   };
 
   const activeOp = data.operations.find(o => o.id === activeOpId);
+  const openDiagnostico = (opId) => {
+    setDiagnosticoOpId(opId || null);
+    setShowDiagnostico(true);
+    setShowSettings(false);
+  };
+  const openExportPicker = () => {
+    if (!activeOpId && exportScope === 'operacao') setExportScope('carteira');
+    setShowExportPicker(true);
+    setShowSettings(false);
+  };
+  const toggleExportId = (id) => {
+    setExportIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
   const filteredOps = data.operations.filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase())).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
 
   // CRUD
@@ -4922,10 +4834,101 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   };
 
   // Backup / Restore
+  const downloadBlob = (blob, filename, delayMs) => {
+    const run = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 2000);
+    };
+    if (delayMs) setTimeout(run, delayMs);
+    else run();
+  };
   const handleBackup = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `nexus_v2_backup_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+    downloadBlob(blob, `nexus_v2_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  };
+  const runSelectedExport = () => {
+    if (exportIds.size === 0) {
+      alert('Selecione ao menos um tipo de dado para exportar.');
+      return;
+    }
+    const operationId = exportScope === 'operacao' && activeOpId ? activeOpId : null;
+    const payload = buildExportWorkbook(data, [...exportIds], { operationId });
+    const date = new Date().toISOString().slice(0, 10);
+    let delay = 0;
+    if (payload.sheets.length) {
+      const xlsxLib = typeof window !== 'undefined' ? window.XLSX : undefined;
+      const xlsxOk = xlsxLib && xlsxLib.utils && xlsxLib.write;
+      if (xlsxOk) {
+        const wb = xlsxLib.utils.book_new();
+        payload.sheets.forEach(s => {
+          const ws = xlsxLib.utils.aoa_to_sheet(s.rows);
+          xlsxLib.utils.book_append_sheet(wb, ws, String(s.name || 'Dados').slice(0, 31));
+        });
+        const out = xlsxLib.write(wb, { bookType: 'xlsx', type: 'array' });
+        downloadBlob(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `nexus_export_${date}.xlsx`);
+        delay = 400;
+      } else {
+        sheetsToCsvParts(payload.sheets).forEach((part, i) => {
+          downloadBlob(new Blob([part.csv], { type: 'text/csv;charset=utf-8' }), `nexus_export_${part.name}_${date}.csv`, i * 400);
+        });
+        delay = payload.sheets.length * 400;
+      }
+    }
+    if (payload.includeJson && payload.jsonData) {
+      downloadBlob(new Blob([JSON.stringify(payload.jsonData, null, 2)], { type: 'application/json' }), `nexus_v2_backup_${date}.json`, delay);
+    }
+    setShowExportPicker(false);
+  };
+  const renderExportPicker = () => {
+    if (!showExportPicker) return null;
+    const scopedData = exportScope === 'operacao' && activeOpId ? filterDataForExport(data, activeOpId) : data;
+    const nSel = exportIds.size;
+    return (
+      <div className="global-search-overlay" onClick={() => setShowExportPicker(false)}>
+        <div className="global-search-box export-picker" onClick={e => e.stopPropagation()}>
+          <div className="export-picker-hd">
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>Exportar dados</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>Marque o que entra no arquivo. Pessoas e CNPJs saem em colunas separadas (CPF não mistura com CNPJ).</div>
+              <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <button type="button" className="btn-secondary btn-xs" style={exportScope === 'carteira' ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => setExportScope('carteira')}>Carteira inteira</button>
+                <button type="button" className="btn-secondary btn-xs" disabled={!activeOpId} style={exportScope === 'operacao' && activeOpId ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => activeOpId && setExportScope('operacao')}>Operação atual</button>
+              </div>
+              {exportScope === 'operacao' && !activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>Abra uma operação para restringir o recorte.</div>}
+              {exportScope === 'operacao' && activeOpId && exportIds.has('json') && <div style={{fontSize:10,color:'var(--yellow)',marginTop:6}}>O JSON neste recorte não é um backup completo da carteira.</div>}
+            </div>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18,flexShrink:0}} onClick={() => setShowExportPicker(false)}>✕</span>
+          </div>
+          <div className="export-picker-list">
+            {EXPORT_DATASETS.map(ds => {
+              const on = exportIds.has(ds.id);
+              const n = countExportItems(scopedData, ds.id);
+              const countTxt = ds.kind === 'json' ? (exportScope === 'operacao' && activeOpId ? 'recorte' : 'arquivo') : String(n);
+              return (
+                <label key={ds.id} className={`export-picker-row${on ? ' is-on' : ''}`}>
+                  <input type="checkbox" checked={on} onChange={() => toggleExportId(ds.id)} />
+                  <span style={{minWidth:0,flex:1}}>
+                    <span className="ep-label">{ds.label}</span>
+                    <span className="ep-hint">{ds.hint}</span>
+                  </span>
+                  <span className="ep-count">{countTxt}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="export-picker-ft">
+            <button type="button" className="btn-secondary btn-xs" onClick={() => setExportIds(new Set(EXPORT_DATASETS.map(d => d.id)))}>Selecionar tudo</button>
+            <button type="button" className="btn-secondary btn-xs" onClick={() => setExportIds(new Set())}>Nenhum</button>
+            <span style={{flex:1}} />
+            <button type="button" className="btn-secondary" onClick={() => setShowExportPicker(false)}>Cancelar</button>
+            <button type="button" className="btn-primary" disabled={nSel === 0} onClick={runSelectedExport}>Baixar{nSel ? ` (${nSel})` : ''}</button>
+          </div>
+        </div>
+      </div>
+    );
   };
   const handleRestore = (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -8074,7 +8077,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             localStorage.setItem('nexus_autosync_enabled', v ? 'true' : 'false');
           }}>Auto-sync: {autoSyncEnabled ? 'ON' : 'OFF'}</button>
         </>}
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>⬇ Exportar</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
         {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
       </div>
@@ -8106,7 +8109,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
-      <button className="settings-opt" style={{width:'100%'}} onClick={() => { setShowDiagnostico(true); setShowSettings(false); }}>🩺 Diagnóstico de integridade</button>
+      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
+      <div style={{fontSize:10,color:'var(--text-muted)',margin:'6px 0 4px',lineHeight:1.4}}>Toda a carteira. Para corrigir um caso, use o diagnóstico da operação.</div>
+      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>🩺 Diagnóstico desta operação</button>
+      {!activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Abra uma operação para restringir o diagnóstico.</div>}
     </div>
   </div>);
 
@@ -9967,7 +9973,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ); })}
               </div>;
             })()}
-            <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
           </div>
         </div>
         {!opHeaderCollapsed && opStats && <div style={{display:'flex',background:'var(--bg-main)',borderBottom:'1px solid var(--border)',alignItems:'stretch',flexShrink:0}}>
@@ -9993,10 +9998,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="stat-sub">{opStats.overdueTasks > 0 ? `${opStats.overdueTasks} vencida(s)` : opStats.openTasks > 0 ? 'em aberto' : 'nenhuma'}</div>
             </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,padding:'6px 14px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
-            <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
-              <button className="btn-secondary btn-xs has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
-              <button className="btn-secondary btn-xs" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
+          <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:6,padding:'6px 14px',flexShrink:0,borderLeft:'1px solid var(--border)',background:'var(--bg-main)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'auto auto',gap:6,justifyContent:'end'}}>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
+              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
               {(() => { const rs = reviewStatus(activeOp); return (<span style={{fontSize:9,color:rs.color,fontWeight:600,padding:'2px 8px',borderRadius:3,background:`${rs.color.replace('var(--','rgba(').replace(')',', 0.1)')}`,border:`1px solid ${rs.color.replace('var(--','rgba(').replace(')',', 0.25)')}`}}>{rs.label}</span>); })()}
@@ -10078,52 +10085,42 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {respondModal && <RespondForm intim={respondModal.intim} type={respondModal.type} onSave={(action) => handleRespondIntim(respondModal.intim, action)} onCancel={() => setRespondModal(null)} />}
     </Modal>
 
+    {renderExportPicker()}
+
     {/* Diagnóstico de integridade */}
     {showDiagnostico && (() => {
-      const achados = runDiagnostics(data);
+      const scopedOp = diagnosticoOpId ? data.operations.find(o => o.id === diagnosticoOpId) : null;
+      const achados = runDiagnostics(data, diagnosticoOpId ? { operationId: diagnosticoOpId } : {});
+      const nItens = achados.reduce((s,f)=>s+f.itens.length,0);
+      const itemCap = diagnosticoOpId ? 80 : 40;
       const SEV = { alta: { c:'var(--red)', l:'ALTA' }, media: { c:'var(--yellow)', l:'MÉDIA' }, info: { c:'var(--blue)', l:'INFO' } };
       const aplicar = (f) => {
         const n = f.itens.length;
-        if (!confirm(`Aplicar correção em ${n} registro(s)?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
+        const escopo = diagnosticoOpId ? ' desta operação' : '';
+        if (!confirm(`Aplicar correção em ${n} registro(s)${escopo}?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
         pushUndo('Correção do diagnóstico: ' + f.titulo);
-        setData(prev => {
-          const next = { ...prev };
-          if (f.id === 'mesa') {
-            const alive = { intimation: new Set((next.intimations||[]).map(i=>i.id)), task: new Set((next.tasks||[]).map(t=>t.id)), hearing: new Set((next.hearings||[]).map(h=>h.id)) };
-            next.desk = (next.desk||[]).filter(x => x && alive[x.type] && alive[x.type].has(x.id));
-          } else if (f.id === 'vinculos') {
-            const ids = new Set((next.executions||[]).map(e=>e.id));
-            next.executions = (next.executions||[]).map(e => {
-              let ch = e;
-              if (ch.parentExecutionId && !ids.has(ch.parentExecutionId)) ch = { ...ch, parentExecutionId: null };
-              if (Array.isArray(ch.linkedExecutionIds) && ch.linkedExecutionIds.some(x => !ids.has(x))) ch = { ...ch, linkedExecutionIds: ch.linkedExecutionIds.filter(x => ids.has(x)) };
-              return ch;
-            });
-          } else if (f.id === 'orfaos') {
-            const kill = new Set(f.itens.map(i => i.id));
-            ['debts','executions','intimations','hearings','people','assets'].forEach(col => { next[col] = (next[col]||[]).map(x => kill.has(x.id) ? { ...x, operationId: '' } : x); });
-          } else if (f.id === 'intimsemop') {
-            const map = {}; f.itens.forEach(i => { map[i.id] = i.opId; });
-            next.intimations = (next.intimations||[]).map(x => map[x.id] ? { ...x, operationId: map[x.id] } : x);
-          } else if (f.id === 'formato') {
-            // Padroniza pelo formato do processo cadastrado em executions (a fonte mais confiável)
-            const canon = {}; (next.executions||[]).forEach(e => { const n = normProc(e.processNumber); if (n && e.processNumber) canon[n] = e.processNumber; });
-            ['debts','intimations','hearings'].forEach(col => { next[col] = (next[col]||[]).map(x => { const n = normProc(x.processNumber); return (n && canon[n] && canon[n] !== x.processNumber) ? { ...x, processNumber: canon[n] } : x; }); });
-          }
-          return next;
-        });
+        setData(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
       };
       return (<div className="global-search-overlay" onClick={() => setShowDiagnostico(false)}>
         <div className="global-search-box" onClick={e => e.stopPropagation()} style={{maxHeight:'85vh',display:'flex',flexDirection:'column',maxWidth:760}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',borderBottom:'1px solid var(--border)'}}>
-            <div>
-              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>🩺 Diagnóstico de integridade</div>
-              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{achados.length === 0 ? 'Nenhum problema encontrado.' : achados.reduce((s,f)=>s+f.itens.length,0) + ' registro(s) em ' + achados.length + ' categoria(s)'}</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'14px 16px',borderBottom:'1px solid var(--border)',gap:12}}>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>{diagnosticoOpId ? '🩺 Diagnóstico desta operação' : '🩺 Diagnóstico de integridade'}</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                {diagnosticoOpId
+                  ? (scopedOp ? scopedOp.name : 'Operação') + (achados.length === 0 ? ' · nenhum problema neste recorte.' : ` · ${nItens} registro(s) em ${achados.length} categoria(s)`)
+                  : (achados.length === 0 ? 'Nenhum problema encontrado.' : nItens + ' registro(s) em ' + achados.length + ' categoria(s)')}
+              </div>
+              {activeOpId && <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <button type="button" className="btn-secondary btn-xs" style={diagnosticoOpId ? undefined : {borderColor:'var(--accent)',color:'var(--accent)'}} onClick={() => setDiagnosticoOpId(null)}>Carteira inteira</button>
+                <button type="button" className="btn-secondary btn-xs" style={diagnosticoOpId === activeOpId ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => setDiagnosticoOpId(activeOpId)}>Esta operação</button>
+              </div>}
             </div>
-            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowDiagnostico(false)}>✕</span>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18,flexShrink:0}} onClick={() => setShowDiagnostico(false)}>✕</span>
           </div>
           <div style={{overflowY:'auto',padding:'12px 16px'}}>
-            {achados.length === 0 && <div style={{padding:'28px 10px',textAlign:'center',color:'var(--text-muted)',fontSize:12}}>✓ Dados consistentes — nada a corrigir.</div>}
+            {achados.length === 0 && <div style={{padding:'28px 10px',textAlign:'center',color:'var(--text-muted)',fontSize:12}}>{diagnosticoOpId ? '✓ Esta operação está consistente — nada a corrigir neste recorte.' : '✓ Dados consistentes — nada a corrigir.'}</div>}
+            {diagnosticoOpId && <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.45,marginBottom:10}}>Órfãos de operação excluída, processos sem operação e restos da Mesa ficam no diagnóstico da carteira.</div>}
             {achados.map(f => { const sv = SEV[f.sev];
               return (<div key={f.id} style={{marginBottom:12,border:'1px solid var(--border)',borderLeft:`3px solid ${sv.c}`,borderRadius:6,padding:'10px 12px'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
@@ -10133,14 +10130,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {f.fix && <button className="btn-secondary btn-xs" style={{marginLeft:'auto'}} onClick={() => aplicar(f)}>⚙ corrigir</button>}
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',lineHeight:1.5,marginBottom:6}}>{f.detalhe}</div>
-                <div style={{maxHeight:132,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>
-                  {f.itens.slice(0,40).map((it,ix) => (<div key={ix} style={{display:'flex',gap:8,fontSize:11,padding:'2px 6px',background:'var(--bg-elevated)',borderRadius:3}}>
+                <div style={{maxHeight:diagnosticoOpId?220:132,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>
+                  {f.itens.slice(0,itemCap).map((it,ix) => (<div key={ix} style={{display:'flex',gap:8,fontSize:11,padding:'2px 6px',background:'var(--bg-elevated)',borderRadius:3}}>
                     <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.texto}</span>
                     <span style={{color:'var(--text-muted)',fontSize:10,flexShrink:0}}>{it.sub}</span>
                     {f.id === 'dupexec' && it.group && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setDuplicateMergeGroup(it.group)}>Consolidar</button>}
                     {f.id === 'execsemop' && <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setExecutionToRelink(data.executions.find(ex => ex.id === it.executionId) || null)}>Vincular</button>}
                   </div>))}
-                  {f.itens.length > 40 && <div style={{fontSize:10,color:'var(--text-muted)',padding:'2px 6px'}}>+{f.itens.length-40} …</div>}
+                  {f.itens.length > itemCap && <div style={{fontSize:10,color:'var(--text-muted)',padding:'2px 6px'}}>+{f.itens.length-itemCap} …</div>}
                 </div>
               </div>);
             })}
