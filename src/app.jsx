@@ -2,6 +2,14 @@ import { digitsOnly, docsCompatible, findPersonByDoc, formatCpfCnpj, mergePerson
 import { applyDiagnosticFix, runDiagnostics } from './lib/diagnostics.js';
 import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors } from './lib/import-guard.js';
 import {
+  DEFAULT_EXPORT_SELECTION,
+  EXPORT_DATASETS,
+  buildExportWorkbook,
+  countExportItems,
+  filterDataForExport,
+  sheetsToCsvParts,
+} from './lib/export.js';
+import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
   countExecutionReferences,
@@ -2834,6 +2842,9 @@ function App() {
   const [search, setSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
+  const [showExportPicker, setShowExportPicker] = useState(false);
+  const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
+  const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
   const [diagnosticoOpId, setDiagnosticoOpId] = useState(null); // null = carteira inteira
   const [duplicateMergeGroup, setDuplicateMergeGroup] = useState(null);
@@ -3893,7 +3904,7 @@ function App() {
   // Visão Gemini (Workspace): materializa abas Gemini_* na Planilha ativa
   const exportGeminiView = (scope) => {
     if (!isGAS) {
-      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar JSON / dossiê manual.');
+      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar em ⚙ / dossiê manual.');
       return;
     }
     const sc = scope || 'carteira';
@@ -3946,6 +3957,18 @@ function App() {
     setDiagnosticoOpId(opId || null);
     setShowDiagnostico(true);
     setShowSettings(false);
+  };
+  const openExportPicker = () => {
+    if (!activeOpId && exportScope === 'operacao') setExportScope('carteira');
+    setShowExportPicker(true);
+    setShowSettings(false);
+  };
+  const toggleExportId = (id) => {
+    setExportIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
   };
   const filteredOps = data.operations.filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase())).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
 
@@ -5003,10 +5026,101 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   };
 
   // Backup / Restore
+  const downloadBlob = (blob, filename, delayMs) => {
+    const run = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 2000);
+    };
+    if (delayMs) setTimeout(run, delayMs);
+    else run();
+  };
   const handleBackup = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `nexus_v2_backup_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+    downloadBlob(blob, `nexus_v2_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  };
+  const runSelectedExport = () => {
+    if (exportIds.size === 0) {
+      alert('Selecione ao menos um tipo de dado para exportar.');
+      return;
+    }
+    const operationId = exportScope === 'operacao' && activeOpId ? activeOpId : null;
+    const payload = buildExportWorkbook(data, [...exportIds], { operationId });
+    const date = new Date().toISOString().slice(0, 10);
+    let delay = 0;
+    if (payload.sheets.length) {
+      const xlsxLib = typeof window !== 'undefined' ? window.XLSX : undefined;
+      const xlsxOk = xlsxLib && xlsxLib.utils && xlsxLib.write;
+      if (xlsxOk) {
+        const wb = xlsxLib.utils.book_new();
+        payload.sheets.forEach(s => {
+          const ws = xlsxLib.utils.aoa_to_sheet(s.rows);
+          xlsxLib.utils.book_append_sheet(wb, ws, String(s.name || 'Dados').slice(0, 31));
+        });
+        const out = xlsxLib.write(wb, { bookType: 'xlsx', type: 'array' });
+        downloadBlob(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `nexus_export_${date}.xlsx`);
+        delay = 400;
+      } else {
+        sheetsToCsvParts(payload.sheets).forEach((part, i) => {
+          downloadBlob(new Blob([part.csv], { type: 'text/csv;charset=utf-8' }), `nexus_export_${part.name}_${date}.csv`, i * 400);
+        });
+        delay = payload.sheets.length * 400;
+      }
+    }
+    if (payload.includeJson && payload.jsonData) {
+      downloadBlob(new Blob([JSON.stringify(payload.jsonData, null, 2)], { type: 'application/json' }), `nexus_v2_backup_${date}.json`, delay);
+    }
+    setShowExportPicker(false);
+  };
+  const renderExportPicker = () => {
+    if (!showExportPicker) return null;
+    const scopedData = exportScope === 'operacao' && activeOpId ? filterDataForExport(data, activeOpId) : data;
+    const nSel = exportIds.size;
+    return (
+      <div className="global-search-overlay" onClick={() => setShowExportPicker(false)}>
+        <div className="global-search-box export-picker" onClick={e => e.stopPropagation()}>
+          <div className="export-picker-hd">
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--text-primary)'}}>Exportar dados</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>Marque o que entra no arquivo. Pessoas e CNPJs saem em colunas separadas (CPF não mistura com CNPJ).</div>
+              <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <button type="button" className="btn-secondary btn-xs" style={exportScope === 'carteira' ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => setExportScope('carteira')}>Carteira inteira</button>
+                <button type="button" className="btn-secondary btn-xs" disabled={!activeOpId} style={exportScope === 'operacao' && activeOpId ? {borderColor:'var(--accent)',color:'var(--accent)'} : undefined} onClick={() => activeOpId && setExportScope('operacao')}>Operação atual</button>
+              </div>
+              {exportScope === 'operacao' && !activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>Abra uma operação para restringir o recorte.</div>}
+              {exportScope === 'operacao' && activeOpId && exportIds.has('json') && <div style={{fontSize:10,color:'var(--yellow)',marginTop:6}}>O JSON neste recorte não é um backup completo da carteira.</div>}
+            </div>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18,flexShrink:0}} onClick={() => setShowExportPicker(false)}>✕</span>
+          </div>
+          <div className="export-picker-list">
+            {EXPORT_DATASETS.map(ds => {
+              const on = exportIds.has(ds.id);
+              const n = countExportItems(scopedData, ds.id);
+              const countTxt = ds.kind === 'json' ? (exportScope === 'operacao' && activeOpId ? 'recorte' : 'arquivo') : String(n);
+              return (
+                <label key={ds.id} className={`export-picker-row${on ? ' is-on' : ''}`}>
+                  <input type="checkbox" checked={on} onChange={() => toggleExportId(ds.id)} />
+                  <span style={{minWidth:0,flex:1}}>
+                    <span className="ep-label">{ds.label}</span>
+                    <span className="ep-hint">{ds.hint}</span>
+                  </span>
+                  <span className="ep-count">{countTxt}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="export-picker-ft">
+            <button type="button" className="btn-secondary btn-xs" onClick={() => setExportIds(new Set(EXPORT_DATASETS.map(d => d.id)))}>Selecionar tudo</button>
+            <button type="button" className="btn-secondary btn-xs" onClick={() => setExportIds(new Set())}>Nenhum</button>
+            <span style={{flex:1}} />
+            <button type="button" className="btn-secondary" onClick={() => setShowExportPicker(false)}>Cancelar</button>
+            <button type="button" className="btn-primary" disabled={nSel === 0} onClick={runSelectedExport}>Baixar{nSel ? ` (${nSel})` : ''}</button>
+          </div>
+        </div>
+      </div>
+    );
   };
   const handleRestore = (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -8155,7 +8269,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             localStorage.setItem('nexus_autosync_enabled', v ? 'true' : 'false');
           }}>Auto-sync: {autoSyncEnabled ? 'ON' : 'OFF'}</button>
         </>}
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => { handleBackup(); setShowSettings(false); }}>⬇ Exportar JSON</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>⬇ Exportar</button>
         <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
         {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
       </div>
@@ -10293,6 +10407,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     <Modal show={!!respondModal} onClose={() => setRespondModal(null)} title={respondModal ? (respondModal.type === 'peticionamento' ? 'Registrar resposta — 📝 Peticionamento' : respondModal.type === 'ciencia' ? 'Registrar resposta — ✓ Ciência' : respondModal.type === 'outra' ? 'Registrar resposta — ⋯ Outra medida' : 'Registrar atuação') : ''}>
       {respondModal && <RespondForm intim={respondModal.intim} type={respondModal.type} onSave={(action) => handleRespondIntim(respondModal.intim, action)} onCancel={() => setRespondModal(null)} />}
     </Modal>
+
+    {renderExportPicker()}
 
     {/* Diagnóstico de integridade */}
     {showDiagnostico && (() => {
