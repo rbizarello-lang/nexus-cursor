@@ -489,6 +489,33 @@ const applyMigrations = (parsed) => {
   if (!merged.calendar) merged.calendar = { extraHolidays: [] };
   if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
+  // Migration: retroactive briefing entries for responded intimations
+  const intimsWithAction = (merged.intimations || []).filter(x => x.responseAction && x.operationId);
+  if (intimsWithAction.length > 0) {
+    const opMap = {};
+    (merged.operations || []).forEach(op => { opMap[op.id] = op; });
+    intimsWithAction.forEach(intim => {
+      const op = opMap[intim.operationId];
+      if (!op) return;
+      const briefing = op.briefing || {};
+      const entries = Array.isArray(briefing.entries) ? briefing.entries : [];
+      if (entries.some(e => e.sourceIntimationId === intim.id)) return;
+      const ra = intim.responseAction;
+      const typeLabels = { peticionamento: ra.peticionType || 'Peticionamento', ciencia: 'Ciência', outra: 'Outra medida' };
+      const lbl = typeLabels[ra.type] || 'Atuação';
+      const parts = ['<b>' + escapeHtmlText(lbl) + '</b>'];
+      if (intim.processNumber) parts.push(' — ' + escapeHtmlText(intim.processNumber));
+      if (intim.eventDescription) parts.push('<br>' + escapeHtmlText(intim.eventDescription));
+      if (ra.description) parts.push('<br>' + escapeHtmlText(ra.description));
+      const linkUrl = ra.type === 'peticionamento' ? ra.peticionUrl : ra.docUrl;
+      if (linkUrl && linkUrl.trim()) parts.push('<br><a href="' + escapeHtmlText(linkUrl.trim()) + '" target="_blank" rel="noopener noreferrer">📎 Peça protocolada</a>');
+      const ts = ra.respondedAt || intim.updatedAt || new Date().toISOString();
+      const entry = { id: 'mig-act-' + intim.id, type: 'atuacao', html: parts.join(''), pinned: false, eventDate: ts.slice(0, 10), createdAt: ts, updatedAt: ts, sourceIntimationId: intim.id, migrated: true };
+      if (!op.briefing) op.briefing = {};
+      if (!Array.isArray(op.briefing.entries)) op.briefing.entries = [];
+      op.briefing.entries.push(entry);
+    });
+  }
   setExtraHolidays(merged.calendar.extraHolidays);
   return merged;
 };
@@ -595,11 +622,8 @@ const runDiagnostics = (data) => {
   add('media', 'intimsemop', 'Intimações que podem ser vinculadas', semOp,
     'O processo dessas intimações já existe numa operação cadastrada — dá para vincular automaticamente.', 'vincular');
 
-  // 8b. Intimação ativa sem prazo final parseável — some da agenda e do e-mail
-  add('alta', 'intimsemprazo', 'Intimações ativas sem prazo final',
-    intims.filter(x => !x.responseAction && x.status !== 'analisado' && !toDayKey(x.dateDeadline))
-      .map(x => ({ id: x.id, texto: x.processNumber || 's/nº', sub: (x.eventDescription || 'sem Final Prazo').slice(0, 48) })),
-    'Sem data de prazo final reconhecível, a intimação não entra no e-mail diário nem na agenda da semana. Reimporte o XLS do eproc (Prazos em aberto) ou preencha Final Prazo à mão.');
+  // 8b. Intimação ativa sem prazo final — omitido do diagnóstico.
+  // É normal não ter prazo final quando o prazo processual ainda não está em curso.
 
   // 9. CDA cujo processo não está cadastrado
   add('info', 'cdasemproc', 'CDAs com processo não cadastrado',
@@ -1100,7 +1124,8 @@ const BRIEFING_ENTRY_TYPES = {
   decisao:     { label: 'Decisão judicial', color: 'var(--blue)',       bg: 'rgba(91,143,217,0.15)' },
   providencia: { label: 'Providência',      color: 'var(--yellow)',     bg: 'rgba(212,168,56,0.15)' },
   replicacao:  { label: 'Replicação',       color: 'var(--orange)',     bg: 'rgba(216,136,64,0.15)' },
-  observacao:  { label: 'Observação',       color: 'var(--text-muted)', bg: 'rgba(122,139,163,0.15)' }
+  observacao:  { label: 'Observação',       color: 'var(--text-muted)', bg: 'rgba(122,139,163,0.15)' },
+  atuacao:     { label: 'Atuação',          color: 'var(--green)',      bg: 'rgba(64,168,112,0.15)' }
 };
 const escapeHtmlText = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 // Sanitiza HTML do editor rico: whitelist de tags; remove scripts e atributos perigosos.
@@ -4150,6 +4175,27 @@ function App() {
         createdAt: now,
         updatedAt: now
       });
+    }
+    // ─── Create briefing entry (note) on the operation's card ───
+    if (resolvedOpId) {
+      const op = data.operations.find(o => o.id === resolvedOpId);
+      if (op) {
+        const typeLabels = { peticionamento: action.peticionType || 'Peticionamento', ciencia: 'Ciência', outra: 'Outra medida' };
+        const lbl = typeLabels[action.type] || 'Atuação';
+        const parts = [`<b>${escapeHtmlText(lbl)}</b>`];
+        if (intim.processNumber) parts.push(' — ' + escapeHtmlText(intim.processNumber));
+        if (intim.eventDescription) parts.push('<br>' + escapeHtmlText(intim.eventDescription));
+        if (action.description) parts.push('<br>' + escapeHtmlText(action.description));
+        const linkUrl = action.type === 'peticionamento' ? action.peticionUrl : action.docUrl;
+        if (linkUrl && linkUrl.trim()) parts.push('<br><a href="' + escapeHtmlText(linkUrl.trim()) + '" target="_blank" rel="noopener noreferrer">📎 Peça protocolada</a>');
+        const briefing = op.briefing || {};
+        const entries = getBriefingEntries(briefing);
+        const newEntry = { id: uid(), type: 'atuacao', html: parts.join(''), pinned: false, eventDate: now.slice(0, 10), createdAt: now, updatedAt: now, sourceIntimationId: intim.id };
+        const materialized = entries.map(en => en._legacy
+          ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || now, updatedAt: now, migrated: true }
+          : en);
+        upsert('operations', { ...op, briefing: { ...briefing, entries: [newEntry, ...materialized] } });
+      }
     }
     // Concluída com atuação → sai da Mesa de trabalho (se estiver lá). Vale para o card e para a Mesa.
     removeFromDesk('intimation', intim.id);
