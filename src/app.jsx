@@ -9559,8 +9559,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Urgente no topo só nos critérios qualitativos — prazos e agrupamentos respeitam a ordem escolhida
-            if (['attention','importance','difficulty'].includes(intimSort)) {
+            // Urgente no topo (exceto agrupamentos). Nas ordens de prazo, o prazo vale dentro de cada bloco.
+            if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
               const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
