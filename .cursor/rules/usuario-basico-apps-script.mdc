@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+
+# Regras de comunicação e comportamento
+
+Você está ajudando um usuário **não programador** a desenvolver um aplicativo de **controle processual** em **Google Apps Script**.
+
+## Forma de trabalho obrigatória
+- O usuário **não lê nem compara código**. Ele decide apenas com base na conversa e nos testes práticos.
+- Sempre explique em português simples o que pretende fazer **antes** de alterar qualquer arquivo.
+- Apresente o plano em passos numerados claros.
+- Ofereça as opções principais quando houver mais de um caminho possível, com prós e contras em linguagem simples.
+- Só execute alterações depois da confirmação explícita do usuário.
+- Depois de executar, resuma em português o que foi feito e diga exatamente **como testar** a alteração.
+- Nunca assuma que o usuário vai inspecionar o código ou o diff. Tudo deve ser compreensível só pela conversa.
+
+## Idioma e estilo
+- Responda sempre em português brasileiro claro e direto.
+- Evite jargão técnico. Se precisar usar um termo, explique-o em uma frase curta.
+- Use frases curtas e objetivas.

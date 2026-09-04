@@ -1,4 +1,5 @@
-import { digitsOnly, docsCompatible, findPersonByDoc, mergePersonDoc } from './lib/docs.js';
+import { digitsOnly, docsCompatible, findPersonByDoc, formatCpfCnpj, mergePersonDoc } from './lib/docs.js';
+import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors } from './lib/import-guard.js';
 import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
@@ -43,6 +44,47 @@ const guessMatters = (texto) => {
     .map(([materia, termos]) => ({ materia, hits: termos.filter(k => t.includes(k)).length }))
     .filter(x => x.hits > 0)
     .sort((a, b) => b.hits - a.hits);
+};
+const MODEL_STAGES = {
+  aprovado: { label: 'Aprovado', cls: 'model-badge-ok' },
+  revisado: { label: 'Revisado', cls: 'model-badge-rev' },
+  em_revisao: { label: 'Em revisão', cls: 'model-badge-wait' },
+  primario: { label: 'Primário', cls: 'model-badge-pri' },
+  em_producao: { label: 'Em produção', cls: 'model-badge-pri' },
+};
+const MODEL_PREC_KINDS = {
+  vinc: { label: 'Vinculante', cls: 'model-k-vinc' },
+  qual: { label: 'Qualificado', cls: 'model-k-qual' },
+  adv: { label: 'Adverso', cls: 'model-k-adv' },
+  reg: { label: 'Regional', cls: 'model-k-reg' },
+};
+const modelStageOf = (m) => MODEL_STAGES[m?.stage] || MODEL_STAGES.primario;
+const sortModels = (arr) => [...(arr || [])].sort((a, b) => {
+  const na = parseInt(String(a.number || '').replace(/\D/g, ''), 10);
+  const nb = parseInt(String(b.number || '').replace(/\D/g, ''), 10);
+  const aN = Number.isFinite(na), bN = Number.isFinite(nb);
+  if (aN && bN && na !== nb) return na - nb;
+  if (aN && !bN) return -1;
+  if (!aN && bN) return 1;
+  return (a.number || '').localeCompare(b.number || '', 'pt') || (a.title || '').localeCompare(b.title || '', 'pt');
+});
+const modelSearchBlob = (m) => [
+  m.number, m.title, m.category, m.subcategory, m.legalRefs, m.servePara, m.naoServe, m.description,
+  ...(m.tags || []),
+  ...(m.topics || []).flatMap(t => [t.id, t.title, ...(t.points || []).map(p => `${p.id} ${p.title} ${p.summary || ''}`)]),
+  ...(m.variants || []).map(v => `${v.title} ${v.body || ''}`),
+  ...(m.counterArgs || []).map(c => `${c.quote} ${c.body || ''}`),
+].join(' ').toLowerCase();
+const copyModelMap = (m) => {
+  const lines = [`${m.number ? m.number + ' · ' : ''}${m.title || 'Modelo'}`];
+  if (m.servePara) lines.push('Serve: ' + m.servePara);
+  if (m.naoServe) lines.push('Não serve: ' + m.naoServe);
+  (m.topics || []).forEach(t => {
+    lines.push('');
+    lines.push(`${t.id} ${t.title}`);
+    (t.points || []).forEach(p => lines.push(`  ${p.id} ${p.title}${p.summary ? ' — ' + p.summary : ''}`));
+  });
+  copyText(lines.join('\n'));
 };
 
 // ─── DADOS DE DEMONSTRAÇÃO (uso local/teste) ───
@@ -365,12 +407,80 @@ const generateDemoData = () => {
   ];
 
   const models = [
-    { id:'mo-1', title:'Contestação à exceção de pré-executividade', category:'Execução Fiscal', subcategory:'Nulidade da CDA', description:'Modelo padrão quando a defesa alega vício formal da CDA.', url:'https://docs.google.com/document/d/modelo-excecao', useCount:12, tags:['exceção','CDA'] },
-    { id:'mo-2', title:'Petição inicial de IDPJ', category:'IDPJ', subcategory:'Dissolução irregular', description:'Ajuizamento de IDPJ com fundamento na Súmula 435 STJ.', url:'https://docs.google.com/document/d/modelo-idpj', useCount:8, tags:['IDPJ','435'] },
-    { id:'mo-3', title:'Réplica a embargos — excesso de execução', category:'Embargos', subcategory:'Excesso de execução', description:'Impugnação à memória de cálculo do embargante.', url:'https://docs.google.com/document/d/modelo-replica', useCount:5, tags:['embargos'] },
-    { id:'mo-4', title:'Manifestação — rescisão de parcelamento', category:'Parcelamento / Suspensão', subcategory:'Prescrição', description:'Efeitos interruptivos/suspensivos após rescisão.', url:'https://docs.google.com/document/d/modelo-parc', useCount:3, tags:['parcelamento','prescrição'] },
-    { id:'mo-5', title:'Requerimento de indisponibilidade CNIB', category:'Constrição / Penhora', subcategory:'Indisponibilidade de bens', description:'Pedido de averbação/indisponibilidade.', url:'https://docs.google.com/document/d/modelo-cnib', useCount:9, tags:['CNIB'] },
-    { id:'mo-6', title:'Memorial de justificação — IDPJ grupo econômico', category:'IDPJ', subcategory:'Grupo econômico', description:'Roteiro de sustentação oral / memorial.', url:'https://docs.google.com/document/d/modelo-memorial', useCount:4, tags:['IDPJ','audiência'] },
+    { id:'mo-1', number:'01', title:'Impenhorabilidade — pessoa física', category:'Execução Fiscal', subcategory:'Impenhorabilidade de bens', stage:'revisado', legalRefs:'bem de família',
+      description:'Bem de família e impenhorabilidade da pessoa física.',
+      servePara:'Oposição a penhora sobre bem de família e demais hipóteses de impenhorabilidade da pessoa física.',
+      naoServe:'Pessoa jurídica e inaplicabilidade do regime — modelo 02. Fraude que torna a impenhorabilidade inoponível — modelo 03.',
+      url:'https://docs.google.com/document/d/modelo-01', useCount:12, tags:['bem de família','penhora'] },
+    { id:'mo-5', number:'05', title:'Desconsideração da personalidade jurídica — art. 50 do Código Civil', category:'IDPJ', subcategory:'Grupo econômico', stage:'revisado', legalRefs:'art. 50 CC',
+      description:'Abuso da personalidade como fundamento principal e autônomo.',
+      servePara:'Abuso da personalidade jurídica (desvio de finalidade ou confusão patrimonial) como fundamento principal.',
+      naoServe:'Grupo econômico de fato e sucessão (arts. 124, I e 133) — modelo 06. Dissolução irregular — modelo 07.',
+      url:'https://docs.google.com/document/d/modelo-05', useCount:8, tags:['IDPJ','art. 50'] },
+    { id:'mo-6', number:'06', title:'Grupo econômico de fato e sucessão empresarial', category:'IDPJ', subcategory:'Grupo econômico', stage:'revisado', legalRefs:'arts. 124, I, e 133 do CTN', consolidatedAt:'2026-08-28',
+      description:'Solidariedade do art. 124, I, sucessão do art. 133 e administração de fato.',
+      servePara:'Extensão de responsabilidade a outra pessoa jurídica e a quem a comanda de fato: IDPJ, redirecionamento na execução, réplica, embargos de terceiro, recurso. Cobre solidariedade do art. 124, I, sucessão do art. 133 (inclusive alienação judicial e UPI) e administração de fato.',
+      naoServe:'Dissolução irregular, Súmula 435 e art. 135, III → modelo 07. Abuso da personalidade como fundamento principal → modelo 05. Desenvolvimento amplo da via do incidente → modelo 12.',
+      url:'https://docs.google.com/document/d/modelo-06', useCount:4, tags:['grupo econômico','sucessão','art. 124','art. 133'],
+      topics: [
+        { id:'1', title:'Grupo econômico de fato e solidariedade do art. 124, I', points: [
+          { id:'1.1', title:'Conteúdo do interesse comum', summary:'A solidariedade não nasce do grupo em si. O STJ exige práticas comuns, fato gerador conjunto ou confusão patrimonial. Pessoa física pode integrar o grupo de fato.' },
+          { id:'1.2', title:'Irrelevância da autonomia formal', summary:'CNPJ próprio, escrituração e documentos fiscais autônomos não afastam a solidariedade. Contabilidade separada não impede confusão patrimonial.' },
+          { id:'1.3', title:'Controle difuso e grupo horizontal', summary:'Não exige subordinação hierárquica nem participação cruzada. Basta unidade gerencial, laboral e patrimonial.' },
+          { id:'1.4', title:'Feixe de indícios convergentes', summary:'Padrão desta fase: indícios robustos. Aprofundamento nos embargos à execução.' },
+          { id:'1.5', title:'Prova documental e sistemas fiscais', summary:'Junta, cadastros, declarações, Sisbajud. Tema 225: não há quebra de sigilo, e sim translado do dever.' },
+        ]},
+        { id:'2', title:'Sucessão empresarial de fato e art. 133', points: [
+          { id:'2.1', title:'Dispensa do trespasse formal', summary:'“Por qualquer título”: a sucessão clandestina se define pela ausência do documento.' },
+          { id:'2.3', title:'Sucedida com registro ativo', summary:'Contra-argumento mais forte da defesa. Pedido subsidiário no inciso II do art. 133.' },
+          { id:'2.5', title:'Extensão às multas', summary:'Súmula 554/STJ: multa moratória e punitiva integram a responsabilidade da sucessora.' },
+          { id:'2.7', title:'Alienação judicial e UPI', summary:'Pedido é de responsabilidade tributária no § 2º, não de desconstituição da alienação.' },
+        ]},
+        { id:'3', title:'Administração de fato e interposição de pessoas', points: [
+          { id:'3.1', title:'Gestor de fato após a retirada', summary:'O registro não cria nem apaga o comando. Tema 962 não protege quem permanece no ilícito.' },
+          { id:'3.3', title:'Sociedade receptora sem substância', summary:'Patrimonial que não gera emprego, NF nem tributo. Distinguishing do Tema 1.210 pela fase.' },
+        ]},
+        { id:'4–5', title:'Termo inicial da pretensão · Via processual', points: [
+          { id:'4.1', title:'Ciência inequívoca e actio nata', summary:'Prazo corre da ciência da estrutura, não da citação da originária nem do registro societário.' },
+          { id:'5.1', title:'Imputação legal × desconsideração', summary:'Arts. 124, I e 133 dispensam o incidente. Art. 50 CC é que o reclama — e vai ao modelo 05.' },
+        ]},
+      ],
+      variants: [
+        { title:'Sucessão vertical simples', body:'Devedora vira casca; nova PJ assume ponto, marca, empregados e clientela.', goto:'Usar tópico 2 como corpo · tópico 1 condensado' },
+        { title:'Grupo horizontal familiar', body:'Sociedades simultâneas, marca comum, passivo numa e faturamento noutra.', goto:'Peso no item 1.3 · tópico 2 só se houver migração' },
+        { title:'Continuidade parcial da devedora', body:'Inscrição ativa e resíduos patrimoniais; operação real já migrou.', goto:'Eixo no item 2.3 · pedido subsidiário do inciso II' },
+        { title:'Imputação cumulativa com art. 50 CC', body:'Pedido também se apoia no abuso da personalidade.', goto:'Capítulo do abuso vem do modelo 05 · o 06 não substitui' },
+      ],
+      counterArgs: [
+        { quote:'“O grupo, por si só, não gera solidariedade.”', body:'Premissa correta. A imputação não se funda na existência do grupo.', goto:'Resposta no item 1.1' },
+        { quote:'“A sucedida continua ativa, então a responsabilidade é subsidiária.”', body:'Contra-argumento mais forte da defesa. Pedido subsidiário no inciso II.', goto:'Resposta no item 2.3' },
+        { quote:'“Sem o incidente de desconsideração não há redirecionamento.”', body:'Exigência pressupõe fundamento no art. 50 CC.', goto:'Resposta no tópico 5 · abuso vai ao modelo 05' },
+        { quote:'“O Tema 1.210 impede a responsabilização.”', body:'Distinção tríplice: âmbito, fundamento e fase (a de fase é a mais forte).', goto:'Itens 3.3 e 5.1' },
+      ],
+      precedents: [
+        { kind:'vinc', title:'STF · Tema 225 · RE 601.314', meta:'Dados de sistemas fiscais — não é quebra de sigilo', goto:'item 1.5' },
+        { kind:'vinc', title:'STJ · Súmula 554', meta:'Multas se transmitem à sucessora', goto:'item 2.5' },
+        { kind:'qual', title:'STJ · REsp 1.808.025/PE · 12/11/2025', meta:'Pessoa física integra grupo de fato · cada fundamento deve ser enfrentado', goto:'item 1.1' },
+        { kind:'adv', title:'STJ · Tema 1.210', meta:'Não vai ao corpo da peça. Distinguishing de fase.', goto:'itens 3.3 / 5.1' },
+        { kind:'reg', title:'TRF4 · AG 5013619-83.2025', meta:'Art. 50 e art. 124, I em via dupla', goto:'item 1.2' },
+      ],
+      vigencia: {
+        fragile:'O art. 124, I não tem repetitivo favorável. Onde a peça costuma perder é na narrativa genérica, não no direito.',
+        recheck:['Linha do STF em reclamação sobre UPI (dez/2025–jun/2026)','Súmula 554/STJ — eventual revisão','Redação vigente da Lei 11.101/2005 (arts. 60, 60-A, 141)','Tema 1.210 — distinção de fase'],
+      },
+    },
+    { id:'mo-7', number:'07', title:'Dissolução irregular e redirecionamento — art. 135, III', category:'Execução Fiscal', subcategory:'Dissolução irregular', stage:'em_revisao', legalRefs:'Súmula 435',
+      servePara:'Responsabilidade pessoal do administrador por dissolução irregular e redirecionamento do art. 135, III.',
+      naoServe:'Grupo econômico e sucessão — modelo 06.',
+      url:'https://docs.google.com/document/d/modelo-07', useCount:6, tags:['Súmula 435','art. 135'] },
+    { id:'mo-12', number:'12', title:'Via processual da imputação — incidente e Tema 1.209', category:'IDPJ', subcategory:'Grupo econômico', stage:'primario', legalRefs:'Tema 1.209',
+      servePara:'Desenvolvimento amplo da via do incidente, dispensa e Tema 1.209.',
+      naoServe:'O modelo 06 traz só a versão enxuta no tópico 5.',
+      url:'https://docs.google.com/document/d/modelo-12', useCount:1, tags:['incidente','Tema 1.209'] },
+    { id:'mo-16', number:'16', title:'Contrarrazões a embargos de declaração', category:'Recursos', subcategory:'Outros', stage:'revisado', legalRefs:'esqueleto de peça',
+      servePara:'Contrarrazões a embargos de declaração da parte adversa.',
+      naoServe:'Embargos de declaração da União — modelo 17.',
+      url:'https://docs.google.com/document/d/modelo-16', useCount:5, tags:['embargos de declaração'] },
   ];
 
   const desk = [
@@ -900,6 +1010,17 @@ function getOpClassifications(op) {
   if (Array.isArray(op.classifications)) return op.classifications.filter(k => OP_CLASSIFICATIONS[k]);
   if (op.classification && OP_CLASSIFICATIONS[op.classification]) return [op.classification];
   return [];
+}
+function opMatchesClassFilter(op, filter) {
+  if (!filter || filter === 'all') return true;
+  if (filter === 'encerrada') return op.status === 'encerrada';
+  if (getOpClassifications(op).includes(filter)) return true;
+  if (filter === 'alta_relevancia' && op.opCategory === 'alta_relevancia') return true;
+  if (filter === 'parceladas' && op.opCategory === 'parcelada') return true;
+  return false;
+}
+function sortOpsByName(a, b) {
+  return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
 }
 const ASSET_SUBTYPES = { imovel: 'Imóvel', veiculo: 'Veículo', conta_bancaria: 'Conta Bancária', investimento: 'Investimento', participacao: 'Participação Societária', outro: 'Outro' };
 const ASSET_STATUSES = {
@@ -2832,9 +2953,14 @@ function App() {
   const [executionToRelink, setExecutionToRelink] = useState(null);
   const [expandedActions, setExpandedActions] = useState(new Set()); // intimações com a descrição da atuação aberta
   const toggleAction = (id) => setExpandedActions(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — nó selecionado na árvore
+  const [modelSel, setModelSel] = useState(null);        // {cat} | {cat, sub} — filtro legado de categoria (chips)
   const [modelQuery, setModelQuery] = useState('');      // busca livre (texto da peça colado)
   const [modelMatters, setModelMatters] = useState([]);  // matérias inferidas do texto colado
+  const [modelActiveId, setModelActiveId] = useState(null);
+  const [modelFichaTab, setModelFichaTab] = useState('cab');
+  const [modelStageFilter, setModelStageFilter] = useState('all');
+  const [modelOpenTopics, setModelOpenTopics] = useState(() => new Set(['1']));
+  const [modelPoint, setModelPoint] = useState(null);
   // Temas válidos clássicos: theme-mar (padrão), theme-claro, theme-ferro.
   // Noite Azulada ('') removida → Claro; Obsidian → Mar Profundo.
   const THEMES_OK = ['theme-mar', 'theme-claro', 'theme-ferro'];
@@ -2916,6 +3042,7 @@ function App() {
   // Digitação da busca fica responsiva; o filtro pesado roda com prioridade baixa.
   const deferredGsQuery = React.useDeferredValue(gsQuery);
   const [intimFilter, setIntimFilter] = useState('all');
+  const [opClassFilter, setOpClassFilter] = useState('all');
   const [intimSort, setIntimSort] = useState('deadline');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
   const [intimWork, setIntimWork] = useState(false); // overlay p/ trabalhar intimações dentro da operação
@@ -3050,6 +3177,7 @@ function App() {
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
     let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0;
+    const parsedFiles = [];
 
     for (const file of files) {
       try {
@@ -3072,7 +3200,29 @@ function App() {
         } else {
           logs.push(`📄 ${file.name}: ${records.length} inscrição(ões) SIDA extraída(s)${records.reduce((s,r)=>s+(r.protestos||[]).length,0) > 0 ? ` · ${records.reduce((s,r)=>s+(r.protestos||[]).length,0)} protesto(s) estruturado(s)` : ''}`);
         }
+        parsedFiles.push({ file, isSIDA, records });
+      } catch (err) {
+        logs.push(`❌ ${file.name}: ${err.message}`);
+      }
+    }
 
+    const allRecords = parsedFiles.flatMap(p => p.records || []);
+    if (allRecords.length > 0) {
+      const debtors = collectPdfDebtors(allRecords);
+      const assessment = assessPdfDebtorsAgainstOperation(debtors, data.people || [], data.operations || [], activeOpId);
+      if (assessment.needsConfirmation) {
+        const opName = ((data.operations || []).find(o => o.id === activeOpId) || {}).name || '';
+        if (!confirm(buildPdfImportConfirmMessage(assessment, opName))) {
+          logs.push('Importação cancelada. Os devedores do relatório não coincidem com as pessoas desta operação.');
+          setImportResult(logs);
+          try { e.target.value = ''; } catch (_) {}
+          return;
+        }
+      }
+    }
+
+    for (const { file, isSIDA, records } of parsedFiles) {
+      try {
         for (const rec of records) {
           if (!rec.cdaNumber) continue;
 
@@ -3084,6 +3234,22 @@ function App() {
             cdaNotFound++;
             logs.push(`⚠️ CDA ${rec.cdaNumber} não encontrada (importe primeiro a planilha XLS)`);
             continue;
+          }
+
+          // Completar CNPJ encurtado da planilha com o documento completo do PDF
+          const principalDoc = rec.cnpj || '';
+          if (principalDoc) {
+            const linked = existing.personId ? (data.people || []).find(p => p.id === existing.personId) : null;
+            const targetPerson = (linked && (!linked.cpfCnpj || docsCompatible(linked.cpfCnpj, principalDoc)))
+              ? linked
+              : findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: principalDoc, name: rec.devedor || '' });
+            if (targetPerson) {
+              const updatedPerson = mergePersonDoc(targetPerson, principalDoc);
+              if (updatedPerson !== targetPerson) {
+                upsert('people', updatedPerson);
+                logs.push(`  🔄 CNPJ completado: ${updatedPerson.name} (${updatedPerson.cpfCnpj})`);
+              }
+            }
           }
 
           // SMART MERGE — accumulate all field changes, single upsert at the end
@@ -3326,13 +3492,18 @@ function App() {
               usedDates.add(ps.date);
               const dup = existingEvents.find(pe => pe.type === 'int_protesto_extrajudicial' && pe.date === ps.date);
               if (dup) continue;
+              const aposLc = ps.date >= '2024-07-03';
               upsert('prescriptionEvents', {
                 id: uid(),
                 cdaId: existing.id,
                 type: 'int_protesto_extrajudicial',
                 date: ps.date,
-                legalBasis: 'Art. 174, p.ú., CTN (com redação da LC 208/2024) — extraído de ' + ps.origin,
-                notes: `Protesto extrajudicial detectado automaticamente — ${ps.desc}. ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}Verificar se a eficácia interruptiva se aplica (LC 208/2024 publicada em 02/07/2024; protestos anteriores dependem de interpretação caso a caso — Tema 777/STJ como antecedente).`,
+                legalBasis: aposLc
+                  ? 'Art. 174, p.ú., CTN (LC 208/2024) — extraído de ' + ps.origin
+                  : 'Protesto extrajudicial anterior à LC 208/2024 — extraído de ' + ps.origin,
+                notes: aposLc
+                  ? `Protesto lavrado em ${fmtDate(ps.date)}, após 03/07/2024 — interrompe a prescrição originária (LC 208/2024). ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}${ps.desc}`
+                  : `Protesto lavrado em ${fmtDate(ps.date)}, antes de 03/07/2024 (vigência da LC 208/2024) — não interrompe. ${ps.identificacao ? 'ID: ' + ps.identificacao + '. ' : ''}${ps.desc}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               });
@@ -3356,8 +3527,8 @@ function App() {
                 crPerson = {
                   id: uid(),
                   operationId: activeOpId,
-                  name: hasName ? cr.name : `[Importado SIDA] ${cr.cpfCnpjFormatted}`,
-                  cpfCnpj: cr.cpfCnpjFormatted,
+                  name: hasName ? cr.name : `[Importado SIDA] ${formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted}`,
+                  cpfCnpj: formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted,
                   subtype: cr.cpfCnpj.length > 11 ? 'PJ' : 'PF',
                   operationRole: 'relacionada',
                   role: 'Corresponsável',
@@ -4483,8 +4654,8 @@ function App() {
               let personId;
               if (!exists) {
                 personId = uid();
-                upsert('people', { id: personId, operationId: activeOpId, name: res.debtorName, cpfCnpj: res.debtorCnpj, subtype: 'PJ', role: 'Devedora originária' });
-                logs.push(`✅ PJ criada: ${res.debtorName} (${res.debtorCnpj})`);
+                upsert('people', { id: personId, operationId: activeOpId, name: res.debtorName, cpfCnpj: formatCpfCnpj(res.debtorCnpj) || res.debtorCnpj, subtype: 'PJ', role: 'Devedora originária' });
+                logs.push(`✅ PJ criada: ${res.debtorName} (${formatCpfCnpj(res.debtorCnpj) || res.debtorCnpj})`);
                 importCount++;
               } else {
                 personId = exists.id;
@@ -4791,7 +4962,7 @@ function App() {
     res.people.forEach(p => {
       const exists = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: p.cpfCnpj, name: p.name });
       if (!exists) {
-        upsert('people', { ...p, id: uid(), operationId: activeOpId });
+        upsert('people', { ...p, id: uid(), operationId: activeOpId, cpfCnpj: formatCpfCnpj(p.cpfCnpj) || p.cpfCnpj });
         logs.push(`✅ Pessoa: ${p.name} (${p.cpfCnpj}) — ${p.role}`);
         count++;
       } else {
@@ -5853,7 +6024,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
           {importMode === 'pdfs' && <>
           <div className="desc">
-            Enriquece CDAs já cadastradas com datas de inscrição, eventos prescricionais (parcelamentos, ajuizamentos) e protestos. Importe a planilha primeiro — o match é por nº da CDA.
+            Enriquece CDAs já cadastradas com datas de inscrição, eventos prescricionais (parcelamentos, ajuizamentos) e protestos. Importe a planilha primeiro — o match é por nº da CDA. Se os devedores do PDF não estiverem entre as pessoas desta operação, o app pede confirmação antes de gravar.
           </div>
           <div className="drop-zone" onClick={() => pgfnPdfInputRef.current?.click()}
             onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
@@ -8768,7 +8939,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Uma aba · alterne entre Intimações e Tarefas' :
-             viewMode === 'operacoes' ? 'Kanban por classificação · arraste os cards entre colunas' :
+             viewMode === 'operacoes' ? 'Lista alfabética · filtre por classificação para focar o trabalho' :
              viewMode === 'painel' ? 'KPIs · quadro semanal de prazos, audiências e prescrição' :
              viewMode === 'audiencias' ? 'Grade semanal e lista de audiências' :
              viewMode === 'mesa' ? 'Mesa de trabalho · pin de intimações, tarefas e audiências' :
@@ -9108,7 +9279,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
       )}
 
-      {/* ═══ OPERAÇÕES (Kanban por classificação) ═══ */}
+      {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
       {viewMode === 'operacoes' && (
         <div className="painel-container">
           {data.operations.length === 0 ? (
@@ -9123,42 +9294,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
               </div>
               {(() => {
-                const getOpKanbanCol = (op) => {
-                  if (op.status === 'encerrada') return 'encerrada';
-                  const cls = getOpClassifications(op);
-                  if (cls.length > 0) return cls[0];
-                  return '';
-                };
-                const colOrder = [...Object.keys(OP_CLASSIFICATIONS), '', 'encerrada'];
-                const groups = {};
-                colOrder.forEach(k => { groups[k] = []; });
-                data.operations.forEach(op => {
-                  const k = getOpKanbanCol(op);
-                  if (!groups[k]) groups[k] = [];
-                  groups[k].push(op);
-                });
-                const always = ['novas', 'em_andamento', 'alta_relevancia', 'replicar', 'suspenso', 'parceladas', '', 'encerrada'];
-                const cols = [...new Set([...always, ...colOrder.filter(k => (groups[k]||[]).length > 0)])];
+                const usedKeys = new Set();
+                data.operations.forEach(op => getOpClassifications(op).forEach(k => usedKeys.add(k)));
+                const pinned = ['alta_relevancia', 'parceladas'];
+                const rest = [...usedKeys]
+                  .filter(k => !pinned.includes(k))
+                  .sort((a, b) => (OP_CLASSIFICATIONS[a].label).localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR', { sensitivity: 'base' }));
+                const chipKeys = [...pinned, ...rest];
+                const encerradaCount = data.operations.filter(op => op.status === 'encerrada').length;
 
-                const moveOpToCol = (opId, colKey) => {
-                  setData(prev => ({
-                    ...prev,
-                    operations: prev.operations.map(op => {
-                      if (op.id !== opId) return op;
-                      if (colKey === 'encerrada') {
-                        return { ...op, status: 'encerrada', updatedAt: new Date().toISOString() };
-                      }
-                      const next = { ...op, status: op.status === 'encerrada' ? 'ativa' : (op.status || 'ativa'), updatedAt: new Date().toISOString() };
-                      if (colKey === '') {
-                        next.classifications = [];
-                      } else {
-                        const rest = getOpClassifications(op).filter(c => c !== colKey);
-                        next.classifications = [colKey, ...rest];
-                      }
-                      return next;
-                    })
-                  }));
-                };
+                const matches = data.operations.filter(op => opMatchesClassFilter(op, opClassFilter));
+                const ativas = matches.filter(op => op.status !== 'encerrada').sort(sortOpsByName);
+                const encerradas = matches.filter(op => op.status === 'encerrada').sort(sortOpsByName);
+                const shown = opClassFilter === 'encerrada' ? encerradas : [...ativas, ...encerradas];
 
                 const openOp = (op) => {
                   if (isDemo) openCarteiraOp(op);
@@ -9168,70 +9316,85 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   }
                 };
 
+                const countFor = (key) => data.operations.filter(op => opMatchesClassFilter(op, key)).length;
+
                 return (
-                  <div className="ops-kanban-board kanban-board">
-                    {cols.map(colKey => {
-                      const cls = colKey === 'encerrada'
-                        ? { label: 'Encerrada', color: 'var(--text-muted)', border: 'var(--border)' }
-                        : (OP_CLASSIFICATIONS[colKey] || { label: 'Sem classificação', color: 'var(--text-muted)', border: 'var(--border)' });
-                      const opsInCol = groups[colKey] || [];
-                      const groupTotal = opsInCol.reduce((s, op) => s + data.debts.filter(d => d.operationId === op.id && d.status !== 'extinta').reduce((ss, d) => ss + (d.value || 0), 0), 0);
-                      return (
-                        <div key={colKey || 'none'} className="kanban-col"
-                          onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
-                          onDragLeave={e => e.currentTarget.classList.remove('dragover')}
-                          onDrop={e => {
-                            e.preventDefault();
-                            e.currentTarget.classList.remove('dragover');
-                            const opId = e.dataTransfer.getData('text/op-id');
-                            if (opId) moveOpToCol(opId, colKey);
-                          }}>
-                          <div className="kanban-col-header" style={{borderBottom:`2px solid ${cls.border}`}}>
-                            <span style={{color: cls.color}}>{cls.label}</span>
-                            <span style={{fontSize:10,color:'var(--text-muted)'}}>{opsInCol.length} · {fmtCur(groupTotal)}</span>
-                          </div>
-                          <div className="kanban-col-body">
-                            {opsInCol.map(op => {
-                              const debts = data.debts.filter(d => d.operationId === op.id);
-                              const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
-                              const people = data.people.filter(p => p.operationId === op.id).length;
-                              const execs = data.executions.filter(e => e.operationId === op.id).length;
-                              const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
-                              const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
-                              const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
-                              const notes = op.notesList || (op.notes ? [op.notes] : []);
-                              return (
-                                <div key={op.id} className="kanban-card"
-                                  draggable
-                                  onDragStart={e => { e.dataTransfer.setData('text/op-id', op.id); e.dataTransfer.effectAllowed = 'move'; }}
-                                  onClick={() => openOp(op)}
-                                  style={{borderLeft: `3px solid ${cls.border}`}}>
-                                  <div className="kc-name">{op.name}</div>
-                                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
-                                    <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
-                                    {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
-                                  </div>
-                                  <div className="kc-stats">
-                                    <span>{people} pes.</span>
-                                    <span>{debts.length} CDAs</span>
-                                    <span>{execs} EFs</span>
-                                    <span style={{fontWeight:600,color:'var(--text-secondary)'}}>{fmtCur(total)}</span>
-                                  </div>
-                                  {notes.length > 0 && <div className="kc-obs">{notes[0]}</div>}
-                                  <div className="kc-alerts">
-                                    {opIntims.length > 0 && <span className="badge badge-yellow">📬 {opIntims.length}</span>}
-                                    {opTasks.length > 0 && <span className="badge badge-blue">✓ {opTasks.length}</span>}
-                                    {prescAlerts > 0 && <span className="badge badge-red">⏱ {prescAlerts}</span>}
-                                  </div>
+                  <>
+                    <div className="ops-filter-bar">
+                      <button className={`settings-opt ${opClassFilter==='all'?'active':''}`} onClick={() => setOpClassFilter('all')}>Todas ({data.operations.length})</button>
+                      {chipKeys.map(k => {
+                        const meta = OP_CLASSIFICATIONS[k];
+                        const n = countFor(k);
+                        return (
+                          <button key={k} className={`settings-opt ${opClassFilter===k?'active':''}`}
+                            style={opClassFilter===k ? { color: meta.color, borderColor: meta.border } : undefined}
+                            onClick={() => setOpClassFilter(k)}>
+                            {meta.label} ({n})
+                          </button>
+                        );
+                      })}
+                      {encerradaCount > 0 && (
+                        <button className={`settings-opt ${opClassFilter==='encerrada'?'active':''}`} onClick={() => setOpClassFilter('encerrada')}>
+                          Encerradas ({encerradaCount})
+                        </button>
+                      )}
+                    </div>
+                    {opClassFilter !== 'all' && (
+                      <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10}}>
+                        Mostrando {shown.length} de {data.operations.length}
+                      </div>
+                    )}
+                    {shown.length === 0 ? (
+                      <div className="empty-state"><p>Nenhuma operação neste filtro.</p></div>
+                    ) : (
+                      <div className="ops-card-grid">
+                        {shown.map(op => {
+                          const debts = data.debts.filter(d => d.operationId === op.id);
+                          const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
+                          const people = data.people.filter(p => p.operationId === op.id).length;
+                          const execs = data.executions.filter(e => e.operationId === op.id).length;
+                          const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
+                          const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
+                          const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+                          const notes = op.notesList || (op.notes ? [op.notes] : []);
+                          const clsKeys = getOpClassifications(op);
+                          const rs = reviewStatus(op);
+                          return (
+                            <div key={op.id} className={`ops-card${op.status === 'encerrada' ? ' is-encerrada' : ''}`}
+                              onClick={() => openOp(op)}>
+                              <div className="kc-name">{op.name}</div>
+                              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                                <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
+                                {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
+                                {rs.overdue && <span className="badge badge-red" style={{fontSize:8}}>📅 {rs.label}</span>}
+                              </div>
+                              {clsKeys.length > 0 && (
+                                <div className="kc-tags">
+                                  {clsKeys.map(k => {
+                                    const meta = OP_CLASSIFICATIONS[k];
+                                    return <span key={k} className="kc-tag" style={{color: meta.color, border: `1px solid ${meta.border}`}}>{meta.label}</span>;
+                                  })}
                                 </div>
-                              );
-                            })}
-                            {opsInCol.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:8}}>Arraste operações aqui</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                              )}
+                              {op.description && <div className="kc-desc">{op.description}</div>}
+                              <div className="kc-stats">
+                                <span>{people} pes.</span>
+                                <span>{debts.length} CDAs</span>
+                                <span>{execs} EFs</span>
+                                <span style={{fontWeight:600,color:'var(--text-secondary)'}}>{fmtCur(total)}</span>
+                              </div>
+                              {notes.length > 0 && <div className="kc-obs">{notes[0]}</div>}
+                              <div className="kc-alerts">
+                                {opIntims.length > 0 && <span className="badge badge-yellow">📬 {opIntims.length}</span>}
+                                {opTasks.length > 0 && <span className="badge badge-blue">✓ {opTasks.length}</span>}
+                                {prescAlerts > 0 && <span className="badge badge-red">⏱ {prescAlerts}</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 );
               })()}
               {isDemo && renderCarteiraRankingPanel()}
@@ -9550,39 +9713,63 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {/* ═══ MODELOS ═══ */}
       {viewMode === 'modelos' && (() => {
         const models = data.models || [];
-        // Árvore: categoria → subcategoria
-        const tree = {};
-        models.forEach(m => {
-          const c = m.category || 'Sem categoria', s = m.subcategory || '—';
-          if (!tree[c]) tree[c] = { total: 0, subs: {} };
-          tree[c].total++; tree[c].subs[s] = (tree[c].subs[s] || 0) + 1;
-        });
-        const cats = Object.keys(tree).sort();
+        const cats = [...new Set(models.map(m => m.category || 'Sem categoria'))].sort();
         const matterSet = new Set(modelMatters.map(x => x.materia));
-        // Filtro: matérias inferidas > nó da árvore > tudo
         let lista = models;
         if (matterSet.size > 0) {
           lista = models.filter(m => matterSet.has(m.subcategory) || (m.tags || []).some(t => matterSet.has(t)));
           const rank = (m) => { const i = modelMatters.findIndex(x => x.materia === m.subcategory); return i === -1 ? 99 : i; };
           lista = [...lista].sort((a, b) => rank(a) - rank(b) || (b.useCount || 0) - (a.useCount || 0));
-        } else if (modelSel) {
-          lista = models.filter(m => (m.category || 'Sem categoria') === modelSel.cat && (!modelSel.sub || (m.subcategory || '—') === modelSel.sub));
+        } else {
+          if (modelSel) lista = lista.filter(m => (m.category || 'Sem categoria') === modelSel.cat && (!modelSel.sub || (m.subcategory || '—') === modelSel.sub));
+          lista = sortModels(lista);
         }
+        if (modelStageFilter !== 'all') lista = lista.filter(m => (m.stage || 'primario') === modelStageFilter);
+        const active = lista.find(m => m.id === modelActiveId) || lista[0] || null;
+        const stActive = active ? modelStageOf(active) : null;
+        const tabs = [
+          { id: 'cab', label: 'Cabimento' },
+          { id: 'mapa', label: 'Mapa' },
+          { id: 'var', label: 'Variantes' },
+          { id: 'contra', label: 'Contra-argumentos' },
+          { id: 'prec', label: 'Precedentes' },
+          { id: 'vig', label: 'Vigência' },
+        ];
+        const selectModel = (m) => {
+          setModelActiveId(m.id);
+          setModelFichaTab('cab');
+          setModelOpenTopics(new Set([(m.topics || [])[0]?.id].filter(Boolean)));
+          setModelPoint(null);
+        };
         const analisar = () => { const r = guessMatters(modelQuery); setModelMatters(r); setModelSel(null); if (modelQuery.trim() && r.length === 0) alert('Não reconheci a matéria nesse texto.\n\nTente colar um trecho com os termos jurídicos centrais (ex.: "prescrição intercorrente", "dissolução irregular").'); };
         const limpar = () => { setModelQuery(''); setModelMatters([]); };
-        // Catálogo em texto para colar no Gemini junto com a peça
         const copiarCatalogo = () => {
           if (models.length === 0) { alert('Cadastre modelos primeiro.'); return; }
-          const linhas = models.map((m, i) => `${i+1}. ${m.title || 'Sem título'}\n   Categoria: ${m.category || '—'} | Matéria: ${m.subcategory || '—'}${(m.tags||[]).length ? ' | Tags: ' + m.tags.join(', ') : ''}\n   Quando usar: ${m.description || '—'}\n   Link: ${m.url || '—'}`).join('\n\n');
+          const linhas = sortModels(models).map((m, i) => {
+            const n = m.number || String(i + 1);
+            const parts = [`${n}. ${m.title || 'Sem título'}`];
+            parts.push(`   Categoria: ${m.category || '—'} | Matéria: ${m.subcategory || '—'}${m.legalRefs ? ' | ' + m.legalRefs : ''}`);
+            if (m.servePara) parts.push('   Serve: ' + m.servePara);
+            if (m.naoServe) parts.push('   Não serve: ' + m.naoServe);
+            else if (m.description) parts.push('   Quando usar: ' + m.description);
+            if ((m.topics || []).length) parts.push('   Mapa: ' + m.topics.map(t => `${t.id} ${t.title}`).join(' · '));
+            parts.push('   Link: ' + (m.url || '—'));
+            return parts.join('\n');
+          }).join('\n\n');
           const txt = `Abaixo está o catálogo de modelos de peças de um Procurador da Fazenda Nacional.\n\nAnalise a peça que estou anexando e responda:\n1) Qual é a peça (tipo/rito) e qual a matéria central debatida;\n2) Quais modelos do catálogo abaixo são adequados para responder, em ordem de aderência, justificando em uma linha cada um;\n3) Que pontos da peça anexada o modelo escolhido não cobre e precisam ser redigidos do zero.\n\n=== CATÁLOGO (${models.length} modelos) ===\n\n${linhas}`;
           copyText(txt);
           alert(`Catálogo copiado (${models.length} modelos).\n\nAgora, no Gemini: cole este texto e anexe a peça (PDF).\nEle vai apontar os modelos adequados e o que falta cobrir.`);
         };
+        const abrirWord = (m) => {
+          upsert('models', { ...m, useCount: (m.useCount || 0) + 1, lastUsedAt: new Date().toISOString() });
+        };
+        const copiarMapa = (m) => { copyModelMap(m); alert('Mapa copiado. Cole no rascunho da peça ou no chat da IA.'); };
+        const emptyFicha = (msg) => <div className="model-empty">{msg}</div>;
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Modelos</span>
-              <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} modelo(s)</span>
+              <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} no banco{lista.length !== models.length ? ` · ${lista.length} nesta seleção` : ''}</span>
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               <button className="btn-secondary btn-sm" title="Copia o catálogo + um pedido pronto. Cole no Gemini e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}>✨ Catálogo para IA</button>
@@ -9590,7 +9777,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           </div>
 
-          {/* Busca livre — cola o texto da peça e ele infere a matéria */}
           <div style={{marginBottom:12,padding:'10px 12px',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)'}}>
             <div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}>
               <textarea value={modelQuery} onChange={e => setModelQuery(e.target.value)} rows={2}
@@ -9605,44 +9791,160 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:700}}>Matérias identificadas</span>
               {modelMatters.map(x => <span key={x.materia} style={{fontSize:10,padding:'2px 9px',borderRadius:999,border:'1px solid var(--accent)',background:'var(--accent-dim)',color:'var(--accent)',fontWeight:600}}>{x.materia}</span>)}
             </div>}
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
+              <button type="button" className={'model-chip' + (modelStageFilter === 'all' ? ' on' : '')} onClick={() => setModelStageFilter('all')}>Todos</button>
+              {Object.entries(MODEL_STAGES).map(([k, v]) => (
+                <button type="button" key={k} className={'model-chip' + (modelStageFilter === k ? ' on' : '')} onClick={() => setModelStageFilter(k)}>{v.label}</button>
+              ))}
+              {cats.length > 1 && <>
+                <span style={{width:1,height:14,background:'var(--border)',margin:'0 4px'}} />
+                <button type="button" className={'model-chip' + (!modelSel ? ' on' : '')} onClick={() => setModelSel(null)}>Todas as categorias</button>
+                {cats.map(c => (
+                  <button type="button" key={c} className={'model-chip' + (modelSel && modelSel.cat === c ? ' on' : '')} onClick={() => { setModelSel({ cat: c }); setModelMatters([]); }}>{c}</button>
+                ))}
+              </>}
+            </div>
           </div>
 
-          {models.length === 0 ? <div className="empty-state"><div className="empty-icon">📄</div><p>Nenhum modelo cadastrado.</p><p style={{fontSize:11}}>Cadastre os links dos seus modelos no Google Docs, classificados por peça e matéria.</p></div> :
-          <div style={{display:'grid',gridTemplateColumns:'190px 1fr',gap:12,alignItems:'start'}}>
-            {/* Árvore lateral */}
-            <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:8,position:'sticky',top:8}}>
-              <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:700,padding:'2px 6px 6px'}}>Categorias</div>
-              <div onClick={() => { setModelSel(null); setModelMatters([]); }} style={{fontSize:11,padding:'4px 7px',borderRadius:4,cursor:'pointer',color:!modelSel&&!modelMatters.length?'var(--text-primary)':'var(--text-secondary)',background:!modelSel&&!modelMatters.length?'var(--bg-elevated)':'transparent',marginBottom:2}}>Todos <span style={{color:'var(--text-muted)'}}>{models.length}</span></div>
-              {cats.map(c => { const selCat = modelSel && modelSel.cat === c;
-                return (<div key={c}>
-                  <div onClick={() => { setModelSel({ cat: c }); setModelMatters([]); }} style={{fontSize:11,padding:'4px 7px',borderRadius:4,cursor:'pointer',color:selCat&&!modelSel.sub?'var(--text-primary)':'var(--text-secondary)',background:selCat&&!modelSel.sub?'var(--bg-elevated)':'transparent',display:'flex',gap:6}}>
-                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c}</span>
-                    <span style={{color:'var(--text-muted)',flexShrink:0}}>{tree[c].total}</span>
-                  </div>
-                  {selCat && Object.keys(tree[c].subs).sort().map(s => (
-                    <div key={s} onClick={() => { setModelSel({ cat: c, sub: s }); setModelMatters([]); }} style={{fontSize:10,padding:'3px 7px 3px 18px',borderRadius:4,cursor:'pointer',color:modelSel.sub===s?'var(--accent)':'var(--text-muted)',background:modelSel.sub===s?'var(--accent-dim)':'transparent',display:'flex',gap:6}}>
-                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>↳ {s}</span>
-                      <span style={{flexShrink:0}}>{tree[c].subs[s]}</span>
-                    </div>
-                  ))}
-                </div>);
+          {models.length === 0 ? <div className="empty-state"><div className="empty-icon">📄</div><p>Nenhum modelo cadastrado.</p><p style={{fontSize:11}}>Cadastre o número, o cabimento e o link do Word. O texto da peça continua no documento, não aqui.</p></div> :
+          <div className="model-md-frame">
+            <div className="model-md-rail">
+              <div className="model-md-rail-h">Banco · {lista.length}</div>
+              {lista.length === 0 ? <div className="model-empty">Nenhum modelo {modelMatters.length ? 'para as matérias identificadas' : 'nesta seleção'}.</div> :
+              lista.map(m => {
+                const st = modelStageOf(m);
+                const isOn = active && active.id === m.id;
+                return (
+                  <button type="button" key={m.id} className={'model-md-row' + (isOn ? ' active' : '')} onClick={() => selectModel(m)}>
+                    <span className="model-md-num">{m.number || '—'}</span>
+                    <span>
+                      <span className="model-md-row-t">{m.title || 'Sem título'}</span>
+                      <span className="model-md-row-s">
+                        <span className={'model-badge ' + st.cls}>{st.label}</span>
+                        {m.legalRefs && <span>{m.legalRefs}</span>}
+                      </span>
+                    </span>
+                  </button>
+                );
               })}
             </div>
-            {/* Lista de modelos */}
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
-              {lista.length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--text-muted)',fontSize:11,border:'1px dashed var(--border)',borderRadius:6}}>Nenhum modelo {modelMatters.length ? 'para as matérias identificadas' : 'nesta categoria'}.</div> :
-              lista.map(m => (<div key={m.id} style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderLeft:`3px solid ${matterSet.has(m.subcategory)?'var(--accent)':'var(--border-light)'}`,borderRadius:6,padding:'9px 12px'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                  <span style={{fontSize:13,fontWeight:600,color:'var(--text-primary)',cursor:'pointer',flex:1,minWidth:0}} onClick={() => setModal({type:'edit',entityType:'model',initial:m})}>{m.title || 'Sem título'}</span>
-                  {m.url && <a href={m.url} target="_blank" rel="noopener noreferrer" className="intim-doc-link" style={{flexShrink:0}} onClick={e => { e.stopPropagation(); upsert('models', { ...m, useCount: (m.useCount||0)+1, lastUsedAt: new Date().toISOString() }); }}>📝 abrir</a>}
+            <div className="model-md-pane">
+              {!active ? <div className="model-empty">Selecione um modelo à esquerda.</div> : <>
+                <div className="model-md-pane-h">
+                  <div>
+                    <h3>{active.number ? active.number + ' · ' : ''}{active.title || 'Sem título'}</h3>
+                    <div className="model-md-pane-sub">
+                      <span className={'model-badge ' + stActive.cls}>{stActive.label}</span>
+                      {active.legalRefs && <span>{active.legalRefs}</span>}
+                      {active.category && <span>{active.category}{active.subcategory ? ' · ' + active.subcategory : ''}</span>}
+                      {active.consolidatedAt && <span>consolidado {fmtDate(active.consolidatedAt)}</span>}
+                    </div>
+                  </div>
+                  <div className="model-md-actions">
+                    {(active.topics || []).length > 0 && <button type="button" className="btn-secondary btn-sm" onClick={() => copiarMapa(active)}>Copiar mapa</button>}
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'model',initial:active})}>Editar ficha</button>
+                    {active.url && <button type="button" className="btn-primary btn-sm" onClick={() => { abrirWord(active); window.open(active.url, '_blank'); }}>Abrir o Word</button>}
+                  </div>
                 </div>
-                {m.description && <div style={{fontSize:11,color:'var(--text-secondary)',lineHeight:1.5,marginTop:3}}>{m.description}</div>}
-                <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginTop:6}}>
-                  {m.category && <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.4,fontWeight:700}}>{m.category}{m.subcategory ? ' · ' + m.subcategory : ''}</span>}
-                  {(m.tags || []).map(t => <span key={t} style={{fontSize:10,padding:'1px 8px',borderRadius:999,border:'1px solid var(--border)',color:'var(--text-muted)'}}>{t}</span>)}
-                  {m.useCount > 0 && <span style={{fontSize:9,color:'var(--text-muted)',marginLeft:'auto'}}>usado {m.useCount}×</span>}
+                <div className="model-md-tabs">
+                  {tabs.map(t => (
+                    <button type="button" key={t.id} className={'model-md-tab' + (modelFichaTab === t.id ? ' on' : '')} onClick={() => setModelFichaTab(t.id)}>{t.label}</button>
+                  ))}
                 </div>
-              </div>))}
+                <div className="model-md-body">
+                  {modelFichaTab === 'cab' && (
+                    (active.servePara || active.naoServe || active.description)
+                      ? <div className="model-split">
+                          <div className="model-box yes"><small>Serve</small><p>{active.servePara || active.description}</p></div>
+                          <div className="model-box no"><small>Não serve</small><p>{active.naoServe || 'Ainda não preenchido. Edite a ficha para registrar o que este modelo não cobre.'}</p></div>
+                        </div>
+                      : emptyFicha('Este modelo ainda não tem cabimento cadastrado. Clique em Editar ficha.')
+                  )}
+                  {modelFichaTab === 'mapa' && (
+                    (active.topics || []).length === 0
+                      ? emptyFicha('Este modelo ainda não tem o mapa da fundamentação. O texto da peça continua no Word; aqui entram só os tópicos numerados.')
+                      : <>
+                          {(active.topics || []).map(t => {
+                            const open = modelOpenTopics.has(t.id);
+                            return (
+                              <div key={t.id} className={'model-topic' + (open ? ' open' : '')}>
+                                <button type="button" onClick={() => setModelOpenTopics(prev => { const n = new Set(prev); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}>
+                                  <span className="model-tid">{t.id}</span>
+                                  <span className="model-ttitle">{t.title}</span>
+                                  <span className="model-tcount">{(t.points || []).length} ponto{(t.points || []).length === 1 ? '' : 's'}</span>
+                                </button>
+                                <div className="model-subs">
+                                  {(t.points || []).map(p => (
+                                    <button type="button" key={p.id} className={'model-subp' + (modelPoint && modelPoint.id === p.id ? ' on' : '')} onClick={() => setModelPoint(p)}>
+                                      <b>{p.id}</b>{p.title}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {modelPoint && (
+                            <div className="model-preview">
+                              <strong>Ponto selecionado · {modelPoint.id}</strong>
+                              {modelPoint.summary || 'Sem resumo cadastrado neste ponto.'}
+                            </div>
+                          )}
+                        </>
+                  )}
+                  {modelFichaTab === 'var' && (
+                    (active.variants || []).length === 0
+                      ? emptyFicha('Nenhuma variante cadastrada. Use a ficha para registrar os arranjos típicos (ex.: sucessão vertical, grupo horizontal).')
+                      : (active.variants || []).map((v, i) => (
+                          <div key={i} className="model-vcard">
+                            <h4>{v.title}</h4>
+                            {v.body && <p>{v.body}</p>}
+                            {v.goto && <div className="model-goto">{v.goto}</div>}
+                          </div>
+                        ))
+                  )}
+                  {modelFichaTab === 'contra' && (
+                    (active.counterArgs || []).length === 0
+                      ? emptyFicha('Nenhum contra-argumento cadastrado.')
+                      : (active.counterArgs || []).map((c, i) => (
+                          <div key={i} className="model-vcard">
+                            <h4>{c.quote}</h4>
+                            {c.body && <p>{c.body}</p>}
+                            {c.goto && <div className="model-goto">{c.goto}</div>}
+                          </div>
+                        ))
+                  )}
+                  {modelFichaTab === 'prec' && (
+                    (active.precedents || []).length === 0
+                      ? emptyFicha('Nenhum precedente cadastrado na ficha. A transcrição continua no Word.')
+                      : (active.precedents || []).map((p, i) => {
+                          const k = MODEL_PREC_KINDS[p.kind] || MODEL_PREC_KINDS.qual;
+                          return (
+                            <div key={i} className="model-vcard model-pcard">
+                              <span className={'model-p-kind ' + k.cls}>{k.label}</span>
+                              <div>
+                                <h4>{p.title}</h4>
+                                {p.meta && <p>{p.meta}</p>}
+                              </div>
+                              {p.goto && <div className="model-goto">{p.goto}</div>}
+                            </div>
+                          );
+                        })
+                  )}
+                  {modelFichaTab === 'vig' && (
+                    (!active.vigencia || (!active.vigencia.fragile && !(active.vigencia.recheck || []).length))
+                      ? emptyFicha('Nenhuma nota de vigência. Use este espaço para o ponto frágil e o que reconfirmar antes de protocolar.')
+                      : <>
+                          {active.vigencia.fragile && <div className="model-warn"><b>Ponto frágil.</b> {active.vigencia.fragile}</div>}
+                          {active.consolidatedAt && <p style={{fontSize:12,color:'var(--text-secondary)',marginBottom:8}}>Consolidação de {fmtDate(active.consolidatedAt)}. Reconferir antes de usar:</p>}
+                          {(active.vigencia.recheck || []).length > 0 && (
+                            <ul style={{fontSize:12,color:'var(--text-secondary)',paddingLeft:18,lineHeight:1.7,margin:0}}>
+                              {active.vigencia.recheck.map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          )}
+                        </>
+                  )}
+                </div>
+              </>}
             </div>
           </div>}
         </div>);
@@ -10087,7 +10389,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </>}
     </div>
 
-    <Modal show={!!modal} onClose={() => setModal(null)} title={modalTitle} wide={modal?.entityType==='measure'||modal?.entityType==='intimation'||modal?.entityType==='hearing'}>
+    <Modal show={!!modal} onClose={() => setModal(null)} title={modalTitle} wide={modal?.entityType==='measure'||modal?.entityType==='intimation'||modal?.entityType==='hearing'||modal?.entityType==='model'}>
       {renderForm()}
     </Modal>
 
@@ -11501,12 +11803,42 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
 
   if (entityType === 'model') {
     const tags = form.tags || [];
+    const topics = form.topics || [];
+    const variants = form.variants || [];
+    const counterArgs = form.counterArgs || [];
+    const precedents = form.precedents || [];
+    const vig = form.vigencia || { fragile: '', recheck: [] };
+    const recheck = vig.recheck || [];
+    const patchTopic = (i, patch) => { const u = topics.map((t, j) => j === i ? { ...t, ...patch } : t); set('topics', u); };
+    const patchPoint = (ti, pi, patch) => {
+      const u = topics.map((t, j) => {
+        if (j !== ti) return t;
+        const pts = (t.points || []).map((p, k) => k === pi ? { ...p, ...patch } : p);
+        return { ...t, points: pts };
+      });
+      set('topics', u);
+    };
+    const box = { border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', marginBottom: 8, background: 'var(--bg-elevated)' };
     return (<>
-      <div className="form-group"><label>Título do modelo</label>
-        <input value={form.title||''} onChange={e=>set('title',e.target.value)} placeholder="Ex: Manifestação — prescrição intercorrente (art. 40 LEF)" />
+      <div className="form-row-3">
+        <div className="form-group"><label>Número</label>
+          <input value={form.number||''} onChange={e=>set('number',e.target.value)} placeholder="06" />
+        </div>
+        <div className="form-group"><label>Estágio</label>
+          <select value={form.stage||'primario'} onChange={e=>set('stage',e.target.value)}>
+            {Object.entries(MODEL_STAGES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </div>
+        <div className="form-group"><label>Consolidado em</label>
+          <input type="date" value={form.consolidatedAt||''} onChange={e=>set('consolidatedAt',e.target.value)} />
+        </div>
       </div>
-      <div className="form-group"><label>Link (Google Docs ou outro)</label>
+      <div className="form-group"><label>Título do modelo</label>
+        <input value={form.title||''} onChange={e=>set('title',e.target.value)} placeholder="Ex: Grupo econômico de fato e sucessão empresarial" />
+      </div>
+      <div className="form-group"><label>Link do Word (Google Docs ou outro)</label>
         <input value={form.url||''} onChange={e=>set('url',e.target.value)} placeholder="https://docs.google.com/document/d/..." />
+        <span style={{fontSize:9,color:'var(--text-muted)'}}>O texto da peça fica no Word. Aqui entra só a ficha: cabimento, mapa, variantes, precedentes e vigência.</span>
       </div>
       <div className="form-row">
         <div className="form-group"><label>Categoria <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10}}>(tipo de peça)</span></label>
@@ -11518,9 +11850,17 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <datalist id="model-subs">{MODEL_SUBCATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
         </div>
       </div>
-      <div className="form-group"><label>Quando usar</label>
-        <textarea value={form.description||''} onChange={e=>set('description',e.target.value)} rows={3} placeholder="Em que situação este modelo se aplica, teses que cobre, o que precisa ser adaptado..." />
-        <span style={{fontSize:9,color:'var(--text-muted)'}}>Esta descrição é o que a IA lê para decidir se o modelo serve — quanto mais específica, melhor a sugestão.</span>
+      <div className="form-group"><label>Referências legais</label>
+        <input value={form.legalRefs||''} onChange={e=>set('legalRefs',e.target.value)} placeholder="arts. 124, I, e 133 do CTN" />
+      </div>
+      <div className="form-group"><label>Serve para</label>
+        <textarea value={form.servePara||''} onChange={e=>set('servePara',e.target.value)} rows={3} placeholder="Em que situação este modelo se aplica..." />
+      </div>
+      <div className="form-group"><label>Não serve para</label>
+        <textarea value={form.naoServe||''} onChange={e=>set('naoServe',e.target.value)} rows={2} placeholder="O que este modelo não cobre e para qual número remeter..." />
+      </div>
+      <div className="form-group"><label>Resumo curto <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10}}>(opcional, se ainda não preencheu o cabimento)</span></label>
+        <textarea value={form.description||''} onChange={e=>set('description',e.target.value)} rows={2} placeholder="Uma linha sobre o que o modelo cobre..." />
       </div>
       <div className="form-group"><label>Tags</label>
         {tags.length > 0 && <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:5}}>
@@ -11528,6 +11868,88 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </div>}
         <input placeholder="tag + Enter (ex.: súmula 435, art. 135)" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); set('tags', [...tags, e.target.value.trim()]); e.target.value = ''; } }} />
       </div>
+
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',margin:'14px 0 8px'}}>Mapa da fundamentação</div>
+      <p style={{fontSize:10,color:'var(--text-muted)',margin:'0 0 8px'}}>Tópicos numerados (1, 2, 3…) com pontos internos (1.1, 1.2…). Não cole o texto da peça.</p>
+      {topics.map((t, ti) => (
+        <div key={ti} style={box}>
+          <div style={{display:'flex',gap:6,marginBottom:6}}>
+            <input value={t.id||''} onChange={e=>patchTopic(ti,{id:e.target.value})} placeholder="1" style={{width:72,fontSize:11}} />
+            <input value={t.title||''} onChange={e=>patchTopic(ti,{title:e.target.value})} placeholder="Título do tópico" style={{flex:1,fontSize:11}} />
+            <button type="button" className="btn-xs btn-danger" onClick={() => set('topics', topics.filter((_,j)=>j!==ti))}>✕</button>
+          </div>
+          {(t.points||[]).map((p, pi) => (
+            <div key={pi} style={{display:'flex',gap:6,marginBottom:4,paddingLeft:12}}>
+              <input value={p.id||''} onChange={e=>patchPoint(ti,pi,{id:e.target.value})} placeholder="1.1" style={{width:64,fontSize:11}} />
+              <input value={p.title||''} onChange={e=>patchPoint(ti,pi,{title:e.target.value})} placeholder="Título do ponto" style={{flex:'1 1 140px',fontSize:11,minWidth:100}} />
+              <input value={p.summary||''} onChange={e=>patchPoint(ti,pi,{summary:e.target.value})} placeholder="Resumo (não o texto da peça)" style={{flex:'2 1 180px',fontSize:11,minWidth:120}} />
+              <button type="button" className="btn-xs btn-danger" onClick={() => patchTopic(ti,{points:(t.points||[]).filter((_,k)=>k!==pi)})}>✕</button>
+            </div>
+          ))}
+          <button type="button" className="btn-secondary btn-xs" onClick={() => {
+            const n = (t.points||[]).length + 1;
+            patchTopic(ti, { points: [...(t.points||[]), { id: `${t.id||ti+1}.${n}`, title: '', summary: '' }] });
+          }}>+ Ponto</button>
+        </div>
+      ))}
+      <button type="button" className="btn-secondary btn-sm" style={{marginBottom:12}} onClick={() => set('topics', [...topics, { id: String(topics.length + 1), title: '', points: [] }])}>+ Tópico</button>
+
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',margin:'6px 0 8px'}}>Variantes</div>
+      {variants.map((v, i) => (
+        <div key={i} style={box}>
+          <div style={{display:'flex',gap:6,marginBottom:4}}>
+            <input value={v.title||''} onChange={e=>{ const u=[...variants]; u[i]={...u[i],title:e.target.value}; set('variants',u); }} placeholder="Nome da variante" style={{flex:1,fontSize:11}} />
+            <button type="button" className="btn-xs btn-danger" onClick={() => set('variants', variants.filter((_,j)=>j!==i))}>✕</button>
+          </div>
+          <textarea value={v.body||''} onChange={e=>{ const u=[...variants]; u[i]={...u[i],body:e.target.value}; set('variants',u); }} rows={2} placeholder="Quando usar esta variante" style={{fontSize:11,marginBottom:4}} />
+          <input value={v.goto||''} onChange={e=>{ const u=[...variants]; u[i]={...u[i],goto:e.target.value}; set('variants',u); }} placeholder="Para onde ir no mapa (ex.: peso no item 1.3)" style={{fontSize:11}} />
+        </div>
+      ))}
+      <button type="button" className="btn-secondary btn-sm" style={{marginBottom:12}} onClick={() => set('variants', [...variants, { title: '', body: '', goto: '' }])}>+ Variante</button>
+
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',margin:'6px 0 8px'}}>Contra-argumentos</div>
+      {counterArgs.map((c, i) => (
+        <div key={i} style={box}>
+          <div style={{display:'flex',gap:6,marginBottom:4}}>
+            <input value={c.quote||''} onChange={e=>{ const u=[...counterArgs]; u[i]={...u[i],quote:e.target.value}; set('counterArgs',u); }} placeholder={'A tese adversa, entre aspas'} style={{flex:1,fontSize:11}} />
+            <button type="button" className="btn-xs btn-danger" onClick={() => set('counterArgs', counterArgs.filter((_,j)=>j!==i))}>✕</button>
+          </div>
+          <textarea value={c.body||''} onChange={e=>{ const u=[...counterArgs]; u[i]={...u[i],body:e.target.value}; set('counterArgs',u); }} rows={2} placeholder="Como responder (resumo)" style={{fontSize:11,marginBottom:4}} />
+          <input value={c.goto||''} onChange={e=>{ const u=[...counterArgs]; u[i]={...u[i],goto:e.target.value}; set('counterArgs',u); }} placeholder="Resposta no item…" style={{fontSize:11}} />
+        </div>
+      ))}
+      <button type="button" className="btn-secondary btn-sm" style={{marginBottom:12}} onClick={() => set('counterArgs', [...counterArgs, { quote: '', body: '', goto: '' }])}>+ Contra-argumento</button>
+
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',margin:'6px 0 8px'}}>Precedentes</div>
+      {precedents.map((p, i) => (
+        <div key={i} style={{...box, display:'grid', gridTemplateColumns:'120px 1fr auto', gap:6, alignItems:'start'}}>
+          <select value={p.kind||'qual'} onChange={e=>{ const u=[...precedents]; u[i]={...u[i],kind:e.target.value}; set('precedents',u); }} style={{fontSize:11}}>
+            {Object.entries(MODEL_PREC_KINDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <div>
+            <input value={p.title||''} onChange={e=>{ const u=[...precedents]; u[i]={...u[i],title:e.target.value}; set('precedents',u); }} placeholder="STJ · Súmula 554" style={{fontSize:11,marginBottom:4,width:'100%'}} />
+            <input value={p.meta||''} onChange={e=>{ const u=[...precedents]; u[i]={...u[i],meta:e.target.value}; set('precedents',u); }} placeholder="O que o julgado resolve, em uma linha" style={{fontSize:11,marginBottom:4,width:'100%'}} />
+            <input value={p.goto||''} onChange={e=>{ const u=[...precedents]; u[i]={...u[i],goto:e.target.value}; set('precedents',u); }} placeholder="item 2.5" style={{fontSize:11,width:'100%'}} />
+          </div>
+          <button type="button" className="btn-xs btn-danger" onClick={() => set('precedents', precedents.filter((_,j)=>j!==i))}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="btn-secondary btn-sm" style={{marginBottom:12}} onClick={() => set('precedents', [...precedents, { kind: 'qual', title: '', meta: '', goto: '' }])}>+ Precedente</button>
+
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',margin:'6px 0 8px'}}>Nota de vigência</div>
+      <div className="form-group"><label>Ponto frágil</label>
+        <textarea value={vig.fragile||''} onChange={e=>set('vigencia', { ...vig, fragile: e.target.value })} rows={2} placeholder="Onde a tese costuma falhar ou o que ainda não está pacificado..." />
+      </div>
+      <div className="form-group"><label>Reconferir antes de usar</label>
+        {recheck.map((x, i) => (
+          <div key={i} style={{display:'flex',gap:6,marginBottom:4}}>
+            <input value={x} style={{flex:1,fontSize:11}} onChange={e => { const u=[...recheck]; u[i]=e.target.value; set('vigencia', { ...vig, recheck: u }); }} />
+            <button type="button" className="btn-xs btn-danger" onClick={() => set('vigencia', { ...vig, recheck: recheck.filter((_,j)=>j!==i) })}>✕</button>
+          </div>
+        ))}
+        <button type="button" className="btn-secondary btn-xs" onClick={() => set('vigencia', { ...vig, recheck: [...recheck, ''] })}>+ Item</button>
+      </div>
+
       {form.useCount > 0 && <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8}}>Usado {form.useCount}× · último uso em {form.lastUsedAt ? fmtDate(form.lastUsedAt.slice(0,10)) : '—'}</div>}
       {Actions()}
     </>);
@@ -11559,7 +11981,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     const categories = [
       { key: 'marco', label: '⏱ Marcos Iniciais (Tema 566)', desc: 'Eventos que disparam a contagem do art. 40 LEF' },
       { key: 'interruptiva', label: '🟢 Causas Interruptivas (Tema 568)', desc: 'Reiniciam o prazo prescricional do zero' },
-      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; o quinquênio recomeça por inteiro na rescisão (TRF4).' },
+      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; após a rescisão conta-se 1+5 (1 ano + 5 anos).' },
       { key: 'info', label: 'ℹ️ Eventos Informativos', desc: 'Sem efeito no cômputo — registro para controle' },
     ];
     return (<>

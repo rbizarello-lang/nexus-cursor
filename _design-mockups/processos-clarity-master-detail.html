@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Processos — D · Master–detail</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #e8eef2; --bg-main: #f2f5f8; --bg-card: #ffffff;
+  --bg-elevated: #f7f9fb; --border: #c5d0dc; --border-light: #d8e0e8;
+  --text-primary: #1a2836; --text-secondary: #4a5c6e; --text-muted: #7a8c9e;
+  --accent: #b87333; --accent-dim: rgba(184,115,51,0.10);
+  --gold: #b87333; --pgfn: #7a1f35; --pgfn-light: #9b2848;
+  --red: #c43048; --yellow: #b8860b; --green: #2d7a4f;
+  --font: 'Public Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font); background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(184,115,51,0.07), transparent 50%),
+    linear-gradient(180deg, #dfe8ef 0%, var(--bg-deep) 40%, #e4ebf1 100%);
+  color: var(--text-primary); padding: 28px 24px 72px; min-height: 100vh;
+}
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+.sub { color: var(--text-secondary); font-size: 13px; margin: 6px 0 22px; max-width: 720px; line-height: 1.45; }
+.tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; background: var(--accent-dim); }
+.frame {
+  display: grid; grid-template-columns: 280px 1fr; gap: 0;
+  max-width: 980px; min-height: 480px; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; background: var(--bg-card);
+  box-shadow: 0 8px 28px rgba(26,40,54,0.08);
+}
+.rail { border-right: 1px solid var(--border); background: var(--bg-elevated); display: flex; flex-direction: column; }
+.rail-h {
+  padding: 12px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--pgfn-light); border-bottom: 1px solid var(--border);
+}
+.hub {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  padding: 11px 14px; border: none; border-bottom: 1px solid var(--border-light);
+  background: transparent; cursor: pointer; font-family: inherit; color: inherit;
+}
+.hub:hover { background: rgba(184,115,51,0.06); }
+.hub.active {
+  background: color-mix(in srgb, var(--pgfn) 8%, white);
+  border-left: 3px solid var(--pgfn); padding-left: 11px;
+}
+.hub-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--pgfn); }
+.hub-num { font-family: var(--mono); font-size: 11px; font-weight: 600; margin-top: 2px; }
+.hub-meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 8px; }
+.hub-meta .risk { color: var(--red); font-weight: 700; }
+.rail-sec {
+  padding: 10px 14px 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted); margin-top: 4px;
+}
+.rail-item {
+  padding: 7px 14px; font-size: 11px; color: var(--text-secondary); cursor: pointer;
+  border: none; background: transparent; width: 100%; text-align: left; font-family: inherit;
+}
+.rail-item:hover { color: var(--text-primary); background: rgba(0,0,0,0.03); }
+.rail-item .mono { font-family: var(--mono); font-size: 10px; }
+.pane { display: flex; flex-direction: column; min-width: 0; }
+.pane-h {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.pane-h h2 { font-size: 14px; font-weight: 700; }
+.pane-h .num { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.pane-h .actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn {
+  font-family: inherit; font-size: 11px; font-weight: 600; padding: 6px 10px;
+  border-radius: 4px; border: 1px solid var(--border); background: var(--bg-elevated);
+  color: var(--text-secondary); cursor: pointer;
+}
+.btn.primary { background: var(--pgfn); color: #fff; border-color: var(--pgfn); }
+.pane-body { padding: 14px 18px 20px; flex: 1; }
+.block-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin: 14px 0 8px;
+}
+.block-label:first-child { margin-top: 0; }
+.block-label .count { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted); padding: 6px 8px;
+  border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+}
+td { padding: 8px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); vertical-align: middle; }
+td.mono { font-family: var(--mono); font-weight: 600; color: var(--text-primary); font-size: 11px; }
+tr:hover td { background: var(--accent-dim); cursor: pointer; }
+.risk-c { color: var(--red); font-weight: 700; }
+.risk-w { color: var(--yellow); font-weight: 700; }
+.risk-ok { color: var(--green); font-weight: 600; }
+.hub-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: color-mix(in srgb, var(--pgfn) 4%, white); margin-bottom: 4px;
+}
+.hub-summary div small { display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hub-summary div strong { font-size: 13px; font-weight: 700; }
+.note {
+  margin-top: 22px; max-width: 980px; font-size: 12px; color: var(--text-secondary);
+  padding: 12px 14px; border-left: 3px solid var(--accent); background: rgba(255,255,255,0.55);
+  line-height: 1.5;
+}
+.note strong { color: var(--text-primary); }
+@media (max-width: 760px) {
+  .frame { grid-template-columns: 1fr; }
+  .rail { border-right: none; border-bottom: 1px solid var(--border); max-height: 220px; overflow: auto; }
+}
+</style>
+</head>
+<body>
+  <div class="tag">Mockup · alternativa D</div>
+  <h1>Master–detail <span>· hubs limpos</span></h1>
+  <p class="sub">Lista compacta de hubs à esquerda. Painel direito mostra só o contexto selecionado: resumo do hub, tabela de EFs abrangidas, e (abaixo) EFs sem vínculo da operação. Detalhe CDA/prescrição só ao clicar a linha — sem accordion aninhado nem card 4 colunas na lista.</p>
+
+  <div class="frame">
+    <aside class="rail">
+      <div class="rail-h">Hubs (2)</div>
+      <button type="button" class="hub active">
+        <span class="hub-tag">IDPJ</span>
+        <span class="hub-num">5009876-11.2024.4.04.7001</span>
+        <span class="hub-meta"><span>2 EFs</span><span>R$ 1,73 mi</span><span class="risk">5d</span></span>
+      </button>
+      <button type="button" class="hub">
+        <span class="hub-tag">Cautelar fiscal</span>
+        <span class="hub-num">5003333-22.2024.4.04.7002</span>
+        <span class="hub-meta"><span>1 EF</span><span>R$ 2,34 mi</span><span class="risk-w" style="color:var(--yellow);font-weight:700">95d</span></span>
+      </button>
+      <div class="rail-sec">Sem vínculo (1)</div>
+      <button type="button" class="rail-item"><span class="mono">5000045-12.2019…</span> · suspensa</button>
+      <div class="rail-sec">Extintas · Outros</div>
+      <button type="button" class="rail-item" style="opacity:0.65">▸ Extintas (0)</button>
+      <button type="button" class="rail-item" style="opacity:0.65">▸ Outros (1)</button>
+    </aside>
+
+    <section class="pane">
+      <div class="pane-h">
+        <div>
+          <h2>IDPJ · Incidente de desconsideração</h2>
+          <div class="num">5009876-11.2024.4.04.7001 · 1ª VF Maringá</div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn">Dados</button>
+          <button type="button" class="btn primary">+ Evento</button>
+        </div>
+      </div>
+      <div class="pane-body">
+        <div class="hub-summary">
+          <div><small>Status</small><strong>Ativa</strong></div>
+          <div><small>EFs abrangidas</small><strong>2 · R$ 1,73 mi</strong></div>
+          <div><small>Presc. mais próxima</small><strong class="risk-c">5d</strong></div>
+        </div>
+
+        <div class="block-label">EFs abrangidas <span class="count">(2)</span></div>
+        <table>
+          <thead><tr><th>Processo</th><th>Status</th><th>Valor</th><th>Prescrição</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">5001234-56.2023.4.04.7001</td>
+              <td>Ativa</td>
+              <td>R$ 1,73 mi</td>
+              <td class="risk-c">5d</td>
+            </tr>
+            <tr>
+              <td class="mono">5001235-12.2023.4.04.7001</td>
+              <td>Ativa</td>
+              <td>R$ 480 mil</td>
+              <td class="risk-ok">410d</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="block-label">Nesta operação · sem vínculo <span class="count">(1)</span></div>
+        <table>
+          <thead><tr><th>Processo</th><th>Status</th><th>Valor</th><th>Prescrição</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">5000045-12.2019.4.04.7003</td>
+              <td>Suspensa</td>
+              <td>R$ 5,60 mi</td>
+              <td class="risk-w">130d</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <p class="note">
+    <strong>O que some da tela:</strong> accordion do hub + process-summary + ProcPrescCard 4 colunas + tabela aninhada + segunda expansão de card.
+    <strong>O que permanece:</strong> hubs no topo (rail), EFs cobertas claras, livres abaixo, Extintas/Outros demoted, + Processo / editar no painel.
+  </p>
+</body>
+</html>

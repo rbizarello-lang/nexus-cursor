@@ -18,6 +18,7 @@ const jsxPath = path.join(root, 'src', 'app.jsx');
 const datesPath = path.join(root, 'src', 'lib', 'dates.js');
 const prescPath = path.join(root, 'src', 'lib', 'prescription.js');
 const docsPath = path.join(root, 'src', 'lib', 'docs.js');
+const importGuardPath = path.join(root, 'src', 'lib', 'import-guard.js');
 const processesPath = path.join(root, 'src', 'lib', 'processes.js');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
@@ -41,6 +42,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(prescPath, 'utf8')),
   '/* --- src/lib/docs.js --- */',
   unwrapModule(fs.readFileSync(docsPath, 'utf8')),
+  '/* --- src/lib/import-guard.js --- */',
+  unwrapModule(fs.readFileSync(importGuardPath, 'utf8')),
   '/* --- src/lib/processes.js --- */',
   unwrapModule(fs.readFileSync(processesPath, 'utf8')),
   '/* --- src/app.jsx --- */',

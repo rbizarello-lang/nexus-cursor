@@ -167,14 +167,29 @@ export function findPersonByDoc(people, { operationId, cpfCnpj, name } = {}) {
 }
 
 /**
- * Retorna patch da pessoa se o documento de entrada for mais completo,
- * ou o próprio objeto pessoa inalterado se não houver ganho.
+ * Formata CPF (11) ou CNPJ (8 raiz / 12 sem DV / 14 completo).
+ * Outros tamanhos: devolve o texto original (ou vazio).
+ */
+export function formatCpfCnpj(s) {
+  const d = digitsOnly(s);
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if (d.length === 12) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})/, '$1.$2.$3/$4');
+  if (d.length === 8) return d.replace(/(\d{2})(\d{3})(\d{3})/, '$1.$2.$3');
+  return s ? String(s) : '';
+}
+
+/**
+ * Retorna patch da pessoa se o documento de entrada for mais completo
+ * ou se o cadastro puder ser formatado (XX.XXX.XXX/XXXX-XX).
+ * Sem ganho: devolve o próprio objeto, inalterado.
  */
 export function mergePersonDoc(person, incomingCpfCnpj) {
   if (!person) return person;
   const preferred = preferCompleteDoc(person.cpfCnpj, incomingCpfCnpj);
-  if (preferred !== person.cpfCnpj) {
-    return { ...person, cpfCnpj: preferred };
+  const formatted = formatCpfCnpj(preferred) || preferred;
+  if (formatted !== person.cpfCnpj) {
+    return { ...person, cpfCnpj: formatted };
   }
   return person;
 }
