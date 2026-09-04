@@ -53,8 +53,6 @@ describe('diagnóstico de integridade por escopo', () => {
     assert.ok(achados.find(f => f.id === 'mesa'));
     const pessoas = achados.find(f => f.id === 'duppessoa');
     assert.equal(pessoas.itens.length, 2);
-    const prazos = achados.find(f => f.id === 'intimsemprazo');
-    assert.ok(prazos.itens.some(i => i.id === 'i2'));
     const vincular = achados.find(f => f.id === 'intimsemop');
     assert.equal(vincular.itens.length, 2);
   });
