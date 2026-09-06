@@ -12,12 +12,14 @@ import {
 import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
+  clusterDuplicateExecutions,
   countExecutionReferences,
   getExecutionMergeConflicts,
   isRedundantImportedProcessNote,
   mergeDuplicateExecutions,
   mergeImportedExecution,
   migrateAtuacaoNotesToProcessCards,
+  processSpeciesKey,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
 } from './lib/processes.js';
@@ -823,6 +825,17 @@ function isCentralProcess(e) {
   return !!e && e.processTag === 'central';
 }
 
+/** EF que o usuário escolheu exibir no Panorama, sem ser IDPJ/cautelar/central. */
+function isUserPanoramaEf(e) {
+  return !!e && !!e.inPanorama && isExecucaoFiscalClass(e) && !isHubProcess(e)
+    && e.status !== 'extinta' && e.status !== 'arquivada';
+}
+
+/** Card de panorama no estilo da execução (régua da EF + valor próprio + apensos). */
+function isEfStylePanoramaCard(e) {
+  return isCentralProcess(e) || isUserPanoramaEf(e);
+}
+
 /** Espécie curta para Outros processos (coluna Espécie + chips). */
 function otherSpecies(e) {
   const cn = (e?.className || '').toLowerCase();
@@ -1083,7 +1096,7 @@ const getStageRecords = (briefing, execId) => {
 // relatório ainda lia as tags legadas e ignorava tudo que era preenchido na régua).
 const renderStageHtmlV2 = (briefing, exec, esc) => {
   const recs = getStageRecords(briefing, exec.id);
-  const STG = exec.processTag === 'central' ? CENTRAL_STAGES : PROCESS_STAGES;
+  const STG = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
   const parts = Object.keys(STG).filter(k => recs[k]).map(k => {
     const rec = recs[k] || {}, sd = STG[k];
     const isMulti = !!sd.multiRecurso;
@@ -2389,25 +2402,23 @@ function classifyProcGroups(cdaGroups, execs) {
     else if (g.type === 'exec' && g.exec) groupByExecId[g.exec.id] = g;
   });
 
-  // Duplicidades de nº de processo no cadastro da operação
-  const byDigits = {};
-  (execs || []).forEach(e => {
-    const n = normProc(e.processNumber);
-    if (!n) return;
-    (byDigits[n] = byDigits[n] || []).push(e);
-  });
-  const dupDigits = new Set(Object.keys(byDigits).filter(n => byDigits[n].length > 1));
+  // Duplicidades: mesmo nº e mesma família de espécie na operação.
+  // Procedimento comum + apelação (mesmo CNJ em graus diferentes) não é erro.
+  const dupClusters = clusterDuplicateExecutions(execs);
   const dupExecIds = new Set();
-  dupDigits.forEach(n => byDigits[n].forEach(e => dupExecIds.add(e.id)));
-  const duplicates = [...dupDigits].map(n => {
-    const arr = byDigits[n];
+  const dupDigits = new Set();
+  const duplicates = dupClusters.map(cluster => {
+    cluster.executions.forEach(e => {
+      dupExecIds.add(e.id);
+      dupDigits.add(cluster.processDigits);
+    });
     return {
-      digits: n,
-      processNumber: arr[0].processNumber,
-      count: arr.length,
-      ids: arr.map(e => e.id),
-      tags: arr.map(e => e.processTag || 'normal'),
-      classes: arr.map(e => e.className || ''),
+      digits: cluster.processDigits,
+      processNumber: cluster.executions.find(e => e.processNumber)?.processNumber || '',
+      count: cluster.executions.length,
+      ids: cluster.executions.map(e => e.id),
+      tags: cluster.executions.map(e => e.processTag || 'normal'),
+      classes: cluster.executions.map(e => e.className || ''),
     };
   });
 
@@ -4258,15 +4269,21 @@ function App() {
   const handleSave = (type, entity) => {
     const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings', model: 'models' };
     const wantsWatch = entity._openWatch;
+    const wantsPanorama = entity._openPanorama;
     const cleanEntity = { ...entity };
     delete cleanEntity._openWatch;
+    delete cleanEntity._openPanorama;
     if (type === 'execution' && cleanEntity.processNumber) {
       const previous = data.executions.find(ex => ex.id === cleanEntity.id);
-      const collision = data.executions.find(ex =>
-        ex.id !== cleanEntity.id &&
-        ex.operationId === cleanEntity.operationId &&
-        sameProc(ex.processNumber, cleanEntity.processNumber)
-      );
+      const collision = data.executions.find(ex => {
+        if (ex.id === cleanEntity.id) return false;
+        if (ex.operationId !== cleanEntity.operationId) return false;
+        if (!sameProc(ex.processNumber, cleanEntity.processNumber)) return false;
+        const sa = processSpeciesKey(ex);
+        const sb = processSpeciesKey(cleanEntity);
+        if (sa !== '_sem_especie' && sb !== '_sem_especie' && sa !== sb) return false;
+        return true;
+      });
       const numberChanged = !previous || !sameProc(previous.processNumber, cleanEntity.processNumber);
       if (collision && numberChanged) {
         alert(`Já existe o processo ${collision.processNumber || cleanEntity.processNumber} nesta operação.\n\nO novo cadastro foi bloqueado para evitar duplicidade. Abra o registro existente ou use Diagnóstico → Processos cadastrados em duplicidade para consolidar dados legados.`);
@@ -4442,6 +4459,11 @@ function App() {
       }}), 50);
     } else {
       setModal(null);
+    }
+    if (wantsPanorama && type === 'execution') {
+      setActiveTab('notas');
+      setBriefingSub('panorama');
+      setViewMode('operation');
     }
   };
   const handleDelete = (type, id) => {
@@ -4682,6 +4704,22 @@ function App() {
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const panoOpRef = useRef(activeOpId);
+  useEffect(() => {
+    if (panoOpRef.current === activeOpId) return;
+    panoOpRef.current = activeOpId;
+    setCollapsedGroups(prev => {
+      let changed = false;
+      const next = new Set(prev);
+      next.forEach(k => {
+        if (String(k).startsWith('panoopen-') || String(k).startsWith('panocollapse-')) {
+          next.delete(k);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeOpId]);
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const cdaFocusRef = useRef(null);
   const toggleCdaExpand = (id) => {
@@ -5430,7 +5468,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>}
 
         {/* ═══ SUB: Panorama processual — cards de processos (IDPJ/MCF/centrais) ═══ */}
-        {briefingSub === 'panorama' && ((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central')) ? (() => {
+        {briefingSub === 'panorama' && ((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central') || opExecs.some(isUserPanoramaEf)) ? (() => {
               // Cobertura alinhada a Processos (classifyProcGroups): linkedExecutionIds ∪ apensas ao hub,
               // incluindo EFs principais e apensas (arquivadas mantidas; extintas excluídas).
               const withCda = (ef) => ({
@@ -5458,17 +5496,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               });
               const coveredEFs = sortEFsArquivadasLast(Object.values(coveredMap));
               // Rol "Sem incidente": EFs top-level ainda sem vínculo a incidente (exclui apensas já cobertas)
-              const uncoveredEFs = mainEFs.filter(ef => !coveredMap[ef.id] && isExecucaoFiscalClass(ef));
+              const uncoveredEFs = mainEFs.filter(ef => !coveredMap[ef.id] && isExecucaoFiscalClass(ef) && !ef.inPanorama);
               const coveredTotal = coveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
               const uncoveredTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
               const grand = coveredTotal + uncoveredTotal;
               const pct = grand > 0 ? Math.round(coveredTotal / grand * 100) : 0;
 
-              // Processos CENTRAIS (EF marcada como central) — geram card próprio com régua e EFs apensas
+              // Processos CENTRAIS e EFs levadas ao panorama pelo usuário — card próprio com régua e apensos
               const centrais = opExecs.filter(e => e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada');
-              const apensosByCentral = {};
-              centrais.forEach(c => {
-                apensosByCentral[c.id] = sortEFsArquivadasLast(opExecs
+              const panoEFs = opExecs.filter(isUserPanoramaEf);
+              const efStyleCards = [...centrais, ...panoEFs];
+              const apensosByEfCard = {};
+              efStyleCards.forEach(c => {
+                apensosByEfCard[c.id] = sortEFsArquivadasLast(opExecs
                   .filter(e => e.parentExecutionId === c.id && keepCoveredEF(e))
                   .map(withCda));
               });
@@ -5517,10 +5557,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
                 return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
               });
-              // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central)
-              const badgeFor = (tag) => tag === 'idpj' ? { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' }
-                : tag === 'cautelar_fiscal' ? { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' }
-                : { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+              // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
+              const badgeFor = (ip) => {
+                const tag = ip?.processTag;
+                if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
+                if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
+                if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+                return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
+              };
               const stageCompactMeta = (m) => {
                 if (m.sd.multiRecurso) {
                   const n = (m.recursos || []).length;
@@ -5679,7 +5723,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       </div>
                       {visible.map(m => popupFor(m))}
                       {addFaseBtn}
-                      {ip.processTag === 'central' && (() => {
+                      {isEfStylePanoramaCard(ip) && (() => {
                         const ownVal = opDebts.filter(d => sameProc(d.processNumber, ip.processNumber)).reduce((s, d) => s + (d.value || 0), 0);
                         return (
                           <>
@@ -5693,7 +5737,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           </>
                         );
                       })()}
-                      <div className="pano-split-col-label">{ip.processTag === 'central' ? `Apensos fiscais · ${myEFs.length}` : `Cobertura · ${myEFs.length} ${bm.unit}${myEFs.length !== 1 ? 's' : ''}`}</div>
+                      <div className="pano-split-col-label">{isEfStylePanoramaCard(ip) ? `Apensos fiscais · ${myEFs.length}` : `Cobertura · ${myEFs.length} ${bm.unit}${myEFs.length !== 1 ? 's' : ''}`}</div>
                       {myEFs.length > 0 ? (
                         <div className="pano-split-ef-list">
                           {(() => {
@@ -5741,7 +5785,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {myEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{myEFs.length - 8} {bm.unit}(s)</div>}
                         </div>
                       ) : (
-                        <div className="pano-split-empty-work">{ip.processTag === 'central' ? 'Nenhum apenso fiscal. O valor acima é só desta execução.' : `Nenhuma ${bm.unit} vinculada`}</div>
+                        <div className="pano-split-empty-work">{isEfStylePanoramaCard(ip) ? 'Nenhum apenso fiscal. O valor acima é só desta execução.' : `Nenhuma ${bm.unit} vinculada`}</div>
                       )}
                     </div>
                     <div className="pano-split-col">
@@ -5775,9 +5819,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               // Cards do mapa: incidentes (IDPJ/MCF) + centrais — cada um com seu conjunto de fases e seus filhos
               const cards = [
                 ...idpjs.map(ip => ({ ip, STAGES: PROCESS_STAGES, STAGE_KEYS: PROCESS_STAGE_KEYS, apensos: efsByIncident[ip.id] || [] })),
-                ...centrais.map(c => ({ ip: c, STAGES: CENTRAL_STAGES, STAGE_KEYS: CENTRAL_STAGE_KEYS, apensos: apensosByCentral[c.id] || [] })),
+                ...efStyleCards.map(c => ({ ip: c, STAGES: CENTRAL_STAGES, STAGE_KEYS: CENTRAL_STAGE_KEYS, apensos: apensosByEfCard[c.id] || [] })),
               ];
-              const procCount = idpjs.length + centrais.length + coveredEFs.length + uncoveredEFs.length;
+              const procCount = idpjs.length + efStyleCards.length + coveredEFs.length + uncoveredEFs.length;
 
               return (<div className="demo-inbox-panel">
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:12,flexWrap:'wrap'}}>
@@ -5798,15 +5842,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {cards.map(({ ip, STAGES, STAGE_KEYS, apensos }) => {
                     const est = EXEC_STATUSES[ip.status] || {};
                     const recs = getRecords(ip.id);
-                    const bm = badgeFor(ip.processTag);
+                    const bm = badgeFor(ip);
                     const myEFs = apensos;
                     const covVal = myEFs.reduce((s,ef) => s + (ef._cdaValue||0), 0);
-                    const ownVal = ip.processTag === 'central'
+                    const isEfCard = isEfStylePanoramaCard(ip);
+                    const ownVal = isEfCard
                       ? opDebts.filter(d => sameProc(d.processNumber, ip.processNumber)).reduce((s, d) => s + (d.value || 0), 0)
                       : 0;
-                    const displayVal = ip.processTag === 'central' ? ownVal + covVal : covVal;
-                    const isCentralCard = ip.processTag === 'central';
-                    const cardCollapsed = collapsedGroups.has('panocollapse-' + ip.id);
+                    const displayVal = isEfCard ? ownVal + covVal : covVal;
+                    const isCentralCard = isEfCard;
+                    const cardCollapsed = !collapsedGroups.has('panoopen-' + ip.id);
                     const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                     const withHas = metas.filter(m => m.has);
                     const current = withHas.length ? withHas[withHas.length - 1] : null;
@@ -5814,7 +5859,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <div key={ip.id} className={'pano-split ' + (bm.tagClass || '') + (ip.status === 'extinta' ? ' is-extinct' : '')}>
                         <div
                           className="pano-split-head"
-                          onClick={() => toggleGroup('panocollapse-' + ip.id)}
+                          onClick={() => toggleGroup('panoopen-' + ip.id)}
                           title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
                         >
                           <div className="pano-split-head-row">
@@ -7069,7 +7114,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates, dupExecIds } = classified;
         const isDup = (execId) => !!(dupExecIds && dupExecIds.has(execId));
         const dupBadge = (execId) => isDup(execId)
-          ? <span className="dup-badge" title="Mesmo nº cadastrado mais de uma vez nesta operação">Duplicado</span>
+          ? <span className="dup-badge" title="Mesmo nº e mesma espécie cadastrados mais de uma vez nesta operação">Duplicado</span>
           : null;
         const apensosOf = (execId) => (apensosByParent && apensosByParent[execId]) || [];
         const withNestedApensos = (groups) => {
@@ -7516,7 +7561,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <span>
                 {duplicates.slice(0, 3).map(d => d.processNumber || d.digits).join(' · ')}
                 {duplicates.length > 3 ? ` · +${duplicates.length - 3}` : ''}
-                {' — '}mesmo número cadastrado mais de uma vez; revise o cadastro (Diagnósticos).
+                {' — '}mesmo número e mesma espécie cadastrados mais de uma vez; revise o cadastro (Diagnósticos).
               </span>
             </div>
           )}
@@ -11604,6 +11649,24 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(EXEC_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
+    {isHubProcess(form) && (
+      <div style={{padding:'8px 10px',fontSize:11,color:'var(--text-secondary)',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8}}>
+        Este processo já tem card no Panorama processual por ser {form.processTag === 'idpj' ? 'IDPJ' : form.processTag === 'cautelar_fiscal' ? 'cautelar fiscal' : 'processo central'}.
+      </div>
+    )}
+    {isExecucaoFiscalClass(form) && !isHubProcess(form) && (
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
+          {form.inPanorama
+            ? 'Esta execução tem card próprio no Panorama processual — sem estar marcada como IDPJ, cautelar ou central.'
+            : 'Levar esta execução para o Panorama processual, sem marcar como IDPJ, cautelar ou central.'}
+        </span>
+        <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
+          onClick={() => onSave({ ...form, inPanorama: !form.inPanorama, _openPanorama: !form.inPanorama })}>
+          {form.inPanorama ? 'Retirar do panorama' : 'Exibir no panorama'}
+        </button>
+      </div>
+    )}
     {(form.processTag === 'idpj' || form.processTag === 'cautelar_fiscal') && (
       <div className="form-group"><label>Execuções Abrangidas</label>
         <CheckList

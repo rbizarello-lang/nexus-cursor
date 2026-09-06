@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import { clusterDuplicateExecutions } from '../src/lib/processes.js';
+
 const source = fs.readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
 
 function extractFunction(name) {
@@ -26,10 +28,10 @@ const isOtherProcClass = execution => !!execution && !isHubProcess(execution) &&
 const sortArquivadasLast = groups => [...(groups || [])].sort((a, b) => (a?.exec?.status === 'arquivada' ? 1 : 0) - (b?.exec?.status === 'arquivada' ? 1 : 0));
 
 const factory = new Function(
-  'normProc', 'isExecucaoFiscalClass', 'isHubProcess', 'isOtherProcClass', 'sortArquivadasLast',
+  'normProc', 'isExecucaoFiscalClass', 'isHubProcess', 'isOtherProcClass', 'sortArquivadasLast', 'clusterDuplicateExecutions',
   `${extractFunction('buildCdaGroups')}\n${extractFunction('classifyProcGroups')}\nreturn { buildCdaGroups, classifyProcGroups };`
 );
-const { buildCdaGroups, classifyProcGroups } = factory(normProc, isExecucaoFiscalClass, isHubProcess, isOtherProcClass, sortArquivadasLast);
+const { buildCdaGroups, classifyProcGroups } = factory(normProc, isExecucaoFiscalClass, isHubProcess, isOtherProcClass, sortArquivadasLast, clusterDuplicateExecutions);
 
 function representedIds(classified) {
   return new Set([
@@ -74,6 +76,16 @@ describe('partição visual de Processos e Prescrição', () => {
     assert.equal(classified.duplicates.length, 1);
   });
 
+  it('não aponta duplicidade quando o mesmo número tem espécies diversas', () => {
+    const executions = [
+      { id: 'g1', processNumber: '50011111120224047001', className: 'Procedimento comum', status: 'ativa' },
+      { id: 'ap', processNumber: '5001111-11.2022.4.04.7001', className: 'Apelação', status: 'ativa' },
+    ];
+    const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
+    assert.equal(classified.duplicates.length, 0);
+    assert.equal(classified.dupExecIds.size, 0);
+  });
+
   it('recupera em Outros qualquer combinação não classificada', () => {
     const executions = [{ id: 'legacy', processNumber: '', className: '', processTag: 'legado', status: 'desconhecido', parentExecutionId: 'inexistente' }];
     const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
@@ -101,5 +113,29 @@ describe('partição visual de Processos e Prescrição', () => {
     const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
     assert.deepEqual((classified.coveredByHub.c || []).map(group => group.exec.id), []);
     assert.equal(classified.hubs.some(group => group.exec.id === 'c'), true);
+  });
+});
+
+const panoHelpers = new Function(
+  `${extractFunction('isExecucaoFiscalClass')}\n${extractFunction('isHubProcess')}\n${extractFunction('isCentralProcess')}\n${extractFunction('isUserPanoramaEf')}\n${extractFunction('isEfStylePanoramaCard')}\nreturn { isUserPanoramaEf, isEfStylePanoramaCard, isHubProcess };`
+)();
+
+describe('execução fiscal no panorama sem marca de hub', () => {
+  it('aceita EF comum marcada pelo usuário e não a trata como IDPJ/cautelar/central', () => {
+    const ef = { id: 'e1', className: 'Execução Fiscal', processTag: 'normal', inPanorama: true, status: 'ativa' };
+    assert.equal(panoHelpers.isUserPanoramaEf(ef), true);
+    assert.equal(panoHelpers.isEfStylePanoramaCard(ef), true);
+    assert.equal(panoHelpers.isHubProcess(ef), false);
+  });
+
+  it('não leva ao panorama EF sem a escolha do usuário', () => {
+    const ef = { id: 'e1', className: 'Execução Fiscal', processTag: 'normal', status: 'ativa' };
+    assert.equal(panoHelpers.isUserPanoramaEf(ef), false);
+  });
+
+  it('não duplica card de processo já marcado como central', () => {
+    const ef = { id: 'e1', className: 'Execução Fiscal', processTag: 'central', inPanorama: true, status: 'ativa' };
+    assert.equal(panoHelpers.isUserPanoramaEf(ef), false);
+    assert.equal(panoHelpers.isEfStylePanoramaCard(ef), true);
   });
 });

@@ -10,6 +10,7 @@ import {
   mergeDuplicateExecutions,
   mergeImportedExecution,
   migrateAtuacaoNotesToProcessCards,
+  processSpeciesKey,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
 } from '../src/lib/processes.js';
@@ -50,6 +51,64 @@ describe('diagnóstico e consolidação de processos duplicados', () => {
     assert.equal(groups.length, 1);
     assert.deepEqual(new Set(groups[0].executionIds), new Set(['a', 'b']));
     assert.ok(getExecutionMergeConflicts([data.executions[0], data.executions[1]]).some(c => c.field === 'status'));
+  });
+
+  it('não trata procedimento comum e apelação do mesmo número como duplicidade', () => {
+    const data = {
+      operations: [{ id: 'op1', name: 'Operação 1' }],
+      executions: [
+        { id: 'g1', operationId: 'op1', processNumber: '5001111-11.2022.4.04.7001', className: 'Procedimento comum' },
+        { id: 'ap', operationId: 'op1', processNumber: '50011111120224047001', className: 'Apelação' },
+      ],
+    };
+    assert.equal(findDuplicateExecutionGroups(data).length, 0);
+  });
+
+  it('ainda aponta duas execuções fiscais com o mesmo número', () => {
+    const data = {
+      operations: [{ id: 'op1', name: 'Operação 1' }],
+      executions: [
+        { id: 'a', operationId: 'op1', processNumber: '5002222-22.2021.4.04.7001', className: 'Execução Fiscal' },
+        { id: 'b', operationId: 'op1', processNumber: '50022222220214047001', className: 'Execução Fiscal Previdenciária' },
+      ],
+    };
+    const groups = findDuplicateExecutionGroups(data);
+    assert.equal(groups.length, 1);
+    assert.deepEqual(new Set(groups[0].executionIds), new Set(['a', 'b']));
+  });
+
+  it('mantém alerta se um dos cadastros não tiver espécie', () => {
+    const data = {
+      operations: [{ id: 'op1', name: 'Operação 1' }],
+      executions: [
+        { id: 'a', operationId: 'op1', processNumber: '5003333-33.2020.4.04.7001', className: 'Apelação' },
+        { id: 'b', operationId: 'op1', processNumber: '50033333320204047001', className: '' },
+      ],
+    };
+    const groups = findDuplicateExecutionGroups(data);
+    assert.equal(groups.length, 1);
+    assert.deepEqual(new Set(groups[0].executionIds), new Set(['a', 'b']));
+  });
+
+  it('aponta só a espécie repetida quando há também recurso do mesmo número', () => {
+    const data = {
+      operations: [{ id: 'op1', name: 'Operação 1' }],
+      executions: [
+        { id: 'pc1', operationId: 'op1', processNumber: '5004444-44.2019.4.04.7001', className: 'Procedimento comum' },
+        { id: 'pc2', operationId: 'op1', processNumber: '50044444420194047001', className: 'Procedimento Comum Cível' },
+        { id: 'ap', operationId: 'op1', processNumber: '5004444-44.2019.4.04.7001', className: 'Apelação' },
+      ],
+    };
+    const groups = findDuplicateExecutionGroups(data);
+    assert.equal(groups.length, 1);
+    assert.deepEqual(new Set(groups[0].executionIds), new Set(['pc1', 'pc2']));
+  });
+
+  it('agrupa família da espécie ignorando acento e variação de texto', () => {
+    assert.equal(processSpeciesKey({ className: 'Procedimento Comum Cível' }), 'procedimento_comum');
+    assert.equal(processSpeciesKey({ className: 'APELAÇÃO CÍVEL' }), 'apelacao');
+    assert.equal(processSpeciesKey({ className: 'Execução Fiscal Previdenciária' }), 'execucao_fiscal');
+    assert.equal(processSpeciesKey({ className: '' }), '_sem_especie');
   });
 
   it('migra referências, preserva eventos e arquiva os registros absorvidos', () => {

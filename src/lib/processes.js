@@ -26,6 +26,38 @@ export function normalizeExecutionProcessNumber(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+const normalizeSpeciesText = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim();
+
+/**
+ * Família da espécie/classe processual.
+ * O mesmo número CNJ em graus diferentes (ex.: procedimento comum + apelação) não é duplicidade.
+ */
+export function processSpeciesKey(execution) {
+  const cn = normalizeSpeciesText(execution?.className);
+  if (!cn) return '_sem_especie';
+  if (/^execucao\s+fiscal\b/.test(cn)) return 'execucao_fiscal';
+  if (/agravo\s+de\s+instrumento|agravo\s+instrument/.test(cn)) return 'agravo_instrumento';
+  if (/agravo\s+interno|agravo\s+regimental/.test(cn)) return 'agravo_interno';
+  if (/apelacao/.test(cn)) return 'apelacao';
+  if (/recurso\s+inominado/.test(cn)) return 'recurso_inominado';
+  if (/recurso\s+especial/.test(cn)) return 'recurso_especial';
+  if (/recurso\s+extraordinario/.test(cn)) return 'recurso_extraordinario';
+  if (/reexame\s+necessario|remessa\s+necessaria/.test(cn)) return 'remessa_necessaria';
+  if (/embargo/.test(cn)) return 'embargos';
+  if (/mandado\s+de\s+seguranca|\bms\b/.test(cn)) return 'ms';
+  if (/procedimento\s+comum|conhecimento|acao\s+ordinaria|monitoria/.test(cn)) return 'procedimento_comum';
+  if (/cumprimento\s+de\s+sentenca/.test(cn)) return 'cumprimento_sentenca';
+  if (/excecao\s+de\s+pre/.test(cn)) return 'epe';
+  if (/idpj|desconsideracao/.test(cn)) return 'idpj';
+  if (/cautelar/.test(cn)) return 'cautelar';
+  return cn;
+}
+
 const isEmpty = (value) => value === undefined || value === null || value === '';
 
 const stableValue = (value) => {
@@ -118,34 +150,81 @@ function executionQualityScore(data, execution) {
 }
 
 /**
- * Duplicidade consolidável = mesmo número normalizado dentro da mesma operação.
- * Repetições entre operações são deliberadamente excluídas deste resultado.
+ * Duplicidade consolidável = mesmo número e mesma família de espécie, na mesma operação.
+ * Espécies diversas com o mesmo número CNJ (1º grau e recurso) não entram neste resultado.
+ * Sem classe no cadastro, o alerta permanece — não dá para afirmar que são espécies diversas.
+ * Repetições entre operações também são excluídas.
  */
+export function clusterDuplicateExecutions(executions) {
+  const byDigits = new Map();
+  for (const execution of executions || []) {
+    const processDigits = normalizeExecutionProcessNumber(execution.processNumber);
+    if (!processDigits) continue;
+    if (!byDigits.has(processDigits)) byDigits.set(processDigits, []);
+    byDigits.get(processDigits).push(execution);
+  }
+  const clusters = [];
+  for (const [processDigits, records] of byDigits) {
+    if (records.length < 2) continue;
+    for (const group of splitDuplicateClustersBySpecies(records)) {
+      clusters.push({ processDigits, executions: group });
+    }
+  }
+  return clusters;
+}
+
+function splitDuplicateClustersBySpecies(records) {
+  const unknown = [];
+  const bySpecies = new Map();
+  for (const execution of records) {
+    const species = processSpeciesKey(execution);
+    if (species === '_sem_especie') {
+      unknown.push(execution);
+      continue;
+    }
+    if (!bySpecies.has(species)) bySpecies.set(species, []);
+    bySpecies.get(species).push(execution);
+  }
+  const knownKeys = [...bySpecies.keys()];
+  if (unknown.length && knownKeys.length <= 1) {
+    const known = knownKeys.length === 1 ? bySpecies.get(knownKeys[0]) : [];
+    const merged = [...known, ...unknown];
+    return merged.length > 1 ? [merged] : [];
+  }
+  const clusters = [];
+  for (const group of bySpecies.values()) {
+    if (group.length > 1) clusters.push(group);
+  }
+  if (unknown.length > 1) clusters.push(unknown);
+  return clusters;
+}
+
 export function findDuplicateExecutionGroups(data) {
   const d = data || {};
-  const groups = new Map();
+  const byOp = new Map();
   for (const execution of d.executions || []) {
     const processDigits = normalizeExecutionProcessNumber(execution.processNumber);
     const operationId = String(execution.operationId || '').trim();
     if (!processDigits || !operationId) continue;
-    const key = `${operationId}::${processDigits}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(execution);
+    if (!byOp.has(operationId)) byOp.set(operationId, []);
+    byOp.get(operationId).push(execution);
   }
-  return [...groups.entries()]
-    .filter(([, executions]) => executions.length > 1)
-    .map(([key, executions]) => {
-      const ranked = [...executions].sort((a, b) => executionQualityScore(d, b) - executionQualityScore(d, a));
-      return {
-        key,
-        operationId: String(executions[0].operationId),
-        processDigits: normalizeExecutionProcessNumber(executions[0].processNumber),
-        processNumber: executions.find((e) => e.processNumber)?.processNumber || '',
-        executionIds: executions.map((e) => e.id),
-        recommendedId: ranked[0]?.id || executions[0].id,
-        conflicts: getExecutionMergeConflicts(executions),
-      };
-    });
+  const out = [];
+  for (const [operationId, executions] of byOp) {
+    for (const cluster of clusterDuplicateExecutions(executions)) {
+      const ranked = [...cluster.executions].sort((a, b) => executionQualityScore(d, b) - executionQualityScore(d, a));
+      out.push({
+        key: `${operationId}::${cluster.processDigits}::${cluster.executions.map((e) => e.id).sort().join('+')}`,
+        operationId,
+        processDigits: cluster.processDigits,
+        processNumber: cluster.executions.find((e) => e.processNumber)?.processNumber || '',
+        executionIds: cluster.executions.map((e) => e.id),
+        recommendedId: ranked[0]?.id || cluster.executions[0].id,
+        conflicts: getExecutionMergeConflicts(cluster.executions),
+      });
+    }
+  }
+  return out;
 }
 
 function mergeStageRecord(current, incoming, sourceId) {

@@ -103,4 +103,17 @@ describe('diagnóstico de integridade por escopo', () => {
     const next = applyDiagnosticFix(data, mesa);
     assert.equal(next.desk.length, 0);
   });
+
+  it('não aponta duplicidade quando o mesmo número tem espécies diversas', () => {
+    const data = fixture();
+    data.executions.push(
+      { id: 'pc', operationId: 'op1', processNumber: '5010000-00.2022.4.04.7001', className: 'Procedimento comum' },
+      { id: 'apl', operationId: 'op1', processNumber: '50100000020224047001', className: 'Apelação' },
+    );
+    const achados = runDiagnostics(data, { operationId: 'op1' });
+    const dup = achados.find(f => f.id === 'dupexec');
+    assert.ok(dup);
+    assert.equal(dup.itens.length, 1);
+    assert.ok(!dup.itens.some(i => String(i.texto).includes('5010000')));
+  });
 });

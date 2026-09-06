@@ -77,7 +77,7 @@ export function runDiagnostics(data, options) {
         group,
       };
     }),
-    'Há mais de um cadastro interno para o mesmo processo na mesma operação. Use “Consolidar” para escolher o registro principal e migrar eventos, apensamentos, incidentes e histórico sem perda.');
+    'Há mais de um cadastro interno para o mesmo processo e a mesma espécie na mesma operação. Use “Consolidar” para escolher o registro principal e migrar eventos, apensamentos, incidentes e histórico sem perda. O mesmo número com espécies diferentes (ex.: procedimento comum e apelação) não é duplicidade.');
 
   // 3. Pessoas duplicadas por CPF/CNPJ na mesma operação
   const dupPersonGroups = [];
