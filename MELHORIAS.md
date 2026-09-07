@@ -17,7 +17,6 @@ Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássic
 - **Temas clássicos (03/08/2026):** removido **Noite Azulada** (`theme: ''`); adicionado **Claro** (`theme-claro`) com tokens papel-ardósia da Demo Clara (`.edition-demo` base). Padrão continua **Mar Profundo**. Migração: `''` / `theme-noite*` → `theme-claro`. Lista clássica: Mar Profundo · Claro · Ferro e Maré.
 - **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
 - **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus_demo_experimental.html` (também `Nexus.demo.html` / `demo_experimental.html`), ou `?edition=demo` (persiste em `nexus_settings`).
-- **Visão Gemini (Workspace):** ⚙ → Visão Gemini, ou botão no Hoje. Materializa abas `Gemini_*` na Planilha (`exportGeminiView` em `Código.js`) para análise no Gemini do Workspace. Escopos: carteira · fila de hoje · operação atual.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
 - **Build:** `npm run build` gera na raiz: `Nexus.html` + `Nexus.demo.html` + `Nexus_demo_experimental.html` (+ alias `demo_experimental.html`).
 

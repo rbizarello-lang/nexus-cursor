@@ -436,7 +436,7 @@ Ordem recomendada:
 4. revisar Google Fonts: remover, empacotar ou aceitar formalmente a dependência;
 5. declarar no manifesto apenas os escopos OAuth necessários a Drive, Planilhas e e-mail;
 6. manter o web app restrito ao próprio usuário;
-7. substituir “Salvar/Carregar na Planilha” por “Salvar/Carregar da nuvem” ou “Drive”; reservar “Planilha” para log e exportação Gemini.
+7. substituir “Salvar/Carregar na Planilha” por “Salvar/Carregar da nuvem” ou “Drive”; reservar “Planilha” para o log de sincronização.
 
 #### 5.3 Modularização
 

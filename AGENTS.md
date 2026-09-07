@@ -8,7 +8,7 @@ Painel de Operações Fiscais (Google Apps Script + React). Frontend pré-compil
 |---|---|
 | `src/app.jsx` | Lógica React, parsers, domínio, UI clássica e demo |
 | `src/Nexus.shell.html` | HTML, CSS, CDN, portal de tooltips (`<!--INJECT_APP_JS-->`) |
-| `Código.js` | Backend Apps Script (`doGet`, sync, Gemini view, etc.) |
+| `Código.js` | Backend Apps Script (`doGet`, sync Drive, backups) |
 | `RESUMO-DIARIO.js` | Lógica de resumo diário no Apps Script |
 
 **Nunca editar à mão** (gerados por `npm run build`):
