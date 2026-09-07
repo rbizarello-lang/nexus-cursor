@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { clusterDuplicateExecutions } from '../src/lib/processes.js';
+import { clusterDuplicateExecutions, splitOtherProcGroups } from '../src/lib/processes.js';
 
 const source = fs.readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
 
@@ -104,6 +104,24 @@ describe('partição visual de Processos e Prescrição', () => {
     assert.deepEqual((classified.coveredByHub.c || []).map(group => group.exec.id), ['ap']);
     assert.equal(classified.uncoveredEFs.some(group => group.exec.id === 'other'), true);
     assert.equal(classified.others.some(group => group.exec.id === 'emb'), true);
+  });
+
+  it('fatiar Outros coloca apelação em Recursos e embargos à execução em Embargos', () => {
+    const executions = [
+      { id: 'apl', processNumber: '50011111120224047001', className: 'Apelação', status: 'ativa' },
+      { id: 'ai', processNumber: '50012505620254047001', className: 'Agravo de Instrumento', status: 'ativa' },
+      { id: 'emb', processNumber: '50077808820234047002', className: 'Embargos à Execução Fiscal', status: 'ativa' },
+      { id: 'et', processNumber: '50077818820234047002', className: 'Embargos de Terceiro', status: 'ativa' },
+      { id: 'ed', processNumber: '50077828820234047002', className: 'Embargos de Declaração', status: 'ativa' },
+      { id: 'cs', processNumber: '50022209920244047000', className: 'Cumprimento de Sentença', status: 'ativa' },
+      { id: 'epe', processNumber: '50012405620244047001', className: 'Exceção de Pré-Executividade', status: 'ativa' },
+    ];
+    const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
+    const split = splitOtherProcGroups(classified.others);
+    assert.deepEqual(new Set(split.recursos.map(g => g.exec.id)), new Set(['apl', 'ai', 'ed']));
+    assert.deepEqual(new Set(split.embargos.map(g => g.exec.id)), new Set(['emb', 'et']));
+    assert.deepEqual(new Set(split.outros.map(g => g.exec.id)), new Set(['cs', 'epe']));
+    assert.deepEqual(representedIds(classified), new Set(['apl', 'ai', 'emb', 'et', 'ed', 'cs', 'epe']));
   });
 
   it('central sem apenso fiscal não mostra execuções abrangidas', () => {

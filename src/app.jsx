@@ -19,9 +19,11 @@ import {
   mergeDuplicateExecutions,
   mergeImportedExecution,
   migrateAtuacaoNotesToProcessCards,
+  otherProcBucket,
   processSpeciesKey,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
+  splitOtherProcGroups,
 } from './lib/processes.js';
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -2536,7 +2538,8 @@ function classifyProcGroups(cdaGroups, execs) {
     return true;
   }));
 
-  // Outros = tudo que não é hub nem EF (inclui cumprimento, embargos, recursos; também extintos não-EF)
+  // Outros = tudo que não é hub nem EF (recurso, embargos, cumprimento, etc.; também extintos não-EF).
+  // A tela fatiará esse conjunto em Recursos / Embargos / Outros.
   const others = (cdaGroups || []).filter(g => {
     if (g.type !== 'exec') return false;
     const e = g.exec;
@@ -4704,6 +4707,7 @@ function App() {
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [otherBucketOpen, setOtherBucketOpen] = useState({ recursos: false, embargos: false, outros: false });
   const panoOpRef = useRef(activeOpId);
   useEffect(() => {
     if (panoOpRef.current === activeOpId) return;
@@ -4719,6 +4723,7 @@ function App() {
       });
       return changed ? next : prev;
     });
+    setOtherBucketOpen({ recursos: false, embargos: false, outros: false });
   }, [activeOpId]);
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const cdaFocusRef = useRef(null);
@@ -4735,7 +4740,6 @@ function App() {
   const [railBandsOpen, setRailBandsOpen] = useState(() => new Set(['ativa']));
   const [hubsCardOpen, setHubsCardOpen] = useState(true);
   const [freeCardOpen, setFreeCardOpen] = useState(true);
-  const [othersCardOpen, setOthersCardOpen] = useState(true);
   const [opHeaderCollapsed, setOpHeaderCollapsed] = useState(() => {
     try { return localStorage.getItem('nexus_op_header_collapsed') === '1'; } catch { return false; }
   });
@@ -7255,8 +7259,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           return <span className={`ef-status-badge ${k}`}>{label}</span>;
         };
 
+        const otherBucketMeta = {
+          recursos: { title: 'Recursos', muted: 'Apelações, agravos e demais recursos' },
+          embargos: { title: 'Embargos', muted: 'Embargos à execução, à execução fiscal e de terceiro' },
+          outros: { title: 'Outros', muted: 'Cumprimento, procedimento comum e demais — fora de Execução Fiscal' },
+        };
+        const otherBuckets = splitOtherProcGroups(others);
+
         const jumpToOther = (execId) => {
-          setOthersCardOpen(true);
+          const group = (others || []).find(g => g.exec && g.exec.id === execId);
+          const bucket = otherProcBucket(group?.exec);
+          setOtherBucketOpen(prev => ({ ...prev, [bucket]: true }));
           const pk = 'process-row-' + execId;
           setCollapsedGroups(prev => {
             const n = new Set(prev);
@@ -7264,7 +7277,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             return n;
           });
           const tryScroll = (attemptsLeft) => {
-            const card = document.getElementById('proc-others-card');
+            const card = document.getElementById('proc-' + bucket + '-card');
             const row = document.getElementById('proc-other-' + execId);
             if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
             if (row) {
@@ -7285,9 +7298,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div className="proc-rel-chips" onClick={ev => ev.stopPropagation()}>
               {rel.map(og => {
                 const sp = otherSpecies(og.exec);
+                const bucketLabel = otherBucketMeta[otherProcBucket(og.exec)]?.title || 'Outros';
                 return (
                   <button type="button" key={og.exec.id} className="proc-rel-chip"
-                    title={`Abrir em Outros: ${sp.label}`}
+                    title={`Abrir em ${bucketLabel}: ${sp.label}`}
                     onClick={() => jumpToOther(og.exec.id)}>
                     <ProcNum exec={og.exec} empty="S/N" maxLen={18} className="mono" />
                     <span className="nat">{sp.code}</span>
@@ -7755,22 +7769,28 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
           </div>
 
-          {/* ═══ CARD 3: Outros (recursos, embargos, cumprimento…) ═══ */}
-          <div id="proc-others-card" className={`proc-section-card proc-others-card${othersCardOpen ? ' open' : ''}`}>
-            <button type="button" className="proc-section-card-h"
-              onClick={() => setOthersCardOpen(v => !v)}
-              aria-expanded={othersCardOpen}>
-              <span>{othersCardOpen ? '▾' : '▸'} Outros processos <span className="count">({others.length})</span></span>
-              <span className="muted">Cumprimento, recursos, embargos e demais — fora de Execução Fiscal</span>
-            </button>
-            {othersCardOpen && (
-              <div className="proc-section-card-body">
-                {others.length > 0
-                  ? renderEfTable(others, 'Nenhum outro processo', { domIdPrefix: 'proc-other-', idPrefix: 'process-row-', variant: 'others' })
-                  : <div className="proc-md-empty">Nenhum outro processo nesta operação.</div>}
+          {/* ═══ CARDS: Recursos / Embargos / Outros ═══ */}
+          {['recursos', 'embargos', 'outros'].map(bucket => {
+            const items = otherBuckets[bucket] || [];
+            if (items.length === 0) return null;
+            const meta = otherBucketMeta[bucket];
+            const isOpen = !!otherBucketOpen[bucket];
+            return (
+              <div key={bucket} id={`proc-${bucket}-card`} className={`proc-section-card proc-others-card${isOpen ? ' open' : ''}`}>
+                <button type="button" className="proc-section-card-h"
+                  onClick={() => setOtherBucketOpen(prev => ({ ...prev, [bucket]: !prev[bucket] }))}
+                  aria-expanded={isOpen}>
+                  <span>{isOpen ? '▾' : '▸'} {meta.title} <span className="count">({items.length})</span></span>
+                  <span className="muted">{meta.muted}</span>
+                </button>
+                {isOpen && (
+                  <div className="proc-section-card-body">
+                    {renderEfTable(items, `Nenhum processo em ${meta.title}`, { domIdPrefix: 'proc-other-', idPrefix: 'process-row-', variant: 'others' })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })}
           </>
         );
       };
@@ -7845,7 +7865,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {renderDemoSection('EFs sem vínculo', uncoveredEFs, { sectionKey: 'demo-uncovered' })}
             {unlinked.map(g => renderGroupTree(g, 'normal'))}
             {renderDemoSection('Extintas', extinct, { demoted: true, collapsible: true, sectionKey: 'demo-extinct', defaultOpen: model !== 'C' })}
-            {renderDemoSection('Outros', others, { demoted: true, sectionKey: 'demo-others' })}
+            {(() => {
+              const buckets = splitOtherProcGroups(others);
+              return (
+                <>
+                  {renderDemoSection('Recursos', buckets.recursos, { demoted: true, collapsible: true, sectionKey: 'demo-recursos', defaultOpen: false })}
+                  {renderDemoSection('Embargos', buckets.embargos, { demoted: true, collapsible: true, sectionKey: 'demo-embargos', defaultOpen: false })}
+                  {renderDemoSection('Outros', buckets.outros, { demoted: true, collapsible: true, sectionKey: 'demo-others', defaultOpen: false })}
+                </>
+              );
+            })()}
           </div>
         );
       };

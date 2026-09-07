@@ -13,6 +13,8 @@ import {
   processSpeciesKey,
   relinkExecutionToOperation,
   sanitizeImportedExecutionNotes,
+  otherProcBucket,
+  splitOtherProcGroups,
 } from '../src/lib/processes.js';
 
 const baseData = () => ({
@@ -109,6 +111,34 @@ describe('diagnóstico e consolidação de processos duplicados', () => {
     assert.equal(processSpeciesKey({ className: 'APELAÇÃO CÍVEL' }), 'apelacao');
     assert.equal(processSpeciesKey({ className: 'Execução Fiscal Previdenciária' }), 'execucao_fiscal');
     assert.equal(processSpeciesKey({ className: '' }), '_sem_especie');
+  });
+
+  it('separa recursos, embargos à execução e demais pela classe', () => {
+    assert.equal(otherProcBucket({ className: 'Apelação Cível' }), 'recursos');
+    assert.equal(otherProcBucket({ className: 'Agravo de Instrumento' }), 'recursos');
+    assert.equal(otherProcBucket({ className: 'Agravo interno' }), 'recursos');
+    assert.equal(otherProcBucket({ className: 'Recurso especial' }), 'recursos');
+    assert.equal(otherProcBucket({ className: 'Embargos de declaração' }), 'recursos');
+    assert.equal(otherProcBucket({ className: 'Embargos à Execução' }), 'embargos');
+    assert.equal(otherProcBucket({ className: 'Embargos à Execução Fiscal' }), 'embargos');
+    assert.equal(otherProcBucket({ className: 'Embargos de Terceiro' }), 'embargos');
+    assert.equal(otherProcBucket({ className: 'Cumprimento de Sentença' }), 'outros');
+    assert.equal(otherProcBucket({ className: 'Exceção de Pré-Executividade' }), 'outros');
+    assert.equal(otherProcBucket({ className: 'Mandado de Segurança' }), 'outros');
+    assert.equal(otherProcBucket({ className: '' }), 'outros');
+  });
+
+  it('fatiar grupos de Outros não perde nenhum cadastro', () => {
+    const groups = [
+      { exec: { id: 'a', className: 'Apelação' } },
+      { exec: { id: 'b', className: 'Embargos à Execução Fiscal' } },
+      { exec: { id: 'c', className: 'Cumprimento de Sentença' } },
+      { exec: { id: 'd', className: 'Embargos de declaração' } },
+    ];
+    const split = splitOtherProcGroups(groups);
+    assert.deepEqual(split.recursos.map(g => g.exec.id), ['a', 'd']);
+    assert.deepEqual(split.embargos.map(g => g.exec.id), ['b']);
+    assert.deepEqual(split.outros.map(g => g.exec.id), ['c']);
   });
 
   it('migra referências, preserva eventos e arquiva os registros absorvidos', () => {

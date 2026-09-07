@@ -58,6 +58,40 @@ export function processSpeciesKey(execution) {
   return cn;
 }
 
+/**
+ * Fatia visual de processos que não são EF nem hub: recursos, embargos à execução/terceiro, demais.
+ * Embargos de declaração (e infringentes/divergência) entram em recursos.
+ */
+export function otherProcBucket(execution) {
+  const cn = normalizeSpeciesText(execution?.className);
+  if (!cn) return 'outros';
+  if (/embargos?\s+(de\s+declaracao|infringente|de\s+divergencia)/.test(cn)) return 'recursos';
+  if (/embargos?\s+de\s+terceir/.test(cn)) return 'embargos';
+  if (/embargos?.{0,24}execucao/.test(cn)) return 'embargos';
+  if (/\bembargos?\b/.test(cn)) return 'embargos';
+  if (
+    /apelacao/.test(cn)
+    || /agravo/.test(cn)
+    || /\brecurso\b/.test(cn)
+    || /reexame\s+necessario|remessa\s+necessaria/.test(cn)
+    || /reclamacao/.test(cn)
+  ) return 'recursos';
+  return 'outros';
+}
+
+export function splitOtherProcGroups(groups) {
+  const recursos = [];
+  const embargos = [];
+  const outros = [];
+  for (const group of groups || []) {
+    const bucket = otherProcBucket(group?.exec);
+    if (bucket === 'recursos') recursos.push(group);
+    else if (bucket === 'embargos') embargos.push(group);
+    else outros.push(group);
+  }
+  return { recursos, embargos, outros };
+}
+
 const isEmpty = (value) => value === undefined || value === null || value === '';
 
 const stableValue = (value) => {
