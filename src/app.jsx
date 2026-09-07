@@ -294,7 +294,6 @@ const generateDemoData = () => {
     { id:'ta-25', operationId:'op-demo-5', title:'Estender Renajud a colheitadeira', description:'Pedido ainda sem resultado útil.', priority:'alta', dueDate: iso(4), status:'pendente', taskVisibility:'operation' },
     { id:'ta-26', operationId:'op-demo-5', title:'Oficiar cooperativa — retenção de créditos', description:'Garantir bloqueio de valores a pagar.', priority:'media', dueDate: iso(10), status:'pendente', taskVisibility:'operation' },
     { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
-    { id:'ta-14', operationId:'', title:'Atualizar checklist Visão Gemini', description:'Validar abas Gemini_* após novo seed.', priority:'baixa', dueDate: iso(28), status:'pendente', taskVisibility:'global' },
   ];
 
   const hearings = [
@@ -3829,57 +3828,6 @@ function App() {
       return;
     }
     setCloudStatus('error'); setCloudMsg('Ambiente não suportado.');
-  };
-
-  // Visão Gemini (Workspace): materializa abas Gemini_* na Planilha ativa
-  const exportGeminiView = (scope) => {
-    if (!isGAS) {
-      alert('A Visão Gemini usa a Planilha do Apps Script.\n\nAbra o NEXUS pela implantação GAS, sincronize os dados e tente de novo.\n\nOffline: use Exportar JSON / dossiê manual.');
-      return;
-    }
-    const sc = scope || 'carteira';
-    if (sc === 'operacao' && !activeOpId) {
-      alert('Abra uma operação na Carteira antes de exportar o escopo “Operação atual”.');
-      return;
-    }
-    const labels = { carteira: 'carteira ativa', hoje: 'fila de hoje', operacao: 'operação atual' };
-    if (!confirm(`Atualizar Visão Gemini (${labels[sc] || sc})?\n\nIsso recria/atualiza as abas Gemini_Meta, Gemini_Ops, Gemini_Intimacoes, Gemini_Prescricao, Gemini_Tarefas e Gemini_Briefing nesta Planilha.\n\nRecomendado: sincronizar (⬆ Sync) antes.`)) return;
-    setCloudStatus('syncing');
-    setCloudMsg('Gerando Visão Gemini…');
-    setShowSettings(false);
-    google.script.run
-      .withSuccessHandler((res) => {
-        if (!res || !res.success) {
-          setCloudStatus('error');
-          setCloudMsg('Gemini: ' + ((res && res.error) || 'falha'));
-          alert('Falha ao gerar Visão Gemini:\n' + ((res && res.error) || 'erro desconhecido'));
-          return;
-        }
-        setCloudStatus('connected');
-        setCloudMsg('Visão Gemini atualizada ✓');
-        const c = res.counts || {};
-        const msg = `Visão Gemini atualizada (${labels[sc] || sc}).\n\n` +
-          `Ops: ${c.ops || 0} · Intimações: ${c.intimacoes || 0} · Prescrição: ${c.prescricoes || 0} · Tarefas: ${c.tarefas || 0}\n\n` +
-          `Abra o Gemini no painel lateral da Planilha e pergunte sobre as abas Gemini_*.`;
-        if (res.spreadsheetUrl && confirm(msg + '\n\nAbrir a Planilha agora?')) {
-          try { window.open(res.spreadsheetUrl, '_blank'); } catch (e) {}
-        } else {
-          alert(msg);
-        }
-      })
-      .withFailureHandler((err) => {
-        setCloudStatus('error');
-        setCloudMsg('Gemini: ' + (err && err.message ? err.message : err));
-        alert('Erro ao chamar exportGeminiView:\n' + (err && err.message ? err.message : err));
-      })
-      .exportGeminiView({
-        scope: sc,
-        operationId: sc === 'operacao' ? activeOpId : '',
-        jsonString: (() => {
-          try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
-          return JSON.stringify(data);
-        })(),
-      });
   };
 
   const activeOp = data.operations.find(o => o.id === activeOpId);
@@ -8081,17 +8029,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
     <div className="settings-group">
-      <div className="settings-label">Visão Gemini (Workspace)</div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6,lineHeight:1.4}}>
-        Materializa abas Gemini_* na Planilha para análise no painel Gemini do Workspace. Sob demanda — nada é enviado automaticamente.
-      </div>
-      <div className="settings-options" style={{flexDirection:'column'}}>
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('carteira')}>Atualizar · Carteira</button>
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('hoje')}>Atualizar · Fila de hoje</button>
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => exportGeminiView('operacao')} disabled={!activeOpId}>Atualizar · Operação atual</button>
-      </div>
-    </div>
-    <div className="settings-group">
       <div className="settings-label">Calendário local (prazos processuais)</div>
       <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6,lineHeight:1.4}}>
         Feriados e suspensões da comarca, um por linha (AAAA-MM-DD). Não entram na contagem de prescrição — só nos prazos em dias úteis. Sem esta lista, o vencimento calculado é estimativa.
@@ -8197,7 +8134,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
             <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
             <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
-            <button className="btn-secondary" onClick={() => exportGeminiView('hoje')} title="Materializa abas Gemini_* na Planilha">✦ Visão Gemini</button>
             {!isGAS && <button className="btn-secondary" onClick={() => loadDemoData()}>Resetar / carregar dados demo</button>}
           </div>
         </div>
@@ -9552,13 +9488,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         }
         const analisar = () => { const r = guessMatters(modelQuery); setModelMatters(r); setModelSel(null); if (modelQuery.trim() && r.length === 0) alert('Não reconheci a matéria nesse texto.\n\nTente colar um trecho com os termos jurídicos centrais (ex.: "prescrição intercorrente", "dissolução irregular").'); };
         const limpar = () => { setModelQuery(''); setModelMatters([]); };
-        // Catálogo em texto para colar no Gemini junto com a peça
+        // Catálogo em texto para colar num assistente de IA junto com a peça
         const copiarCatalogo = () => {
           if (models.length === 0) { alert('Cadastre modelos primeiro.'); return; }
           const linhas = models.map((m, i) => `${i+1}. ${m.title || 'Sem título'}\n   Categoria: ${m.category || '—'} | Matéria: ${m.subcategory || '—'}${(m.tags||[]).length ? ' | Tags: ' + m.tags.join(', ') : ''}\n   Quando usar: ${m.description || '—'}\n   Link: ${m.url || '—'}`).join('\n\n');
           const txt = `Abaixo está o catálogo de modelos de peças de um Procurador da Fazenda Nacional.\n\nAnalise a peça que estou anexando e responda:\n1) Qual é a peça (tipo/rito) e qual a matéria central debatida;\n2) Quais modelos do catálogo abaixo são adequados para responder, em ordem de aderência, justificando em uma linha cada um;\n3) Que pontos da peça anexada o modelo escolhido não cobre e precisam ser redigidos do zero.\n\n=== CATÁLOGO (${models.length} modelos) ===\n\n${linhas}`;
           copyText(txt);
-          alert(`Catálogo copiado (${models.length} modelos).\n\nAgora, no Gemini: cole este texto e anexe a peça (PDF).\nEle vai apontar os modelos adequados e o que falta cobrir.`);
+          alert(`Catálogo copiado (${models.length} modelos).\n\nCole este texto no assistente e anexe a peça (PDF).\nEle vai apontar os modelos adequados e o que falta cobrir.`);
         };
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
@@ -9567,7 +9503,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} modelo(s)</span>
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              <button className="btn-secondary btn-sm" title="Copia o catálogo + um pedido pronto. Cole no Gemini e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}>✨ Catálogo para IA</button>
+              <button className="btn-secondary btn-sm" title="Copia o catálogo + um pedido pronto. Cole no assistente e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}>✨ Catálogo para IA</button>
               <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'model',initial:{}})}>+ Modelo</button>
             </div>
           </div>
