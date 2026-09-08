@@ -285,32 +285,32 @@ Nenhuma destas linhas altera o termo legal.
 
 ---
 
-## 11. O que já entrou no código — e o que está errado em relação a este contrato
+## 11. O que já entrou no código
 
-Uma primeira versão do piso e do recorte **já classifica o painel**. O ajuizamento **continua sem ser marco**. O que entrou **não bate** com as §§ 10.3 e 10.4 e deve ser retificado:
+A fila e o motor passaram a seguir as §§ 10.1–10.5 e o item 12:
 
-| O que o painel faz agora | O que este guia exige |
+| Pedido do contrato | Situação |
 |---|---|
-| Piso = só **protocolo + 6 anos** | Ampliar âncoras (citação; constrição pré-marco) e acrescentar **teto** |
-| CDA `garantida` / `parcelada` / garantia / `suspensa_parcelamento` **saem** da lista | Só **rebaixar** ou ir a sublista / inconsistência. Não apagar |
-| Evento suspensivo no IDPJ **tira** da lista | Evento pode pausar o motor; o vínculo sozinho vai para **“sob incidente”**, não some |
-| Residual único “sem gatilho” (depois do piso) | Faixas Alta / Média, com prioridade para **Arquivada art. 40** sem data |
-| Previsão da planilha continua fora do iminente calculado (certo) | Usá-la para **ordenar** o residual, com rótulo, sem virar dies a quo |
+| Piso com âncoras (protocolo, citação/despacho, constrição pré-marco) + teto de arquivamento datado | Feito. Rótulo: “acompanhar a partir de…”. Nunca “não prescrita”. |
+| Recorte como peso / sublista / inconsistência | Feito. `garantida`, `parcelada` e “✓” de IDPJ **não removem** da fila |
+| Faixas Alta / Média / Baixa; Arquivada art. 40 sem data em Alta | Feito |
+| Previsão da planilha só no residual, com rótulo de origem | Feito. Não entra no card grave de iminente/vencido do ciclo calculado |
+| Três flags de conferência | Feito (parcelamento sem termo; Sisbajud irrisório; pedido na janela sem desfecho) |
+| Dois modos de rescisão; rótulo “ciclo pós-parcelamento (política)” | Feito (1+5 padrão; só 5 anos opcional na inscrição) |
+| Data informada não cala o cálculo; `nao_iniciado`/`interrompido` deixam de ser “seguro” | Feito |
+| Cadastro de eventos em 7 famílias | Feito. Os tipos antigos continuam no arquivo; o formulário pede família + tipo concreto |
 
-O rótulo **“Acompanhar — consumo ainda impossível”** está no sentido certo. Não dizer “não prescrita”.
+O ajuizamento **continua sem ser marco**.
 
 ---
 
 ## 12. Próximo passo no app
 
-Ordem, só com dados já existentes. **Não mudar a fórmula do dies a quo do Tema 566** no primeiro corte da fila. Separar, no rótulo, ciclo legal e ciclo político pós-rescisão.
+Os sete passos deste item **já foram executados** (piso/teto, recorte visível, faixas, previsão de planilha, flags, modos de rescisão, defeitos do § 9).
 
-1. Piso com as âncoras da § 10.1; teto da § 10.2 se houver arquivamento datado.
-2. Recorte como **peso / sublista / inconsistência**, desfazendo a remoção silenciosa da § 11.
-3. Faixas Alta / Média / Baixa no residual; prioridade máxima para “Arquivada art. 40” sem data.
-4. Previsão da planilha só no residual, com rótulo de origem.
-5. Três flags de conferência (§ 10.5).
-6. Dois modos explícitos de rescisão; interface “ciclo pós-parcelamento (política)”.
-7. Em seguida, os defeitos do § 9 (data informada, `seguro` fantasma, pausas truncadas) — senão o painel arruma a fila e o KPI continua mentindo.
+O que permanece para depois, se fizer falta:
+
+- Unificar o KPI da sidebar com as mesmas faixas do painel (hoje o KPI ainda conta “180 dias até o termo calculado”).
+- Campo de valor nas demais constrições, não só Sisbajud, se a casa quiser a mesma conferência de proporcionalidade.
 
 Nada disso altera a tese do Tema 566. O motor continua sem inventar marco.

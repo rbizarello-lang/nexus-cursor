@@ -21,6 +21,10 @@ import {
   suggestLaunchMode,
   inferParcelamentoEnds,
   protestoExtrajudicialInterrompe,
+  PRESC_EVENT_FAMILIES,
+  PRESC_FLAGS,
+  computeIntercorrenteBounds,
+  familyOfPrescEvent,
 } from '../src/lib/prescription.js';
 
 const ASOF = '2026-08-16';
@@ -32,7 +36,7 @@ describe('computePrescription — decisões fechadas', () => {
   it('1. ajuizada sem marco: não inicia, sem termo final, sem alarme', () => {
     const r = computePrescription({ debt: cda(), executions: [ef()], events: [], asOf: ASOF });
     assert.equal(r.phase, 'nao_iniciado');
-    assert.equal(r.status, 'seguro');
+    assert.equal(r.status, 'indeterminado');
     assert.equal(r.diesAdQuem, null);
     assert.equal(r.daysLeft, null);
   });
@@ -102,7 +106,7 @@ describe('computePrescription — decisões fechadas', () => {
       asOf: ASOF
     });
     assert.equal(r.phase, 'interrompido');
-    assert.equal(r.status, 'seguro');
+    assert.equal(r.status, 'interrompido');
     assert.ok(r.detail.includes('interrompida') || r.prescriptionInterrupted);
   });
 
@@ -117,7 +121,7 @@ describe('computePrescription — decisões fechadas', () => {
       asOf: ASOF
     });
     assert.equal(r.phase, 'interrompido');
-    assert.equal(r.status, 'seguro');
+    assert.equal(r.status, 'interrompido');
   });
 
   it('8. pedido após a janela: não salva', () => {
@@ -348,7 +352,7 @@ describe('decadência e prescrição ordinária', () => {
       asOf: ASOF
     });
     assert.equal(r.phase, 'nao_iniciado');
-    assert.equal(r.status, 'seguro');
+    assert.equal(r.status, 'indeterminado');
     assert.ok(r.memory.some(m => /não inaugura/i.test(m.effect)));
   });
 
@@ -383,6 +387,7 @@ describe('decadência e prescrição ordinária', () => {
     });
     const full = buildPrescricaoReport({ debt, timeline, personName: 'Fulano', exec: ef(), scope: 'completo', asOf: ASOF });
     assert.ok(full.includes('MEMÓRIA TÉCNICA'));
+    assert.ok(full.includes('CENÁRIO'));
 
     const onlyDec = buildPrescricaoReport({ debt, timeline, personName: 'Fulano', exec: ef(), scope: 'decadencia', asOf: ASOF });
     assert.ok(!onlyDec.includes('PRESCRIÇÃO ORDINÁRIA'));
@@ -435,16 +440,16 @@ describe('parcelamento sem cessação no originário', () => {
     assert.equal(inferred.has('p5'), false);
   });
 
-  it('último parcelamento sem cessação permanece vigente', () => {
+  it('último parcelamento sem cessação não se presume vigente', () => {
     const r = computePrescription({
       debt: { id: 'd1', inscriptionDate: '2020-01-15' },
       executions: [],
       events: [{ id: 'p', cdaId: 'd1', type: 'susp_parcelamento', date: '2024-03-01' }],
       asOf: '2026-08-17'
     });
-    assert.equal(r.phase, 'suspenso');
-    assert.ok(r.diesAdQuem === '2031-08-16' || r.diesAdQuem === '2031-08-17', r.diesAdQuem);
-    assert.ok(r.daysLeft >= 1820, String(r.daysLeft));
+    assert.notEqual(r.phase, 'suspenso');
+    assert.equal(r.diesAdQuem, '2029-03-01');
+    assert.ok((r.flags || []).includes('parc_sem_fim'));
   });
 
   it('rescisão posterior encerra parcelamento aberto mesmo sem nova adesão', () => {
@@ -465,7 +470,7 @@ describe('parcelamento sem cessação no originário', () => {
 });
 
 describe('parcelamento na intercorrente (ciclo 1+5 da rescisão)', () => {
-  it('vigente: suspende a exigibilidade e não deixa o ciclo fluir', () => {
+  it('sem encerramento: não presume vigência; projeta ciclo político da adesão (pior caso)', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -475,9 +480,10 @@ describe('parcelamento na intercorrente (ciclo 1+5 da rescisão)', () => {
       ],
       asOf: ASOF
     });
-    assert.equal(r.phase, 'suspenso');
-    assert.equal(r.status, 'suspenso');
-    assert.ok(/interrompe/i.test(r.detail));
+    assert.notEqual(r.phase, 'suspenso');
+    assert.equal(r.cycleKind, 'politica_parc');
+    assert.ok((r.flags || []).includes('parc_sem_fim'));
+    assert.ok(/política/i.test(r.detail + r.scenario));
   });
 
   it('sem marco: rescisão deflagra o ciclo 1+5 (não fica não-iniciado)', () => {
@@ -635,5 +641,124 @@ describe('createPrescLookup — índice de eventos', () => {
     assert.equal(collected.events[0]._inheritedFromIDPJ, 'idpj1');
     const r = computePrescription({ debt, executions, events, asOf: ASOF });
     assert.ok(r.activeSuspensions.length);
+  });
+});
+
+describe('contrato operacional — piso, teto, flags e famílias', () => {
+  it('cadastro tem 7 famílias e cobre os tipos vivos', () => {
+    assert.equal(PRESC_EVENT_FAMILIES.length, 7);
+    assert.equal(familyOfPrescEvent('marco_sem_bens').id, 'marco');
+    assert.equal(familyOfPrescEvent('int_sisbajud').id, 'resultado_util');
+    assert.equal(familyOfPrescEvent('susp_parcelamento').id, 'parcelamento');
+  });
+
+  it('piso usa a âncora mais tardia (citação + 6), não só o protocolo', () => {
+    const b = computeIntercorrenteBounds({
+      exec: ef({ protocolDate: '2020-01-01' }),
+      debt: cda(),
+      cdaEvents: [{ id: 'c', executionId: 'e1', type: 'int_citacao', date: '2021-06-01' }],
+      asOfIso: ASOF
+    });
+    assert.equal(b.floor, '2027-06-01');
+    assert.equal(b.floorAnchor.kind, 'citacao');
+  });
+
+  it('arquivamento datado vira teto, não dies a quo', () => {
+    const b = computeIntercorrenteBounds({
+      exec: ef({ protocolDate: '2015-01-01' }),
+      debt: cda(),
+      cdaEvents: [{ id: 'a', executionId: 'e1', type: 'info_arquivamento', date: '2018-03-10' }],
+      asOfIso: ASOF
+    });
+    assert.equal(b.ceiling, '2024-03-10');
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef({ protocolDate: '2015-01-01' })],
+      events: [{ id: 'a', executionId: 'e1', type: 'info_arquivamento', date: '2018-03-10' }],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'nao_iniciado');
+    assert.equal(r.bounds.ceiling, '2024-03-10');
+    assert.ok(/teto/i.test(r.scenario));
+  });
+
+  it('data digitada na CDA não cala o termo calculado', () => {
+    const r = computePrescription({
+      debt: cda({ prescriptionDate: '2031-01-01' }),
+      executions: [ef()],
+      events: [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2018-01-01' }],
+      asOf: ASOF
+    });
+    assert.equal(r.origin, 'calculo_validado');
+    assert.equal(r.diesAdQuem, '2024-01-01');
+    assert.equal(r.informedConflict, true);
+    assert.ok(r.gaps.some(g => /diverge/i.test(g)));
+    const lookup = createPrescDateLookup(
+      [cda({ prescriptionDate: '2031-01-01' })],
+      [ef()],
+      [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2018-01-01' }],
+      ASOF
+    );
+    assert.equal(lookup(cda({ prescriptionDate: '2031-01-01' })), '2024-01-01');
+  });
+
+  it('suspensão art. 40 com data, sem marco, vale como marco com aviso', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [{ id: 's', executionId: 'e1', type: 'susp_art40', date: '2023-08-16' }],
+      asOf: ASOF
+    });
+    assert.notEqual(r.phase, 'nao_iniciado');
+    assert.equal(r.diesAQuo, '2023-08-16');
+    assert.ok(r.gaps.some(g => /sem evento de marco/i.test(g)));
+  });
+
+  it('marco com data futura é ignorado', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2028-01-01' }],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'nao_iniciado');
+    assert.ok(r.gaps.some(g => /data futura/i.test(g)));
+  });
+
+  it('modo só 5 anos após rescisão', () => {
+    const r = computePrescription({
+      debt: cda({ parcRestartMode: '5' }),
+      executions: [ef()],
+      events: [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-10', endDate: '2021-06-01' }],
+      asOf: ASOF
+    });
+    assert.equal(r.diesAQuo, '2021-06-01');
+    assert.equal(r.diesAdQuem, '2026-06-01');
+    assert.equal(r.parcRestartMode, '5');
+    assert.ok(/política/i.test(r.scenario));
+  });
+
+  it('Sisbajud irrisório não encerra o ciclo em silêncio', () => {
+    const r = computePrescription({
+      debt: cda({ value: 500000 }),
+      executions: [ef()],
+      events: [
+        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2020-01-01' },
+        { id: 's', executionId: 'e1', type: 'int_sisbajud', date: '2022-01-01', amount: 50 }
+      ],
+      asOf: ASOF
+    });
+    assert.notEqual(r.phase, 'interrompido');
+    assert.ok((r.flags || []).includes(PRESC_FLAGS.SISBAJUD_IRRISORIO));
+  });
+
+  it('CDA cujo processo é o do IDPJ não é tratada como ajuizada pelo incidente', () => {
+    const debt = cda({ processNumber: '50099999920234047000' });
+    const executions = [
+      { id: 'idpj1', processTag: 'idpj', processNumber: '50099999920234047000', protocolDate: '2018-01-01' }
+    ];
+    const r = computePrescription({ debt, executions, events: [], asOf: ASOF });
+    assert.equal(r.segment, 'credito');
+    assert.ok(r.gaps.some(g => /IDPJ|incidente/i.test(g)));
   });
 });

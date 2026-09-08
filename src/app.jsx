@@ -3642,8 +3642,9 @@ function App() {
   }, [data.operations, data.debts, data.people, data.intimations, data.tasks, getPrescDate]);
   const prescTag = (d) => {
     if (!d) return '';
-    if (d.prescriptionDate) return 'informada';
-    return prescOriginLabel(prescLookup(d));
+    const r = prescLookup(d);
+    if (r.informedConflict) return 'conflito';
+    return prescOriginLabel(r);
   };
 
   // Global search results (filtro adiado via deferredGsQuery)
@@ -4249,6 +4250,7 @@ function App() {
       propagateToLinkedEFs = cleanEntity._propagateToLinkedEFs !== false;
       delete cleanEntity._noApensoPropagation;
       delete cleanEntity._propagateToLinkedEFs;
+      delete cleanEntity._familyId;
     }
     // ─── ETAPA 5: Propagação de status de processo → CDAs vinculadas ───
     // Quando um processo é marcado como extinto ou arquivado, as CDAs vinculadas
@@ -4740,7 +4742,13 @@ function App() {
     setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(gk)) n.delete(gk); else n.add(gk); return n; });
   });
   // Colapso dos cards do Painel (prescrição, agenda) — preferência de UI lembrada entre sessões
-  const [painelCollapsed, setPainelCollapsed] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('nexus_painel_collapsed') || '[]')); } catch { return new Set(); } });
+  const [painelCollapsed, setPainelCollapsed] = useState(() => {
+    try {
+      const raw = localStorage.getItem('nexus_painel_collapsed');
+      if (raw) return new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+    return new Set(['presc_piso']);
+  });
   const togglePainel = (k) => setPainelCollapsed(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); try { localStorage.setItem('nexus_painel_collapsed', JSON.stringify([...n])); } catch {} return n; });
   // ─── MESA DE TRABALHO — fila de foco (array ordenado de refs {type,id}); reordenável por arraste ───
   const deskDragRef = useRef(null);
@@ -6348,7 +6356,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           // Reusable CDA card renderer
           const renderCDACard = (d) => {
             const autoPresc = getPrescDate(d);
-            const prescDate = d.prescriptionDate || autoPresc;
+            const prescDate = autoPresc;
             const days = daysUntil(prescDate);
             const st = DEBT_STATUSES[d.status] || {};
             const isAjuizada = !!d.processNumber;
@@ -6533,7 +6541,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const renderCdaInlineDetail = (d) => {
         const st = DEBT_STATUSES[d.status] || {};
         const autoPresc = getPrescDate(d);
-        const prescDate = d.prescriptionDate || autoPresc;
+        const prescDate = autoPresc;
         const prescDays = daysUntil(prescDate);
         const notes = d.notesList || (d.notes ? [d.notes] : []);
         const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
@@ -6553,8 +6561,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {field('Inscrição', fmtDate(d.inscriptionDate))}
               {field('Prescrição', prescDate
                 ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${prescTag(d) ? ` · ${prescTag(d)}` : ''}`
-                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (Tema 383 / sem marco)' : '—'),
+                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (sem marco do art. 40)' : '—'),
                 prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined)}
+              {d.prescriptionDate && d.prescriptionDate !== autoPresc && field('Prescrição informada (não substitui o cálculo)', fmtDate(d.prescriptionDate))}
               {d.prescriptionHandled && field('Tratamento',
                 d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')}
               {d.processNumber && field('Processo', d.processNumber)}
@@ -6606,18 +6615,26 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
               );
             })()}
-            {prescLookup(d).memory && prescLookup(d).memory.length > 0 && (
-              <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
-                <span className="im-label">Memória de cálculo</span>
-                <div style={{marginTop:4}}>{prescLookup(d).detail}</div>
-                <ul style={{margin:'4px 0 0 16px',padding:0}}>
-                  {prescLookup(d).memory.slice(0, 8).map((m, i) => (
-                    <li key={i}>{m.date ? fmtDate(m.date) + ' — ' : ''}{m.event}: {m.effect}</li>
-                  ))}
-                </ul>
-                {prescLookup(d).gaps.length > 0 && <div style={{marginTop:4,color:'var(--text-muted)'}}>{prescLookup(d).gaps.join(' ')}</div>}
-              </div>
-            )}
+            {(() => {
+              const pr = prescLookup(d);
+              if (!pr || (!pr.scenario && !(pr.memory && pr.memory.length))) return null;
+              return (
+                <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
+                  <span className="im-label">Cenário e memória de cálculo</span>
+                  {pr.scenario && <div style={{marginTop:4,whiteSpace:'pre-wrap',fontWeight:600,color:'var(--text-primary)'}}>{pr.scenario}</div>}
+                  <div style={{marginTop:4}}>{pr.detail}</div>
+                  {pr.memory && pr.memory.length > 0 && (
+                    <ul style={{margin:'4px 0 0 16px',padding:0}}>
+                      {pr.memory.slice(0, 10).map((m, i) => (
+                        <li key={i}>{m.date ? fmtDate(m.date) + ' — ' : ''}{m.event}: {m.effect}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {(pr.flags || []).length > 0 && <div style={{marginTop:4,color:'var(--yellow)'}}>Conferir: {(pr.flags || []).join(', ')}</div>}
+                  {pr.gaps && pr.gaps.length > 0 && <div style={{marginTop:4,color:'var(--text-muted)'}}>{pr.gaps.join(' ')}</div>}
+                </div>
+              );
+            })()}
             {notes.length > 0 && (
               <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
                 {notes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
@@ -6808,7 +6825,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div className="cda-inline-list" style={{maxHeight: expandedCdas.size ? 'none' : 260, overflowY: expandedCdas.size ? 'visible' : 'auto'}}>
               {group.cdas.map(d => {
                 const autoPresc = getPrescDate(d);
-                const prescDate = d.prescriptionDate || autoPresc;
+                const prescDate = autoPresc;
                 const days = daysUntil(prescDate);
                 const isSelected = selectedCDAs.has(d.id);
                 const isHandled = !!d.prescriptionHandled;
@@ -7167,7 +7184,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </thead>
                 <tbody>
                   {cdas.map(d => {
-                    const prescDate = d.prescriptionDate || getPrescDate(d);
+                    const prescDate = getPrescDate(d);
                     const days = daysUntil(prescDate);
                     const riskClass = d.prescriptionHandled ? 'ok'
                       : days !== null && days <= 180 ? 'critical'
@@ -9127,11 +9144,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>);
               };
               return <>
-                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Total exposto', buckets.iminente, 'grave')}
-                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Conferir cálculo e autos', buckets.vencido, 'grave')}
+                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Ciclo calculado com marco — total exposto', buckets.iminente, 'grave')}
+                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Ciclo calculado com marco. Conferir cálculo e autos', buckets.vencido, 'grave')}
+                {renderPainelPrescCard('presc_teto', 'Vencido — conferir (estimado)', 'Teto de arquivamento datado. Não é marco do art. 40', buckets.vencido_estimado, 'grave')}
+                {renderPainelPrescCard('presc_alta', 'Intercorrente — Alta', 'Arquivada sem data, piso antigo sem evento, ou previsão de planilha no prazo', buckets.residual_alta, 'grave')}
+                {renderPainelPrescCard('presc_inc', 'Cadastro inconsistente', 'Status diz uma coisa, evento não confirma. Cadastre ou corrija', buckets.inconsistencia, 'grave')}
                 {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', buckets.avaliar_174, 'sutil')}
-                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Ajuizada há mais de 6 anos, sem marco cadastrado', buckets.avaliar_intercorrente, 'sutil')}
-                {renderPainelPrescCard('presc_piso', 'Acompanhar — consumo ainda impossível', 'Não é marco do art. 40 · protocolo + 6 anos', buckets.acompanhar_piso, 'sutil')}
+                {renderPainelPrescCard('presc_vigiar', 'Interrompida — vigiar', 'Resultado útil encerrou o ciclo. Não está segura para sempre', buckets.vigiar_interrompido, 'sutil')}
+                {renderPainelPrescCard('presc_pausa', 'Exigibilidade suspensa — conferir', 'Há causa de pausa lançada. O relógio legal está parado', buckets.pausa_cadastrada, 'sutil')}
+                {renderPainelPrescCard('presc_idpj', 'Sob incidente IDPJ / cautelar', 'O vínculo sozinho não pausa o prazo. Cadastre o evento se houver constrição', buckets.sob_incidente, 'sutil')}
+                {renderPainelPrescCard('presc_int', 'Intercorrente — Média', 'Ajuizada, piso já passou, sem marco cadastrado', buckets.residual_media, 'sutil')}
+                {renderPainelPrescCard('presc_piso', 'Acompanhar — consumo ainda impossível', 'Não é marco do art. 40 · âncora mais tardia + 6 anos', buckets.acompanhar_piso, 'sutil')}
               </>;
             })()}
 
@@ -10688,6 +10711,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 const CDA_SEGMENT_STATUS = {
   obstada: { label: 'Obstada', color: 'var(--green)' },
   seguro: { label: 'Sem risco atual', color: 'var(--green)' },
+  interrompido: { label: 'Interrompida — vigiar', color: 'var(--yellow)' },
+  indeterminado: { label: 'Sem marco — conferir', color: 'var(--text-muted)' },
   suspenso: { label: 'Suspensa', color: 'var(--blue)' },
   em_curso: { label: 'Em curso', color: 'var(--text-secondary)' },
   correndo: { label: 'Correndo', color: 'var(--text-secondary)' },
@@ -10829,6 +10854,7 @@ function CdaLegalDetail({ d, data, setModal }) {
                 && row('Prescrição informada', fmtDate(d.prescriptionDate))}
               {row('Dies a quo', seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—')}
               {row('Dies ad quem', `${seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}${seg.daysLeft !== null && seg.daysLeft !== undefined ? ` (${seg.daysLeft}d)` : ''}`)}
+              {seg.scenario && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-primary)',marginTop:6,whiteSpace:'pre-wrap',fontWeight:600}}>{seg.scenario}</div>}
               {seg.detail && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',marginTop:6}}>{seg.detail}</div>}
               <details style={{marginTop:6}}>
                 <summary style={{fontSize:10,color:'var(--text-secondary)',cursor:'pointer'}}>Memória de cálculo ({memory.length})</summary>
@@ -11519,7 +11545,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-row-3">
         <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(DEBT_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
-        <div className="form-group"><label>Data Prescrição</label><input type="date" value={form.prescriptionDate||''} onChange={e=>set('prescriptionDate',e.target.value)} /></div>
+        <div className="form-group"><label>Data Prescrição <HelpIcon tip="Data digitada pelo usuário. Se o app já calculou o termo com marco ou ciclo pós-parcelamento, esta data aparece como conflito — não cala o cálculo." /></label><input type="date" value={form.prescriptionDate||''} onChange={e=>set('prescriptionDate',e.target.value)} /></div>
         <div className="form-group"><label>Data Inscrição</label><input type="date" value={form.inscriptionDate||''} onChange={e=>set('inscriptionDate',e.target.value)} /></div>
       </div>
       <div className="form-row">
@@ -11547,6 +11573,18 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           </div>
         </div>
         {form.launchMode && LAUNCH_MODES[form.launchMode] && <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:4}}>{LAUNCH_MODES[form.launchMode].desc}</span>}
+      </div>
+
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:12}}>
+        <label style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>Ciclo após rescisão de parcelamento (política interna)
+          <HelpIcon tip="Não é marco do art. 40. O Tema 566 exige ciência de não localização ou de inexistência de bens. Equiparar a rescisão a marco é analogia da casa. 1+5 é mais favorável à União; só 5 anos segue a linha Pitten / 1ª Turma do TRF4." />
+        </label>
+        <div className="form-group" style={{marginBottom:0}}>
+          <select value={form.parcRestartMode||'1+5'} onChange={e=>set('parcRestartMode',e.target.value)} style={{fontSize:11}}>
+            <option value="1+5">1 ano + 5 anos (padrão — mais favorável à União)</option>
+            <option value="5">Só 5 anos (linha Pitten / 1ª Turma TRF4)</option>
+          </select>
+        </div>
       </div>
 
       {/* Corresponsáveis section */}
@@ -12029,12 +12067,15 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     const needsRequestDate = eventNeedsRequestDate(form.type);
     const batchCdas = form.batchCdaIds ? opDebts.filter(d => form.batchCdaIds.includes(d.id)) : [];
     const singleCda = form.cdaId ? opDebts.find(d => d.id === form.cdaId) : null;
-    const categories = [
-      { key: 'marco', label: '⏱ Marcos Iniciais (Tema 566)', desc: 'Eventos que disparam a contagem do art. 40 LEF' },
-      { key: 'interruptiva', label: '🟢 Causas Interruptivas (Tema 568)', desc: 'Reiniciam o prazo prescricional do zero' },
-      { key: 'suspensiva', label: '🔵 Causas Suspensivas', desc: 'Paralisam a contagem enquanto vigentes. Parcelamento também interrompe; após a rescisão conta-se 1+5 (1 ano + 5 anos).' },
-      { key: 'info', label: 'ℹ️ Eventos Informativos', desc: 'Sem efeito no cômputo — registro para controle' },
-    ];
+    const family = familyOfPrescEvent(form.type);
+    const familyId = form._familyId || (family && family.id) || '';
+    const familyMeta = PRESC_EVENT_FAMILIES.find(f => f.id === familyId) || family;
+    const setFamily = (id) => {
+      const fam = PRESC_EVENT_FAMILIES.find(f => f.id === id);
+      const keep = fam && fam.variants.some(v => v.type === form.type);
+      set('_familyId', id);
+      if (fam && !keep) set('type', fam.variants[0].type);
+    };
     return (<>
       {/* Context: which CDAs are affected */}
       {batchCdas.length > 0 && (
@@ -12053,19 +12094,25 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <option value="">Selecione...</option>{opExecs.map(e=><option key={e.id} value={e.id}>{e.processNumber||'EF'} — {e.court||''}</option>)}
         </select>
       </div>
-      <div className="form-group"><label>Tipo de Evento</label>
-        <select value={form.type||''} onChange={e=>set('type',e.target.value)} style={{fontSize:11}}>
-          <option value="">Selecione o tipo...</option>
-          {categories.map(cat => (
-            <optgroup key={cat.key} label={cat.label}>
-              {Object.entries(PRESC_EVENT_TYPES).filter(([,v])=>v.category===cat.key).map(([k,v])=>(
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </optgroup>
+      <div className="form-group"><label>Família do evento</label>
+        <select value={familyId} onChange={e=>setFamily(e.target.value)} style={{fontSize:11}}>
+          <option value="">Selecione a família...</option>
+          {PRESC_EVENT_FAMILIES.map(f => (
+            <option key={f.id} value={f.id}>{f.label}</option>
           ))}
         </select>
-        {selectedType && <div style={{marginTop:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.5,padding:'6px 8px',background:'var(--bg-elevated)',borderRadius:'var(--radius)'}}>{selectedType.desc}</div>}
+        {familyMeta && <div style={{marginTop:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.5,padding:'6px 8px',background:'var(--bg-elevated)',borderRadius:'var(--radius)'}}>{familyMeta.desc}</div>}
       </div>
+      {familyMeta && (
+        <div className="form-group"><label>Tipo concreto</label>
+          <select value={form.type||''} onChange={e=>set('type',e.target.value)} style={{fontSize:11}}>
+            {familyMeta.variants.map(v => (
+              <option key={v.type} value={v.type}>{v.label}</option>
+            ))}
+          </select>
+          {selectedType && <div style={{marginTop:6,fontSize:10,color:'var(--text-secondary)',lineHeight:1.5,padding:'6px 8px',background:'var(--bg-elevated)',borderRadius:'var(--radius)'}}>{selectedType.desc}</div>}
+        </div>
+      )}
       <div className="form-row">
         {needsRequestDate && (
           <div className="form-group"><label>Data do pedido</label><input type="date" value={form.requestDate||''} onChange={e=>set('requestDate',e.target.value)} />
@@ -12077,6 +12124,12 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <span style={{display:'block',fontSize:9,color:'var(--red)',marginTop:2}}>O pedido não pode ser posterior à efetivação.</span>
           )}
         </div>
+        {form.type === 'int_sisbajud' && (
+          <div className="form-group"><label>Valor bloqueado (R$)</label>
+            <input type="number" step="0.01" value={form.amount||''} onChange={e=>set('amount', parseFloat(e.target.value)||0)} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Se for irrisório diante do débito, o ciclo não se encerra em silêncio — o app pede conferência.</span>
+          </div>
+        )}
         {selectedType?.category === 'suspensiva' && (
           <div className="form-group"><label>Data de Cessação (se encerrada)</label><input type="date" value={form.endDate||''} onChange={e=>set('endDate',e.target.value)} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Deixe vazio se ainda vigente</span></div>

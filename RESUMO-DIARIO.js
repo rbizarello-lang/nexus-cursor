@@ -198,30 +198,25 @@ function _coletar_(d) {
     });
   });
 
-  // CDAs prescrevendo: data informada, ou snapshot do motor (fase crítica/alerta).
-  // Estimativa de inscrição+5 e prescrições já consumidas/vencidas não entram no e-mail.
+  // CDAs prescrevendo: termo calculado (snapshot). Inclui já vencidas — é o aviso que mais importa.
   (d.debts || []).forEach(function (x) {
     if (x.prescriptionHandled || x.status === 'extinta') return;
     var snap = x.prescriptionSnapshot || {};
-    if (snap.origin === 'estimativa') return;
-    if (snap.status === 'prescrito') return;
-    var pd = x.prescriptionDate || '';
-    var dias = null;
-    if (pd) {
-      dias = _dias_(pd);
-    } else if (snap.status === 'critico' || snap.status === 'alerta') {
-      if (snap.origin !== 'calculo_validado' && snap.origin !== 'data_informada') return;
-      pd = snap.diesAdQuem || '';
-      dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
-    } else {
-      return;
-    }
-    if (dias === null || dias < 0 || dias > CONFIG.DIAS_PRESCRICAO) return;
+    if (snap.phase === 'nao_iniciado' || snap.phase === 'interrompido') return;
+    var pd = snap.diesAdQuem || '';
+    var dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
+    if (!pd || dias === null) return;
+    if (dias > CONFIG.DIAS_PRESCRICAO) return;
+    var extra = _fmtMoeda_(x.value);
+    if (snap.cycleKind === 'politica_parc') extra += ' · ciclo pós-parcelamento (política)';
+    if (snap.origin) extra += ' · ' + snap.origin;
+    if (snap.flags && snap.flags.length) extra += ' · conferir cadastro';
+    if (dias <= 0) extra += ' · VENCIDA — conferir';
     out.prescricoes.push({
       dias: dias, data: pd,
       titulo: 'CDA ' + (x.cdaNumber || 's/nº'),
       proc: x.processNumber || '', op: nomeOp(x.operationId),
-      extra: _fmtMoeda_(x.value) + (snap.origin ? ' · ' + snap.origin : '')
+      extra: extra
     });
   });
 
