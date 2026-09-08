@@ -112,6 +112,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(datesPath, 'utf8')),
   '/* --- src/lib/prescription.js --- */',
   unwrapModule(fs.readFileSync(prescPath, 'utf8')),
+  '/* --- src/lib/presc-import.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'presc-import.js'), 'utf8')),
   '/* --- src/lib/docs.js --- */',
   unwrapModule(fs.readFileSync(docsPath, 'utf8')),
   '/* --- src/lib/import-guard.js --- */',

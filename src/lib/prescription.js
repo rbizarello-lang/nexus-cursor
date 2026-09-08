@@ -14,6 +14,7 @@ import {
   sameProc,
   toDayKey,
 } from './dates.js';
+import { engineMoreGraveThanDecision, groupFromPrescDecision } from './presc-import.js';
 
 export const PRESC_EVENT_TYPES = {
   marco_nao_localizacao: { label: 'Não localização do devedor', category: 'marco', color: 'var(--red)', desc: 'Ciência pela FP da não localização do devedor (art. 40, §1º LEF). Inicia automaticamente 1 ano de suspensão.' },
@@ -973,6 +974,10 @@ function occurrenceSource(ev, incidents) {
     const kind = inc && inc.tag === 'cautelar_fiscal' ? 'MCF' : 'IDPJ';
     return kind + ' nº ' + ((inc && inc.processNumber) || ev._inheritedFromIDPJ);
   }
+  if (ev.source === 'analise') {
+    const evn = String(ev.sourceRef || '').match(/Evento\s*(\d+)/i);
+    return evn ? ('Análise · Evento ' + evn[1]) : 'Análise';
+  }
   if (ev._source === 'processo') return 'processo';
   if (ev._source === 'planilha') return 'planilha';
   return 'evento';
@@ -1071,11 +1076,11 @@ function buildSummary(r, ctx) {
 function buildOccurrences(r, ctx) {
   const occ = [];
   const seen = new Set();
-  const push = (date, fact, effect, source) => {
-    const key = [date, fact, effect].join('|');
+  const push = (date, fact, effect, source, note) => {
+    const key = [date, fact, effect, note || ''].join('|');
     if (seen.has(key)) return;
     seen.add(key);
-    occ.push({ date: date || '', fact, effect, source });
+    occ.push({ date: date || '', fact, effect, source, note: note || '' });
   };
   if (r.segment === 'credito') {
     const insc = asIso(ctx.debt && ctx.debt.inscriptionDate);
@@ -1094,7 +1099,7 @@ function buildOccurrences(r, ctx) {
     if (r.segment === 'credito' && /posterior ao ajuizamento/.test(ev.effect || '')) continue;
     const t = normalizePrescEventType(ev.type);
     const date = asIso(ev.requestDate) || asIso(ev.date) || '';
-    push(date, CASE_FACT[t] || (PRESC_EVENT_TYPES[t] && PRESC_EVENT_TYPES[t].label) || t, occurrenceEffect(t, ev, r), occurrenceSource(ev, r.incidents || ctx.incidents));
+    push(date, CASE_FACT[t] || (PRESC_EVENT_TYPES[t] && PRESC_EVENT_TYPES[t].label) || t, occurrenceEffect(t, ev, r), occurrenceSource(ev, r.incidents || ctx.incidents), ev.notes || ev.note || '');
   }
   occ.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.fact.localeCompare(b.fact));
   return occ;
@@ -1180,6 +1185,18 @@ function buildIncidentChecks(r, ctx) {
   }
   if (r.segment === 'credito' && ctx.debt && !asIso(ctx.debt.constitutionDate) && asIso(ctx.debt.inscriptionDate)) {
     checks.push('Data de constituição definitiva não informada; o início usado é a inscrição.');
+  }
+  const decision = ctx.exec && ctx.exec.prescDecision;
+  if (decision && decision.analysisDate) {
+    const analysis = asIso(decision.analysisDate);
+    let latest = '';
+    for (const ev of ctx.cdaEvents || r.timeline || []) {
+      const d = asIso(ev && ev.date) || asIso(ev && ev.requestDate);
+      if (d && analysis && d > analysis && d > latest) latest = d;
+    }
+    if (latest) {
+      checks.push(`Análise de ${fmtDate(analysis)} anterior à ocorrência de ${fmtDate(latest)} — revalidar.`);
+    }
   }
   return [...new Set(checks)];
 }
@@ -2187,9 +2204,11 @@ const PAINEL_PRESC_KINDS = [
   'pausa_cadastrada', 'avaliar_174', 'correndo'
 ];
 
-function isPainelPrescCandidate(debt) {
+function isPainelPrescCandidate(debt, executions) {
   if (!debt || debt.status === 'extinta') return false;
   if (debt.prescriptionHandled) return false;
+  const execs = matchingExecsForDebt(debt, executions);
+  if (execs.some(e => e && e.prescDecision && e.prescDecision.situation === 'DECLARADA')) return false;
   return true;
 }
 
@@ -2303,7 +2322,7 @@ function alertPayload(kind, r, segment, extra = {}) {
  * Recorte de cadastro nunca remove da fila — rebaixa ou vai a sublista.
  */
 export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf, prescResult) {
-  if (!isPainelPrescCandidate(debt)) return null;
+  if (!isPainelPrescCandidate(debt, executions)) return null;
   const r = prescResult || computePrescription({ debt, executions, events, asOf });
   const ajuizada = r.segment === 'intercorrente';
   const cycle = ajuizada && intercorrenteCycleStarted(r);
@@ -2515,6 +2534,8 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
       incidentOnly: (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g)),
       interruptAt: r.interruptAt || '',
       flags: r.flags || [],
+      prescDecision: (execObj && execObj.prescDecision) || null,
+      decisionNote: engineMoreGraveThanDecision(r, execObj && execObj.prescDecision),
       opName: op.name,
       opId: op.id,
       hasIDPJ: !!(execId && idpjCovered.has(execId))
@@ -2554,17 +2575,24 @@ function rowNeedsCadastro(row) {
   );
 }
 
-/** Prioridade: 1, 2, 3 (cadastro), 5, 4. Grupos 1 e 2 não são rebaixados por cadastro. */
+/** Prioridade: 1, 2, 3 (cadastro), 5, 4. Grupos 1 e 2 não são rebaixados por cadastro. A decisão importada governa. */
 export function groupOfKind(kind, row) {
-  if (kind === 'vencido' || kind === 'iminente') return 1;
-  if (kind === 'vencido_estimado' || kind === 'residual_alta') return 2;
-  if (kind === 'inconsistencia' || rowNeedsCadastro(row)) return 3;
-  if (kind === 'acompanhar_piso') return 5;
-  return 4;
+  let g = 4;
+  if (kind === 'vencido' || kind === 'iminente') g = 1;
+  else if (kind === 'vencido_estimado' || kind === 'residual_alta') g = 2;
+  else if (kind === 'inconsistencia' || rowNeedsCadastro(row)) g = 3;
+  else if (kind === 'acompanhar_piso') g = 5;
+  const decided = groupFromPrescDecision(row && row.prescDecision, g);
+  return decided == null ? g : decided;
 }
 
 export function prazosKeyMeta(kind, row) {
+  const decision = row && row.prescDecision;
   const date = (row && (row.prescDate || row.date)) || '';
+  if (decision && decision.term) {
+    const engine = date ? (' · cálculo do app: ' + fmtDate(date)) : '';
+    return { date: asIso(decision.term) || date, label: fmtDate(decision.term) + engine, decisionSeal: true };
+  }
   if (kind === 'vencido' || kind === 'iminente') {
     return { date, label: date ? fmtDate(date) : '—' };
   }
@@ -2735,7 +2763,8 @@ export function buildPrazosRadar(data, asOf, prescLookup) {
     totals,
     byOp,
     incidents: buildPrazosIncidentBlocks(data, rows),
-    buckets
+    buckets,
+    divergencias: rows.filter(r => r.decisionNote).length
   };
 }
 

@@ -4705,6 +4705,8 @@ function App() {
 
   // AI Text Import
   const [aiText, setAiText] = useState('');
+  const [textoImportKind, setTextoImportKind] = useState('pessoas');
+  const [prescImport, setPrescImport] = useState(null);
   const [assetText, setAssetText] = useState('');
   const [importMode, setImportMode] = useState('planilhas'); // planilhas | pdfs | texto — seletor do card unificado de importação
   const [cdaSort, setCdaSort] = useState('status');
@@ -6090,12 +6092,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </>}
 
           {importMode === 'texto' && <>
-          <div className="desc">Cole dados de pessoas (IA da Procuradoria) ou bens indisponibilizados. Selecione o tipo abaixo.</div>
+          <div className="desc">Cole dados de pessoas (IA da Procuradoria), bens indisponibilizados, ou análise de prescrição (formato NEXUS).</div>
           <div style={{display:'flex',gap:4,marginBottom:10}}>
-            <button className={`settings-opt ${!collapsedGroups.has('import-assets-mode')?'active':''}`} onClick={() => { if (collapsedGroups.has('import-assets-mode')) toggleGroup('import-assets-mode'); }}>Pessoas</button>
-            <button className={`settings-opt ${collapsedGroups.has('import-assets-mode')?'active':''}`} onClick={() => { if (!collapsedGroups.has('import-assets-mode')) toggleGroup('import-assets-mode'); }}>Bens em lote</button>
+            <button className={`settings-opt ${textoImportKind==='pessoas'?'active':''}`} onClick={() => { setTextoImportKind('pessoas'); if (collapsedGroups.has('import-assets-mode')) toggleGroup('import-assets-mode'); }}>Pessoas</button>
+            <button className={`settings-opt ${textoImportKind==='bens'?'active':''}`} onClick={() => { setTextoImportKind('bens'); if (!collapsedGroups.has('import-assets-mode')) toggleGroup('import-assets-mode'); }}>Bens em lote</button>
+            <button className={`settings-opt ${textoImportKind==='prescricao'?'active':''}`} onClick={() => setTextoImportKind('prescricao')}>Prescrição</button>
           </div>
-          {!collapsedGroups.has('import-assets-mode') ? (<>
+          {textoImportKind === 'prescricao' ? (<>
+            <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6}}>Bloco <code style={{color:'var(--accent)'}}>[INÍCIO NEXUS] … PRESCRIÇÃO … [FIM NEXUS]</code>. Sempre há prévia antes de gravar.</div>
+            <textarea value={aiText} onChange={e => setAiText(e.target.value)} rows={8}
+              placeholder={'[INÍCIO NEXUS]\nPRESCRIÇÃO\nPROCESSO | … | EF\nFATO | PENHORA | 26/01/2024 | 15/12/2023 |  | (DOC4, Evento 77) | …\n[FIM NEXUS]'} />
+            <div style={{marginTop:8,display:'flex',gap:8}}>
+              <button className="btn-primary btn-sm" onClick={() => setPrescImport({ text: aiText, plan: planNexusPrescricao(parseNexusPrescricao(aiText), data), after: null })} disabled={!aiText.trim()}>Prévia</button>
+              <button className="btn-secondary btn-sm" onClick={() => setAiText('')}>Limpar</button>
+            </div>
+          </>) : !collapsedGroups.has('import-assets-mode') ? (<>
             <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:6}}>
               Formato: <code style={{color:'var(--accent)'}}>Nome - CPF/CNPJ - Papel</code> · Para bens: <code style={{color:'var(--accent)'}}>Bem: Descrição | Tipo | Obs</code>
             </div>
@@ -8505,6 +8516,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button type="button" className="btn-secondary btn-xs" onClick={() => openCdaInscricoes(r)}>Abrir</button>
         <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: r.id, executionId: r.executionId } })}>+ Evento</button>
         <button type="button" className="btn-secondary btn-xs" onClick={() => markPrazosHandled(r)}>Tratar</button>
+        {r.prescDecision && (r.checks || []).some(c => /revalidar/i.test(c)) && (
+          <button type="button" className="btn-secondary btn-xs" onClick={() => {
+            const today = localIso(new Date());
+            setData(prev => ({
+              ...prev,
+              executions: (prev.executions || []).map(e => e.id === r.executionId && e.prescDecision
+                ? { ...e, prescDecision: { ...e.prescDecision, analysisDate: today, heldAt: today }, updatedAt: new Date().toISOString() }
+                : e)
+            }));
+          }}>Manter decisão</button>
+        )}
       </span>
     );
     const renderCdaRow = (r) => {
@@ -8518,7 +8540,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <span className="prazos-cda-m">{[r.tribute, fmtCur(r.value || 0)].filter(Boolean).join(' · ')}</span>
           </span>
           <span className="prazos-sum">{r.summary || r.prescLabel || '—'}</span>
-          <span className="prazos-key">{r.keyLabel || '—'}</span>
+          <span className="prazos-key">{r.keyLabel || '—'}{r.prescDecision ? <span className="prazos-seal">decisão</span> : null}</span>
           <span className="prazos-check">{open[0] ? (open[0].text + extra) : '—'}</span>
           <span className="prazos-inc">
             <span className={`prazos-dot ${r.incidentDot || 'none'}`}></span>
@@ -8537,6 +8559,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {counterBtn(4, 'Acompanhamento')}
           {counterBtn(5, 'Ainda impossível')}
         </div>
+        {!!prazosRadar.divergencias && (
+          <div className="prazos-div">{prazosRadar.divergencias} divergência(s) — o cálculo do app é mais grave que a análise; a decisão importada foi mantida.</div>
+        )}
         <div className="prazos-toolbar">
           <div className="prazos-toggle">
             <button type="button" className={pf.view !== 'incidente' ? 'active' : ''} onClick={() => setPrazosFilters({ view: 'processo' })}>Por processo</button>
@@ -8554,6 +8579,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <option value="valor">Valor</option>
             <option value="operacao">Operação</option>
           </select>
+          <button type="button" className="btn-secondary btn-xs" onClick={() => setPrescImport({ text: '', plan: null, after: null })}>Importar análise (formato NEXUS)</button>
         </div>
         {pf.view === 'incidente' ? (
           <div className="prazos-incidents">
@@ -10600,6 +10626,92 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
     {renderExportPicker()}
 
+    {prescImport && (
+      <div className="global-search-overlay" onClick={() => setPrescImport(null)}>
+        <div className="global-search-box presc-rules-box" onClick={e => e.stopPropagation()}>
+          <div className="presc-rules-hd">
+            <strong>Importar análise (formato NEXUS)</strong>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setPrescImport(null)}>✕</span>
+          </div>
+          <div className="presc-rules-body">
+            {!prescImport.plan && (
+              <>
+                <textarea value={prescImport.text || ''} rows={10} style={{width:'100%',fontSize:11,fontFamily:'var(--font-mono)'}}
+                  onChange={e => setPrescImport({ ...prescImport, text: e.target.value })}
+                  placeholder="Cole o bloco [INÍCIO NEXUS] … [FIM NEXUS]" />
+                <div style={{marginTop:8,display:'flex',gap:8}}>
+                  <button type="button" className="btn-primary btn-sm" disabled={!(prescImport.text || '').trim()}
+                    onClick={() => setPrescImport({ ...prescImport, plan: planNexusPrescricao(parseNexusPrescricao(prescImport.text), data), after: null })}>Prévia</button>
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => setPrescImport(null)}>Cancelar</button>
+                </div>
+              </>
+            )}
+            {prescImport.plan && !prescImport.after && (
+              <>
+                {(prescImport.plan.errors || []).length > 0 && (
+                  <div style={{marginBottom:10,color:'var(--yellow)'}}>
+                    {(prescImport.plan.errors || []).map((er, i) => <div key={i}>Linha {er.line || '—'}: {er.reason}</div>)}
+                  </div>
+                )}
+                {(prescImport.plan.processes || []).map((p, i) => (
+                  <div key={i} style={{marginBottom:12,border:'1px solid var(--border)',borderRadius:4,padding:8}}>
+                    <strong>{p.kind === 'idpj' ? 'IDPJ' : p.kind === 'cautelar_fiscal' ? 'MCF' : 'EF'} {p.processNumber}</strong>
+                    {p.refused && <div style={{color:'var(--red)',marginTop:4}}>{p.refuseReason}</div>}
+                    {!p.refused && (
+                      <>
+                        <div style={{marginTop:4}}>Fatos novos: {p.newFacts.length} · já existentes: {p.existingFacts.length}</div>
+                        {p.parecer && <div>Parecer: {p.parecer.situation}{p.parecerDuplicate ? ' (igual ao vigente — não empilha)' : ''}</div>}
+                      </>
+                    )}
+                  </div>
+                ))}
+                <div style={{display:'flex',gap:8}}>
+                  <button type="button" className="btn-primary btn-sm" disabled={!prescImport.plan.canCommit}
+                    onClick={() => {
+                      pushUndo('Importação formato NEXUS prescrição');
+                      const now = new Date().toISOString();
+                      const { data: next } = commitNexusPrescricao(data, prescImport.plan, { uid, now });
+                      const before = new Map((prazosRadar.rows || []).map(r => [r.id, r.group]));
+                      const afterRadar = buildPrazosRadar(next);
+                      const after = [];
+                      (prescImport.plan.processes || []).forEach(p => {
+                        (p.cdas || []).forEach(c => {
+                          const row = (afterRadar.rows || []).find(r => r.id === c.id);
+                          const handled = (next.debts || []).some(d => d.id === c.id && d.prescriptionHandled);
+                          after.push({ id: c.id, cdaNumber: c.cdaNumber, from: before.get(c.id) || 0, to: handled ? 0 : (row ? row.group : 0) });
+                        });
+                      });
+                      const nNew = (prescImport.plan.processes || []).reduce((s, p) => s + (p.newFacts || []).length, 0);
+                      setData({
+                        ...next,
+                        importLogs: [...(next.importLogs || []), {
+                          id: uid(), type: 'nexus_prescricao', timestamp: now,
+                          operationId: activeOpId || null, seen: false,
+                          summary: nNew + ' fato(s) de prescrição',
+                          counts: { events: nNew }
+                        }].slice(-50)
+                      });
+                      setPrescImport({ ...prescImport, after });
+                      setAiText('');
+                    }}>Confirmar e gravar</button>
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => setPrescImport({ ...prescImport, plan: null })}>Voltar</button>
+                </div>
+              </>
+            )}
+            {prescImport.after && (
+              <>
+                <div style={{marginBottom:8}}>Gravado. Grupo antes → depois:</div>
+                {prescImport.after.map(a => (
+                  <div key={a.id} style={{fontSize:11,marginBottom:4}}>CDA {a.cdaNumber || a.id}: {a.from || '—'} → {a.to || 'saiu da fila'}</div>
+                ))}
+                <button type="button" className="btn-primary btn-sm" onClick={() => setPrescImport(null)}>Fechar</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
     {showPrescRules && (
       <div className="global-search-overlay" onClick={() => setShowPrescRules(false)}>
         <div className="global-search-box presc-rules-box" onClick={e => e.stopPropagation()}>
@@ -10891,7 +11003,12 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
             </div>
             <div className="cda-presc-block">
               <div className="cda-presc-k">Situação</div>
-              <div className="cda-presc-sum">{col.summary}</div>
+              <div className="cda-presc-sum">
+                {key === 'intercorrente' && timeline.exec && timeline.exec.prescDecision
+                  ? ('Decisão de ' + fmtDate(timeline.exec.prescDecision.analysisDate) + ' (análise NotebookLM): ' + (decisionLabel(timeline.exec.prescDecision.situation) || timeline.exec.prescDecision.situation) + '. ')
+                  : ''}
+                {col.summary}
+              </div>
             </div>
             <div className="cda-presc-block">
               <div className="cda-presc-k">Datas</div>
@@ -10905,7 +11022,7 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
                     {col.occurrences.map((o, i) => (
                       <tr key={i}>
                         <td>{o.dateLabel}</td>
-                        <td>{o.fact}{o.source && /IDPJ|MCF/.test(o.source) ? <span className="cda-presc-inc-seal">{o.source}</span> : null}</td>
+                        <td>{o.fact}{o.note ? ' — ' + o.note : ''}{o.source && /IDPJ|MCF/.test(o.source) ? <span className="cda-presc-inc-seal">{o.source}</span> : null}</td>
                         <td>{o.effect}</td>
                         <td>{o.sourceLabel}</td>
                       </tr>
