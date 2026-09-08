@@ -8459,7 +8459,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const renderPrazosView = () => {
     const pf = prazosFilters;
     const t = prazosRadar.totals || {};
-    const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada');
+    const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
     let rows = [...(prazosRadar.rows || [])];
     if (pf.group) rows = rows.filter(r => r.group === pf.group);
     if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);

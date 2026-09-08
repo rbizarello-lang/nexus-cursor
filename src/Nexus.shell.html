@@ -1157,7 +1157,9 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .prazos-inc-block.no-cons { border-left: 3px solid var(--yellow); }
 .prazos-inc-hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 11px; }
 .prazos-inc-conf { font-size: 11px; color: var(--text-secondary); margin: 6px 0; }
-.prazos-inc-ef { display: flex; gap: 10px; align-items: center; font-size: 11px; padding: 3px 0; color: var(--text-secondary); }
+.prazos-inc-efs { display: flex; flex-direction: column; gap: 4px; }
+.prazos-inc-ef { display: flex; gap: 10px; align-items: center; font-size: 11px; padding: 3px 0; color: var(--text-secondary); min-width: 0; }
+.prazos-inc-ef .prazos-band { width: auto; height: auto; padding: 1px 7px; white-space: nowrap; flex-shrink: 0; }
 
 .cda-presc-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin-top: 10px; }
 .cda-presc-col { border: 1px solid var(--border); border-radius: 4px; padding: 8px; min-width: 0; background: var(--bg-card); }
