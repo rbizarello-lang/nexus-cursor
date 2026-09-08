@@ -435,7 +435,6 @@ describe('parcelamento sem cessação no originário', () => {
     assert.notEqual(r.phase, 'suspenso');
     assert.ok(r.diesAdQuem >= '2026-10-01' && r.diesAdQuem <= '2026-10-10', r.diesAdQuem);
     assert.ok(r.daysLeft != null && r.daysLeft < 90, String(r.daysLeft));
-    assert.ok(r.gaps.some(g => /cessação|adesão seguinte/i.test(g)));
     assert.ok(r.gaps.some(g => /citação|ajuiz/i.test(g)));
     const inferred = inferParcelamentoEnds(events);
     assert.equal(inferred.get('p2').end, '2011-05-22');
@@ -443,16 +442,16 @@ describe('parcelamento sem cessação no originário', () => {
     assert.equal(inferred.has('p5'), false);
   });
 
-  it('último parcelamento sem cessação não se presume vigente', () => {
+  it('último parcelamento sem cessação permanece vigente', () => {
     const r = computePrescription({
       debt: { id: 'd1', inscriptionDate: '2020-01-15' },
       executions: [],
       events: [{ id: 'p', cdaId: 'd1', type: 'susp_parcelamento', date: '2024-03-01' }],
       asOf: '2026-08-17'
     });
-    assert.notEqual(r.phase, 'suspenso');
-    assert.equal(r.diesAdQuem, '2029-03-01');
-    assert.ok((r.flags || []).includes('parc_sem_fim'));
+    assert.equal(r.phase, 'suspenso');
+    assert.equal(r.diesAdQuem, null);
+    assert.ok(!(r.flags || []).includes('parc_sem_fim'));
   });
 
   it('rescisão posterior encerra parcelamento aberto mesmo sem nova adesão', () => {
@@ -473,7 +472,7 @@ describe('parcelamento sem cessação no originário', () => {
 });
 
 describe('parcelamento na intercorrente (ciclo 1+5 da rescisão)', () => {
-  it('sem encerramento: não presume vigência; projeta ciclo político da adesão (pior caso)', () => {
+  it('sem encerramento: parcelamento vigente pausa; não estima pior caso', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -483,13 +482,10 @@ describe('parcelamento na intercorrente (ciclo 1+5 da rescisão)', () => {
       ],
       asOf: ASOF
     });
-    assert.notEqual(r.phase, 'suspenso');
-    assert.equal(r.cycleKind, 'politica_parc');
-    assert.ok((r.flags || []).includes('parc_sem_fim'));
-    assert.equal(r.estimated, true);
-    assert.equal(r.origin, 'estimativa_pessimista');
-    assert.equal(r.phase, 'estimado');
-    assert.ok((r.checks || []).some(c => /parcelamento/i.test(c)));
+    assert.equal(r.phase, 'suspenso');
+    assert.equal(r.estimated, false);
+    assert.ok(!(r.flags || []).includes('parc_sem_fim'));
+    assert.ok(!(r.checks || []).some(c => /encerrou\?/i.test(c)));
   });
 
   it('sem marco: rescisão deflagra o ciclo 1+5 (não fica não-iniciado)', () => {
@@ -656,6 +652,8 @@ describe('contrato operacional — piso, teto, flags e famílias', () => {
     assert.equal(familyOfPrescEvent('marco_sem_bens').id, 'marco');
     assert.equal(familyOfPrescEvent('int_sisbajud').id, 'resultado_util');
     assert.equal(familyOfPrescEvent('susp_parcelamento').id, 'parcelamento');
+    assert.equal(familyOfPrescEvent('susp_idpj_mcf').id, 'idpj');
+    assert.equal(familyOfPrescEvent('susp_idpj_mcf_constricao').id, 'idpj');
   });
 
   it('piso usa a âncora mais tardia (citação + 6), não só o protocolo', () => {
@@ -784,7 +782,7 @@ describe('Fase 1 — C1 a C7', () => {
     assert.ok((r.timeline || []).some(e => /posterior ao ajuizamento/.test(e.effect || '')));
   });
 
-  it('C2: parcelamento sem fim é estimado, não vencido calculado', () => {
+  it('C2: parcelamento vigente pausa e não estima vencimento', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -794,11 +792,8 @@ describe('Fase 1 — C1 a C7', () => {
       ],
       asOf: ASOF
     });
-    assert.equal(r.estimated, true);
-    assert.equal(r.origin, 'estimativa_pessimista');
-    assert.equal(r.phase, 'estimado');
-    assert.notEqual(r.phase, 'consumado');
-    assert.notEqual(r.phase, 'correndo');
+    assert.equal(r.estimated, false);
+    assert.equal(r.phase, 'suspenso');
     assert.notEqual(r.status, 'prescrito');
   });
 
@@ -828,6 +823,27 @@ describe('Fase 1 — C1 a C7', () => {
     const r = computePrescription({ debt, executions, events, asOf: ASOF });
     assert.ok(r.altWithoutIncident);
     assert.ok((r.checks || []).some(c => /cautelar fiscal/i.test(c)));
+  });
+
+  it('suspensão da execução por IDPJ, sem constrição: pausa e não interrompe', () => {
+    const debt = cda();
+    const executions = [
+      ef({ protocolDate: '2015-01-01' }),
+      { id: 'idpj1', processTag: 'idpj', processNumber: '50077777720234047000', linkedExecutionIds: ['e1'] }
+    ];
+    const events = [
+      { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2018-01-01' },
+      { id: 's', executionId: 'idpj1', type: 'susp_idpj_mcf', date: '2019-06-01' }
+    ];
+    const collected = collectEventsForCda(debt, executions, events);
+    assert.equal(collected.incidents[0].hasStay, true);
+    assert.equal(shouldPropagateIdpjAsSuspension('susp_idpj_mcf'), true);
+    assert.equal(eventNeedsRequestDate('susp_idpj_mcf'), false);
+    const r = computePrescription({ debt, executions, events, asOf: ASOF });
+    assert.equal(r.phase, 'suspenso');
+    assert.notEqual(r.phase, 'interrompido');
+    assert.ok(!(r.checks || []).some(c => /não tem constrição lançada/i.test(c)));
+    assert.ok(!r.altWithoutIncident);
   });
 
   it('C5: teto soma pausas com início após o arquivamento', () => {
@@ -882,14 +898,11 @@ describe('Fase 1 — C1 a C7', () => {
     assert.match(tl.ordinaria.summary + tl.ordinaria.detail, /10\/11\/2009/);
     assert.match(tl.ordinaria.summary + tl.ordinaria.detail, /5 anos|quinquênio/i);
     const inter = tl.intercorrente;
-    assert.equal(inter.phase, 'interrompido');
-    assert.equal(inter.interruptAt, '2024-01-26');
+    assert.equal(inter.phase, 'suspenso');
     assert.ok(inter.occurrences.some(o => o.fact === 'Ajuizamento' && o.date === '2009-11-10'));
     assert.ok(inter.occurrences.some(o => /Parcelamento/.test(o.fact) && o.date === '2018-01-28'));
     assert.ok(inter.occurrences.some(o => /Penhora/.test(o.fact) && o.date === '2024-01-26'));
-    assert.ok(inter.estimates.some(e => e.date === '2030-01-26' && /não pode ter prescrito antes/i.test(e.label)));
-    assert.ok(inter.checks.some(c => /28\/01\/2018/.test(c) && /rescisão/i.test(c)));
-    assert.ok(inter.checks.some(c => /26\/01\/2024/.test(c) && /ciência|certidão/i.test(c)));
+    assert.ok(!inter.checks.some(c => /rescisão/i.test(c)));
     assert.equal(inter.ruleVersion, RULE_VERSION);
     const ui = [inter.summary, ...(inter.occurrences || []).map(o => o.effect), ...(inter.estimates || []).map(e => e.how + e.label), ...(inter.checks || [])].join('\n');
     assert.doesNotMatch(ui, /Tema|Súmula|política|\bpiso\b|\bteto\b|dies a quo/i);
@@ -973,8 +986,8 @@ describe('Regras R1–R12', () => {
     assert.ok(r.rulesApplied.includes('R5'));
   });
 
-  it('R6 parcelamento sem fim é estimado', () => {
-    // legalBasis: decisão da casa — pior caso
+  it('R6 parcelamento vigente sai da fila (não estima fim)', () => {
+    // legalBasis: art. 151 VI CTN; decisão da casa — não vigiar termo final
     // validatedAt: 2026-09-08
     const r = computePrescription({
       debt: cda(),
@@ -982,7 +995,7 @@ describe('Regras R1–R12', () => {
       events: [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2024-03-01' }],
       asOf: ASOF
     });
-    assert.equal(r.estimated, true);
+    assert.equal(r.phase, 'suspenso');
     assert.ok(r.rulesApplied.includes('R6'));
   });
 

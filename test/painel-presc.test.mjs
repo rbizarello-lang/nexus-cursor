@@ -39,16 +39,18 @@ describe('classifyPainelPrescAlert — avisos do Painel', () => {
     assert.ok(a);
   });
 
-  it('ajuizada parcelada sem evento: inconsistência, não some', () => {
+  it('ajuizada parcelada (status ou evento) sai da fila', () => {
     const debt = cda({ processNumber: '50012345620234047001', status: 'parcelada', inscriptionDate: '2010-01-15' });
-    const a = classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01' })], [], ASOF);
-    assert.equal(a.kind, 'inconsistencia');
+    assert.equal(classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01' })], [], ASOF), null);
+    const ativa = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    const parcEvt = [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-01' }];
+    assert.equal(classifyPainelPrescAlert(ativa, [ef({ protocolDate: '2018-01-01' })], parcEvt, ASOF), null);
   });
 
-  it('suspensão de parcelamento no processo sem evento: inconsistência', () => {
+  it('suspensão de parcelamento no processo sai da fila', () => {
     const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
     const a = classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01', status: 'suspensa_parcelamento' })], [], ASOF);
-    assert.equal(a.kind, 'inconsistencia');
+    assert.equal(a, null);
   });
 
   it('evento de constrição no IDPJ não some da fila e não cai em sob_incidente', () => {
@@ -115,17 +117,16 @@ describe('classifyPainelPrescAlert — avisos do Painel', () => {
     assert.equal(a.segment, 'ordinaria');
   });
 
-  it('não ajuizada sem datas: avaliar ajuizamento art. 174', () => {
+  it('não ajuizada sem datas: não gera alerta (falta de processo não é pendência)', () => {
     const debt = cda();
     const a = classifyPainelPrescAlert(debt, [], [], ASOF);
-    assert.equal(a.kind, 'avaliar_174');
+    assert.equal(a, null);
   });
 
-  it('não ajuizada com prazo longo: em acompanhamento (correndo)', () => {
+  it('não ajuizada com prazo longo: não gera alerta', () => {
     const debt = cda({ inscriptionDate: '2025-01-01' });
     const a = classifyPainelPrescAlert(debt, [], [], ASOF);
-    assert.equal(a.kind, 'correndo');
-    assert.equal(groupOfKind(a.kind, a), 4);
+    assert.equal(a, null);
   });
 
   it('extinta e tratada não entram', () => {
@@ -169,8 +170,10 @@ describe('buildPainelPrescAlerts', () => {
     const ids = allRows(b).map(x => x.id);
     assert.equal(new Set(ids).size, ids.length);
     assert.ok(b.iminente.some(x => x.id === 'd-im'));
-    assert.ok(b.avaliar_174.some(x => x.id === 'd-174'));
-    assert.ok(b.correndo.some(x => x.id === 'd-far'));
+    assert.ok(!b.avaliar_174.some(x => x.id === 'd-174'));
+    assert.ok(!b.correndo.some(x => x.id === 'd-far'));
+    assert.ok(!ids.includes('d-174'));
+    assert.ok(!ids.includes('d-far'));
   });
 
   it('marca IDPJ uma vez, sem varrer execuções por linha', () => {
@@ -263,8 +266,8 @@ describe('groupOfKind — cinco grupos do radar', () => {
   });
 });
 
-describe('buildPrazosRadar — cobertura completa', () => {
-  it('30 CDAs ativas caem em exatamente um grupo e a soma bate', () => {
+describe('buildPrazosRadar — cobertura da fila', () => {
+  it('fila não exige as 30 CDAs: parcelada e sem processo folgado saem', () => {
     const executions = [
       ef({ id: 'e-im', processNumber: '50011111120234047001', protocolDate: '2021-03-01', operationId: 'op1' }),
       ef({ id: 'e-venc', processNumber: '50022222220234047001', protocolDate: '2018-01-01', operationId: 'op1' }),
@@ -326,13 +329,19 @@ describe('buildPrazosRadar — cobertura completa', () => {
     const data = { operations: [op], executions, prescriptionEvents: events, debts, people: [] };
     const radar = buildPrazosRadar(data, ASOF);
     const ids = radar.rows.map(r => r.id);
-    assert.equal(ids.length, 30);
-    assert.equal(new Set(ids).size, 30);
+    assert.equal(ids.length, new Set(ids).size);
     const sum = Object.values(radar.totals).reduce((s, t) => s + t.n, 0);
-    assert.equal(sum, 30);
+    assert.equal(sum, radar.rows.length);
     radar.rows.forEach(r => {
       assert.ok(r.group >= 1 && r.group <= 5, r.id + ' sem grupo');
     });
+    const idSet = new Set(ids);
+    assert.ok(!idSet.has('d13'), 'parcelada não entra na fila');
+    assert.ok(!idSet.has('d16'), 'adesão vigente não entra na fila');
+    assert.ok(!idSet.has('d21'), 'sem processo e prazo folgado não entra');
+    assert.ok(!idSet.has('d24'), 'sem processo e sem data não entra');
+    assert.ok(idSet.has('d17'), 'ordinária iminente sem processo entra');
+    assert.ok(idSet.has('d19'), 'ordinária vencida sem processo entra');
     const d09 = radar.rows.find(r => r.id === 'd09');
     assert.equal(d09.group, 2);
     const d14 = radar.rows.find(r => r.id === 'd14');

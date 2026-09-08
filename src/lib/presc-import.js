@@ -22,6 +22,7 @@ export const FATO_CODE_MAP = {
   'PAUSA-FALENCIA': 'susp_falencia',
   'PAUSA-OUTRA': 'susp_outra',
   'IDPJ-CONSTRICAO': 'susp_idpj_mcf_constricao',
+  'IDPJ-SUSPENSAO': 'susp_idpj_mcf',
   'ART174-DESPACHO': 'int_despacho_citacao',
   'ART174-RECONHECIMENTO': 'int_reconhecimento',
   'ART174-PROTESTO-JUD': 'int_protesto_judicial',

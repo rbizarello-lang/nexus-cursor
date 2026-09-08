@@ -52,15 +52,13 @@ describe('detalhe da inscrição — três colunas', () => {
     assert.ok(ord.checks.some(c => c.text === 'Data de constituição definitiva não informada; o início usado é a inscrição.'));
 
     assert.equal(inter.seal, 'calculado');
-    assert.equal(inter.summary, 'Ciclo encerrado pela penhora de 26/01/2024. Nenhuma ciência de não localização ou de ausência de bens lançada depois.');
+    assert.equal(inter.summary, 'Prazo pausado. Parcelamento vigente.');
     assert.match(inter.datesLine, /Início: sem ciência lançada/);
-    assert.match(inter.datesLine, /Fim: —/);
+    assert.match(inter.datesLine, /Fim: —|sem termo/);
     assert.ok(inter.occurrences.some(o => o.date === '2009-11-10' && o.fact === 'Ajuizamento'));
     assert.ok(inter.occurrences.some(o => o.date === '2018-01-28' && /Parcelamento/.test(o.fact)));
     assert.ok(inter.occurrences.some(o => o.date === '2024-01-26' && /Penhora/.test(o.fact)));
-    assert.ok(inter.estimates.some(e => /Não pode ter prescrito antes de 26\/01\/2030/.test(e.line) && /penhora de 26\/01\/2024 \+ 1 ano \+ 5 anos/.test(e.line)));
-    assert.ok(inter.checks.some(c => /28\/01\/2018/.test(c.text) && /rescisão/i.test(c.text)));
-    assert.ok(inter.checks.some(c => /26\/01\/2024/.test(c.text) && /ciência|certidão/i.test(c.text)));
+    assert.ok(!inter.checks.some(c => /rescisão/i.test(c.text)));
 
     assert.match(snap, /## Decadência/);
     assert.match(snap, /## Prescrição ordinária/);

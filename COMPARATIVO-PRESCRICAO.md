@@ -24,7 +24,7 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 2. Resultado útil (citação, penhora, Sisbajud, arresto, CNIB)
 3. Parcelamento (adesão / rescisão)
 4. Pausa da exigibilidade
-5. Constrição no IDPJ / cautelar
+5. IDPJ / Cautelar (constrição ou suspensão da execução)
 6. Outras causas da prescrição ordinária
 7. Situação do feito (arquivamento, pedido sem resultado, etc.)
 
@@ -96,15 +96,13 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 
 ---
 
-### 8. Parcelamento sem data de fim
+### 8. Parcelamento
 
-**Antes.** Podia aparecer como prazo **vencido** (como se o cálculo tivesse certeza).
+**Antes.** Sem data de fim, o app podia tratar como prazo vencido ou como “pior caso” a conferir.
 
-**Agora.** O app supõe o **pior caso** (rescisão no dia da adesão). O selo é **estimado**. A inscrição vai ao grupo **2 (Provável — conferir)**, não ao grupo 1 de vencido calculado. Pede a data da rescisão.
+**Agora.** Inscrição **parcelada** (pelo status ou pelo evento de adesão vigente) **sai da fila**. Não há pendência. O app **não** pede a data de fim. Quando o parcelamento for rescindido, você lança a rescisão e o relógio volta.
 
-Pedido na janela 1+5 sem resultado lançado também pede olho nos autos — o app **não** declara prescrita.
-
-**O que fazer.** Lance a rescisão (ou a vigência) quando souber. Ou anote o desfecho do pedido.
+**O que fazer.** Não use o app para vigiar o término do parcelamento. Na rescisão, lance o evento.
 
 ---
 

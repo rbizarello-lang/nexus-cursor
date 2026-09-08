@@ -66,27 +66,29 @@ Este texto diz **como o Nexus conta**. A tela da inscrição fala o caso; as bas
 
 ---
 
-## R6 — Parcelamento sem data de fim: pior caso, estimado
+## R6 — Parcelamento vigente sai da fila
 
-**Frase.** Sem data de encerramento, o app supõe rescisão no dia da adesão. O resultado é **estimado** e pede a data. Não declara vencido calculado.
+**Frase.** Enquanto a inscrição está parcelada (evento de adesão ainda vigente ou status parcelada), o prazo não corre e **não há alerta**. O app não pede nem estima a data de fim. Na rescisão, você lança o fato e o relógio volta.
 
-**Base.** Decisão operacional da casa (P1: melhor alarmar). Ausência de fim **não prova** vigência.
+**Base.** Art. 151, VI, do CTN; art. 174, parágrafo único, IV, do CTN; Súmula 653/STJ. Não acompanhar o termo final do parcelamento é decisão da casa.
 
-**Exemplo.** Adesão em 28/01/2018 sem rescisão: o app estima o pior caso e pede “encerrou? Quando?”.
+**Exemplo.** Adesão em 28/01/2018, sem rescisão: a inscrição some da fila de prazos. Continua visível na operação.
 
-**Na tela.** Selo `estimado`. Grupo 2 (Provável — conferir). Item em Conferir nos autos.
+**Na tela.** Sem alerta. Colunas: “Prazo pausado. Parcelamento vigente.”
 
 ---
 
-## R7 — Constrição no IDPJ/MCF pausa, não encerra
+## R7 — IDPJ e cautelar: constrição pausa; suspensão da execução também
 
-**Frase.** Constrição no incidente pausa as execuções abrangidas desde o pedido. Não encerra o ciclo da execução. O app **sempre** mostra o cenário sem a pausa. Cautelar fiscal é tese não pacificada.
+**Frase.** Constrição no incidente pausa as execuções abrangidas desde o pedido. Não encerra o ciclo da execução. O app **sempre** mostra o cenário sem essa pausa de constrição. Cautelar fiscal é tese não pacificada.
 
-**Base.** Propagação operacional; MCF como tese fazendária.
+Há também o evento **suspensão da execução** por IDPJ ou cautelar, **mesmo sem constrição**: não interrompe; só pausa a intercorrente até o fim do incidente.
 
-**Exemplo.** IDPJ nº 5009999… com indisponibilidade em 01/02/2023: a EF abrangida fica pausada; se a pausa não for reconhecida, o termo sem pausa aparece em Conferir.
+**Base.** Propagação operacional; MCF como tese fazendária. A suspensão da execução por incidente é causa diversa do art. 40 (Parte 7).
 
-**Na tela.** Ocorrência com selo “IDPJ nº …” ou “MCF nº …”. Grupo 2 se o cenário sem pausa já venceu.
+**Exemplo.** IDPJ nº 5009999… com indisponibilidade em 01/02/2023: a EF abrangida fica pausada; se a pausa não for reconhecida, o termo sem pausa aparece em Conferir. Se a execução está suspensa pelo incidente sem constrição, lance a suspensão.
+
+**Na tela.** Ocorrência com selo “IDPJ nº …” ou “MCF nº …”. Constrição: grupo 2 se o cenário sem pausa já venceu. Suspensão sem constrição: prazo pausado até o fim do incidente.
 
 ---
 
@@ -155,11 +157,12 @@ Este texto diz **como o Nexus conta**. A tela da inscrição fala o caso; as bas
 Estas escolhas da casa entram no cálculo. Não são teses fechadas:
 
 1. **Depois da rescisão:** padrão **1 ano + 5 anos** (mais favorável à União). Na ficha, dá para marcar só 5 anos.
-2. **Parcelamento sem fim:** pior caso = rescisão no dia da adesão; selo `estimado`; grupo 2.
+2. **Parcelamento vigente:** sai da fila. O app não pede nem estima a data de fim. A rescisão é lançada por você.
 3. **Fila urgente:** 180 dias (grupos 1 e 2 no radar, KPI e barra).
 4. **E-mail diário:** janela de 90 dias, e só então o grupo 4 entra no recorte.
 5. **Teto operacional:** arquivo datado + **6 anos** (1+5), não +5.
 6. **Sisbajud:** quem lança o bloqueio decide se houve resultado útil. Não há exceção por valor irrisório.
+7. **Inscrição sem processo:** só gera alerta se a prescrição ordinária já venceu ou está a 180 dias. Faltar processo não é alerta.
 
 ---
 
@@ -175,5 +178,5 @@ O vermelho é da faixa do grupo, não de um ícone no texto.
 
 ## Histórico das regras
 
-- **2026.09** (8 set 2026) — Doze regras numeradas. Parcelamento sem fim = estimado (grupo 2). Sem exceção de Sisbajud irrisório. Aba Prazos extintivos. Três colunas em linguagem do caso. Ordinária ajuizada ignora fatos posteriores ao protocolo.
+- **2026.09** (8 set 2026) — Doze regras numeradas. Parcelamento vigente sai da fila (sem estimar data de fim). Sem exceção de Sisbajud irrisório. Aba Prazos extintivos. Três colunas em linguagem do caso. Ordinária ajuizada ignora fatos posteriores ao protocolo. Inscrição sem processo só alerta se a ordinária está vencida ou iminente. Suspensão da execução por IDPJ/cautelar, mesmo sem constrição.
 - **Anterior** — O motor já contava 1+5 em anos civis e não inventava ciência a partir do ajuizamento. O que mudou foi a classificação da fila e o vocabulário da tela.
