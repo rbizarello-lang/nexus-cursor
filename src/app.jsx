@@ -2929,7 +2929,7 @@ function App() {
   }, [appSettings.font]);
 
   const [activeTab, setActiveTab] = useState('notas');
-  const [briefingSub, setBriefingSub] = useState('estrategias'); // estrategias | panorama
+  const [panoFocusId, setPanoFocusId] = useState(null); // card aberto na faixa do Briefing
   const [demoZone, setDemoZone] = useState('briefing'); // briefing | acervo | risco | ferramentas
   const [demoTrabalhoOpen, setDemoTrabalhoOpen] = useState(false);
   const [carteiraTreeOpen, setCarteiraTreeOpen] = useState(true); // árvore de ops sob Carteira
@@ -4413,7 +4413,8 @@ function App() {
     }
     if (wantsPanorama && type === 'execution') {
       setActiveTab('notas');
-      setBriefingSub('panorama');
+      setDemoZone('briefing');
+      setPanoFocusId(cleanEntity.id || null);
       setViewMode('operation');
     }
   };
@@ -4672,6 +4673,7 @@ function App() {
       return changed ? next : prev;
     });
     setOtherBucketOpen({ recursos: false, embargos: false, outros: false });
+    setPanoFocusId(null);
   }, [activeOpId]);
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const cdaFocusRef = useRef(null);
@@ -5265,22 +5267,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>);
         })()}
 
-        {/* ═══ BRIEFING: sub-abas internas ═══ */}
-        <div className="demo-inbox-switch briefing-sub-switch" role="tablist" aria-label="Briefing">
-          <button type="button" role="tab" aria-selected={briefingSub==='estrategias'}
-            className={`demo-inbox-tab ${briefingSub==='estrategias'?'active':''}`}
-            onClick={() => setBriefingSub('estrategias')}>
-            Estratégias e notas
-          </button>
-          <button type="button" role="tab" aria-selected={briefingSub==='panorama'}
-            className={`demo-inbox-tab ${briefingSub==='panorama'?'active':''}`}
-            onClick={() => setBriefingSub('panorama')}>
-            Panorama processual
-          </button>
-        </div>
-
-        {/* ═══ SUB: Estratégias e notas — links, entradas, checklists, lembretes ═══ */}
-        {briefingSub === 'estrategias' && <div className="briefing-split" ref={briefingSplitRef}>
+        <div className="briefing-unified">
+        {/* Caderno: estratégias, checklists, lembretes (abaixo da faixa via CSS order) */}
+        <div className="briefing-split" ref={briefingSplitRef}>
           <div className="briefing-split-left">
 
             {/* ─── ACCORDION: Estratégia e notas (open by default) ─── */}
@@ -5417,10 +5406,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>
             ))}</div>}
           </div>
-        </div>}
+        </div>
 
-        {/* ═══ SUB: Panorama processual — cards de processos (IDPJ/MCF/centrais) ═══ */}
-        {briefingSub === 'panorama' && ((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central') || opExecs.some(isUserPanoramaEf)) ? (() => {
+        {/* Faixa compacta + card aberto do panorama */}
+        {((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central') || opExecs.some(isUserPanoramaEf)) ? (() => {
               // Cobertura alinhada a Processos (classifyProcGroups): linkedExecutionIds ∪ apensas ao hub,
               // incluindo EFs principais e apensas (arquivadas mantidas; extintas excluídas).
               const withCda = (ef) => ({
@@ -5774,24 +5763,65 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ...efStyleCards.map(c => ({ ip: c, STAGES: CENTRAL_STAGES, STAGE_KEYS: CENTRAL_STAGE_KEYS, apensos: apensosByEfCard[c.id] || [] })),
               ];
               const procCount = idpjs.length + efStyleCards.length + coveredEFs.length + uncoveredEFs.length;
+              const focused = cards.find(c => c.ip.id === panoFocusId) || null;
 
-              return (<div className="demo-inbox-panel">
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:12,flexWrap:'wrap'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Processos</span>
-                    <span className="b-acc-count">{procCount}</span>
+              return (<div className="briefing-pano-block">
+                <div className="briefing-pano-strip-sticky">
+                  <div className="briefing-pano-strip-bar">
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Processos</span>
+                      <span className="b-acc-count">{procCount}</span>
+                    </div>
+                    {grand > 0 && <span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)'}}>{pct}% coberto</span>}
                   </div>
-                  {grand > 0 && <span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)'}}>{pct}% coberto</span>}
-                </div>
-                  {grand > 0 && <div style={{marginBottom:10}}>
+                  {grand > 0 && <div style={{marginBottom:8}}>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'var(--text-muted)',marginBottom:3}}>
                       <span>Cobertura por incidentes</span>
                       <span style={{fontFamily:'var(--font-mono)'}}>{fmtCur(coveredTotal)} / {fmtCur(grand)} · {pct}%</span>
                     </div>
                     <div style={{height:6,borderRadius:999,background:'var(--bg-elevated)',overflow:'hidden'}}><div style={{width:pct+'%',height:'100%',background:'var(--green)'}} /></div>
                   </div>}
+                  {cards.length > 0 && <div className="briefing-pano-strip">
+                    {cards.map(({ ip, STAGES, STAGE_KEYS, apensos }) => {
+                      const recs = getRecords(ip.id);
+                      const bm = badgeFor(ip);
+                      const covVal = apensos.reduce((s,ef) => s + (ef._cdaValue||0), 0);
+                      const isEfCard = isEfStylePanoramaCard(ip);
+                      const ownVal = isEfCard
+                        ? opDebts.filter(d => sameProc(d.processNumber, ip.processNumber)).reduce((s, d) => s + (d.value || 0), 0)
+                        : 0;
+                      const displayVal = isEfCard ? ownVal + covVal : covVal;
+                      const metas = stageMeta(STAGES, STAGE_KEYS, recs);
+                      const withHas = metas.filter(m => m.has);
+                      const current = withHas.length ? withHas[withHas.length - 1] : null;
+                      const isOpen = panoFocusId === ip.id;
+                      return (
+                        <button type="button" key={ip.id}
+                          className={'briefing-pano-chip ' + (bm.tagClass || '') + (isOpen ? ' is-open' : '')}
+                          aria-pressed={isOpen}
+                          title={isOpen ? 'Recolher card' : 'Abrir card deste processo'}
+                          onClick={() => setPanoFocusId(isOpen ? null : ip.id)}>
+                          <span className="briefing-pano-chip-top">
+                            <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
+                            <span className="briefing-pano-chip-fase" style={{color: current ? current.c : 'var(--text-muted)'}}>{current ? current.sd.label : '—'}</span>
+                          </span>
+                          <span className="briefing-pano-chip-num">{ip.processNumber || 'S/N'}</span>
+                          <span className="briefing-pano-chip-val">{displayVal > 0 ? fmtCur(displayVal) : '—'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>}
+                  {uncoveredEFs.length > 0 && <div className="briefing-pano-uncovered">
+                    <div className="briefing-pano-uncovered-h">Sem incidente · {uncoveredEFs.length} EF{uncoveredEFs.length!==1?'s':''}{uncoveredTotal>0?' · '+fmtCur(uncoveredTotal):''}</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      {uncoveredEFs.slice(0,8).map(ef => efRow(ef, false))}
+                      {uncoveredEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{uncoveredEFs.length-8} EF(s)</div>}
+                    </div>
+                  </div>}
+                </div>
 
-                  {cards.map(({ ip, STAGES, STAGE_KEYS, apensos }) => {
+                {focused && (() => {
+                    const { ip, STAGES, STAGE_KEYS, apensos } = focused;
                     const est = EXEC_STATUSES[ip.status] || {};
                     const recs = getRecords(ip.id);
                     const bm = badgeFor(ip);
@@ -5803,20 +5833,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       : 0;
                     const displayVal = isEfCard ? ownVal + covVal : covVal;
                     const isCentralCard = isEfCard;
-                    const cardCollapsed = !collapsedGroups.has('panoopen-' + ip.id);
                     const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                     const withHas = metas.filter(m => m.has);
                     const current = withHas.length ? withHas[withHas.length - 1] : null;
                     return (
-                      <div key={ip.id} className={'pano-split ' + (bm.tagClass || '') + (ip.status === 'extinta' ? ' is-extinct' : '')}>
+                      <div key={ip.id} className={'pano-split briefing-pano-focus ' + (bm.tagClass || '') + (ip.status === 'extinta' ? ' is-extinct' : '')}>
                         <div
                           className="pano-split-head"
-                          onClick={() => toggleGroup('panoopen-' + ip.id)}
-                          title={cardCollapsed ? 'Expandir card' : 'Recolher card'}
+                          onClick={() => setPanoFocusId(null)}
+                          title="Recolher card"
                         >
                           <div className="pano-split-head-row">
                             <div className="pano-split-title-row">
-                              <span className="pano-split-chev">{cardCollapsed ? '▸' : '▾'}</span>
+                              <span className="pano-split-chev">▾</span>
                               <span style={{fontSize:9,padding:'1px 6px',borderRadius:3,fontWeight:700,background:bm.bg,color:bm.color}}>{bm.label}</span>
                               <h3>{bm.title}</h3>
                               <span className={`badge ${est.badge||''}`} style={{fontSize:8,cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:ip}); }}>{est.label}</span>
@@ -5836,24 +5865,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             <ProcNum exec={ip} style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text-secondary)'}} />
                           </div>
                         </div>
-                        {!cardCollapsed && renderSplitCard(ip, STAGES, STAGE_KEYS, recs, myEFs, bm)}
+                        {renderSplitCard(ip, STAGES, STAGE_KEYS, recs, myEFs, bm)}
                       </div>
                     );
-                  })}
-
-                  {uncoveredEFs.length > 0 && <div style={{marginTop:cards.length>0?6:0}}>
-                    <div style={{fontSize:9,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,padding:'4px 2px'}}>Sem incidente · {uncoveredEFs.length} EF{uncoveredEFs.length!==1?'s':''}{uncoveredTotal>0?' · '+fmtCur(uncoveredTotal):''}</div>
-                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                      {uncoveredEFs.slice(0,8).map(ef => efRow(ef, false))}
-                      {uncoveredEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{uncoveredEFs.length-8} EF(s)</div>}
-                    </div>
-                  </div>}
+                })()}
               </div>);
             })() : (
-          <div className="demo-inbox-panel" style={{padding:24,textAlign:'center',color:'var(--text-muted)',fontSize:12,background:'rgba(255,255,255,0.02)',borderRadius:'var(--radius-lg)',border:'1px dashed var(--border)'}}>
+          <div className="briefing-pano-block briefing-pano-empty">
             Nenhum processo central, incidente ou EF ativa para o panorama.
           </div>
         ))}
+        </div>
       </div>);
     }
 

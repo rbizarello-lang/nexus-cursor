@@ -828,6 +828,122 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .briefing-split-handle:hover::after, .briefing-split-handle.dragging::after { opacity: 1; background: rgba(200,160,74,0.25); }
 .briefing-split-right { padding-left: 10px; min-width: 180px; overflow-y: auto; }
 .briefing-split-right .notes-grid { grid-template-columns: 1fr; }
+
+/* Briefing unificado — faixa compacta (opção 3) acima do caderno */
+.briefing-unified {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+.briefing-unified > .briefing-pano-block { order: 1; }
+.briefing-unified > .briefing-split { order: 2; }
+.briefing-pano-strip-sticky {
+  position: sticky;
+  top: -16px;
+  z-index: 6;
+  background: var(--bg-deep);
+  padding: 2px 4px 8px;
+  margin: 0 -4px 0;
+}
+.briefing-pano-strip-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.briefing-pano-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.briefing-pano-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 200px;
+  max-width: 340px;
+  min-width: 168px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--pgfn, #b84a66) 28%, var(--border));
+  border-left: 3px solid var(--pgfn, #b84a66);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+}
+.briefing-pano-chip:hover { background: var(--bg-card-hover, var(--bg-elevated)); }
+.briefing-pano-chip.is-open {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.briefing-pano-chip.tag-mcf {
+  border-color: color-mix(in srgb, var(--yellow) 28%, var(--border));
+  border-left-color: var(--yellow);
+}
+.briefing-pano-chip.tag-central {
+  border-color: color-mix(in srgb, var(--purple, #7a8ba3) 28%, var(--border));
+  border-left-color: var(--purple, #7a8ba3);
+}
+.briefing-pano-chip.tag-pano-ef {
+  border-color: color-mix(in srgb, var(--cyan, #22d3ee) 28%, var(--border));
+  border-left-color: var(--cyan, #22d3ee);
+}
+.briefing-pano-chip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.briefing-pano-chip-fase {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.briefing-pano-chip-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.briefing-pano-chip-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.briefing-pano-uncovered { margin-top: 8px; }
+.briefing-pano-uncovered-h {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 2px;
+}
+.briefing-pano-focus { margin-top: 10px; }
+.briefing-pano-empty {
+  padding: 12px 14px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+@media (max-width: 960px) {
+  .briefing-pano-chip { max-width: none; }
+}
+.app-layout.edition-demo .briefing-pano-strip-sticky {
+  background: var(--demo-glass-soft, var(--bg-deep));
+}
 .b-acc { border-bottom: 1px solid rgba(255,255,255,0.06); }
 .b-acc:last-child { border-bottom: none; }
 .b-acc-hdr { display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; cursor: pointer; user-select: none; border-radius: 4px; transition: background 0.15s; }
