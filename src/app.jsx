@@ -837,6 +837,43 @@ function isEfStylePanoramaCard(e) {
   return isCentralProcess(e) || isUserPanoramaEf(e);
 }
 
+function isIncidentProcess(e) {
+  return !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
+}
+
+function execCdaValue(ef, debts) {
+  return (debts || []).filter(d => sameProc(d.processNumber, ef && ef.processNumber)).reduce((s, d) => s + (d.value || 0), 0);
+}
+
+/**
+ * Valor das EFs ativas ligadas a IDPJ/cautelar vs as demais (não extintas).
+ * Cada execução entra uma vez, mesmo se vários incidentes a apontarem.
+ */
+function computeIncidentCoverage(execs, debts) {
+  const opExecs = execs || [];
+  const opDebts = debts || [];
+  const idpjs = opExecs.filter(isIncidentProcess);
+  const keepEf = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+  const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
+  const withVal = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
+  const efsByIncident = {};
+  const coveredIds = new Set();
+  idpjs.forEach(ip => {
+    const ids = new Set(ip.linkedExecutionIds || []);
+    opExecs.forEach(e => { if (e.parentExecutionId === ip.id) ids.add(e.id); });
+    const list = [...ids].map(id => execById[id]).filter(keepEf).map(withVal);
+    efsByIncident[ip.id] = list;
+    list.forEach(ef => coveredIds.add(ef.id));
+  });
+  const coveredEFs = [...coveredIds].map(id => withVal(execById[id]));
+  const uncoveredEFs = opExecs.filter(e => keepEf(e) && !coveredIds.has(e.id)).map(withVal);
+  const coveredTotal = coveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
+  const uncoveredTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
+  const grand = coveredTotal + uncoveredTotal;
+  const pct = grand > 0 ? Math.round((coveredTotal / grand) * 100) : 0;
+  return { idpjs, efsByIncident, coveredIds, coveredEFs, uncoveredEFs, coveredTotal, uncoveredTotal, grand, pct };
+}
+
 /** Espécie curta para Outros processos (coluna Espécie + chips). */
 function otherSpecies(e) {
   const cn = (e?.className || '').toLowerCase();
@@ -2762,7 +2799,7 @@ const CDAList = React.memo(function CDAList({ cdas, processNumber, onShowAll }) 
 
 const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLinks, people, collapsedGroups, toggleGroup, setModal }) {
   const p = s.person;
-  const isExpanded = !collapsedGroups.has('person-'+p.id);
+  const isExpanded = collapsedGroups.has('person-'+p.id);
   const isRelacionada = p.operationRole === 'relacionada';
   const notes = p.notesList || (p.notes ? [p.notes] : []);
   return (<div className="entity-card" style={{marginBottom:8,opacity:isRelacionada?0.85:1,borderLeft:`3px solid ${isRelacionada?'var(--text-muted)':'var(--pgfn)'}`}}>
@@ -5178,7 +5215,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     // indispLabel: valor formatado, "Sem avaliação" ou "Sem bens"
     const indispLabel = constrictedAssets.length === 0 ? 'Sem bens' : constrictedWithValue.length === 0 ? 'Sem avaliação' : fmtCur(constrictedTotal);
     const indispHasValue = constrictedWithValue.length > 0;
-    return { total, guar, unexec, prescA, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, indispLabel, indispHasValue, indispCount: constrictedAssets.length };
+    const cov = computeIncidentCoverage(execs, debts);
+    return { total, guar, unexec, prescA, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, indispLabel, indispHasValue, indispCount: constrictedAssets.length, covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
   }, [activeOp, data, prescLookup, getPrescDate]);
 
 
@@ -5220,6 +5258,45 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const dd = daysUntil(pd);
         return dd !== null && dd <= 180 && !d.prescriptionHandled;
       });
+      const briefingLinks = (() => {
+        const links = briefing.externalLinks || [];
+        const migrated = [...links];
+        if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migrated.push({ label: 'NotebookLM', url: briefing.notebookLmUrl, icon: '📓' });
+        if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migrated.push({ label: 'Resumos e anotações', url: briefing.docUrl, icon: '📄' });
+        const setLinks = (newLinks) => updateBriefing('externalLinks', newLinks);
+        const removeLink = (idx) => { const next = [...migrated]; next.splice(idx, 1); setLinks(next); };
+        const autoLabel = (url) => {
+          if (/notebooklm/i.test(url)) return { label: 'NotebookLM', icon: '📓' };
+          if (/docs\.google\.com\/document/i.test(url)) return { label: 'Google Doc', icon: '📄' };
+          if (/docs\.google\.com\/spreadsheet/i.test(url)) return { label: 'Google Sheets', icon: '📊' };
+          if (/docs\.google\.com\/presentation/i.test(url)) return { label: 'Google Slides', icon: '📽' };
+          if (/drive\.google\.com/i.test(url)) return { label: 'Google Drive', icon: '📁' };
+          if (/eproc|pje|projudi/i.test(url)) return { label: 'eProc', icon: '⚖️' };
+          if (/gov\.br/i.test(url)) return { label: 'Gov.br', icon: '🏛' };
+          try { return { label: new URL(url).hostname.replace('www.','').split('.')[0], icon: '🔗' }; } catch { return { label: 'Link', icon: '🔗' }; }
+        };
+        const addLink = (url) => {
+          if (!url) return;
+          const auto = autoLabel(url);
+          const label = prompt('Nome do link:', auto.label);
+          if (label === null) return;
+          setLinks([...migrated, { label: label || auto.label, url, icon: auto.icon }]);
+        };
+        const addKey = 'linkadd-'+opId; const addOpen = collapsedGroups.has(addKey);
+        return (
+          <div className="briefing-fontes">
+            {migrated.map((lnk, idx) => (
+              <span key={idx} className="briefing-fonte-pill">
+                <a href={lnk.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{lnk.icon || '🔗'} {lnk.label}</a>
+                <span className="briefing-fonte-x" onClick={() => removeLink(idx)}>✕</span>
+              </span>
+            ))}
+            {addOpen
+              ? <input autoFocus placeholder="colar URL e Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} className="briefing-fonte-input" />
+              : <button type="button" className="briefing-fonte-add" onClick={() => toggleGroup(addKey)} title="Adicionar link">+</button>}
+          </div>
+        );
+      })();
 
       return (<div className="entity-area">
         {/* ═══ IMPORT DIFF (full width, before split) ═══ */}
@@ -5289,45 +5366,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
               </div>
               {!collapsedGroups.has('bacc-est') && <div className="b-acc-body">
-                {/* Links + Nova entrada + filtro na MESMA linha (links via leftTools do painel) */}
-                <BriefingStrategyPanel op={activeOp} upsert={upsert} leftTools={(() => {
-                    const links = briefing.externalLinks || [];
-                    const migrated = [...links];
-                    if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migrated.push({ label: 'NotebookLM', url: briefing.notebookLmUrl, icon: '📓' });
-                    if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migrated.push({ label: 'Resumos e anotações', url: briefing.docUrl, icon: '📄' });
-                    const setLinks = (newLinks) => updateBriefing('externalLinks', newLinks);
-                    const removeLink = (idx) => { const next = [...migrated]; next.splice(idx, 1); setLinks(next); };
-                    const autoLabel = (url) => {
-                      if (/notebooklm/i.test(url)) return { label: 'NotebookLM', icon: '📓' };
-                      if (/docs\.google\.com\/document/i.test(url)) return { label: 'Google Doc', icon: '📄' };
-                      if (/docs\.google\.com\/spreadsheet/i.test(url)) return { label: 'Google Sheets', icon: '📊' };
-                      if (/docs\.google\.com\/presentation/i.test(url)) return { label: 'Google Slides', icon: '📽' };
-                      if (/drive\.google\.com/i.test(url)) return { label: 'Google Drive', icon: '📁' };
-                      if (/eproc|pje|projudi/i.test(url)) return { label: 'eProc', icon: '⚖️' };
-                      if (/gov\.br/i.test(url)) return { label: 'Gov.br', icon: '🏛' };
-                      try { return { label: new URL(url).hostname.replace('www.','').split('.')[0], icon: '🔗' }; } catch { return { label: 'Link', icon: '🔗' }; }
-                    };
-                    const addLink = (url) => {
-                      if (!url) return;
-                      const auto = autoLabel(url);
-                      const label = prompt('Nome do link:', auto.label);
-                      if (label === null) return;
-                      setLinks([...migrated, { label: label || auto.label, url, icon: auto.icon }]);
-                    };
-                    const addKey = 'linkadd-'+opId; const addOpen = collapsedGroups.has(addKey);
-                    return (<div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:6}}>
-                      <span style={{fontSize:12,color:'var(--text-muted)'}} title="Links externos">🔗</span>
-                      {migrated.map((lnk, idx) => (
-                        <span key={idx} style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:10,padding:'2px 8px',background:'var(--bg-elevated)',border:'1px solid var(--border)',borderRadius:999}}>
-                          <a href={lnk.url} target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',textDecoration:'none',fontWeight:600}} onClick={e => e.stopPropagation()}>{lnk.icon || '🔗'} {lnk.label}</a>
-                          <span style={{cursor:'pointer',fontSize:10,color:'var(--text-muted)',opacity:0.5}} onClick={() => removeLink(idx)}>✕</span>
-                        </span>
-                      ))}
-                      {addOpen
-                        ? <input autoFocus placeholder="colar URL e Enter" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; } else if (e.key === 'Escape') { toggleGroup(addKey); } }} onBlur={() => toggleGroup(addKey)} style={{width:160,fontSize:10,padding:'3px 8px',background:'var(--bg-deep)',color:'var(--text-primary)',border:'1px dashed var(--border)',borderRadius:999,boxSizing:'border-box'}} />
-                        : <button type="button" onClick={() => toggleGroup(addKey)} title="Adicionar link" style={{fontSize:12,lineHeight:1,padding:'1px 9px',border:'1px dashed var(--border)',borderRadius:999,background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+</button>}
-                    </div>);
-                })()} />
+                <BriefingStrategyPanel op={activeOp} upsert={upsert} />
               </div>}
             </div>
 
@@ -5400,8 +5439,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
           {/* ═══ RIGHT PANEL: Lembretes ═══ */}
           <div className="briefing-split-right" style={{width: briefingRightW + '%', flexShrink: 0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8}}>
-              <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>📌 Lembretes</span>
+            <div className="b-acc-hdr" style={{marginBottom:6,cursor:'default'}}>
+              <div className="b-acc-left">
+                <span className="b-acc-title">Lembretes</span>
+              </div>
               <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}} onClick={() => setModal({type:'create',entityType:'stickyNote',initial:{operationId:opId,color:'yellow'}})}>+ Lembrete</button>
             </div>
             {notes.length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--text-muted)',fontSize:11,background:'rgba(255,255,255,0.02)',borderRadius:'var(--radius-lg)',border:'1px dashed var(--border)'}}>Nenhum lembrete.<br/>Anote lembretes e notas soltas.</div> :
@@ -5417,39 +5458,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
 
         {/* Faixa compacta + card aberto do panorama */}
-        {((idpjs.length > 0 || mainEFs.length > 0 || opExecs.some(e => e.processTag === 'central') || opExecs.some(isUserPanoramaEf)) ? (() => {
-              // Cobertura alinhada a Processos (classifyProcGroups): linkedExecutionIds ∪ apensas ao hub,
-              // incluindo EFs principais e apensas (arquivadas mantidas; extintas excluídas).
-              const withCda = (ef) => ({
-                ...ef,
-                _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s, d) => s + (d.value || 0), 0),
-              });
-              const isHubTag = (e) => e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central');
-              const keepCoveredEF = (e) => e && !isHubTag(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+        {(() => {
+              const coverage = computeIncidentCoverage(opExecs, opDebts);
+              const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
+              const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
               const sortEFsArquivadasLast = (arr) => [...(arr || [])].sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
               const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
-
               const efsByIncident = {};
-              idpjs.forEach(ip => {
-                const ids = new Set(ip.linkedExecutionIds || []);
-                opExecs.forEach(e => { if (e.parentExecutionId === ip.id) ids.add(e.id); });
-                efsByIncident[ip.id] = sortEFsArquivadasLast([...ids]
-                  .map(id => execById[id])
-                  .filter(keepCoveredEF)
-                  .map(withCda));
-              });
-
-              const coveredMap = {};
-              idpjs.forEach(ip => {
-                (efsByIncident[ip.id] || []).forEach(ef => { if (!coveredMap[ef.id]) coveredMap[ef.id] = ip; });
-              });
-              const coveredEFs = sortEFsArquivadasLast(Object.values(coveredMap));
-              // Rol "Sem incidente": EFs top-level ainda sem vínculo a incidente (exclui apensas já cobertas)
-              const uncoveredEFs = mainEFs.filter(ef => !coveredMap[ef.id] && isExecucaoFiscalClass(ef) && !ef.inPanorama);
-              const coveredTotal = coveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
-              const uncoveredTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
-              const grand = coveredTotal + uncoveredTotal;
-              const pct = grand > 0 ? Math.round(coveredTotal / grand * 100) : 0;
+              Object.keys(coverage.efsByIncident).forEach(id => { efsByIncident[id] = sortEFsArquivadasLast(coverage.efsByIncident[id]); });
+              const uncoveredEFs = mainEFs.filter(ef => !coverage.coveredIds.has(ef.id) && isExecucaoFiscalClass(ef) && !ef.inPanorama);
+              const uncoveredCardTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
+              const uncoveredOpen = panoFocusId === 'uncovered';
 
               // Processos CENTRAIS e EFs levadas ao panorama pelo usuário — card próprio com régua e apensos
               const centrais = opExecs.filter(e => e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada');
@@ -5770,26 +5789,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 ...idpjs.map(ip => ({ ip, STAGES: PROCESS_STAGES, STAGE_KEYS: PROCESS_STAGE_KEYS, apensos: efsByIncident[ip.id] || [] })),
                 ...efStyleCards.map(c => ({ ip: c, STAGES: CENTRAL_STAGES, STAGE_KEYS: CENTRAL_STAGE_KEYS, apensos: apensosByEfCard[c.id] || [] })),
               ];
-              const procCount = idpjs.length + efStyleCards.length + coveredEFs.length + uncoveredEFs.length;
-              const focused = cards.find(c => c.ip.id === panoFocusId) || null;
+              const focused = uncoveredOpen ? null : (cards.find(c => c.ip.id === panoFocusId) || null);
 
               return (<div className="briefing-pano-block">
                 <div className="briefing-pano-strip-sticky">
-                  <div className="briefing-pano-strip-bar">
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>Processos</span>
-                      <span className="b-acc-count">{procCount}</span>
-                    </div>
-                    {grand > 0 && <span style={{fontSize:10,fontFamily:'var(--font-mono)',color:'var(--text-muted)'}}>{pct}% coberto</span>}
-                  </div>
-                  {grand > 0 && <div style={{marginBottom:8}}>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'var(--text-muted)',marginBottom:3}}>
-                      <span>Cobertura por incidentes</span>
-                      <span style={{fontFamily:'var(--font-mono)'}}>{fmtCur(coveredTotal)} / {fmtCur(grand)} · {pct}%</span>
-                    </div>
-                    <div style={{height:6,borderRadius:999,background:'var(--bg-elevated)',overflow:'hidden'}}><div style={{width:pct+'%',height:'100%',background:'var(--green)'}} /></div>
-                  </div>}
-                  {cards.length > 0 && <div className="briefing-pano-strip">
+                  {briefingLinks}
+                  {(cards.length > 0 || uncoveredEFs.length > 0) && <div className="briefing-pano-strip">
                     {cards.map(({ ip, STAGES, STAGE_KEYS, apensos }) => {
                       const recs = getRecords(ip.id);
                       const bm = badgeFor(ip);
@@ -5818,13 +5823,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </button>
                       );
                     })}
+                    {uncoveredEFs.length > 0 && (
+                      <button type="button" key="uncovered"
+                        className={'briefing-pano-chip sem-incidente' + (uncoveredOpen ? ' is-open' : '')}
+                        aria-pressed={uncoveredOpen}
+                        title={uncoveredOpen ? 'Recolher lista' : 'Ver execuções sem incidente'}
+                        onClick={() => setPanoFocusId(uncoveredOpen ? null : 'uncovered')}>
+                        <span className="briefing-pano-chip-top">
+                          <span className="sem-incidente-tag">EF</span>
+                          <span className="briefing-pano-chip-fase">{uncoveredOpen ? '▾' : '▸'}</span>
+                        </span>
+                        <span className="briefing-pano-chip-num" style={{fontFamily:'var(--font-display)',fontWeight:600,color:'var(--text-primary)'}}>Sem incidente</span>
+                        <span className="briefing-pano-chip-val" style={{fontWeight:500,color:'var(--text-muted)'}}>{uncoveredEFs.length} EF{uncoveredEFs.length!==1?'s':''}{uncoveredCardTotal>0?' · '+fmtCur(uncoveredCardTotal):''}</span>
+                      </button>
+                    )}
                   </div>}
-                  {uncoveredEFs.length > 0 && <div className="briefing-pano-uncovered">
-                    <div className="briefing-pano-uncovered-h">Sem incidente · {uncoveredEFs.length} EF{uncoveredEFs.length!==1?'s':''}{uncoveredTotal>0?' · '+fmtCur(uncoveredTotal):''}</div>
-                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                      {uncoveredEFs.slice(0,8).map(ef => efRow(ef, false))}
-                      {uncoveredEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{uncoveredEFs.length-8} EF(s)</div>}
-                    </div>
+                  {uncoveredOpen && uncoveredEFs.length > 0 && <div className="briefing-pano-uncovered-panel">
+                    {uncoveredEFs.slice(0,8).map(ef => efRow(ef, false))}
+                    {uncoveredEFs.length > 8 && <div style={{fontSize:9,color:'var(--text-muted)'}}>+{uncoveredEFs.length-8} EF(s)</div>}
                   </div>}
                 </div>
 
@@ -5878,11 +5894,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     );
                 })()}
               </div>);
-            })() : (
-          <div className="briefing-pano-block briefing-pano-empty">
-            Nenhum processo central, incidente ou EF ativa para o panorama.
-          </div>
-        ))}
+            })()}
         </div>
       </div>);
     }
@@ -10363,6 +10375,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="stat-value" style={{color:opStats.indispHasValue?'var(--text-primary)':'var(--text-muted)',fontSize:opStats.indispHasValue?15:12}}>{opStats.indispLabel}</div>
               <div className="stat-sub">{opStats.indispCount > 0 ? `${opStats.indispCount} bem(ns)` : ''}</div>
               <span className="tip-content">{opStats.indispCount === 0 ? 'Nenhum bem com status de indisponibilidade cadastrado nesta operação.' : opStats.indispHasValue ? `Soma dos valores dos ${opStats.indispCount} bem(ns) com indisponibilidade ativa/requerida que possuem valor informado. Clique para ver a aba Bens.` : `${opStats.indispCount} bem(ns) constritado(s), mas nenhum com valor de avaliação preenchido. Informe os valores na aba Bens para ver o total aqui.`}</span>
+            </div>
+            <div className="stat-card cobertura has-tip">
+              <div className="stat-label">Cobertura</div>
+              <div className="stat-value" style={{color: opStats.coverageGrand > 0 ? 'var(--green)' : 'var(--text-muted)', fontSize:15}}>{opStats.coverageGrand > 0 ? `${opStats.covPct}%` : '—'}</div>
+              <div className="stat-sub">{opStats.coverageGrand > 0 ? `incidentes · ${fmtCur(opStats.coveredTotal)}` : 'sem EFs ativas'}</div>
+              <span className="tip-content">Percentual do valor das execuções fiscais ativas ligadas a IDPJ ou cautelar, sobre o total dessas EFs mais as que ainda não têm incidente. Cada execução entra uma vez.</span>
             </div>
             <div className="stat-card"><div className="stat-label">Presc. CDA</div><div className="stat-value" style={{color:opStats.prescA>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescA}</div><div className="stat-sub">≤180 dias</div></div>
             <div className="stat-card"><div className="stat-label">Presc. Interc.</div><div className="stat-value" style={{color:opStats.prescExec>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescExec}</div><div className="stat-sub">≤365 dias</div></div>

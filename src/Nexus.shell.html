@@ -357,6 +357,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 }
 .stats-bar { display: flex; gap: 10px; padding: 10px 24px; background: var(--bg-main); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
 .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; min-width: 120px; flex-shrink: 0; }
+.stat-card.cobertura { border-left: 3px solid var(--green); }
 .stat-card .stat-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; white-space: nowrap; }
 .stat-card .stat-value { font-size: 16px; font-weight: 700; font-family: var(--font-display); white-space: nowrap; }
 .stat-card .stat-sub { font-size: 9px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; }
@@ -837,7 +838,60 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
   min-height: 0;
 }
 .briefing-unified > .briefing-pano-block { order: 1; }
-.briefing-unified > .briefing-split { order: 2; }
+.briefing-unified > .briefing-split { order: 2; border-top: 1px solid var(--border); padding-top: 8px; }
+.briefing-fontes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.briefing-fonte-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.briefing-fonte-pill a { color: var(--blue); text-decoration: none; font-weight: 600; }
+.briefing-fonte-x { cursor: pointer; font-size: 10px; color: var(--text-muted); opacity: 0.5; }
+.briefing-fonte-x:hover { opacity: 1; color: var(--red); }
+.briefing-fonte-add {
+  font-size: 12px; line-height: 1; padding: 1px 9px;
+  border: 1px dashed var(--border); border-radius: 999px;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.briefing-fonte-input {
+  width: 160px; font-size: 10px; padding: 3px 8px;
+  background: var(--bg-deep); color: var(--text-primary);
+  border: 1px dashed var(--border); border-radius: 999px; box-sizing: border-box;
+}
+.briefing-pano-chip.sem-incidente {
+  flex: 0 1 168px;
+  max-width: 200px;
+  border: 1px dashed var(--border-light);
+  border-left: 3px dashed var(--border-light);
+  background: transparent;
+}
+.briefing-pano-chip.sem-incidente.is-open {
+  background: var(--bg-card);
+  border-style: solid;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-muted) 35%, transparent);
+}
+.sem-incidente-tag {
+  font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+  background: var(--bg-elevated); color: var(--text-muted);
+}
+.briefing-pano-uncovered-panel {
+  margin-top: 8px;
+  padding: 6px 8px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
 .briefing-pano-strip-sticky {
   position: sticky;
   top: -16px;
