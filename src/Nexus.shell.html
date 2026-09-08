@@ -1183,7 +1183,15 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .cda-presc-rules:hover { color: var(--accent); }
 .presc-rules-box { max-width: 720px; }
 .presc-rules-hd { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.presc-rules-body { padding: 14px 16px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); max-height: 70vh; overflow-y: auto; }
+.presc-rules-body { padding: 14px 16px; font-size: 12px; line-height: 1.55; color: var(--text-secondary); max-height: 70vh; overflow-y: auto; }
+.presc-rules-body h1 { font-size: 16px; margin: 0 0 8px; color: var(--text-primary); }
+.presc-rules-body h2 { font-size: 13px; margin: 16px 0 6px; color: var(--text-primary); }
+.presc-rules-body p { margin: 0 0 8px; }
+.presc-rules-body ul, .presc-rules-body ol { margin: 0 0 10px 18px; padding: 0; }
+.presc-rules-body li { margin: 0 0 4px; }
+.presc-rules-body code { font-family: var(--font-mono); font-size: 11px; }
+.presc-rules-body hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+.presc-rules-body strong { color: var(--text-primary); }
 .dashboard-alerts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .alert-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; }
 .alert-widget h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 10px; }
@@ -3439,6 +3447,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 </head>
 <body>
 <div id="root"><div id="nexus-boot" style="padding:28px;color:#e8edf5;font-family:system-ui,sans-serif;font-size:14px">Carregando NEXUS…</div></div>
+<div id="presc-rules-doc" hidden><!--INJECT_PRESC_RULES--></div>
 <script>
 // Diagnóstico visível: se o React falhar ao subir, a mensagem aparece na tela
 (function () {

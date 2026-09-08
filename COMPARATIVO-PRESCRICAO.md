@@ -1,6 +1,6 @@
 # O que mudou na prescrição (uso prático)
 
-Versão **1.2.20**, publicada no Apps Script em 8 set 2026.
+Versão do app **1.2.21**. Regras de contagem **2026.09**.
 
 Este texto é para o dia a dia. Não é manual técnico.
 
@@ -20,35 +20,35 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 
 **Agora.** Você escolhe a **família** e depois o **tipo concreto**:
 
-1. Marco do art. 40 — ciência (não achou bens / não achou o devedor / bens insuficientes)
+1. Ciência de não localização / ausência de bens / bens insuficientes
 2. Resultado útil (citação, penhora, Sisbajud, arresto, CNIB)
 3. Parcelamento (adesão / rescisão)
-4. Pausa da exigibilidade (art. 151)
+4. Pausa da exigibilidade
 5. Constrição no IDPJ / cautelar
-6. Outras causas do art. 174
+6. Outras causas da prescrição ordinária
 7. Situação do feito (arquivamento, pedido sem resultado, etc.)
 
-**O que fazer.** No card da inscrição: **+ Evento**. Primeiro a família. Depois o detalhe. Em Sisbajud, informe o valor bloqueado.
+**O que fazer.** No card da inscrição: **+ Evento**. Primeiro a família. Depois o detalhe. Em Sisbajud, o valor bloqueado é só informação: quem lança o bloqueio decide se houve resultado útil.
 
 ---
 
-### 2. A data que aparece no card
+### 2. A data que aparece
 
 **Antes.** A data digitada na ficha (ou da planilha) podia aparecer como se fosse o prazo.
 
-**Agora.** O prazo do card é o **calculado**. A data digitada fica à parte, como conferência. Se divergir, o card diz **conflito**. O cálculo prevalece.
+**Agora.** O prazo da fila é o **calculado**. A data digitada fica à parte, como conferência. Se divergir, vira item de cadastro. O cálculo prevalece.
 
-**O que fazer.** Não apague a data digitada. Use-a para conferir. Se o cálculo estiver certo, ignore a data velha da planilha.
+**O que fazer.** Não apague a data digitada. Use-a para conferir.
 
 ---
 
-### 3. A explicação no card e no texto copiado
+### 3. As três colunas da inscrição
 
-**Antes.** Havia memória de cálculo, mas o cenário (qual relógio vale) não vinha claro no texto.
+**Antes.** O detalhe misturava cenário jurídico, memória e lacunas (Tema, Súmula, “piso”, “CENÁRIO”).
 
-**Agora.** O card tem **Cenário e memória de cálculo**. A cópia da memória e o e-mail do dia também abrem com o cenário.
+**Agora.** Cada relógio (Decadência · Prescrição ordinária · Intercorrente) tem seis blocos: Situação, Datas, Ocorrências, Estimativas, Conferir nos autos, e o rodapé **Regras v2026.09**. Marcar um item em Conferir tira esse item da coluna Conferir da aba Prazos extintivos.
 
-**O que fazer.** Expanda a inscrição e leia o cenário antes de atuar. **Copiar memória técnica** já leva um texto colável na peça.
+**O que fazer.** Expanda a inscrição. Leia a Situação. Use **Copiar memória técnica** quando for colar em peça (aí sim vêm as citações).
 
 ---
 
@@ -58,21 +58,21 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 
 **Agora.**
 
-- **Garantida:** continua visível. Só perde prioridade. Garantia pequena não apaga o risco.
+- **Garantida:** continua visível. Só perde prioridade.
 - **Parcelada sem evento:** continua visível, pedindo o cadastro da adesão (e do fim, se já acabou).
-- **IDPJ / cautelar:** continua visível, em “sob incidente”. O visto sozinho **não** pausa o relógio. Só pausa se houver evento de constrição.
+- **IDPJ / cautelar:** continua visível. O visto sozinho **não** pausa o relógio. Só pausa se houver evento de constrição. O app também mostra o que aconteceria **sem** essa pausa.
 
 **O que fazer.** Não trate “sumiu da fila” como “está seguro”. Se o feito está no incidente, cadastre a constrição quando ela existir.
 
 ---
 
-### 5. Execução antiga, sem marco lançado
+### 5. Execução antiga, sem ciência lançada
 
 **Antes.** Às vezes aparecia um prazo como se o 1+5 já tivesse começado.
 
-**Agora.** O app **não inventa** marco. Mostra **acompanhar a partir de…** (piso operacional). Consumo ainda é impossível.
+**Agora.** O app **não inventa** ciência. Mostra **não antes de…** (ainda impossível). Consumo ainda é impossível.
 
-**O que fazer.** Se houver ciência nos autos, lance o marco. Sem marco, acompanhe — não declare prescrita só pela idade do feito.
+**O que fazer.** Se houver ciência nos autos, lance. Sem ciência, acompanhe — não declare prescrita só pela idade do feito.
 
 ---
 
@@ -80,7 +80,7 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 
 **Antes.** Podia parecer resolvida.
 
-**Agora.** Entra na faixa **alta**. Sem a data da ciência não há teto.
+**Agora.** Vai para o grupo **2 (Provável — conferir)**. Sem a data da ciência não há teto.
 
 **O que fazer.** Busque nos autos a data em que a Fazenda soube da não localização / inexistência de bens. Cadastre.
 
@@ -90,43 +90,54 @@ Ajuizar, citar ou arquivar, sozinhos, **não** abrem esse prazo.
 
 **Antes.** Podia parecer prazo legal.
 
-**Agora.** Só ajuda a **ordenar** a fila residual, com o rótulo de planilha. Não vira o prazo grave do card calculado.
+**Agora.** Só ajuda a ordenar. Não vira o prazo grave calculado do grupo 1.
 
-**O que fazer.** Use a planilha como lembrete. Confie no cenário do card.
+**O que fazer.** Use a planilha como lembrete. Confie na Situação da coluna.
 
 ---
 
-### 8. Três avisos de conferência
+### 8. Parcelamento sem data de fim
 
-O app **não** decide sozinho nestes casos. Pede olho nos autos:
+**Antes.** Podia aparecer como prazo **vencido** (como se o cálculo tivesse certeza).
 
-- Parcelamento sem data de encerramento — não presume que ainda está vigente.
-- Pedido na janela 1+5 sem resultado lançado — não declara prescrita.
+**Agora.** O app supõe o **pior caso** (rescisão no dia da adesão). O selo é **estimado**. A inscrição vai ao grupo **2 (Provável — conferir)**, não ao grupo 1 de vencido calculado. Pede a data da rescisão.
 
-**O que fazer.** Complete a data ou o valor. Ou anote o desfecho do pedido.
+Pedido na janela 1+5 sem resultado lançado também pede olho nos autos — o app **não** declara prescrita.
+
+**O que fazer.** Lance a rescisão (ou a vigência) quando souber. Ou anote o desfecho do pedido.
 
 ---
 
 ### 9. Depois da rescisão do parcelamento
 
-Isso **não** é marco do art. 40. É política interna da casa.
+Isso **não** é ciência de não localização. É escolha da casa.
 
 **Padrão:** 1 ano + 5 anos (mais favorável à União).
 
-**Opcional na ficha da inscrição:** só 5 anos (linha de alguns julgados).
+**Opcional na ficha da inscrição:** só 5 anos.
 
-O card e o texto copiado dizem **ciclo pós-parcelamento (política)**, para ninguém confundir com o Tema 566.
+A memória técnica traz a base. A coluna da inscrição fala o caso, sem a palavra “política”.
+
+---
+
+### 10. Aba Prazos extintivos
+
+**Antes.** Os alertas ficavam espalhados no Painel (vários cards), na barra e no card do processo, às vezes com critérios diferentes.
+
+**Agora.** Há uma aba **Prazos extintivos** no topo, para **todas** as operações. Cinco grupos: urgentes, a conferir, a completar, acompanhamento, ainda impossível. O Painel ficou com **um** indicador. A barra e o card do processo leem o mesmo radar.
+
+**O que fazer.** Comece o dia por essa aba. Filtre por operação, por incidente ou só sem ciência lançada.
 
 ---
 
 ## Como conferir no app
 
-1. Abra a operação → **Risco** → **Inscrições**.
-2. Clique no **corpo do card** (não no número — o número só copia).
-3. Leia **Cenário e memória de cálculo**.
+1. Abra **Prazos extintivos** (topo).
+2. Clique em **Abrir** numa inscrição, ou vá em Inscrições / Processos e **expanda** a CDA.
+3. Leia as três colunas (Situação → Ocorrências → Conferir).
 4. Teste **+ Evento**: família e tipo concreto.
-5. Em **Processos e Prescrição**, o mesmo bloco aparece ao expandir a inscrição.
-6. **Copiar memória técnica** e cole num bloco de notas: a primeira linha útil deve ser o cenário.
+5. **Copiar memória técnica** e cole num bloco de notas quando for redigir.
+6. Em ⚙, **Regras de prazos** → **Abrir regras** (o mesmo texto do rodapé das colunas).
 
 Na dúvida, o app **prefere alarmar a esconder**. Melhor um alarme a mais do que uma prescrição silenciosa.
 
@@ -134,4 +145,4 @@ Na dúvida, o app **prefere alarmar a esconder**. Melhor um alarme a mais do que
 
 ## Depois desta publicação
 
-No Apps Script, crie **Nova versão** na implantação, se for o fluxo habitual, para o webapp aberto no navegador passar a usar esta versão.
+No Apps Script, crie **Nova versão** na implantação, se for o fluxo habitual, para o webapp aberto no navegador passar a usar esta versão. A publicação conjunta destas regras fica para o fim da série (versão **2.0.0**).

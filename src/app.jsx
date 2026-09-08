@@ -8335,6 +8335,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         style={{width:'100%',fontSize:11,fontFamily:'var(--font-mono)',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,padding:6}} />
     </div>
     <div className="settings-group">
+      <div className="settings-label">Regras de prazos</div>
+      <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:6}}>Versão {RULE_VERSION}</div>
+      <button type="button" className="settings-opt" style={{width:'100%'}} onClick={() => { setShowPrescRules(true); setShowSettings(false); }}>Abrir regras</button>
+    </div>
+    <div className="settings-group">
       <div className="settings-label">Manutenção</div>
       <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
       <div style={{fontSize:10,color:'var(--text-muted)',margin:'6px 0 4px',lineHeight:1.4}}>Toda a carteira. Para corrigir um caso, use o diagnóstico da operação.</div>
@@ -10602,7 +10607,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <strong>Regras de prazos v{RULE_VERSION}</strong>
             <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowPrescRules(false)}>✕</span>
           </div>
-          <div className="presc-rules-body">O texto completo das regras entra na etapa 4.</div>
+          <div className="presc-rules-body" dangerouslySetInnerHTML={{ __html: (document.getElementById('presc-rules-doc') || {}).innerHTML || '<p>Regras indisponíveis neste arquivo.</p>' }} />
         </div>
       </div>
     )}

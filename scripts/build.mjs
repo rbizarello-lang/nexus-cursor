@@ -30,6 +30,76 @@ const outDemoUnderscorePath = path.join(root, 'Nexus_demo.html'); // alias Windo
 const outDemoExperimentalPath = path.join(root, 'Nexus_demo_experimental.html');
 const outDemoExperimentalAlias = path.join(root, 'demo_experimental.html');
 const MARKER = '<!--INJECT_APP_JS-->';
+const RULES_MARKER = '<!--INJECT_PRESC_RULES-->';
+const rulesMdPath = path.join(root, 'MOTOR_PRESCRICAO.md');
+
+function mdToHtml(src) {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s) => esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const lines = String(src || '').replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let para = [];
+  let list = null;
+  const flushPara = () => {
+    if (para.length) {
+      out.push('<p>' + inline(para.join(' ')) + '</p>');
+      para = [];
+    }
+  };
+  const flushList = () => {
+    if (list) {
+      out.push('<' + list.tag + '>' + list.items.join('') + '</' + list.tag + '>');
+      list = null;
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      flushPara();
+      flushList();
+      continue;
+    }
+    if (/^---+$/.test(line.trim())) {
+      flushPara();
+      flushList();
+      out.push('<hr/>');
+      continue;
+    }
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) {
+      flushPara();
+      flushList();
+      out.push('<h' + h[1].length + '>' + inline(h[2]) + '</h' + h[1].length + '>');
+      continue;
+    }
+    const ul = line.match(/^[-*]\s+(.*)$/);
+    if (ul) {
+      flushPara();
+      if (!list || list.tag !== 'ul') {
+        flushList();
+        list = { tag: 'ul', items: [] };
+      }
+      list.items.push('<li>' + inline(ul[1]) + '</li>');
+      continue;
+    }
+    const ol = line.match(/^\d+\.\s+(.*)$/);
+    if (ol) {
+      flushPara();
+      if (!list || list.tag !== 'ol') {
+        flushList();
+        list = { tag: 'ol', items: [] };
+      }
+      list.items.push('<li>' + inline(ol[1]) + '</li>');
+      continue;
+    }
+    para.push(line.trim());
+  }
+  flushPara();
+  flushList();
+  return out.join('\n');
+}
 
 function unwrapModule(src) {
   return src
@@ -55,7 +125,26 @@ const jsx = [
   '/* --- src/app.jsx --- */',
   unwrapModule(fs.readFileSync(jsxPath, 'utf8')),
 ].join('\n');
-const shell = fs.readFileSync(shellPath, 'utf8');
+let shell = fs.readFileSync(shellPath, 'utf8');
+
+if (!shell.includes(MARKER)) {
+  console.error(`ERRO: marcador ${MARKER} não encontrado em src/Nexus.shell.html`);
+  process.exit(1);
+}
+if (!shell.includes(RULES_MARKER)) {
+  console.error(`ERRO: marcador ${RULES_MARKER} não encontrado em src/Nexus.shell.html`);
+  process.exit(1);
+}
+if (!fs.existsSync(rulesMdPath)) {
+  console.error('ERRO: MOTOR_PRESCRICAO.md não encontrado');
+  process.exit(1);
+}
+const rulesHtml = mdToHtml(fs.readFileSync(rulesMdPath, 'utf8'));
+if (!/R1/.test(rulesHtml) || !/R12/.test(rulesHtml) || !/2026\.09/.test(rulesHtml)) {
+  console.error('ERRO: MOTOR_PRESCRICAO.md precisa da versão 2026.09 e das regras R1–R12');
+  process.exit(1);
+}
+shell = shell.replace(RULES_MARKER, () => rulesHtml);
 
 if (!shell.includes(MARKER)) {
   console.error(`ERRO: marcador ${MARKER} não encontrado em src/Nexus.shell.html`);
