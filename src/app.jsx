@@ -2814,7 +2814,7 @@ const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLi
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         {s.totalCdas > 0 && <span className="has-tip" style={{fontSize:10,color:'var(--text-muted)'}}>{s.totalCdas} CDA(s)<span className="tip-content">{s.cdasOriginario.length} como originária + {s.totalCdas - s.cdasOriginario.length} como corresponsável</span></span>}
         {s.valTotal > 0 && <span className="has-tip" style={{fontSize:12,fontWeight:700,color:'var(--gold)'}}>{fmtCur(s.valTotal)}<span className="tip-content">Exposição total: {fmtCur(s.valOriginario)} (originário) + {fmtCur(s.valCorresp)} (corresponsabilidade)</span></span>}
-        {s.prescRisk > 0 && <span className="badge badge-red has-tip" style={{fontSize:9}}>⏱ {s.prescRisk}<span className="tip-content">CDAs originárias com risco prescricional iminente (≤6 meses), sem tratamento.</span></span>}
+        {s.prescRisk > 0 && <span className="badge badge-red has-tip" style={{fontSize:9}}>⏱ {s.prescRisk}<span className="tip-content">CDAs originárias nos grupos vencido/iminente ou a conferir, sem tratamento.</span></span>}
         <button className="btn-secondary btn-xs has-tip" onClick={ev => { ev.stopPropagation(); const btn = ev.currentTarget; copyText(buildPersonQualification(p, data)); const orig = btn.firstChild.textContent; btn.firstChild.textContent = '✓'; setTimeout(() => { try { btn.firstChild.textContent = orig; } catch(x){} }, 1500); }}><span>📋</span><span className="tip-content">Copiar qualificação formatada (nome, CPF/CNPJ, CDAs, processos) — pronta para colar em petição.</span></button>
         <button className="btn-secondary btn-xs" onClick={ev => { ev.stopPropagation(); setModal({type:'edit',entityType:'person',initial:p}); }}>Editar</button>
       </div>
@@ -2943,7 +2943,7 @@ function App() {
       if (!['A', 'B', 'C', 'D'].includes(pvm)) pvm = 'D';
       // HTML Demo standalone: força visão D (sem modo experimental A/B/C)
       if (isDemoStandalone) pvm = 'D';
-      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm };
+      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm, prazosFilters: s.prazosFilters };
       // Persiste bootstrap (?edition=demo / Nexus.demo.html) e migração de tema legado
       if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
@@ -3629,10 +3629,25 @@ function App() {
     [data.debts, data.executions, data.prescriptionEvents]
   );
   const getPrescDate = useMemo(() => (d) => prescLookup.date(d), [prescLookup]);
-  const painelPrescAlerts = useMemo(
-    () => buildPainelPrescAlerts(data, undefined, prescLookup),
-    [data.debts, data.executions, data.prescriptionEvents, data.operations, prescLookup]
+  const prazosRadar = useMemo(
+    () => buildPrazosRadar(data, undefined, prescLookup),
+    [data.debts, data.executions, data.prescriptionEvents, data.operations, data.people, prescLookup]
   );
+  const prazosByDebt = useMemo(() => {
+    const m = new Map();
+    (prazosRadar.rows || []).forEach(r => m.set(r.id, r));
+    return m;
+  }, [prazosRadar]);
+  const isPrazosRisco = (d) => {
+    const g = (prazosByDebt.get(d && d.id) || {}).group;
+    return g === 1 || g === 2;
+  };
+  const prazosFilters = { group: 0, operationId: '', onlyIncident: false, onlyNoCiencia: false, q: '', view: 'processo', sort: 'grupo', ...(appSettings.prazosFilters || {}) };
+  const setPrazosFilters = (patch) => updateSetting('prazosFilters', { ...prazosFilters, ...patch });
+  const openPrazos = (group) => {
+    setPrazosFilters({ group: group || 0 });
+    setViewMode('prazos');
+  };
   // Uma passada no acervo — a sidebar não pode filtrar o banco inteiro por operação a cada render.
   const sidebarOpMeta = useMemo(() => {
     const meta = {};
@@ -3645,8 +3660,8 @@ function App() {
       if (!m) continue;
       m.dCount++;
       if (!d.prescriptionHandled) {
-        const dd = daysUntil(getPrescDate(d));
-        if (dd !== null && dd <= 180) m.alerts++;
+        const g = (prazosByDebt.get(d.id) || {}).group;
+        if (g === 1 || g === 2) m.alerts++;
       }
     }
     for (const p of data.people || []) {
@@ -3676,7 +3691,7 @@ function App() {
       }
     }
     return meta;
-  }, [data.operations, data.debts, data.people, data.intimations, data.tasks, getPrescDate]);
+  }, [data.operations, data.debts, data.people, data.intimations, data.tasks, prazosByDebt]);
   const prescTag = (d) => {
     if (!d) return '';
     const r = prescLookup(d);
@@ -4778,15 +4793,6 @@ function App() {
   const toggleGroup = (gk) => startTabSwitch(() => {
     setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(gk)) n.delete(gk); else n.add(gk); return n; });
   });
-  // Colapso dos cards do Painel (prescrição, agenda) — preferência de UI lembrada entre sessões
-  const [painelCollapsed, setPainelCollapsed] = useState(() => {
-    try {
-      const raw = localStorage.getItem('nexus_painel_collapsed');
-      if (raw) return new Set(JSON.parse(raw));
-    } catch { /* ignore */ }
-    return new Set(['presc_piso']);
-  });
-  const togglePainel = (k) => setPainelCollapsed(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); try { localStorage.setItem('nexus_painel_collapsed', JSON.stringify([...n])); } catch {} return n; });
   // ─── MESA DE TRABALHO — fila de foco (array ordenado de refs {type,id}); reordenável por arraste ───
   const deskDragRef = useRef(null);
   const isOnDesk = (type, id) => (data.desk || []).some(d => d.type === type && d.id === id);
@@ -4990,7 +4996,11 @@ function App() {
     const constrVal = constricted.reduce((s,a) => s + (a.value||0), 0);
     const idpjs = opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
     const activeExecs = opExecs.filter(e => e.status !== 'extinta' && e.status !== 'arquivada');
-    const prescRisk = activeDebts.map(d => { const pd = getPrescDate(d); return { d, pd, days: daysUntil(pd) }; }).filter(x => x.days !== null && x.days <= 180 && !x.d.prescriptionHandled).sort((a,b) => a.days - b.days);
+    const prescRisk = activeDebts.map(d => {
+      const row = prazosByDebt.get(d.id);
+      if (!row || (row.group !== 1 && row.group !== 2)) return null;
+      return { d, pd: row.keyDate || row.prescDate, days: row.prescDays, summary: row.summary || '' };
+    }).filter(Boolean).sort((a,b) => (a.days ?? 9999) - (b.days ?? 9999));
     const alvos = opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo');
     const row = (cells) => `<tr>${cells.map(x => `<td>${x}</td>`).join('')}</tr>`;
     const section = (title, body) => `<h2>${title}</h2>${body}`;
@@ -5049,7 +5059,7 @@ function App() {
 ${(() => { const ents = getBriefingEntries(briefing); if (!ents.length) return ''; const sk = (en) => en.eventDate || (en.createdAt || '').slice(0,10); const sorted = [...ents].sort((a,b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sk(b).localeCompare(sk(a)); }); return section(`Estratégia e notas (${sorted.length})`, sorted.map(en => { const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao; const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0,10)) : ''); return `<div class="entry"><div class="entry-hd"><span class="entry-type">${esc(t.label)}</span>${en.pinned ? '<span class="entry-pin">📌 fixada</span>' : ''}${dt ? `<span class="entry-dt">${dt}</span>` : ''}</div><div class="entry-body">${en.html || ''}</div></div>`; }).join('')); })()}
 ${opIntims.length > 0 ? section(`Intimações abertas (${opIntims.length})`, `<table><tr><th>Processo</th><th>Prazo final</th><th>Status</th><th>Evento</th></tr>${opIntims.map(x => row([`<span class="mono">${esc(x.processNumber||'—')}</span>`, x.dateDeadline ? `<span class="${(daysUntil(x.dateDeadline)??99) <= 5 ? 'alert' : ''}">${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)</span>` : '<span class="muted">sem prazo</span>', esc(INTIM_STATUSES[x.status]?.label || x.status || ''), esc(truncate(x.eventDescription || x.parties || '', 80))])).join('')}</table>`) : ''}
 ${opTasks.length > 0 ? section(`Tarefas pendentes (${opTasks.length})`, `<table><tr><th>Tarefa</th><th>Vencimento</th><th>Prioridade</th></tr>${opTasks.map(t => row([esc(t.title||''), t.dueDate ? `${fmtDate(t.dueDate)} (${daysUntil(t.dueDate)}d)` : '<span class="muted">—</span>', esc(t.priority||'normal')])).join('')}</table>`) : ''}
-${prescRisk.length > 0 ? section(`Risco prescricional ≤180 dias (${prescRisk.length} CDAs)`, `<table><tr><th>Prazo</th><th>CDA</th><th>Processo</th><th>Valor</th></tr>${prescRisk.map(x => row([`<span class="alert">${x.days}d (${fmtDate(x.pd)})</span>`, `<span class="mono">${esc(x.d.cdaNumber||'S/N')}</span>`, `<span class="mono">${esc(x.d.processNumber||'—')}</span>`, fmtCur(x.d.value)])).join('')}</table>`) : ''}
+${prescRisk.length > 0 ? section(`Risco prescricional — vencido/iminente e a conferir (${prescRisk.length} CDAs)`, `<table><tr><th>Prazo</th><th>CDA</th><th>Processo</th><th>Situação</th><th>Valor</th></tr>${prescRisk.map(x => row([`<span class="alert">${x.days == null ? '—' : x.days + 'd'} (${fmtDate(x.pd)})</span>`, `<span class="mono">${esc(x.d.cdaNumber||'S/N')}</span>`, `<span class="mono">${esc(x.d.processNumber||'—')}</span>`, esc(truncate(x.summary || '', 80)), fmtCur(x.d.value)])).join('')}</table>`) : ''}
 ${idpjs.length > 0 ? section(`IDPJ / Cautelares Fiscais (${idpjs.length})`, idpjs.map(ep => { const isIdpj = ep.processTag === 'idpj'; const st = EXEC_STATUSES[ep.status] || {}; const linkedEFIds = ep.linkedExecutionIds || []; const linkedEFExecs = opExecs.filter(e => linkedEFIds.includes(e.id)); const linkedEFProcNums = new Set(linkedEFExecs.map(e => normProc(e.processNumber)).filter(Boolean)); const hubCdas = opDebts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber))); const hubTotalValue = hubCdas.reduce((s,d) => s + (d.value||0), 0); const directCdas = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber)); const directVal = directCdas.reduce((s,d)=>s+(d.value||0),0); const stageHtml = renderStageHtmlV2(briefing, ep, esc); const efTable = linkedEFExecs.length > 0 ? `<table class="subtable"><tr><th>EF abrangida</th><th>Status</th><th>Juízo</th><th>CDAs</th><th>Valor</th></tr>${linkedEFExecs.map(ef => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)); const efVal = efCdas.reduce((s,d)=>s+(d.value||0),0); const efSt = EXEC_STATUSES[ef.status] || {}; return `<tr><td class="mono">${esc(ef.processNumber||'—')}</td><td>${esc(efSt.label||ef.status||'')}</td><td>${esc(ef.court||'')}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; }).join('')}</table>` : '<div class="muted" style="font-size:10px;margin-top:4px">Nenhuma execução fiscal vinculada a este incidente.</div>'; const relRecursos = opExecs.filter(r => r.parentExecutionId === ep.id && r.status !== 'extinta'); const recursosTable = relRecursos.length > 0 ? `<table class="subtable"><tr><th>Recurso/incidente vinculado</th><th>Classe</th><th>Status</th><th>Juízo</th></tr>${relRecursos.map(r => { const rSt = EXEC_STATUSES[r.status] || {}; return `<tr><td class="mono">${esc(r.processNumber||'—')}</td><td>${esc(r.className||'')}</td><td>${esc(rSt.label||r.status||'')}</td><td>${esc(r.court||'')}</td></tr>`; }).join('')}</table>` : ''; const notes = ep.notesList || (ep.notes ? [ep.notes] : []); const notesHtml = notes.length > 0 ? `<div class="idpj-notes"><strong>Notas:</strong><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''; return `<div class="idpj-block">` + `<div class="idpj-head"><span class="idpj-tag ${isIdpj?'':'mcf'}">${isIdpj?'IDPJ':'Cautelar Fiscal'}</span><span class="idpj-proc">${esc(ep.processNumber||'—')}</span><span class="idpj-st">${esc(st.label||ep.status||'')}</span>${ep.hasGuarantee?'<span class="idpj-st" style="background:#dff0e6;color:#207848">Garantida</span>':''}</div>` + `<div class="idpj-meta">${esc(ep.court||'Juízo não informado')}${ep.className?' · '+esc(ep.className):''}</div>` + `<div class="idpj-stage"><strong>Estágio processual:</strong> ${stageHtml}</div>` + `<div class="idpj-val"><strong>Valor da causa (EFs abrangidas):</strong> <b>${fmtCur(hubTotalValue)}</b> <span class="muted">(${linkedEFExecs.length} EF${linkedEFExecs.length===1?'':'s'} · ${hubCdas.length} CDAs)</span>${directVal>0?` · CDAs diretas no incidente: <b>${fmtCur(directVal)}</b>`:''}</div>` + efTable + recursosTable + notesHtml + `</div>`; }).join('')) : ''}
 ${(() => { const byId = Object.fromEntries(opExecs.map(e => [e.id, e])); const idpjByLinkedEF = {}; opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(ip => { (ip.linkedExecutionIds || []).forEach(efId => { if (!idpjByLinkedEF[efId]) idpjByLinkedEF[efId] = ip; }); }); const kindOf = (e) => { const cn = (e.className||'').toLowerCase(); if (e.processTag === 'idpj') return 'idpj'; if (e.processTag === 'cautelar_fiscal') return 'mcf'; if (e.processTag === 'central') return 'central'; if (/embargo/.test(cn)) return 'embargo'; if (/agravo|apela[çc][ãa]o|recurso|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recurso'; return 'ef'; }; const reportExecs = opExecs.filter(e => { if (e.status === 'extinta') return false; const k = kindOf(e); if (k === 'idpj' || k === 'mcf') return false; if (k === 'ef' || k === 'central') return true; const p = byId[e.parentExecutionId]; return !!(p && (kindOf(p) === 'ef' || kindOf(p) === 'central')); }); if (reportExecs.length === 0) return ''; const relOf = (e) => { const parts = []; const k = kindOf(e); if (k === 'central') parts.push('◆ Central'); if (e.parentExecutionId && byId[e.parentExecutionId]) { const p = byId[e.parentExecutionId]; const rel = k === 'embargo' ? 'Embargos de' : k === 'recurso' ? 'Recurso de' : 'Apenso a'; parts.push(`${rel} <span class="mono">${esc(p.processNumber||'—')}</span>`); } if (idpjByLinkedEF[e.id]) { const ip = idpjByLinkedEF[e.id]; const lbl = ip.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'; parts.push(`Abrangida por ${lbl} <span class="mono">${esc(ip.processNumber||'—')}</span>`); } return parts.length ? parts.join('<br>') : '<span class="muted">—</span>'; }; const stOrder = { ativa: 0, suspensa: 1, arquivada: 2 }; const kindOrder = { ef: 0, central: 0, embargo: 1, recurso: 1 }; const sortedExecs = [...reportExecs].sort((a,b) => { const ka = kindOrder[kindOf(a)] ?? 2, kb = kindOrder[kindOf(b)] ?? 2; if (ka !== kb) return ka - kb; return (stOrder[a.status] ?? 3) - (stOrder[b.status] ?? 3); }); const rowsHtml = sortedExecs.map(e => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber)); const efVal = efCdas.reduce((s,d) => s + (d.value||0), 0); const stLabel = EXEC_STATUSES[e.status]?.label || e.status || ''; const stColor = e.status === 'arquivada' || e.status === 'extinta' ? '#999' : e.status === 'suspensa' ? '#a06020' : '#207848'; const dim = (e.status === 'arquivada') ? ' style="opacity:0.6"' : ''; const eNotes = e.notesList || (e.notes ? [e.notes] : []); const mainRow = `<tr${dim}><td class="mono">${esc(e.processNumber||'—')}</td><td>${esc(e.className||'')}</td><td>${esc(e.court||'')}</td><td style="color:${stColor};font-weight:600">${esc(stLabel)}</td><td style="font-size:10px">${relOf(e)}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; const notesRow = eNotes.length > 0 ? `<tr${dim}><td colspan="7" class="proc-notes"><strong>📝 Notas:</strong><ul>${eNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></td></tr>` : ''; return mainRow + notesRow; }).join(''); return section(`Processos — execuções fiscais e recursos vinculados (${reportExecs.length})`, `<table><tr><th>Processo</th><th>Classe</th><th>Juízo</th><th>Status</th><th>Relacionamento</th><th>CDAs</th><th>Valor</th></tr>${rowsHtml}</table>`); })()}
 ${constricted.length > 0 ? section(`Bens com indisponibilidade ativa (${constricted.length} — ${fmtCur(constrVal)})`, `<table><tr><th>Descrição</th><th>Tipo</th><th>Registro/Matrícula</th><th>Titular</th><th>Status</th><th>Analytics</th><th>Origem</th><th>Processo</th><th>Valor</th><th>Notas</th></tr>${constricted.map(a => { const holder = a.holderId ? data.people.find(p => p.id === a.holderId) : null; const holderTxt = holder ? (holder.name + (holder.cpfCnpj ? ' ('+holder.cpfCnpj+')' : '')) : (a.holderDoc || '—'); const aSt = ASSET_STATUSES[a.status]?.label || a.status || '—'; const aNotes = a.notesList || (a.notes ? [a.notes] : []); const notesTxt = aNotes.length > 0 ? aNotes.map(n => esc(n)).join('<br>') : '<span class="muted">—</span>'; return row([esc(truncate(a.description||'', 70)), esc(ASSET_SUBTYPES[a.subtype]||a.subtype||''), `<span class="mono">${esc(a.registry||'—')}</span>`, esc(truncate(holderTxt, 45)), esc(aSt), a.analyticsRegistered ? '✅' : '❌', esc(a.source||'—'), `<span class="mono">${esc(a.processRef||'—')}</span>`, fmtCur(a.value), `<span style="font-size:10px">${notesTxt}</span>`]); }).join('')}</table>`) : ''}
@@ -5183,7 +5193,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
     const guar = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
     const unexec = debts.filter(d => (d.status === 'ativa' || d.status === 'ativa_nao_ajuizavel') && !d.processNumber).length;
-    const prescA = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+    const prescA = debts.filter(d => isPrazosRisco(d)).length;
     const execsWithEvents = new Set();
     for (const pe of data.prescriptionEvents || []) {
       if (pe && pe.executionId) execsWithEvents.add(pe.executionId);
@@ -5217,7 +5227,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const indispHasValue = constrictedWithValue.length > 0;
     const cov = computeIncidentCoverage(execs, debts);
     return { total, guar, unexec, prescA, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, indispLabel, indispHasValue, indispCount: constrictedAssets.length, covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
-  }, [activeOp, data, prescLookup, getPrescDate]);
+  }, [activeOp, data, prescLookup, prazosByDebt]);
 
 
   const getMeasureInitial = (m) => {
@@ -5253,11 +5263,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         .filter(e => (!e.processTag || e.processTag === 'normal') && !e.parentExecutionId && e.status !== 'extinta' && e.status !== 'arquivada')
         .map(ef => ({ ...ef, _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s,d) => s + (d.value||0), 0) }))
         .sort((a, b) => b._cdaValue - a._cdaValue);
-      const prescRisk = activeDebts.filter(d => {
-        const pd = getPrescDate(d);
-        const dd = daysUntil(pd);
-        return dd !== null && dd <= 180 && !d.prescriptionHandled;
-      });
+      const prescRisk = activeDebts.filter(d => isPrazosRisco(d));
       const briefingLinks = (() => {
         const links = briefing.externalLinks || [];
         const migrated = [...links];
@@ -6164,7 +6170,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const valCorresp = cdasCorresp.reduce((s,l) => { const d = opDebts.find(dd => dd.id === l.cdaId); return s + (d?.value||0); }, 0);
         const myAssets = opAssets.filter(a => a.titularCpfCnpj === p.cpfCnpj);
         const valAssets = myAssets.reduce((s,a)=>s+(a.value||0),0);
-        const prescRisk = cdasOriginario.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+        const prescRisk = cdasOriginario.filter(d => isPrazosRisco(d)).length;
         return { person: p, cdasOriginario, cdasCorrespByRole, valOriginario, valCorresp, valTotal: valOriginario + valCorresp, myAssets, valAssets, prescRisk, totalCdas: cdasOriginario.length + cdasCorresp.length };
       });
 
@@ -6759,21 +6765,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           return null;
         })() : null;
 
-        const riskDays = group.cdas
-          .filter(d => !d.prescriptionHandled)
-          .map(d => daysUntil(getPrescDate(d)))
-          .filter(v => v !== null);
-        const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
+        const rm = prazosRiskMetaForCdas(group.cdas, prazosByDebt);
         const allHandled = group.cdas.length > 0 && group.cdas.every(d => d.prescriptionHandled);
-        const riskLabel = allHandled ? 'Tratadas'
-          : minRiskDays === null ? 'Sem dados'
-          : minRiskDays <= 0 ? 'Prescrita'
-          : minRiskDays <= 180 ? minRiskDays + 'd · crítico'
-          : minRiskDays <= 365 ? minRiskDays + 'd · atenção'
-          : minRiskDays + 'd';
+        const riskLabel = rm.label;
         const riskClass = allHandled ? 'risk-ok'
-          : minRiskDays !== null && minRiskDays <= 180 ? 'risk-critical'
-          : minRiskDays !== null && minRiskDays <= 365 ? 'risk-warning'
+          : rm.riskClass === 'critical' ? 'risk-critical'
+          : rm.riskClass === 'warning' ? 'risk-warning'
           : '';
 
         return (<div className={`process-group ${processExpanded || hideProcessNumber ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
@@ -7007,14 +7004,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
       const hubTagShort = (tag) => ({ idpj: 'IDPJ', cautelar_fiscal: 'Cautelar fiscal', central: 'Central' }[tag] || tag || 'Hub');
       const efRiskMeta = (group) => {
-        const riskDays = (group.cdas || []).filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
-        const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
-        const allHandled = group.cdas.length > 0 && group.cdas.every(d => d.prescriptionHandled);
+        const rm = prazosRiskMetaForCdas(group.cdas || [], prazosByDebt);
         const total = (group.cdas || []).reduce((s, d) => s + (d.value || 0), 0);
         const st = EXEC_STATUSES[group.exec?.status] || {};
-        const label = allHandled ? 'Tratadas' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
-        const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
-        return { total, st, label, riskClass, minRiskDays };
+        return { total, st, label: rm.label, riskClass: rm.riskClass, minRiskDays: rm.minRiskDays, n1: rm.n1, n2: rm.n2, n3: rm.n3 };
       };
       const hubRailMeta = (hubGroup, covered) => {
         const isCentral = hubGroup?.exec?.processTag === 'central';
@@ -7025,8 +7018,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const riskVals = allMetas.map(m => m.minRiskDays).filter(v => v !== null);
         const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
         const allHandled = allMetas.length > 0 && allMetas.every(m => m.riskClass === 'ok');
-        const label = allHandled ? 'OK' : minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
-        const riskClass = allHandled ? 'ok' : minRiskDays !== null && minRiskDays <= 180 ? 'critical' : minRiskDays !== null && minRiskDays <= 365 ? 'warning' : '';
+        const anyCrit = allMetas.some(m => m.riskClass === 'critical');
+        const anyWarn = allMetas.some(m => m.riskClass === 'warning');
+        const riscoN = allMetas.reduce((s, m) => s + (m.n1 || 0) + (m.n2 || 0), 0);
+        const label = allHandled ? 'OK' : riscoN ? riscoN + ' risco' : (allMetas[0] && allMetas[0].label) || '—';
+        const riskClass = allHandled ? 'ok' : anyCrit ? 'critical' : anyWarn ? 'warning' : '';
         const st = EXEC_STATUSES[hubGroup.exec?.status] || {};
         return { total, st, label, riskClass, minRiskDays, coveredCount: (covered || []).length, ownTotal: ownMeta?.total || 0 };
       };
@@ -7168,10 +7164,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           if (list.length > 0 && list.every(g => g.type === 'unlinked')) {
             const cdas = list.flatMap(g => g.cdas || []);
             const total = cdas.reduce((s, d) => s + (d.value || 0), 0);
-            const riskDays = cdas.filter(d => !d.prescriptionHandled).map(d => daysUntil(getPrescDate(d))).filter(v => v !== null);
-            const minRiskDays = riskDays.length ? Math.min(...riskDays) : null;
-            const presc = minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd';
-            return { count: cdas.length, total, presc };
+            const rm = prazosRiskMetaForCdas(cdas, prazosByDebt);
+            return { count: cdas.length, total, presc: rm.label };
           }
           const metas = list.map(efRiskMeta);
           const total = metas.reduce((s, m) => s + (m.total || 0), 0);
@@ -7201,15 +7195,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </thead>
                 <tbody>
                   {cdas.map(d => {
-                    const prescDate = getPrescDate(d);
-                    const days = daysUntil(prescDate);
-                    const riskClass = d.prescriptionHandled ? 'ok'
-                      : days !== null && days <= 180 ? 'critical'
-                      : days !== null && days <= 365 ? 'warning' : '';
-                    const prescLabel = d.prescriptionHandled ? 'Tratada'
-                      : days === null ? '—'
-                      : days <= 0 ? 'Prescrita'
-                      : `${days}d`;
+                    const rm = prazosRiskMetaForCdas([d], prazosByDebt);
+                    const riskClass = d.prescriptionHandled ? 'ok' : rm.riskClass;
+                    const prescLabel = d.prescriptionHandled ? 'Tratada' : rm.label;
                     const st = DEBT_STATUSES[d.status] || {};
                     const especie = cdaEspecie(d);
                     const isExpanded = expandedCdas.has(d.id);
@@ -8422,20 +8410,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     });
     (data.debts || []).forEach(d => {
       if (d.prescriptionHandled) return;
-      const opExecs = data.executions.filter(e => e.operationId === d.operationId);
-      const pd = getPrescDate(d);
-      const dd = daysUntil(pd);
-      if (dd === null || dd > 180) return;
+      const row = prazosByDebt.get(d.id);
+      if (!row || (row.group !== 1 && row.group !== 2)) return;
+      const dd = row.prescDays;
       const op = data.operations.find(o => o.id === d.operationId);
       items.push({
         id: 'presc-' + d.id, kind: 'Prescrição', due: dd,
         title: `CDA ${d.number || d.cdaNumber || ''} · ${fmtCur(d.value || 0)}`.trim(),
-        meta: [op?.name, dd < 0 ? 'vencida' : `${dd}d`].filter(Boolean).join(' · '),
-        urgent: dd <= 30,
-        go: () => {
-          if (d.operationId) { setActiveOpId(d.operationId); setViewMode('operation'); setDemoZoneAndTab('risco', 'prescricao_v2'); }
-          setTimeout(() => setModal({ type: 'edit', entityType: 'debt', initial: d }), 80);
-        },
+        meta: [op?.name, row.summary || (dd < 0 ? 'vencida' : `${dd}d`)].filter(Boolean).join(' · '),
+        urgent: row.group === 1,
+        go: () => openPrazos(row.group),
       });
     });
     items.sort((a, b) => {
@@ -8446,6 +8430,180 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     return items.slice(0, 18);
   };
 
+  const markPrazosHandled = (d) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString();
+    setData(prev => ({
+      ...prev,
+      debts: prev.debts.map(x => x.id === d.id ? {
+        ...x,
+        prescriptionHandled: true,
+        prescriptionHandledAt: today,
+        prescriptionHandledType: x.prescriptionHandledType || 'declarada',
+        updatedAt: now
+      } : x)
+    }));
+  };
+  const renderPrazosView = () => {
+    const pf = prazosFilters;
+    const t = prazosRadar.totals || {};
+    const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada');
+    let rows = [...(prazosRadar.rows || [])];
+    if (pf.group) rows = rows.filter(r => r.group === pf.group);
+    if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);
+    if (pf.onlyIncident) rows = rows.filter(r => !!r.incident);
+    if (pf.onlyNoCiencia) rows = rows.filter(r => r.noCiencia);
+    if (pf.q) {
+      const raw = String(pf.q).toLowerCase();
+      const q = raw.replace(/\D/g, '');
+      rows = rows.filter(r =>
+        (r.cdaNumber || '').toLowerCase().includes(raw) ||
+        (r.processNumber || '').replace(/\D/g, '').includes(q) ||
+        (r.personName || '').toLowerCase().includes(raw) ||
+        (r.opName || '').toLowerCase().includes(raw)
+      );
+    }
+    if (pf.sort === 'valor') rows.sort((a, b) => (b.value || 0) - (a.value || 0));
+    else if (pf.sort === 'operacao') rows.sort((a, b) => (a.opName || '').localeCompare(b.opName || '', 'pt-BR') || a.group - b.group);
+    else rows.sort((a, b) => a.group - b.group || (a.keyDate || '9999').localeCompare(b.keyDate || '9999'));
+    const hideG5 = pf.group !== 5 && !pf.g5Open;
+    const procGroups = groupPrazosByProcess(rows);
+    const visibleGroups = hideG5 ? procGroups.filter(g => g.worstGroup !== 5) : procGroups;
+    const hiddenG5 = hideG5 ? procGroups.filter(g => g.worstGroup === 5) : [];
+    let incidents = [...(prazosRadar.incidents || [])];
+    if (pf.operationId) incidents = incidents.filter(b => b.operationId === pf.operationId);
+    if (pf.q) {
+      const raw = String(pf.q).toLowerCase();
+      const q = raw.replace(/\D/g, '');
+      incidents = incidents.filter(b =>
+        (b.processNumber || '').replace(/\D/g, '').includes(q) ||
+        (b.opName || '').toLowerCase().includes(raw) ||
+        (b.rows || []).some(r => (r.cdaNumber || '').toLowerCase().includes(raw))
+      );
+    }
+    const seal = (inc) => {
+      if (!inc) return null;
+      const kind = inc.tag === 'cautelar_fiscal' ? 'MCF' : 'IDPJ';
+      return kind + ' nº ' + (inc.processNumber || inc.id);
+    };
+    const counterBtn = (g, short) => {
+      const n = (t[g] && t[g].n) || 0;
+      const v = (t[g] && t[g].value) || 0;
+      return (
+        <button type="button" key={g}
+          className={`prazos-counter g${g}${pf.group === g ? ' active' : ''}`}
+          onClick={() => setPrazosFilters({ group: pf.group === g ? 0 : g })}>
+          <span className="prazos-counter-n">{n}</span>
+          <span className="prazos-counter-l">{short}</span>
+          <span className="prazos-counter-v">{fmtCur(v)}</span>
+        </button>
+      );
+    };
+    const rowActions = (r) => (
+      <span className="prazos-actions">
+        <button type="button" className="btn-secondary btn-xs" onClick={() => openCdaInscricoes(r)}>Abrir</button>
+        <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: r.id, executionId: r.executionId } })}>+ Evento</button>
+        <button type="button" className="btn-secondary btn-xs" onClick={() => markPrazosHandled(r)}>Tratar</button>
+      </span>
+    );
+    const renderCdaRow = (r) => {
+      const extra = (r.checks || []).length > 1 ? ' +' + ((r.checks || []).length - 1) : '';
+      return (
+        <div key={r.id} className={`prazos-row g${r.group}`}>
+          <span className={`prazos-band g${r.group}`} title={PRAZOS_GROUP_LABELS[r.group]}>{r.group}</span>
+          <span className="prazos-cda">
+            <span className="prazos-cda-n">{r.cdaNumber || 'S/N'}</span>
+            <span className="prazos-cda-m">{[r.tribute, fmtCur(r.value || 0)].filter(Boolean).join(' · ')}</span>
+          </span>
+          <span className="prazos-sum">{r.summary || r.prescLabel || '—'}</span>
+          <span className="prazos-key">{r.keyLabel || '—'}</span>
+          <span className="prazos-check">{(r.checks && r.checks[0]) ? (r.checks[0] + extra) : '—'}</span>
+          <span className="prazos-inc">
+            <span className={`prazos-dot ${r.incidentDot || 'none'}`}></span>
+            {seal(r.incident) || '—'}
+          </span>
+          {rowActions(r)}
+        </div>
+      );
+    };
+    return (
+      <div className="prazos-view">
+        <div className="prazos-head">
+          {counterBtn(1, 'Urgentes')}
+          {counterBtn(2, 'A conferir')}
+          {counterBtn(3, 'A completar')}
+          {counterBtn(4, 'Acompanhamento')}
+          {counterBtn(5, 'Ainda impossível')}
+        </div>
+        <div className="prazos-toolbar">
+          <div className="prazos-toggle">
+            <button type="button" className={pf.view !== 'incidente' ? 'active' : ''} onClick={() => setPrazosFilters({ view: 'processo' })}>Por processo</button>
+            <button type="button" className={pf.view === 'incidente' ? 'active' : ''} onClick={() => setPrazosFilters({ view: 'incidente' })}>Por incidente</button>
+          </div>
+          <select value={pf.operationId || ''} onChange={e => setPrazosFilters({ operationId: e.target.value })}>
+            <option value="">Todas as operações</option>
+            {opsOpen.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+          <label className="prazos-chk"><input type="checkbox" checked={!!pf.onlyIncident} onChange={e => setPrazosFilters({ onlyIncident: e.target.checked })} /> só sob incidente</label>
+          <label className="prazos-chk"><input type="checkbox" checked={!!pf.onlyNoCiencia} onChange={e => setPrazosFilters({ onlyNoCiencia: e.target.checked })} /> só sem ciência lançada</label>
+          <input className="prazos-q" value={pf.q || ''} placeholder="CDA, processo ou devedor" onChange={e => setPrazosFilters({ q: e.target.value })} />
+          <select value={pf.sort || 'grupo'} onChange={e => setPrazosFilters({ sort: e.target.value })}>
+            <option value="grupo">Grupo e data</option>
+            <option value="valor">Valor</option>
+            <option value="operacao">Operação</option>
+          </select>
+        </div>
+        {pf.view === 'incidente' ? (
+          <div className="prazos-incidents">
+            {incidents.length === 0 && <div className="empty-state"><p>Nenhum incidente neste filtro.</p></div>}
+            {incidents.map(b => (
+              <div key={b.id} className={`prazos-inc-block${b.hasConstriction ? '' : ' no-cons'}`}>
+                <div className="prazos-inc-hd">
+                  <span className={`prazos-dot ${b.hasConstriction && b.constrictionOpen ? 'open' : b.hasConstriction ? 'closed' : 'cover'}`}></span>
+                  <strong>{b.tag === 'cautelar_fiscal' ? 'MCF' : 'IDPJ'} nº {b.processNumber || b.id}</strong>
+                  <span>{b.court || '—'}</span>
+                  <span>{(EXEC_STATUSES[b.status] || {}).label || b.status || '—'}</span>
+                  <span>{b.opName}</span>
+                  {b.worstGroup > 0 && <span className={`prazos-band g${b.worstGroup}`}>{b.worstGroup}</span>}
+                </div>
+                <div className="prazos-inc-conf">{b.conference}</div>
+                <div className="prazos-inc-efs">
+                  {(b.efs || []).map(ef => (
+                    <div key={ef.executionId} className="prazos-inc-ef">
+                      <ProcNum value={ef.processNumber} empty="EF sem número" />
+                      <span>{ef.cdaCount} CDA(s)</span>
+                      {ef.worstGroup > 0 && <span className={`prazos-band g${ef.worstGroup}`}>{PRAZOS_GROUP_LABELS[ef.worstGroup]}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="prazos-list">
+            {visibleGroups.length === 0 && hiddenG5.length === 0 && <div className="empty-state"><p>Nenhuma inscrição neste filtro.</p></div>}
+            {visibleGroups.map(g => (
+              <div key={g.key} className="prazos-proc">
+                <div className="prazos-proc-hd">
+                  <strong>{g.processNumber ? <ProcNum value={g.processNumber} /> : 'Sem processo'}</strong>
+                  <span>{g.court || '—'}</span>
+                  <span>◎ {g.opName}</span>
+                  {seal(g.incident) && <span className="prazos-seal">{seal(g.incident)}</span>}
+                  <span>{g.rows.length} CDA(s) · {fmtCur(g.value)}</span>
+                </div>
+                {g.rows.map(renderCdaRow)}
+              </div>
+            ))}
+            {hiddenG5.length > 0 && (
+              <button type="button" className="prazos-g5-more" onClick={() => setPrazosFilters({ g5Open: true })}>
+                Ainda impossível — {hiddenG5.reduce((s, g) => s + g.rows.length, 0)} inscrição(ões) recolhidas. Expandir
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
   const renderHojeView = () => {
     const fila = buildHojeFila();
     const hour = new Date().getHours();
@@ -8531,11 +8689,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const tasks = allTasks.filter(t => t.operationId === op.id);
       const totalValue = debts.reduce((s, d) => s + (d.value || 0), 0);
       const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
-      const prescRisk = debts.filter(d => {
-        const pd = getPrescDate(d);
-        const dd = daysUntil(pd);
-        return dd !== null && dd <= 180 && !d.prescriptionHandled;
-      }).length;
+      const prescRisk = debts.filter(d => isPrazosRisco(d)).length;
       const openIntims = intims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
       const openTasks = tasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
       const idpjCount = execs.filter(e => e.processTag === 'idpj').length;
@@ -8714,16 +8868,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     });
     (data.debts || []).forEach(d => {
       if (d.status === 'extinta' || d.prescriptionHandled) return;
-      const pd = getPrescDate(d);
+      const row = prazosByDebt.get(d.id);
+      const pd = (row && row.keyDate) || getPrescDate(d);
       if (!inWeek(pd)) return;
       pushDay(pd, {
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
         title: truncate(d.cdaNumber || 'CDA', 28),
         meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
-        tip: `Termo final de prescrição · ${fmtDate(pd)}${prescTag(d) ? ' (' + prescTag(d) + ')' : ''}`,
-        onClick: () => {
-          if (d.operationId) { setActiveOpId(d.operationId); setViewMode('operation'); setActiveTab('prescricao_v2'); }
-        },
+        tip: (row && row.summary) ? row.summary : `Termo final de prescrição · ${fmtDate(pd)}`,
+        onClick: () => openPrazos(row && row.group),
       });
     });
 
@@ -8781,6 +8934,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
       <div className="demo-rail-nav">
         <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('hoje'); }}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
+        <button className={`demo-rail-btn ${viewMode==='prazos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('prazos'); }}><span>Prazos</span></button>
         <button className={`demo-rail-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'); }} title="Intimações e Tarefas">
           <span className="demo-rail-ico">📥</span>
           <span>{(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) ? 'Intimações e Tarefas' : 'Intimações'}</span>
@@ -8839,6 +8993,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button onClick={() => { setViewMode('mesa'); setDemoTrabalhoOpen(false); }}><span>Mesa de trabalho</span><span>{deskCount||''}</span></button>
         <button onClick={() => { setViewMode('acompanhar'); setDemoTrabalhoOpen(false); }}><span>Acompanhar</span><span>{watchCount||''}</span></button>
         <button onClick={() => { setViewMode('painel'); setDemoTrabalhoOpen(false); }}><span>Painel KPIs</span><span></span></button>
+        <button onClick={() => { setViewMode('prazos'); setDemoTrabalhoOpen(false); }}><span>Prazos extintivos</span><span></span></button>
       </div>}
       <div className="demo-rail-foot">
         <button className="demo-rail-btn" onClick={() => { const next = !sidebarCollapsed; setSidebarCollapsed(next); try { localStorage.setItem('nexus_sidebar_collapsed', next?'1':'0'); } catch {} }} title="Expandir/recolher">
@@ -8879,7 +9034,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const isUrgent = m.soonestTask !== null && m.soonestTask <= 5;
                 return <span className="op-task-dot has-tip" title={`${m.openTasks} tarefa(s) pendente(s)`}><span className="tip-content">{m.openTasks} tarefa(s) pendente(s){isUrgent?` — prazo mais próximo em ${m.soonestTask}d`:''}</span></span>;
               })()}
-              {m.alerts > 0 && <span className="op-presc-dot has-tip" title={`${m.alerts} CDA(s) com prescrição iminente`}><span className="tip-content">{m.alerts} CDA(s) com prescrição iminente (≤6 meses), sem tratamento.</span></span>}
+              {m.alerts > 0 && <span className="op-presc-dot has-tip" title={`${m.alerts} CDA(s) com prazo extintivo urgente`}><span className="tip-content">{m.alerts} CDA(s) nos grupos vencido/iminente ou a conferir, sem tratamento.</span></span>}
             </div>
             <div className="op-meta">{m.pCount}P · {m.dCount}CDAs {m.openTasks > 0 ? `· ${m.openTasks}✓` : ''}</div>
           </div>);
@@ -8965,6 +9120,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {/* Top Navigation — startTabSwitch evita freeze ao trocar de vista */}
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`}>
         <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
+        <button className={`top-nav-btn ${viewMode==='prazos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('prazos'))}>Prazos extintivos</button>
         <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
         <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
           onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
@@ -9002,6 +9158,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div>
           <div className="demo-topbar-title">
             {viewMode === 'hoje' ? 'Hoje' :
+             viewMode === 'prazos' ? 'Prazos extintivos' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Intimações e Tarefas' :
              viewMode === 'operacoes' ? 'Carteira' :
              viewMode === 'painel' ? 'Painel' :
@@ -9013,6 +9170,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
           <div className="demo-topbar-sub">
             {viewMode === 'hoje' ? 'Fila do dia · intimações, tarefas, audiências e riscos' :
+             viewMode === 'prazos' ? 'Radar de prazos · todas as operações abertas' :
              viewMode === 'intimacoes' || viewMode === 'tarefas_global' ? 'Uma aba · alterne entre Intimações e Tarefas' :
              viewMode === 'operacoes' ? 'Lista alfabética · filtre por classificação para focar o trabalho' :
              viewMode === 'painel' ? 'KPIs · quadro semanal de prazos, audiências e prescrição' :
@@ -9065,6 +9223,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
       {/* ═══ HOJE (Demo Command Center) ═══ */}
       {viewMode === 'hoje' && renderHojeView()}
+      {viewMode === 'prazos' && renderPrazosView()}
 
       {/* ═══ PAINEL GERAL ═══ */}
       {viewMode === 'painel' && (
@@ -9085,8 +9244,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const totalValue = activeDebts.reduce((s,d) => s+(d.value||0), 0);
               const openIntims = allIntims.filter(x => (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length;
               const overdueIntims = allIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado').length;
-              const prescRisk = allDebts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; });
-              const prescRiskVal = prescRisk.reduce((s,d) => s+(d.value||0), 0);
+              const t = prazosRadar.totals || {};
+              const n1 = (t[1] && t[1].n) || 0;
+              const n2 = (t[2] && t[2].n) || 0;
+              const n3 = (t[3] && t[3].n) || 0;
+              const v1 = (t[1] && t[1].value) || 0;
+              const v2 = (t[2] && t[2].value) || 0;
+              const prescRiskN = n1 + n2;
+              const prescRiskVal = v1 + v2;
               return (<>
                 <div className="dashboard-kpis">
                   <div className="kpi-widget kpi-pgfn">
@@ -9104,75 +9269,23 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     <div className="kpi-value" style={{color: overdueIntims > 0 ? 'var(--red)' : 'inherit'}}>{openIntims}</div>
                     <div className="kpi-sub">{overdueIntims > 0 ? `${overdueIntims} vencida(s)` : 'Nenhuma vencida'}</div>
                   </div>
-                  <div className="kpi-widget kpi-green">
-                    <div className="kpi-label has-tip">Risco prescricional<span className="tip-content">CDAs com previsão de prescrição em até 6 meses, sem tratamento.</span></div>
-                    <div className="kpi-value" style={{color: prescRisk.length > 0 ? 'var(--red)' : 'inherit'}}>{prescRisk.length}</div>
-                    <div className="kpi-sub">{prescRisk.length > 0 ? fmtCur(prescRiskVal)+' em risco' : 'Situação controlada'}</div>
+                  <div className="kpi-widget kpi-green" style={{cursor:'pointer'}} onClick={() => openPrazos(0)}>
+                    <div className="kpi-label has-tip">Risco prescricional<span className="tip-content">Mesmos números da aba Prazos extintivos: grupos vencido/iminente e a conferir.</span></div>
+                    <div className="kpi-value" style={{color: prescRiskN > 0 ? 'var(--red)' : 'inherit'}}>{prescRiskN}</div>
+                    <div className="kpi-sub">{prescRiskN > 0 ? fmtCur(prescRiskVal)+' em risco' : 'Situação controlada'}</div>
                   </div>
                 </div>
-
+                <div className="prazos-kpi-tile" onClick={() => openPrazos(0)}>
+                  <div className="prazos-kpi-title">Prazos extintivos</div>
+                  <div className="prazos-kpi-counts">
+                    <button type="button" className="prazos-kpi-hit" onClick={e => { e.stopPropagation(); openPrazos(1); }}>{n1} urgentes</button>
+                    <span className="prazos-kpi-dot">·</span>
+                    <button type="button" className="prazos-kpi-hit" onClick={e => { e.stopPropagation(); openPrazos(2); }}>{n2} a conferir</button>
+                    <span className="prazos-kpi-dot">·</span>
+                    <button type="button" className="prazos-kpi-hit" onClick={e => { e.stopPropagation(); openPrazos(3); }}>{n3} a completar</button>
+                  </div>
+                </div>
               </>);
-            })()}
-
-            {/* ═══ AVISOS DE PRAZO EXTINTIVO — iminente, vencido, verificar ═══ */}
-            {(() => {
-              const buckets = painelPrescAlerts;
-              const renderPainelPrescCard = (collapseKey, title, hint, items, tone) => {
-                if (!items.length) return null;
-                const open = !painelCollapsed.has(collapseKey);
-                const titleColor = tone === 'sutil' ? 'var(--text-secondary)' : 'var(--text-primary)';
-                const daysColor = (dd) => {
-                  if (dd == null) return 'var(--text-muted)';
-                  if (dd <= 0) return 'var(--red)';
-                  if (dd <= 30) return 'var(--red)';
-                  if (dd <= 90) return tone === 'sutil' ? 'var(--text-secondary)' : 'var(--yellow)';
-                  return 'var(--text-secondary)';
-                };
-                const total = items.reduce((s, d) => s + (d.value || 0), 0);
-                return (<div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden',opacity: tone === 'sutil' ? 0.92 : 1}}>
-                  <div style={{padding:'12px 16px',borderBottom:open?'1px solid var(--border)':'none',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={() => togglePainel(collapseKey)} title={open?'Recolher':'Expandir'}>
-                    <div style={{fontSize:12,fontWeight:700,color:titleColor,display:'flex',alignItems:'center',gap:7}}>
-                      <span style={{fontSize:9,color:'var(--text-muted)',display:'inline-block',transform:open?'rotate(90deg)':'none',transition:'transform 0.15s'}}>▶</span>
-                      {title} — {items.length} CDA(s)
-                    </div>
-                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{hint}{total > 0 ? <> · <strong style={{color: tone === 'sutil' ? 'var(--text-muted)' : 'var(--red)'}}>{fmtCur(total)}</strong></> : null}</div>
-                  </div>
-                  {open && <>
-                  <div style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'8px 16px',borderBottom:'1px solid var(--border)',fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,fontWeight:600}}>
-                    <span>Prazo</span><span>CDA</span><span>Processo</span><span>Status</span><span>Valor</span><span>IDPJ</span><span>Operação</span>
-                  </div>
-                  <div style={{maxHeight:350,overflowY:'auto'}}>
-                    {items.slice(0, 20).map(d => {
-                      const st = DEBT_STATUSES[d.status] || {};
-                      const prazoTxt = d.prescDays == null ? '—' : (d.prescDays <= 0 ? (d.prescDays === 0 ? 'hoje' : d.prescDays + 'd') : d.prescDays + 'd');
-                      return (<div key={d.id} style={{display:'grid',gridTemplateColumns:'45px 1fr 1fr 90px 70px 50px 130px',gap:8,padding:'6px 16px',borderBottom:'1px solid rgba(255,255,255,0.03)',fontSize:10,cursor:'pointer',alignItems:'center'}} onClick={() => openCdaInscricoes(d)}>
-                        <span style={{fontWeight:700,fontFamily:'var(--font-mono)',color:daysColor(d.prescDays)}}>{prazoTxt}</span>
-                        <span style={{fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.cdaNumber || 'S/N'}</span>
-                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}><ProcNum value={d.processNumber} empty="—" /></span>
-                        <span className={`badge ${st.badge||''}`} style={{fontSize:8,justifySelf:'start'}}>{st.label||d.status}</span>
-                        <span style={{color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{fmtCur(d.value)}</span>
-                        <span style={{fontSize:9,color:d.hasIDPJ ? 'var(--text-secondary)' : 'var(--text-muted)'}}>{d.hasIDPJ ? '✓' : '—'}</span>
-                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-muted)'}}>◎ {d.opName}</span>
-                      </div>);
-                    })}
-                    {items.length > 20 && <div style={{fontSize:10,color:'var(--text-muted)',textAlign:'center',padding:8}}>+{items.length - 20} CDA(s)</div>}
-                  </div>
-                  </>}
-                </div>);
-              };
-              return <>
-                {renderPainelPrescCard('presc', 'Prescrição iminente', 'Ciclo calculado com marco — total exposto', buckets.iminente, 'grave')}
-                {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Ciclo calculado com marco. Conferir cálculo e autos', buckets.vencido, 'grave')}
-                {renderPainelPrescCard('presc_teto', 'Vencido — conferir (estimado)', 'Teto de arquivamento datado. Não é marco do art. 40', buckets.vencido_estimado, 'grave')}
-                {renderPainelPrescCard('presc_alta', 'Intercorrente — Alta', 'Arquivada sem data, piso antigo sem evento, ou previsão de planilha no prazo', buckets.residual_alta, 'grave')}
-                {renderPainelPrescCard('presc_inc', 'Cadastro inconsistente', 'Status diz uma coisa, evento não confirma. Cadastre ou corrija', buckets.inconsistencia, 'grave')}
-                {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', buckets.avaliar_174, 'sutil')}
-                {renderPainelPrescCard('presc_vigiar', 'Interrompida — vigiar', 'Resultado útil encerrou o ciclo. Não está segura para sempre', buckets.vigiar_interrompido, 'sutil')}
-                {renderPainelPrescCard('presc_pausa', 'Exigibilidade suspensa — conferir', 'Há causa de pausa lançada. O relógio legal está parado', buckets.pausa_cadastrada, 'sutil')}
-                {renderPainelPrescCard('presc_idpj', 'Sob incidente IDPJ / cautelar', 'O vínculo sozinho não pausa o prazo. Cadastre o evento se houver constrição', buckets.sob_incidente, 'sutil')}
-                {renderPainelPrescCard('presc_int', 'Intercorrente — Média', 'Ajuizada, piso já passou, sem marco cadastrado', buckets.residual_media, 'sutil')}
-                {renderPainelPrescCard('presc_piso', 'Acompanhar — consumo ainda impossível', 'Não é marco do art. 40 · âncora mais tardia + 6 anos', buckets.acompanhar_piso, 'sutil')}
-              </>;
             })()}
 
             {/* ═══ AGENDA DA SEMANA — prazos, audiências, termo final de prescrição ═══ */}
@@ -9227,11 +9340,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const tasks = allTasks.filter(t => t.operationId === op.id);
                 const totalValue = debts.reduce((s,d) => s + (d.value||0), 0);
                 const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
-                const prescRisk = debts.filter(d => {
-                  const pd = getPrescDate(d);
-                  const dd = daysUntil(pd);
-                  return dd !== null && dd <= 180 && !d.prescriptionHandled;
-                }).length;
+                const prescRisk = debts.filter(d => isPrazosRisco(d)).length;
                 const openIntims = intims.filter(x => (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length;
                 const openTasks = tasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
                 const idpjCount = execs.filter(e => e.processTag === 'idpj').length;
@@ -9437,7 +9546,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           const execs = data.executions.filter(e => e.operationId === op.id).length;
                           const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
                           const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
-                          const prescAlerts = debts.filter(d => { const pd = getPrescDate(d); const dd = daysUntil(pd); return dd !== null && dd <= 180 && !d.prescriptionHandled; }).length;
+                          const prescAlerts = debts.filter(d => isPrazosRisco(d)).length;
                           const notes = op.notesList || (op.notes ? [op.notes] : []);
                           const clsKeys = getOpClassifications(op);
                           const rs = reviewStatus(op);
@@ -10387,7 +10496,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <div className="stat-sub">{opStats.coverageGrand > 0 ? `incidentes · ${fmtCur(opStats.coveredTotal)}` : 'sem EFs ativas'}</div>
               <span className="tip-content">Percentual do valor das execuções fiscais ativas ligadas a IDPJ ou cautelar, sobre o total dessas EFs mais as que ainda não têm incidente. Cada execução entra uma vez.</span>
             </div>
-            <div className="stat-card"><div className="stat-label">Presc. CDA</div><div className="stat-value" style={{color:opStats.prescA>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescA}</div><div className="stat-sub">≤180 dias</div></div>
+            <div className="stat-card" style={{cursor:'pointer'}} onClick={() => openPrazos(0)}><div className="stat-label">Presc. CDA</div><div className="stat-value" style={{color:opStats.prescA>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescA}</div><div className="stat-sub">risco (1+2)</div></div>
             <div className="stat-card"><div className="stat-label">Presc. Interc.</div><div className="stat-value" style={{color:opStats.prescExec>0?'var(--red)':'var(--text-muted)',fontSize:15}}>{opStats.prescExec}</div><div className="stat-sub">≤365 dias</div></div>
             <div className={`stat-card ${opStats.openIntims>0?'alert-pulse-blue':''}`} onClick={() => { if (opStats.openIntims>0) setIntimWork(true); }} style={{cursor:opStats.openIntims>0?'pointer':'default'}}>
               <div className="stat-label">Intimações</div>

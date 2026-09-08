@@ -198,22 +198,29 @@ function _coletar_(d) {
     });
   });
 
-  // CDAs prescrevendo: termo calculado (snapshot). Inclui já vencidas — é o aviso que mais importa.
+  // CDAs prescrevendo: grupos 1–3 do snapshot; grupo 4 só na janela; grupo 5 nunca.
   (d.debts || []).forEach(function (x) {
     if (x.prescriptionHandled || x.status === 'extinta') return;
     var snap = x.prescriptionSnapshot || {};
-    if (snap.phase === 'nao_iniciado' || snap.phase === 'interrompido') return;
-    var pd = snap.diesAdQuem || '';
+    var g = snap.group || 0;
+    if (g === 5) return;
+    var pd = snap.keyDate || snap.diesAdQuem || '';
     var dias = snap.daysLeft != null ? snap.daysLeft : _dias_(pd);
-    if (!pd || dias === null) return;
-    if (dias > CONFIG.DIAS_PRESCRICAO) return;
+    if (g === 4) {
+      if (!pd || dias === null || dias > CONFIG.DIAS_PRESCRICAO) return;
+    } else if (g !== 1 && g !== 2 && g !== 3) {
+      if (snap.phase === 'nao_iniciado' || snap.phase === 'interrompido') return;
+      if (!pd || dias === null) return;
+      if (dias > CONFIG.DIAS_PRESCRICAO) return;
+    }
     var extra = _fmtMoeda_(x.value);
-    if (snap.cycleKind === 'politica_parc') extra += ' · ciclo pós-parcelamento (política)';
-    if (snap.origin) extra += ' · ' + snap.origin;
-    if (snap.flags && snap.flags.length) extra += ' · conferir cadastro';
-    if (dias <= 0) extra += ' · VENCIDA — conferir';
+    var line = snap.summary || '';
+    if (snap.firstCheck) line = line ? (line + ' · ' + snap.firstCheck) : snap.firstCheck;
+    if (line) extra += (extra ? ' · ' : '') + line;
+    if (dias != null && dias <= 0) extra += ' · VENCIDA — conferir';
     out.prescricoes.push({
-      dias: dias, data: pd,
+      dias: dias === null ? 0 : dias,
+      data: pd,
       titulo: 'CDA ' + (x.cdaNumber || 's/nº'),
       proc: x.processNumber || '', op: nomeOp(x.operationId),
       extra: extra

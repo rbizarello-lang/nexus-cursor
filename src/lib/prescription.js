@@ -1763,6 +1763,19 @@ export function attachPrescriptionSnapshots(data, asOf) {
   const computedAt = asIso(asOf) || localIso(new Date());
   data.debts.forEach(d => {
     const r = lookup(d);
+    const alert = classifyPainelPrescAlert(d, data.executions || [], data.prescriptionEvents || [], asOf, r);
+    const kind = alert && alert.kind;
+    const row = {
+      prescKind: kind,
+      checks: r.checks || (alert && alert.checks) || [],
+      incident: (alert && alert.incident) || ((r.incidents && r.incidents[0]) || null),
+      informedConflict: !!r.informedConflict,
+      incidentOnly: (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g)),
+      prescDate: alert ? alert.date : (r.diesAdQuem || ''),
+      interruptAt: r.interruptAt || ''
+    };
+    const group = kind ? groupOfKind(kind, row) : 0;
+    const key = prazosKeyMeta(kind, row);
     d.prescriptionSnapshot = {
       diesAdQuem: r.diesAdQuem || '',
       daysLeft: r.daysLeft,
@@ -1778,6 +1791,12 @@ export function attachPrescriptionSnapshots(data, asOf) {
       checks: r.checks || [],
       estimated: !!r.estimated,
       incidents: r.incidents || [],
+      group,
+      prescKind: kind || '',
+      keyDate: key.date || '',
+      keyLabel: key.label || '',
+      firstCheck: (r.checks && r.checks[0]) || '',
+      incident: row.incident,
       computedAt
     };
   });
@@ -1969,8 +1988,8 @@ const PAINEL_PRESC_WINDOW = 180;
 const CDA_RECORTE_STATUS = new Set(['garantida', 'parcelada', 'negociada_sispar']);
 const PAINEL_PRESC_KINDS = [
   'iminente', 'vencido', 'vencido_estimado', 'residual_alta', 'residual_media',
-  'acompanhar_piso', 'inconsistencia', 'sob_incidente', 'vigiar_interrompido',
-  'pausa_cadastrada', 'avaliar_174', 'avaliar_intercorrente'
+  'acompanhar_piso', 'inconsistencia', 'vigiar_interrompido',
+  'pausa_cadastrada', 'avaliar_174', 'correndo'
 ];
 
 function isPainelPrescCandidate(debt) {
@@ -2147,7 +2166,10 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
           label: 'Conferir cadastro / autos'
         });
       }
-      return null;
+      return alertPayload('correndo', r, 'intercorrente', {
+        faixa: 'media',
+        label: 'Prazo em curso'
+      });
     }
 
     const inconsist = cadastroInconsistencia(debt, execs, events);
@@ -2229,7 +2251,9 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
   if (isImminentResult(r)) {
     return alertPayload('iminente', r, 'ordinaria', { faixa: 'alta' });
   }
-  if (r.diesAdQuem && (r.daysLeft == null || r.daysLeft > PAINEL_PRESC_WINDOW)) return null;
+  if (r.diesAdQuem && (r.daysLeft == null || r.daysLeft > PAINEL_PRESC_WINDOW)) {
+    return alertPayload('correndo', r, 'ordinaria', { faixa: 'media', label: 'Prazo em curso' });
+  }
   return alertPayload('avaliar_174', r, 'ordinaria', { faixa: 'media' });
 }
 
@@ -2244,12 +2268,15 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   const executions = data.executions || [];
   const events = data.prescriptionEvents || [];
   const lookup = prescLookup || createPrescLookup(data.debts || [], executions, events, asOf);
+  const peopleById = new Map((data.people || []).filter(p => p && p.id).map(p => [p.id, p]));
+  const execById = new Map();
 
   const idpjCovered = new Set();
   const execIdByOpProc = new Map();
   for (let i = 0; i < executions.length; i++) {
     const e = executions[i];
     if (!e) continue;
+    if (e.id) execById.set(e.id, e);
     if ((e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') && e.linkedExecutionIds) {
       for (let j = 0; j < e.linkedExecutionIds.length; j++) idpjCovered.add(e.linkedExecutionIds[j]);
     }
@@ -2260,22 +2287,38 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   (data.debts || []).forEach(d => {
     const op = ops[d.operationId];
     if (!op) return;
-    const alert = classifyPainelPrescAlert(d, executions, events, asOf, lookup(d));
+    const r = lookup(d);
+    const alert = classifyPainelPrescAlert(d, executions, events, asOf, r);
     if (!alert || !buckets[alert.kind]) return;
     const execId = d.processNumber ? execIdByOpProc.get(d.operationId + '|' + normProc(d.processNumber)) : null;
+    const execObj = execId ? execById.get(execId) : null;
     buckets[alert.kind].push({
       id: d.id,
       cdaNumber: d.cdaNumber,
       processNumber: d.processNumber,
       status: d.status,
       value: d.value,
+      tribute: d.tribute || '',
+      personName: ((peopleById.get(d.personId) || {}).name) || '',
       operationId: d.operationId,
+      executionId: execId || '',
+      court: (execObj && execObj.court) || '',
       prescDate: alert.date,
       prescDays: alert.days,
       prescKind: alert.kind,
       prescSegment: alert.segment,
       prescFaixa: alert.faixa,
       prescLabel: alert.label,
+      summary: r.summary || alert.summary || '',
+      checks: r.checks || alert.checks || [],
+      incident: alert.incident || ((r.incidents && r.incidents[0]) || null),
+      informedConflict: !!r.informedConflict,
+      estimated: !!r.estimated,
+      hasCiencia: r.segment === 'intercorrente' && r.phase !== 'nao_iniciado' && r.cycleKind === 'art40',
+      noCiencia: r.segment === 'intercorrente' && r.phase === 'nao_iniciado',
+      incidentOnly: (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g)),
+      interruptAt: r.interruptAt || '',
+      flags: r.flags || [],
       opName: op.name,
       opId: op.id,
       hasIDPJ: !!(execId && idpjCovered.has(execId))
@@ -2287,7 +2330,247 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   buckets.acompanhar_piso.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   buckets.residual_alta.sort((a, b) => (a.prescDays ?? 0) - (b.prescDays ?? 0));
   buckets.residual_media.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
+  if (buckets.correndo) buckets.correndo.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   return buckets;
+}
+
+export const PRAZOS_GROUP_LABELS = {
+  1: 'Vencido ou iminente (calculado)',
+  2: 'Provável — conferir nos autos',
+  3: 'Cadastro a completar',
+  4: 'Em acompanhamento',
+  5: 'Ainda impossível'
+};
+
+function rowNeedsCadastro(row) {
+  if (!row) return false;
+  if (row.informedConflict) return true;
+  if (row.incidentOnly) return true;
+  const inc = row.incident;
+  if (inc && !inc.hasConstriction) return true;
+  if (inc && inc.hasConstriction && inc.constrictionOpen && /extinta|arquivada/i.test(inc.status || '')) return true;
+  const checks = row.checks || [];
+  return checks.some(c =>
+    /não tem constrição lançada/i.test(c) ||
+    /encerrado; informar a data/i.test(c) ||
+    /coincide com um IDPJ/i.test(c) ||
+    /diverge do termo calculado/i.test(c)
+  );
+}
+
+/** Prioridade: 1, 2, 3 (cadastro), 5, 4. Grupos 1 e 2 não são rebaixados por cadastro. */
+export function groupOfKind(kind, row) {
+  if (kind === 'vencido' || kind === 'iminente') return 1;
+  if (kind === 'vencido_estimado' || kind === 'residual_alta') return 2;
+  if (kind === 'inconsistencia' || rowNeedsCadastro(row)) return 3;
+  if (kind === 'acompanhar_piso') return 5;
+  return 4;
+}
+
+export function prazosKeyMeta(kind, row) {
+  const date = (row && (row.prescDate || row.date)) || '';
+  if (kind === 'vencido' || kind === 'iminente') {
+    return { date, label: date ? fmtDate(date) : '—' };
+  }
+  if (kind === 'vencido_estimado' || kind === 'residual_alta') {
+    return { date, label: date ? ('estimado · ' + fmtDate(date)) : 'estimado' };
+  }
+  if (kind === 'vigiar_interrompido') {
+    const enc = (row && row.interruptAt) || date;
+    return { date: enc, label: enc ? ('encerrado em ' + fmtDate(enc)) : 'encerrado' };
+  }
+  if (kind === 'acompanhar_piso' || kind === 'residual_media') {
+    return { date, label: date ? ('não antes de ' + fmtDate(date)) : '—' };
+  }
+  if (kind === 'correndo') {
+    return { date, label: date ? fmtDate(date) : 'em curso' };
+  }
+  if (kind === 'pausa_cadastrada') {
+    return { date, label: date ? ('pausado · ' + fmtDate(date)) : 'pausado' };
+  }
+  if (kind === 'avaliar_174') {
+    return { date, label: date ? fmtDate(date) : 'sem dados' };
+  }
+  return { date, label: date ? fmtDate(date) : '—' };
+}
+
+export function incidentDot(incident) {
+  if (!incident) return 'none';
+  if (incident.hasConstriction && incident.constrictionOpen) return 'open';
+  if (incident.hasConstriction) return 'closed';
+  return 'cover';
+}
+
+export function groupPrazosByProcess(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const proc = r.processNumber ? normProc(r.processNumber) : '';
+    const key = (r.operationId || '') + '|' + (proc || ('cda:' + r.id));
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        processNumber: r.processNumber || '',
+        court: r.court || '',
+        opName: r.opName || '',
+        operationId: r.operationId,
+        incident: r.incident || null,
+        rows: []
+      });
+    }
+    const g = map.get(key);
+    g.rows.push(r);
+    if (!g.incident && r.incident) g.incident = r.incident;
+    if (!g.court && r.court) g.court = r.court;
+  }
+  const groups = [...map.values()];
+  groups.forEach(g => {
+    g.rows.sort((a, b) => a.group - b.group || (a.keyDate || '9999').localeCompare(b.keyDate || '9999'));
+    g.worstGroup = Math.min(...g.rows.map(r => r.group));
+    g.value = g.rows.reduce((s, r) => s + (r.value || 0), 0);
+  });
+  groups.sort((a, b) => a.worstGroup - b.worstGroup || (a.processNumber || '').localeCompare(b.processNumber || ''));
+  return groups;
+}
+
+export function buildPrazosIncidentBlocks(data, rows) {
+  const executions = (data && data.executions) || [];
+  const events = (data && data.prescriptionEvents) || [];
+  const rowsByExecId = new Map();
+  for (const r of rows || []) {
+    if (!r.executionId) continue;
+    if (!rowsByExecId.has(r.executionId)) rowsByExecId.set(r.executionId, []);
+    rowsByExecId.get(r.executionId).push(r);
+  }
+  const blocks = [];
+  for (const e of executions) {
+    if (!e || (e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal')) continue;
+    const linked = e.linkedExecutionIds || [];
+    const efRows = [];
+    const efs = [];
+    for (const id of linked) {
+      const arr = rowsByExecId.get(id) || [];
+      efRows.push(...arr);
+      const sample = arr[0];
+      efs.push({
+        executionId: id,
+        processNumber: (sample && sample.processNumber) || '',
+        worstGroup: arr.length ? Math.min(...arr.map(r => r.group || 9)) : 0,
+        cdaCount: arr.length
+      });
+    }
+    const src = events.filter(ev => isBareExecEvent(ev) && ev.executionId === e.id);
+    const cons = src.filter(ev => normalizePrescEventType(ev.type) === IDPJ_CONSTRICTION_TYPE && asIso(ev.date));
+    const hasConstriction = cons.length > 0;
+    const constrictionOpen = cons.some(ev => !asIso(ev.endDate));
+    const requestDate = cons.map(ev => asIso(ev.requestDate) || asIso(ev.date)).filter(Boolean).sort()[0] || '';
+    const closed = /extinta|arquivada/i.test(e.status || '');
+    let conference = 'Sem incidente de constrição lançado.';
+    if (!hasConstriction) {
+      conference = 'Sem constrição lançada. Se houve indisponibilidade ou bloqueio, lançar com a data do pedido.';
+    } else if (closed && constrictionOpen) {
+      conference = 'Incidente encerrado; informar a data em que a pausa cessou.';
+    } else if (requestDate) {
+      conference = 'Constrição lançada · pedido em ' + fmtDate(requestDate);
+    } else {
+      conference = 'Constrição lançada.';
+    }
+    const worstGroup = efRows.reduce((m, r) => Math.min(m, r.group || 9), 9);
+    blocks.push({
+      id: e.id,
+      processNumber: e.processNumber || '',
+      tag: e.processTag,
+      court: e.court || '',
+      status: e.status || '',
+      operationId: e.operationId,
+      opName: ((data.operations || []).find(o => o.id === e.operationId) || {}).name || '',
+      hasConstriction,
+      constrictionOpen,
+      requestDate,
+      closed,
+      conference,
+      worstGroup: worstGroup === 9 ? 0 : worstGroup,
+      efCount: linked.length,
+      efs,
+      rows: efRows
+    });
+  }
+  blocks.sort((a, b) => Number(a.hasConstriction) - Number(b.hasConstriction) || (a.processNumber || '').localeCompare(b.processNumber || ''));
+  return blocks;
+}
+
+export function buildPrazosRadar(data, asOf, prescLookup) {
+  const buckets = buildPainelPrescAlerts(data, asOf, prescLookup);
+  const rows = [];
+  Object.keys(buckets).forEach(kind => {
+    (buckets[kind] || []).forEach(r => {
+      const group = groupOfKind(r.prescKind || kind, r);
+      const key = prazosKeyMeta(r.prescKind || kind, r);
+      rows.push({
+        ...r,
+        group,
+        keyDate: key.date,
+        keyLabel: key.label,
+        incidentDot: incidentDot(r.incident)
+      });
+    });
+  });
+  const totals = {
+    1: { n: 0, value: 0 },
+    2: { n: 0, value: 0 },
+    3: { n: 0, value: 0 },
+    4: { n: 0, value: 0 },
+    5: { n: 0, value: 0 }
+  };
+  const byOp = {};
+  rows.forEach(r => {
+    if (totals[r.group]) {
+      totals[r.group].n++;
+      totals[r.group].value += r.value || 0;
+    }
+    if (!r.operationId) return;
+    if (!byOp[r.operationId]) byOp[r.operationId] = { g1: 0, g2: 0, g3: 0, g4: 0, g5: 0, risco: 0, completar: 0 };
+    const slot = byOp[r.operationId];
+    slot['g' + r.group] = (slot['g' + r.group] || 0) + 1;
+    if (r.group === 1 || r.group === 2) slot.risco++;
+    if (r.group === 3) slot.completar++;
+  });
+  return {
+    rows,
+    totals,
+    byOp,
+    incidents: buildPrazosIncidentBlocks(data, rows),
+    buckets
+  };
+}
+
+export function prazosRiskMetaForCdas(cdas, byDebt) {
+  let n1 = 0;
+  let n2 = 0;
+  let n3 = 0;
+  let minGroup = 9;
+  const days = [];
+  (cdas || []).forEach(d => {
+    if (!d || d.prescriptionHandled) return;
+    const row = byDebt && typeof byDebt.get === 'function' ? byDebt.get(d.id) : null;
+    const g = (row && row.group) || 0;
+    if (g === 1) n1++;
+    else if (g === 2) n2++;
+    else if (g === 3) n3++;
+    if (g && g < minGroup) minGroup = g;
+    if (row && (g === 1 || g === 2) && row.prescDays != null) days.push(row.prescDays);
+  });
+  const allHandled = (cdas || []).length > 0 && (cdas || []).every(d => d.prescriptionHandled);
+  const risco = n1 + n2;
+  const label = allHandled ? 'Tratadas'
+    : n1 ? n1 + ' urgentes'
+    : n2 ? n2 + ' a conferir'
+    : n3 ? n3 + ' a completar'
+    : minGroup === 5 ? 'ainda impossível'
+    : minGroup < 9 ? 'em acompanhamento'
+    : '—';
+  const riskClass = allHandled ? 'ok' : n1 ? 'critical' : (n2 || n3) ? 'warning' : '';
+  const minRiskDays = days.length ? Math.min(...days) : null;
+  return { n1, n2, n3, risco, label, riskClass, minRiskDays };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

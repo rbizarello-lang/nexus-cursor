@@ -1104,6 +1104,60 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 6px; }
 .kpi-value { font-size: 26px; font-weight: 700; font-family: var(--font-display); line-height: 1; }
 .kpi-sub { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
+
+/* Aba Prazos extintivos */
+.prazos-view { flex: 1; overflow-y: auto; padding: 16px 24px 48px; }
+.prazos-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+.prazos-counter { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: left; color: inherit; }
+.prazos-counter.active { border-color: var(--accent); background: var(--accent-dim); }
+.prazos-counter-n { font-size: 20px; font-weight: 700; font-family: var(--font-display); line-height: 1; }
+.prazos-counter-l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.prazos-counter-v { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); }
+.prazos-counter.g1 .prazos-counter-n { color: var(--red); }
+.prazos-counter.g2 .prazos-counter-n { color: var(--orange); }
+.prazos-counter.g3 .prazos-counter-n { color: var(--yellow); }
+.prazos-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.prazos-toolbar select, .prazos-toolbar input { width: auto; }
+.prazos-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.prazos-toggle button { background: transparent; border: 0; color: var(--text-secondary); padding: 5px 10px; font-size: 11px; cursor: pointer; }
+.prazos-toggle button.active { background: var(--bg-elevated); color: var(--text-primary); font-weight: 600; }
+.prazos-chk { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+.prazos-chk input { width: auto; }
+.prazos-q { min-width: 180px; }
+.prazos-proc { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; }
+.prazos-proc-hd { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); }
+.prazos-proc-hd strong { color: var(--text-primary); font-family: var(--font-mono); }
+.prazos-seal { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 3px; background: var(--pgfn-dim); color: var(--pgfn-light); }
+.prazos-row { display: grid; grid-template-columns: 28px minmax(120px, 0.9fr) minmax(160px, 1.4fr) 130px minmax(140px, 1.2fr) 140px auto; gap: 8px; align-items: start; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 11px; }
+.prazos-row:last-child { border-bottom: none; }
+.prazos-band { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; }
+.prazos-band.g1 { background: var(--red); }
+.prazos-band.g2 { background: var(--orange); }
+.prazos-band.g3 { background: var(--yellow); color: #1a1a1a; }
+.prazos-band.g4 { background: var(--blue); }
+.prazos-band.g5 { background: var(--text-muted); }
+.prazos-cda { display: flex; flex-direction: column; min-width: 0; }
+.prazos-cda-n { font-family: var(--font-mono); font-weight: 600; }
+.prazos-cda-m { font-size: 10px; color: var(--text-muted); }
+.prazos-sum, .prazos-check { color: var(--text-secondary); line-height: 1.35; }
+.prazos-key { font-family: var(--font-mono); font-size: 10px; color: var(--text-primary); }
+.prazos-inc { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary); }
+.prazos-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+.prazos-dot.open { background: var(--green); }
+.prazos-dot.cover { background: var(--yellow); }
+.prazos-dot.closed { background: var(--text-muted); }
+.prazos-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.prazos-g5-more { width: 100%; margin-top: 4px; padding: 10px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-lg); color: var(--text-secondary); cursor: pointer; font-size: 11px; }
+.prazos-kpi-tile { margin: 0 0 20px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.prazos-kpi-title { font-size: 12px; font-weight: 700; }
+.prazos-kpi-counts { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.prazos-kpi-hit { background: transparent; border: 0; color: inherit; cursor: pointer; font-weight: 700; padding: 0; }
+.prazos-kpi-dot { color: var(--text-muted); }
+.prazos-inc-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; margin-bottom: 10px; }
+.prazos-inc-block.no-cons { border-left: 3px solid var(--yellow); }
+.prazos-inc-hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 11px; }
+.prazos-inc-conf { font-size: 11px; color: var(--text-secondary); margin: 6px 0; }
+.prazos-inc-ef { display: flex; gap: 10px; align-items: center; font-size: 11px; padding: 3px 0; color: var(--text-secondary); }
 .dashboard-alerts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .alert-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; }
 .alert-widget h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 10px; }
@@ -2327,6 +2381,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .app-layout.edition-demo .demo-zone-sub { background: var(--bg-main); }
 .app-layout.edition-demo .welcome-screen h2 { font-family: var(--font-display); color: var(--text-primary); }
 .app-layout.edition-demo .painel-container,
+.app-layout.edition-demo .prazos-view,
 .app-layout.edition-demo .entity-area { color: var(--text-primary); }
 
 .demo-theme-opts { display: flex; flex-wrap: wrap; gap: 6px; }
