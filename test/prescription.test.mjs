@@ -615,4 +615,25 @@ describe('createPrescLookup — índice de eventos', () => {
     const lookup = createPrescLookup([debt], executions, events, ASOF);
     assert.equal(lookup(debt).phase, 'interrompido');
   });
+
+  it('evento nu no IDPJ entra na linha do tempo da EF abrangida', () => {
+    const debt = cda();
+    const executions = [
+      ef({ id: 'e1' }),
+      { id: 'idpj1', processTag: 'idpj', processNumber: '50099999920234047000', linkedExecutionIds: ['e1'] }
+    ];
+    const events = [{
+      id: 's',
+      executionId: 'idpj1',
+      type: IDPJ_CONSTRICTION_TYPE,
+      date: '2024-01-15',
+      requestDate: '2024-01-15'
+    }];
+    const collected = collectEventsForCda(debt, executions, events);
+    assert.equal(collected.events.length, 1);
+    assert.equal(collected.events[0].type, IDPJ_CONSTRICTION_TYPE);
+    assert.equal(collected.events[0]._inheritedFromIDPJ, 'idpj1');
+    const r = computePrescription({ debt, executions, events, asOf: ASOF });
+    assert.ok(r.activeSuspensions.length);
+  });
 });

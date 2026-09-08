@@ -9108,7 +9108,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 {renderPainelPrescCard('presc', 'Prescrição iminente', 'Total exposto', buckets.iminente, 'grave')}
                 {renderPainelPrescCard('presc_venc', 'Prazo extintivo vencido — conferir', 'Conferir cálculo e autos', buckets.vencido, 'grave')}
                 {renderPainelPrescCard('presc_174', 'Avaliar ajuizamento — Prescrição art. 174', 'Sem ajuizamento ou sem data suficiente', buckets.avaliar_174, 'sutil')}
-                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Feito ajuizado, sem marco cadastrado', buckets.avaliar_intercorrente, 'sutil')}
+                {renderPainelPrescCard('presc_int', 'Avaliar prescrição intercorrente — Sem gatilho', 'Ajuizada há mais de 6 anos, sem marco cadastrado', buckets.avaliar_intercorrente, 'sutil')}
+                {renderPainelPrescCard('presc_piso', 'Acompanhar — consumo ainda impossível', 'Não é marco do art. 40 · protocolo + 6 anos', buckets.acompanhar_piso, 'sutil')}
               </>;
             })()}
 

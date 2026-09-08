@@ -8,9 +8,64 @@ const cda = (over = {}) => ({ id: 'd1', operationId: 'op1', status: 'ativa', ...
 const ef = (over = {}) => ({ id: 'e1', processNumber: '50012345620234047001', protocolDate: '2021-03-01', ...over });
 
 describe('classifyPainelPrescAlert — avisos do Painel', () => {
-  it('ajuizada sem marco: avaliar intercorrente, nunca iminente', () => {
+  it('ajuizada sem marco e protocolo antigo: avaliar intercorrente, nunca iminente', () => {
+    const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    const a = classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01' })], [], ASOF);
+    assert.equal(a.kind, 'avaliar_intercorrente');
+  });
+
+  it('ajuizada sem marco e protocolo recente: acompanhar pelo piso (não é marco)', () => {
     const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2020-01-15' });
-    const a = classifyPainelPrescAlert(debt, [ef()], [], ASOF);
+    const a = classifyPainelPrescAlert(debt, [ef({ protocolDate: '2021-03-01' })], [], ASOF);
+    assert.equal(a.kind, 'acompanhar_piso');
+    assert.equal(a.date, '2027-03-01');
+    assert.ok(a.days > 0);
+  });
+
+  it('ajuizada garantida sem marco: sai da fila', () => {
+    const debt = cda({ processNumber: '50012345620234047001', status: 'garantida', inscriptionDate: '2010-01-15' });
+    assert.equal(classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01' })], [], ASOF), null);
+  });
+
+  it('ajuizada com garantia na execução: sai da fila', () => {
+    const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    assert.equal(classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01', hasGuarantee: true })], [], ASOF), null);
+  });
+
+  it('ajuizada parcelada sem marco: sai da fila', () => {
+    const debt = cda({ processNumber: '50012345620234047001', status: 'parcelada', inscriptionDate: '2010-01-15' });
+    assert.equal(classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01' })], [], ASOF), null);
+  });
+
+  it('suspensão de parcelamento no processo: sai da fila', () => {
+    const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    assert.equal(classifyPainelPrescAlert(debt, [ef({ protocolDate: '2018-01-01', status: 'suspensa_parcelamento' })], [], ASOF), null);
+  });
+
+  it('evento suspensivo no IDPJ tira a CDA da lista sem gatilho', () => {
+    const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    const executions = [
+      ef({ id: 'e1', protocolDate: '2018-01-01' }),
+      { id: 'idpj1', processTag: 'idpj', processNumber: '50099999920234047000', linkedExecutionIds: ['e1'] }
+    ];
+    const events = [{
+      id: 's',
+      executionId: 'idpj1',
+      type: 'susp_idpj_mcf_constricao',
+      date: '2024-01-15',
+      requestDate: '2024-01-15'
+    }];
+    const a = classifyPainelPrescAlert(debt, executions, events, ASOF);
+    assert.equal(a, null);
+  });
+
+  it('só o vínculo ao IDPJ, sem evento suspensivo, não tira da fila', () => {
+    const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
+    const executions = [
+      ef({ id: 'e1', protocolDate: '2018-01-01' }),
+      { id: 'idpj1', processTag: 'idpj', processNumber: '50099999920234047000', linkedExecutionIds: ['e1'] }
+    ];
+    const a = classifyPainelPrescAlert(debt, executions, [], ASOF);
     assert.equal(a.kind, 'avaliar_intercorrente');
   });
 
@@ -63,7 +118,7 @@ describe('classifyPainelPrescAlert — avisos do Painel', () => {
       taxPeriodEnd: '2010-01-01'
     });
     const a = classifyPainelPrescAlert(debt, [ef()], [], ASOF);
-    assert.equal(a.kind, 'avaliar_intercorrente');
+    assert.equal(a.kind, 'acompanhar_piso');
   });
 });
 
@@ -80,7 +135,7 @@ describe('buildPainelPrescAlerts', () => {
       ]
     };
     const b = buildPainelPrescAlerts(data, ASOF);
-    const ids = [...b.iminente, ...b.vencido, ...b.avaliar_174, ...b.avaliar_intercorrente].map(x => x.id);
+    const ids = [...b.iminente, ...b.vencido, ...b.avaliar_174, ...b.avaliar_intercorrente, ...b.acompanhar_piso].map(x => x.id);
     assert.equal(new Set(ids).size, ids.length);
     assert.ok(b.iminente.some(x => x.id === 'd-im'));
     assert.ok(b.avaliar_174.some(x => x.id === 'd-174'));
@@ -98,7 +153,7 @@ describe('buildPainelPrescAlerts', () => {
       debts: [cda({ id: 'd-idpj', processNumber: '50012345620234047001' })]
     };
     const b = buildPainelPrescAlerts(data, ASOF);
-    const row = [...b.iminente, ...b.vencido, ...b.avaliar_174, ...b.avaliar_intercorrente].find(x => x.id === 'd-idpj');
+    const row = [...b.iminente, ...b.vencido, ...b.avaliar_174, ...b.avaliar_intercorrente, ...b.acompanhar_piso].find(x => x.id === 'd-idpj');
     assert.equal(row.hasIDPJ, true);
   });
 });

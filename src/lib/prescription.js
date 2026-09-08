@@ -157,12 +157,22 @@ function buildPrescCollectIndex(executions, events) {
   const byCda = new Map();
   const byExecBare = new Map();
   const byInheritedParent = new Map();
+  const idpjByLinkedExec = new Map();
   const push = (map, key, ev) => {
     if (!key) return;
     let arr = map.get(key);
     if (!arr) { arr = []; map.set(key, arr); }
     arr.push(ev);
   };
+  for (const e of executions || []) {
+    if (!e || (e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal')) continue;
+    for (const linkedId of e.linkedExecutionIds || []) {
+      if (!linkedId) continue;
+      let arr = idpjByLinkedExec.get(linkedId);
+      if (!arr) { arr = []; idpjByLinkedExec.set(linkedId, arr); }
+      arr.push(e.id);
+    }
+  }
   for (const ev of events || []) {
     if (!ev) continue;
     if (ev.cdaId) push(byCda, ev.cdaId, ev);
@@ -172,7 +182,7 @@ function buildPrescCollectIndex(executions, events) {
     if (isBareExecEvent(ev)) push(byExecBare, ev.executionId, ev);
     if (ev._inheritedFromParent) push(byInheritedParent, ev._inheritedFromParent, ev);
   }
-  return { execByProc, execsByProc, execById, byCda, byExecBare, byInheritedParent };
+  return { execByProc, execsByProc, execById, byCda, byExecBare, byInheritedParent, idpjByLinkedExec };
 }
 
 export function collectEventsForCda(debt, executions, events, collectIndex) {
@@ -213,6 +223,22 @@ export function collectEventsForCda(debt, executions, events, collectIndex) {
       );
     }
   }
+  const coveringIds = coveringIdpjIds(matchingExecs, execs, collectIndex);
+  if (coveringIds.size) {
+    const alreadyFrom = new Set();
+    for (const e of direct) if (e && e._inheritedFromIDPJ) alreadyFrom.add(e._inheritedFromIDPJ);
+    for (const e of inherited) if (e && e._inheritedFromIDPJ) alreadyFrom.add(e._inheritedFromIDPJ);
+    for (const idpjId of coveringIds) {
+      if (alreadyFrom.has(idpjId)) continue;
+      const src = collectIndex
+        ? (collectIndex.byExecBare.get(idpjId) || [])
+        : evts.filter(e => isBareExecEvent(e) && e.executionId === idpjId);
+      for (const ev of src) {
+        if (!ev) continue;
+        inherited.push(mapCoveringIdpjEvent(ev, idpjId));
+      }
+    }
+  }
   const seen = new Set();
   const merged = [];
   for (const e of [...direct, ...inherited]) {
@@ -222,6 +248,34 @@ export function collectEventsForCda(debt, executions, events, collectIndex) {
   }
   merged.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   return { exec, events: merged };
+}
+
+function coveringIdpjIds(matchingExecs, executions, collectIndex) {
+  const ids = new Set();
+  if (!matchingExecs.length) return ids;
+  if (collectIndex && collectIndex.idpjByLinkedExec) {
+    for (const item of matchingExecs) {
+      const arr = collectIndex.idpjByLinkedExec.get(item.id);
+      if (arr) for (const id of arr) ids.add(id);
+    }
+    return ids;
+  }
+  const execIds = new Set(matchingExecs.map(item => item.id));
+  for (const e of executions || []) {
+    if (!e || (e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal')) continue;
+    const linked = e.linkedExecutionIds || [];
+    for (let i = 0; i < linked.length; i++) {
+      if (execIds.has(linked[i])) { ids.add(e.id); break; }
+    }
+  }
+  return ids;
+}
+
+function mapCoveringIdpjEvent(ev, idpjId) {
+  const mapped = shouldPropagateIdpjAsSuspension(ev.type)
+    ? { ...idpjPropagationPayload(ev), _inheritedFromIDPJ: idpjId }
+    : { ...ev, _inheritedFromIDPJ: ev._inheritedFromIDPJ || idpjId };
+  return mapped;
 }
 
 /** Data em que o efeito entra na linha do tempo: pedido (se constrição verificada) ou a data do fato. */
@@ -1149,6 +1203,7 @@ export function computeCdaLegalTimeline({ debt, executions = [], events = [], as
 }
 
 const PAINEL_PRESC_WINDOW = 180;
+const CDA_RECORTE_STATUS = new Set(['garantida', 'parcelada', 'negociada_sispar']);
 
 function isPainelPrescCandidate(debt) {
   if (!debt || debt.status === 'extinta') return false;
@@ -1175,9 +1230,63 @@ function isImminentResult(r) {
   return r.daysLeft > 0 && r.daysLeft <= PAINEL_PRESC_WINDOW;
 }
 
+function matchingExecsForDebt(debt, executions) {
+  if (!debt || !debt.processNumber) return [];
+  const n = normProc(debt.processNumber);
+  if (!n) return [];
+  return (executions || []).filter(e => e && normProc(e.processNumber) === n);
+}
+
+function isOpenSuspensiveForPainel(evt, asOfIso) {
+  if (!evt) return false;
+  const type = normalizePrescEventType(evt.type);
+  if (type === 'susp_art40') return false;
+  const meta = PRESC_EVENT_TYPES[type];
+  if (!meta || meta.category !== 'suspensiva') return false;
+  const start = asIso(evt.requestDate) || asIso(evt.date);
+  if (!start || start > asOfIso) return false;
+  const end = asIso(evt.endDate);
+  if (end && end <= asOfIso) return false;
+  return true;
+}
+
+function hasCadastroRecorte(debt, execs) {
+  if (CDA_RECORTE_STATUS.has(debt && debt.status)) return true;
+  return (execs || []).some(e => e.hasGuarantee || e.status === 'suspensa_parcelamento');
+}
+
+function hasActivePauseForPainel(r, debt, executions, events, asOfIso) {
+  if (r && r.activeSuspensions && r.activeSuspensions.length) return true;
+  const execs = matchingExecsForDebt(debt, executions);
+  if (!execs.length) return false;
+  const execIds = new Set(execs.map(e => e.id));
+  const covering = new Set();
+  for (const e of executions || []) {
+    if (!e || (e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal')) continue;
+    const linked = e.linkedExecutionIds || [];
+    for (let i = 0; i < linked.length; i++) {
+      if (execIds.has(linked[i])) { covering.add(e.id); break; }
+    }
+  }
+  return (events || []).some(ev => {
+    const onEf = execIds.has(ev.executionId);
+    const onCover = covering.has(ev.executionId) || covering.has(ev._inheritedFromIDPJ);
+    if (!onEf && !onCover) return false;
+    return isOpenSuspensiveForPainel(ev, asOfIso);
+  });
+}
+
+/** Protocolo + 6 anos civis. Não é marco: só prova que a consumação ainda é impossível. */
+export function pessimisticIntercorrenteFloor(protocolIso, asOfIso) {
+  const start = asIso(protocolIso);
+  if (!start) return null;
+  const date = addCalendarYears(start, 6);
+  return { date, days: daysUntil(date, asOfIso) };
+}
+
 /**
  * Um aviso operacional por CDA ativa, sem decadência.
- * kind: iminente | vencido | avaliar_174 | avaliar_intercorrente | null
+ * kind: iminente | vencido | avaliar_174 | avaliar_intercorrente | acompanhar_piso | null
  * prescResult: resultado já calculado de computePrescription (lookup do app).
  */
 export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf, prescResult) {
@@ -1185,6 +1294,7 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
   const r = prescResult || computePrescription({ debt, executions, events, asOf });
   const ajuizada = r.segment === 'intercorrente';
   const cycle = ajuizada && intercorrenteCycleStarted(r);
+  const asOfIso = asIso(asOf) || localIso(new Date());
 
   if (ajuizada) {
     if (cycle && isOverdueResult(r)) {
@@ -1194,6 +1304,14 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
       return { kind: 'iminente', segment: 'intercorrente', days: r.daysLeft, date: r.diesAdQuem || '', status: r.status };
     }
     if (!cycle) {
+      if (hasActivePauseForPainel(r, debt, executions, events, asOfIso)) return null;
+      const execs = matchingExecsForDebt(debt, executions);
+      if (hasCadastroRecorte(debt, execs)) return null;
+      const protocol = asIso((execs.find(e => e.protocolDate) || {}).protocolDate) || asIso(debt.protocolDate);
+      const floor = pessimisticIntercorrenteFloor(protocol, asOfIso);
+      if (floor && floor.days != null && floor.days > 0) {
+        return { kind: 'acompanhar_piso', segment: 'intercorrente', days: floor.days, date: floor.date, status: r.status || 'seguro' };
+      }
       return { kind: 'avaliar_intercorrente', segment: 'intercorrente', days: null, date: '', status: r.status || 'sem_dados' };
     }
     return null;
@@ -1216,7 +1334,7 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
 }
 
 export function buildPainelPrescAlerts(data, asOf, prescLookup) {
-  const buckets = { iminente: [], vencido: [], avaliar_174: [], avaliar_intercorrente: [] };
+  const buckets = { iminente: [], vencido: [], avaliar_174: [], avaliar_intercorrente: [], acompanhar_piso: [] };
   if (!data) return buckets;
   const ops = {};
   (data.operations || []).forEach(o => {
@@ -1262,6 +1380,7 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   });
   buckets.iminente.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   buckets.vencido.sort((a, b) => (a.prescDays ?? 0) - (b.prescDays ?? 0));
+  buckets.acompanhar_piso.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   return buckets;
 }
 
