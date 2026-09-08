@@ -2892,6 +2892,7 @@ function App() {
   const [search, setSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
+  const [showPrescRules, setShowPrescRules] = useState(false);
   const [showExportPicker, setShowExportPicker] = useState(false);
   const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
   const [exportScope, setExportScope] = useState('carteira');
@@ -6423,7 +6424,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {procStatusAlert.label} — processo <ProcNum value={procStatusAlert.processNumber} />. Verifique pendência de baixa.
                 </div>}
               </div>
-              {expandedCdas.has(d.id) && <div className="process-detail cda-expand-detail" onClick={ev=>ev.stopPropagation()}><CdaLegalDetail d={d} data={data} setModal={setModal} /></div>}
+              {expandedCdas.has(d.id) && <div className="process-detail cda-expand-detail" onClick={ev=>ev.stopPropagation()}><CdaLegalDetail d={d} data={data} setModal={setModal} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} /></div>}
               </div>
             </div>);
           };
@@ -6579,7 +6580,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {field('Inscrição', fmtDate(d.inscriptionDate))}
               {field('Prescrição', prescDate
                 ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${prescTag(d) ? ` · ${prescTag(d)}` : ''}`
-                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (sem marco do art. 40)' : '—'),
+                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (sem ciência lançada)' : '—'),
                 prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined)}
               {d.prescriptionDate && d.prescriptionDate !== autoPresc && field('Prescrição informada (não substitui o cálculo)', fmtDate(d.prescriptionDate))}
               {d.prescriptionHandled && field('Tratamento',
@@ -6634,29 +6635,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               );
             })()}
             {(() => {
-              const pr = prescLookup(d);
-              if (!pr || (!pr.summary && !pr.scenario && !(pr.memory && pr.memory.length))) return null;
-              return (
-                <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
-                  <span className="im-label">Cenário e memória de cálculo</span>
-                  {(pr.summary || pr.scenario) && <div style={{marginTop:4,whiteSpace:'pre-wrap',fontWeight:600,color:'var(--text-primary)'}}>{pr.summary || pr.scenario}</div>}
-                  {pr.checks && pr.checks.length > 0 && (
-                    <ul style={{margin:'4px 0 0 16px',padding:0}}>
-                      {pr.checks.map((c, i) => <li key={'chk'+i}>{c}</li>)}
-                    </ul>
-                  )}
-                  <div style={{marginTop:4}}>{pr.detail}</div>
-                  {pr.memory && pr.memory.length > 0 && (
-                    <ul style={{margin:'4px 0 0 16px',padding:0}}>
-                      {pr.memory.slice(0, 10).map((m, i) => (
-                        <li key={i}>{m.date ? fmtDate(m.date) + ' — ' : ''}{m.event}: {m.effect}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {(pr.flags || []).length > 0 && <div style={{marginTop:4,color:'var(--yellow)'}}>Conferir: {(pr.flags || []).join(', ')}</div>}
-                  {pr.gaps && pr.gaps.length > 0 && <div style={{marginTop:4,color:'var(--text-muted)'}}>{pr.gaps.join(' ')}</div>}
-                </div>
-              );
+              const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
+              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} />;
             })()}
             {notes.length > 0 && (
               <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
@@ -8444,6 +8424,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       } : x)
     }));
   };
+  const togglePrescCheck = (debtId, item) => {
+    if (!debtId || !item || !item.id) return;
+    const today = localIso(new Date());
+    const now = new Date().toISOString();
+    setData(prev => ({
+      ...prev,
+      debts: (prev.debts || []).map(x => {
+        if (x.id !== debtId) return x;
+        const list = [...(x.prescChecks || [])];
+        const idx = list.findIndex(c => c && c.id === item.id);
+        if (idx >= 0) list.splice(idx, 1);
+        else list.push({ id: item.id, doneAt: today });
+        return { ...x, prescChecks: list, updatedAt: now };
+      })
+    }));
+  };
   const renderPrazosView = () => {
     const pf = prazosFilters;
     const t = prazosRadar.totals || {};
@@ -8507,7 +8503,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </span>
     );
     const renderCdaRow = (r) => {
-      const extra = (r.checks || []).length > 1 ? ' +' + ((r.checks || []).length - 1) : '';
+      const open = openChecks(r.checks, r.prescChecks);
+      const extra = open.length > 1 ? ' +' + (open.length - 1) : '';
       return (
         <div key={r.id} className={`prazos-row g${r.group}`}>
           <span className={`prazos-band g${r.group}`} title={PRAZOS_GROUP_LABELS[r.group]}>{r.group}</span>
@@ -8517,7 +8514,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </span>
           <span className="prazos-sum">{r.summary || r.prescLabel || '—'}</span>
           <span className="prazos-key">{r.keyLabel || '—'}</span>
-          <span className="prazos-check">{(r.checks && r.checks[0]) ? (r.checks[0] + extra) : '—'}</span>
+          <span className="prazos-check">{open[0] ? (open[0].text + extra) : '—'}</span>
           <span className="prazos-inc">
             <span className={`prazos-dot ${r.incidentDot || 'none'}`}></span>
             {seal(r.incident) || '—'}
@@ -10598,6 +10595,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
     {renderExportPicker()}
 
+    {showPrescRules && (
+      <div className="global-search-overlay" onClick={() => setShowPrescRules(false)}>
+        <div className="global-search-box presc-rules-box" onClick={e => e.stopPropagation()}>
+          <div className="presc-rules-hd">
+            <strong>Regras de prazos v{RULE_VERSION}</strong>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowPrescRules(false)}>✕</span>
+          </div>
+          <div className="presc-rules-body">O texto completo das regras entra na etapa 4.</div>
+        </div>
+      </div>
+    )}
+
     {/* Diagnóstico de integridade */}
     {showDiagnostico && (() => {
       const scopedOp = diagnosticoOpId ? data.operations.find(o => o.id === diagnosticoOpId) : null;
@@ -10856,18 +10865,82 @@ const CDA_SEGMENT_STATUS = {
   sem_dados: { label: 'Sem dados', color: 'var(--text-muted)' }
 };
 
-function CdaLegalDetail({ d, data, setModal }) {
+function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
+  if (!timeline) return null;
+  const keys = [
+    { key: 'decadencia', title: 'Decadência' },
+    { key: 'ordinaria', title: 'Prescrição ordinária' },
+    { key: 'intercorrente', title: 'Intercorrente' }
+  ];
+  return (
+    <div className="cda-presc-cols">
+      {keys.map(({ key, title }) => {
+        if (!timeline[key]) return null;
+        const col = buildCdaColumnView(timeline[key], { key, prescChecks: debt && debt.prescChecks });
+        const sealClass = col.seal === 'sem dados' ? 'sem' : col.seal;
+        return (
+          <div key={key} className={'cda-presc-col seal-' + sealClass}>
+            <div className="cda-presc-hd">
+              <span className="cda-presc-title">{title}</span>
+              <span className={'cda-presc-seal ' + sealClass}>{col.seal}</span>
+            </div>
+            <div className="cda-presc-block">
+              <div className="cda-presc-k">Situação</div>
+              <div className="cda-presc-sum">{col.summary}</div>
+            </div>
+            <div className="cda-presc-block">
+              <div className="cda-presc-k">Datas</div>
+              <div className="cda-presc-dates">{col.datesLine}</div>
+            </div>
+            <div className="cda-presc-block">
+              <div className="cda-presc-k">Ocorrências</div>
+              {col.occurrences.length === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+                <table className="cda-presc-occ">
+                  <tbody>
+                    {col.occurrences.map((o, i) => (
+                      <tr key={i}>
+                        <td>{o.dateLabel}</td>
+                        <td>{o.fact}{o.source && /IDPJ|MCF/.test(o.source) ? <span className="cda-presc-inc-seal">{o.source}</span> : null}</td>
+                        <td>{o.effect}</td>
+                        <td>{o.sourceLabel}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {col.estimates.length > 0 && (
+              <div className="cda-presc-block">
+                <div className="cda-presc-k">Estimativas</div>
+                {col.estimates.map((e, i) => <div key={i} className="cda-presc-est">{e.line}</div>)}
+              </div>
+            )}
+            <div className="cda-presc-block">
+              <div className="cda-presc-k">Conferir nos autos</div>
+              {col.checks.length === 0 ? <div className="cda-presc-empty">nenhuma</div> : col.checks.map(item => (
+                <label key={item.id} className={'cda-presc-chk' + (item.doneAt ? ' done' : '')}>
+                  <input type="checkbox" checked={!!item.doneAt} onChange={() => onToggleCheck && onToggleCheck(debt.id, item)} />
+                  <span>{item.text}{item.doneAt ? ' · conferido em ' + fmtDate(item.doneAt) : ''}</span>
+                </label>
+              ))}
+            </div>
+            <div className="cda-presc-ft">
+              <button type="button" className="cda-presc-rules" onClick={onOpenRules}>{col.footer} · ⓘ</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules }) {
   const tl = useMemo(() => computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }), [d, data.executions, data.prescriptionEvents]);
   const [scope, setScope] = useState('completo');
   const [copied, setCopied] = useState(false);
   const person = (data.people || []).find(p => p.id === d.personId);
   const personName = person?.name || d.devedor || '';
   const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(Boolean);
-  const segments = [
-    { key: 'decadencia', title: 'Decadência', seg: tl.decadencia },
-    { key: 'ordinaria', title: 'Prescrição ordinária', seg: tl.ordinaria },
-    { key: 'intercorrente', title: 'Intercorrente', seg: tl.intercorrente }
-  ].filter(item => item.seg);
   const field = (label, value) => value !== null && value !== undefined && value !== '' ? (
     <div key={label} className="cda-inline-field">
       <span className="im-label">{label}</span>
@@ -10948,66 +11021,7 @@ function CdaLegalDetail({ d, data, setModal }) {
         </div>
       )}
 
-      <div style={{display:'flex',gap:8,marginTop:12}}>
-        {segments.map(({ key, title, seg }) => {
-          const status = CDA_SEGMENT_STATUS[seg.status] || CDA_SEGMENT_STATUS.sem_dados;
-          return (
-            <div key={key} style={{flex:1,minWidth:0,borderTop:`2px solid ${status.color}`,padding:'6px 8px',background:'var(--bg-card)'}}>
-              <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,color:'var(--text-muted)'}}>{title}</div>
-              <div style={{fontSize:11,fontWeight:700,color:status.color,marginTop:2}}>{status.label}</div>
-              <div style={{fontSize:9,fontFamily:'var(--font-mono)',color:'var(--text-secondary)',marginTop:2}}>
-                {seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—'} → {seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:8,marginTop:10}}>
-        {segments.map(({ key, title, seg }) => {
-          const status = CDA_SEGMENT_STATUS[seg.status] || CDA_SEGMENT_STATUS.sem_dados;
-          const origin = prescOriginLabel(seg);
-          const memory = seg.memory || [];
-          const gaps = seg.gaps || [];
-          const row = (label, value) => (
-            <div style={{display:'flex',justifyContent:'space-between',gap:8,fontSize:10,padding:'2px 0'}}>
-              <span style={{color:'var(--text-muted)'}}>{label}</span>
-              <strong style={{color:'var(--text-secondary)',fontFamily:'var(--font-mono)',textAlign:'right'}}>{value}</strong>
-            </div>
-          );
-          return (
-            <div key={key} style={{border:'1px solid var(--border)',borderRadius:4,padding:8,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:6}}>
-                <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:0.5,fontWeight:700,color:'var(--text-secondary)',flex:1}}>{title}</span>
-                <span style={{fontSize:9,fontWeight:700,color:status.color,border:`1px solid ${status.color}`,borderRadius:3,padding:'1px 5px'}}>{status.label}</span>
-                {origin && <span style={{fontSize:9,color:'var(--text-muted)',border:'1px solid var(--border)',borderRadius:3,padding:'1px 5px'}}>{origin}</span>}
-              </div>
-              {d.prescriptionDate && (key === 'intercorrente' || (key === 'ordinaria' && !tl.intercorrente))
-                && row('Prescrição informada', fmtDate(d.prescriptionDate))}
-              {row('Dies a quo', seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—')}
-              {row('Dies ad quem', `${seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}${seg.daysLeft !== null && seg.daysLeft !== undefined ? ` (${seg.daysLeft}d)` : ''}`)}
-              {seg.summary && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-primary)',marginTop:6,whiteSpace:'pre-wrap',fontWeight:600}}>{seg.summary}</div>}
-              {seg.checks && seg.checks.length > 0 && (
-                <ul style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',margin:'4px 0 0 16px',padding:0}}>
-                  {seg.checks.map((c, i) => <li key={'chk'+i}>{c}</li>)}
-                </ul>
-              )}
-              {seg.detail && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',marginTop:6}}>{seg.detail}</div>}
-              <details style={{marginTop:6}}>
-                <summary style={{fontSize:10,color:'var(--text-secondary)',cursor:'pointer'}}>Memória de cálculo ({memory.length})</summary>
-                <ul style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',margin:'4px 0 0 16px',padding:0}}>
-                  {memory.map((m, index) => (
-                    <li key={index}>{m.date ? fmtDate(m.date) : '—'} — {m.event}: {m.effect}</li>
-                  ))}
-                </ul>
-              </details>
-              {gaps.map((gap, index) => (
-                <div key={index} style={{fontSize:10,lineHeight:1.45,color:'var(--text-muted)',marginTop:3}}>🔴 {gap}</div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
+      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} />
 
       <div className="cda-inline-actions" style={{alignItems:'center',flexWrap:'wrap'}}>
         <select className="btn-secondary btn-xs" value={scope} onChange={ev => setScope(ev.target.value)} style={{width:'auto'}}>

@@ -966,17 +966,22 @@ const CASE_FACT = {
   info_outro: 'Outro registro'
 };
 
-function occurrenceSource(ev) {
+function occurrenceSource(ev, incidents) {
   if (!ev) return 'evento';
-  if (ev._inheritedFromIDPJ) return 'idpj';
+  if (ev._inheritedFromIDPJ) {
+    const inc = (incidents || []).find(i => i.id === ev._inheritedFromIDPJ);
+    const kind = inc && inc.tag === 'cautelar_fiscal' ? 'MCF' : 'IDPJ';
+    return kind + ' nº ' + ((inc && inc.processNumber) || ev._inheritedFromIDPJ);
+  }
   if (ev._source === 'processo') return 'processo';
+  if (ev._source === 'planilha') return 'planilha';
   return 'evento';
 }
 
 function occurrenceEffect(type, ev, r) {
   const t = normalizePrescEventType(type);
   if (ev && /posterior ao ajuizamento/.test(ev.effect || '')) {
-    return 'posterior ao ajuizamento — não afeta o art. 174';
+    return 'posterior ao ajuizamento — não afeta o prazo ordinário';
   }
   if (t === 'susp_parcelamento') {
     if (!asIso(ev && ev.endDate)) return 'interrompe; sem data de fim → pior caso: encerrado na adesão';
@@ -1001,11 +1006,23 @@ function occurrenceEffect(type, ev, r) {
   return 'registro do caso';
 }
 
+const INTERRUPT_SHORT = {
+  int_penhora: 'penhora',
+  int_arresto: 'arresto',
+  int_sisbajud: 'bloqueio Sisbajud',
+  int_cnib: 'indisponibilidade',
+  int_citacao: 'citação',
+  int_reconhecimento: 'reconhecimento da dívida',
+  int_outra: 'resultado útil'
+};
+
 function interruptFactLabel(r) {
   const ev = (r.timeline || []).find(e => e && e.phase === 'interrompido');
   if (ev) {
     const t = normalizePrescEventType(ev.type);
-    return (CASE_FACT[t] || 'resultado útil').toLowerCase();
+    if (INTERRUPT_SHORT[t]) return INTERRUPT_SHORT[t];
+    const fact = CASE_FACT[t];
+    return fact ? fact.toLowerCase() : 'resultado útil';
   }
   return 'resultado útil';
 }
@@ -1019,8 +1036,12 @@ function buildSummary(r, ctx) {
     }
     if (r.phase === 'interrompido' && ctx.exec) {
       const p = asIso(ctx.exec.protocolDate);
-      const start = r.diesAQuo ? fmtDate(r.diesAQuo) : '';
-      return `Ajuizada em ${p ? fmtDate(p) : 'data não informada'}${start ? ', dentro dos 5 anos contados de ' + start : ''}. Prazo interrompido pela propositura.`;
+      const insc = asIso(ctx.debt && ctx.debt.inscriptionDate);
+      const fromInsc = !!(r.diesAQuo && insc && r.diesAQuo === insc);
+      const janela = fromInsc
+        ? ', dentro dos 5 anos contados da inscrição'
+        : (r.diesAQuo ? ', dentro dos 5 anos contados de ' + fmtDate(r.diesAQuo) : '');
+      return `Ajuizada em ${p ? fmtDate(p) : 'data não informada'}${janela}. Prazo interrompido pela propositura.`;
     }
     if (r.phase === 'consumado') return `Prescrição ordinária consumada em ${fmtDate(r.diesAdQuem)}.`;
     if (r.phase === 'suspenso') return `Prazo ordinário pausado. Termo projetado: ${fmtDate(r.diesAdQuem)}.`;
@@ -1070,9 +1091,10 @@ function buildOccurrences(r, ctx) {
   }
   for (const ev of r.timeline || []) {
     if (!ev) continue;
+    if (r.segment === 'credito' && /posterior ao ajuizamento/.test(ev.effect || '')) continue;
     const t = normalizePrescEventType(ev.type);
     const date = asIso(ev.requestDate) || asIso(ev.date) || '';
-    push(date, CASE_FACT[t] || (PRESC_EVENT_TYPES[t] && PRESC_EVENT_TYPES[t].label) || t, occurrenceEffect(t, ev, r), occurrenceSource(ev));
+    push(date, CASE_FACT[t] || (PRESC_EVENT_TYPES[t] && PRESC_EVENT_TYPES[t].label) || t, occurrenceEffect(t, ev, r), occurrenceSource(ev, r.incidents || ctx.incidents));
   }
   occ.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.fact.localeCompare(b.fact));
   return occ;
@@ -1795,7 +1817,7 @@ export function attachPrescriptionSnapshots(data, asOf) {
       prescKind: kind || '',
       keyDate: key.date || '',
       keyLabel: key.label || '',
-      firstCheck: (r.checks && r.checks[0]) || '',
+      firstCheck: ((openChecks(r.checks, d.prescChecks)[0] || {}).text) || '',
       incident: row.incident,
       computedAt
     };
@@ -1853,7 +1875,180 @@ const decResult = (over = {}) => ({
  * Âncoras: debt.launchMode (regra), debt.taxPeriodEnd (fato gerador / decisão
  * anulatória no 173, II), debt.constitutionDate (constituição definitiva).
  */
+function withDecadenciaView(r, debt) {
+  if (!r) return r;
+  const mode = debt && debt.launchMode && LAUNCH_MODES[debt.launchMode] ? debt.launchMode : '';
+  const anchor = asIso(debt && debt.taxPeriodEnd);
+  const constitution = asIso(debt && debt.constitutionDate);
+  const inscription = asIso(debt && debt.inscriptionDate);
+  const checks = [];
+  const occurrences = [];
+  let summary = r.detail || '';
+  if (!anchor && !mode) {
+    summary = 'Não calculada: faltam período de apuração e modalidade de lançamento.';
+    checks.push('Informar período de apuração e modalidade de lançamento na inscrição.');
+  } else if (!anchor) {
+    summary = 'Não calculada: falta o período de apuração.';
+    checks.push('Informar o período de apuração na inscrição.');
+  } else if (!mode) {
+    summary = r.status === 'sem_dados'
+      ? 'Não calculada: falta a modalidade de lançamento.'
+      : (r.status === 'obstada' && constitution
+        ? `Crédito constituído em ${fmtDate(constitution)}, dentro do prazo.`
+        : r.status === 'consumada' && constitution
+          ? `Constituição em ${fmtDate(constitution)}, depois do fim do prazo.`
+          : `Prazo em curso. Modalidade de lançamento não informada; aplicada a regra geral.`);
+    checks.push('Informar a modalidade de lançamento na inscrição.');
+  } else if (mode === 'declarado') {
+    summary = 'Crédito constituído pela declaração do contribuinte. Não há decadência a discutir.';
+  } else if (r.status === 'obstada' && constitution) {
+    summary = `Crédito constituído em ${fmtDate(constitution)}, dentro do prazo.`;
+  } else if (r.status === 'obstada' && inscription) {
+    summary = `Inscrição em ${fmtDate(inscription)}, anterior ao fim do prazo. Constituição não informada.`;
+    checks.push('Informar a data de constituição definitiva na inscrição.');
+  } else if (r.status === 'consumada' && constitution) {
+    summary = `Constituição em ${fmtDate(constitution)}, depois do fim do prazo.`;
+  } else if (r.diesAdQuem) {
+    summary = r.daysLeft != null && r.daysLeft <= 0
+      ? `Prazo vencido em ${fmtDate(r.diesAdQuem)} sem constituição registrada.`
+      : `Prazo em curso até ${fmtDate(r.diesAdQuem)}.`;
+  }
+  if (constitution && (r.status === 'obstada' || r.status === 'consumada')) {
+    occurrences.push({
+      date: constitution,
+      fact: 'Constituição definitiva',
+      effect: r.status === 'consumada' ? 'depois do fim do prazo' : 'encerra a decadência se dentro do prazo',
+      source: 'processo'
+    });
+  }
+  return {
+    ...r,
+    summary,
+    occurrences,
+    estimates: [],
+    checks,
+    rulesApplied: ['R1'],
+    ruleVersion: RULE_VERSION,
+    scenario: summary
+  };
+}
+
+export function checkId(text) {
+  return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200);
+}
+
+export function allCheckItems(checks, prescChecks) {
+  const doneMap = new Map((prescChecks || []).filter(c => c && c.id).map(c => [c.id, c.doneAt || '']));
+  return (checks || []).map(text => {
+    const id = checkId(text);
+    return { id, text, doneAt: doneMap.get(id) || '' };
+  });
+}
+
+export function openChecks(checks, prescChecks) {
+  return allCheckItems(checks, prescChecks).filter(c => !c.doneAt);
+}
+
+const COL_TITLES = {
+  decadencia: 'Decadência',
+  ordinaria: 'Prescrição ordinária',
+  intercorrente: 'Intercorrente'
+};
+
+function columnSeal(key, seg) {
+  if (!seg) return 'sem dados';
+  if (key === 'decadencia' && seg.rule === 'declarado') return 'calculado';
+  if (key === 'decadencia' && (seg.status === 'sem_dados' || (!seg.diesAQuo && !seg.diesAdQuem))) return 'sem dados';
+  if (seg.phase !== 'interrompido' && (seg.estimated || seg.phase === 'estimado' || seg.origin === 'estimativa_pessimista')) return 'estimado';
+  if (seg.origin === 'estimativa' && key !== 'decadencia') return 'estimado';
+  if (seg.status === 'sem_dados' && !seg.diesAdQuem && seg.phase !== 'interrompido') return 'sem dados';
+  return 'calculado';
+}
+
+function columnDates(key, seg) {
+  if (key === 'decadencia') {
+    if (!seg.diesAQuo && !seg.diesAdQuem) return { start: '—', end: '—' };
+    return {
+      start: seg.diesAQuo ? fmtDate(seg.diesAQuo) : 'sem data de início',
+      end: seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : 'sem termo'
+    };
+  }
+  if (key === 'ordinaria') {
+    const start = seg.diesAQuo ? fmtDate(seg.diesAQuo) : 'sem data de início';
+    let end = 'sem termo calculado';
+    if (seg.phase === 'interrompido') {
+      const aj = (seg.occurrences || []).find(o => o.fact === 'Ajuizamento');
+      end = aj && aj.date ? 'interrompido em ' + fmtDate(aj.date) : 'interrompido pela propositura';
+    } else if (seg.diesAdQuem) end = fmtDate(seg.diesAdQuem);
+    return { start, end };
+  }
+  const hasCiencia = (seg.occurrences || []).some(o => /^Ciência /i.test(o.fact || ''));
+  const start = hasCiencia && seg.diesAQuo ? fmtDate(seg.diesAQuo) : 'sem ciência lançada';
+  let end = 'sem termo calculado';
+  if (seg.phase === 'interrompido') end = '—';
+  else if (seg.diesAdQuem) end = fmtDate(seg.diesAdQuem);
+  return { start, end };
+}
+
+export function buildCdaColumnView(seg, { key, prescChecks } = {}) {
+  const title = COL_TITLES[key] || key;
+  const seal = columnSeal(key, seg);
+  const dates = columnDates(key, seg);
+  const datesLine = key === 'decadencia' && dates.start === '—' && dates.end === '—'
+    ? '—'
+    : 'Início: ' + dates.start + ' · Fim: ' + dates.end;
+  const estimates = (seg.estimates || []).map(e => ({
+    label: e.label,
+    date: e.date,
+    how: e.how,
+    line: (e.label + (e.date ? ' ' + fmtDate(e.date) : '') + (e.how ? ' — ' + e.how : '')).replace(/\s+/g, ' ').trim()
+  }));
+  const checks = allCheckItems(seg.checks, prescChecks);
+  const occurrences = (seg.occurrences || []).map(o => ({
+    ...o,
+    dateLabel: o.date ? fmtDate(o.date) : '',
+    sourceLabel: o.source && /IDPJ|MCF|processo|planilha|evento/i.test(o.source) ? o.source : 'evento'
+  }));
+  return {
+    key,
+    title,
+    seal,
+    summary: seg.summary || '',
+    dates,
+    datesLine,
+    occurrences,
+    estimates,
+    checks,
+    footer: 'Regras v' + RULE_VERSION
+  };
+}
+
+export function cdaDetailSnapshot(timeline, prescChecks) {
+  const parts = [];
+  ['decadencia', 'ordinaria', 'intercorrente'].forEach(key => {
+    if (!timeline[key]) return;
+    const col = buildCdaColumnView(timeline[key], { key, prescChecks });
+    parts.push('## ' + col.title);
+    parts.push('Selo: ' + col.seal);
+    parts.push('Situação: ' + col.summary);
+    parts.push('Datas: ' + col.datesLine);
+    parts.push('Ocorrências: ' + (col.occurrences.length
+      ? col.occurrences.map(o => [o.dateLabel, o.fact, o.effect].filter(Boolean).join(' · ')).join(' | ')
+      : 'nenhuma'));
+    if (col.estimates.length) parts.push('Estimativas: ' + col.estimates.map(e => e.line).join(' | '));
+    const open = col.checks.filter(c => !c.doneAt);
+    parts.push('Conferir: ' + (open.length ? open.map(c => c.text).join(' | ') : 'nenhuma'));
+  });
+  return parts.join('\n');
+}
+
+export const UI_FORBIDDEN = /Tema|Súmula|política|\bpiso\b|\bteto\b|\bdies\b|\bmarco\b|CENÁRIO/i;
+
 export function computeDecadencia(debt, asOf) {
+  return withDecadenciaView(computeDecadenciaCore(debt, asOf), debt);
+}
+
+function computeDecadenciaCore(debt, asOf) {
   if (!debt) return decResult({ detail: 'Sem dados.' });
   const asOfIso = asIso(asOf) || localIso(new Date());
   const memory = [];
@@ -2311,6 +2506,7 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
       prescLabel: alert.label,
       summary: r.summary || alert.summary || '',
       checks: r.checks || alert.checks || [],
+      prescChecks: d.prescChecks || [],
       incident: alert.incident || ((r.incidents && r.incidents[0]) || null),
       informedConflict: !!r.informedConflict,
       estimated: !!r.estimated,

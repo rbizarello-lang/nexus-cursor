@@ -1158,6 +1158,32 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .prazos-inc-hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 11px; }
 .prazos-inc-conf { font-size: 11px; color: var(--text-secondary); margin: 6px 0; }
 .prazos-inc-ef { display: flex; gap: 10px; align-items: center; font-size: 11px; padding: 3px 0; color: var(--text-secondary); }
+
+.cda-presc-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin-top: 10px; }
+.cda-presc-col { border: 1px solid var(--border); border-radius: 4px; padding: 8px; min-width: 0; background: var(--bg-card); }
+.cda-presc-hd { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.cda-presc-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; color: var(--text-secondary); flex: 1; }
+.cda-presc-seal { font-size: 9px; font-weight: 700; border-radius: 3px; padding: 1px 5px; border: 1px solid var(--border); color: var(--text-muted); }
+.cda-presc-seal.calculado { color: var(--green); border-color: var(--green); }
+.cda-presc-seal.estimado { color: var(--orange); border-color: var(--orange); }
+.cda-presc-seal.sem { color: var(--text-muted); }
+.cda-presc-block { margin-top: 8px; }
+.cda-presc-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 3px; }
+.cda-presc-sum { font-size: 11px; line-height: 1.45; color: var(--text-primary); font-weight: 600; }
+.cda-presc-dates, .cda-presc-est, .cda-presc-empty { font-size: 10px; line-height: 1.45; color: var(--text-secondary); }
+.cda-presc-occ { width: 100%; border-collapse: collapse; font-size: 10px; }
+.cda-presc-occ td { padding: 3px 4px 3px 0; vertical-align: top; color: var(--text-secondary); }
+.cda-presc-occ td:first-child { font-family: var(--font-mono); white-space: nowrap; color: var(--text-primary); }
+.cda-presc-inc-seal { display: inline-block; margin-left: 4px; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 3px; background: var(--pgfn-dim); color: var(--pgfn-light); }
+.cda-presc-chk { display: flex; gap: 6px; align-items: flex-start; font-size: 10px; line-height: 1.4; color: var(--text-secondary); margin: 3px 0; cursor: pointer; }
+.cda-presc-chk input { width: auto; margin-top: 1px; }
+.cda-presc-chk.done { color: var(--text-muted); text-decoration: line-through; }
+.cda-presc-ft { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--border); }
+.cda-presc-rules { background: transparent; border: 0; padding: 0; color: var(--text-muted); font-size: 10px; cursor: pointer; }
+.cda-presc-rules:hover { color: var(--accent); }
+.presc-rules-box { max-width: 720px; }
+.presc-rules-hd { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.presc-rules-body { padding: 14px 16px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); max-height: 70vh; overflow-y: auto; }
 .dashboard-alerts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .alert-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; }
 .alert-widget h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 10px; }
