@@ -6629,11 +6629,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             })()}
             {(() => {
               const pr = prescLookup(d);
-              if (!pr || (!pr.scenario && !(pr.memory && pr.memory.length))) return null;
+              if (!pr || (!pr.summary && !pr.scenario && !(pr.memory && pr.memory.length))) return null;
               return (
                 <div style={{marginTop:8,fontSize:10,color:'var(--text-secondary)',lineHeight:1.45}}>
                   <span className="im-label">Cenário e memória de cálculo</span>
-                  {pr.scenario && <div style={{marginTop:4,whiteSpace:'pre-wrap',fontWeight:600,color:'var(--text-primary)'}}>{pr.scenario}</div>}
+                  {(pr.summary || pr.scenario) && <div style={{marginTop:4,whiteSpace:'pre-wrap',fontWeight:600,color:'var(--text-primary)'}}>{pr.summary || pr.scenario}</div>}
+                  {pr.checks && pr.checks.length > 0 && (
+                    <ul style={{margin:'4px 0 0 16px',padding:0}}>
+                      {pr.checks.map((c, i) => <li key={'chk'+i}>{c}</li>)}
+                    </ul>
+                  )}
                   <div style={{marginTop:4}}>{pr.detail}</div>
                   {pr.memory && pr.memory.length > 0 && (
                     <ul style={{margin:'4px 0 0 16px',padding:0}}>
@@ -10872,7 +10877,12 @@ function CdaLegalDetail({ d, data, setModal }) {
                 && row('Prescrição informada', fmtDate(d.prescriptionDate))}
               {row('Dies a quo', seg.diesAQuo ? fmtDate(seg.diesAQuo) : '—')}
               {row('Dies ad quem', `${seg.diesAdQuem ? fmtDate(seg.diesAdQuem) : '—'}${seg.daysLeft !== null && seg.daysLeft !== undefined ? ` (${seg.daysLeft}d)` : ''}`)}
-              {seg.scenario && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-primary)',marginTop:6,whiteSpace:'pre-wrap',fontWeight:600}}>{seg.scenario}</div>}
+              {seg.summary && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-primary)',marginTop:6,whiteSpace:'pre-wrap',fontWeight:600}}>{seg.summary}</div>}
+              {seg.checks && seg.checks.length > 0 && (
+                <ul style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',margin:'4px 0 0 16px',padding:0}}>
+                  {seg.checks.map((c, i) => <li key={'chk'+i}>{c}</li>)}
+                </ul>
+              )}
               {seg.detail && <div style={{fontSize:10,lineHeight:1.45,color:'var(--text-secondary)',marginTop:6}}>{seg.detail}</div>}
               <details style={{marginTop:6}}>
                 <summary style={{fontSize:10,color:'var(--text-secondary)',cursor:'pointer'}}>Memória de cálculo ({memory.length})</summary>
@@ -12145,7 +12155,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         {form.type === 'int_sisbajud' && (
           <div className="form-group"><label>Valor bloqueado (R$)</label>
             <input type="number" step="0.01" value={form.amount||''} onChange={e=>set('amount', parseFloat(e.target.value)||0)} />
-            <span style={{fontSize:9,color:'var(--text-muted)'}}>Se for irrisório diante do débito, o ciclo não se encerra em silêncio — o app pede conferência.</span>
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Informação. Quem lança o bloqueio decide se houve resultado útil — o valor não altera o cálculo.</span>
           </div>
         )}
         {selectedType?.category === 'suspensiva' && (

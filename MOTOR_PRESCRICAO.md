@@ -4,7 +4,7 @@ Documento de leitura. Diz o que o Nexus **já calcula**, o que o **painel** faz 
 
 Duas avaliações independentes (caderno de execução fiscal / Parte 7, e leitura do código em `src/lib/prescription.js`) convergem: **a tese jurídica está alinhada; o defeito é de classificação e de tradução.** O motor chama de “seguro” tanto “não sei” quanto “parou de correr”. O painel trata ausência de marco como um único cesto. A alteração útil muda a **pergunta da fila** — “esta inscrição precisa ser lida agora?” — e não o início legal do art. 40.
 
-O detalhe de engenharia (casos reproduzidos, superfícies, fases de implementação) está em [`AVALIACAO_MOTOR_PRESCRICAO.md`](AVALIACAO_MOTOR_PRESCRICAO.md). Este guia é o contrato.
+O detalhe de engenharia (casos reproduzidos, superfícies, fases de implementação) está em [`CLAUDE CODE/AVALIACAO_MOTOR_PRESCRICAO.md`](CLAUDE%20CODE/AVALIACAO_MOTOR_PRESCRICAO.md). Este guia é o contrato.
 
 **Princípio de risco.** Falso positivo de prescrição consumada (o app pede conferência e o crédito ainda está vivo) é **muito melhor** do que falso negativo. Prescrição que se consume em silêncio, sem o app identificar, é o pior problema e o que mais se deve evitar. Na dúvida entre esconder e alarmar, **alarmar**. Remover da fila, rotular “seguro” ou deixar data informada calar o cálculo só se admite quando houver prova positiva de que o prazo **não corre**.
 
@@ -119,8 +119,6 @@ Citação e constrição **interrompem** um ciclo já aberto. Não criam o estad
 - indisponibilidade CNIB/CCS com resultado útil **na própria execução**.
 
 Pedido **dentro** da janela 1+5: o efeito **retroage ao pedido**, mesmo que a efetivação seja posterior. Pedido **depois** do termo: não salva o feito.
-
-**Ressalva — valor irrisório.** Todo Sisbajud positivo hoje encerra o ciclo. A Parte 7 classifica a constrição desproporcional ao débito como **controvertida**. O painel não deve promover isso a “interrompido” silencioso. Destino operacional: **“possível interrupção — conferir proporcionalidade”**.
 
 **Pedido na janela sem resultado no cadastro.** A quarta tese do Tema 566 é a proteção mais forte da União. Se houver petição de constrição ou citação dentro do 1+5 e o desfecho ainda não estiver lançado, a inscrição **não** pode ir para “consumado”. Destino: **“diligência tempestiva sem desfecho — conferir autos”**.
 
@@ -272,7 +270,6 @@ Nenhuma destas linhas altera o termo legal.
 ### 10.5 Flags de conferência (ainda não são cards)
 
 - parcelamento importado sem termo final;
-- Sisbajud de valor irrisório (interrupção possível, não silenciosa);
 - pedido na janela 1+5 sem resultado lançado.
 
 ### 10.6 O que não implementar
@@ -295,7 +292,7 @@ A fila e o motor passaram a seguir as §§ 10.1–10.5 e o item 12:
 | Recorte como peso / sublista / inconsistência | Feito. `garantida`, `parcelada` e “✓” de IDPJ **não removem** da fila |
 | Faixas Alta / Média / Baixa; Arquivada art. 40 sem data em Alta | Feito |
 | Previsão da planilha só no residual, com rótulo de origem | Feito. Não entra no card grave de iminente/vencido do ciclo calculado |
-| Três flags de conferência | Feito (parcelamento sem termo; Sisbajud irrisório; pedido na janela sem desfecho) |
+| Flags de conferência | Parcelamento sem termo e pedido na janela sem desfecho. Sisbajud irrisório removido (Fase 1): quem lança o bloqueio decide. |
 | Dois modos de rescisão; rótulo “ciclo pós-parcelamento (política)” | Feito (1+5 padrão; só 5 anos opcional na inscrição) |
 | Data informada não cala o cálculo; `nao_iniciado`/`interrompido` deixam de ser “seguro” | Feito |
 | Cadastro de eventos em 7 famílias | Feito. Os tipos antigos continuam no arquivo; o formulário pede família + tipo concreto |
