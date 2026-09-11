@@ -1091,13 +1091,17 @@ const CENTRAL_STAGE_KEYS = Object.keys(CENTRAL_STAGES);
 const outcomeColor = (o) => (o === 'favoravel' || o === 'provido') ? 'var(--green)' : (o === 'desfavoravel' || o === 'nao_provido') ? 'var(--red)' : (o === 'pendente') ? 'var(--yellow)' : 'var(--blue)';
 const outcomeTint  = (o) => (o === 'favoravel' || o === 'provido') ? 'rgba(64,168,112,0.18)' : (o === 'desfavoravel' || o === 'nao_provido') ? 'rgba(244,63,94,0.18)' : (o === 'pendente') ? 'rgba(212,168,56,0.18)' : 'rgba(91,143,217,0.18)';
 // Normaliza recursos de uma fase multi-recurso (retrocompatível com o antigo rec.procs: array de strings)
+const isRecursoAdverso = (r) => !!(r && (r.parte === 'adversa' || r.parte === 'adversaria'));
+const emptyRecurso = () => ({ date: '', proc: '', texto: '', outcome: 'pendente', parte: 'nossa' });
 const getRecursos = (rec) => {
   if (!rec) return [];
-  if (Array.isArray(rec.recursos)) return rec.recursos;
-  if (Array.isArray(rec.procs)) return rec.procs.map(p => typeof p === 'string' ? { proc: p, date: '', outcome: '' } : p);
-  return [];
+  const raw = Array.isArray(rec.recursos) ? rec.recursos
+    : Array.isArray(rec.procs) ? rec.procs.map(p => typeof p === 'string' ? { proc: p, date: '', outcome: '' } : p)
+    : [];
+  return raw.map(r => ({ parte: 'nossa', ...r }));
 };
-// Cor da fase de recurso derivada dos recursos: pendente/sem desfecho = amarelo/azul; algum não provido = vermelho; todos providos = verde
+// Cor da fase de recurso: pendente = amarelo; algum não provido = vermelho; todos providos = verde.
+// "Provido" vale tanto para o nosso recurso quanto para o da parte adversa.
 const recursoColor = (recs) => {
   if (!recs.length) return 'var(--text-muted)';
   if (recs.some(r => r.outcome === 'pendente' || !r.outcome)) return 'var(--yellow)';
@@ -1105,6 +1109,7 @@ const recursoColor = (recs) => {
   return 'var(--green)';
 };
 const stageRecColor = (rec) => !rec ? 'var(--text-muted)' : outcomeColor(rec.outcome);
+const resolveStageDef = (STAGES, k, rec) => STAGES[k] || { label: (rec && String(rec.label || '').trim()) || 'Evento', outcomes: {}, custom: true };
 // Mapeia tags legadas (PROCESS_STAGE_TAGS / processStages) para (fase, desfecho) do modelo por-fase
 const PROCESS_STAGE_LEGACY_MAP = {
   liminar_deferida:           { stage: 'liminar',    outcome: 'favoravel' },
@@ -1135,8 +1140,9 @@ const getStageRecords = (briefing, execId) => {
 const renderStageHtmlV2 = (briefing, exec, esc) => {
   const recs = getStageRecords(briefing, exec.id);
   const STG = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
-  const parts = Object.keys(STG).filter(k => recs[k]).map(k => {
-    const rec = recs[k] || {}, sd = STG[k];
+  const keys = [...Object.keys(STG), ...Object.keys(recs).filter(k => !STG[k])];
+  const parts = keys.filter(k => recs[k]).map(k => {
+    const rec = recs[k] || {}, sd = resolveStageDef(STG, k, rec);
     const isMulti = !!sd.multiRecurso;
     const rs = isMulti ? getRecursos(rec) : [];
     const col = isMulti
@@ -1144,7 +1150,7 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
       : (rec.outcome === 'favoravel' || rec.outcome === 'provido') ? '#207848' : (rec.outcome === 'desfavoravel' || rec.outcome === 'nao_provido') ? '#c03040' : '#2860b0';
     let det;
     if (isMulti) {
-      det = rs.length ? rs.map((r, i) => `${i+1}) ${r.date ? fmtDate(r.date) : 's/ data'}${r.proc ? ' · proc. ' + esc(r.proc) : ''}${r.outcome && sd.outcomes[r.outcome] ? ' (' + sd.outcomes[r.outcome] + ')' : ''}`).join('; ') : '';
+      det = rs.length ? rs.map((r, i) => `${i+1}) ${r.date ? fmtDate(r.date) : 's/ data'}${r.proc ? ' · proc. ' + esc(r.proc) : ''}${isRecursoAdverso(r) ? ' · adversa' : ''}${r.outcome && sd.outcomes[r.outcome] ? ' (' + sd.outcomes[r.outcome] + ')' : ''}`).join('; ') : '';
     } else if (sd.textOnly) {
       det = rec.texto ? esc(rec.texto) : '';
     } else {
@@ -4713,6 +4719,8 @@ function App() {
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  // Popup da régua do panorama: estado próprio (não passa por useTransition de toggleGroup).
+  const [stagePopup, setStagePopup] = useState(null); // { execId, sk } | null
   const [otherBucketOpen, setOtherBucketOpen] = useState({ recursos: false, embargos: false, outros: false });
   const panoOpRef = useRef(activeOpId);
   useEffect(() => {
@@ -5510,13 +5518,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
                 </div>);
               };
-              const stageMeta = (STAGES, STAGE_KEYS, recs) => STAGE_KEYS.map((k, i) => {
-                const sd = STAGES[k];
+              const stageMeta = (STAGES, STAGE_KEYS, recs) => {
+                const extraKeys = Object.keys(recs || {}).filter(k => !STAGES[k]);
+                return [...STAGE_KEYS, ...extraKeys].map((k, i) => {
                 const rec = recs[k];
+                const sd = resolveStageDef(STAGES, k, rec);
                 const recursos = sd.multiRecurso ? getRecursos(rec) : null;
                 const has = sd.multiRecurso
                   ? (recursos.length > 0 || !!(rec && rec._present))
-                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || (rec.texto && String(rec.texto).trim())));
+                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || rec._custom || (rec.texto && String(rec.texto).trim()) || (rec.label && String(rec.label).trim())));
                 const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
                 let info = '';
                 if (sd.multiRecurso) {
@@ -5534,6 +5544,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
                 return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
               });
+              };
               // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
               const badgeFor = (ip) => {
                 const tag = ip?.processTag;
@@ -5569,37 +5580,76 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   n.add(workSelPrefix + k);
                   return n;
                 });
-                const addable = metas.filter(m => !m.has && !m.alwaysShow);
+                const addable = metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom);
                 const addMenuKey = 'stageadd-' + ip.id;
                 const addOpen = collapsedGroups.has(addMenuKey);
-                const openPop = (k) => toggleGroup('stagepop-' + ip.id + '-' + k);
+                const toggleAddMenu = () => setCollapsedGroups(prev => {
+                  const n = new Set(prev);
+                  if (n.has(addMenuKey)) n.delete(addMenuKey); else n.add(addMenuKey);
+                  return n;
+                });
+                const closeAddMenu = () => setCollapsedGroups(prev => {
+                  const n = new Set(prev); n.delete(addMenuKey); return n;
+                });
+                const openPop = (k) => setStagePopup({ execId: ip.id, sk: k });
+                const closePop = () => setStagePopup(null);
                 const noteEditKey = (k) => 'stagenote-' + ip.id + '-' + k;
+                const afterAdd = (sk) => {
+                  setCollapsedGroups(prev => {
+                    const n = new Set(prev);
+                    n.delete(addMenuKey);
+                    [...n].forEach(x => { if (x.startsWith(workSelPrefix)) n.delete(x); });
+                    n.add(workSelPrefix + sk);
+                    return n;
+                  });
+                  setStagePopup({ execId: ip.id, sk });
+                };
                 const addStage = (sk) => {
                   const sd = STAGES[sk];
-                  if (sd.multiRecurso) setRec(ip.id, sk, { _present: true, recursos: [{ date: '', proc: '', texto: '', outcome: 'pendente' }] });
+                  if (sd.multiRecurso) setRec(ip.id, sk, { _present: true, recursos: [emptyRecurso()] });
                   else if (sd.textOnly) setRec(ip.id, sk, { _present: true, texto: '' });
                   else setRec(ip.id, sk, { _present: true, date: '', evento: '', texto: '', outcome: '' });
-                  if (addOpen) toggleGroup(addMenuKey);
-                  selectWork(sk);
-                  if (!collapsedGroups.has('stagepop-' + ip.id + '-' + sk)) toggleGroup('stagepop-' + ip.id + '-' + sk);
+                  afterAdd(sk);
                 };
-                const popupFor = (m) => collapsedGroups.has('stagepop-' + ip.id + '-' + m.k) && (
+                const addCustomStage = (name) => {
+                  const label = String(name || '').trim();
+                  if (!label) return;
+                  const sk = 'custom_' + uid();
+                  setRec(ip.id, sk, { _present: true, _custom: true, label, date: '', evento: '', texto: '', outcome: '' });
+                  afterAdd(sk);
+                };
+                const popupFor = (m) => stagePopup && stagePopup.execId === ip.id && stagePopup.sk === m.k && (
                   <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
                     onCommit={(patch) => setRec(ip.id, m.k, { ...patch, _present: true })}
-                    onDelete={() => { delRec(ip.id, m.k); openPop(m.k); }}
+                    onDelete={() => { delRec(ip.id, m.k); closePop(); }}
                     onAddNote={(text) => { upsert('executions', { ...ip, notesList: [...(ip.notesList || []), text] }); alert('Registrado como nota no card.'); }}
-                    onClose={() => openPop(m.k)} />
+                    onClose={closePop} />
                 );
-                const addFaseBtn = addable.length > 0 && (
+                const addFaseBtn = (
                   <div className="pano-split-add" onClick={e => e.stopPropagation()}>
                     <button type="button" className="btn-secondary btn-xs"
-                      onClick={() => toggleGroup(addMenuKey)}
-                      title="Incluir fase processual"
+                      onClick={toggleAddMenu}
+                      title="Incluir fase processual ou evento livre"
                       style={{fontSize:9,padding:'2px 8px',opacity:0.85,fontWeight:500}}>
                       + Fase
                     </button>
                     {addOpen && (
-                      <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:180,padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
+                      <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:200,maxHeight:280,overflowY:'auto',padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
+                        <div style={{padding:'6px 10px'}}>
+                          <div style={{fontSize:9,color:'var(--text-muted)',marginBottom:4,fontWeight:700,letterSpacing:0.3,textTransform:'uppercase'}}>Outro evento</div>
+                          <input
+                            autoFocus
+                            placeholder="digite o nome e Enter"
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && e.target.value.trim()) {
+                                addCustomStage(e.target.value.trim());
+                              } else if (e.key === 'Escape') {
+                                closeAddMenu();
+                              }
+                            }}
+                            style={{width:'100%',fontSize:10,padding:'5px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />
+                        </div>
+                        {addable.length > 0 && <div style={{height:1,background:'var(--border)',margin:'4px 8px'}} />}
                         {addable.map(m => (
                           <button key={m.k} type="button"
                             onClick={() => addStage(m.k)}
@@ -5637,6 +5687,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {rs.map((r, ri) => {
                             const bits = [];
                             if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
+                            if (isRecursoAdverso(r)) bits.push('parte adversa');
                             if (r.date) bits.push(fmtDate(r.date));
                             if (r.proc && String(r.proc).trim()) bits.push(String(r.proc).trim());
                             const freeTxt = (r.texto && String(r.texto).trim()) || '';
@@ -11280,22 +11331,29 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
 // Painel de blocos: feed cronológico de entradas tipadas (Risco, Estratégia, Decisão judicial,
 // Providência, Replicação, Observação), com fixar no topo e formatação rica.
 // Popup de registro de fase (régua dos cards IDPJ/MCF/Central). Estado LOCAL para digitação fluida:
-// grava no estado global (onCommit) só ao sair do campo (blur), ao fechar ou ao registrar nota —
-// evita re-render da aba inteira a cada tecla (causa da lentidão anterior).
+// grava no estado global (onCommit) só ao fechar ou ao registrar nota — não a cada tecla nem a
+// cada blur (o blur re-renderizava o App inteiro e atrasava o registro em relação aos outros formulários).
 function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const isMulti = !!sd.multiRecurso;
   const textOnly = !!sd.textOnly;
+  const isCustom = !!sd.custom;
+  const [label, setLabel] = React.useState((rec && rec.label) || sd.label || '');
   const [date, setDate] = React.useState((rec && rec.date) || '');
   const [evento, setEvento] = React.useState((rec && rec.evento) || '');
   const [texto, setTexto] = React.useState((rec && rec.texto) || '');
   const [outcome, setOutcome] = React.useState((rec && rec.outcome) || '');
   const [recursos, setRecursos] = React.useState(() => getRecursos(rec).map(r => ({ ...r })));
-  const outs = Object.entries(sd.outcomes);
-  const hadData = rec && (rec.date || rec.evento || rec.texto || rec.outcome || rec.recursos || rec.procs);
+  const outs = Object.entries(sd.outcomes || {});
+  const hadData = rec && (rec.date || rec.evento || rec.texto || rec.outcome || rec.recursos || rec.procs || rec._custom);
+  const displayLabel = (isCustom ? label.trim() : '') || sd.label;
   const commit = () => {
     if (isMulti) { if (recursos.length || (rec && (rec.recursos || rec.procs))) onCommit({ recursos, procs: undefined }); return; }
     if (textOnly) {
       if (texto.trim() || hadData) onCommit({ date: '', evento: '', texto: texto.trim(), outcome: '' });
+      return;
+    }
+    if (isCustom) {
+      onCommit({ date, evento, texto: texto.trim(), outcome, _custom: true, label: displayLabel });
       return;
     }
     if (date || evento || texto.trim() || outcome || hadData) onCommit({ date, evento, texto: texto.trim(), outcome });
@@ -11304,19 +11362,20 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const noteText = () => {
     if (isMulti) {
       if (!recursos.length) return null;
-      return sd.label + ': ' + recursos.map((r,i) => {
+      return displayLabel + ': ' + recursos.map((r,i) => {
         const parts = [`${i+1})`];
         if (r.date) parts.push(fmtDate(r.date)); else parts.push('s/ data');
         if (r.proc && String(r.proc).trim()) parts.push('proc. ' + String(r.proc).trim());
+        if (isRecursoAdverso(r)) parts.push('adversa');
         if (r.outcome && sd.outcomes[r.outcome]) parts.push('(' + sd.outcomes[r.outcome] + ')');
         if (r.texto && String(r.texto).trim()) parts.push(String(r.texto).trim());
         return parts.join(' · ');
       }).join('; ');
     }
-    if (textOnly) return texto.trim() ? (sd.label + ' — ' + texto.trim()) : null;
+    if (textOnly) return texto.trim() ? (displayLabel + ' — ' + texto.trim()) : null;
     if (!date && !evento && !texto.trim() && !outcome) return null;
     const outLbl = outcome && sd.outcomes[outcome] ? ' — ' + sd.outcomes[outcome] : '';
-    const parts = [sd.label + outLbl];
+    const parts = [displayLabel + outLbl];
     if (date) parts.push(fmtDate(date));
     if (evento) parts.push('Evento ' + evento);
     if (texto.trim()) parts.push(texto.trim());
@@ -11324,21 +11383,32 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   };
   const updR = (ri, patch) => setRecursos(rs => rs.map((r,j) => j===ri ? { ...r, ...patch } : r));
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
-  const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome));
+  const parteBtn = (r, ri, pk, pl) => {
+    const on = (r.parte || 'nossa') === pk;
+    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — provido também fica verde' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
+  };
+  const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome || isCustom));
+  const field = { width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box' };
   return (<div onClick={(e) => { e.stopPropagation(); close(); }} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:textOnly?360:isMulti?420:380,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{sd.label}</span>
-        <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:16}} onClick={close}>✕</span>
+    <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:8,padding:16,width:textOnly?360:isMulti?440:380,maxWidth:'92vw',boxShadow:'0 16px 48px rgba(0,0,0,0.55)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:8}}>
+        {isCustom
+          ? <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Nome do evento" style={{flex:1,fontSize:13,fontWeight:700,padding:'4px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4}} />
+          : <span style={{fontSize:13,fontWeight:700,color:'var(--text-primary)'}}>{sd.label}</span>}
+        <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:16,flexShrink:0}} onClick={close}>✕</span>
       </div>
       {isMulti ? (<div style={{marginBottom:14}}>
-        <label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:6}}>Recursos interpostos <span style={{opacity:0.7}}>(um ou mais)</span></label>
+        <label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:6}}>Recursos interpostos <span style={{opacity:0.7}}>(nosso ou da parte adversa)</span></label>
         {recursos.length === 0 && <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginBottom:6}}>Nenhum recurso registrado.</div>}
         {recursos.map((r, ri) => (<div key={ri} style={{border:'1px solid var(--border)',borderRadius:5,padding:8,marginBottom:6}}>
           <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
             <span style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',minWidth:14}}>{ri+1}</span>
             <input type="date" value={r.date||''} onChange={e => updR(ri, { date: e.target.value })} style={{flex:1,fontSize:11,padding:'4px 6px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4}} />
             <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:12}} title="Remover recurso" onClick={() => rmR(ri)}>✕</span>
+          </div>
+          <div style={{display:'flex',gap:5,marginBottom:6}}>
+            {parteBtn(r, ri, 'nossa', 'Nossa')}
+            {parteBtn(r, ri, 'adversa', 'Adversa')}
           </div>
           <input value={r.proc||''} onChange={e => updR(ri, { proc: e.target.value })} placeholder="nº do processo do recurso" style={{width:'100%',fontSize:10,padding:'4px 6px',marginBottom:6,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',fontFamily:'var(--font-mono)'}} />
           <textarea value={r.texto||''} onChange={e => updR(ri, { texto: e.target.value })} placeholder="texto / observação do recurso" rows={2} style={{width:'100%',fontSize:11,padding:'5px 6px',marginBottom:6,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.35}} />
@@ -11347,11 +11417,11 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
               return <button key={ok} type="button" onClick={() => updR(ri, { outcome: on?'':ok })} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?oc:'var(--border)'}`,background:on?outcomeTint(ok):'transparent',color:on?oc:'var(--text-secondary)',fontWeight:on?700:400}}>{ol}</button>; })}
           </div>
         </div>))}
-        <button type="button" onClick={() => setRecursos(rs => [...rs, { date:'', proc:'', texto:'', outcome:'pendente' }])} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-secondary)',cursor:'pointer'}}>+ adicionar recurso</button>
+        <button type="button" onClick={() => setRecursos(rs => [...rs, emptyRecurso()])} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-secondary)',cursor:'pointer'}}>+ adicionar recurso</button>
       </div>) : textOnly ? (
         <div style={{marginBottom:14}}>
           <label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label>
-          <textarea value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="Descreva o saneamento / provas relevantes" rows={3} style={{width:'100%',fontSize:12,padding:'8px 10px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.45}} />
+          <textarea value={texto} onChange={e => setTexto(e.target.value)} placeholder="Descreva o saneamento / provas relevantes" rows={3} style={{...field, fontSize:12, padding:'8px 10px', resize:'vertical', fontFamily:'var(--font-display)', lineHeight:1.45}} />
         </div>
       ) : (<>
         {outs.length > 0 && <div style={{display:'flex',gap:6,marginBottom:12}}>
@@ -11359,9 +11429,9 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
             return <button key={ok} type="button" onClick={() => setOutcome(on?'':ok)} style={{flex:1,fontSize:11,padding:'6px 8px',borderRadius:5,cursor:'pointer',border:`1px solid ${on?oc:'var(--border)'}`,background:on?outcomeTint(ok):'transparent',color:on?oc:'var(--text-secondary)',fontWeight:on?700:400}}>{ol}</button>; })}
         </div>}
         <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'flex-start',flexWrap:'wrap'}}>
-          <div style={{flex:'0 0 128px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Data</label><input type="date" value={date} onChange={e => setDate(e.target.value)} onBlur={commit} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
-          <div style={{flex:'0 0 88px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Nº do evento</label><input value={evento} onChange={e => setEvento(e.target.value)} onBlur={commit} placeholder="ex.: 5" style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} /></div>
-          <div style={{flex:'1 1 100%',minWidth:0}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label><textarea value={texto} onChange={e => setTexto(e.target.value)} onBlur={commit} placeholder="ao lado do evento" rows={3} style={{width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box',resize:'vertical',fontFamily:'var(--font-display)',lineHeight:1.35}} /></div>
+          <div style={{flex:'0 0 128px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Data</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={field} /></div>
+          <div style={{flex:'0 0 88px'}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Nº do evento</label><input value={evento} onChange={e => setEvento(e.target.value)} placeholder="ex.: 5" style={field} /></div>
+          <div style={{flex:'1 1 100%',minWidth:0}}><label style={{fontSize:9,color:'var(--text-muted)',display:'block',marginBottom:3}}>Texto</label><textarea value={texto} onChange={e => setTexto(e.target.value)} placeholder="ao lado do evento" rows={3} style={{...field, resize:'vertical', fontFamily:'var(--font-display)', lineHeight:1.35}} /></div>
         </div>
       </>)}
       <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'center'}}>
