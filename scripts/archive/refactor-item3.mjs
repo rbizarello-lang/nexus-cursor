@@ -1,13 +1,13 @@
 /**
- * Item 3 do MELHORIAS.md — move PersonProfileCard, ExecutadoLine e CDAList
+ * Item 3 do docs/MELHORIAS.md — move PersonProfileCard, ExecutadoLine e CDAList
  * para o escopo do módulo (identidade estável) com React.memo.
- * Uso único: node scripts/refactor-item3.mjs
+ * Uso único: node scripts/archive/refactor-item3.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const file = path.join(root, 'src', 'app.jsx');
 const src = fs.readFileSync(file, 'utf8');
 const lines = src.split('\n');

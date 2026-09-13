@@ -8,5 +8,5 @@ alwaysApply: true
 - Produto: Painel de Operações Fiscais (Apps Script + React pré-compilado).
 - Editar frontend em `src/`; HTML na raiz do repo é **gerado** — não editar à mão.
 - Após mudanças em `src/`: `npm run build`.
-- Instruções detalhadas: `AGENTS.md`. Build: `BUILD.md`. Roadmap: `MELHORIAS.md`.
+- Instruções detalhadas: `AGENTS.md`. Build: `BUILD.md`. Roadmap: `docs/MELHORIAS.md`.
 - Preferir diffs mínimos; não refatorar domínio fiscal sem pedido.

@@ -7,3 +7,8 @@ Thumbs.db
 # Pasta de push do clasp (gerada por scripts/sync-gas.mjs)
 gas/**
 !gas/.claspignore
+
+# Aliases locais da Demo — mesmo conteúdo de Nexus.demo.html; não versionar
+Nexus_demo.html
+Nexus_demo_experimental.html
+demo_experimental.html

@@ -9,8 +9,11 @@ O JSX é compilado **na sua máquina** antes do `clasp push`.
 |---|---|
 | `src/app.jsx` | **Edite aqui** a lógica React / parsers / domínio |
 | `src/Nexus.shell.html` | **Edite aqui** HTML, CSS, CDN e o portal de tooltips |
-| `Nexus.html` | **Gerado** pelo build — não edite à mão |
-| `scripts/build.mjs` | Compila JSX e monta `Nexus.html` |
+| `Nexus.html` | **Gerado** pelo build (clássico) — não edite à mão |
+| `Nexus.demo.html` | **Gerado** pelo build (Demo Experimental) — não edite à mão |
+| `scripts/build.mjs` | Compila JSX e monta o par canônico acima |
+
+O build também escreve aliases locais (`Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`) com o mesmo conteúdo de `Nexus.demo.html`. Eles servem para atalhos no computador e **não** são versionados.
 
 ## Deploy (Apps Script)
 
