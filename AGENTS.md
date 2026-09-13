@@ -14,7 +14,9 @@ Painel de Operações Fiscais (Google Apps Script + React). Frontend pré-compil
 **Nunca editar à mão** (gerados por `npm run build`):
 
 - `Nexus.html` (clássico — default do `doGet`)
-- `Nexus.demo.html`, `Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`
+- `Nexus.demo.html` (Demo Experimental)
+
+O build ainda escreve aliases locais com o mesmo conteúdo de `Nexus.demo.html` (`Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`). Esses três arquivos **não** entram no git.
 
 Detalhes: `BUILD.md`.
 
@@ -31,7 +33,7 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 ## Edições de UI
 
 - **Clássico** (default): `Nexus.html` / `doGet`. Temas: Mar Profundo · Claro · Ferro e Maré.
-- **Demo Experimental**: `uiEdition: 'demo'` — rail Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho. Ativar via ⚙, `?edition=demo`, ou abrir os HTML demo na raiz.
+- **Demo Experimental**: `uiEdition: 'demo'` — rail Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho. Ativar via ⚙, `?edition=demo`, ou abrir `Nexus.demo.html`.
 - Demo **não** substitui o clássico. Modelo de dados, parsers, sync Drive, formulários e calculadora de prescrição devem permanecer compatíveis entre edições, salvo pedido explícito.
 
 ## Planejamento
@@ -50,5 +52,5 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 ## Cursor Cloud
 
 - Setup: `npm install && npm run build`.
-- Para validar clássico vs demo localmente, abrir os HTML gerados na raiz após o build.
+- Para validar clássico vs demo localmente, abrir `Nexus.html` e `Nexus.demo.html` após o build.
 - `npm run push` só faz sentido com `clasp` autenticado e `.clasp.json` apontando ao projeto correto; não assumir push remoto sem isso.
