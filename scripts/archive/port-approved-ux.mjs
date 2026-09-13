@@ -5,13 +5,13 @@
  * - sem Linha do tempo / Grafo / Insights / CDAs / Processos (abas antigas)
  * - Processos e Prescri├º├úo unificados, colapsados
  *
- * Uso: node scripts/port-approved-ux.mjs
+ * Uso: node scripts/archive/port-approved-ux.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const appPath = path.join(root, 'src', 'app.jsx');
 
 const fail = (m) => { throw new Error(`port-approved-ux: ${m}`); };

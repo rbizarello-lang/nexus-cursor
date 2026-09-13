@@ -4,13 +4,13 @@
  *     reutiliza as fatias em vez de refiltrar todas as coleções.
  *  2) Clique em operação: gravação de lastAccessed adiada (não bloqueia a abertura).
  *  3) useTransition nos cliques de aba/operação — a UI não congela durante o render.
- * Uso único: node scripts/refactor-transicoes.mjs
+ * Uso único: node scripts/archive/refactor-transicoes.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const file = path.join(root, 'src', 'app.jsx');
 let src = fs.readFileSync(file, 'utf8');
 const lines = src.split('\n');

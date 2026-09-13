@@ -2,14 +2,14 @@
  * Restaura o UX aprovado (31/07) a partir do git stash@{0},
  * preservando Demo Experimental / Mar / Intimações-Tarefas / agenda semanal.
  *
- * Uso: node scripts/restore-approved-ux.mjs
+ * Uso: node scripts/archive/restore-approved-ux.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const appPath = path.join(root, 'src', 'app.jsx');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 
