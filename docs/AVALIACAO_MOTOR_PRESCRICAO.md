@@ -213,4 +213,4 @@ Cada fase fecha com `npm test` verde e build. A fase 1 não muda nada que o usu�
 - Não tratar ajuizamento, citação, constrição pré-marco ou status "arquivada" como **marco**. São **âncoras de piso e teto**, o que é diferente e suficiente.
 - Não remover inscrição do radar por `garantida`, `parcelada` ou "interrompida = SIM" de planilha. Rebaixar, sim; remover, não.
 - Não corrigir o caso D "apagando" a data informada: ela é dado do usuário. Mostrar o conflito.
-- Não refatorar `app.jsx` além de trocar as leituras por chamadas ao radar. A extração ampla é outro item do `MELHORIAS.md`.
+- Não refatorar `app.jsx` além de trocar as leituras por chamadas ao radar. A extração ampla é outro item do `docs/MELHORIAS.md`.

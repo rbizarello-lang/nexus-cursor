@@ -38,16 +38,16 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 
 ## Planejamento
 
-- `MELHORIAS.md` — banco de anotações / fases. Pedidos típicos: “vamos fazer o item N” ou “vamos fazer o P2”.
+- `docs/MELHORIAS.md` — banco de anotações / fases. Pedidos típicos: “vamos fazer o item N” ou “vamos fazer o P2”.
 - Redesign progressivo: **uma fase por vez** → build → validação → próxima.
-- Mockups em `_design-mockups/`. Arquivos `**/*.md`, `src/`, `scripts/` e toolchain **não** sobem no `clasp push` (`.claspignore`).
+- Mockups em `design/mockups/`. Arquivos `**/*.md`, `src/`, `scripts/` e toolchain **não** sobem no `clasp push` (`.claspignore`).
 
 ## Princípios de mudança
 
 - Preferir edições mínimas e focadas no pedido.
 - Não refatorar parsers, prescrição ou sync Drive “de passagem”.
 - Em UI: preservar o card atual de intimação (notas) salvo fase explícita do plano.
-- `MELHORIAS.md` e `BUILD.md` são documentação humana; estas instruções em `AGENTS.md` e `.cursor/rules/` têm prioridade para o Agent.
+- `docs/MELHORIAS.md` e `BUILD.md` são documentação humana; estas instruções em `AGENTS.md` e `.cursor/rules/` têm prioridade para o Agent.
 
 ## Cursor Cloud
 

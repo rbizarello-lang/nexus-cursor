@@ -9,7 +9,8 @@ package-lock.json
 README.md
 BUILD.md
 _backup*/**
-_design-mockups/**
+design/**
+docs/**
 _app_compiled*
 _debug*
 **/*.md
@@ -17,7 +18,7 @@ _debug*
 Thumbs.db
 
 # Demos locais — o webapp (Código.js) só serve Nexus.html.
-# Empurrar 4 cópias de ~1.5 MB cada (~6 MB) costuma falhar/timeout no clasp push.
+# Não empurrar a demo nem os aliases locais (mesmo conteúdo, ~1,5 MB cada).
 Nexus.demo.html
 Nexus_demo.html
 Nexus_demo_experimental.html

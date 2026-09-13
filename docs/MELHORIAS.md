@@ -1,7 +1,7 @@
 # NEXUS — Banco de Anotações (melhorias futuras)
 
 Arquivo de planejamento. Não sobe para o Apps Script (ignorado pelo `.claspignore`).
-Para executar um item, basta pedir: "vamos fazer o item N do MELHORIAS.md".
+Para executar um item, basta pedir: "vamos fazer o item N do docs/MELHORIAS.md".
 
 Última atualização: 03/08/2026
 
@@ -16,16 +16,16 @@ Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássic
 - **Processos Visão D (clássico) + A/B/C/D (Demo):** o app clássico usa **Visão D · Master–detail** (rail de hubs + painel com EFs abrangidas / sem vínculo; Extintas·Outros demoted; detalhe só ao clicar a linha / Abrir) via `renderProcViewMasterDetail` + `classifyProcGroups`. No Demo Experimental o seletor é **A · Árvore** | **B · Hub com EFs no card** | **C · Seções + tabela** | **D · Master–detail** (padrão se `processViewModel` unset; valor já persistido é respeitado) — `nexus_settings.processViewModel` / `nexus_demo_proc_view`.
 - **Temas clássicos (03/08/2026):** removido **Noite Azulada** (`theme: ''`); adicionado **Claro** (`theme-claro`) com tokens papel-ardósia da Demo Clara (`.edition-demo` base). Padrão continua **Mar Profundo**. Migração: `''` / `theme-noite*` → `theme-claro`. Lista clássica: Mar Profundo · Claro · Ferro e Maré.
 - **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
-- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus_demo_experimental.html` (também `Nexus.demo.html` / `demo_experimental.html`), ou `?edition=demo` (persiste em `nexus_settings`).
+- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus.demo.html`, ou `?edition=demo` (persiste em `nexus_settings`).
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
-- **Build:** `npm run build` gera na raiz: `Nexus.html` + `Nexus.demo.html` + `Nexus_demo_experimental.html` (+ alias `demo_experimental.html`).
+- **Build:** `npm run build` gera na raiz o par canônico `Nexus.html` + `Nexus.demo.html`. Aliases locais da demo podem aparecer no disco, mas não entram no git.
 
 ---
 
 ## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
 **Ainda não implementado.** Pedir por fase: "vamos fazer o P1".
-Mockups em `_design-mockups/` (inclui `recon-07-gramatica-card-atual.png`).
+Mockups em `design/mockups/` (inclui `recon-07-gramatica-card-atual.png`).
 
 ### Princípios (suas decisões)
 - **Preservar o card atual** (notas imprescindíveis). Não trocar por tabela “do zero”.
