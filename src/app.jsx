@@ -964,6 +964,21 @@ function opMatchesClassFilter(op, filter) {
   if (filter === 'parceladas' && op.opCategory === 'parcelada') return true;
   return false;
 }
+function opClassFilterLabel(filter) {
+  if (!filter || filter === 'all') return 'Filtro';
+  if (filter === 'encerrada') return 'Filtro · Encerradas';
+  const meta = OP_CLASSIFICATIONS[filter];
+  return meta ? `Filtro · ${meta.label}` : 'Filtro';
+}
+function opClassChipKeys(operations) {
+  const usedKeys = new Set();
+  (operations || []).forEach(op => getOpClassifications(op).forEach(k => usedKeys.add(k)));
+  const pinned = ['alta_relevancia', 'parceladas'];
+  const rest = [...usedKeys]
+    .filter(k => !pinned.includes(k))
+    .sort((a, b) => (OP_CLASSIFICATIONS[a].label).localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR', { sensitivity: 'base' }));
+  return [...pinned, ...rest];
+}
 function sortOpsByName(a, b) {
   return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
 }
@@ -2998,6 +3013,7 @@ function App() {
   const deferredGsQuery = React.useDeferredValue(gsQuery);
   const [intimFilter, setIntimFilter] = useState('all');
   const [opClassFilter, setOpClassFilter] = useState('all');
+  const [showOpFilterMenu, setShowOpFilterMenu] = useState(false);
   const [intimSort, setIntimSort] = useState('deadline');
   const [respondModal, setRespondModal] = useState(null); // { intim, type }
   const [intimWork, setIntimWork] = useState(false); // overlay p/ trabalhar intimações dentro da operação
@@ -3992,7 +4008,10 @@ function App() {
       return n;
     });
   };
-  const filteredOps = data.operations.filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase())).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
+  const filteredOps = data.operations
+    .filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || (o.description || '').toLowerCase().includes(search.toLowerCase()))
+    .filter(o => opMatchesClassFilter(o, opClassFilter))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'pt-BR'));
 
   // CRUD
   // Campos cuja mudança vale registro no histórico de alterações (auditoria leve)
@@ -9096,9 +9115,38 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="sidebar-search">
         <input placeholder="Buscar operação..." value={search} onChange={e => setSearch(e.target.value)} />
         <button className="btn-secondary btn-sm" style={{marginTop:6,width:'100%',fontSize:10}} onClick={() => {setGlobalSearch(true);setGsQuery('');}}>🔍 Busca Global (Ctrl+K)</button>
+        <button className={`btn-secondary btn-sm sidebar-filter-btn${opClassFilter!=='all'?' is-on':''}${showOpFilterMenu?' is-open':''}`} onClick={() => setShowOpFilterMenu(v => !v)}>
+          {opClassFilterLabel(opClassFilter)}
+        </button>
+        {showOpFilterMenu && (() => {
+          const chipKeys = opClassChipKeys(data.operations);
+          const encerradaCount = data.operations.filter(op => op.status === 'encerrada').length;
+          const pick = (key) => { setOpClassFilter(key); setShowOpFilterMenu(false); };
+          return (
+            <div className="sidebar-filter-menu">
+              <button className={`settings-opt ${opClassFilter==='all'?'active':''}`} onClick={() => pick('all')}>Todas ({data.operations.length})</button>
+              {chipKeys.map(k => {
+                const meta = OP_CLASSIFICATIONS[k];
+                const n = data.operations.filter(op => opMatchesClassFilter(op, k)).length;
+                return (
+                  <button key={k} className={`settings-opt ${opClassFilter===k?'active':''}`}
+                    style={opClassFilter===k ? { color: meta.color, borderColor: meta.border } : undefined}
+                    onClick={() => pick(k)}>
+                    {meta.label} ({n})
+                  </button>
+                );
+              })}
+              {encerradaCount > 0 && (
+                <button className={`settings-opt ${opClassFilter==='encerrada'?'active':''}`} onClick={() => pick('encerrada')}>
+                  Encerradas ({encerradaCount})
+                </button>
+              )}
+            </div>
+          );
+        })()}
       </div>
       <div className="sidebar-ops">
-        {filteredOps.length === 0 && <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:11}}>{data.operations.length===0?'Crie sua primeira operação':'Nenhum resultado'}</div>}
+        {filteredOps.length === 0 && <div style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:11}}>{data.operations.length===0?'Crie sua primeira operação':(opClassFilter!=='all'?'Nenhuma operação neste filtro':'Nenhum resultado')}</div>}
         {filteredOps.map(op => {
           const m = sidebarOpMeta[op.id] || { dCount: 0, pCount: 0, openIntims: 0, overdueIntims: 0, openTasks: 0, alerts: 0, soonestIntim: null, soonestTask: null };
           return (<div key={op.id} className={`sidebar-op-item ${activeOpId===op.id?'active':''} ${op.opCategory && op.opCategory !== 'none' ? 'cat-'+op.opCategory.replace('alta_relevancia','alta') : ''}`} onClick={() => { startTabSwitch(() => { setActiveOpId(op.id); setImportResult(null); setViewMode('operation'); }); setTimeout(() => touchOperationAccess(op.id), 800); }}>
@@ -9564,13 +9612,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'operation',initial:{}})}>+ Operação</button>
               </div>
               {(() => {
-                const usedKeys = new Set();
-                data.operations.forEach(op => getOpClassifications(op).forEach(k => usedKeys.add(k)));
-                const pinned = ['alta_relevancia', 'parceladas'];
-                const rest = [...usedKeys]
-                  .filter(k => !pinned.includes(k))
-                  .sort((a, b) => (OP_CLASSIFICATIONS[a].label).localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR', { sensitivity: 'base' }));
-                const chipKeys = [...pinned, ...rest];
+                const chipKeys = opClassChipKeys(data.operations);
                 const encerradaCount = data.operations.filter(op => op.status === 'encerrada').length;
 
                 const matches = data.operations.filter(op => opMatchesClassFilter(op, opClassFilter));
