@@ -2597,6 +2597,21 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-week-card.kind-presc { border-left: 3px solid var(--red); }
 .demo-week-card.kind-presc .demo-week-card-k { color: var(--red); }
 .demo-week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.demo-week-view { display: inline-flex; gap: 4px; }
+.demo-week-view .settings-opt { font-size: 10px; padding: 3px 9px; }
+.demo-month-dow {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 4px;
+}
+.demo-month-dow span {
+  font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.04em; text-align: center;
+}
+.demo-week.is-month { gap: 6px; }
+.demo-week-day.is-month { min-height: 92px; max-height: 118px; padding: 6px; overflow: hidden; }
+.demo-week.is-month .demo-week-day-n { font-size: 13px; }
+.demo-week-day.outside { opacity: 0.42; }
+.demo-week-card.is-compact { padding: 3px 5px; gap: 1px; }
+.demo-week-more { font-size: 9px; font-weight: 600; color: var(--text-muted); padding: 0 2px; }
 .demo-week-legend { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; flex-wrap: wrap; }
 .demo-week-leg {
   font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
@@ -3333,6 +3348,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   .demo-hoje-hero h2 { font-size: 30px; }
   .demo-fila-item { grid-template-columns: 1fr; gap: 4px; }
   .demo-week { grid-template-columns: repeat(2, 1fr); }
+  .demo-week.is-month { grid-template-columns: repeat(7, minmax(72px, 1fr)); overflow-x: auto; }
   .demo-zones { overflow-x: auto; }
   .demo-proc-ef-chip { grid-template-columns: 1fr 1fr; }
 }

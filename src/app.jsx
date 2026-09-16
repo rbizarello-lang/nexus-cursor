@@ -2997,6 +2997,13 @@ function App() {
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // monday
     return d;
   });
+  const [agendaView, setAgendaView] = useState(() => {
+    try { return localStorage.getItem('nexus_agenda_view') === 'month' ? 'month' : 'week'; } catch { return 'week'; }
+  });
+  const [agendaMonthStart, setAgendaMonthStart] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
   const [modal, setModal] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -8894,9 +8901,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  // Quadro semanal: prazos de intimação, tarefas com data limite, audiências e termo final de prescrição.
+  // Quadro semanal/mensal: prazos de intimação, tarefas com data limite, audiências e termo final de prescrição.
   const renderAgendaWeek = (opts = {}) => {
     const embedded = !!opts.embedded;
+    const isMonth = agendaView === 'month';
     const localDayKey = (d) => {
       if (typeof d === 'string') return d.slice(0, 10);
       if (!d) return '';
@@ -8905,17 +8913,60 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const day = String(d.getDate()).padStart(2, '0');
       return `${y}-${m}-${day}`;
     };
-    const start = new Date(agendaWeekStart);
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start); d.setDate(start.getDate() + i); return d;
-    });
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const weekStartKey = localDayKey(days[0]);
-    const weekEndKey = localDayKey(days[6]);
-    const label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-    const shift = (n) => { const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d); };
+    let days;
+    let label;
+    let monthRef = null;
+    if (isMonth) {
+      monthRef = new Date(agendaMonthStart.getFullYear(), agendaMonthStart.getMonth(), 1);
+      const last = new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 0);
+      const gridStart = new Date(monthRef);
+      gridStart.setDate(monthRef.getDate() - ((monthRef.getDay() + 6) % 7));
+      const lastDow = (last.getDay() + 6) % 7;
+      const gridEnd = new Date(last);
+      gridEnd.setDate(last.getDate() + (6 - lastDow));
+      days = [];
+      for (let d = new Date(gridStart); d <= gridEnd; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+      const raw = monthRef.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      label = raw.charAt(0).toUpperCase() + raw.slice(1);
+    } else {
+      const start = new Date(agendaWeekStart);
+      days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(start); d.setDate(start.getDate() + i); return d;
+      });
+      label = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    }
+    const rangeStartKey = localDayKey(days[0]);
+    const rangeEndKey = localDayKey(days[days.length - 1]);
+    const persistView = (v) => { try { localStorage.setItem('nexus_agenda_view', v); } catch {} };
+    const goWeek = () => {
+      if (isMonth) {
+        const first = new Date(agendaMonthStart.getFullYear(), agendaMonthStart.getMonth(), 1);
+        first.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+        setAgendaWeekStart(first);
+      }
+      setAgendaView('week');
+      persistView('week');
+    };
+    const goMonth = () => {
+      if (!isMonth) setAgendaMonthStart(new Date(agendaWeekStart.getFullYear(), agendaWeekStart.getMonth(), 1));
+      setAgendaView('month');
+      persistView('month');
+    };
+    const shift = (n) => {
+      if (isMonth) {
+        setAgendaMonthStart(new Date(agendaMonthStart.getFullYear(), agendaMonthStart.getMonth() + n, 1));
+      } else {
+        const d = new Date(agendaWeekStart); d.setDate(d.getDate() + n * 7); setAgendaWeekStart(d);
+      }
+    };
+    const goToday = () => {
+      const d = new Date(); d.setHours(0, 0, 0, 0);
+      if (isMonth) setAgendaMonthStart(new Date(d.getFullYear(), d.getMonth(), 1));
+      else { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); setAgendaWeekStart(d); }
+    };
     const opName = (id) => data.operations.find(o => o.id === id)?.name || '';
-    const inWeek = (iso) => { const k = toDayKey(iso) || localDayKey(iso); return k && k >= weekStartKey && k <= weekEndKey; };
+    const inRange = (iso) => { const k = toDayKey(iso) || localDayKey(iso); return k && k >= rangeStartKey && k <= rangeEndKey; };
 
     // Coleta por dia: prazo (intimação), tarefa (com data limite), audiência, termo final de prescrição
     const byDay = {};
@@ -8929,7 +8980,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     (data.intimations || []).forEach(x => {
       if (!intimPrazoNaAgenda(x)) return;
       const dl = toDayKey(x.dateDeadline);
-      if (!inWeek(dl)) return;
+      if (!inRange(dl)) return;
       pushDay(dl, {
         id: 'intim-' + x.id, kind: 'prazo', sub: 'intim',
         title: truncate(x.processNumber || x.partyName || 'Intimação', 32),
@@ -8941,7 +8992,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     (data.tasks || []).forEach(t => {
       // Só entra na agenda quando há Data Limite marcada
       if (!t.dueDate || t.status === 'concluida' || t.status === 'cancelada') return;
-      if (!inWeek(t.dueDate)) return;
+      if (!inRange(t.dueDate)) return;
       pushDay(t.dueDate, {
         id: 'task-' + t.id, kind: 'tarefa', sub: 'task',
         title: truncate(t.title || 'Tarefa', 32),
@@ -8955,7 +9006,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     });
     (data.hearings || []).forEach(h => {
       if (!h.date || h.status === 'cancelada' || h.status === 'realizada') return;
-      if (!inWeek(h.date)) return;
+      if (!inRange(h.date)) return;
       pushDay(h.date, {
         id: 'hear-' + h.id, kind: 'audiencia', sub: 'hearing',
         title: truncate((h.time ? h.time + ' · ' : '') + (h.parties || h.processNumber || 'Audiência'), 34),
@@ -8968,7 +9019,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       if (d.status === 'extinta' || d.prescriptionHandled) return;
       const row = prazosByDebt.get(d.id);
       const pd = (row && row.keyDate) || getPrescDate(d);
-      if (!inWeek(pd)) return;
+      if (!inRange(pd)) return;
       pushDay(pd, {
         id: 'presc-' + d.id, kind: 'presc', sub: 'presc',
         title: truncate(d.cdaNumber || 'CDA', 28),
@@ -8979,15 +9030,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     });
 
     const kindLabel = { prazo: 'Prazo', tarefa: 'Tarefa', audiencia: 'Audiência', presc: 'Prescrição' };
+    const dowNames = ['Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.', 'Dom.'];
+    const maxCards = isMonth ? 2 : 99;
     let totalCards = 0;
     Object.values(byDay).forEach(arr => { totalCards += arr.length; });
 
     return (
       <div className={embedded ? 'demo-week-embed' : undefined} style={embedded ? undefined : { padding: '12px 24px 0' }}>
         <div className="demo-week-nav">
-          <button className="btn-secondary btn-xs" onClick={() => shift(-1)}>← Semana</button>
-          <button className="btn-secondary btn-xs" onClick={() => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); setAgendaWeekStart(d); }}>Hoje</button>
-          <button className="btn-secondary btn-xs" onClick={() => shift(1)}>Semana →</button>
+          <span className="demo-week-view">
+            <button type="button" className={`settings-opt ${!isMonth?'active':''}`} onClick={goWeek}>Semana</button>
+            <button type="button" className={`settings-opt ${isMonth?'active':''}`} onClick={goMonth}>Mês</button>
+          </span>
+          <button className="btn-secondary btn-xs" onClick={() => shift(-1)}>{isMonth ? '← Mês' : '← Semana'}</button>
+          <button className="btn-secondary btn-xs" onClick={goToday}>Hoje</button>
+          <button className="btn-secondary btn-xs" onClick={() => shift(1)}>{isMonth ? 'Mês →' : 'Semana →'}</button>
           <span style={{fontSize:12,color:'var(--text-secondary)',fontWeight:600}}>{label}</span>
           <span className="demo-week-legend" aria-hidden="true">
             <span className="demo-week-leg kind-prazo">Prazo</span>
@@ -8997,24 +9054,33 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </span>
           <span style={{fontSize:10,color:'var(--text-muted)',marginLeft:'auto'}}>{totalCards} card(s)</span>
         </div>
-        <div className="demo-week">
+        {isMonth && (
+          <div className="demo-month-dow" aria-hidden="true">
+            {dowNames.map(n => <span key={n}>{n}</span>)}
+          </div>
+        )}
+        <div className={`demo-week${isMonth ? ' is-month' : ''}`}>
           {days.map(d => {
             const key = localDayKey(d);
             const isToday = d.getTime() === today.getTime();
+            const outside = isMonth && monthRef && d.getMonth() !== monthRef.getMonth();
             const cards = byDay[key] || [];
+            const shown = cards.slice(0, maxCards);
+            const extra = cards.length - shown.length;
             return (
-              <div key={key} className={`demo-week-day ${isToday ? 'today' : ''}`}>
-                <div className="demo-week-day-h">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
+              <div key={key} className={`demo-week-day${isToday ? ' today' : ''}${isMonth ? ' is-month' : ''}${outside ? ' outside' : ''}`}>
+                {!isMonth && <div className="demo-week-day-h">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>}
                 <div className="demo-week-day-n">{d.getDate()}</div>
                 {cards.length === 0 && <div className="demo-week-empty">—</div>}
-                {cards.map(c => (
-                  <button key={c.id} type="button" className={`demo-week-card kind-${c.kind}`}
+                {shown.map(c => (
+                  <button key={c.id} type="button" className={`demo-week-card kind-${c.kind}${isMonth ? ' is-compact' : ''}`}
                     title={c.tip} onClick={c.onClick}>
                     <span className="demo-week-card-k">{kindLabel[c.kind]}</span>
                     <span className="demo-week-card-t">{c.title}</span>
-                    {c.meta ? <span className="demo-week-card-m">{truncate(c.meta, 28)}</span> : null}
+                    {!isMonth && c.meta ? <span className="demo-week-card-m">{truncate(c.meta, 28)}</span> : null}
                   </button>
                 ))}
+                {extra > 0 && <div className="demo-week-more" title={cards.slice(maxCards).map(c => kindLabel[c.kind] + ': ' + c.title).join('\n')}>+{extra}</div>}
               </div>
             );
           })}
@@ -9419,7 +9485,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{marginBottom:20,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
               <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'var(--text-primary)'}}>
-                  Agenda da semana
+                  Agenda {agendaView === 'month' ? 'do mês' : 'da semana'}
                   <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10,marginLeft:8}}>
                     Prazos · tarefas (data limite) · audiências · termo final de prescrição
                   </span>
