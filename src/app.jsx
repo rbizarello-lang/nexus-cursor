@@ -11673,7 +11673,7 @@ function PersonSubtabs({ data, opId, currentFilter, onChange, mode }) {
   </div>);
 }
 
-function CheckList({ options, selected, onChange, emptyText }) {
+function CheckList({ options, selected, onChange, emptyText, searchPlaceholder }) {
   const sel = new Set(selected || []);
   const [q, setQ] = React.useState('');
   const [onlySel, setOnlySel] = React.useState(false);
@@ -11682,19 +11682,37 @@ function CheckList({ options, selected, onChange, emptyText }) {
     if (n.has(id)) n.delete(id); else n.add(id);
     onChange([...n]);
   };
+  const digitsOnly = (s) => String(s || '').replace(/\D/g, '');
   const ql = q.trim().toLowerCase();
-  const matchesQ = (o) => !ql || (o.label || '').toLowerCase().includes(ql) || (o.badge || '').toLowerCase().includes(ql);
+  const qd = digitsOnly(ql);
+  const matchesQ = (o) => {
+    if (!ql) return true;
+    const label = (o.label || '').toLowerCase();
+    const badge = (o.badge || '').toLowerCase();
+    if (label.includes(ql) || badge.includes(ql)) return true;
+    // Nº CNJ / CDA: busca ignora pontos, hífens e espaços (5000129… casa com 5000129-53.2016…)
+    if (qd.length >= 3) {
+      const hay = digitsOnly(o.label) + digitsOnly(o.badge);
+      if (hay.includes(qd)) return true;
+    }
+    return false;
+  };
   let pool = options.filter(matchesQ);
   if (onlySel) pool = pool.filter(o => sel.has(o.id));
   const selPool = pool.filter(o => sel.has(o.id));
   const unselPool = pool.filter(o => !sel.has(o.id));
-  const showTools = options.length > 8;
+  const showBulk = options.length > 8;
   const highlight = (text) => {
     const t = String(text || '');
     if (!ql) return t;
     const i = t.toLowerCase().indexOf(ql);
-    if (i < 0) return t;
-    return (<React.Fragment>{t.slice(0, i)}<mark style={{background:'var(--accent-dim)',color:'var(--accent)',borderRadius:2,padding:'0 1px'}}>{t.slice(i, i + ql.length)}</mark>{t.slice(i + ql.length)}</React.Fragment>);
+    if (i >= 0) {
+      return (<React.Fragment>{t.slice(0, i)}<mark style={{background:'var(--accent-dim)',color:'var(--accent)',borderRadius:2,padding:'0 1px'}}>{t.slice(i, i + ql.length)}</mark>{t.slice(i + ql.length)}</React.Fragment>);
+    }
+    if (qd.length >= 3 && digitsOnly(t).includes(qd)) {
+      return (<mark style={{background:'var(--accent-dim)',color:'var(--accent)',borderRadius:2,padding:'0 1px'}}>{t}</mark>);
+    }
+    return t;
   };
   const Row = (o) => (
     <label key={o.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 6px',cursor:'pointer',borderRadius:4,fontSize:11,color:sel.has(o.id)?'var(--text-primary)':'var(--text-secondary)',background:sel.has(o.id)?'var(--accent-dim)':'transparent',transition:'background 0.15s',marginBottom:1}}>
@@ -11712,25 +11730,25 @@ function CheckList({ options, selected, onChange, emptyText }) {
     </div>);
   }
   return (<div>
-    {showTools && (<React.Fragment>
+    <React.Fragment>
       <div style={{display:'flex',alignItems:'center',gap:6,border:'1px solid var(--border)',borderRadius:'var(--radius)',background:'var(--bg-input)',padding:'0 8px',marginBottom:6}}>
         <span style={{fontSize:11,color:'var(--text-muted)',flexShrink:0}}>🔎</span>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por número ou descrição…" style={{flex:1,minWidth:0,background:'transparent',border:'none',outline:'none',color:'var(--text-primary)',fontSize:11,fontFamily:'var(--font-mono)',padding:'7px 0'}} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={searchPlaceholder || 'Buscar por número ou juízo…'} style={{flex:1,minWidth:0,background:'transparent',border:'none',outline:'none',color:'var(--text-primary)',fontSize:11,fontFamily:'var(--font-mono)',padding:'7px 0'}} />
       {q && <span onClick={() => setQ('')} title="Limpar busca" style={{cursor:'pointer',color:'var(--text-muted)',fontSize:11,flexShrink:0,padding:'0 2px'}}>✕</span>}
       </div>
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
-        <span style={{fontSize:10,color:'var(--accent)',fontWeight:600,flexShrink:0}}>{sel.size} de {options.length} selecionadas</span>
-        <div style={{display:'flex',alignItems:'center',gap:5,marginLeft:'auto',flexWrap:'wrap'}}>
+        <span style={{fontSize:10,color:'var(--accent)',fontWeight:600,flexShrink:0}}>{sel.size} de {options.length} selecionadas{ql ? ` · ${pool.length} visíveis` : ''}</span>
+        {showBulk && <div style={{display:'flex',alignItems:'center',gap:5,marginLeft:'auto',flexWrap:'wrap'}}>
           <button type="button" className="btn-secondary btn-xs" onClick={selectVisible}>Selecionar visíveis</button>
           <button type="button" className="btn-secondary btn-xs" onClick={selectAll}>Todas</button>
           <button type="button" className="btn-secondary btn-xs" onClick={clearAll}>Limpar</button>
           <label style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:10,color:'var(--text-secondary)',cursor:'pointer'}}>
             <input type="checkbox" checked={onlySel} onChange={e => setOnlySel(e.target.checked)} style={{width:13,height:13,cursor:'pointer'}} /> Só selecionadas
           </label>
-        </div>
+        </div>}
       </div>
-    </React.Fragment>)}
-    <div style={{maxHeight:showTools?260:140,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:4,background:'var(--bg-elevated)'}}>
+    </React.Fragment>
+    <div style={{maxHeight:showBulk?260:180,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:4,background:'var(--bg-elevated)'}}>
       {pool.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',padding:6}}>{ql ? ('Nenhum resultado para “' + q + '”.') : 'Nenhum item.'}</div> :
        (selPool.length > 0 && unselPool.length > 0 && !onlySel) ? (<React.Fragment>
          {selPool.map(Row)}
@@ -11998,6 +12016,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           selected={form.linkedExecutionIds||[]}
           onChange={ids => set('linkedExecutionIds', ids)}
           emptyText="Cadastre execuções primeiro"
+          searchPlaceholder="Buscar execução pelo número ou juízo…"
         />
       </div>
     )}
@@ -12137,6 +12156,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           selected={currentLinked}
           onChange={ids => { set('linkedExecutionIds', ids); set('executionId', ids[0]||''); }}
           emptyText="Cadastre execuções primeiro"
+          searchPlaceholder="Buscar execução pelo número ou juízo…"
         />
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}><option value="ativa">Ativa</option><option value="deferida">Deferida</option><option value="indeferida">Indeferida</option><option value="extinta">Extinta</option></select></div>
