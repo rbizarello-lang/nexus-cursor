@@ -11707,7 +11707,7 @@ function PersonSubtabs({ data, opId, currentFilter, onChange, mode }) {
   </div>);
 }
 
-function CheckList({ options, selected, onChange, emptyText }) {
+function CheckList({ options, selected, onChange, emptyText, alwaysSearch }) {
   const sel = new Set(selected || []);
   const [q, setQ] = React.useState('');
   const [onlySel, setOnlySel] = React.useState(false);
@@ -11717,11 +11717,24 @@ function CheckList({ options, selected, onChange, emptyText }) {
     onChange([...n]);
   };
   const ql = q.trim().toLowerCase();
-  const matchesQ = (o) => !ql || (o.label || '').toLowerCase().includes(ql) || (o.badge || '').toLowerCase().includes(ql);
+  const qDigits = ql.replace(/\D/g, '');
+  const matchesQ = (o) => {
+    if (!ql) return true;
+    const label = (o.label || '').toLowerCase();
+    const badge = (o.badge || '').toLowerCase();
+    if (label.includes(ql) || badge.includes(ql)) return true;
+    if (qDigits.length >= 4) {
+      const labelDigits = (o.label || '').replace(/\D/g, '');
+      const badgeDigits = (o.badge || '').replace(/\D/g, '');
+      if (labelDigits.includes(qDigits) || badgeDigits.includes(qDigits)) return true;
+    }
+    return false;
+  };
   let pool = options.filter(matchesQ);
   if (onlySel) pool = pool.filter(o => sel.has(o.id));
   const selPool = pool.filter(o => sel.has(o.id));
   const unselPool = pool.filter(o => !sel.has(o.id));
+  const showSearch = !!alwaysSearch || options.length > 8;
   const showTools = options.length > 8;
   const highlight = (text) => {
     const t = String(text || '');
@@ -11746,12 +11759,14 @@ function CheckList({ options, selected, onChange, emptyText }) {
     </div>);
   }
   return (<div>
-    {showTools && (<React.Fragment>
+    {showSearch && (
       <div style={{display:'flex',alignItems:'center',gap:6,border:'1px solid var(--border)',borderRadius:'var(--radius)',background:'var(--bg-input)',padding:'0 8px',marginBottom:6}}>
         <span style={{fontSize:11,color:'var(--text-muted)',flexShrink:0}}>🔎</span>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por número ou descrição…" style={{flex:1,minWidth:0,background:'transparent',border:'none',outline:'none',color:'var(--text-primary)',fontSize:11,fontFamily:'var(--font-mono)',padding:'7px 0'}} />
-      {q && <span onClick={() => setQ('')} title="Limpar busca" style={{cursor:'pointer',color:'var(--text-muted)',fontSize:11,flexShrink:0,padding:'0 2px'}}>✕</span>}
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={alwaysSearch ? 'Buscar execução por número ou vara…' : 'Buscar por número ou descrição…'} style={{flex:1,minWidth:0,background:'transparent',border:'none',outline:'none',color:'var(--text-primary)',fontSize:11,fontFamily:'var(--font-mono)',padding:'7px 0'}} />
+        {q && <span onClick={() => setQ('')} title="Limpar busca" style={{cursor:'pointer',color:'var(--text-muted)',fontSize:11,flexShrink:0,padding:'0 2px'}}>✕</span>}
       </div>
+    )}
+    {showTools && (
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
         <span style={{fontSize:10,color:'var(--accent)',fontWeight:600,flexShrink:0}}>{sel.size} de {options.length} selecionadas</span>
         <div style={{display:'flex',alignItems:'center',gap:5,marginLeft:'auto',flexWrap:'wrap'}}>
@@ -11763,7 +11778,7 @@ function CheckList({ options, selected, onChange, emptyText }) {
           </label>
         </div>
       </div>
-    </React.Fragment>)}
+    )}
     <div style={{maxHeight:showTools?260:140,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:4,background:'var(--bg-elevated)'}}>
       {pool.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',padding:6}}>{ql ? ('Nenhum resultado para “' + q + '”.') : 'Nenhum item.'}</div> :
        (selPool.length > 0 && unselPool.length > 0 && !onlySel) ? (<React.Fragment>
@@ -12085,6 +12100,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           selected={form.linkedExecutionIds||[]}
           onChange={ids => set('linkedExecutionIds', ids)}
           emptyText="Cadastre execuções primeiro"
+          alwaysSearch
         />
       </div>
     )}
@@ -12224,6 +12240,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           selected={currentLinked}
           onChange={ids => { set('linkedExecutionIds', ids); set('executionId', ids[0]||''); }}
           emptyText="Cadastre execuções primeiro"
+          alwaysSearch
         />
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}><option value="ativa">Ativa</option><option value="deferida">Deferida</option><option value="indeferida">Indeferida</option><option value="extinta">Extinta</option></select></div>
