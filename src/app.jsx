@@ -111,7 +111,7 @@ const generateDemoData = () => {
   const base = defaultData();
 
   const operations = [
-    { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa','muitos_bens'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210),
+    { id:'op-demo-1', name:'Operação Fachada Norte', description:'Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR.', status:'ativa', priority:'alta', classifications:['alta_relevancia','constricao_ativa','bens_suficientes'], opCategory:'alta_relevancia', reviewInterval:'mensal', lastReviewedAt: iso(-40), lastAccessed: ts(-1), createdAt: ts(-210),
       briefing: {
         entries: [
           { id:'be-1', title:'Hipótese', body:'Grupo econômico de fato entre Comercial Fachada Norte, Imobiliária Norte Prime e sócios; confusão patrimonial e IDPJ em curso.', updatedAt: ts(-5) },
@@ -128,7 +128,7 @@ const generateDemoData = () => {
         },
       },
     },
-    { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora com interpostas pessoas; EF central, cautelar fiscal, Sisbajud e embargos.', status:'ativa', priority:'normal', classifications:['replicar','muitos_bens','constricao_ativa'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160),
+    { id:'op-demo-2', name:'Operação Laranjas do Vale', description:'Distribuidora com interpostas pessoas; EF central, cautelar fiscal, Sisbajud e embargos.', status:'ativa', priority:'media', classifications:['replicar','bens_suficientes','constricao_ativa'], opCategory:'replicar', reviewInterval:'mensal', lastReviewedAt: iso(-20), lastAccessed: ts(-3), createdAt: ts(-160),
       briefing: {
         entries: [
           { id:'be-3', title:'Estratégia', body:'Cautelar fiscal + Sisbajud; avaliar redirecionamento a Carlos Menezes e à transportadora do grupo.', updatedAt: ts(-2) },
@@ -143,7 +143,7 @@ const generateDemoData = () => {
         },
       },
     },
-    { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; EF suspensa (art. 40), embargos e avaliação de IDPJ à sucessora.', status:'ativa', priority:'normal', classifications:['em_andamento','recurso_interposto','poucos_bens'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400),
+    { id:'op-demo-3', name:'Operação Sucessão Empresarial Sul', description:'Sucessão de fato entre metalúrgicas; EF suspensa (art. 40), embargos e avaliação de IDPJ à sucessora.', status:'ativa', priority:'media', classifications:['em_andamento','recurso_requeridos','bens_insuficientes'], reviewInterval:'trimestral', lastReviewedAt: iso(-86), lastAccessed: ts(-8), createdAt: ts(-400),
       briefing: {
         entries: [
           { id:'be-4', title:'Risco', body:'EF suspensa art. 40; embargos ativos; avaliar IDPJ contra Nova Metal Sul e sócio da sucedida.', updatedAt: ts(-4) },
@@ -156,7 +156,7 @@ const generateDemoData = () => {
         },
       },
     },
-    { id:'op-demo-4', name:'Operação Holding Atlântico', description:'Holding familiar com bens suficientes, trânsito parcial, garantia e cumprimento de sentença.', status:'ativa', priority:'baixa', classifications:['bens_suficientes','transito_julgado','procedente_1grau','constricao_ativa'], reviewInterval:'trimestral', lastReviewedAt: iso(-10), lastAccessed: ts(-12), createdAt: ts(-500),
+    { id:'op-demo-4', name:'Operação Holding Atlântico', description:'Holding familiar com bens suficientes, trânsito parcial, garantia e cumprimento de sentença.', status:'ativa', priority:'baixa', classifications:['bens_suficientes','garantia_parcial','procedente_1grau','constricao_ativa'], reviewInterval:'trimestral', lastReviewedAt: iso(-10), lastAccessed: ts(-12), createdAt: ts(-500),
       briefing: {
         entries: [
           { id:'be-5', title:'Situação', body:'Crédito majoritário garantido; embargos improcedentes; patrimônio remanescente cobre o remanescente.', updatedAt: ts(-3) },
@@ -171,7 +171,7 @@ const generateDemoData = () => {
         },
       },
     },
-    { id:'op-demo-5', name:'Operação Agro Horizonte', description:'Produtor rural e agropecuária; Renajud/CNIB, MCF e risco prescricional em ITR/IRPF.', status:'ativa', priority:'alta', classifications:['em_andamento','constricao_ativa','muitos_bens','novas'], opCategory:'alta_relevancia', reviewInterval:'quinzenal', lastReviewedAt: iso(-18), lastAccessed: ts(-2), createdAt: ts(-240),
+    { id:'op-demo-5', name:'Operação Agro Horizonte', description:'Produtor rural e agropecuária; Renajud/CNIB, MCF e risco prescricional em ITR/IRPF.', status:'ativa', priority:'alta', classifications:['em_andamento','constricao_ativa','bens_suficientes','novas'], opCategory:'alta_relevancia', reviewInterval:'quinzenal', lastReviewedAt: iso(-18), lastAccessed: ts(-2), createdAt: ts(-240),
       briefing: {
         entries: [
           { id:'be-6', title:'Estratégia', body:'Consolidar CNIB da fazenda; estender indisponibilidade a máquinas; diligência in loco.', updatedAt: ts(-2) },
@@ -927,55 +927,87 @@ const AUDIENCIA_STATUSES = {
 };
 const OP_CLASSIFICATIONS = {
   alta_relevancia: { label: 'Alta Relevância', color: 'var(--red)', border: 'var(--red)' },
-  replicar: { label: 'Replicar', color: 'var(--yellow)', border: 'var(--yellow)' },
-  avaliar_replicamento: { label: 'Avaliar Replicamento', color: 'var(--orange)', border: 'rgba(216,136,64,0.45)' },
-  nao_replicar: { label: 'Não Replicar', color: 'var(--purple)', border: 'rgba(122,139,163,0.45)' },
-  novas: { label: 'Novas', color: 'var(--blue)', border: 'var(--blue)' },
-  em_andamento: { label: 'Em Andamento', color: 'var(--green)', border: 'var(--green)' },
-  procedente_1grau: { label: 'Procedente em 1º Grau', color: 'var(--green)', border: 'var(--green)' },
-  improcedente_1grau: { label: 'Improcedente em 1º Grau', color: 'var(--pgfn)', border: 'var(--pgfn)' },
-  recurso_interposto: { label: 'Recurso Interposto', color: 'var(--yellow)', border: 'rgba(212,168,56,0.45)' },
-  recurso_provido: { label: 'Recurso Provido', color: 'var(--blue)', border: 'rgba(91,143,217,0.45)' },
-  transito_julgado: { label: 'Trânsito em Julgado', color: 'var(--gold)', border: 'var(--gold)' },
-  suspenso: { label: 'Suspenso', color: 'var(--text-secondary)', border: 'var(--border-light)' },
-  poucos_bens: { label: 'Poucos Bens', color: 'var(--yellow)', border: 'var(--yellow)' },
-  muitos_bens: { label: 'Muitos Bens', color: 'var(--green)', border: 'var(--green)' },
   bens_suficientes: { label: 'Bens Suficientes', color: 'var(--green)', border: 'var(--green)' },
+  bens_insuficientes: { label: 'Bens Insuficientes', color: 'var(--orange)', border: 'rgba(216,136,64,0.45)' },
   sem_bens: { label: 'Sem Bens', color: 'var(--yellow)', border: 'var(--yellow)' },
-  constricao_ativa: { label: 'Constrição Ativa', color: 'var(--cyan)', border: 'var(--cyan)' },
-  parcelamento_parcial: { label: 'Parcelamento Parcial', color: 'var(--blue)', border: 'rgba(59,130,246,0.4)' },
+  garantia_total: { label: 'Garantia Total', color: 'var(--green)', border: 'var(--green)' },
+  garantia_parcial: { label: 'Garantia Parcial', color: 'var(--yellow)', border: 'rgba(212,168,56,0.45)' },
+  procedente_1grau: { label: 'Procedente em 1º', color: 'var(--green)', border: 'var(--green)' },
+  improcedente_1grau: { label: 'Improcedente em 1º', color: 'var(--pgfn)', border: 'var(--pgfn)' },
+  recurso_requeridos: { label: 'Recurso dos Requeridos', color: 'var(--yellow)', border: 'rgba(212,168,56,0.45)' },
+  recurso_uniao: { label: 'Recurso da União', color: 'var(--blue)', border: 'rgba(91,143,217,0.45)' },
+  em_andamento: { label: 'Em Andamento', color: 'var(--green)', border: 'var(--green)' },
+  constricao_ativa: { label: 'Constrições Ativas', color: 'var(--cyan)', border: 'var(--cyan)' },
+  novas: { label: 'Novas', color: 'var(--blue)', border: 'var(--blue)' },
   parcelamento_negociacao: { label: 'Parcelamento em Negociação', color: 'var(--yellow)', border: 'rgba(212,168,56,0.4)' },
-  parceladas: { label: 'Parceladas', color: 'var(--text-secondary)', border: 'var(--border-light)' }
+  parcelamento_parcial: { label: 'Parcelamento Parcial', color: 'var(--blue)', border: 'rgba(59,130,246,0.4)' },
+  parcelamento_integral: { label: 'Parcelamento Integral', color: 'var(--text-secondary)', border: 'var(--border-light)' },
+  avaliar_replicamento: { label: 'Avaliar Replicamento', color: 'var(--orange)', border: 'rgba(216,136,64,0.45)' },
+  replicar: { label: 'Replicar', color: 'var(--yellow)', border: 'var(--yellow)' },
+  replicado: { label: 'Replicado', color: 'var(--green)', border: 'var(--green)' },
+  nao_replicar: { label: 'Não Replicar', color: 'var(--purple)', border: 'rgba(122,139,163,0.45)' },
+  fase_expropriacao: { label: 'Fase de Expropriação', color: 'var(--gold)', border: 'var(--gold)' }
 };
+// Chaves antigas → critério atual. Critérios sem equivalente (trânsito, suspenso, recurso genérico) somem na leitura.
+const OP_CLASSIFICATION_ALIASES = {
+  poucos_bens: 'bens_insuficientes',
+  muitos_bens: 'bens_suficientes',
+  parceladas: 'parcelamento_integral',
+  constricoes_ativas: 'constricao_ativa'
+};
+const OP_PRIORITIES = {
+  maxima: { label: 'Máxima', badge: 'badge-red' },
+  alta: { label: 'Alta', badge: 'badge-orange' },
+  media: { label: 'Média', badge: 'badge-yellow' },
+  baixa: { label: 'Baixa', badge: 'badge-muted' }
+};
+function resolveOpClassKey(k) {
+  const mapped = OP_CLASSIFICATION_ALIASES[k] || k;
+  return OP_CLASSIFICATIONS[mapped] ? mapped : null;
+}
+function normalizeOpClassifications(list) {
+  const seen = new Set();
+  const out = [];
+  (list || []).forEach(k => {
+    const n = resolveOpClassKey(k);
+    if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+  });
+  return out;
+}
+function normalizeOpPriority(p) {
+  if (p === 'normal' || p === 'urgente') return p === 'urgente' ? 'alta' : 'media';
+  return OP_PRIORITIES[p] ? p : 'media';
+}
 // Leitura retrocompatível das classificações de uma operação.
 // Suporta o novo campo `classifications` (array) e o legado `classification` (string única).
 // Filtra chaves removidas/desconhecidas (ex.: 'julgado' descontinuado) — não causam crash, apenas somem.
 function getOpClassifications(op) {
   if (!op) return [];
-  if (Array.isArray(op.classifications)) return op.classifications.filter(k => OP_CLASSIFICATIONS[k]);
-  if (op.classification && OP_CLASSIFICATIONS[op.classification]) return [op.classification];
+  if (Array.isArray(op.classifications)) return normalizeOpClassifications(op.classifications);
+  if (op.classification) return normalizeOpClassifications([op.classification]);
   return [];
 }
 function opMatchesClassFilter(op, filter) {
   if (!filter || filter === 'all') return true;
   if (filter === 'encerrada') return op.status === 'encerrada';
-  if (getOpClassifications(op).includes(filter)) return true;
-  if (filter === 'alta_relevancia' && op.opCategory === 'alta_relevancia') return true;
-  if (filter === 'parceladas' && op.opCategory === 'parcelada') return true;
+  const resolved = resolveOpClassKey(filter) || filter;
+  if (getOpClassifications(op).includes(resolved)) return true;
+  if (resolved === 'alta_relevancia' && op.opCategory === 'alta_relevancia') return true;
+  if ((resolved === 'parcelamento_integral' || filter === 'parceladas') && op.opCategory === 'parcelada') return true;
   return false;
 }
 function opClassFilterLabel(filter) {
   if (!filter || filter === 'all') return 'Filtro';
   if (filter === 'encerrada') return 'Filtro · Encerradas';
-  const meta = OP_CLASSIFICATIONS[filter];
+  const meta = OP_CLASSIFICATIONS[resolveOpClassKey(filter) || filter];
   return meta ? `Filtro · ${meta.label}` : 'Filtro';
 }
 function opClassChipKeys(operations) {
   const usedKeys = new Set();
   (operations || []).forEach(op => getOpClassifications(op).forEach(k => usedKeys.add(k)));
-  const pinned = ['alta_relevancia', 'parceladas'];
+  const pinned = ['alta_relevancia', 'parcelamento_integral'];
   const rest = [...usedKeys]
-    .filter(k => !pinned.includes(k))
+    .filter(k => !pinned.includes(k) && OP_CLASSIFICATIONS[k])
     .sort((a, b) => (OP_CLASSIFICATIONS[a].label).localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR', { sensitivity: 'base' }));
   return [...pinned, ...rest];
 }
@@ -9193,6 +9225,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <button className={`settings-opt ${opClassFilter==='all'?'active':''}`} onClick={() => pick('all')}>Todas ({data.operations.length})</button>
               {chipKeys.map(k => {
                 const meta = OP_CLASSIFICATIONS[k];
+                if (!meta) return null;
                 const n = data.operations.filter(op => opMatchesClassFilter(op, k)).length;
                 return (
                   <button key={k} className={`settings-opt ${opClassFilter===k?'active':''}`}
@@ -9702,6 +9735,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       <button className={`settings-opt ${opClassFilter==='all'?'active':''}`} onClick={() => setOpClassFilter('all')}>Todas ({data.operations.length})</button>
                       {chipKeys.map(k => {
                         const meta = OP_CLASSIFICATIONS[k];
+                        if (!meta) return null;
                         const n = countFor(k);
                         return (
                           <button key={k} className={`settings-opt ${opClassFilter===k?'active':''}`}
@@ -9743,7 +9777,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               <div className="kc-name">{op.name}</div>
                               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                                 <span className={`badge ${op.status === 'ativa' ? 'badge-muted' : 'badge-muted-strong'}`} style={{fontSize:8}}>{op.status || 'ativa'}</span>
-                                {op.priority === 'alta' && <span className="badge badge-red" style={{fontSize:8}}>Alta</span>}
+                                {(() => {
+                                  const prio = normalizeOpPriority(op.priority);
+                                  const meta = OP_PRIORITIES[prio];
+                                  return <span className={`badge ${meta.badge}`} style={{fontSize:8}}>{meta.label}</span>;
+                                })()}
                                 {rs.overdue && <span className="badge badge-red" style={{fontSize:8}}>📅 {rs.label}</span>}
                               </div>
                               {clsKeys.length > 0 && (
@@ -10657,10 +10695,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
           <div className="header-actions">
             {(() => {
+              const prio = normalizeOpPriority(activeOp.priority);
+              const pmeta = OP_PRIORITIES[prio];
               const clsKeys = getOpClassifications(activeOp);
-              if (!clsKeys.length) return null;
               return <div className="op-class-chips">
-                {clsKeys.map(k => { const cls = OP_CLASSIFICATIONS[k]; return (
+                <span className={`badge ${pmeta.badge}`}>{pmeta.label}</span>
+                {clsKeys.map(k => { const cls = OP_CLASSIFICATIONS[k]; if (!cls) return null; return (
                   <span key={k} className="op-class-chip" style={{color:cls.color,border:`1px solid ${cls.border}`}}>{cls.label}</span>
                 ); })}
               </div>;
@@ -11866,9 +11906,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const legacyNotes = [initial.obs1, initial.obs2].filter(Boolean);
       return { ...initial, notesList: legacyNotes };
     }
-    if (entityType === 'operation' && !Array.isArray(initial.classifications)) {
-      const seed = (initial.classification && OP_CLASSIFICATIONS[initial.classification]) ? [initial.classification] : [];
-      return { ...initial, classifications: seed };
+    if (entityType === 'operation') {
+      const raw = Array.isArray(initial.classifications)
+        ? initial.classifications
+        : (initial.classification ? [initial.classification] : []);
+      return { ...initial, classifications: normalizeOpClassifications(raw), priority: normalizeOpPriority(initial.priority) };
     }
     return initial;
   })();
@@ -11904,7 +11946,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const sel = Array.isArray(payload.classifications)
         ? payload.classifications
         : (payload.classification ? [payload.classification] : []);
-      payload.classifications = [...new Set(sel.filter(k => OP_CLASSIFICATIONS[k]))];
+      payload.classifications = normalizeOpClassifications(sel);
+      payload.priority = normalizeOpPriority(payload.priority);
       payload.classification = null;
     }
     // Cleanup: se é intimação com notesList preenchido, descarta os campos legados obs1/obs2
@@ -11933,14 +11976,17 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     <div className="form-group"><label>Descrição</label><textarea value={form.description||''} onChange={e=>set('description',e.target.value)} /></div>
     <div className="form-row">
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}><option value="ativa">Ativa</option><option value="encerrada">Encerrada</option></select></div>
-      <div className="form-group"><label>Prioridade</label><select value={form.priority||'normal'} onChange={e=>set('priority',e.target.value)}><option value="alta">Alta</option><option value="normal">Normal</option><option value="baixa">Baixa</option></select></div>
+      <div className="form-group"><label>Prioridade</label>
+        <select value={normalizeOpPriority(form.priority)} onChange={e=>set('priority',e.target.value)}>
+          {Object.entries(OP_PRIORITIES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
     </div>
     <div className="form-group"><label>Classificação <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:10}}>(múltipla)</span></label>
       {(() => {
         const sel = Array.isArray(form.classifications) ? form.classifications : (form.classification ? [form.classification] : []);
         const toggle = (k) => { const next = sel.includes(k) ? sel.filter(x=>x!==k) : [...sel, k]; set('classifications', next); };
-        const entries = Object.entries(OP_CLASSIFICATIONS)
-          .sort((a, b) => a[1].label.localeCompare(b[1].label, 'pt-BR', { sensitivity: 'base' }));
+        const entries = Object.entries(OP_CLASSIFICATIONS);
         return (<div className="op-classif-grid">
           {entries.map(([k,v]) => { const on = sel.includes(k); return (
             <label key={k} style={{color:on?v.color:undefined,fontWeight:on?600:400}}>
