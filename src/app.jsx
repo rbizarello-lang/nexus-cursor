@@ -668,14 +668,19 @@ const fmtCur = (v) => { if (!v && v !== 0) return '—'; return new Intl.NumberF
 function intimIsClosed(x) {
   if (!x) return false;
   if (x.responseAction) return true;
-  return x.status === 'ciencia_renuncia' || x.status === 'analisado';
+  // Ciência com renúncia arquiva. "analisado" é status antigo: o card continua na lista.
+  return x.status === 'ciencia_renuncia';
 }
 function intimIsOpenWork(x) {
-  return !!x && !intimIsClosed(x);
+  if (!x || intimIsClosed(x)) return false;
+  return x.status !== 'analisado';
 }
 const intimPrazoNaAgenda = (x) => {
-  if (!intimIsOpenWork(x)) return false;
-  return !!toDayKey(x.dateDeadline);
+  if (!x || intimIsClosed(x)) return false;
+  const dl = toDayKey(x.dateDeadline);
+  if (!dl) return false;
+  if (x.status === 'analisado') return dl >= localIso(new Date());
+  return true;
 };
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : s;
 
@@ -3797,7 +3802,7 @@ function App() {
           if (dd !== null && (m.soonestIntim === null || dd < m.soonestIntim)) m.soonestIntim = dd;
         }
       }
-      if (x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < today && !intimIsClosed(x)) m.overdueIntims++;
+      if (x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < today && intimIsOpenWork(x)) m.overdueIntims++;
     }
     for (const t of data.tasks || []) {
       const m = meta[t.operationId];
@@ -9908,7 +9913,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {/* ═══ INTIMAÇÕES GLOBAIS ═══ */}
       {viewMode === 'intimacoes' && (() => {
         const allIntim = data.intimations || [];
-        // Default: exclude responded ones (they're archived in Docs). Filter "resolvidas" shows only resolved.
+        // Default: ativas = sem peça/ciência arquivada. "analisado" antigo permanece visível.
+        // Filtro "resolvidas" = responseAction ou ciência com renúncia.
         let filtered;
         if (intimFilter === 'all') filtered = allIntim.filter(x => !intimIsClosed(x));
         else if (intimFilter === 'resolvidas') filtered = allIntim.filter(x => intimIsClosed(x));
@@ -9931,6 +9937,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <select value={intimFilter} onChange={e => setIntimFilter(e.target.value)}>
               <option value="all">Todas (ativas)</option>
               {Object.entries(INTIM_STATUSES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+              {allIntim.some(x => x.status === 'analisado' && !x.responseAction) && <option value="analisado">Analisado (antigo)</option>}
               <option value="resolvidas">✓ Resolvidas ({resolvidasCount})</option>
             </select>
             <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Padrão: prazo final mais próximo. Sem prazo vai para o fim da lista.">
@@ -9959,6 +9966,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           intimView === 'kanban' ? (() => {
             // Kanban view
             const statusCols = Object.entries(INTIM_STATUSES);
+            if (filtered.some(x => x.status === 'analisado')) statusCols.push(['analisado', INTIM_STATUS_LEGACY.analisado]);
             const handleDrop = (intimId, newStatus) => {
               setData(prev => ({...prev, intimations: prev.intimations.map(x => x.id === intimId ? {...x, status: newStatus} : x)}));
             };
@@ -10044,7 +10052,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'deadline') sorted.sort(byDeadlineAsc);
             else if (intimSort === 'deadline_desc') sorted.sort((a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(b.dateDeadline) - new Date(a.dateDeadline); });
             else if (intimSort === 'days_left') sorted.sort((a,b) => { const da = daysUntil(a.dateDeadline), db = daysUntil(b.dateDeadline); if (da===null) return 1; if (db===null) return -1; return da - db; });
-            else if (intimSort === 'overdue_first') sorted.sort((a,b) => { const aO = a.dateDeadline && new Date(a.dateDeadline+'T00:00:00') < now && !intimIsClosed(a); const bO = b.dateDeadline && new Date(b.dateDeadline+'T00:00:00') < now && !intimIsClosed(b); if (aO&&!bO) return -1; if (!aO&&bO) return 1; if (a.dateDeadline&&b.dateDeadline) return new Date(a.dateDeadline)-new Date(b.dateDeadline); return 0; });
+            else if (intimSort === 'overdue_first') sorted.sort((a,b) => { const aO = a.dateDeadline && new Date(a.dateDeadline+'T00:00:00') < now && intimIsOpenWork(a); const bO = b.dateDeadline && new Date(b.dateDeadline+'T00:00:00') < now && intimIsOpenWork(b); if (aO&&!bO) return -1; if (!aO&&bO) return 1; if (a.dateDeadline&&b.dateDeadline) return new Date(a.dateDeadline)-new Date(b.dateDeadline); return 0; });
             else if (intimSort === 'sent') sorted.sort((a,b) => { if (!a.dateSent) return 1; if (!b.dateSent) return -1; return new Date(b.dateSent) - new Date(a.dateSent); });
             else if (intimSort === 'jurisdiction') sorted.sort((a,b) => (jurisRank(a.jurisdiction) - jurisRank(b.jurisdiction)) || (a.jurisdiction||'').localeCompare(b.jurisdiction||''));
             else if (intimSort === 'class') sorted.sort((a,b) => (a.className||'').localeCompare(b.className||''));
@@ -10064,8 +10072,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
             return (<div className="intim-grid">{sorted.map((intim, idx) => {
             const days = daysUntil(intim.dateDeadline);
-            const isOverdue = days !== null && days < 0 && !intimIsClosed(intim);
-            const isDueSoon = days !== null && days >= 0 && days <= 5 && !intimIsClosed(intim);
+            const isOverdue = days !== null && days < 0 && intimIsOpenWork(intim);
+            const isDueSoon = days !== null && days >= 0 && days <= 5 && intimIsOpenWork(intim);
             const st = intimStatusMeta(intim.status);
             const linkedOp = data.operations.find(o => o.id === intim.operationId);
             // Group header
@@ -10087,7 +10095,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>;
               }
             }
-            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':intimIsClosed(intim)?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${intimIsUrgent(intim)?' prio-urgente':intimImpKey(intim)==='alta'?' prio-alta':intimImpKey(intim)==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
+            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':!intimIsOpenWork(intim)?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${intimIsUrgent(intim)?' prio-urgente':intimImpKey(intim)==='alta'?' prio-alta':intimImpKey(intim)==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
               onClick={() => setModal({type:'edit',entityType:'intimation',initial:intim})}>
               {/* COL 1: party + process */}
               <div className="intim-left">
@@ -10130,7 +10138,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <span className="im-label">Final:</span> <strong>{fmtDate(intim.dateDeadline)}</strong>
                 </div>
                 </>)}
-                {intim.dateStart && !intimIsClosed(intim) && (() => {
+                {intim.dateStart && intimIsOpenWork(intim) && (() => {
                   const embDate = addBusinessDays(intim.dateStart, 10);
                   const embDays = daysUntil(embDate);
                   const embOver = embDays !== null && embDays < 0;
