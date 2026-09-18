@@ -45,7 +45,8 @@ const ASSET_SUB = {
 };
 const INTIM_ST = {
   pendente_analise: 'Pendente de Análise', aguardando_subsidios: 'Aguardando Subsídios',
-  analisado: 'Analisado', peca_edicao: 'Peça em Edição',
+  aguardar: 'Aguardar', peca_edicao: 'Peça em Edição',
+  ciencia_renuncia: 'Ciência com Renúncia', analisado: 'Analisado',
 };
 const TASK_ST = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
 const HEAR_ST = { agendada: 'Agendada', redesignada: 'Redesignada', realizada: 'Realizada', cancelada: 'Cancelada' };
