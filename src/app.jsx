@@ -1,6 +1,6 @@
 import { digitsOnly, docsCompatible, findPersonByDoc, formatCpfCnpj, mergePersonDoc } from './lib/docs.js';
 import { applyDiagnosticFix, runDiagnostics } from './lib/diagnostics.js';
-import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors } from './lib/import-guard.js';
+import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors, dedupePeopleByDoc, ensureCorespPerson } from './lib/import-guard.js';
 import { parseDebcadLines } from './lib/debcad-parser.js';
 import {
   DEFAULT_EXPORT_SELECTION,
@@ -615,8 +615,9 @@ const applyMigrations = (parsed) => {
   if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
   migrateAtuacaoNotesToProcessCards(merged);
-  setExtraHolidays(merged.calendar.extraHolidays);
-  return merged;
+  const { data: afterDedupe } = dedupePeopleByDoc(merged);
+  setExtraHolidays(afterDedupe.calendar.extraHolidays);
+  return afterDedupe;
 };
 const loadData = () => {
   try {
@@ -2977,6 +2978,9 @@ function App() {
       }
     }
 
+    let peopleWorking = [...(data.people || [])];
+    const knownResp = new Set((data.links?.cdaResponsibilities || []).map(r => `${r.cdaId}|${r.personId}|${r.role}`));
+
     for (const { file, isSIDA, records } of parsedFiles) {
       try {
         for (const rec of records) {
@@ -2995,13 +2999,14 @@ function App() {
           // Completar CNPJ encurtado da planilha com o documento completo do PDF
           const principalDoc = rec.cnpj || '';
           if (principalDoc) {
-            const linked = existing.personId ? (data.people || []).find(p => p.id === existing.personId) : null;
+            const linked = existing.personId ? peopleWorking.find(p => p.id === existing.personId) : null;
             const targetPerson = (linked && (!linked.cpfCnpj || docsCompatible(linked.cpfCnpj, principalDoc)))
               ? linked
-              : findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: principalDoc, name: rec.devedor || '' });
+              : findPersonByDoc(peopleWorking, { operationId: activeOpId, cpfCnpj: principalDoc, name: rec.devedor || '' });
             if (targetPerson) {
               const updatedPerson = mergePersonDoc(targetPerson, principalDoc);
               if (updatedPerson !== targetPerson) {
+                peopleWorking = peopleWorking.map(p => p.id === updatedPerson.id ? updatedPerson : p);
                 upsert('people', updatedPerson);
                 logs.push(`  🔄 CNPJ completado: ${updatedPerson.name} (${updatedPerson.cpfCnpj})`);
               }
@@ -3340,40 +3345,29 @@ function App() {
           if (rec.coresponsibles && rec.coresponsibles.length > 0) {
             for (const cr of rec.coresponsibles) {
               if (!cr.cpfCnpj) continue;
-              // Find or create the person within the active operation
-              let crPerson = findPersonByDoc(data.people, { operationId: activeOpId, cpfCnpj: cr.cpfCnpjFormatted || cr.cpfCnpj, name: cr.name });
-              if (!crPerson) {
-                // Auto-create as relacionada (não-alvo) — user can promote to alvo later
-                const hasName = cr.name && cr.name.length > 2;
-                const source = cr.source === 'SIDA-DEVEDORES' ? 'seção Devedores do SIDA' : 'ocorrência SIDA';
-                const noteText = cr.source === 'SIDA-DEVEDORES'
-                  ? `Corresponsável extraído da seção "Devedores" do SIDA.${cr.situacaoCadastral ? ' Situação cadastral RFB: '+cr.situacaoCadastral+'.' : ''}${cr.municipio ? ' Município: '+cr.municipio+(cr.uf?'/'+cr.uf:'')+'.':''}`
-                  : `Pessoa criada automaticamente a partir de ocorrência "INCLUSAO DE CO-RESPONSAVEL" no SIDA em ${fmtDate(cr.date)}. Verificar dados e promover a alvo se aplicável.`;
-                crPerson = {
-                  id: uid(),
-                  operationId: activeOpId,
-                  name: hasName ? cr.name : `[Importado SIDA] ${formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted}`,
-                  cpfCnpj: formatCpfCnpj(cr.cpfCnpjFormatted || cr.cpfCnpj) || cr.cpfCnpjFormatted,
-                  subtype: cr.cpfCnpj.length > 11 ? 'PJ' : 'PF',
-                  operationRole: 'relacionada',
-                  role: 'Corresponsável',
-                  notesList: [noteText],
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                };
+              const noteText = cr.source === 'SIDA-DEVEDORES'
+                ? `Corresponsável extraído da seção "Devedores" do SIDA.${cr.situacaoCadastral ? ' Situação cadastral RFB: '+cr.situacaoCadastral+'.' : ''}${cr.municipio ? ' Município: '+cr.municipio+(cr.uf?'/'+cr.uf:'')+'.':''}`
+                : `Pessoa criada automaticamente a partir de ocorrência "INCLUSAO DE CO-RESPONSAVEL" no SIDA em ${fmtDate(cr.date)}. Verificar dados e promover a alvo se aplicável.`;
+              const resolved = ensureCorespPerson(peopleWorking, {
+                operationId: activeOpId,
+                cr,
+                now: new Date().toISOString(),
+                newId: uid,
+                note: noteText
+              });
+              peopleWorking = resolved.people;
+              const crPerson = resolved.person;
+              if (!crPerson) continue;
+              if (resolved.created) {
                 upsert('people', crPerson);
                 personsCreated++;
-              } else {
-                const updatedCr = mergePersonDoc(crPerson, cr.cpfCnpjFormatted || cr.cpfCnpj);
-                if (updatedCr !== crPerson) {
-                  crPerson = updatedCr;
-                  upsert('people', crPerson);
-                }
+              } else if (resolved.changed) {
+                upsert('people', crPerson);
               }
-              // Create responsibility link if not already there
-              const existingLink = (data.links?.cdaResponsibilities || []).find(r => r.cdaId === existing.id && r.personId === crPerson.id && r.role === 'coresponsavel_legal');
-              if (!existingLink) {
+              const respKey = `${existing.id}|${crPerson.id}|coresponsavel_legal`;
+              if (!knownResp.has(respKey)) {
                 addResponsibility(existing.id, crPerson.id, 'coresponsavel_legal', `Inclusão SIDA em ${fmtDate(cr.date)}`);
+                knownResp.add(respKey);
                 respCreated++;
               }
             }
