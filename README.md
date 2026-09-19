@@ -8,13 +8,19 @@ A tela (React) é compilada no computador; o Google Apps Script só serve o Java
 ```bash
 npm install    # só na primeira vez
 npm test       # testes automáticos
-npm run build  # gera Nexus.html (clássico) e Nexus.demo.html (demo)
+npm run build  # gera Nexus.html, Nexus.demo.html e demo_experimental.html
 ```
 
-## Como abrir a Demo no computador
+## Qual HTML abrir
 
-Depois do `npm run build`, abra `Nexus.demo.html` no navegador (arquivo local).
-O clássico é `Nexus.html`.
+| Arquivo | Para quê |
+|---|---|
+| `Nexus.html` | Clássico — o app do dia a dia (é o que o Apps Script publica) |
+| `Nexus.demo.html` | **Demo** — mesma interface clássica, para compartilhar e testes menores |
+| `demo_experimental.html` | **Demo Experimental** — nova versão (beta) para os testes desta trilha |
+
+Depois do `npm run build`, abra o arquivo no navegador (arquivo local).
+Em qualquer um: ⚙ → Resetar / carregar dados demo.
 
 ## Onde fica o app publicado
 

@@ -1,11 +1,9 @@
 /**
  * Compila src/app.jsx (JSX) → JavaScript e injeta em src/Nexus.shell.html,
- * gerando Nexus.html (deploy Apps Script) e Nexus.demo.html
- * (edição Beta, bootstrap __NEXUS_DEMO__).
- *
- * Também escreve aliases locais com o mesmo conteúdo de Nexus.demo.html
- * (Nexus_demo.html, Nexus_demo_experimental.html, demo_experimental.html).
- * Esses aliases não entram no git.
+ * gerando três HTMLs:
+ *   Nexus.html              — clássico (doGet / Apps Script)
+ *   Nexus.demo.html         — Demo (compartilhar e testes menores; UI clássica)
+ *   demo_experimental.html  — Demo Experimental (Beta / testes desta trilha)
  *
  * Uso:  npm run build
  * Depois: clasp push
@@ -29,10 +27,11 @@ const exportPath = path.join(root, 'src', 'lib', 'export.js');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
 const outDemoPath = path.join(root, 'Nexus.demo.html');
-// Aliases locais (mesmo hash de Nexus.demo.html). Não entram no git.
-const outDemoUnderscorePath = path.join(root, 'Nexus_demo.html');
-const outDemoExperimentalPath = path.join(root, 'Nexus_demo_experimental.html');
-const outDemoExperimentalAlias = path.join(root, 'demo_experimental.html');
+const outExperimentalPath = path.join(root, 'demo_experimental.html');
+const leftoverAliases = [
+  path.join(root, 'Nexus_demo.html'),
+  path.join(root, 'Nexus_demo_experimental.html'),
+];
 const MARKER = '<!--INJECT_APP_JS-->';
 const RULES_MARKER = '<!--INJECT_PRESC_RULES-->';
 const rulesMdPath = path.join(root, 'MOTOR_PRESCRICAO.md');
@@ -214,14 +213,15 @@ for (let i = 0; i < b64.length; i += CHUNK) {
 }
 const partsJs = parts.map((p) => `"${p}"`).join(',\n');
 
-function buildInjected(demo) {
+function buildInjected({ demo, share, bootLabel }) {
   return `<script>
 (function () {
   window.__NEXUS_BUILD__ = '${buildStamp}';
   window.__NEXUS_VERSION__ = '${appVersion}';
-  ${demo ? "window.__NEXUS_DEMO__ = true;" : "window.__NEXUS_DEMO__ = false;"}
+  window.__NEXUS_DEMO__ = ${demo ? 'true' : 'false'};
+  window.__NEXUS_SHARE_DEMO__ = ${share ? 'true' : 'false'};
   var boot = document.getElementById('nexus-boot');
-  if (boot) boot.textContent = 'Carregando NEXUS ${appVersion}${demo ? ' Beta' : ''}… (build ${buildStamp})';
+  if (boot) boot.textContent = 'Carregando NEXUS ${appVersion}${bootLabel}… (build ${buildStamp})';
   try {
     var b64 = [
 ${partsJs}
@@ -241,11 +241,11 @@ ${partsJs}
 </script>`;
 }
 
-function assembleHtml(demo) {
+function assembleHtml({ fileName, title, bootLabel, demo, share }) {
   const banner =
     `<!-- GERADO por scripts/build.mjs em ${new Date().toISOString()}. ` +
-    `NAO edite ${demo ? 'Nexus.demo.html' : 'Nexus.html'}. Edite src/app.jsx e src/Nexus.shell.html, depois: npm run build -->`;
-  const injected = buildInjected(demo);
+    `NAO edite ${fileName}. Edite src/app.jsx e src/Nexus.shell.html, depois: npm run build -->`;
+  const injected = buildInjected({ demo, share, bootLabel });
   // IMPORTANTE: usar função no replace. Se passar a string direto, o JS interpreta
   // padrões especiais ($', $&, $1...) e corrompe o HTML (causa "Conteúdo HTML inválido").
   let html = shell.replace(MARKER, () => injected);
@@ -258,10 +258,10 @@ function assembleHtml(demo) {
     process.exit(1);
   }
 
-  if (demo) {
+  if (title) {
     html = html.replace(
       '<title>NEXUS — Painel de Operações Fiscais v2</title>',
-      '<title>NEXUS Beta</title>'
+      `<title>${title}</title>`
     );
   }
 
@@ -294,22 +294,48 @@ function assembleHtml(demo) {
 
 new Function(result.code); // valida sintaxe; lança se inválido
 
-const classic = assembleHtml(false);
+const classic = assembleHtml({
+  fileName: 'Nexus.html',
+  title: null,
+  bootLabel: '',
+  demo: false,
+  share: false,
+});
 fs.writeFileSync(outPath, classic.html, 'utf8');
 
-const demo = assembleHtml(true);
-fs.writeFileSync(outDemoPath, demo.html, 'utf8');
-fs.writeFileSync(outDemoUnderscorePath, demo.html, 'utf8');
-fs.writeFileSync(outDemoExperimentalPath, demo.html, 'utf8');
-fs.writeFileSync(outDemoExperimentalAlias, demo.html, 'utf8');
+const shareDemo = assembleHtml({
+  fileName: 'Nexus.demo.html',
+  title: 'NEXUS Demo',
+  bootLabel: ' Demo',
+  demo: false,
+  share: true,
+});
+fs.writeFileSync(outDemoPath, shareDemo.html, 'utf8');
+
+const experimental = assembleHtml({
+  fileName: 'demo_experimental.html',
+  title: 'NEXUS Demo Experimental',
+  bootLabel: ' Demo Experimental',
+  demo: true,
+  share: false,
+});
+fs.writeFileSync(outExperimentalPath, experimental.html, 'utf8');
+
+for (const leftover of leftoverAliases) {
+  if (fs.existsSync(leftover)) {
+    fs.unlinkSync(leftover);
+    console.log(`    removido alias duplicado: ${path.basename(leftover)}`);
+  }
+}
 
 const ms = Date.now() - t0;
 const jsxKb = (Buffer.byteLength(jsx, 'utf8') / 1024).toFixed(1);
 const outKb = (Buffer.byteLength(classic.html, 'utf8') / 1024).toFixed(1);
-const demoKb = (Buffer.byteLength(demo.html, 'utf8') / 1024).toFixed(1);
+const shareKb = (Buffer.byteLength(shareDemo.html, 'utf8') / 1024).toFixed(1);
+const expKb = (Buffer.byteLength(experimental.html, 'utf8') / 1024).toFixed(1);
 console.log(`OK  NEXUS ${appVersion} · src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
-console.log(`    + Nexus.demo.html (${demoKb} KB) — NEXUS Beta`);
-console.log('    + aliases locais (não versionados): Nexus_demo.html, Nexus_demo_experimental.html, demo_experimental.html');
+console.log(`    + Nexus.demo.html (${shareKb} KB) — Demo (clássico, compartilhar)`);
+console.log(`    + demo_experimental.html (${expKb} KB) — Demo Experimental (Beta)`);
 console.log(`    script do app: ${(classic.appLen / 1024).toFixed(1)} KB (íntegro)`);
 console.log('    babel-standalone removido — o navegador recebe JS já compilado.');
 console.log('    Próximo passo: clasp push');

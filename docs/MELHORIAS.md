@@ -12,9 +12,9 @@ Para executar um item, basta pedir: "vamos fazer o item N do docs/MELHORIAS.md".
 Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdition: 'demo'` (`isDemo`).
 
 - **O quê:** mesma navegação do clássico (sidebar + top-nav + abas da operação), com **Hoje** como primeira vista e **Agenda** unificada (grade semana/mês + lista). Temas: os 3 do clássico (Mar Profundo · Claro · Ferro e Maré). Processos: só visão D (master–detail).
-- **Como ativar:** ⚙ → “Nova versão (beta)”, ou abrir `Nexus.demo.html`, ou `?edition=demo`.
+- **Como ativar:** ⚙ → “Nova versão (beta)”, ou abrir `demo_experimental.html`, ou `?edition=demo`.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
-- **Build:** `npm run build` gera `Nexus.html` + `Nexus.demo.html` (título **NEXUS Beta**).
+- **Build:** `npm run build` gera `Nexus.html` (clássico), `Nexus.demo.html` (Demo para compartilhar, UI clássica) e `demo_experimental.html` (esta Beta).
 - **Temas clássicos (03/08/2026):** removido Noite Azulada; adicionado Claro (`theme-claro`) com tokens papel-ardósia. Migração: `''` / `theme-noite*` → `theme-claro`.
 - **Panorama Processual:** campo `texto` em `briefing.processStageV2` (StagePopup + click-to-edit). `saneamento` continua `textOnly`.
 

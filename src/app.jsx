@@ -3182,6 +3182,7 @@ function App() {
   // Beta (uiEdition:'demo') usa os mesmos 3 temas. demoTheme persistido é ignorado.
   const THEMES_OK = ['theme-mar', 'theme-claro', 'theme-ferro'];
   const isDemoStandalone = typeof window !== 'undefined' && window.__NEXUS_DEMO__ === true;
+  const isShareDemo = typeof window !== 'undefined' && window.__NEXUS_SHARE_DEMO__ === true;
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('nexus_settings') || '{}');
@@ -3190,17 +3191,18 @@ function App() {
       if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
       // Migra Noite Azulada ('' / theme-noite) → Claro (tokens Clara da Demo)
       if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
-      // Bootstrap Beta: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
+      // Bootstrap: demo_experimental.html → Beta; Nexus.demo.html → clássico (compartilhar); ?edition=demo → Beta
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
       let bootstrapped = false;
       try {
         if (typeof window !== 'undefined') {
           if (window.__NEXUS_DEMO__ === true) { edition = 'demo'; bootstrapped = true; }
+          else if (window.__NEXUS_SHARE_DEMO__ === true) { edition = 'classic'; bootstrapped = true; }
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) { edition = 'demo'; bootstrapped = true; }
         }
       } catch {}
       const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', uiEdition: edition, processViewModel: 'D', prazosFilters: s.prazosFilters, prazosDeskMode: s.prazosDeskMode === 'lista' ? 'lista' : 'mesa' };
-      if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
+      if ((bootstrapped && s.uiEdition !== edition) || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
       return next;
@@ -5019,6 +5021,7 @@ function App() {
   const [importMode, setImportMode] = useState('planilhas'); // planilhas | pdfs | texto — seletor do card unificado de importação
   const [cdaSort, setCdaSort] = useState('status');
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
+  const [procPersonFilterOpen, setProcPersonFilterOpen] = useState(false);
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [procCdaQuery, setProcCdaQuery] = useState('');
@@ -5044,6 +5047,7 @@ function App() {
     setOtherBucketOpen({ recursos: false, embargos: false, outros: false });
     setPanoFocusId(null);
     setCdaPersonFilter('all');
+    setProcPersonFilterOpen(false);
   }, [activeOpId]);
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const cdaFocusRef = useRef(null);
@@ -7019,6 +7023,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         ? allDebts.filter(d => personCdaIds.has(d.id)).length
         : allDebts.length;
       const personFilterEmpty = !!(personCdaIds && nProcVisible === 0 && !(classified.unlinked || []).some(g => (g.cdas || []).length));
+      const procCdaCountLabel = `${nProcVisible} processo(s)${personCdaIds ? ` (filtrado de ${execs.length})` : ''} · ${nCdaVisible} CDA(s)${personCdaIds ? ' da pessoa' : ''}`;
+      const renderProcCdaCount = () => (
+        <div className="proc-cda-count">{procCdaCountLabel}</div>
+      );
       const prescEvents = data.prescriptionEvents || [];
 
       // Linked-to-IDPJ set (badges no card) — hierarquia de seções vem de classifyProcGroups / Visão D
@@ -8256,6 +8264,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>
             );
           })}
+          {renderProcCdaCount()}
           </>
         );
       };
@@ -8340,28 +8349,35 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </>
               );
             })()}
+            {renderProcCdaCount()}
           </div>
         );
       };
 
       return (<div className="entity-area">
         {/* Header — same create entry point as the old Processos (execucoes) tab */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          <span style={{color:'var(--text-muted)',fontSize:11}}>{nProcVisible} processo(s){personCdaIds ? ` (filtrado de ${execs.length})` : ''} · {nCdaVisible} CDA(s){personCdaIds ? ' da pessoa' : ''}</span>
-          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-            {isDemo && (
-              <input
-                value={procCdaQuery}
-                onChange={e => setProcCdaQuery(e.target.value)}
-                placeholder="Filtrar processo / CDA"
-                style={{width:180,fontSize:11,padding:'4px 8px'}}
-              />
-            )}
-            <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
-          </div>
+        <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
+          {isDemo && (
+            <input
+              value={procCdaQuery}
+              onChange={e => setProcCdaQuery(e.target.value)}
+              placeholder="Filtrar processo / CDA"
+              style={{width:180,fontSize:11,padding:'4px 8px'}}
+            />
+          )}
+          <button
+            type="button"
+            className={`btn-sm ${cdaPersonFilter !== 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setProcPersonFilterOpen(v => !v)}
+            aria-expanded={procPersonFilterOpen}
+            title={cdaPersonFilter !== 'all' ? 'Filtro por pessoa ativo' : 'Filtrar por pessoa'}
+          >Filtrar</button>
+          <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'create',entityType:'execution',initial:{}})}>+ Processo</button>
         </div>
 
-        <PersonSubtabs data={data} opId={opId} currentFilter={cdaPersonFilter} onChange={setCdaPersonFilter} mode="cda" />
+        {procPersonFilterOpen && (
+          <PersonSubtabs data={data} opId={opId} currentFilter={cdaPersonFilter} onChange={setCdaPersonFilter} mode="cda" />
+        )}
 
         {/* Bulk selection bar */}
         {selectedCDAs.size > 0 && (() => {
@@ -8748,6 +8764,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Nova versão (beta)</button>
       </div>
       <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada. Dados e funcionalidades permanecem os mesmos.</div>
+      {isShareDemo && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>Nexus.demo.html</strong> — Demo para compartilhar (interface clássica).</div>}
+      {isDemoStandalone && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>demo_experimental.html</strong> — Demo Experimental (testes da nova versão).</div>}
     </div>
     <div className="settings-group">
       <div className="settings-label">Zoom / Escala</div>

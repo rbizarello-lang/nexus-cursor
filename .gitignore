@@ -8,7 +8,6 @@ Thumbs.db
 gas/**
 !gas/.claspignore
 
-# Aliases locais da Demo — mesmo conteúdo de Nexus.demo.html; não versionar
+# Aliases antigos (o build não gera mais; ignorar se ainda existirem no disco)
 Nexus_demo.html
 Nexus_demo_experimental.html
-demo_experimental.html
