@@ -307,6 +307,21 @@ Confirmado pelo `git diff 1dc76ea` nos caminhos pedidos: **não há** alteraçã
 
 ---
 
+## (I) Correção DEBCAD (18/09/2026, ambas as edições)
+
+Correção do leitor PDF `RelatorioCompleto-debcad*.pdf`. Vale no clássico e na Beta: não é feature da Nova versão. Sem commit.
+
+| # | Item | Técnico | Em linguagem simples | Onde vale | Reversível isoladamente? | Decisão |
+|---|---|---|---|---|---|---|
+| 203 | Seções PROTESTOS e AJUIZAMENTO lidas | `parseDebcadLines` em `src/lib/debcad-parser.js` (chamado por `parseDebcadPDF`). Cabeçalhos sem acento/caixa; para em `FIM DO RELATÓRIO`. `rec.protestos` no mesmo formato do SIDA; `rec.ajuizamentos` vazio se “Não há Ajuizamento.” | O relatório DEBCAD tem blocos de protesto e ajuizamento. Antes o protesto ia parar nas “atualizações” e sumia. Agora o app lê o protesto lavrado (caso AGROTRAC: identificação 202603PR0125624090, efetivação **17/03/2026**). | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 204 | Evento `int_protesto_extrajudicial` criado na importação | O bloco já existente (~import PDF) passa a receber `rec.protestos` também do Debcad. Data = efetivação do evento “Protesto lavrado”. `legalBasis` cita LC 208/2024. | Na CDA 149630450 a ordinária deixa de dizer “consumada em 08/05/2026” e passa ao termo **17/03/2031** (5 anos após o lavrado). Sem o evento, o prazo da inscrição sozinho já teria caído. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 205 | Histórico estruturado `debt.debcad` | Campo opcional na CDA, substituído a cada reimportação (chave = nº da CDA): `{ importedAt, source:'debcad', situation, dadosGerais, history, updates, protestos, ajuizamentos }`. | O histórico deixa de ser um parágrafo ilegível e vira ficha da inscrição. Reimportar o PDF atualiza essa ficha. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 206 | Nota condensada `[Debcad] Histórico` removida | O import não gera mais essa nota. Se já existir na CDA, apaga só ela e registra no log. Demais notas ficam. | A faixa cinza que listava “4 fases: 03/05/2021 — Fase 514…” some. Era o texto que você disse que lia mal. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 207 | Bloco **Histórico DEBCAD** na ficha | `DebcadHistoryBlock` em `renderCdaInlineDetail` e `CdaLegalDetail`. Recolhido por padrão. Aberto: tabela de fases, cards de protesto (marca a linha que gerou o evento de prescrição), linha de ajuizamento, atualizações em sub-bloco recolhido. | Na ficha expandida da CDA aparece um bloco “Histórico DEBCAD” com a contagem (fases · atualizações · protestos · ajuizamento sim/não) e a data da importação. As três colunas de prazo **não** mudam de regra. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 208 | Módulo + fixture + testes | `src/lib/debcad-parser.js` no `scripts/build.mjs`. Fixture `test/fixtures/debcad/debcad-149630450.lines.json` (linhas pdf.js do PDF real). `test/debcad-parser.test.mjs` (7 testes). | Rede de segurança: se o leitor do protesto quebrar de novo, o teste do AGROTRAC falha. | só código | não — amarra #203 | [ ] adotar  [ ] não |
+
+---
+
 ## Dependências
 
 Não dá para recusar um e ficar com o outro:

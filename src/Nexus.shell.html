@@ -1254,6 +1254,28 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .cda-presc-ft { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--border); }
 .cda-presc-rules { background: transparent; border: 0; padding: 0; color: var(--text-muted); font-size: 10px; cursor: pointer; }
 .cda-presc-rules:hover { color: var(--accent); }
+.debcad-hist { margin-top: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); }
+.debcad-hist-hd, .debcad-hist-subhd {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: transparent; border: 0; padding: 8px 10px; cursor: pointer;
+  color: var(--text-primary); font: inherit; text-align: left;
+}
+.debcad-hist-hd:hover, .debcad-hist-subhd:hover { background: color-mix(in srgb, var(--accent, #9a6b3a) 6%, transparent); }
+.debcad-hist-chev { color: var(--text-muted); font-size: 10px; width: 12px; flex-shrink: 0; }
+.debcad-hist-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.debcad-hist-meta { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+.debcad-hist-body { padding: 0 10px 10px; }
+.debcad-hist-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 4px; }
+.debcad-hist-aj { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+.debcad-hist-subhd { padding: 6px 0; font-size: 10px; font-weight: 600; color: var(--text-secondary); }
+.debcad-hist-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.debcad-hist-table th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); padding: 3px 6px 3px 0; border-bottom: 1px solid var(--border); }
+.debcad-hist-table td { padding: 3px 6px 3px 0; vertical-align: top; color: var(--text-secondary); border-bottom: 1px dotted var(--border); }
+.debcad-hist-table td.mono, .debcad-hist-table .mono, .debcad-prot-grid .mono { font-family: var(--font-mono); color: var(--text-primary); }
+.debcad-prot-card { border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-bottom: 8px; background: color-mix(in srgb, var(--bg-elevated, var(--bg-card)) 80%, transparent); }
+.debcad-prot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 10px; font-size: 11px; }
+.debcad-prot-hit td { background: color-mix(in srgb, var(--green, #3d8a5a) 10%, transparent); }
+.debcad-prot-flag { display: inline; margin-left: 4px; font-size: 10px; font-weight: 700; color: var(--green); }
 .presc-rules-box { max-width: 720px; }
 .presc-rules-hd { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .presc-rules-body { padding: 14px 16px; font-size: 12px; line-height: 1.55; color: var(--text-secondary); max-height: 70vh; overflow-y: auto; }

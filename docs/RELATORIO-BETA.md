@@ -745,6 +745,24 @@ A vista **Mesa** da faixa (7 pins no demo) continua. A Mesa nova é a de **Prazo
 
 ---
 
+## Bloco I — Leitura do DEBCAD (correção de 18/09/2026)
+
+Correção nas **duas edições**. Não é tela da Beta. O PDF `RelatorioCompleto-debcad-149630450.pdf` (AGROTRAC, inscrição 08/05/2021, não ajuizada) era o caso.
+
+**O que você vê.** Na ficha da CDA 149630450, a coluna de prescrição ordinária deixa de mostrar “consumada em 08/05/2026” em vermelho. Depois de importar o PDF Debcad, aparece o protesto lavrado e o termo **17/03/2031**. A nota cinza `[Debcad] Histórico (4 fases): …` some. No lugar, um bloco recolhido **Histórico DEBCAD** (cabeçalho com a conta de fases, atualizações, protestos e se há ajuizamento). Aberto: tabela das fases, o card do protesto (identificação, tabelionato, situação LAVRADO, valor) com a linha “Protesto lavrado” marcada como o evento de prescrição em 17/03/2026, a linha “Não há ajuizamento.” e as atualizações (CADIN, PERT) atrás de outro clique, porque são muitas.
+
+**Antes.** O leitor só conhecia as seções Dados, Histórico e Atualizações. O bloco PROTESTOS do relatório PGFN era engolido pelas atualizações e perdido. Só o PDF do SIDA criava o evento de protesto extrajudicial. A ordinária da AGROTRAC rodava só da inscrição (08/05/2021 + 5 anos = 08/05/2026), já vencida, no grau máximo de urgência. O histórico vinha como um parágrafo único ilegível.
+
+**Por que mudou.** LC 208/2024: protesto extrajudicial da CDA lavrado a partir de 03/07/2024 interrompe a ordinária (art. 174, parágrafo único, II, CTN, na redação da lei). O motor **já** sabia disso (`int_protesto_extrajudicial`). Faltava o Debcad entregar o fato. A efetivação do “Protesto lavrado (Inf. do Cartório)” neste PDF é **17/03/2026** — depois da vigência. O protocolo (08/03/2026) e a data de criação da ocorrência (20/03/2026) **não** são a data do evento.
+
+**Decisão sua.** Duas escolhas deste lote: (1) a data que conta é a **efetivação do lavrado**, não o protocolo no tabelionato — a mesma regra já usada no SIDA; (2) a nota condensada `[Debcad] Histórico` **sai** e o histórico passa a ser ficha estruturada. Recusar #204 mantém a ordinária “consumada” neste caso. Recusar #206 devolve o parágrafo feio se alguém reimportar com o código antigo.
+
+**Itens do inventário:** #203–#208.
+
+**Como testar.** Clássico (`Nexus.html`) ou Beta. Operação qualquer → criar a pessoa AGROTRAC e a CDA **149630450** (não ajuizada, inscrição 08/05/2021) → Importar → PDFs (SIDA/Debcad) → o arquivo `RelatorioCompleto-debcad-149630450.pdf`. Conferir o log (“1 protesto”, evento LC 208/2024). Abrir a ficha da CDA → expandir Histórico DEBCAD → conferir a linha marcada do lavrado e a coluna ordinária com termo 17/03/2031.
+
+---
+
 ## Resumo das decisões que dependem de você
 
 Escolha feita neste lote em **negrito**. Marque o inventário ao lado.
@@ -768,6 +786,7 @@ Escolha feita neste lote em **negrito**. Marque o inventário ao lado.
 17. **Casco da Beta = sidebar e abas do clássico; Demo antiga (trilho, zonas, A/B/C, Ardósia) não volta por interruptor.** Recusar isto é recusar a Beta deste lote. (#61–#70)
 18. **O e-mail das 7h permanece com a lógica antiga (90 dias, fila v1, sem gaveta).** Alternativa: um lote só para o resumo diário — não feito. (#197)
 19. **Adiar e a marca de status automático ficam no cadastro, opcionais; o clássico ignora.** Voltar ao clássico depois da Beta não some dado, mas o adiamento **não esconde** a linha lá. (#202)
+20. **No Debcad, a data do protesto que interrompe a ordinária é a efetivação do “Protesto lavrado”, não o protocolo; a nota condensada `[Debcad] Histórico` sai em favor da ficha estruturada.** Alternativa: contar o protocolo (08/03/2026 neste caso) ou manter o parágrafo único. (#203–#207)
 
 Itens de tela sem escolha jurídica (Esc, toast, ✕ do ⚙, tooltips, Briefing vazio, semana de hoje, título Nova intimação, ATRASADA, filtro CDA, chips zero, dicas abaixo, Aparência, testes, CSS): trate como pacote de acabamento da edição que você adotar. Inventário no final de cada tema, acima.
 

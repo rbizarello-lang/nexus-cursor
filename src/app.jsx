@@ -1,6 +1,7 @@
 import { digitsOnly, docsCompatible, findPersonByDoc, formatCpfCnpj, mergePersonDoc } from './lib/docs.js';
 import { applyDiagnosticFix, runDiagnostics } from './lib/diagnostics.js';
 import { assessPdfDebtorsAgainstOperation, buildPdfImportConfirmMessage, collectPdfDebtors } from './lib/import-guard.js';
+import { parseDebcadLines } from './lib/debcad-parser.js';
 import {
   DEFAULT_EXPORT_SELECTION,
   EXPORT_DATASETS,
@@ -1705,250 +1706,20 @@ async function parseSIDAPDF(file) {
   return records;
 }
 
+function isDebcadCondensedNote(n) {
+  const text = typeof n === 'string' ? n : (n && (n.text || n.content)) || '';
+  return /\[Debcad\]\s*Hist[oó]rico/i.test(text);
+}
+
 async function parseDebcadPDF(file) {
   const lines = await extractPDFText(file);
-  const records = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const blockMatch = line.match(/^Debcad\s+(\d+)\s*\/\s*(\d+)$/);
-    if (!blockMatch) { i++; continue; }
-
-    const rec = { history: [], updates: [] };
-    let j = i + 1;
-    let section = 'dados'; // 'dados' | 'historico' | 'atualizacoes'
-    let historyLines = [];
-    let updateLines = [];
-    while (j < lines.length && !lines[j].match(/^Debcad\s+\d+\s*\/\s*\d+$/)) {
-      const ln = lines[j];
-
-      // Section detection — flexible accent/case matching
-      const lnUpper = ln.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (lnUpper === 'HISTORICO' || ln === 'HISTÓRICO') { section = 'historico'; j++; continue; }
-      if (lnUpper === 'ATUALIZACOES' || ln === 'ATUALIZAÇÕES') { section = 'atualizacoes'; j++; continue; }
-      // Skip table headers
-      if (ln.match(/^Código\/Nome|^Data\s+Hora\s+Fun/i)) { j++; continue; }
-      // Skip PGFN footer lines and page markers
-      if (ln.match(/^P\s*G\s*F\s*N\s*-\s*CONSULTA|^SERPRO|^Pág\.\s*\d/)) { j++; continue; }
-
-      if (section === 'dados') {
-        if (ln.startsWith('Devedor Principal:')) rec.devedor = ln.replace('Devedor Principal:', '').trim();
-        else if (ln.startsWith('CPF/CNPJ:')) rec.cnpj = ln.replace('CPF/CNPJ:', '').trim().replace(/\D/g, '');
-        else if (ln.startsWith('Debcad:') && !rec.cdaNumber) rec.cdaNumber = ln.replace('Debcad:', '').trim();
-        else if (ln.startsWith('Situação:') && !rec.situation) rec.situation = ln.replace('Situação:', '').trim();
-        else if (ln.startsWith('Data Inscrição:')) rec.inscriptionDate = parseBRDate(ln);
-        else if (ln.startsWith('Período da Dívida:')) rec.periodo = ln.replace('Período da Dívida:', '').trim();
-        else if (ln.startsWith('Natureza da Dívida:')) rec.natureza = ln.replace('Natureza da Dívida:', '').trim();
-        else if (ln.startsWith('Receita:')) rec.receita = ln.replace('Receita:', '').trim();
-        else if (ln.startsWith('Valor Principal:')) {
-          const m = ln.match(/R\$\s*([\d.]+,\d{2})/);
-          if (m) rec.valueInscrito = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
-        } else if (ln.startsWith('Valor Total:')) {
-          const m = ln.match(/R\$\s*([\d.]+,\d{2})/);
-          if (m) rec.valueTotal = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
-        } else if (ln.startsWith('Nº Judicial:')) rec.processNumber = ln.replace('Nº Judicial:', '').trim();
-        else if (ln.startsWith('Data de Protocolo:')) rec.protocolDate = parseBRDate(ln);
-        else if (ln.startsWith('Juízo:')) rec.juizo = ln.replace('Juízo:', '').trim();
-        else if (ln.startsWith('Forma de Constituição:')) rec.formaConstituicao = ln.replace('Forma de Constituição:', '').trim();
-        else if (ln.startsWith('Documento de Origem:')) rec.docOrigem = ln.replace('Documento de Origem:', '').trim();
-      } else if (section === 'historico') {
-        historyLines.push(ln);
-      } else if (section === 'atualizacoes') {
-        updateLines.push(ln);
-      }
-
-      j++;
-    }
-
-    // ─── Parse HISTÓRICO ───
-    // PDF.js extracts table text by Y coordinate, which interleaves wrapped cell content.
-    // A row like "797 - PARCELAMENTO RESCINDIDO | 04/10/2021 | ..." may become:
-    //   "797 - 04/10/2021 04/10/2021 20:00:11 SERIS_RESCI CONTA 1574681..."
-    //   "PARCELAMENTO _C/PAG SISPAR"
-    //   "RESCINDIDO"
-    // Strategy: split joined text by 3-digit codes, then extract dates from each segment.
-    if (historyLines.length > 0) {
-      const joined = historyLines.join(' ').replace(/\s+/g, ' ');
-
-      // Split at each 3-digit code boundary: "520 - ... 535 - ... 797 - ..."
-      const segments = [];
-      const codeSplitRegex = /\b(\d{3})\s*-\s*/g;
-      let lastIdx = 0, lastCode = null, csm;
-      const codePositions = [];
-      while ((csm = codeSplitRegex.exec(joined)) !== null) {
-        codePositions.push({ code: csm[1], idx: csm.index, endIdx: csm.index + csm[0].length });
-      }
-      for (let ci = 0; ci < codePositions.length; ci++) {
-        const cp = codePositions[ci];
-        const nextIdx = ci + 1 < codePositions.length ? codePositions[ci+1].idx : joined.length;
-        const segText = joined.slice(cp.endIdx, nextIdx).trim();
-        segments.push({ code: cp.code, text: segText });
-      }
-
-      // Extract dates, time, function, observation from each segment
-      for (const seg of segments) {
-        const dates = [];
-        const dateRegex = /(\d{2}\/\d{2}\/\d{4})/g;
-        let dm;
-        while ((dm = dateRegex.exec(seg.text)) !== null) dates.push(dm[1]);
-        if (dates.length === 0) continue; // no date = not a valid phase entry
-
-        const timeMatch = seg.text.match(/(\d{2}:\d{2}:\d{2})/);
-        // Function identifier: uppercase word with underscores, at least 4 chars, often after the time
-        const funcMatch = seg.text.match(/\b([A-Z][A-Z0-9_]{3,}(?:\/[A-Z0-9_]+)?)\b/);
-        // Description: everything that isn't a date, time, or function — collect known phase names
-        const descWords = seg.text
-          .replace(/\d{2}\/\d{2}\/\d{4}/g, '')
-          .replace(/\d{2}:\d{2}:\d{2}/g, '')
-          .replace(/\b[A-Z][A-Z0-9_]{3,}(?:\/[A-Z0-9_]+)?\b/g, (m) => {
-            // Keep known phase description words, remove function identifiers
-            const knownFunctions = ['AACAOJUD','CDACAOJUD','AACAOMIGRADA','AFASE','ADEBINS','ADEB','COBBATWEB','COBBATGEN','COBDEVINC','COBCBCBPA','PDAPCBD','DIVBATJUD','DIVBATATL','DIVCDI','DAPBDP','ACONPAR','ARESPAR','ACANRES','NAOIDENTIFICADO'];
-            if (knownFunctions.some(f => m.startsWith(f))) return '';
-            if (m.startsWith('SERIS_') || m.startsWith('COB') || m.startsWith('DIV')) return '';
-            return m;
-          })
-          .replace(/\s+/g, ' ').trim();
-
-        // Also look for the description in surrounding history lines that weren't captured
-        // (wrapped cell fragments like "PARCELAMENTO" and "RESCINDIDO" on separate lines)
-        let fullDesc = descWords;
-        // Map known codes to canonical descriptions as fallback
-        const codeDescMap = {
-          '520': 'INSCRICAO DE CREDITO EM DIVIDA ATIVA',
-          '535': 'AJUIZAMENTO / DISTRIBUICAO',
-          '731': 'NEGOCIADO NO SISPAR',
-          '733': 'EM NEGOCIACAO NO SISPAR',
-          '760': 'PRE-PARCELAMENTO',
-          '770': 'OPCAO REFIS / EXIGIBILIDADE SUSPENSA',
-          '775': 'INCLUSAO EM PARCELAMENTO ESPECIAL LEI 11.941',
-          '779': 'INCLUIDO EM PARCELAMENTO SIMPLIFICADO LEI 10.522',
-          '792': 'RESCISAO/EXCLUSAO DE PARCELAMENTOS ESPECIAIS',
-          '797': 'PARCELAMENTO RESCINDIDO',
-          '518': 'PRE-INSCRICAO DE CREDITO'
-        };
-        if (!fullDesc || fullDesc.length < 3) fullDesc = codeDescMap[seg.code] || `Fase ${seg.code}`;
-
-        // Obs: remaining text after removing dates/times/functions/known descriptions
-        const obsText = seg.text
-          .replace(/\d{2}\/\d{2}\/\d{4}/g, '')
-          .replace(/\d{2}:\d{2}:\d{2}/g, '')
-          .replace(/\s+/g, ' ').trim();
-        const obs = obsText.length > 5 ? obsText : '';
-
-        rec.history.push({
-          code: seg.code,
-          desc: fullDesc,
-          date: parseBRDate(dates[0]),
-          dateInfo: dates.length > 1 ? parseBRDate(dates[1]) : parseBRDate(dates[0]),
-          funcao: funcMatch ? funcMatch[1] : '',
-          obs: obs
-        });
-      }
-
-      // Fallback: if no entries were parsed, try simple regex
-      if (rec.history.length === 0) {
-        const simpleRegex = /(\d{3})\s*-\s*(.+?)\s+(\d{2}\/\d{2}\/\d{4})/g;
-        let sm;
-        while ((sm = simpleRegex.exec(joined)) !== null) {
-          rec.history.push({ code: sm[1], desc: sm[2].trim().replace(/\s+/g, ' '), date: parseBRDate(sm[3]) });
-        }
-      }
-    }
-
-    // ─── Parse ATUALIZAÇÕES ───
-    // Each entry: DD/MM/YYYY HH:MM:SS FUNÇÃO [MATRÍCULA] OBSERVAÇÃO
-    if (updateLines.length > 0) {
-      const joinedUpd = updateLines.join(' ').replace(/\s+/g, ' ');
-      const updRegex = /(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*?)(?=\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2}|$)/g;
-      let um;
-      while ((um = updRegex.exec(joinedUpd)) !== null) {
-        const obsRaw = um[4].trim();
-        // Split matrícula (all digits or CNPJ-like) from observation
-        const matMatch = obsRaw.match(/^(\d{5,20})\s+(.*)/);
-        rec.updates.push({
-          date: parseBRDate(um[1]),
-          time: um[2],
-          funcao: um[3].trim(),
-          matricula: matMatch ? matMatch[1] : '',
-          obs: matMatch ? matMatch[2].trim() : obsRaw
-        });
-      }
-    }
-
-    // ─── Merge updates into history as info events (for unified timeline) ───
-    // Atualizações entries that don't correspond to an existing history phase
-    // are added as informational records with synthetic code '999'
-    const histDates = new Set(rec.history.map(h => h.date));
-    rec.updates.forEach(u => {
-      if (u.obs && !histDates.has(u.date)) {
-        rec.history.push({
-          code: '999',
-          desc: `[Atualização] ${u.funcao}`,
-          date: u.date,
-          funcao: u.funcao,
-          obs: u.obs,
-          source: 'atualizacoes'
-        });
-      }
-    });
-
-    // Build parcelamentos from history phases — Debcad phase codes:
-    //  733 EM NEGOCIACAO NO SISPAR (adesão SISPAR)
-    //  760 PRE-PARCELAMENTO (pedido de parcelamento)
-    //  779 INCLUIDO EM PARCELAMENTO SIMPLIFICADO LEI 10.522
-    //  770 OPCAO REFIS/EXIGIBILIDADE SUSPENSA
-    //  775 Inclusao em Parcelamento Especial Lei 11.941
-    //  731 NEGOCIADO NO SISPAR (deferimento/reativação)
-    //  797 PARCELAMENTO RESCINDIDO (fim)
-    //  792 RESCISAO/EXCLUSAO DE CREDITOS DE PARCELAMENTOS ESPECIAIS
-    // Sort by dateInfo (when action actually happened) to handle SISPAR entries
-    // where Data Fase is always the account date, not the event date.
-    if (rec.history.length > 0) {
-      const ADESAO = ['733', '760', '779', '770', '775'];
-      const RESCISAO = ['797', '792'];
-      const sortedHist = [...rec.history]
-        .filter(h => h.code !== '999')
-        .sort((a, b) => ((a.dateInfo || a.date) || '').localeCompare((b.dateInfo || b.date) || ''));
-      rec.parcelamentos = [];
-      let cur = null;
-      for (const h of sortedHist) {
-        if (ADESAO.includes(h.code)) {
-          if (cur && cur.adesao === (h.dateInfo || h.date)) continue;
-          if (cur) {
-            cur.encerramento = h.dateInfo || h.date;
-            cur.situacao = 'Rescindido (implícito)';
-            rec.parcelamentos.push(cur);
-          }
-          cur = { adesao: h.dateInfo || h.date, modalidade: h.desc, tipo: `Fase ${h.code}`, situacao: 'Em vigor', obs: h.obs || '' };
-        } else if (h.code === '731') {
-          // 731 = NEGOCIADO NO SISPAR: if no open parcelamento, treat as reactivation (new adesão)
-          // If open parcelamento, treat as deferimento
-          if (!cur) {
-            cur = { adesao: h.dateInfo || h.date, modalidade: h.desc, tipo: `Fase 731 (reativação)`, situacao: 'Em vigor', obs: h.obs || '' };
-          } else {
-            cur.deferimento = h.dateInfo || h.date;
-          }
-        } else if (RESCISAO.includes(h.code)) {
-          if (cur) {
-            cur.encerramento = h.dateInfo || h.date;
-            cur.situacao = h.obs?.includes('C PAG') ? 'Rescindido c/ pagamento' : h.obs?.includes('S PAG') || h.obs?.includes('S/PAG') ? 'Rescindido s/ pagamento' : 'Rescindido';
-            rec.parcelamentos.push(cur);
-            cur = null;
-          }
-        }
-      }
-      if (cur) rec.parcelamentos.push(cur);
-    }
-
-    if (rec.cdaNumber) records.push(rec);
-    i = j;
-  }
-  return records;
+  return parseDebcadLines(lines);
 }
 
 // ═══════════════════════════════════════════════
 // EPROC INTIMATION PARSER
 // ═══════════════════════════════════════════════
+
 function parseEprocXLS(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
@@ -3422,7 +3193,8 @@ function App() {
             const histCount = (rec.history || []).filter(h => h.code !== '999').length;
             const updCount = (rec.updates || []).length;
             const parcCount = (rec.parcelamentos || []).length;
-            logs.push(`📄 Debcad ${rec.cdaNumber}: ${histCount} fase(s) no Histórico, ${updCount} atualização(ões), ${parcCount} parcelamento(s) detectado(s)`);
+            const protCount = (rec.protestos || []).length;
+            logs.push(`📄 Debcad ${rec.cdaNumber}: ${histCount} fase(s) no Histórico, ${updCount} atualização(ões), ${protCount} protesto(s), ${parcCount} parcelamento(s) detectado(s)`);
           }
         } else {
           logs.push(`📄 ${file.name}: ${records.length} inscrição(ões) SIDA extraída(s)${records.reduce((s,r)=>s+(r.protestos||[]).length,0) > 0 ? ` · ${records.reduce((s,r)=>s+(r.protestos||[]).length,0)} protesto(s) estruturado(s)` : ''}`);
@@ -3515,23 +3287,47 @@ function App() {
               logs.push(`  🔁 Status CDA ${rec.cdaNumber}: ${(DEBT_STATUSES[existing.status]||{}).label||existing.status||'—'} → ${(DEBT_STATUSES[mappedStatus]||{}).label||mappedStatus} ("${truncate(rec.situation, 60)}")`);
             }
           }
-          // ─── DEBCAD: enrich CDA notesList with history summary ───
-          if (!isSIDA && rec.history && rec.history.length > 0) {
+          // ─── DEBCAD: histórico estruturado na CDA (substitui a nota condensada) ───
+          if (!isSIDA) {
             const existingNotes = merged.notesList || [];
-            const alreadyHasDebcad = existingNotes.some(n => n.includes('[Debcad]'));
-            if (!alreadyHasDebcad) {
-              const keyPhases = rec.history
-                .filter(h => h.code !== '999' && h.date)
-                .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-                .map(h => `${fmtDate(h.date)} — Fase ${h.code}: ${truncate(h.desc, 50)}${h.obs ? ' (' + truncate(h.obs, 40) + ')' : ''}`)
-                .slice(0, 10);
-              if (keyPhases.length > 0) {
-                const totalPhases = rec.history.filter(h => h.code !== '999').length;
-                const note = `[Debcad] Histórico (${totalPhases} fases): ${keyPhases.join(' → ')}${totalPhases > 10 ? ` (+${totalPhases - 10})` : ''}`;
-                merged.notesList = [...existingNotes, note];
-                touched = true;
-              }
+            const keptNotes = existingNotes.filter(n => !isDebcadCondensedNote(n));
+            const removedDebcadNotes = existingNotes.length - keptNotes.length;
+            if (removedDebcadNotes > 0) {
+              merged.notesList = keptNotes;
+              logs.push(`  🗑 CDA ${rec.cdaNumber}: removida nota condensada [Debcad] Histórico (${removedDebcadNotes})`);
             }
+            const phaseHist = (rec.history || []).filter(h => h.code !== '999');
+            merged.debcad = {
+              importedAt: new Date().toISOString(),
+              source: 'debcad',
+              situation: rec.situation || '',
+              dadosGerais: {
+                devedor: rec.devedor || '',
+                cnpj: rec.cnpj || '',
+                cdaNumber: rec.cdaNumber || '',
+                situation: rec.situation || '',
+                inscriptionDate: rec.inscriptionDate || '',
+                periodo: rec.periodo || '',
+                natureza: rec.natureza || '',
+                receita: rec.receita || '',
+                sistemaOrigem: rec.sistemaOrigem || '',
+                orgaoOrigem: rec.orgaoOrigem || '',
+                formaConstituicao: rec.formaConstituicao || '',
+                docOrigem: rec.docOrigem || '',
+                dataDocumentoOrigem: rec.dataDocumentoOrigem || '',
+                valueInscrito: rec.valueInscrito,
+                valueTotal: rec.valueTotal,
+                processNumber: rec.processNumber || '',
+                protocolDate: rec.protocolDate || '',
+                juizo: rec.juizo || '',
+              },
+              history: phaseHist,
+              updates: rec.updates || [],
+              protestos: rec.protestos || [],
+              ajuizamentos: rec.ajuizamentos || [],
+            };
+            touched = true;
+            logs.push(`  📚 Histórico DEBCAD gravado na CDA ${rec.cdaNumber} (${phaseHist.length} fases · ${(rec.protestos || []).length} protesto(s) · ${(rec.ajuizamentos || []).length ? 'com ajuizamento' : 'sem ajuizamento'})`);
           }
 
           if (touched) {
@@ -3673,7 +3469,7 @@ function App() {
             return false;
           };
           const protestoSources = [];
-          // PRIMARY: Structured PROTESTOS section from SIDA
+          // PRIMARY: Structured PROTESTOS section (SIDA ou Debcad)
           if (rec.protestos && rec.protestos.length > 0) {
             for (const prot of rec.protestos) {
               const sit = (prot.situacao || '').toUpperCase();
@@ -3688,7 +3484,7 @@ function App() {
                 protestoSources.push({
                   date: effectiveDate,
                   desc: `Protesto ${prot.situacao || 'lavrado'} — ${prot.tabelionato || 'tabelionato N/I'}${prot.valor ? ' — R$ ' + parseFloat(prot.valor).toLocaleString('pt-BR', {minimumFractionDigits:2}) : ''}`,
-                  origin: 'SIDA seção Protestos',
+                  origin: isSIDA ? 'SIDA seção Protestos' : 'Debcad seção Protestos',
                   identificacao: prot.identificacao || '',
                   valor: prot.valor || ''
                 });
@@ -3735,6 +3531,7 @@ function App() {
                 updatedAt: new Date().toISOString()
               });
               eventsCreated++;
+              logs.push(`  📢 Protesto CDA ${rec.cdaNumber}: ${fmtDate(ps.date)} (${ps.origin}${aposLc ? ' · LC 208/2024' : ' · anterior à LC 208/2024'})`);
             }
           }
 
@@ -7051,7 +6848,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const autoPresc = getPrescDate(d);
         const prescDate = autoPresc;
         const prescDays = daysUntil(prescDate);
-        const notes = d.notesList || (d.notes ? [d.notes] : []);
+        const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)));
         const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
         const field = (label, value, color) => value ? (
           <div key={label} className="cda-inline-field">
@@ -7132,7 +6929,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             })()}
             {(() => {
               const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />;
+              return <>
+                <DebcadHistoryBlock debt={d} />
+                <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />
+              </>;
             })()}
             {notes.length > 0 && (
               <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
@@ -11852,6 +11652,147 @@ const CDA_SEGMENT_STATUS = {
   sem_dados: { label: 'Sem dados', color: 'var(--text-muted)' }
 };
 
+function isLavradoProtestoEvent(ev) {
+  return /lavrado|registrado|efetivado/i.test((ev && ev.descricao) || '');
+}
+
+function DebcadHistoryBlock({ debt }) {
+  const db = debt && debt.debcad;
+  const [open, setOpen] = React.useState(false);
+  const [updOpen, setUpdOpen] = React.useState(false);
+  if (!db) return null;
+  const history = (db.history || []).filter(h => h && h.code !== '999');
+  const updates = db.updates || [];
+  const protestos = db.protestos || [];
+  const ajuizamentos = db.ajuizamentos || [];
+  const nFases = history.length;
+  const nUpd = updates.length;
+  const nProt = protestos.length;
+  const hasAj = ajuizamentos.length > 0;
+  const imported = db.importedAt ? fmtDate(db.importedAt) : '';
+  const header = `${nFases} fase${nFases === 1 ? '' : 's'} · ${nUpd} atualização${nUpd === 1 ? '' : 'ões'} · ${nProt} protesto(s) · ajuizamento: ${hasAj ? 'sim' : 'não'}${imported ? ` · importado em ${imported}` : ''}`;
+  const ajLine = !hasAj
+    ? 'Não há ajuizamento.'
+    : ajuizamentos.map((a, i) => {
+        const bits = [
+          a.processNumber ? `nº ${a.processNumber}` : '',
+          a.protocolDate ? `protocolo ${fmtDate(a.protocolDate)}` : '',
+          a.juizo ? `juízo ${a.juizo}` : ''
+        ].filter(Boolean);
+        return bits.length ? bits.join(' · ') : (a.raw || `ajuizamento ${i + 1}`);
+      }).join(' · ');
+  return (
+    <div className="debcad-hist">
+      <button type="button" className="debcad-hist-hd" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <span className="debcad-hist-chev">{open ? '▾' : '▸'}</span>
+        <span className="debcad-hist-title">Histórico DEBCAD</span>
+        <span className="debcad-hist-meta">{header}</span>
+      </button>
+      {open && (
+        <div className="debcad-hist-body">
+          <div className="debcad-hist-k">Fases</div>
+          {nFases === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+            <table className="debcad-hist-table">
+              <thead>
+                <tr>
+                  <th>Data fase</th>
+                  <th>Data informação</th>
+                  <th>Código — Nome</th>
+                  <th>Função</th>
+                  <th>Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h, i) => (
+                  <tr key={i}>
+                    <td className="mono">{fmtDate(h.date)}</td>
+                    <td className="mono">{fmtDate(h.dateInfo || h.date)}</td>
+                    <td><span className="mono">{h.code}</span>{h.desc ? ` — ${h.desc}` : ''}</td>
+                    <td className="mono">{h.funcao || '—'}</td>
+                    <td>{h.obs || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <div className="debcad-hist-k" style={{marginTop:10}}>Protestos</div>
+          {nProt === 0 ? <div className="cda-presc-empty">nenhum</div> : protestos.map((p, i) => (
+            <div key={i} className="debcad-prot-card">
+              <div className="debcad-prot-grid">
+                <div><span className="debcad-hist-k">Identificação</span><div className="mono">{p.identificacao || '—'}</div></div>
+                <div><span className="debcad-hist-k">Tabelionato</span><div>{p.tabelionato || '—'}</div></div>
+                <div><span className="debcad-hist-k">Situação</span><div>{p.situacao || '—'}</div></div>
+                <div><span className="debcad-hist-k">Valor</span><div className="mono">{p.valor ? fmtCur(parseFloat(p.valor)) : '—'}</div></div>
+                <div><span className="debcad-hist-k">Protocolo</span><div className="mono">{p.protocolo || '—'}{p.dataProtocolo ? ` · ${fmtDate(p.dataProtocolo)}` : ''}</div></div>
+              </div>
+              {(p.eventos || []).length > 0 && (
+                <table className="debcad-hist-table" style={{marginTop:6}}>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Evento</th>
+                      <th>Efetivação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(p.eventos || []).map((ev, ei) => {
+                      const hit = isLavradoProtestoEvent(ev);
+                      const efet = ev.dataEfetivacao || ev.dataCriacao;
+                      return (
+                        <tr key={ei} className={hit ? 'debcad-prot-hit' : undefined}>
+                          <td className="mono">{fmtDate(ev.dataCriacao)}</td>
+                          <td>
+                            {ev.descricao || '—'}
+                            {hit && efet ? <span className="debcad-prot-flag"> → evento de prescrição em {fmtDate(efet)}</span> : null}
+                          </td>
+                          <td className="mono">{ev.dataEfetivacao ? fmtDate(ev.dataEfetivacao) : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
+
+          <div className="debcad-hist-k" style={{marginTop:10}}>Ajuizamento</div>
+          <div className="debcad-hist-aj">{ajLine}</div>
+
+          <button type="button" className="debcad-hist-subhd" aria-expanded={updOpen} onClick={() => setUpdOpen(v => !v)}>
+            <span className="debcad-hist-chev">{updOpen ? '▾' : '▸'}</span>
+            Atualizações ({nUpd})
+          </button>
+          {updOpen && (nUpd === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+            <table className="debcad-hist-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Hora</th>
+                  <th>Função</th>
+                  <th>Matrícula</th>
+                  <th>Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {updates.map((u, i) => (
+                  <tr key={i}>
+                    <td className="mono">{fmtDate(u.date)}</td>
+                    <td className="mono">{u.time || '—'}</td>
+                    <td className="mono">{u.funcao || '—'}</td>
+                    <td className="mono">{u.matricula || '—'}</td>
+                    <td>{u.obs || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo }) {
   if (!timeline) return null;
   const keys = [
@@ -11939,7 +11880,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
   const [copied, setCopied] = useState(false);
   const person = (data.people || []).find(p => p.id === d.personId);
   const personName = person?.name || d.devedor || '';
-  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(Boolean);
+  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)));
   const field = (label, value) => value !== null && value !== undefined && value !== '' ? (
     <div key={label} className="cda-inline-field">
       <span className="im-label">{label}</span>
@@ -12026,6 +11967,8 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
           ))}
         </div>
       )}
+
+      <DebcadHistoryBlock debt={d} />
 
       <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} isDemo={isDemo} />
 
