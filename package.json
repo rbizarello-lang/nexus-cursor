@@ -1,6 +1,6 @@
 {
   "name": "nexus-fiscal",
-  "version": "2.0.10",
+  "version": "2.0.11",
   "private": true,
   "type": "module",
   "description": "NEXUS — Painel de Operações Fiscais (build local do JSX)",
