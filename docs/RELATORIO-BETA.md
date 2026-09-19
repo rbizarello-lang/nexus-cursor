@@ -763,6 +763,40 @@ Correção nas **duas edições**. Não é tela da Beta. O PDF `RelatorioComplet
 
 ---
 
+## Bloco J — Leitura do SIDA (Relatório Completo)
+
+Correção nas **duas edições**. Não é tela da Beta. O PDF `SIDA-Relatorio-Completo-18092026.pdf` (VERTICALI, 54 inscrições, consulta de 18/09/2026) é o caso. As seções selecionadas no relatório são só **Dados Gerais, Devedores, Parcelamentos, Ocorrências e Protestos**. Não há tabelas de Garantias, DARF, Compensações ou CADIN como seção própria — CADIN e pagamentos aparecem como linhas de ocorrência.
+
+**O que você vê.** Depois de importar o PDF na operação onde as CDAs já existem, a ficha de cada inscrição ganha o bloco recolhido **Histórico SIDA** (conta de ocorrências, parcelamentos, protestos e devedores). Aberto: dados gerais (situação, valores, juízo), tabela de devedores (principal + corresponsáveis), parcelamentos com a linha que gerou evento marcada, card de protesto (marca “Protesto lavrado” quando for o caso), ajuizamento, e CADIN / pagamentos / ocorrências atrás de outro clique. O log da importação lista cada evento de prescrição criado.
+
+**Antes.** O leitor antigo só enxergava alguns rótulos (`CPF/CNPJ:` colado, `R$` sem espaço). Neste PDF o rótulo vem `CPF/ CNPJ:` e o valor `R $ 48.088,85`. Devedores, juízo (muitas vezes na página seguinte) e eventos de protesto quebrados em duas linhas se perdiam. Não havia ficha estruturada `debt.sida`. A coluna da ordinária, no protesto, dizia “registro do caso” em vez de “interrompe”.
+
+**Por que mudou.** O dono passou a usar o Relatório Completo. Sem ler protesto lavrado (LC 208/2024) e parcelamento rescindido, a ordinária e o ciclo 1+5 saem errados. Sem a ficha, CADIN e pagamentos somem. O texto da coluna era só rótulo: o motor **já** interrompia no protesto pós-03/07/2024; a frase não acompanhava.
+
+**Decisão sua.** Três escolhas deste lote: (1) parcelamento **AGUARDANDO** (pedido SISPAR de 17/09/2026, ainda sem deferimento) e **INDEFERIMENTO** **não** viram evento de prescrição — só aparecem no Histórico SIDA; cancelamento **depois** de deferido conta como rescisão; (2) CADIN, pagamentos e “Bloqueio do Ajuizamento” **não** viram evento (o motor não tem tipo para CADIN); (3) a data do protesto que conta continua sendo a **efetivação do lavrado**, não o protocolo. Recusar #213 neste PDF faria o pedido de 17/09/2026 pausar indevidamente os prazos.
+
+**Itens do inventário:** #209–#215.
+
+**Como testar.** Clássico (`Nexus.html`) ou Beta. Operação qualquer → criar a pessoa VERTICALI (CNPJ 00.841.065/0001-60) e ao menos as CDAs **00 2 11 002974-31** (protesto devolvido) e **00 2 19 021348-10** (protesto lavrado em 23/02/2026) → Importar → PDFs (SIDA/Debcad) → o arquivo `SIDA-Relatorio-Completo-18092026.pdf`. Conferir o log (54 inscrições, protesto LC 208/2024 só nas lavradas, sem evento no AGUARDANDO). Abrir a ficha → expandir Histórico SIDA → conferir corresponsáveis, parcelamentos marcados e a coluna ordinária da CDA lavrada com a linha “interrompe a prescrição ordinária (LC 208/2024)”.
+
+---
+
+## Bloco K — frases das colunas
+
+Só texto. A conta não muda.
+
+**O que você vê.** Na coluna da **intercorrente**, o protesto lavrado depois de 03/07/2024 passa a dizer **não encerra o ciclo de 1 ano + 5 anos**. A coluna da **ordinária** continua **interrompe a prescrição ordinária (LC 208/2024)**. Se o 1 ano + 5 anos começou na rescisão do parcelamento, a linha Datas mostra a data da rescisão (não “sem ciência lançada”). Parcelamento ainda vigente, como a CDA do print, permanece **Início: sem ciência lançada**. No primeiro ano após a rescisão, a Situação fala da rescisão, não de ciência de não localização.
+
+**Antes.** A mesma frase de protesto ia para as duas colunas. Depois da rescisão, a linha Datas dizia “sem ciência lançada” mesmo com o ciclo já contando da data da queda.
+
+**Por que mudou.** O protesto interrompe só o art. 174; o motor já ignorava o protesto como interrupção do art. 40. A rescisão já era o início do ciclo 1+5; faltava a data na linha.
+
+**Itens do inventário:** #216–#217.
+
+**Como testar.** Ficha de CDA ajuizada com protesto lavrado em 23/02/2026: conferir as duas colunas. Ficha com parcelamento rescindido: Datas da intercorrente com a data da rescisão. CDA do print (parcelamento vigente): continua “sem ciência lançada”.
+
+---
+
 ## Resumo das decisões que dependem de você
 
 Escolha feita neste lote em **negrito**. Marque o inventário ao lado.
@@ -787,6 +821,7 @@ Escolha feita neste lote em **negrito**. Marque o inventário ao lado.
 18. **O e-mail das 7h permanece com a lógica antiga (90 dias, fila v1, sem gaveta).** Alternativa: um lote só para o resumo diário — não feito. (#197)
 19. **Adiar e a marca de status automático ficam no cadastro, opcionais; o clássico ignora.** Voltar ao clássico depois da Beta não some dado, mas o adiamento **não esconde** a linha lá. (#202)
 20. **No Debcad, a data do protesto que interrompe a ordinária é a efetivação do “Protesto lavrado”, não o protocolo; a nota condensada `[Debcad] Histórico` sai em favor da ficha estruturada.** Alternativa: contar o protocolo (08/03/2026 neste caso) ou manter o parágrafo único. (#203–#207)
+21. **No SIDA Relatório Completo, AGUARDANDO e indeferimento não geram evento de prescrição; CADIN/pagamentos só na ficha; protesto só se lavrado (efetivação).** Alternativa: o pedido SISPAR de 17/09/2026 pausaria o prazo, ou o CADIN viraria “outro evento”. (#209–#214)
 
 Itens de tela sem escolha jurídica (Esc, toast, ✕ do ⚙, tooltips, Briefing vazio, semana de hoje, título Nova intimação, ATRASADA, filtro CDA, chips zero, dicas abaixo, Aparência, testes, CSS): trate como pacote de acabamento da edição que você adotar. Inventário no final de cada tema, acima.
 

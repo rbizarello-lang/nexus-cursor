@@ -131,6 +131,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(exportPath, 'utf8')),
   '/* --- src/lib/debcad-parser.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'debcad-parser.js'), 'utf8')),
+  '/* --- src/lib/sida-parser.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'sida-parser.js'), 'utf8')),
   '/* --- src/app.jsx --- */',
   unwrapModule(fs.readFileSync(jsxPath, 'utf8')),
 ].join('\n');

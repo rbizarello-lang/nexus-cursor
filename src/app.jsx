@@ -1458,252 +1458,7 @@ function normCDA(s) {
 
 async function parseSIDAPDF(file) {
   const lines = await extractPDFText(file);
-  const records = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    // Find CDA block start: "Inscrição N / TOTAL"
-    const blockMatch = line.match(/^Inscrição\s+(\d+)\s*\/\s*(\d+)$/);
-    if (!blockMatch) { i++; continue; }
-
-    const rec = { parcelamentos: [], occurrences: [], coresponsibles: [], devedores: [], protestos: [] };
-    // Scan forward until next "Inscrição N / N" or end
-    let j = i + 1;
-    let inOccurrences = false;
-    let inDevedores = false;
-    let inProtestos = false;
-    let currentProtesto = null;
-    let currentDevedor = null;
-    while (j < lines.length && !lines[j].match(/^Inscrição\s+\d+\s*\/\s*\d+$/)) {
-      const ln = lines[j];
-      const lnUpper = ln.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-      // Section detection
-      if (lnUpper.includes('INFORMACOES SOBRE OS DEVEDORES') || lnUpper.includes('DEVEDORES DA INSCRICAO')) {
-        inDevedores = true; inOccurrences = false; inProtestos = false;
-        if (currentProtesto) { rec.protestos.push(currentProtesto); currentProtesto = null; }
-        j++; continue;
-      }
-      if (lnUpper.includes('INFORMACOES SOBRE O PARCELAMENTO') || lnUpper === 'PARCELAMENTO' || lnUpper.includes('PARCELAMENTO DA INSCRICAO')) {
-        inDevedores = false; inOccurrences = false; inProtestos = false;
-        if (currentProtesto) { rec.protestos.push(currentProtesto); currentProtesto = null; }
-        // Save last devedor
-        if (currentDevedor && currentDevedor.cpfCnpj) { rec.devedores.push(currentDevedor); currentDevedor = null; }
-      }
-      if (lnUpper === 'PROTESTOS' || (lnUpper.includes('PROTESTOS') && !lnUpper.includes('NAO POSSUI') && !lnUpper.includes('VINCULADOS'))) {
-        inProtestos = true; inDevedores = false; inOccurrences = false;
-        if (currentDevedor && currentDevedor.cpfCnpj) { rec.devedores.push(currentDevedor); currentDevedor = null; }
-        j++; continue;
-      }
-      if (ln === 'OCORRÊNCIAS' || lnUpper === 'OCORRENCIAS') {
-        inOccurrences = true; inDevedores = false; inProtestos = false;
-        if (currentProtesto) { rec.protestos.push(currentProtesto); currentProtesto = null; }
-        if (currentDevedor && currentDevedor.cpfCnpj) { rec.devedores.push(currentDevedor); currentDevedor = null; }
-        j++; continue;
-      }
-
-      // ─── PROTESTOS section ───
-      if (inProtestos) {
-        if (lnUpper.includes('NAO POSSUI PROTESTOS') || lnUpper.includes('INSCRICAO NAO POSSUI')) { j++; continue; }
-        if (ln.startsWith('Identificação do Protesto:') || (ln.match(/^Identif/) && ln.includes('Protesto'))) {
-          if (currentProtesto) rec.protestos.push(currentProtesto);
-          currentProtesto = { identificacao: ln.replace(/^Identif[^:]*:/, '').trim(), eventos: [] };
-        } else if (currentProtesto) {
-          if (ln.startsWith('Protocolo no Tabelionato:')) currentProtesto.protocolo = ln.replace('Protocolo no Tabelionato:', '').trim();
-          else if (ln.startsWith('Data do Protocolo:')) currentProtesto.dataProtocolo = parseBRDate(ln);
-          else if (ln.match(/^Tabelionato respons/i)) currentProtesto.tabelionato = ln.replace(/^Tabelionato[^:]*:/i, '').trim();
-          else if (ln.startsWith('Situação do Protesto:') || ln.match(/^Situa.*Protesto/i)) currentProtesto.situacao = ln.replace(/^Situa[^:]*:/i, '').trim();
-          else if (ln.startsWith('Valor do Protesto:') || ln.match(/^Valor.*Protesto/i)) {
-            const vm = ln.match(/R?\$?\s*([\d.,]+)/);
-            if (vm) currentProtesto.valor = vm[1].replace(/\./g, '').replace(',', '.');
-          }
-          else if (lnUpper !== 'EVENTOS' && !lnUpper.startsWith('DATA DE CRIA')) {
-            const evMatch = ln.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(.+)/);
-            if (evMatch) {
-              currentProtesto.eventos.push({ dataCriacao: parseBRDate(evMatch[1]), dataEfetivacao: parseBRDate(evMatch[2]), descricao: evMatch[3].trim() });
-            } else {
-              const evMatch2 = ln.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+)/);
-              if (evMatch2 && !evMatch2[2].match(/^\d{2}:\d{2}/)) {
-                currentProtesto.eventos.push({ dataCriacao: parseBRDate(evMatch2[1]), descricao: evMatch2[2].trim() });
-              }
-            }
-          }
-        }
-        j++; continue;
-      }
-
-      // ─── DEVEDORES section ───
-      if (inDevedores) {
-        if (ln.startsWith('CPF/CNPJ:')) {
-          // Save previous devedor if exists
-          if (currentDevedor && currentDevedor.cpfCnpj) rec.devedores.push(currentDevedor);
-          currentDevedor = { cpfCnpj: ln.replace('CPF/CNPJ:', '').trim() };
-        } else if (currentDevedor) {
-          if (ln.startsWith('Nome Completo:')) currentDevedor.name = ln.replace('Nome Completo:', '').trim();
-          else if (ln.startsWith('Tipo de Devedor:')) currentDevedor.tipo = ln.replace('Tipo de Devedor:', '').trim();
-          else if (ln.startsWith('Endereço:') && !currentDevedor.endereco) currentDevedor.endereco = ln.replace('Endereço:', '').trim();
-          else if (ln.startsWith('Município:') && !currentDevedor.municipio) currentDevedor.municipio = ln.replace('Município:', '').trim();
-          else if (ln.startsWith('UF:') && !currentDevedor.uf) currentDevedor.uf = ln.replace('UF:', '').trim();
-          else if (ln.startsWith('Situação Cadastral:')) currentDevedor.situacaoCadastral = ln.replace('Situação Cadastral:', '').trim();
-        }
-        // Don't fall through to field extractions below
-        j++; continue;
-      }
-
-      // Field extractions (scan for label then value)
-      if (ln.startsWith('Devedor Principal:')) {
-        rec.devedor = ln.replace('Devedor Principal:', '').trim();
-      } else if (ln.startsWith('CPF/CNPJ:')) {
-        rec.cnpj = ln.replace('CPF/CNPJ:', '').trim().replace(/\D/g, '');
-      } else if (ln.startsWith('Inscrição:') && !rec.cdaNumber) {
-        rec.cdaNumber = ln.replace('Inscrição:', '').trim();
-      } else if (ln.startsWith('Situação:') && !rec.situation) {
-        rec.situation = ln.replace('Situação:', '').trim();
-      } else if (ln.startsWith('Data de Inscrição:')) {
-        rec.inscriptionDate = parseBRDate(ln);
-      } else if (ln.startsWith('Data Primeira Cobrança:')) {
-        rec.firstChargeDate = parseBRDate(ln);
-      } else if (ln.startsWith('Valor Inscrito:')) {
-        const m = ln.match(/R\$\s*([\d.]+,\d{2})/);
-        if (m) rec.valueInscrito = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
-      } else if (ln.startsWith('Nº Único de Processo Judicial:')) {
-        rec.processNumber = ln.replace('Nº Único de Processo Judicial:', '').trim();
-      } else if (ln.startsWith('Data de Protocolo:')) {
-        rec.protocolDate = parseBRDate(ln);
-      } else if (ln.startsWith('Data de Distribuição:')) {
-        rec.distributionDate = parseBRDate(ln);
-      } else if (ln.startsWith('Juízo:')) {
-        rec.juizo = ln.replace('Juízo:', '').trim();
-      } else if (ln.startsWith('Tributo:') || ln.startsWith('Receita da Dívida:')) {
-        rec.tribute = ln.replace(/^(Tributo:|Receita da Dívida:)/, '').trim();
-      }
-
-      // Parcelamento detection — block of Adesão / Encerramento / Situação
-      if (ln.startsWith('Adesão:')) {
-        const parc = { adesao: parseBRDate(ln) };
-        // Look ahead for related fields
-        for (let k = j+1; k < Math.min(j+8, lines.length); k++) {
-          if (lines[k].startsWith('Deferimento:')) parc.deferimento = parseBRDate(lines[k]);
-          else if (lines[k].startsWith('Encerramento:')) parc.encerramento = parseBRDate(lines[k]);
-          else if (lines[k].startsWith('Situação:')) parc.situacao = lines[k].replace('Situação:', '').trim();
-          else if (lines[k].startsWith('Tipo:')) parc.tipo = lines[k].replace('Tipo:', '').trim();
-          else if (lines[k].startsWith('Modalidade:')) parc.modalidade = lines[k].replace('Modalidade:', '').trim();
-          else if (lines[k].startsWith('Adesão:') || lines[k].startsWith('Inscrição ')) break;
-        }
-        rec.parcelamentos.push(parc);
-      }
-
-      // Occurrences — each line starting with date pattern in OCORRÊNCIAS section
-      if (inOccurrences) {
-        const dm = ln.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+)$/);
-        if (dm) {
-          rec.occurrences.push({ date: parseBRDate(dm[1]), desc: dm[2].trim() });
-          // Detect "INCLUSAO DE CO-RESPONSAVEL" — CNPJ is in the line right after the time stamp
-          if (/INCLUSAO DE CO-?RESPONSAVEL/i.test(dm[2])) {
-            // CPF/CNPJ usually appears 1-2 lines later
-            for (let k = j+1; k < Math.min(j+4, lines.length); k++) {
-              const cnpjMatch = lines[k].match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})/);
-              if (cnpjMatch) {
-                rec.coresponsibles.push({
-                  cpfCnpj: cnpjMatch[1].replace(/\D/g, ''),
-                  cpfCnpjFormatted: cnpjMatch[1],
-                  date: parseBRDate(dm[1])
-                });
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      j++;
-    }
-    // Save last devedor if pending
-    if (currentDevedor && currentDevedor.cpfCnpj) rec.devedores.push(currentDevedor);
-    // Save last protesto if pending
-    if (currentProtesto) rec.protestos.push(currentProtesto);
-
-    // Convert DEVEDORES section corresponsáveis to coresponsibles (complement, not duplicate)
-    const existingCpfs = new Set(rec.coresponsibles.map(c => c.cpfCnpj));
-
-    // ─── Detect parcelamento events from OCORRÊNCIAS descriptions ───
-    // SIDA occurrences contain parcelamento lifecycle events in free text.
-    // These complement (or replace) the structured PARCELAMENTO section.
-    const PARC_ADESAO_PATTERNS = [
-      /CONSOLIDACAO\s*PARCEL/i,
-      /NEGOCIACAO\s*PARC/i,
-      /INCLUSAO\s*EM\s*PARC/i,
-      /BLOQUEIO\s*NEGOCIACAO/i,
-      /ADESAO\s*(?:PARC|A\s*PARCELAMENTO)/i,
-      /OPCAO\s*(?:REFIS|PAES)/i,
-      /PARCELAMENTO\s*(?:SIMPLIFICADO|ESPECIAL|LEI)/i,
-    ];
-    const PARC_RESCISAO_PATTERNS = [
-      /ENC\.\s*RESCISAO/i,
-      /RESCISAO\s*(?:PARCEL|PARC|LEI|DO\s*PARCEL)/i,
-      /EXCLUSAO\s*(?:PARCEL|PARC|DO\s*PARCEL|DE\s*CREDITO)/i,
-    ];
-
-    const occParcs = [];
-    let curOccParc = null;
-    // Sort occurrences chronologically
-    const sortedOccs = [...rec.occurrences].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    for (const occ of sortedOccs) {
-      const desc = occ.desc || '';
-      const isAdesao = PARC_ADESAO_PATTERNS.some(p => p.test(desc));
-      const isRescisao = PARC_RESCISAO_PATTERNS.some(p => p.test(desc));
-
-      if (isAdesao && !isRescisao) {
-        if (curOccParc) {
-          curOccParc.encerramento = occ.date;
-          curOccParc.situacao = 'Rescindido (implícito)';
-          occParcs.push(curOccParc);
-        }
-        curOccParc = { adesao: occ.date, modalidade: desc, tipo: 'Ocorrência SIDA', situacao: 'Em vigor', obs: desc };
-      } else if (isRescisao) {
-        if (curOccParc) {
-          curOccParc.encerramento = occ.date;
-          curOccParc.situacao = desc.includes('ENC.') ? 'Rescindido (encerramento)' : 'Rescindido';
-          occParcs.push(curOccParc);
-          curOccParc = null;
-        } else {
-          // Rescisão sem adesão anterior — criar entrada retroativa
-          occParcs.push({ adesao: '', encerramento: occ.date, modalidade: desc, tipo: 'Rescisão SIDA', situacao: 'Rescindido', obs: desc });
-        }
-      }
-    }
-    if (curOccParc) occParcs.push(curOccParc);
-
-    // Merge: only add occurrence-derived parcelamentos if they don't duplicate structured ones
-    if (occParcs.length > 0) {
-      const existingDates = new Set(rec.parcelamentos.map(p => p.adesao));
-      for (const op of occParcs) {
-        if (op.adesao && existingDates.has(op.adesao)) continue; // skip duplicates
-        if (op.encerramento && rec.parcelamentos.some(p => p.encerramento === op.encerramento)) continue;
-        rec.parcelamentos.push(op);
-      }
-    }
-    rec.devedores.forEach(dev => {
-      if (!dev.tipo || dev.tipo.toUpperCase() === 'PRINCIPAL') return; // skip principal
-      const cpfDigits = (dev.cpfCnpj || '').replace(/\D/g, '');
-      if (cpfDigits && !existingCpfs.has(cpfDigits)) {
-        rec.coresponsibles.push({
-          cpfCnpj: cpfDigits,
-          cpfCnpjFormatted: dev.cpfCnpj,
-          name: dev.name || '',
-          endereco: dev.endereco || '',
-          municipio: dev.municipio || '',
-          uf: dev.uf || '',
-          situacaoCadastral: dev.situacaoCadastral || '',
-          source: 'SIDA-DEVEDORES'
-        });
-      }
-    });
-
-    if (rec.cdaNumber) records.push(rec);
-    i = j;
-  }
-  return records;
+  return parseSIDALines(lines);
 }
 
 function isDebcadCondensedNote(n) {
@@ -3197,7 +2952,9 @@ function App() {
             logs.push(`📄 Debcad ${rec.cdaNumber}: ${histCount} fase(s) no Histórico, ${updCount} atualização(ões), ${protCount} protesto(s), ${parcCount} parcelamento(s) detectado(s)`);
           }
         } else {
-          logs.push(`📄 ${file.name}: ${records.length} inscrição(ões) SIDA extraída(s)${records.reduce((s,r)=>s+(r.protestos||[]).length,0) > 0 ? ` · ${records.reduce((s,r)=>s+(r.protestos||[]).length,0)} protesto(s) estruturado(s)` : ''}`);
+          const protN = records.reduce((s, r) => s + (r.protestos || []).length, 0);
+          const parcN = records.reduce((s, r) => s + (r.parcelamentos || []).length, 0);
+          logs.push(`📄 ${file.name}: ${records.length} inscrição(ões) SIDA extraída(s) · ${protN} protesto(s) · ${parcN} parcelamento(s)`);
         }
         parsedFiles.push({ file, isSIDA, records });
       } catch (err) {
@@ -3261,7 +3018,9 @@ function App() {
           if (rec.receita && !existing.system) { merged.system = rec.receita; touched = true; }
           if (rec.periodo && !existing.periodo) { merged.periodo = rec.periodo; touched = true; }
           if (rec.valueTotal && !existing.value) { merged.value = rec.valueTotal; touched = true; }
+          if (rec.valueConsolidado && !existing.value && !merged.value) { merged.value = rec.valueConsolidado; touched = true; }
           if (rec.valueInscrito && !existing.valueInscrito) { merged.valueInscrito = rec.valueInscrito; touched = true; }
+          if (rec.protocolDate && !existing.protocolDate) { merged.protocolDate = rec.protocolDate; touched = true; }
           if (rec.formaConstituicao && !existing.formaConstituicao) { merged.formaConstituicao = rec.formaConstituicao; touched = true; }
           if (rec.docOrigem && !existing.docOrigem) { merged.docOrigem = rec.docOrigem; touched = true; }
           // Heurística: sugere a modalidade de lançamento pelo texto do SIDA (só quando vazio)
@@ -3330,6 +3089,20 @@ function App() {
             logs.push(`  📚 Histórico DEBCAD gravado na CDA ${rec.cdaNumber} (${phaseHist.length} fases · ${(rec.protestos || []).length} protesto(s) · ${(rec.ajuizamentos || []).length ? 'com ajuizamento' : 'sem ajuizamento'})`);
           }
 
+          // ─── SIDA: histórico estruturado na CDA (substitui a nota condensada) ───
+          if (isSIDA) {
+            const existingNotes = merged.notesList || [];
+            const keptNotes = existingNotes.filter(n => !isSidaCondensedNote(n));
+            const removedSidaNotes = existingNotes.length - keptNotes.length;
+            if (removedSidaNotes > 0) {
+              merged.notesList = keptNotes;
+              logs.push(`  🗑 CDA ${rec.cdaNumber}: removida nota condensada [SIDA] (${removedSidaNotes})`);
+            }
+            merged.sida = buildSidaDebtPayload(rec, new Date().toISOString());
+            touched = true;
+            logs.push(`  📚 Histórico SIDA gravado na CDA ${rec.cdaNumber} (${(rec.occurrences || []).length} ocorrência(s) · ${(rec.parcelamentos || []).length} parcelamento(s) · ${(rec.protestos || []).length} protesto(s) · ${(rec.devedores || []).length} devedor(es))`);
+          }
+
           if (touched) {
             merged.updatedAt = new Date().toISOString();
             upsert('debts', merged);
@@ -3352,6 +3125,7 @@ function App() {
           if (rec.parcelamentos && rec.parcelamentos.length > 0) {
             const existingEvents = (data.prescriptionEvents || []).filter(pe => pe.cdaId === existing.id || (pe.batchCdaIds && pe.batchCdaIds.includes(existing.id)));
             for (const parc of rec.parcelamentos) {
+              if (isSIDA && !shouldEmitSidaParcelamentoEvents(parc)) continue;
               // Need at least adesao or encerramento date
               if (!parc.adesao && !parc.encerramento) continue;
 
@@ -3415,6 +3189,7 @@ function App() {
             // ─── Generate SEPARATE rescisão events for timeline visibility ───
             // Each parcelamento with encerramento date gets a distinct int_rescisao_parcelamento event
             for (const parc of rec.parcelamentos) {
+              if (isSIDA && !shouldEmitSidaParcelamentoEvents(parc)) continue;
               if (!parc.encerramento) continue;
               const dupResc = existingEvents.find(pe => pe.type === 'int_rescisao_parcelamento' && pe.date === parc.encerramento);
               if (dupResc) continue;
@@ -3473,13 +3248,17 @@ function App() {
           if (rec.protestos && rec.protestos.length > 0) {
             for (const prot of rec.protestos) {
               const sit = (prot.situacao || '').toUpperCase();
-              if (/CANCELAMENTO|CANCELADO|SUSTADO|ENCERRADO/.test(sit) && !/LAVRADO|REGISTRADO/.test(sit)) continue;
+              if (isSIDA) {
+                if (!/LAVRADO|REGISTRADO/.test(sit)) continue;
+              } else if (/CANCELAMENTO|CANCELADO|SUSTADO|ENCERRADO/.test(sit) && !/LAVRADO|REGISTRADO/.test(sit)) {
+                continue;
+              }
               let effectiveDate = '';
               if (prot.eventos && prot.eventos.length > 0) {
                 const lavrado = prot.eventos.find(ev => /lavrado|registrado|efetivado/i.test(ev.descricao || ''));
                 if (lavrado) effectiveDate = lavrado.dataEfetivacao || lavrado.dataCriacao || '';
               }
-              if (!effectiveDate) effectiveDate = prot.dataProtocolo || '';
+              if (!effectiveDate && !isSIDA) effectiveDate = prot.dataProtocolo || '';
               if (effectiveDate) {
                 protestoSources.push({
                   date: effectiveDate,
@@ -3491,12 +3270,15 @@ function App() {
               }
             }
           }
-          // FALLBACK: SIDA occurrences
-          if (rec.occurrences && rec.occurrences.length > 0) {
+          // FALLBACK: SIDA occurrences (só se a seção Protestos não veio no relatório)
+          if (rec.occurrences && rec.occurrences.length > 0 && !(isSIDA && rec.protestos && rec.protestos.length > 0)) {
             rec.occurrences.forEach(occ => {
-              if (occ.date && isProtestoLine(occ.desc)) {
-                protestoSources.push({ date: occ.date, desc: occ.desc, origin: 'SIDA ocorrência' });
-              }
+              if (!occ.date) return;
+              const hit = isSIDA ? isSidaProtestoLine(occ.desc) : isProtestoLine(occ.desc);
+              if (!hit) return;
+              const efet = String(occ.desc || '').match(/Data efetiva[cç][aã]o:\s*(\d{2}\/\d{2}\/\d{4})/i);
+              const date = efet ? parseBRDate(efet[1]) : occ.date;
+              protestoSources.push({ date, desc: occ.desc, origin: 'SIDA ocorrência' });
             });
           }
           // Debcad history
@@ -3532,6 +3314,25 @@ function App() {
               });
               eventsCreated++;
               logs.push(`  📢 Protesto CDA ${rec.cdaNumber}: ${fmtDate(ps.date)} (${ps.origin}${aposLc ? ' · LC 208/2024' : ' · anterior à LC 208/2024'})`);
+            }
+          }
+
+          if (rec.dataFalencia) {
+            const existingEvents = (data.prescriptionEvents || []).filter(pe => pe.cdaId === existing.id);
+            const dupFal = existingEvents.find(pe => pe.type === 'susp_falencia' && pe.date === rec.dataFalencia);
+            if (!dupFal) {
+              upsert('prescriptionEvents', {
+                id: uid(),
+                cdaId: existing.id,
+                type: 'susp_falencia',
+                date: rec.dataFalencia,
+                legalBasis: 'Art. 151, CTN — Falência / recuperação (extraído do SIDA, Data de Falência)',
+                notes: `Data de Falência no relatório SIDA: ${fmtDate(rec.dataFalencia)}`,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+              eventsCreated++;
+              logs.push(`  ⏸ Falência CDA ${rec.cdaNumber}: ${fmtDate(rec.dataFalencia)} (SIDA Dados Gerais)`);
             }
           }
 
@@ -6848,7 +6649,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         const autoPresc = getPrescDate(d);
         const prescDate = autoPresc;
         const prescDays = daysUntil(prescDate);
-        const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)));
+        const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)) && !(d.sida && isSidaCondensedNote(n)));
         const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
         const field = (label, value, color) => value ? (
           <div key={label} className="cda-inline-field">
@@ -6931,6 +6732,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
               return <>
                 <DebcadHistoryBlock debt={d} />
+                <SidaHistoryBlock debt={d} />
                 <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />
               </>;
             })()}
@@ -11656,10 +11458,78 @@ function isLavradoProtestoEvent(ev) {
   return /lavrado|registrado|efetivado/i.test((ev && ev.descricao) || '');
 }
 
+function CdaSourceHistoryBlock({ title, meta, children }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="debcad-hist">
+      <button type="button" className="debcad-hist-hd" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <span className="debcad-hist-chev">{open ? '▾' : '▸'}</span>
+        <span className="debcad-hist-title">{title}</span>
+        <span className="debcad-hist-meta">{meta}</span>
+      </button>
+      {open && <div className="debcad-hist-body">{children}</div>}
+    </div>
+  );
+}
+
+function CdaHistSubBlock({ title, children }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button type="button" className="debcad-hist-subhd" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <span className="debcad-hist-chev">{open ? '▾' : '▸'}</span>
+        {title}
+      </button>
+      {open ? children : null}
+    </>
+  );
+}
+
+function CdaProtestoCards({ protestos }) {
+  if (!protestos || !protestos.length) return <div className="cda-presc-empty">nenhum</div>;
+  return protestos.map((p, i) => (
+    <div key={i} className="debcad-prot-card">
+      <div className="debcad-prot-grid">
+        <div><span className="debcad-hist-k">Identificação</span><div className="mono">{p.identificacao || '—'}</div></div>
+        <div><span className="debcad-hist-k">Tabelionato</span><div>{p.tabelionato || '—'}</div></div>
+        <div><span className="debcad-hist-k">Situação</span><div>{p.situacao || '—'}</div></div>
+        <div><span className="debcad-hist-k">Valor</span><div className="mono">{p.valor ? fmtCur(parseFloat(p.valor)) : '—'}</div></div>
+        <div><span className="debcad-hist-k">Protocolo</span><div className="mono">{p.protocolo || '—'}{p.dataProtocolo ? ` · ${fmtDate(p.dataProtocolo)}` : ''}</div></div>
+      </div>
+      {(p.eventos || []).length > 0 && (
+        <table className="debcad-hist-table" style={{marginTop:6}}>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Evento</th>
+              <th>Efetivação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(p.eventos || []).map((ev, ei) => {
+              const sitOk = /LAVRADO|REGISTRADO/i.test(p.situacao || '');
+              const hit = sitOk && isLavradoProtestoEvent(ev);
+              const efet = ev.dataEfetivacao || ev.dataCriacao;
+              return (
+                <tr key={ei} className={hit ? 'debcad-prot-hit' : undefined}>
+                  <td className="mono">{fmtDate(ev.dataCriacao)}</td>
+                  <td>
+                    {ev.descricao || '—'}
+                    {hit && efet ? <span className="debcad-prot-flag"> → evento de prescrição em {fmtDate(efet)}</span> : null}
+                  </td>
+                  <td className="mono">{ev.dataEfetivacao ? fmtDate(ev.dataEfetivacao) : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  ));
+}
+
 function DebcadHistoryBlock({ debt }) {
   const db = debt && debt.debcad;
-  const [open, setOpen] = React.useState(false);
-  const [updOpen, setUpdOpen] = React.useState(false);
   if (!db) return null;
   const history = (db.history || []).filter(h => h && h.code !== '999');
   const updates = db.updates || [];
@@ -11682,114 +11552,241 @@ function DebcadHistoryBlock({ debt }) {
         return bits.length ? bits.join(' · ') : (a.raw || `ajuizamento ${i + 1}`);
       }).join(' · ');
   return (
-    <div className="debcad-hist">
-      <button type="button" className="debcad-hist-hd" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-        <span className="debcad-hist-chev">{open ? '▾' : '▸'}</span>
-        <span className="debcad-hist-title">Histórico DEBCAD</span>
-        <span className="debcad-hist-meta">{header}</span>
-      </button>
-      {open && (
-        <div className="debcad-hist-body">
-          <div className="debcad-hist-k">Fases</div>
-          {nFases === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
-            <table className="debcad-hist-table">
-              <thead>
-                <tr>
-                  <th>Data fase</th>
-                  <th>Data informação</th>
-                  <th>Código — Nome</th>
-                  <th>Função</th>
-                  <th>Observação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h, i) => (
-                  <tr key={i}>
-                    <td className="mono">{fmtDate(h.date)}</td>
-                    <td className="mono">{fmtDate(h.dateInfo || h.date)}</td>
-                    <td><span className="mono">{h.code}</span>{h.desc ? ` — ${h.desc}` : ''}</td>
-                    <td className="mono">{h.funcao || '—'}</td>
-                    <td>{h.obs || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          <div className="debcad-hist-k" style={{marginTop:10}}>Protestos</div>
-          {nProt === 0 ? <div className="cda-presc-empty">nenhum</div> : protestos.map((p, i) => (
-            <div key={i} className="debcad-prot-card">
-              <div className="debcad-prot-grid">
-                <div><span className="debcad-hist-k">Identificação</span><div className="mono">{p.identificacao || '—'}</div></div>
-                <div><span className="debcad-hist-k">Tabelionato</span><div>{p.tabelionato || '—'}</div></div>
-                <div><span className="debcad-hist-k">Situação</span><div>{p.situacao || '—'}</div></div>
-                <div><span className="debcad-hist-k">Valor</span><div className="mono">{p.valor ? fmtCur(parseFloat(p.valor)) : '—'}</div></div>
-                <div><span className="debcad-hist-k">Protocolo</span><div className="mono">{p.protocolo || '—'}{p.dataProtocolo ? ` · ${fmtDate(p.dataProtocolo)}` : ''}</div></div>
-              </div>
-              {(p.eventos || []).length > 0 && (
-                <table className="debcad-hist-table" style={{marginTop:6}}>
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Evento</th>
-                      <th>Efetivação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(p.eventos || []).map((ev, ei) => {
-                      const hit = isLavradoProtestoEvent(ev);
-                      const efet = ev.dataEfetivacao || ev.dataCriacao;
-                      return (
-                        <tr key={ei} className={hit ? 'debcad-prot-hit' : undefined}>
-                          <td className="mono">{fmtDate(ev.dataCriacao)}</td>
-                          <td>
-                            {ev.descricao || '—'}
-                            {hit && efet ? <span className="debcad-prot-flag"> → evento de prescrição em {fmtDate(efet)}</span> : null}
-                          </td>
-                          <td className="mono">{ev.dataEfetivacao ? fmtDate(ev.dataEfetivacao) : '—'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          ))}
-
-          <div className="debcad-hist-k" style={{marginTop:10}}>Ajuizamento</div>
-          <div className="debcad-hist-aj">{ajLine}</div>
-
-          <button type="button" className="debcad-hist-subhd" aria-expanded={updOpen} onClick={() => setUpdOpen(v => !v)}>
-            <span className="debcad-hist-chev">{updOpen ? '▾' : '▸'}</span>
-            Atualizações ({nUpd})
-          </button>
-          {updOpen && (nUpd === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
-            <table className="debcad-hist-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Hora</th>
-                  <th>Função</th>
-                  <th>Matrícula</th>
-                  <th>Observação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {updates.map((u, i) => (
-                  <tr key={i}>
-                    <td className="mono">{fmtDate(u.date)}</td>
-                    <td className="mono">{u.time || '—'}</td>
-                    <td className="mono">{u.funcao || '—'}</td>
-                    <td className="mono">{u.matricula || '—'}</td>
-                    <td>{u.obs || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ))}
-        </div>
+    <CdaSourceHistoryBlock title="Histórico DEBCAD" meta={header}>
+      <div className="debcad-hist-k">Fases</div>
+      {nFases === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+        <table className="debcad-hist-table">
+          <thead>
+            <tr>
+              <th>Data fase</th>
+              <th>Data informação</th>
+              <th>Código — Nome</th>
+              <th>Função</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.map((h, i) => (
+              <tr key={i}>
+                <td className="mono">{fmtDate(h.date)}</td>
+                <td className="mono">{fmtDate(h.dateInfo || h.date)}</td>
+                <td><span className="mono">{h.code}</span>{h.desc ? ` — ${h.desc}` : ''}</td>
+                <td className="mono">{h.funcao || '—'}</td>
+                <td>{h.obs || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
-    </div>
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Protestos</div>
+      <CdaProtestoCards protestos={protestos} />
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Ajuizamento</div>
+      <div className="debcad-hist-aj">{ajLine}</div>
+
+      <CdaHistSubBlock title={`Atualizações (${nUpd})`}>
+        {nUpd === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+          <table className="debcad-hist-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Função</th>
+                <th>Matrícula</th>
+                <th>Observação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {updates.map((u, i) => (
+                <tr key={i}>
+                  <td className="mono">{fmtDate(u.date)}</td>
+                  <td className="mono">{u.time || '—'}</td>
+                  <td className="mono">{u.funcao || '—'}</td>
+                  <td className="mono">{u.matricula || '—'}</td>
+                  <td>{u.obs || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </CdaHistSubBlock>
+    </CdaSourceHistoryBlock>
+  );
+}
+
+function SidaHistoryBlock({ debt }) {
+  const sid = debt && debt.sida;
+  if (!sid) return null;
+  const dados = sid.dadosGerais || {};
+  const occs = sid.occurrences || [];
+  const parcs = sid.parcelamentos || [];
+  const protestos = sid.protestos || [];
+  const devedores = sid.devedores || [];
+  const pagamentos = sid.pagamentos || [];
+  const cadin = sid.cadin || [];
+  const ajuizamentos = sid.ajuizamentos || [];
+  const imported = sid.importedAt ? fmtDate(sid.importedAt) : '';
+  const header = `${occs.length} ocorrência(s) · ${parcs.length} parcelamento(s) · ${protestos.length} protesto(s) · ${devedores.length} devedor(es)${imported ? ` · importado em ${imported}` : ''}`;
+  const ajGerais = ajuizamentos.filter(a => a.source === 'dados_gerais');
+  const ajLine = ajGerais.length === 0 && !dados.processNumber
+    ? 'Não informado.'
+    : (ajGerais.length ? ajGerais : [{ processNumber: dados.processNumber, protocolDate: dados.protocolDate, juizo: dados.juizo }]).map((a, i) => {
+        const bits = [
+          a.processNumber ? `nº ${a.processNumber}` : '',
+          a.protocolDate ? `protocolo ${fmtDate(a.protocolDate)}` : '',
+          a.juizo ? `juízo ${a.juizo}` : ''
+        ].filter(Boolean);
+        return bits.length ? bits.join(' · ') : (a.raw || `ajuizamento ${i + 1}`);
+      }).join(' · ');
+  const kv = (label, value) => value !== undefined && value !== null && value !== '' ? (
+    <div key={label}><span className="debcad-hist-k">{label}</span><div>{value}</div></div>
+  ) : null;
+  return (
+    <CdaSourceHistoryBlock title="Histórico SIDA" meta={header}>
+      <div className="debcad-hist-k">Dados gerais</div>
+      <div className="debcad-prot-grid" style={{marginBottom:8}}>
+        {kv('Situação', dados.situation || sid.situation)}
+        {kv('Inscrição', dados.inscriptionDate ? fmtDate(dados.inscriptionDate) : '')}
+        {kv('Primeira cobrança', dados.firstChargeDate ? fmtDate(dados.firstChargeDate) : '')}
+        {kv('Série', dados.serie)}
+        {kv('Natureza', dados.natureza)}
+        {kv('Receita', dados.tribute)}
+        {kv('Valor inscrito', dados.valueInscrito != null ? fmtCur(dados.valueInscrito) : '')}
+        {kv('Valor consolidado', dados.valueConsolidado != null ? fmtCur(dados.valueConsolidado) : '')}
+        {kv('Processo administrativo', dados.processoAdministrativo)}
+        {kv('PFN responsável', dados.pfnResponsavel)}
+        {kv('Órgão de origem', dados.orgaoOrigem)}
+        {kv('Bloqueio do ajuizamento', dados.bloqueioAjuizamento)}
+        {kv('Data de falência', dados.dataFalencia ? fmtDate(dados.dataFalencia) : '')}
+        {kv('Motivo de suspensão', dados.motivoSuspensao)}
+      </div>
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Devedores ({devedores.length})</div>
+      {devedores.length === 0 ? <div className="cda-presc-empty">nenhum</div> : (
+        <table className="debcad-hist-table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Nome</th>
+              <th>CPF/CNPJ</th>
+              <th>Município</th>
+              <th>Situação RFB</th>
+            </tr>
+          </thead>
+          <tbody>
+            {devedores.map((d, i) => (
+              <tr key={i} className={d.tipo && /CORRESPONS/i.test(d.tipo) ? 'debcad-prot-hit' : undefined}>
+                <td>{d.tipo || '—'}</td>
+                <td>{d.name || '—'}</td>
+                <td className="mono">{d.cpfCnpj || '—'}</td>
+                <td>{[d.municipio, d.uf].filter(Boolean).join('/') || '—'}</td>
+                <td>{d.situacaoCadastral || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Parcelamentos ({parcs.length})</div>
+      {parcs.length === 0 ? <div className="cda-presc-empty">nenhum</div> : (
+        <table className="debcad-hist-table">
+          <thead>
+            <tr>
+              <th>Adesão</th>
+              <th>Deferimento</th>
+              <th>Encerramento</th>
+              <th>Situação</th>
+              <th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parcs.map((p, i) => {
+              const hit = shouldEmitSidaParcelamentoEvents(p);
+              return (
+                <tr key={i} className={hit ? 'debcad-prot-hit' : undefined}>
+                  <td className="mono">{fmtDate(p.adesao)}</td>
+                  <td className="mono">{p.deferimento ? fmtDate(p.deferimento) : '—'}</td>
+                  <td className="mono">{p.encerramento ? fmtDate(p.encerramento) : '—'}</td>
+                  <td>
+                    {p.situacao || '—'}
+                    {hit && p.adesao ? <span className="debcad-prot-flag"> → evento de prescrição em {fmtDate(p.adesao)}</span> : null}
+                  </td>
+                  <td>{p.tipo || p.modalidade || '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Protestos</div>
+      <CdaProtestoCards protestos={protestos} />
+
+      <div className="debcad-hist-k" style={{marginTop:10}}>Ajuizamento</div>
+      <div className="debcad-hist-aj">{ajLine}</div>
+
+      <CdaHistSubBlock title={`CADIN (${cadin.length})`}>
+        {cadin.length === 0 ? <div className="cda-presc-empty">nenhum</div> : (
+          <table className="debcad-hist-table">
+            <thead>
+              <tr><th>Data</th><th>Tipo</th><th>Protocolo</th></tr>
+            </thead>
+            <tbody>
+              {cadin.map((c, i) => (
+                <tr key={i}>
+                  <td className="mono">{fmtDate(c.date)}</td>
+                  <td>{c.tipo || '—'}</td>
+                  <td className="mono">{c.protocolo || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </CdaHistSubBlock>
+
+      <CdaHistSubBlock title={`Pagamentos (${pagamentos.length})`}>
+        {pagamentos.length === 0 ? <div className="cda-presc-empty">nenhum</div> : (
+          <table className="debcad-hist-table">
+            <thead>
+              <tr><th>Data</th><th>Arrecadação</th><th>Valor</th></tr>
+            </thead>
+            <tbody>
+              {pagamentos.map((p, i) => (
+                <tr key={i}>
+                  <td className="mono">{fmtDate(p.date)}</td>
+                  <td className="mono">{p.arrecadacaoDate ? fmtDate(p.arrecadacaoDate) : '—'}</td>
+                  <td className="mono">{p.valor != null ? fmtCur(p.valor) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </CdaHistSubBlock>
+
+      <CdaHistSubBlock title={`Ocorrências (${occs.length})`}>
+        {occs.length === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
+          <table className="debcad-hist-table">
+            <thead>
+              <tr><th>Data</th><th>Hora</th><th>Descrição</th></tr>
+            </thead>
+            <tbody>
+              {occs.map((o, i) => {
+                const kind = classifySidaOccurrence(o.desc);
+                const hit = kind === 'protesto' || kind === 'parc_adesao' || kind === 'parc_rescisao' || kind === 'coresponsavel';
+                return (
+                  <tr key={i} className={hit ? 'debcad-prot-hit' : undefined}>
+                    <td className="mono">{fmtDate(o.date)}</td>
+                    <td className="mono">{o.time || '—'}</td>
+                    <td>{o.desc || '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </CdaHistSubBlock>
+    </CdaSourceHistoryBlock>
   );
 }
 
@@ -11880,7 +11877,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
   const [copied, setCopied] = useState(false);
   const person = (data.people || []).find(p => p.id === d.personId);
   const personName = person?.name || d.devedor || '';
-  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)));
+  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)) && !(d.sida && isSidaCondensedNote(n)));
   const field = (label, value) => value !== null && value !== undefined && value !== '' ? (
     <div key={label} className="cda-inline-field">
       <span className="im-label">{label}</span>
@@ -11969,6 +11966,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
       )}
 
       <DebcadHistoryBlock debt={d} />
+      <SidaHistoryBlock debt={d} />
 
       <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} isDemo={isDemo} />
 

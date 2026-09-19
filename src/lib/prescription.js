@@ -1021,6 +1021,15 @@ function occurrenceEffect(type, ev, r) {
     return 'interrompe e pausa enquanto vigente';
   }
   if (t === 'int_rescisao_parcelamento') return 'restabelece a exigibilidade; abre ciclo de 1 ano + 5 anos';
+  if (t === 'int_protesto_extrajudicial') {
+    const d = asIso(ev && ev.date);
+    if (r && r.segment === 'intercorrente') {
+      if (protestoExtrajudicialInterrompe(d)) return 'não encerra o ciclo de 1 ano + 5 anos';
+      return 'não interrompe (anterior à LC 208/2024)';
+    }
+    if (protestoExtrajudicialInterrompe(d)) return 'interrompe a prescrição ordinária (LC 208/2024)';
+    return 'não interrompe (anterior à LC 208/2024)';
+  }
   if (t === 'susp_idpj_mcf_constricao') return 'pausa o prazo das execuções abrangidas desde o pedido; não encerra o ciclo';
   if (t === 'susp_idpj_mcf') return 'pausa a intercorrente até o fim do incidente; não encerra o ciclo';
   if (EF_CONSTRICTION_TYPES.has(t) || CITACAO_ALIASES.has(t)) {
@@ -1131,7 +1140,12 @@ function buildSummary(r, ctx) {
       if (!r.diesAdQuem) return 'Prazo pausado. Parcelamento vigente.';
       return `Prazo pausado. Termo projetado: ${fmtDate(r.diesAdQuem)}.`;
     }
-    if (r.phase === 'suspensao_art40') return `Primeiro ano após a ciência de não localização ou de ausência de bens. Termo: ${fmtDate(r.diesAdQuem)}.`;
+    if (r.phase === 'suspensao_art40') {
+      if (r.cycleKind === 'politica_parc') {
+        return `Primeiro ano após a rescisão do parcelamento. Termo: ${fmtDate(r.diesAdQuem)}.`;
+      }
+      return `Primeiro ano após a ciência de não localização ou de ausência de bens. Termo: ${fmtDate(r.diesAdQuem)}.`;
+    }
     if ((r.flags || []).includes(PRESC_FLAGS.PEDIDO_SEM_DESFECHO) && r.daysLeft != null && r.daysLeft < 0 && r.diesAdQuem) {
       const pet = pendingPetitionDate(r, ctx);
       return `Termo calculado em ${fmtDate(r.diesAdQuem)} já passou; há pedido${pet ? ' de ' + fmtDate(pet) : ''} sem resultado — conferir antes de declarar`;
@@ -2090,7 +2104,7 @@ function columnDates(key, seg) {
   }
   const hasCiencia = (seg.occurrences || []).some(o =>
     /^Ciência /i.test(o.fact || '') || /vale como ciência/i.test(o.effect || '')
-  ) || !!(seg.cycleKind === 'art40' && seg.diesAQuo && seg.phase && seg.phase !== 'nao_iniciado');
+  ) || !!((seg.cycleKind === 'art40' || seg.cycleKind === 'politica_parc') && seg.diesAQuo && seg.phase && seg.phase !== 'nao_iniciado');
   const start = hasCiencia && seg.diesAQuo ? fmtDate(seg.diesAQuo) : 'sem ciência lançada';
   let end = 'sem termo calculado';
   if (seg.phase === 'interrompido') end = '—';

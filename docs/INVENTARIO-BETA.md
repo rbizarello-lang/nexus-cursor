@@ -322,6 +322,33 @@ Correção do leitor PDF `RelatorioCompleto-debcad*.pdf`. Vale no clássico e na
 
 ---
 
+## (J) Leitura do SIDA — Relatório Completo (19/09/2026, ambas as edições)
+
+Leitor PDF `SIDA-Relatorio-Completo-*.pdf` (consulta de inscrição localizada). Vale no clássico e na Beta. Sem commit. Fixture: 54 inscrições VERTICALI (CNPJ 00.841.065/0001-60), relatório de 18/09/2026.
+
+| # | Item | Técnico | Em linguagem simples | Onde vale | Reversível isoladamente? | Decisão |
+|---|---|---|---|---|---|---|
+| 209 | Relatório Completo lido por seções | `parseSIDALines` em `src/lib/sida-parser.js` (chamado por `parseSIDAPDF`). Rótulos partidos (`CPF/ CNPJ:`), valores `R $`, linhas quebradas no Y, para em `FIM DO RELATÓRIO DE INSCRIÇÃO`. | O PDF novo é mais largo do que o leitor antigo. Agora o app lê Dados Gerais (todos os campos), Devedores, Parcelamentos (deferidos e indeferidos), Protestos com eventos e Ocorrências com data+hora juntas. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 210 | Histórico estruturado `debt.sida` | Campo opcional na CDA, substituído a cada reimportação: `{ importedAt, source:'sida', situation, dadosGerais, devedores, parcelamentos, protestos, occurrences, pagamentos, cadin, bloqueios, ajuizamentos, suspensoes, coresponsibles }`. | A ficha da inscrição guarda o relatório SIDA inteiro. Reimportar o PDF atualiza essa ficha. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 211 | Nota condensada `[SIDA]` removida se existir | O import não gera essa nota. Se já existir, apaga só ela. | Não havia nota `[SIDA]` neste código; a trava evita voltar o parágrafo único se alguém reimportar dados antigos. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 212 | Bloco **Histórico SIDA** na ficha | `SidaHistoryBlock` (casco compartilhado `CdaSourceHistoryBlock` com o DEBCAD). Recolhido por padrão. Aberto: dados gerais, devedores, parcelamentos (marca os que geraram evento), protestos (marca o lavrado), ajuizamento, CADIN / pagamentos / ocorrências atrás de outro clique. | Na ficha expandida da CDA aparece “Histórico SIDA” com a conta (ocorrências · parcelamentos · protestos · devedores) e a data da importação. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 213 | Eventos de prescrição só no que é inequívoco | Adesão+rescisão dos parcelamentos **deferidos/rescindidos/cancelados após deferimento**. **Não** gera evento para AGUARDANDO nem INDEFERIMENTO. Protesto `int_protesto_extrajudicial` só se a situação for LAVRADO (data = efetivação). Falência só se “Data de Falência” vier preenchida. CADIN, pagamentos e bloqueio de ajuizamento ficam só na ficha. Dedup por (tipo, data). Cada evento criado vai ao log. | O pedido SISPAR de 17/09/2026 (ainda “aguardando”) **não** pausa o prazo. O protesto lavrado de 23/02/2026 **sim** entra na ordinária. Inclusão no CADIN aparece na tabela, sem virar evento. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 214 | Texto do protesto na coluna da ordinária | `occurrenceEffect` em `src/lib/prescription.js`: após 03/07/2024, “interrompe a prescrição ordinária (LC 208/2024)”; antes, “não interrompe (anterior à LC 208/2024)”. Só rótulo — a conta não muda. | A linha do protesto deixava de dizer “interrompe” e caía em “registro do caso”. Agora o texto acompanha a LC 208/2024. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 215 | Módulo + fixture + testes | `src/lib/sida-parser.js` no `scripts/build.mjs`. Fixture `test/fixtures/sida/sida-18092026.lines.json` (13.536 linhas pdf.js do PDF real). `test/sida-parser.test.mjs` (14 testes). | Rede de segurança: se o leitor do Relatório Completo quebrar, o teste da VERTICALI falha. | só código | não — amarra #209 | [ ] adotar  [ ] não |
+
+---
+
+## (K) Frases das colunas de prazo (19/09/2026, ambas as edições)
+
+Só texto na tela. A conta (dies a quo, dies ad quem, fases) **não muda**.
+
+| # | Item | Técnico | Em linguagem simples | Onde vale | Reversível isoladamente? | Decisão |
+|---|---|---|---|---|---|---|
+| 216 | Protesto na coluna intercorrente | `occurrenceEffect` em `src/lib/prescription.js`: se `segment === 'intercorrente'` e o protesto é posterior à LC 208/2024, a frase passa a “não encerra o ciclo de 1 ano + 5 anos”. Antes da LC 208, permanece “não interrompe (anterior à LC 208/2024)”. Na coluna da ordinária a frase de #214 continua igual. | O protesto interrompe só os 5 anos da inscrição (art. 174). Na coluna do 1 ano + 5 anos da execução, a linha deixava de dizer isso e repetia “interrompe a prescrição ordinária”. Agora cada coluna fala do prazo certo. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+| 217 | Início após rescisão de parcelamento | `columnDates`: ciclo `politica_parc` com data de início e fase já em curso mostra `fmtDate(diesAQuo)` (a rescisão). Parcelamento **vigente** (sem rescisão) continua “Início: sem ciência lançada”. `buildSummary` no primeiro ano após a rescisão diz “Primeiro ano após a rescisão do parcelamento”, não “ciência de não localização”. | Depois que o parcelamento cai, a linha Datas da intercorrente mostra a data da rescisão. Não inventa ciência. A CDA do print (parcelamento ainda vigente) segue “sem ciência lançada”. | Clássico + Beta | sim | [ ] adotar  [ ] não |
+
+---
+
 ## Dependências
 
 Não dá para recusar um e ficar com o outro:

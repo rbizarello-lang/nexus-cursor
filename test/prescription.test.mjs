@@ -585,6 +585,34 @@ describe('protesto extrajudicial e LC 208/2024', () => {
     assert.equal(r.diesAQuo, '2024-07-03');
     assert.equal(r.diesAdQuem, '2029-07-03');
   });
+
+  it('coluna da ordinária: texto do protesto extrajudicial segue a LC 208/2024', () => {
+    const occOf = (date) => {
+      const tl = computeCdaLegalTimeline({
+        debt: { id: 'd1', inscriptionDate: '2020-01-15' },
+        executions: [],
+        events: [{ id: 'pr', cdaId: 'd1', type: 'int_protesto_extrajudicial', date }],
+        asOf: '2026-09-19'
+      });
+      return (tl.ordinaria.occurrences || []).find(o => /Protesto extrajudicial/i.test(o.fact));
+    };
+    assert.equal(occOf('2024-04-11').effect, 'não interrompe (anterior à LC 208/2024)');
+    assert.equal(occOf('2024-07-03').effect, 'interrompe a prescrição ordinária (LC 208/2024)');
+  });
+
+  it('coluna da intercorrente: protesto pós-LC 208 não diz que interrompe a ordinária', () => {
+    const debt = cda();
+    const executions = [ef({ protocolDate: '2026-06-01' })];
+    const events = [{ id: 'pr', executionId: 'e1', type: 'int_protesto_extrajudicial', date: '2026-02-23' }];
+    const tl = computeCdaLegalTimeline({ debt, executions, events, asOf: '2026-09-19' });
+    const ord = (tl.ordinaria.occurrences || []).find(o => /Protesto extrajudicial/i.test(o.fact));
+    const inter = (tl.intercorrente.occurrences || []).find(o => /Protesto extrajudicial/i.test(o.fact));
+    assert.ok(ord, 'protesto na ordinária');
+    assert.ok(inter, 'protesto na intercorrente');
+    assert.match(ord.effect, /interrompe a prescrição ordinária/);
+    assert.doesNotMatch(inter.effect, /ordinária/);
+    assert.match(inter.effect, /não encerra o ciclo de 1 ano \+ 5 anos/);
+  });
 });
 
 describe('createPrescLookup — índice de eventos', () => {
