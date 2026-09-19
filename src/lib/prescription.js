@@ -279,7 +279,7 @@ function isBareExecEvent(e) {
 }
 
 /** Índices O(1) para collectEventsForCda — createPrescLookup monta uma vez e reusa em todas as CDAs. */
-function buildPrescCollectIndex(executions, events) {
+export function buildPrescCollectIndex(executions, events) {
   const execByProc = new Map();
   const execsByProc = new Map();
   const execById = new Map();
@@ -293,6 +293,7 @@ function buildPrescCollectIndex(executions, events) {
     }
   }
   const byCda = new Map();
+  const byExec = new Map();
   const byExecBare = new Map();
   const byInheritedParent = new Map();
   const idpjByLinkedExec = new Map();
@@ -317,10 +318,11 @@ function buildPrescCollectIndex(executions, events) {
     if (ev.batchCdaIds && ev.batchCdaIds.length) {
       for (const id of ev.batchCdaIds) push(byCda, id, ev);
     }
+    if (ev.executionId) push(byExec, ev.executionId, ev);
     if (isBareExecEvent(ev)) push(byExecBare, ev.executionId, ev);
     if (ev._inheritedFromParent) push(byInheritedParent, ev._inheritedFromParent, ev);
   }
-  return { execByProc, execsByProc, execById, byCda, byExecBare, byInheritedParent, idpjByLinkedExec };
+  return { execByProc, execsByProc, execById, byCda, byExec, byExecBare, byInheritedParent, idpjByLinkedExec };
 }
 
 export function collectEventsForCda(debt, executions, events, collectIndex) {
@@ -504,11 +506,18 @@ function resolvedSuspEnd(evt, asOfIso, inferredEnds) {
 }
 
 function pauseIntervals(pauses) {
-  return (pauses || [])
+  const raw = (pauses || [])
     .filter(p => p && p.start)
     .map(p => ({ start: p.start, end: p.end || '9999-12-31' }))
     .filter(p => p.end > p.start)
     .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+  const merged = [];
+  for (const p of raw) {
+    const last = merged[merged.length - 1];
+    if (!last || p.start > last.end) merged.push({ start: p.start, end: p.end });
+    else if (p.end > last.end) last.end = p.end;
+  }
+  return merged;
 }
 
 function skipCoveringPauses(startIso, intervals) {
@@ -627,9 +636,12 @@ export function computePrescription({ debt, executions = [], events = [], asOf, 
   }
 
   if (!exec) {
-    return withCaseView(computeOriginario({
-      debt, exec: null, cdaEvents, asOfIso, informed, memory, gaps, timeline, incidents
-    }), { debt, exec: null, asOfIso, incidents, cdaEvents });
+    return withCaseView({
+      ...computeOriginario({
+        debt, exec: null, cdaEvents, asOfIso, informed, memory, gaps, timeline, incidents
+      }),
+      incidentOnly: !!incidentOnly
+    }, { debt, exec: null, asOfIso, incidents, cdaEvents, incidentOnly: !!incidentOnly });
   }
 
   const args = { debt, exec, cdaEvents, asOfIso, informed, forecast, memory, gaps, timeline, incidents };
@@ -650,13 +662,18 @@ export function computePrescription({ debt, executions = [], events = [], asOf, 
     };
   }
   r.incidents = incidents;
+  r.incidentOnly = !!incidentOnly;
   return withCaseView(r, { debt, exec, asOfIso, incidents, cdaEvents });
 }
 
 function applyPausesFromEvents(cdaEvents, asOfIso, { skipArt40Dup, originario }) {
   const pauses = [];
-  const inferredEnds = inferParcelamentoEnds(cdaEvents);
-  for (const evt of cdaEvents) {
+  const dated = (cdaEvents || []).filter(evt => {
+    const d = asIso(evt.date);
+    return !d || d <= asOfIso;
+  });
+  const inferredEnds = inferParcelamentoEnds(dated);
+  for (const evt of dated) {
     const type = normalizePrescEventType(evt.type);
     const meta = PRESC_EVENT_TYPES[type];
     if (!meta || meta.category !== 'suspensiva') continue;
@@ -692,7 +709,7 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
       segment: 'credito',
       origin: 'estimativa',
       phase: 'interrompido',
-      status: 'seguro',
+      status: 'interrompido',
       detail: 'Ajuizada — prescrição ordinária interrompida com retroação à propositura. Sem âncora para reconstituir o quinquênio.',
       prescriptionInterrupted: true,
       memory, gaps, timeline, incidents
@@ -737,7 +754,12 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
     const meta = PRESC_EVENT_TYPES[type];
     if (!meta) continue;
     const efetivacao = asIso(evt.date);
-    if (!efetivacao || efetivacao > asOfIso) continue;
+    if (!efetivacao) continue;
+    if (efetivacao > asOfIso) {
+      gaps.push(`Evento com data futura (${fmtDate(efetivacao)}) — ignorado no cômputo.`);
+      timeline.push({ ...evt, effect: 'evento com data futura — ignorado no cômputo', phase: 'originario' });
+      continue;
+    }
     const effectDate = (EF_CONSTRICTION_TYPES.has(type) || CITACAO_ALIASES.has(type)) && asIso(evt.requestDate)
       ? asIso(evt.requestDate) : efetivacao;
 
@@ -821,7 +843,7 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
       gaps.push('Data de protocolo da execução não informada — interrupção presumida pelo ajuizamento (Tema 383).');
     }
     return {
-      segment: 'credito', origin: originExec, phase: 'interrompido', status: 'seguro',
+      segment: 'credito', origin: originExec, phase: 'interrompido', status: 'interrompido',
       diesAQuo: originStart, diesAdQuem: null, daysLeft: null,
       detail: `Ajuizada em ${protocol ? fmtDate(protocol) : 'data não informada'}, dentro dos 5 anos contados de ${fmtDate(originStart)}. Prazo interrompido pela propositura.`,
       memory, gaps, timeline, incidents,
@@ -919,13 +941,14 @@ export function computeIntercorrenteBounds({ exec, debt, cdaEvents = [], asOfIso
   const latest = anchors.length ? anchors[anchors.length - 1] : null;
   const floor = latest ? addCalendarYears(latest.iso, 6) : null;
   const pauses = applyPausesFromEvents(cdaEvents, asOf, { skipArt40Dup: true, originario: false });
+  const pauseIv = pauseIntervals(pauses);
   let ceiling = null;
   for (const e of cdaEvents || []) {
     if (normalizePrescEventType(e.type) !== 'info_arquivamento') continue;
     const a = asIso(e.date);
     if (!a || a > asOf) continue;
     let extra = 0;
-    for (const p of pauses) {
+    for (const p of pauseIv) {
       if (!p.start || p.start < a) continue;
       const pe = p.end && p.end < '9999-12-31' ? p.end : asOf;
       if (pe > p.start) extra += daysBetween(p.start, pe);
@@ -962,7 +985,7 @@ const CASE_FACT = {
   susp_decisao_judicial: 'Decisão judicial suspensiva',
   susp_deposito: 'Depósito judicial integral',
   susp_falencia: 'Falência / recuperação judicial',
-  susp_art40: 'Registro de suspensão do art. 40',
+  susp_art40: 'Suspensão do art. 40',
   susp_idpj_mcf_constricao: 'Constrição via incidente',
   susp_idpj_mcf: 'Suspensão da execução via incidente',
   susp_outra: 'Outra causa suspensiva',
@@ -1008,7 +1031,14 @@ function occurrenceEffect(type, ev, r) {
     return 'resultado útil';
   }
   if (t === 'marco_sem_bens' || t === 'marco_nao_localizacao' || t === 'marco_insuficiencia_bens') {
+    if (ev && /não reinicia/i.test(ev.effect || '')) return 'nova certidão — não reinicia';
+    if (r && r.diesAQuo && asIso(ev && ev.date) && asIso(ev.date) !== r.diesAQuo) return 'nova certidão — não reinicia';
     return 'inicia o prazo de 1 ano + 5 anos';
+  }
+  if (t === 'susp_art40') {
+    if (ev && /Tratado como marco|vale como ciência/i.test(ev.effect || '')) return 'vale como ciência';
+    if (r && r.diesAQuo && asIso(ev && ev.date) === r.diesAQuo) return 'vale como ciência';
+    return 'registro do caso';
   }
   if (t === 'info_arquivamento') return 'limite operacional do prazo (arquivamento + 6 anos)';
   if (t === 'susp_embargos' || t === 'susp_decisao_judicial' || t === 'susp_deposito' || t === 'susp_falencia' || t === 'susp_outra' || t === IDPJ_STAY_TYPE) {
@@ -1028,15 +1058,43 @@ const INTERRUPT_SHORT = {
   int_outra: 'resultado útil'
 };
 
-function interruptFactLabel(r) {
+function interruptType(r) {
   const ev = (r.timeline || []).find(e => e && e.phase === 'interrompido');
-  if (ev) {
-    const t = normalizePrescEventType(ev.type);
-    if (INTERRUPT_SHORT[t]) return INTERRUPT_SHORT[t];
-    const fact = CASE_FACT[t];
-    return fact ? fact.toLowerCase() : 'resultado útil';
+  return ev ? normalizePrescEventType(ev.type) : '';
+}
+
+function interruptFactLabel(r) {
+  const t = interruptType(r);
+  if (t && INTERRUPT_SHORT[t]) return INTERRUPT_SHORT[t];
+  const fact = t && CASE_FACT[t];
+  return fact ? fact.toLowerCase() : 'resultado útil';
+}
+
+const INTERRUPT_PREP = {
+  int_penhora: 'pela',
+  int_arresto: 'pelo',
+  int_sisbajud: 'pelo',
+  int_cnib: 'pela',
+  int_citacao: 'pela',
+  int_reconhecimento: 'pelo',
+  int_outra: 'pelo'
+};
+
+function interruptPrep(r) {
+  const t = interruptType(r);
+  return INTERRUPT_PREP[t] || 'pelo';
+}
+
+function pendingPetitionDate(r, ctx) {
+  const dates = (ctx && ctx.pendingPetitions) || r.pendingPetitions || [];
+  if (dates.length) return dates[0];
+  for (const ev of r.timeline || []) {
+    if (normalizePrescEventType(ev.type) === 'info_peticao_sem_resultado') {
+      const d = asIso(ev.requestDate) || asIso(ev.date);
+      if (d) return d;
+    }
   }
-  return 'resultado útil';
+  return '';
 }
 
 function buildSummary(r, ctx) {
@@ -1063,7 +1121,7 @@ function buildSummary(r, ctx) {
   if (r.segment === 'intercorrente') {
     if (r.phase === 'interrompido') {
       const fact = interruptFactLabel(r);
-      return `Ciclo encerrado pela ${fact} de ${fmtDate(r.interruptAt)}. Nenhuma ciência de não localização ou de ausência de bens lançada depois.`;
+      return `Ciclo encerrado ${interruptPrep(r)} ${fact} de ${fmtDate(r.interruptAt)}. Nenhuma ciência de não localização ou de ausência de bens lançada depois.`;
     }
     if (r.phase === 'nao_iniciado') {
       return 'Execução ajuizada, ainda sem ciência de não localização ou de ausência de bens. O ajuizamento não inicia o prazo de 1 ano + 5 anos.';
@@ -1074,6 +1132,10 @@ function buildSummary(r, ctx) {
       return `Prazo pausado. Termo projetado: ${fmtDate(r.diesAdQuem)}.`;
     }
     if (r.phase === 'suspensao_art40') return `Primeiro ano após a ciência de não localização ou de ausência de bens. Termo: ${fmtDate(r.diesAdQuem)}.`;
+    if ((r.flags || []).includes(PRESC_FLAGS.PEDIDO_SEM_DESFECHO) && r.daysLeft != null && r.daysLeft < 0 && r.diesAdQuem) {
+      const pet = pendingPetitionDate(r, ctx);
+      return `Termo calculado em ${fmtDate(r.diesAdQuem)} já passou; há pedido${pet ? ' de ' + fmtDate(pet) : ''} sem resultado — conferir antes de declarar`;
+    }
     if (r.diesAdQuem) return `Prazo em curso. Termo: ${fmtDate(r.diesAdQuem)}.`;
     return r.detail || '';
   }
@@ -1154,6 +1216,25 @@ function buildEstimates(r) {
   return estimates;
 }
 
+function buildCadastroChecks(r, ctx) {
+  const checks = [];
+  if (r.informedConflict && r.informedDate) {
+    checks.push(`Data digitada na inscrição (${fmtDate(r.informedDate)}) diverge do termo calculado. Conferir qual vale.`);
+  }
+  if (r.segment === 'credito' && ctx.debt && !asIso(ctx.debt.constitutionDate) && asIso(ctx.debt.inscriptionDate)) {
+    checks.push('Data de constituição definitiva não informada; o início usado é a inscrição.');
+  }
+  for (const g of r.gaps || []) {
+    if (/evento com data futura/i.test(g) || /Marco com data futura/i.test(g)) {
+      checks.push(g);
+    }
+    if (/ciência anterior ao ajuizamento/i.test(g)) {
+      checks.push('ciência anterior ao ajuizamento — conferir data');
+    }
+  }
+  return checks;
+}
+
 function buildIncidentChecks(r, ctx) {
   const checks = [];
   const incidents = r.incidents || ctx.incidents || [];
@@ -1182,11 +1263,8 @@ function buildIncidentChecks(r, ctx) {
   if (r.phase === 'interrompido' && r.interruptAt) {
     checks.push(`Depois da ${interruptFactLabel(r)} de ${fmtDate(r.interruptAt)}: houve certidão de não localização ou de ausência de bens? Se sim, lançar a ciência.`);
   }
-  if (r.informedConflict && r.informedDate) {
-    checks.push(`Data digitada na inscrição (${fmtDate(r.informedDate)}) diverge do termo calculado. Conferir qual vale.`);
-  }
-  if (r.segment === 'credito' && ctx.debt && !asIso(ctx.debt.constitutionDate) && asIso(ctx.debt.inscriptionDate)) {
-    checks.push('Data de constituição definitiva não informada; o início usado é a inscrição.');
+  if ((r.gaps || []).some(g => /sem evento de marco/i.test(g))) {
+    checks.push('certidão de não localização/sem bens não lançada — confirmar data');
   }
   const decision = ctx.exec && ctx.exec.prescDecision;
   if (decision && decision.analysisDate) {
@@ -1235,11 +1313,13 @@ function withCaseView(r, ctx = {}) {
   const summary = buildSummary(r, ctx);
   const occurrences = buildOccurrences(r, ctx);
   const estimates = buildEstimates(r);
-  const checks = buildIncidentChecks(r, ctx);
+  const incidentChecks = r.segment === 'intercorrente' ? buildIncidentChecks(r, ctx) : [];
+  const checks = [...new Set([...buildCadastroChecks(r, ctx), ...incidentChecks])];
   const rulesApplied = buildRulesApplied(r, ctx);
   return {
     ...r,
     incidents,
+    incidentOnly: !!(r.incidentOnly || ctx.incidentOnly),
     summary,
     occurrences,
     estimates,
@@ -1296,7 +1376,8 @@ function sealIntercorrente(r, ctx) {
   if (phase === 'consumado' && nextFlags.includes(PRESC_FLAGS.PEDIDO_SEM_DESFECHO)) {
     phase = 'correndo';
     status = 'critico';
-    detail = `Há pedido na janela de 1 ano + 5 anos sem resultado lançado. Não declarar o prazo vencido. Termo calculado: ${fmtDate(diesAdQuem)}. Conferir autos.`;
+    const pet = (pendingPetitions || []).find(d => d) || '';
+    detail = `Termo calculado em ${fmtDate(diesAdQuem)} já passou; há pedido${pet ? ' de ' + fmtDate(pet) : ''} sem resultado — conferir antes de declarar`;
   }
 
   if (r.estimated) {
@@ -1337,7 +1418,8 @@ function sealIntercorrente(r, ctx) {
     forecastDate: forecast || '',
     informedConflict: !!(informed && diesAdQuem && informed !== diesAdQuem && cycleStarted),
     estimated: !!r.estimated,
-    incidents: r.incidents || ctx.incidents || []
+    incidents: r.incidents || ctx.incidents || [],
+    pendingPetitions: pendingPetitions || r.pendingPetitions || []
   };
   return out;
 }
@@ -1389,15 +1471,15 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
     const isConstriction = EF_CONSTRICTION_TYPES.has(type) || CITACAO_ALIASES.has(type);
     const effectDate = (isConstriction && asIso(evt.requestDate)) ? asIso(evt.requestDate) : efetivacao;
 
-    if (type === IDPJ_CONSTRICTION_TYPE && efetivacao > asOfIso) continue;
-    if (meta.category === 'marco' && efetivacao > asOfIso) {
-      gaps.push(`Marco com data futura (${fmtDate(efetivacao)}) — ignorado no cômputo (erro de digitação).`);
-      continue;
-    }
-    if (isConstriction && efetivacao > asOfIso) {
-      pendingPetitions.push(asIso(evt.requestDate) || efetivacao);
-      memPush(memory, effectDate, meta.label, 'Pedido com efetivação futura — ainda sem resultado. Não encerra o ciclo.');
-      timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'pre_marco' });
+    if (efetivacao > asOfIso) {
+      if (isConstriction) {
+        pendingPetitions.push(asIso(evt.requestDate) || efetivacao);
+        memPush(memory, effectDate, meta.label, 'Pedido com efetivação futura — ainda sem resultado. Não encerra o ciclo.');
+        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'pre_marco' });
+      } else {
+        gaps.push(`Evento com data futura (${fmtDate(efetivacao)}) — ignorado no cômputo.`);
+        timeline.push({ ...evt, effect: 'evento com data futura — ignorado no cômputo', phase: 'pre_marco' });
+      }
       continue;
     }
     if (type === 'info_peticao_sem_resultado' && efetivacao <= asOfIso) {
@@ -1412,6 +1494,15 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
       }
       if (parcMode && parcRestartAt) {
         memPush(memory, efetivacao, meta.label, 'O ciclo 1+5 já corre da rescisão do parcelamento; este marco não inicia segundo ciclo.');
+        timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'prescricao_correndo' });
+        continue;
+      }
+      const protocol = asIso(exec && exec.protocolDate) || asIso(debt && debt.protocolDate);
+      if (protocol && efetivacao < protocol) {
+        gaps.push('ciência anterior ao ajuizamento — conferir data');
+      }
+      if (marco && !interrupted) {
+        memPush(memory, efetivacao, meta.label, `Nova certidão em ${fmtDate(efetivacao)} — não reinicia o ciclo.`);
         timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'prescricao_correndo' });
         continue;
       }
@@ -1688,7 +1779,7 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
   else if (asOfIso < art40End) phase = 'suspensao_art40';
   else phase = 'correndo';
 
-  const unpaused = Math.max(0, daysBetween(marco, asOfIso) - pauses.reduce((s, p) => {
+  const unpaused = Math.max(0, daysBetween(marco, asOfIso) - pauseIntervals(pauses).reduce((s, p) => {
     const a = p.start < marco ? marco : p.start;
     const b = (p.end || asOfIso) > asOfIso ? asOfIso : (p.end || asOfIso);
     return s + (b > a ? daysBetween(a, b) : 0);
@@ -1795,10 +1886,11 @@ export function calcPrescription(executionId, events, extra = {}) {
 export function attachPrescriptionSnapshots(data, asOf) {
   if (!data || !Array.isArray(data.debts)) return data;
   const lookup = createPrescLookup(data.debts, data.executions || [], data.prescriptionEvents || [], asOf);
+  const collectIndex = buildPrescCollectIndex(data.executions || [], data.prescriptionEvents || []);
   const computedAt = asIso(asOf) || localIso(new Date());
   data.debts.forEach(d => {
     const r = lookup(d);
-    const alert = classifyPainelPrescAlert(d, data.executions || [], data.prescriptionEvents || [], asOf, r);
+    const alert = classifyPainelPrescAlert(d, data.executions || [], data.prescriptionEvents || [], asOf, r, { collectIndex });
     const kind = alert && alert.kind;
     const row = {
       prescKind: kind,
@@ -1996,7 +2088,9 @@ function columnDates(key, seg) {
     } else if (seg.diesAdQuem) end = fmtDate(seg.diesAdQuem);
     return { start, end };
   }
-  const hasCiencia = (seg.occurrences || []).some(o => /^Ciência /i.test(o.fact || ''));
+  const hasCiencia = (seg.occurrences || []).some(o =>
+    /^Ciência /i.test(o.fact || '') || /vale como ciência/i.test(o.effect || '')
+  ) || !!(seg.cycleKind === 'art40' && seg.diesAQuo && seg.phase && seg.phase !== 'nao_iniciado');
   const start = hasCiencia && seg.diesAQuo ? fmtDate(seg.diesAQuo) : 'sem ciência lançada';
   let end = 'sem termo calculado';
   if (seg.phase === 'interrompido') end = '—';
@@ -2152,16 +2246,18 @@ function computeDecadenciaCore(debt, asOf) {
 }
 
 /** Prescrição ordinária (art. 174 CTN) — mesmo motor do originário, com a checagem do ajuizamento. */
-export function computeOrdinaria({ debt, executions = [], events = [], asOf } = {}) {
+export function computeOrdinaria({ debt, executions = [], events = [], asOf, collectIndex } = {}) {
   if (!debt) return emptyResult();
   const asOfIso = asIso(asOf) || localIso(new Date());
-  const { exec, events: cdaEvents, incidents } = collectEventsForCda(debt, executions, events);
+  const idx = collectIndex || buildPrescCollectIndex(executions, events);
+  const { exec, events: cdaEvents, incidents, incidentOnly } = collectEventsForCda(debt, executions, events, idx);
   const r = computeOriginario({
     debt, exec, cdaEvents, asOfIso,
     informed: exec ? '' : asIso(debt.prescriptionDate),
     memory: [], gaps: [], timeline: [], incidents
   });
-  return withCaseView(r, { debt, exec, asOfIso, incidents, cdaEvents });
+  r.incidentOnly = !!incidentOnly;
+  return withCaseView(r, { debt, exec, asOfIso, incidents, cdaEvents, incidentOnly });
 }
 
 const LEGAL_SEVERITY = {
@@ -2175,11 +2271,12 @@ const LEGAL_SEVERITY = {
 export const legalSeverity = (status) => (LEGAL_SEVERITY[status] != null ? LEGAL_SEVERITY[status] : -1);
 
 /** Os três segmentos extintivos da CDA + o pior status para radar. */
-export function computeCdaLegalTimeline({ debt, executions = [], events = [], asOf } = {}) {
+export function computeCdaLegalTimeline({ debt, executions = [], events = [], asOf, collectIndex } = {}) {
+  const idx = collectIndex || buildPrescCollectIndex(executions, events);
   const decadencia = computeDecadencia(debt, asOf);
-  const ordinaria = computeOrdinaria({ debt, executions, events, asOf });
-  const { exec } = collectEventsForCda(debt, executions, events);
-  const intercorrente = exec ? computePrescription({ debt, executions, events, asOf }) : null;
+  const ordinaria = computeOrdinaria({ debt, executions, events, asOf, collectIndex: idx });
+  const { exec } = collectEventsForCda(debt, executions, events, idx);
+  const intercorrente = exec ? computePrescription({ debt, executions, events, asOf, collectIndex: idx }) : null;
   const segs = [
     { key: 'decadencia', r: decadencia },
     { key: 'ordinaria', r: ordinaria },
@@ -2198,13 +2295,57 @@ const CDA_RECORTE_STATUS = new Set(['garantida', 'parcelada', 'negociada_sispar'
 const PAINEL_PRESC_KINDS = [
   'iminente', 'vencido', 'vencido_estimado', 'residual_alta', 'residual_media',
   'acompanhar_piso', 'inconsistencia', 'vigiar_interrompido',
-  'pausa_cadastrada', 'avaliar_174', 'correndo'
+  'pausa_cadastrada', 'avaliar_174', 'correndo', 'aguardando_reconhecimento'
 ];
+const HANDLED_TERMINAL = new Set(['declarada', 'reconhecida', 'extinta']);
 
-function isPainelPrescCandidate(debt, executions) {
+export const PRESC_SNOOZE_REASONS = {
+  aguardando_certidao: 'Aguardando certidão',
+  peca_protocolada: 'Peça protocolada',
+  garantia_em_analise: 'Garantia em análise',
+  nao_priorizar_agora: 'Não priorizar agora',
+  outro: 'Outro'
+};
+
+export function snoozeLimitDays(group) {
+  if (group === 1) return 14;
+  if (group === 2) return 30;
+  if (group === 3) return 7;
+  if (group === 5) return 90;
+  return 30;
+}
+
+function resolvePolicy(opts) {
+  if (!opts) return 'v1';
+  if (opts === 'v2' || opts === 'v1') return opts;
+  return opts.policy === 'v2' ? 'v2' : 'v1';
+}
+
+function resolveRadarTail(lookupOrOpts, opts) {
+  if (lookupOrOpts && typeof lookupOrOpts !== 'function') {
+    return { lookup: null, opts: lookupOrOpts || {} };
+  }
+  return { lookup: lookupOrOpts || null, opts: opts || {} };
+}
+
+function collectIndexFrom(fifth) {
+  if (!fifth) return null;
+  if (fifth.byCda && fifth.execByProc) return fifth;
+  return fifth.collectIndex || null;
+}
+
+export function isPainelPrescCandidate(debt, executions, opts = {}) {
   if (!debt || debt.status === 'extinta') return false;
-  if (debt.prescriptionHandled) return false;
-  const execs = matchingExecsForDebt(debt, executions);
+  const policy = resolvePolicy(opts);
+  if (debt.prescriptionHandled) {
+    const typ = debt.prescriptionHandledType || 'declarada';
+    if (policy === 'v2' && typ === 'aguardando_reconhecimento') {
+      // permanece candidata
+    } else {
+      return false;
+    }
+  }
+  const execs = matchingExecsForDebt(debt, executions, opts && opts.collectIndex);
   if (execs.some(e => e && e.prescDecision && e.prescDecision.situation === 'DECLARADA')) return false;
   return true;
 }
@@ -2229,10 +2370,17 @@ function isImminentResult(r) {
   return r.daysLeft > 0 && r.daysLeft <= PAINEL_PRESC_WINDOW;
 }
 
-function matchingExecsForDebt(debt, executions) {
+function matchingExecsForDebt(debt, executions, collectIndex) {
   if (!debt || !debt.processNumber) return [];
   const n = normProc(debt.processNumber);
   if (!n) return [];
+  if (collectIndex && collectIndex.execsByProc) {
+    return collectIndex.execsByProc.get(n) || [];
+  }
+  if (collectIndex && collectIndex.execByProc) {
+    const one = collectIndex.execByProc.get(n);
+    return one ? [one] : [];
+  }
   return (executions || []).filter(e => e && normProc(e.processNumber) === n);
 }
 
@@ -2243,35 +2391,60 @@ function eventTouchesDebt(ev, debt, execIds) {
   return !!(ev.executionId && execIds.has(ev.executionId));
 }
 
-function hasDatedPrescEvent(debt, execs, events) {
+function eventsTouchingDebt(debt, execs, events, collectIndex) {
+  if (collectIndex && (collectIndex.byCda || collectIndex.byExec)) {
+    const seen = new Set();
+    const out = [];
+    const add = (ev) => {
+      if (!ev) return;
+      const key = ev.id || ev;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(ev);
+    };
+    for (const ev of collectIndex.byCda.get(debt && debt.id) || []) add(ev);
+    for (const e of execs || []) {
+      const fromExec = (collectIndex.byExec && collectIndex.byExec.get(e.id))
+        || (collectIndex.byExecBare && collectIndex.byExecBare.get(e.id))
+        || [];
+      for (const ev of fromExec) add(ev);
+    }
+    return out;
+  }
   const execIds = new Set((execs || []).map(e => e.id));
-  return (events || []).some(ev => eventTouchesDebt(ev, debt, execIds) && (asIso(ev.date) || asIso(ev.requestDate)));
+  return (events || []).filter(ev => eventTouchesDebt(ev, debt, execIds));
 }
 
-function hasParcelamentoEvent(debt, execs, events) {
-  const execIds = new Set((execs || []).map(e => e.id));
-  return (events || []).some(ev => {
+function hasDatedPrescEvent(debt, execs, events, collectIndex) {
+  return eventsTouchingDebt(debt, execs, events, collectIndex)
+    .some(ev => asIso(ev.date) || asIso(ev.requestDate));
+}
+
+function hasParcelamentoEvent(debt, execs, events, collectIndex) {
+  return eventsTouchingDebt(debt, execs, events, collectIndex).some(ev => {
     const t = normalizePrescEventType(ev.type);
-    if (t !== 'susp_parcelamento' && t !== 'int_rescisao_parcelamento') return false;
-    return eventTouchesDebt(ev, debt, execIds);
+    return t === 'susp_parcelamento' || t === 'int_rescisao_parcelamento';
   });
 }
 
-/** Parcelada por status ou por adesão ainda vigente. Rescisão posterior prevalece. */
-export function isCdaParcelada(debt, executions = [], events = [], asOf) {
-  if (!debt) return false;
-  const asOfIso = asIso(asOf) || localIso(new Date());
-  const execs = matchingExecsForDebt(debt, executions);
-  const execIds = new Set((execs || []).map(e => e.id));
-  const related = (events || []).filter(ev => eventTouchesDebt(ev, debt, execIds));
+function latestEventIso(related) {
+  let max = '';
+  for (const ev of related || []) {
+    const d = asIso(ev.date) || asIso(ev.requestDate);
+    if (d && d > max) max = d;
+  }
+  return max;
+}
+
+function parcelamentoVigentePorEvento(related, asOfIso) {
   const inferred = inferParcelamentoEnds(related);
   let lastAdesao = '';
   let lastResc = '';
   let open = false;
-  for (const ev of related) {
+  for (const ev of related || []) {
     const t = normalizePrescEventType(ev.type);
     const d = asIso(ev.date);
-    if (!d) continue;
+    if (!d || d > asOfIso) continue;
     if (t === 'int_rescisao_parcelamento' && d > lastResc) lastResc = d;
     if (t === 'susp_parcelamento') {
       if (d > lastAdesao) lastAdesao = d;
@@ -2281,7 +2454,19 @@ export function isCdaParcelada(debt, executions = [], events = [], asOf) {
     }
   }
   if (lastResc && (!lastAdesao || lastResc >= lastAdesao)) return false;
-  if (open) return true;
+  return open;
+}
+
+/** Parcelada por status ou por adesão ainda vigente. Rescisão posterior prevalece. */
+export function isCdaParcelada(debt, executions = [], events = [], asOf, fifth) {
+  if (!debt) return false;
+  const asOfIso = asIso(asOf) || localIso(new Date());
+  const collectIndex = collectIndexFrom(fifth);
+  const ignoreStatus = !!(fifth && fifth.ignoreStatus);
+  const execs = matchingExecsForDebt(debt, executions, collectIndex);
+  const related = eventsTouchingDebt(debt, execs, events, collectIndex);
+  if (parcelamentoVigentePorEvento(related, asOfIso)) return true;
+  if (ignoreStatus) return false;
   const st = debt.status;
   if (st === 'parcelada' || st === 'negociada_sispar') return true;
   return (execs || []).some(e => e && e.status === 'suspensa_parcelamento');
@@ -2297,13 +2482,13 @@ function isCoveredByIdpj(debt, executions) {
   });
 }
 
-function cadastroInconsistencia(debt, execs, events) {
+function cadastroInconsistencia(debt, execs, events, collectIndex) {
   const st = debt && debt.status;
   if (st === 'suspensa_judicial' || st === 'suspensa_admin') {
-    const execIds = new Set((execs || []).map(e => e.id));
-    const hasSusp = (events || []).some(ev => {
+    const related = eventsTouchingDebt(debt, execs, events, collectIndex);
+    const hasSusp = related.some(ev => {
       const meta = PRESC_EVENT_TYPES[normalizePrescEventType(ev.type)];
-      return meta && meta.category === 'suspensiva' && eventTouchesDebt(ev, debt, execIds);
+      return meta && meta.category === 'suspensiva';
     });
     if (!hasSusp) return `Status diz ${st}, sem evento suspensivo. Cadastre ou corrija.`;
   }
@@ -2322,7 +2507,7 @@ function alertPayload(kind, r, segment, extra = {}) {
   const incident = extra.incident !== undefined
     ? extra.incident
     : ((r.incidents && r.incidents[0]) || null);
-  return {
+  const payload = {
     kind,
     segment,
     days: extra.days != null ? extra.days : r.daysLeft,
@@ -2336,94 +2521,162 @@ function alertPayload(kind, r, segment, extra = {}) {
     checks: r.checks || [],
     incident
   };
+  if (extra.action) payload.action = extra.action;
+  if (extra.clock) payload.clock = extra.clock;
+  if (extra.silenceReason) payload.silenceReason = extra.silenceReason;
+  return payload;
 }
 
 /**
  * Um aviso operacional por CDA ativa, sem decadência.
  * Recorte de cadastro nunca remove da fila — rebaixa ou vai a sublista.
  */
-export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf, prescResult) {
-  if (!isPainelPrescCandidate(debt, executions)) return null;
-  if (isCdaParcelada(debt, executions, events, asOf)) return null;
-  const r = prescResult || computePrescription({ debt, executions, events, asOf });
+export function classifyPainelPrescAlert(debt, executions = [], events = [], asOf, prescResult, opts = {}) {
+  const policy = resolvePolicy(opts);
+  const collectIndex = (opts && opts.collectIndex) || null;
+  if (!isPainelPrescCandidate(debt, executions, { policy, collectIndex })) return null;
+
+  const asOfIso = asIso(asOf) || localIso(new Date());
+  const execs = matchingExecsForDebt(debt, executions, collectIndex);
+  const related = eventsTouchingDebt(debt, execs, events, collectIndex);
+  const parcEvento = parcelamentoVigentePorEvento(related, asOfIso);
+  const parcSoStatus = !parcEvento && (
+    debt.status === 'parcelada' || debt.status === 'negociada_sispar'
+    || (execs || []).some(e => e && e.status === 'suspensa_parcelamento')
+  );
+
+  if (parcEvento) return null;
+  if (parcSoStatus && policy !== 'v2') return null;
+
+  const r = prescResult || computePrescription({ debt, executions, events, asOf, collectIndex });
+  const wrapAguardando = (alert) => {
+    if (policy !== 'v2' || debt.prescriptionHandledType !== 'aguardando_reconhecimento') return alert;
+    const base = alert || alertPayload('aguardando_reconhecimento', r, r.segment || 'intercorrente', {
+      faixa: 'media',
+      label: 'aguardando decisão'
+    });
+    return {
+      ...base,
+      kind: 'aguardando_reconhecimento',
+      label: 'aguardando decisão',
+      silenceReason: 'aguardando_reconhecimento',
+      faixa: 'media'
+    };
+  };
+
+  if (parcSoStatus && policy === 'v2') {
+    return wrapAguardando(alertPayload('inconsistencia', r, r.segment || 'intercorrente', {
+      faixa: 'alta',
+      label: 'Ficha diz parcelada, sem adesão lançada',
+      action: { type: 'criar_evento', eventType: 'susp_parcelamento' }
+    }));
+  }
+
+  const incidentOnly = !!(r.incidentOnly || (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g)));
+  if (policy === 'v2' && incidentOnly) {
+    return wrapAguardando(alertPayload('inconsistencia', r, 'ordinaria', {
+      faixa: 'alta',
+      label: 'vincule à execução fiscal',
+      action: { type: 'vincular_ef' }
+    }));
+  }
+
   const ajuizada = r.segment === 'intercorrente';
   const cycle = ajuizada && intercorrenteCycleStarted(r);
-  const asOfIso = asIso(asOf) || localIso(new Date());
-  const execs = matchingExecsForDebt(debt, executions);
   const fiscalExecs = execs.filter(e => e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal');
   const exec = r.exec || pickFiscalExec(execs) || fiscalExecs[0] || execs[0];
   const bounds = (r && r.bounds) || computeIntercorrenteBounds({
-    exec, debt, cdaEvents: collectEventsForCda(debt, executions, events).events, asOfIso
+    exec, debt, cdaEvents: collectEventsForCda(debt, executions, events, collectIndex).events, asOfIso
   });
   const flags = r.flags || [];
   const conferirFlag = flags.includes(PRESC_FLAGS.PEDIDO_SEM_DESFECHO);
 
   if (ajuizada) {
     if (cycle && r.phase === 'interrompido') {
-      return alertPayload('vigiar_interrompido', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('vigiar_interrompido', r, 'intercorrente', {
         days: null,
         date: r.interruptAt || '',
         faixa: 'media',
         label: 'Ciclo encerrado — vigiar nova inércia'
-      });
+      }));
     }
     const alt = r.altWithoutIncident;
     if (cycle && alt && (alt.phase === 'consumado' || (alt.daysLeft != null && alt.daysLeft <= PAINEL_PRESC_WINDOW))) {
-      return alertPayload('vencido_estimado', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('vencido_estimado', r, 'intercorrente', {
         days: alt.daysLeft,
         date: alt.diesAdQuem || '',
         faixa: 'alta',
         label: (r.checks || []).find(c => /pausa/i.test(c)) || 'Cenário sem a pausa do incidente'
-      });
+      }));
     }
     if (cycle && r.estimated && r.daysLeft != null && r.daysLeft <= PAINEL_PRESC_WINDOW) {
-      return alertPayload('vencido_estimado', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('vencido_estimado', r, 'intercorrente', {
         faixa: 'alta',
         label: 'Estimado — conferir nos autos'
-      });
+      }));
     }
     if (cycle && r.phase === 'suspenso') {
-      return alertPayload('pausa_cadastrada', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('pausa_cadastrada', r, 'intercorrente', {
         faixa: 'media',
         label: 'Exigibilidade suspensa — conferir evento'
-      });
+      }));
     }
-    if (cycle && isOverdueResult(r) && !flags.includes(PRESC_FLAGS.PEDIDO_SEM_DESFECHO)) {
-      return alertPayload('vencido', r, 'intercorrente', { faixa: 'alta' });
+    if (cycle && isOverdueResult(r)) {
+      if (conferirFlag) {
+        return wrapAguardando(alertPayload('vencido', r, 'intercorrente', {
+          faixa: 'alta',
+          label: 'pedido pendente'
+        }));
+      }
+      return wrapAguardando(alertPayload('vencido', r, 'intercorrente', { faixa: 'alta' }));
     }
     if (cycle && isImminentResult(r)) {
-      return alertPayload('iminente', r, 'intercorrente', { faixa: 'alta' });
+      return wrapAguardando(alertPayload('iminente', r, 'intercorrente', { faixa: 'alta' }));
     }
     if (cycle) {
       if (conferirFlag) {
-        return alertPayload('residual_alta', r, 'intercorrente', {
+        return wrapAguardando(alertPayload('residual_alta', r, 'intercorrente', {
           faixa: 'alta',
           label: 'Conferir cadastro / autos'
-        });
+        }));
       }
-      return alertPayload('correndo', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('correndo', r, 'intercorrente', {
         faixa: 'media',
         label: 'Prazo em curso'
-      });
+      }));
     }
 
-    const inconsist = cadastroInconsistencia(debt, execs, events);
+    if (policy === 'v2') {
+      const ordinaria = opts.ordinaria || computeOrdinaria({
+        debt, executions, events, asOf, collectIndex
+      });
+      if (ordinaria.phase === 'consumado' || isOverdueResult(ordinaria)) {
+        return wrapAguardando(alertPayload('vencido', ordinaria, 'ordinaria', {
+          faixa: 'alta',
+          label: 'ordinária',
+          clock: 'ordinaria'
+        }));
+      }
+    }
+
+    const inconsist = cadastroInconsistencia(debt, execs, events, collectIndex);
     if (inconsist) {
-      return alertPayload('inconsistencia', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('inconsistencia', r, 'intercorrente', {
         days: bounds.floorDays,
         date: bounds.floor || '',
         faixa: 'alta',
-        label: inconsist
-      });
+        label: inconsist,
+        ...(policy === 'v2' ? { action: { type: 'criar_evento' } } : {})
+      }));
     }
 
     if (bounds.ceiling && bounds.ceilingDays != null && bounds.ceilingDays <= 0) {
-      return alertPayload('vencido_estimado', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('vencido_estimado', r, 'intercorrente', {
         days: bounds.ceilingDays,
         date: bounds.ceiling,
         faixa: 'alta',
         label: 'Vencido — conferir (estimado). Arquivamento datado + 6 anos.'
-      });
+      }));
     }
 
     const forecast = asIso(exec && exec.prescriptionForecast);
@@ -2432,19 +2685,19 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
     const floorAhead = bounds.floor && bounds.floorDays != null && bounds.floorDays > 0;
     const floorOverdue = bounds.floor && bounds.floorDays != null && bounds.floorDays <= 0;
     const floorOverdue2y = bounds.floor && bounds.floorDays != null && bounds.floorDays <= -730;
-    const datedEvt = hasDatedPrescEvent(debt, execs, events);
+    const datedEvt = hasDatedPrescEvent(debt, execs, events, collectIndex);
     const planilhaAlta = forecast && forecastDays != null && forecastDays <= PAINEL_PRESC_WINDOW;
     const garantia = CDA_RECORTE_STATUS.has(debt.status) && debt.status === 'garantida'
       || (execs || []).some(e => e.hasGuarantee);
     const planilhaInterrompida = (execs || []).some(e => e.prescriptionInterrupted);
 
     if (floorAhead) {
-      return alertPayload('acompanhar_piso', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('acompanhar_piso', r, 'intercorrente', {
         days: bounds.floorDays,
         date: bounds.floor,
         faixa: 'baixa',
         label: 'Acompanhar a partir de ' + fmtDate(bounds.floor)
-      });
+      }));
     }
 
     let alta = !!(arquivadaSemData || planilhaAlta || (floorOverdue2y && !datedEvt) || conferirFlag);
@@ -2459,7 +2712,7 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
     }
 
     if (alta) {
-      return alertPayload('residual_alta', r, 'intercorrente', {
+      return wrapAguardando(alertPayload('residual_alta', r, 'intercorrente', {
         days: planilhaAlta ? forecastDays : bounds.floorDays,
         date: (planilhaAlta ? forecast : bounds.floor) || '',
         faixa: 'alta',
@@ -2468,28 +2721,30 @@ export function classifyPainelPrescAlert(debt, executions = [], events = [], asO
           : (planilhaAlta
             ? 'Previsão de planilha, sem ciência lançada'
             : 'Data "não antes de" já passou há mais de 2 anos sem evento datado')
-      });
+      }));
     }
-    return alertPayload('residual_media', r, 'intercorrente', {
+    return wrapAguardando(alertPayload('residual_media', r, 'intercorrente', {
       days: bounds.floorDays,
       date: (forecast || bounds.floor) || '',
       faixa: 'media',
       label: !bounds.floor
         ? 'Sem protocolo — data "não antes de" incalculável'
         : (forecast ? 'Previsão de planilha, sem ciência lançada' : 'Data "não antes de" já passou — sem agravantes')
-    });
+    }));
   }
 
   if (isOverdueResult(r)) {
-    return alertPayload('vencido', r, 'ordinaria', { faixa: 'alta' });
+    return wrapAguardando(alertPayload('vencido', r, 'ordinaria', { faixa: 'alta' }));
   }
   if (isImminentResult(r)) {
-    return alertPayload('iminente', r, 'ordinaria', { faixa: 'alta' });
+    return wrapAguardando(alertPayload('iminente', r, 'ordinaria', { faixa: 'alta' }));
   }
-  return null;
+  return wrapAguardando(null);
 }
 
-export function buildPainelPrescAlerts(data, asOf, prescLookup) {
+export function buildPainelPrescAlerts(data, asOf, prescLookup, opts) {
+  const tail = resolveRadarTail(prescLookup, opts);
+  const policy = resolvePolicy(tail.opts);
   const buckets = {};
   PAINEL_PRESC_KINDS.forEach(k => { buckets[k] = []; });
   if (!data) return buckets;
@@ -2499,7 +2754,8 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   });
   const executions = data.executions || [];
   const events = data.prescriptionEvents || [];
-  const lookup = prescLookup || createPrescLookup(data.debts || [], executions, events, asOf);
+  const collectIndex = tail.opts.collectIndex || buildPrescCollectIndex(executions, events);
+  const lookup = tail.lookup || createPrescLookup(data.debts || [], executions, events, asOf);
   const peopleById = new Map((data.people || []).filter(p => p && p.id).map(p => [p.id, p]));
   const execById = new Map();
 
@@ -2520,11 +2776,11 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
     const op = ops[d.operationId];
     if (!op) return;
     const r = lookup(d);
-    const alert = classifyPainelPrescAlert(d, executions, events, asOf, r);
+    const alert = classifyPainelPrescAlert(d, executions, events, asOf, r, { policy, collectIndex });
     if (!alert || !buckets[alert.kind]) return;
     const execId = d.processNumber ? execIdByOpProc.get(d.operationId + '|' + normProc(d.processNumber)) : null;
     const execObj = execId ? execById.get(execId) : null;
-    buckets[alert.kind].push({
+    const row = {
       id: d.id,
       cdaNumber: d.cdaNumber,
       processNumber: d.processNumber,
@@ -2549,7 +2805,7 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
       estimated: !!r.estimated,
       hasCiencia: r.segment === 'intercorrente' && r.phase !== 'nao_iniciado' && r.cycleKind === 'art40',
       noCiencia: r.segment === 'intercorrente' && r.phase === 'nao_iniciado',
-      incidentOnly: (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g)),
+      incidentOnly: !!(r.incidentOnly || (r.gaps || []).some(g => /coincide com um IDPJ/i.test(g))),
       interruptAt: r.interruptAt || '',
       flags: r.flags || [],
       prescDecision: (execObj && execObj.prescDecision) || null,
@@ -2557,7 +2813,12 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
       opName: op.name,
       opId: op.id,
       hasIDPJ: !!(execId && idpjCovered.has(execId))
-    });
+    };
+    if (alert.action) row.action = alert.action;
+    if (alert.clock) row.clock = alert.clock;
+    if (alert.silenceReason) row.silenceReason = alert.silenceReason;
+    if (policy === 'v2') row.policy = 'v2';
+    buckets[alert.kind].push(row);
   });
   buckets.iminente.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   buckets.vencido.sort((a, b) => (a.prescDays ?? 0) - (b.prescDays ?? 0));
@@ -2566,6 +2827,9 @@ export function buildPainelPrescAlerts(data, asOf, prescLookup) {
   buckets.residual_alta.sort((a, b) => (a.prescDays ?? 0) - (b.prescDays ?? 0));
   buckets.residual_media.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
   if (buckets.correndo) buckets.correndo.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
+  if (buckets.aguardando_reconhecimento) {
+    buckets.aguardando_reconhecimento.sort((a, b) => (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
+  }
   return buckets;
 }
 
@@ -2593,14 +2857,19 @@ function rowNeedsCadastro(row) {
 }
 
 /** Prioridade: 1, 2, 3 (cadastro), 5, 4. Grupos 1 e 2 não são rebaixados por cadastro. A decisão importada governa. */
-export function groupOfKind(kind, row) {
+export function groupOfKind(kind, row, opts) {
+  const policy = resolvePolicy(opts || (row && row.policy));
   let g = 4;
   if (kind === 'vencido' || kind === 'iminente') g = 1;
   else if (kind === 'vencido_estimado' || kind === 'residual_alta') g = 2;
+  else if (kind === 'aguardando_reconhecimento') g = 4;
+  else if (policy === 'v2' && kind === 'acompanhar_piso') g = 5;
   else if (kind === 'inconsistencia' || rowNeedsCadastro(row)) g = 3;
   else if (kind === 'acompanhar_piso') g = 5;
   const decided = groupFromPrescDecision(row && row.prescDecision, g);
-  return decided == null ? g : decided;
+  if (decided == null) return g;
+  if (policy === 'v2' && g === 1 && decided > 1) return g;
+  return decided;
 }
 
 export function prazosKeyMeta(kind, row) {
@@ -2631,6 +2900,9 @@ export function prazosKeyMeta(kind, row) {
   }
   if (kind === 'avaliar_174') {
     return { date, label: date ? fmtDate(date) : 'sem dados' };
+  }
+  if (kind === 'aguardando_reconhecimento') {
+    return { date, label: 'aguardando decisão' };
   }
   return { date, label: date ? fmtDate(date) : '—' };
 }
@@ -2739,22 +3011,207 @@ export function buildPrazosIncidentBlocks(data, rows) {
   return blocks;
 }
 
-export function buildPrazosRadar(data, asOf, prescLookup) {
-  const buckets = buildPainelPrescAlerts(data, asOf, prescLookup);
+function radarWhyAction(row) {
+  const kind = row.prescKind || row.kind;
+  const action = row.action || { type: 'nenhuma' };
+  let why = '';
+  if (kind === 'vencido' && row.clock === 'ordinaria') {
+    why = 'Os 5 anos da inscrição venceram antes do ajuizamento.';
+    return { why, action: action.type ? action : { type: 'conferir_autos' } };
+  }
+  if (kind === 'vencido' && /pedido pendente/i.test(row.prescLabel || '')) {
+    why = 'O termo calculado já passou, mas há pedido sem resultado nos autos.';
+    return { why, action: { type: 'conferir_autos' } };
+  }
+  if (kind === 'vencido') {
+    why = 'O prazo de 1 ano + 5 anos já venceu no cálculo.';
+    return { why, action: { type: 'conferir_autos' } };
+  }
+  if (kind === 'iminente') {
+    why = 'O termo calculado cai nos próximos 180 dias.';
+    return { why, action: { type: 'conferir_autos' } };
+  }
+  if (kind === 'vencido_estimado') {
+    why = 'Pelo cadastro, a consumação já é a hipótese mais provável — conferir nos autos.';
+    return { why, action: { type: 'conferir_autos' } };
+  }
+  if (kind === 'residual_alta') {
+    why = 'Falta ciência lançada e o prazo operacional já apertou.';
+    return { why, action: /ciência|Arquivada/i.test(row.prescLabel || '') ? { type: 'lancar_ciencia' } : { type: 'conferir_autos' } };
+  }
+  if (kind === 'inconsistencia' && action.type === 'criar_evento' && action.eventType === 'susp_parcelamento') {
+    why = 'A ficha diz parcelada, mas não há adesão lançada — o prazo segue correndo.';
+    return { why, action };
+  }
+  if (kind === 'inconsistencia' && action.type === 'vincular_ef') {
+    why = 'O número apontado é de incidente, não de execução fiscal.';
+    return { why, action };
+  }
+  if (kind === 'inconsistencia') {
+    why = 'Há dado da ficha sem o fato correspondente nos eventos.';
+    return { why, action: action.type ? action : { type: 'corrigir_ficha' } };
+  }
+  if (kind === 'aguardando_reconhecimento') {
+    why = 'A prescrição já foi apontada e aguarda decisão judicial.';
+    return { why, action: { type: 'nenhuma' }, silenceReason: 'aguardando_reconhecimento' };
+  }
+  if (kind === 'acompanhar_piso') {
+    why = 'Ainda não pode ter prescrito: o ato mais recente mais 1 ano e 5 anos não chegou.';
+    return { why, action: { type: 'lancar_ciencia' } };
+  }
+  if (kind === 'vigiar_interrompido') {
+    why = 'O ciclo encerrou por resultado útil; vigiar nova inércia.';
+    return { why, action: { type: 'lancar_ciencia' } };
+  }
+  if (kind === 'pausa_cadastrada') {
+    why = 'O prazo está pausado por fato lançado; conferir se a pausa ainda vale.';
+    return { why, action: { type: 'conferir_autos' } };
+  }
+  if (kind === 'residual_media') {
+    why = 'Sem ciência lançada; a data de acompanhamento já passou, sem agravante.';
+    return { why, action: { type: 'lancar_ciencia' } };
+  }
+  if (kind === 'correndo') {
+    why = 'O prazo de 1 ano + 5 anos está em curso.';
+    return { why, action: { type: 'nenhuma' } };
+  }
+  return { why: 'Esta inscrição está na fila de prazos.', action };
+}
+
+function reviewAtFor(row, asOfIso) {
+  const group = row.group;
+  if (group === 1 || group === 2) return '';
+  const kind = row.prescKind;
+  if (kind === 'pausa_cadastrada') {
+    return (row.prescDate && row.prescDate > asOfIso) ? row.prescDate : addCalendarDays(asOfIso, 90);
+  }
+  if (kind === 'vigiar_interrompido') {
+    const plus1 = row.interruptAt ? addCalendarYears(row.interruptAt, 1) : '';
+    const min = addCalendarDays(asOfIso, 30);
+    if (!plus1) return min;
+    return plus1 > min ? plus1 : min;
+  }
+  if (kind === 'acompanhar_piso') return row.prescDate || row.keyDate || '';
+  if (kind === 'aguardando_reconhecimento') return addCalendarDays(asOfIso, 90);
+  if (kind === 'inconsistencia') return addCalendarDays(asOfIso, 30);
+  if (row.prescDate && row.prescDate > asOfIso) return row.prescDate;
+  return addCalendarDays(asOfIso, 90);
+}
+
+function snoozeEffectiveUntil(snooze, asOfIso) {
+  if (!snooze || !snooze.until) return '';
+  const until = asIso(snooze.until);
+  const at = asIso(snooze.at) || asOfIso;
+  const limit = snoozeLimitDays(snooze.group);
+  const maxUntil = addCalendarDays(at, limit);
+  if (!until) return '';
+  return until < maxUntil ? until : maxUntil;
+}
+
+function snoozePierced(debt, currentGroup, related, asOfIso) {
+  const s = debt && debt.prescSnooze;
+  if (!s || !s.until) return { pierced: true };
+  if (s.reason === 'outro' && !(s.note || s.text || s.detail)) return { pierced: true };
+  if (s.reason && !PRESC_SNOOZE_REASONS[s.reason]) return { pierced: true };
+  const until = snoozeEffectiveUntil(s, asOfIso);
+  if (!until || until <= asOfIso) return { pierced: true, why: 'until' };
+  if (s.group != null && currentGroup < s.group) return { pierced: true, why: 'grupo' };
+  const at = asIso(s.at);
+  if (at && latestEventIso(related) > at) return { pierced: true, why: 'evento' };
+  return { pierced: false, until };
+}
+
+export function buildPrazosRadar(data, asOf, prescLookup, opts) {
+  const tail = resolveRadarTail(prescLookup, opts);
+  const policy = resolvePolicy(tail.opts);
+  const executions = (data && data.executions) || [];
+  const events = (data && data.prescriptionEvents) || [];
+  const collectIndex = tail.opts.collectIndex || buildPrescCollectIndex(executions, events);
+  const asOfIso = asIso(asOf) || localIso(new Date());
+  const debtById = new Map(((data && data.debts) || []).filter(d => d && d.id).map(d => [d.id, d]));
+  const buckets = buildPainelPrescAlerts(data, asOf, tail.lookup, { ...tail.opts, policy, collectIndex });
   const rows = [];
+  const silenced = [];
+  const processNotes = [];
+  const seenIncident = new Set();
+
   Object.keys(buckets).forEach(kind => {
     (buckets[kind] || []).forEach(r => {
-      const group = groupOfKind(r.prescKind || kind, r);
+      const group = groupOfKind(r.prescKind || kind, r, { policy });
       const key = prazosKeyMeta(r.prescKind || kind, r);
-      rows.push({
+      const row = {
         ...r,
         group,
         keyDate: key.date,
         keyLabel: key.label,
         incidentDot: incidentDot(r.incident)
-      });
+      };
+      if (policy === 'v2') {
+        const wa = radarWhyAction(row);
+        row.why = wa.why;
+        row.action = row.action || wa.action;
+        if (wa.silenceReason && !row.silenceReason) row.silenceReason = wa.silenceReason;
+        const rev = reviewAtFor(row, asOfIso);
+        if (rev) row.reviewAt = rev;
+        const inc = row.incident;
+        if (inc && !inc.hasConstriction && !inc.hasStay) {
+          const procKey = normProc(row.processNumber) || inc.id;
+          if (!seenIncident.has(procKey)) {
+            seenIncident.add(procKey);
+            const tag = inc.tag === 'cautelar_fiscal' ? 'Cautelar fiscal' : 'IDPJ';
+            processNotes.push({
+              processNumber: row.processNumber || '',
+              incidentId: inc.id,
+              text: `${tag} nº ${inc.processNumber || inc.id} sem constrição lançada — lance o fato ou vincule à execução fiscal.`
+            });
+          }
+          row.checks = (row.checks || []).filter(c => !/não tem constrição lançada/i.test(c));
+        }
+        const debt = debtById.get(row.id);
+        if (debt && debt.prescSnooze) {
+          const related = eventsTouchingDebt(debt, matchingExecsForDebt(debt, executions, collectIndex), events, collectIndex);
+          const sn = snoozePierced(debt, group, related, asOfIso);
+          if (!sn.pierced) {
+            silenced.push({
+              debtId: row.id,
+              reason: debt.prescSnooze.reason || 'outro',
+              until: sn.until,
+              label: PRESC_SNOOZE_REASONS[debt.prescSnooze.reason] || 'Adiada',
+              group
+            });
+            return;
+          }
+        }
+      }
+      rows.push(row);
     });
   });
+
+  if (policy === 'v2' && data) {
+    const inRows = new Set(rows.map(r => r.id));
+    const inSilenced = new Set(silenced.map(s => s.debtId));
+    const ops = {};
+    (data.operations || []).forEach(o => {
+      if (o && o.status !== 'encerrada') ops[o.id] = o;
+    });
+    for (const d of data.debts || []) {
+      if (!d || !ops[d.operationId] || inRows.has(d.id) || inSilenced.has(d.id)) continue;
+      if (d.status === 'extinta') continue;
+      const typ = d.prescriptionHandledType || '';
+      if (d.prescriptionHandled && HANDLED_TERMINAL.has(typ || 'declarada') && typ !== 'aguardando_reconhecimento') continue;
+      const related = eventsTouchingDebt(d, matchingExecsForDebt(d, executions, collectIndex), events, collectIndex);
+      if (parcelamentoVigentePorEvento(related, asOfIso)) {
+        silenced.push({
+          debtId: d.id,
+          reason: 'parcelamento_vigente',
+          until: addCalendarDays(asOfIso, 90),
+          label: 'Parcelamento vigente',
+          group: 4
+        });
+      }
+    }
+  }
+
   const totals = {
     1: { n: 0, value: 0 },
     2: { n: 0, value: 0 },
@@ -2775,7 +3232,7 @@ export function buildPrazosRadar(data, asOf, prescLookup) {
     if (r.group === 1 || r.group === 2) slot.risco++;
     if (r.group === 3) slot.completar++;
   });
-  return {
+  const out = {
     rows,
     totals,
     byOp,
@@ -2783,6 +3240,11 @@ export function buildPrazosRadar(data, asOf, prescLookup) {
     buckets,
     divergencias: rows.filter(r => r.decisionNote).length
   };
+  if (policy === 'v2') {
+    out.silenced = silenced;
+    out.processNotes = processNotes;
+  }
+  return out;
 }
 
 export function prazosRiskMetaForCdas(cdas, byDebt) {

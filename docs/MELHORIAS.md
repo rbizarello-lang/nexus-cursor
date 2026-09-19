@@ -7,18 +7,16 @@ Para executar um item, basta pedir: "vamos fazer o item N do docs/MELHORIAS.md".
 
 ---
 
-## 🧪 Demo Experimental — Central de Comando (✅ 02–03/08/2026)
+## 🧪 Nova versão (beta) (substitui a Demo Experimental — 18/09/2026)
 
-Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico. **Implementada.**
+Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdition: 'demo'` (`isDemo`).
 
-- **O quê:** edição `uiEdition: 'demo'` com rail (Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho=Mesa), zonas da operação, Command Center “Hoje”, grade semanal, temas Clara·Mar·Ardósia·Grafite (padrão Mar Profundo).
-- **Zonas da operação:** Briefing (aba Briefing) · Acervo (Pessoas | Bens) · Risco (Processos e Prescrição) · Ferramentas (Tarefas | Importar | Arquivos). Abas legadas (Grafo/Timeline/CDAs) foram fundidas/removidas da navegação; o mapper ainda redireciona IDs órfãos.
-- **Processos Visão D (clássico) + A/B/C/D (Demo):** o app clássico usa **Visão D · Master–detail** (rail de hubs + painel com EFs abrangidas / sem vínculo; Extintas·Outros demoted; detalhe só ao clicar a linha / Abrir) via `renderProcViewMasterDetail` + `classifyProcGroups`. No Demo Experimental o seletor é **A · Árvore** | **B · Hub com EFs no card** | **C · Seções + tabela** | **D · Master–detail** (padrão se `processViewModel` unset; valor já persistido é respeitado) — `nexus_settings.processViewModel` / `nexus_demo_proc_view`.
-- **Temas clássicos (03/08/2026):** removido **Noite Azulada** (`theme: ''`); adicionado **Claro** (`theme-claro`) com tokens papel-ardósia da Demo Clara (`.edition-demo` base). Padrão continua **Mar Profundo**. Migração: `''` / `theme-noite*` → `theme-claro`. Lista clássica: Mar Profundo · Claro · Ferro e Maré.
-- **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
-- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus.demo.html`, ou `?edition=demo` (persiste em `nexus_settings`).
+- **O quê:** mesma navegação do clássico (sidebar + top-nav + abas da operação), com **Hoje** como primeira vista e **Agenda** unificada (grade semana/mês + lista). Temas: os 3 do clássico (Mar Profundo · Claro · Ferro e Maré). Processos: só visão D (master–detail).
+- **Como ativar:** ⚙ → “Nova versão (beta)”, ou abrir `Nexus.demo.html`, ou `?edition=demo`.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
-- **Build:** `npm run build` gera na raiz o par canônico `Nexus.html` + `Nexus.demo.html`. Aliases locais da demo podem aparecer no disco, mas não entram no git.
+- **Build:** `npm run build` gera `Nexus.html` + `Nexus.demo.html` (título **NEXUS Beta**).
+- **Temas clássicos (03/08/2026):** removido Noite Azulada; adicionado Claro (`theme-claro`) com tokens papel-ardósia. Migração: `''` / `theme-noite*` → `theme-claro`.
+- **Panorama Processual:** campo `texto` em `briefing.processStageV2` (StagePopup + click-to-edit). `saneamento` continua `textOnly`.
 
 ---
 

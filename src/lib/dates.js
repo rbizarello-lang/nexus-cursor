@@ -51,9 +51,11 @@ export const daysUntil = (d, asOf) => {
 export const addCalendarYears = (iso, n) => {
   const key = toDayKey(iso);
   if (!key) return '';
-  const d = new Date(key + 'T00:00:00');
-  d.setFullYear(d.getFullYear() + n);
-  return localIso(d);
+  const [ys, ms, ds] = key.split('-').map(Number);
+  const targetYear = ys + n;
+  const lastDay = new Date(targetYear, ms, 0).getDate();
+  const day = Math.min(ds, lastDay);
+  return `${targetYear}-${_pad2(ms)}-${_pad2(day)}`;
 };
 
 export const addCalendarDays = (iso, n) => {

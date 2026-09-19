@@ -1,7 +1,7 @@
 /**
  * Compila src/app.jsx (JSX) → JavaScript e injeta em src/Nexus.shell.html,
  * gerando Nexus.html (deploy Apps Script) e Nexus.demo.html
- * (edição experimental, bootstrap __NEXUS_DEMO__).
+ * (edição Beta, bootstrap __NEXUS_DEMO__).
  *
  * Também escreve aliases locais com o mesmo conteúdo de Nexus.demo.html
  * (Nexus_demo.html, Nexus_demo_experimental.html, demo_experimental.html).
@@ -116,6 +116,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(datesPath, 'utf8')),
   '/* --- src/lib/prescription.js --- */',
   unwrapModule(fs.readFileSync(prescPath, 'utf8')),
+  '/* --- src/lib/prazos-mesa.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'prazos-mesa.js'), 'utf8')),
   '/* --- src/lib/presc-import.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'presc-import.js'), 'utf8')),
   '/* --- src/lib/docs.js --- */',
@@ -219,7 +221,7 @@ function buildInjected(demo) {
   window.__NEXUS_VERSION__ = '${appVersion}';
   ${demo ? "window.__NEXUS_DEMO__ = true;" : "window.__NEXUS_DEMO__ = false;"}
   var boot = document.getElementById('nexus-boot');
-  if (boot) boot.textContent = 'Carregando NEXUS ${appVersion}${demo ? ' Demo' : ''}… (build ${buildStamp})';
+  if (boot) boot.textContent = 'Carregando NEXUS ${appVersion}${demo ? ' Beta' : ''}… (build ${buildStamp})';
   try {
     var b64 = [
 ${partsJs}
@@ -259,7 +261,7 @@ function assembleHtml(demo) {
   if (demo) {
     html = html.replace(
       '<title>NEXUS — Painel de Operações Fiscais v2</title>',
-      '<title>NEXUS Demo — Central de Comando</title>'
+      '<title>NEXUS Beta</title>'
     );
   }
 
@@ -306,7 +308,7 @@ const jsxKb = (Buffer.byteLength(jsx, 'utf8') / 1024).toFixed(1);
 const outKb = (Buffer.byteLength(classic.html, 'utf8') / 1024).toFixed(1);
 const demoKb = (Buffer.byteLength(demo.html, 'utf8') / 1024).toFixed(1);
 console.log(`OK  NEXUS ${appVersion} · src/app.jsx (${jsxKb} KB) → Nexus.html (${outKb} KB) em ${ms} ms`);
-console.log(`    + Nexus.demo.html (${demoKb} KB)`);
+console.log(`    + Nexus.demo.html (${demoKb} KB) — NEXUS Beta`);
 console.log('    + aliases locais (não versionados): Nexus_demo.html, Nexus_demo_experimental.html, demo_experimental.html');
 console.log(`    script do app: ${(classic.appLen / 1024).toFixed(1)} KB (íntegro)`);
 console.log('    babel-standalone removido — o navegador recebe JS já compilado.');

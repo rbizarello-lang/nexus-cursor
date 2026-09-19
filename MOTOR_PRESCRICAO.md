@@ -179,4 +179,5 @@ O vermelho é da faixa do grupo, não de um ícone no texto.
 ## Histórico das regras
 
 - **2026.09** (8 set 2026) — Doze regras numeradas. Parcelamento vigente sai da fila (sem estimar data de fim). Sem exceção de Sisbajud irrisório. Aba Prazos extintivos. Três colunas em linguagem do caso. Ordinária ajuizada ignora fatos posteriores ao protocolo. Inscrição sem processo só alerta se a ordinária está vencida ou iminente. Suspensão da execução por IDPJ/cautelar, mesmo sem constrição.
+- **2026.09a** (18 set 2026) — Contagem: pausas sobrepostas são fundidas antes de descontar; a primeira ciência inicia o ciclo (ciência posterior não reinicia); evento com data depois de hoje não entra no cômputo; 29/02 aniversaria no último dia de fevereiro; ordinária ajuizada deixa de usar o status “seguro”. Na tela: artigo pela/pelo conforme o fato; R10 mostra a data da suspensão do art. 40; pedido sem resultado com termo já passado deixa de dizer “em curso”.
 - **Anterior** — O motor já contava 1+5 em anos civis e não inventava ciência a partir do ajuizamento. O que mudou foi a classificação da fila e o vocabulário da tela.
