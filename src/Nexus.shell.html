@@ -1119,17 +1119,49 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .top-nav-btn.active { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 .top-nav-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 .app-layout.edition-demo .top-nav {
-  flex-wrap: nowrap; overflow: visible; gap: 2px; padding: 0 10px 0 12px;
+  position: relative;
+  flex-wrap: nowrap; overflow: visible; gap: 0; padding: 0 14px;
+  border-bottom: 1px solid rgba(148, 174, 204, 0.42);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+.app-layout.edition-demo.theme-claro .top-nav {
+  border-bottom-color: rgba(28, 36, 48, 0.16);
+  box-shadow: none;
 }
 .app-layout.edition-demo .top-nav-cluster {
-  display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex: 1 1 0%; width: 0; min-width: 0; overflow: hidden; padding-right: 12px;
 }
 .app-layout.edition-demo .top-nav-btn {
-  white-space: nowrap; flex-shrink: 0; padding: 6px 10px; font-size: 11px;
+  white-space: nowrap; flex: 0 1 auto; padding: 6px 14px; font-size: 12px;
+}
+.app-layout.edition-demo .top-nav-btn.top-nav-featured {
+  font-weight: 600; color: #d5e2ef;
+  box-shadow: inset 0 -2px 0 rgba(196, 163, 106, 0.5);
+}
+.app-layout.edition-demo.theme-claro .top-nav-btn.top-nav-featured {
+  color: #3a4a5c;
+  box-shadow: inset 0 -2px 0 rgba(140, 110, 56, 0.4);
+}
+.app-layout.edition-demo .top-nav-btn.top-nav-featured.active {
+  color: var(--text-primary);
 }
 .app-layout.edition-demo .top-nav-btn.is-overflow { display: none !important; }
+.app-layout.edition-demo .top-nav-op-slot {
+  flex: 0 0 168px; min-width: 168px; max-width: 200px; flex-shrink: 0;
+  display: flex; align-items: center; min-height: 32px; overflow: hidden;
+  margin-left: 4px; padding-left: 10px;
+  border-left: 1px solid rgba(176, 198, 222, 0.34);
+}
+.app-layout.edition-demo.theme-claro .top-nav-op-slot {
+  border-left-color: rgba(28, 36, 48, 0.16);
+}
 .app-layout.edition-demo .top-nav-op {
   max-width: 148px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 0 auto;
+}
+.app-layout.edition-demo .top-nav > [data-beta-settings] {
+  margin-left: 10px !important; flex-shrink: 0;
 }
 .app-layout.edition-demo .top-nav-mais { position: relative; flex-shrink: 0; }
 .app-layout.edition-demo .top-nav-mais-menu {
