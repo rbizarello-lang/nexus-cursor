@@ -34,6 +34,7 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 
 - **Clássico** (default): `Nexus.html` / `doGet`. Temas: Mar Profundo · Claro · Ferro e Maré.
 - **Demo Experimental**: `uiEdition: 'demo'` — rail Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho. Ativar via ⚙, `?edition=demo`, ou abrir `Nexus.demo.html`.
+- **Skin Guardanapo** (só na demo): `demoTheme: 'guardanapo'` — papel/cartão. Abrir `Nexus.demo.html?theme=guardanapo` ou `demos/Nexus.demo.guardanapo.html`. Não altera o clássico.
 - Demo **não** substitui o clássico. Modelo de dados, parsers, sync Drive, formulários e calculadora de prescrição devem permanecer compatíveis entre edições, salvo pedido explícito.
 
 ## Planejamento

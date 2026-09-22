@@ -16,6 +16,12 @@ npm run build  # gera Nexus.html (clássico) e Nexus.demo.html (demo)
 Depois do `npm run build`, abra `Nexus.demo.html` no navegador (arquivo local).
 O clássico é `Nexus.html`.
 
+A skin **Guardanapo** (papel / cartão de índice, só na Demo Experimental) abre assim:
+
+- `Nexus.demo.html?theme=guardanapo`
+- ou `demos/Nexus.demo.guardanapo.html` (atalho)
+- ou ⚙ → Tema da Demo → Guardanapo
+
 ## Onde fica o app publicado
 
 O código publicado vive no projeto Google Apps Script ligado por `.clasp.json`.

@@ -11,6 +11,7 @@ O JSX é compilado **na sua máquina** antes do `clasp push`.
 | `src/Nexus.shell.html` | **Edite aqui** HTML, CSS, CDN e o portal de tooltips |
 | `Nexus.html` | **Gerado** pelo build (clássico) — não edite à mão |
 | `Nexus.demo.html` | **Gerado** pelo build (Demo Experimental) — não edite à mão |
+| `demos/Nexus.demo.guardanapo.html` | Atalho local da skin Guardanapo (`?theme=guardanapo`) — não é o app |
 | `scripts/build.mjs` | Compila JSX e monta o par canônico acima |
 
 O build também escreve aliases locais (`Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`) com o mesmo conteúdo de `Nexus.demo.html`. Eles servem para atalhos no computador e **não** são versionados.
