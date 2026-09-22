@@ -2921,7 +2921,7 @@ function App() {
   const THEMES_OK = ['theme-mar', 'theme-claro', 'theme-ferro'];
   // Temas da Demo: no HTML standalone (Nexus.demo.html) o padrão é Clara;
   // no app (edição Demo via ⚙) o padrão continua Mar Profundo.
-  const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite'];
+  const DEMO_THEMES_OK = ['mar', 'clara', 'ardosia', 'grafite', 'guardanapo'];
   const isDemoStandalone = typeof window !== 'undefined' && window.__NEXUS_DEMO__ === true;
   const demoThemeDefault = isDemoStandalone ? 'clara' : 'mar';
   const [appSettings, setAppSettings] = useState(() => {
@@ -2932,16 +2932,30 @@ function App() {
       if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
       // Migra Noite Azulada ('' / theme-noite) → Claro (tokens Clara da Demo)
       if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
-      const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : demoThemeDefault;
+      let dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : demoThemeDefault;
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
       let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
       let bootstrapped = false;
+      let urlTheme = null;
+      let forcedTheme = null;
       try {
         if (typeof window !== 'undefined') {
           if (window.__NEXUS_DEMO__ === true) { edition = 'demo'; bootstrapped = true; }
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) { edition = 'demo'; bootstrapped = true; }
+          const tm = /[?&](?:theme|skin)=([a-z0-9_-]+)/i.exec(window.location.search || '');
+          if (tm) urlTheme = String(tm[1] || '').toLowerCase();
+          if (window.__NEXUS_DEMO_THEME__) forcedTheme = String(window.__NEXUS_DEMO_THEME__).toLowerCase();
         }
       } catch {}
+      if (forcedTheme && DEMO_THEMES_OK.includes(forcedTheme)) {
+        dth = forcedTheme;
+        edition = 'demo';
+        bootstrapped = true;
+      } else if (urlTheme && DEMO_THEMES_OK.includes(urlTheme)) {
+        dth = urlTheme;
+        edition = 'demo';
+        bootstrapped = true;
+      }
       // Demo Processos A/B/C/D — prefer nexus_settings; fallback legacy key nexus_demo_proc_view
       let pvm = s.processViewModel;
       if (!['A', 'B', 'C', 'D'].includes(pvm)) {
@@ -2951,8 +2965,9 @@ function App() {
       // HTML Demo standalone: força visão D (sem modo experimental A/B/C)
       if (isDemoStandalone) pvm = 'D';
       const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm, prazosFilters: s.prazosFilters };
-      // Persiste bootstrap (?edition=demo / Nexus.demo.html) e migração de tema legado
-      if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
+      // Persiste bootstrap (?edition=demo / Nexus.demo.html / ?theme=) e migração de tema legado
+      const themeFromUrl = urlTheme && DEMO_THEMES_OK.includes(urlTheme) && s.demoTheme !== urlTheme;
+      if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme || themeFromUrl) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
       return next;
@@ -2963,6 +2978,7 @@ function App() {
   const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : demoThemeDefault;
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
   const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
+  const isGuardanapo = isDemo && demoThemeId === 'guardanapo';
 
   // Propaga classe de fonte para <html> (body + herança) além do .app-layout
   useEffect(() => {
@@ -8347,12 +8363,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               { id: 'mar', label: 'Mar Profundo', tip: 'Azul-marinho' },
               { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
               { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
+              { id: 'guardanapo', label: 'Guardanapo', tip: 'Papel, cartão de índice e notas adesivas' },
             ]
           : [
               { id: 'mar', label: 'Mar Profundo', tip: 'Padrão experimental · azul-marinho' },
               { id: 'clara', label: 'Clara', tip: 'Papel-ardósia claro' },
               { id: 'ardosia', label: 'Ardósia', tip: 'Cinza-azulado frio' },
               { id: 'grafite', label: 'Grafite', tip: 'Carvão neutro, baixo brilho' },
+              { id: 'guardanapo', label: 'Guardanapo', tip: 'Papel, cartão de índice e notas adesivas' },
             ]
         ).map(t => (
           <button key={t.id} type="button" title={t.tip}
@@ -8363,7 +8381,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </button>
         ))}
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>{isDemoStandalone ? 'Padrão: Clara (tema claro).' : 'Padrão: Mar Profundo. Obsidian removido.'}</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>{isDemoStandalone ? 'Padrão: Clara. Guardanapo é a skin de papel/cartão.' : 'Padrão: Mar Profundo. Guardanapo é a skin de papel/cartão.'}</div>
     </div>}
     <div className="settings-group">
       <div className="settings-label">Dados / Sync</div>
@@ -8687,22 +8705,61 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const fila = buildHojeFila();
     const hour = new Date().getHours();
     const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    const dueLabel = (it) => it.due === null ? '—' : it.due < 0 ? `${Math.abs(it.due)}d atrasado` : it.due === 0 ? 'hoje' : `${it.due}d`;
+    const tablePins = fila.filter(it => it.urgent).slice(0, 4);
     return (
-      <div className="demo-hoje">
+      <div className={`demo-hoje${isGuardanapo ? ' demo-hoje-penpal' : ''}`}>
         <div className="demo-hoje-hero">
-          <div className="demo-hoje-kicker">NEXUS Demo · Central de Comando</div>
-          <h2>{saudacao}. O que exige ação hoje?</h2>
-          <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).</p>
+          {isGuardanapo && <div className="demo-pixel-blob" aria-hidden="true"></div>}
+          <div className="demo-hoje-kicker">{isGuardanapo ? saudacao.toLowerCase().replace(/\s+/g, '') : 'NEXUS Demo · Central de Comando'}</div>
+          <h2>{isGuardanapo ? 'o que exige ação?' : `${saudacao}. O que exige ação hoje?`}</h2>
+          <p>{isGuardanapo
+            ? 'comece a fila do dia — intimações, tarefas, audiências e riscos — ou retome a mesa onde parou.'
+            : 'Fila unificada de intimações, tarefas, audiências e riscos prescricionais — no espírito do Painel do Advogado (eproc) e dos matter hubs (Clio/MyCase).'}</p>
           <div className="demo-hoje-ctas">
-            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Abrir Tarefas {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>Nova intimação</button>
-            <button className="btn-secondary" onClick={openCarteiraHome}>Ver Carteira</button>
-            {!isGAS && <button className="btn-secondary" onClick={() => loadDemoData()}>Resetar / carregar dados demo</button>}
+            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>{isGuardanapo ? 'abrir intimações' : 'Abrir Intimações'} {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>{isGuardanapo ? 'abrir tarefas' : 'Abrir Tarefas'} {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>{isGuardanapo ? 'retomar mesa' : 'Abrir Mesa'} {deskCount > 0 ? `(${deskCount})` : ''}</button>
+            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: {} })}>{isGuardanapo ? 'nova intimação' : 'Nova intimação'}</button>
+            <button className="btn-secondary" onClick={openCarteiraHome}>{isGuardanapo ? 'ver carteira' : 'Ver Carteira'}</button>
+            {!isGAS && <button className="btn-secondary" onClick={() => loadDemoData()}>{isGuardanapo ? 'carregar dados demo' : 'Resetar / carregar dados demo'}</button>}
           </div>
         </div>
-        {fila.length === 0 ? (
+        {isGuardanapo ? (
+          <div className="demo-penpal-board">
+            <div className="demo-index-card">
+              <div className="demo-index-card-h">fila recente</div>
+              {fila.length === 0 ? (
+                <div className="demo-fila-empty">nada urgente nos próximos 7 dias. use a carteira ou intimações e tarefas.</div>
+              ) : fila.map(it => (
+                <div key={it.id} className="demo-index-row" onClick={it.go}>
+                  <span className="demo-index-mark">›</span>
+                  <span className="demo-index-title" title={it.title}>{it.meta || it.title}</span>
+                  <span className={`demo-index-meta${it.urgent ? ' urgent' : ''}`}>{dueLabel(it)}</span>
+                  <button type="button" className="demo-index-go" onClick={(e) => { e.stopPropagation(); it.go(); }}>continuar</button>
+                </div>
+              ))}
+            </div>
+            <div className="demo-on-table">
+              <div className="demo-on-table-h">na mesa</div>
+              <div className="demo-sticky-row">
+                {tablePins.length === 0 ? (
+                  <button type="button" className="demo-sticky" onClick={() => setViewMode('mesa')}>
+                    <span className="demo-pixel-blob mini" aria-hidden="true"></span>
+                    <strong>mesa vazia</strong>
+                    <span className="demo-sticky-sub">abrir trabalho</span>
+                  </button>
+                ) : tablePins.map(it => (
+                  <button type="button" key={it.id} className="demo-sticky" onClick={it.go}>
+                    <span className="demo-pixel-blob mini" aria-hidden="true"></span>
+                    <strong>{it.title}</strong>
+                    <span className="demo-sticky-sub">{it.kind} · {dueLabel(it)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : fila.length === 0 ? (
           <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use a Carteira ou Intimações e Tarefas para navegar o acervo.</div>
         ) : (
           <div className="demo-fila">
@@ -8714,7 +8771,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <div className="demo-fila-meta">{it.meta}</div>
                 </div>
                 <div className={`demo-fila-due ${it.urgent ? 'urgent' : ''}`}>
-                  {it.due === null ? '—' : it.due < 0 ? `${Math.abs(it.due)}d atrasado` : it.due === 0 ? 'hoje' : `${it.due}d`}
+                  {dueLabel(it)}
                 </div>
               </div>
             ))}
@@ -9011,6 +9068,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {sidebarCollapsed && !(carteiraContext && carteiraTreeOpen) ? 'N' : 'NEXUS'}
         {(!sidebarCollapsed || (carteiraContext && carteiraTreeOpen)) && <small>Central de Comando</small>}
       </div>
+      {isGuardanapo && <div className="demo-rail-wave" aria-hidden="true"></div>}
       <div className="demo-rail-nav">
         <button className={`demo-rail-btn ${viewMode==='hoje'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('hoje'); }}><span className="demo-rail-ico">☀</span><span>Hoje</span></button>
         <button className={`demo-rail-btn ${viewMode==='prazos'?'active':''}`} onClick={() => { setDemoTrabalhoOpen(false); setViewMode('prazos'); }}><span>Prazos</span></button>

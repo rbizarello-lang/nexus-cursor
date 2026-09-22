@@ -17,6 +17,7 @@ Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássic
 - **Temas clássicos (03/08/2026):** removido **Noite Azulada** (`theme: ''`); adicionado **Claro** (`theme-claro`) com tokens papel-ardósia da Demo Clara (`.edition-demo` base). Padrão continua **Mar Profundo**. Migração: `''` / `theme-noite*` → `theme-claro`. Lista clássica: Mar Profundo · Claro · Ferro e Maré.
 - **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
 - **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus.demo.html`, ou `?edition=demo` (persiste em `nexus_settings`).
+- **Skin Guardanapo (papel / cartão de índice):** tema extra da Demo (`demoTheme: 'guardanapo'`). Não muda o clássico nem os temas Clara·Mar·Ardósia·Grafite. Abrir `Nexus.demo.html?theme=guardanapo`, o atalho `demos/Nexus.demo.guardanapo.html`, ou ⚙ → Tema da Demo → Guardanapo. Também aceita `?skin=guardanapo` e `window.__NEXUS_DEMO_THEME__`.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
 - **Build:** `npm run build` gera na raiz o par canônico `Nexus.html` + `Nexus.demo.html`. Aliases locais da demo podem aparecer no disco, mas não entram no git.
 

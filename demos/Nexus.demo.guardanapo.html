@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS Demo — Guardanapo</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #f3eee4; color: #2c2419; font-family: Georgia, serif; }
+  body { display: grid; place-items: center; padding: 32px 16px; }
+  .card {
+    max-width: 34rem; background: #fffcf6; border: 1.6px solid #2c2419;
+    border-radius: 255px 16px 225px 14px / 14px 225px 16px 255px;
+    box-shadow: 2px 4px 0 rgba(44,36,25,0.06), 0 10px 22px rgba(80,60,40,0.08);
+    padding: 28px 26px;
+  }
+  h1 { font-size: 1.7rem; margin: 0 0 8px; }
+  p { line-height: 1.5; margin: 0 0 14px; }
+  a { color: #3d5c78; }
+  .btn {
+    display: inline-block; padding: 8px 14px; border: 1.5px solid #2c2419;
+    border-radius: 10px 5px 12px 6px / 7px 11px 5px 9px; background: #e8a090;
+    color: #2c2419; text-decoration: none;
+  }
+  code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+</style>
+<script>
+  // Atalho local: abre o Demo Experimental com a skin Guardanapo.
+  // O app de verdade vive em Nexus.demo.html (gerado pelo build).
+  (function () {
+    try {
+      var target = new URL('../Nexus.demo.html', window.location.href);
+      target.searchParams.set('theme', 'guardanapo');
+      window.location.replace(target.toString());
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+  <div class="card">
+    <h1>NEXUS Demo — Guardanapo</h1>
+    <p>Se o redirecionamento não ocorrer, abra o Demo Experimental com a skin de papel:</p>
+    <p><a class="btn" href="../Nexus.demo.html?theme=guardanapo">Abrir Nexus.demo.html?theme=guardanapo</a></p>
+    <p>Também funciona pelo ⚙ da demo: <strong>Tema da Demo → Guardanapo</strong>.</p>
+    <p>Arquivo gerado do app: <code>Nexus.demo.html</code>. Este atalho não altera o clássico.</p>
+  </div>
+</body>
+</html>
