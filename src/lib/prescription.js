@@ -2136,7 +2136,8 @@ export function buildCdaColumnView(seg, { key, prescChecks } = {}) {
   const occurrences = (seg.occurrences || []).map(o => ({
     ...o,
     dateLabel: o.date ? fmtDate(o.date) : '',
-    sourceLabel: o.source && /IDPJ|MCF|processo|planilha|evento/i.test(o.source) ? o.source : 'evento'
+    // Não exibir "processo"/"evento": a CDA já está no processo e o fato já nomeia o evento.
+    sourceLabel: o.source && /IDPJ|MCF|planilha|Análise/i.test(o.source) ? o.source : ''
   }));
   return {
     key,

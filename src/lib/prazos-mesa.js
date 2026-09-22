@@ -96,6 +96,178 @@ export function betaCdaPrescText(d, row, silenced) {
   return 'sem ciência lançada';
 }
 
+/** Causas interruptivas curtas (mesmo vocabulário do motor; só para a linha fechada). */
+const BETA_INTERRUPT_BY = {
+  int_penhora: 'penhora',
+  int_arresto: 'arresto',
+  int_sisbajud: 'bloqueio Sisbajud',
+  int_cnib: 'indisponibilidade',
+  int_citacao: 'citação',
+  int_reconhecimento: 'reconhecimento da dívida',
+  int_outra: 'resultado útil'
+};
+
+const BETA_SUSP_BY = {
+  susp_parcelamento: 'parcelamento',
+  susp_embargos: 'embargos',
+  susp_decisao_judicial: 'decisão judicial',
+  susp_deposito: 'depósito',
+  susp_falencia: 'falência / recuperação',
+  susp_idpj_mcf_constricao: 'constrição no incidente',
+  susp_idpj_mcf: 'incidente',
+  susp_outra: 'causa suspensiva'
+};
+
+function betaInterruptCause(prescResult, blob) {
+  const ev = ((prescResult && prescResult.timeline) || []).find(e => e && e.phase === 'interrompido');
+  const t = ev && String(ev.type || '');
+  if (t && BETA_INTERRUPT_BY[t]) return BETA_INTERRUPT_BY[t];
+  if (/penhora/.test(blob)) return 'penhora';
+  if (/cita[cç]/.test(blob)) return 'citação';
+  if (/sisbajud|bloqueio/.test(blob)) return 'bloqueio Sisbajud';
+  if (/indisponib/.test(blob)) return 'indisponibilidade';
+  if (/arresto/.test(blob)) return 'arresto';
+  return 'resultado útil';
+}
+
+function betaSuspensionCause(prescResult, blob) {
+  const types = ((prescResult && prescResult.timeline) || [])
+    .map(e => e && String(e.type || ''))
+    .filter(Boolean);
+  for (const t of types) {
+    if (BETA_SUSP_BY[t]) return BETA_SUSP_BY[t];
+  }
+  if (/parcelamento/.test(blob)) return 'parcelamento';
+  if (/embargos/.test(blob)) return 'embargos';
+  if (/dep[oó]sito/.test(blob)) return 'depósito';
+  if (/incidente|idpj|cautelar/.test(blob)) return 'incidente';
+  return '';
+}
+
+/**
+ * Linha fechada da CDA na Beta: STATUS — situação — data de consumação.
+ * Usa só o que o cálculo/radar já produziu; não inventa data.
+ */
+export function betaCdaClosedLine(d, row, silenced, statusLabel, prescResult) {
+  const status = String(statusLabel || (d && d.status) || '—').toUpperCase();
+  const empty = { status, situation: '', date: '', dateLabel: '', fullText: status };
+
+  if (!d) {
+    return { ...empty, situation: 'sem dado de prazo', fullText: status + ' — sem dado de prazo' };
+  }
+
+  const terminal = d.prescriptionHandled && d.prescriptionHandledType !== 'aguardando_reconhecimento';
+  if (terminal) {
+    const situation = 'tratada';
+    const date = d.prescriptionHandledAt || '';
+    const dateLabel = date ? fmtDate(date) : '';
+    const fullText = dateLabel ? (status + ' — ' + situation + ' — ' + dateLabel) : (status + ' — ' + situation);
+    return { status, situation, date, dateLabel, fullText };
+  }
+  if (d.prescriptionHandledType === 'aguardando_reconhecimento' && d.prescriptionHandled) {
+    const situation = 'aguardando reconhecimento judicial';
+    return { status, situation, date: '', dateLabel: '', fullText: status + ' — ' + situation };
+  }
+
+  if (row && row.informedConflict && d.prescriptionDate && (row.prescDate || row.keyDate)) {
+    const situation = 'conferir ficha × cálculo';
+    const date = row.prescDate || row.keyDate || '';
+    const dateLabel = date ? fmtDate(date) : '';
+    const fullText = dateLabel
+      ? (status + ' — ' + situation + ' — ' + dateLabel)
+      : (status + ' — ' + situation);
+    return { status, situation, date, dateLabel, fullText };
+  }
+
+  if (silenced && !row) {
+    const situation = String(silenced.label || 'fora da fila').toLowerCase();
+    const date = silenced.until || '';
+    const dateLabel = date ? fmtDate(date) : '';
+    const fullText = dateLabel
+      ? (status + ' — ' + situation + ' — ' + dateLabel)
+      : (status + ' — ' + situation);
+    return { status, situation, date, dateLabel, fullText };
+  }
+
+  const r = prescResult || null;
+  const kind = (row && row.prescKind) || '';
+  const phase = (r && r.phase) || '';
+  const segment = (r && r.segment) || (row && row.prescSegment) || '';
+  const clock = (row && row.clock) || '';
+  const isOrdinary = segment === 'credito' || clock === 'ordinaria';
+  const blob = [
+    r && r.summary, r && r.detail, row && row.summary, row && row.why, row && row.prescLabel
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  let situation = '';
+  let showDate = true;
+
+  if (isOrdinary) {
+    if (phase === 'consumado' || kind === 'vencido') situation = 'prescrição ordinária consumada';
+    else if (phase === 'interrompido') {
+      situation = 'prescrição ordinária interrompida pelo ajuizamento';
+      showDate = false;
+    } else if (phase === 'suspenso' || kind === 'pausa_cadastrada') {
+      const cause = betaSuspensionCause(r, blob);
+      situation = cause
+        ? ('prescrição ordinária suspensa por ' + cause)
+        : 'prescrição ordinária suspensa';
+      if (!(r && r.diesAdQuem) && !(row && row.prescDate)) showDate = false;
+    } else if ((r && r.diesAdQuem) || (row && row.prescDate)) {
+      situation = 'prescrição ordinária em curso';
+    } else {
+      situation = 'prescrição ordinária sem data';
+      showDate = false;
+    }
+  } else {
+    // Intercorrente (ou ainda sem segmento claro)
+    if (phase === 'nao_iniciado' || kind === 'residual_alta' || kind === 'residual_media' || kind === 'acompanhar_piso' || (row && row.noCiencia)) {
+      situation = 'prescrição intercorrente ainda não iniciada';
+      showDate = false;
+    } else if (phase === 'interrompido' || kind === 'vigiar_interrompido') {
+      situation = 'prescrição intercorrente interrompida por ' + betaInterruptCause(r, blob);
+      showDate = false;
+    } else if (phase === 'suspenso' || kind === 'pausa_cadastrada') {
+      const cause = betaSuspensionCause(r, blob)
+        || (/parcelamento/.test(blob) || !(r && r.diesAdQuem) ? 'parcelamento' : '');
+      situation = cause
+        ? ('prescrição intercorrente suspensa por ' + cause)
+        : 'prescrição intercorrente suspensa';
+      if (!(r && r.diesAdQuem) && !(row && row.prescDate)) showDate = false;
+    } else if (phase === 'consumado' || kind === 'vencido' || kind === 'vencido_estimado') {
+      situation = kind === 'vencido_estimado'
+        ? 'prescrição intercorrente consumada (estimada)'
+        : 'prescrição intercorrente consumada';
+    } else if (kind === 'inconsistencia') {
+      situation = stripPrescritaIfEstimate(
+        betaSafeUiText(row.why || row.prescLabel || 'conferir cadastro'),
+        kind
+      ).toLowerCase();
+      showDate = !!(row && row.prescDate);
+    } else if (kind === 'correndo' || kind === 'iminente' || phase === 'correndo' || phase === 'suspensao_art40' || (r && r.diesAdQuem) || (row && row.prescDate)) {
+      situation = 'prescrição intercorrente em curso';
+    } else if (row) {
+      situation = stripPrescritaIfEstimate(
+        betaSafeUiText(row.why || row.prescLabel || row.summary || 'prazo em acompanhamento'),
+        kind
+      ).toLowerCase();
+      showDate = !!(row.prescDate) && kind !== 'vigiar_interrompido';
+    } else {
+      situation = 'sem ciência lançada';
+      showDate = false;
+    }
+  }
+
+  const date = showDate
+    ? ((r && r.diesAdQuem) || (row && row.prescDate) || '')
+    : '';
+  const dateLabel = date ? fmtDate(date) : '';
+  const fullText = dateLabel
+    ? (status + ' — ' + situation + ' — ' + dateLabel)
+    : (status + ' — ' + situation);
+  return { status, situation, date, dateLabel, fullText };
+}
+
 export function mesaDrawerItems({ rows, silenced, hideG5 = true } = {}) {
   const seen = new Set();
   const items = [];

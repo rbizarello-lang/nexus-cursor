@@ -1249,12 +1249,33 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .prazos-counter.g6 .prazos-counter-n { color: var(--text-muted); }
 .prazos-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
 .prazos-toolbar select, .prazos-toolbar input { width: auto; }
+.prazos-toolbar-roomy { gap: 12px 16px; }
+.prazos-filter-wrap { position: relative; }
+.prazos-filter-btn.has-filters { border-color: var(--accent); color: var(--text-primary); }
+.prazos-filter-btn.open { background: var(--bg-elevated); }
+.prazos-filter-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+  min-width: 280px; max-width: min(420px, 92vw);
+  padding: 12px 14px; border-radius: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.prazos-filter-sec { display: flex; flex-direction: column; gap: 6px; }
+.prazos-filter-label { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.prazos-filter-radios, .prazos-filter-ops, .prazos-filter-pair { display: flex; flex-direction: column; gap: 4px; }
+.prazos-filter-ops { max-height: 140px; overflow-y: auto; }
+.prazos-filter-hint { font-size: 11px; color: var(--text-muted); }
+.prazos-filter-alone { margin-top: 2px; }
+.prazos-filter-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; border-top: 1px solid var(--border); }
+.prazos-sort { min-width: 120px; }
+.prazos-import-btn { margin-left: auto; }
 .prazos-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .prazos-toggle button { background: transparent; border: 0; color: var(--text-secondary); padding: 5px 10px; font-size: 11px; cursor: pointer; }
 .prazos-toggle button.active { background: var(--bg-elevated); color: var(--text-primary); font-weight: 600; }
 .prazos-chk { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
 .prazos-chk input { width: auto; }
-.prazos-q { min-width: 180px; }
+.prazos-q { min-width: 220px; flex: 1 1 200px; }
 .prazos-proc { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; }
 .prazos-proc-hd { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); }
 .prazos-proc-hd strong { color: var(--text-primary); font-family: var(--font-mono); }
@@ -1303,8 +1324,8 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .cda-presc-seal.sem { color: var(--text-muted); }
 .cda-presc-block { margin-top: 8px; }
 .cda-presc-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 3px; }
-.cda-presc-sum { font-size: 11px; line-height: 1.45; color: var(--text-primary); font-weight: 600; }
-.cda-presc-dates, .cda-presc-est, .cda-presc-empty { font-size: 10px; line-height: 1.45; color: var(--text-secondary); }
+.cda-presc-sum { font-size: 11px; line-height: 1.45; color: var(--text-primary); font-weight: 600; overflow-wrap: break-word; word-break: normal; }
+.cda-presc-dates, .cda-presc-est, .cda-presc-empty { font-size: 10px; line-height: 1.45; color: var(--text-secondary); overflow-wrap: break-word; word-break: normal; }
 .cda-presc-occ { width: 100%; border-collapse: collapse; font-size: 10px; }
 .cda-presc-occ td { padding: 3px 4px 3px 0; vertical-align: top; color: var(--text-secondary); }
 .cda-presc-occ td:first-child { font-family: var(--font-mono); white-space: nowrap; color: var(--text-primary); }
@@ -2001,6 +2022,93 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .demo-proc-table-detail td { padding: 0 8px 10px !important; background: color-mix(in srgb, var(--bg-elevated, var(--bg-card)) 70%, transparent); border-bottom: 1px solid var(--border); }
 .demo-proc-table-detail .cda-inline-detail { margin: 0; border: none; border-radius: 0; background: transparent; padding: 8px 4px; }
 .cda-status { color: var(--text-muted); font-family: var(--font-display); font-size: 10px; font-weight: 600; }
+
+/* Beta: linha fechada STATUS — situação — data (sem quebrar no meio da frase) */
+.cda-closed-line {
+  display: block;
+  max-width: 100%;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+}
+.cda-closed-line.overdue { color: var(--red); font-weight: 700; }
+.cda-closed-status {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--blue, #5b8fd9) 55%, var(--text-primary));
+  letter-spacing: 0.02em;
+}
+.cda-closed-line.overdue .cda-closed-status { color: var(--red); }
+.cda-closed-sit, .cda-closed-date { font-weight: 500; color: inherit; }
+
+/* Lista de CDAs em largura total do card; três quadros de prazo lado a lado (clássico + Beta) */
+.proc-expand-grid.demo-proc-expand .proc-expand-cdas {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.cda-expand-detail {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+}
+.cda-inline-detail--beta > .cda-presc-cols {
+  margin-top: 0;
+  margin-bottom: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 980px) {
+  .cda-inline-detail--beta > .cda-presc-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fonte legível + ocorrências: data numa faixa, fato/efeito no resto (sem sobreposição) */
+.cda-presc-sum { font-size: 10px; line-height: 1.4; }
+.cda-presc-dates,
+.cda-presc-est,
+.cda-presc-empty { font-size: 9px; line-height: 1.4; }
+.cda-presc-chk { font-size: 9px; line-height: 1.35; }
+.cda-presc-occ-list { display: flex; flex-direction: column; gap: 7px; }
+.cda-presc-occ-row {
+  display: grid;
+  /* Date track sizes to dd/mm/aaaa (max-content); body takes the rest — no overlap */
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: start;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.cda-presc-occ-date {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.cda-presc-occ-body { min-width: 0; }
+.cda-presc-occ-fact {
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.cda-presc-occ-effect {
+  margin-top: 2px;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.cda-presc-occ-src {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
 
 .process-meta {
   display: flex;

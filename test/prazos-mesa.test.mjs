@@ -8,6 +8,7 @@ import {
   splitMesaRows,
   formatPrescHorizon,
   betaCdaPrescText,
+  betaCdaClosedLine,
   mesaDrawerItems,
   countSnoozeDueThisWeek,
   snoozeMaxUntil,
@@ -72,6 +73,37 @@ describe('Mesa — selos e frases', () => {
     assert.match(line, /pausado/);
     const est = betaCdaPrescText({}, { why: 'Prescrita no cadastro', prescKind: 'vencido_estimado', group: 2, prescDays: -10 });
     assert.equal(/Prescrita/i.test(est), false);
+  });
+
+  it('linha fechada Beta: STATUS — situação — data; omite data se o ciclo não tem termo', () => {
+    const emCurso = betaCdaClosedLine(
+      { status: 'ativa' },
+      { prescKind: 'correndo', prescSegment: 'intercorrente', prescDate: '2029-11-29', prescDays: 1100 },
+      null,
+      'Ativa',
+      { segment: 'intercorrente', phase: 'correndo', diesAdQuem: '2029-11-29' }
+    );
+    assert.equal(emCurso.fullText, 'ATIVA — prescrição intercorrente em curso — 29/11/2029');
+    assert.match(emCurso.status, /ATIVA/);
+
+    const interrompida = betaCdaClosedLine(
+      { status: 'ativa' },
+      { prescKind: 'vigiar_interrompido', prescSegment: 'intercorrente', interruptAt: '2024-01-10' },
+      null,
+      'Ativa',
+      { segment: 'intercorrente', phase: 'interrompido', interruptAt: '2024-01-10', timeline: [{ phase: 'interrompido', type: 'int_penhora' }] }
+    );
+    assert.equal(interrompida.fullText, 'ATIVA — prescrição intercorrente interrompida por penhora');
+    assert.equal(interrompida.dateLabel, '');
+
+    const naoIniciada = betaCdaClosedLine(
+      { status: 'ativa' },
+      { prescKind: 'residual_media', noCiencia: true, prescSegment: 'intercorrente' },
+      null,
+      'Ativa',
+      { segment: 'intercorrente', phase: 'nao_iniciado' }
+    );
+    assert.equal(naoIniciada.fullText, 'ATIVA — prescrição intercorrente ainda não iniciada');
   });
 
   it('texto da UI Beta não usa o jargão proibido', () => {
