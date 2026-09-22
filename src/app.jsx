@@ -8509,7 +8509,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       (data.debts || []).forEach(d => {
         if (d.prescriptionHandled) return;
         const row = prazosByDebt.get(d.id);
-        if (!row || row.prescDays == null || row.prescDays > 30) return;
+        if (!row || row.group === 6 || row.consumada === 'old') return;
+        if (row.prescDays == null || row.prescDays > 30) return;
         pushPresc(d, row);
       });
     }
@@ -8756,6 +8757,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId)
       : null;
     if (mesaPersonIds) rows = rows.filter(r => mesaPersonIds.has(r.id));
+    // Mesa de trabalho: consumada há mais de 6 meses não entra na fila
+    rows = rows.filter(r => r.group !== 6);
     if (pf.q) {
       const raw = String(pf.q).toLowerCase();
       const q = raw.replace(/\D/g, '');
@@ -8851,7 +8854,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const t = prazosRadar.totals || {};
     const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
     let rows = [...(prazosRadar.rows || [])];
-    if (pf.group) rows = rows.filter(r => r.group === pf.group);
+    if (pf.group === 6) rows = rows.filter(r => rowShowsInConsumada(r));
+    else if (pf.group) rows = rows.filter(r => r.group === pf.group);
+    else rows = rows.filter(r => r.group !== 6);
     if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);
     const listPersonIds = (pf.personId && pf.personId !== 'all')
       ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId)
@@ -8953,6 +8958,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {counterBtn(3, 'A completar')}
           {counterBtn(4, 'Acompanhamento')}
           {counterBtn(5, 'Ainda impossível')}
+          {counterBtn(6, 'Consumada')}
         </div>
         {!!prazosRadar.divergencias && (
           <div className="prazos-div">{prazosRadar.divergencias} divergência(s) — o cálculo do app é mais grave que a análise; a decisão importada foi mantida.</div>
