@@ -9432,7 +9432,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const opSlot = row.querySelector('[data-beta-op-slot]');
       const reserve = ((settings && settings.offsetWidth) || 40) + ((opSlot && opSlot.offsetWidth) || 168) + ((mais && mais.offsetWidth) || 0) + 12;
       const limit = row.clientWidth - reserve;
-      let used = 0;
+      let used = 12;
       const hide = [];
       btns.forEach((b, i) => {
         used += b.offsetWidth;
@@ -9592,14 +9592,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {isDemo ? (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`} ref={betaNavRef}>
         <div className="top-nav-cluster">
-          {betaNavItems.map(item => (
-            <button key={item.id} type="button" data-beta-nav={item.id}
-              className={`top-nav-btn ${item.active ? 'active' : ''}${item.id === 'intimacoes' ? ' top-nav-featured' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
-              onClick={() => { item.go(); setBetaMaisOpen(false); }}>
-              {item.label}
-              {item.extra > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({item.extra})</span> : null}
-            </button>
-          ))}
+          <div className="top-nav-capsule">
+            {betaNavItems.map(item => (
+              <button key={item.id} type="button" data-beta-nav={item.id}
+                className={`top-nav-btn ${item.active ? 'active' : ''}${item.id === 'intimacoes' ? ' top-nav-featured' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
+                onClick={() => { item.go(); setBetaMaisOpen(false); }}>
+                {item.label}
+                {item.extra > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({item.extra})</span> : null}
+              </button>
+            ))}
+          </div>
         </div>
         {betaNavOverflow.length > 0 && (
           <div className="top-nav-mais" data-beta-mais="1">
@@ -9632,29 +9634,31 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
       ) : (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`}>
-        <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
-        <button className={`top-nav-btn ${viewMode==='prazos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('prazos'))}>Prazos extintivos</button>
-        <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
-        <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
-          onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
-          title="Intimações e Tarefas">
-          Intimações e Tarefas
-          {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
-        </button>
-        <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
-          onClick={() => { setViewMode('mesa'); }}>
-          Mesa
-          {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
-        </button>
-        <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
-          Acompanhar
-          {(() => { const open = (data.watchlist||[]).filter(w=>w.status!=='encerrado').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
-        </button>
-        <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('audiencias'))}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
-        <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('modelos'))}>
-          Modelos
-          {(() => { const n = (data.models||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
-        </button>
+        <div className="top-nav-capsule">
+          <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
+          <button className={`top-nav-btn ${viewMode==='prazos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('prazos'))}>Prazos extintivos</button>
+          <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
+          <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
+            onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
+            title="Intimações e Tarefas">
+            Intimações e Tarefas
+            {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
+          </button>
+          <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
+            onClick={() => { setViewMode('mesa'); }}>
+            Mesa
+            {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
+          </button>
+          <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
+            Acompanhar
+            {(() => { const open = (data.watchlist||[]).filter(w=>w.status!=='encerrado').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
+          </button>
+          <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('audiencias'))}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
+          <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('modelos'))}>
+            Modelos
+            {(() => { const n = (data.models||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
+          </button>
+        </div>
         {activeOp && <><div className="top-nav-sep"></div>
           <button className={`top-nav-btn ${viewMode==='operation'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operation'))}>
             {truncate(activeOp.name, 28)}
@@ -10226,9 +10230,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Clássico: Urgente no topo (exceto agrupamentos). Prazo final / dias restantes: só a data; sem prazo no fim.
+            // Clássico: Urgente no topo, exceto prazo final, dias restantes e agrupamentos.
+            // Beta + prazo mais próximo: Urgente fica no topo; dentro de cada grupo, o prazo manda.
             const groupedSorts = ['jurisdiction','class','operation','processo','action_date'];
             const deadlineOnlySorts = ['deadline', 'days_left', 'deadline_desc'];
+            const pinUrgent = !groupedSorts.includes(intimSort)
+              && (!deadlineOnlySorts.includes(intimSort) || (isDemo && intimSort === 'deadline'));
             if (isDemo && intimSort === 'overdue_first') {
               const dayKey = (x) => toDayKey(x.dateDeadline) || '';
               const isOver = (x) => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < now && intimIsOpenWork(x);
@@ -10240,7 +10247,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 if (da !== db) return da.localeCompare(db);
                 return 0;
               });
-            } else if (!groupedSorts.includes(intimSort) && !deadlineOnlySorts.includes(intimSort)) {
+            } else if (pinUrgent) {
               const pinsUrgent = (x) => intimIsOpenWork(x) && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
