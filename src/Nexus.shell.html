@@ -2267,13 +2267,13 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 /* ─── Demo theme: Guardanapo (papel / cartão de índice / notas — look penpal) ─── */
 .app-layout.edition-demo.demo-theme-guardanapo {
   --ink: #2c2419;
-  --paper: #f3eee4;
-  --napkin: #fffcf6;
-  --rule: rgba(176, 148, 120, 0.38);
+  --paper: #e8dcc8;
+  --napkin: #fffdf8;
+  --rule: rgba(160, 128, 96, 0.55);
   --pixel: #c45c3e;
-  --bg-deep: #efe6d8;
-  --bg-main: #f7f1e6;
-  --bg-card: #fffcf6;
+  --bg-deep: #e4d6c0;
+  --bg-main: #efe3cf;
+  --bg-card: #fffdf8;
   --bg-card-hover: #f4ece0;
   --bg-elevated: #fffdf8;
   --bg-input: #fffdf8;
@@ -2325,11 +2325,13 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --demo-settings-bg: #fffcf6;
   --hand-radius: 255px 16px 225px 14px / 14px 225px 16px 255px;
   color: var(--text-primary);
+  letter-spacing: 0.02em;
+  word-spacing: 0.14em;
   background-color: var(--paper);
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.82  0 0 0 0 0.76  0 0 0 0 0.66  0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    radial-gradient(900px 420px at 12% -8%, rgba(255,255,255,0.35), transparent 55%),
-    linear-gradient(180deg, #f6f0e6 0%, #efe6d8 55%, #e9dfd0 100%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.78  0 0 0 0 0.70  0 0 0 0 0.56  0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(900px 420px at 12% -8%, rgba(255,255,255,0.22), transparent 55%),
+    linear-gradient(180deg, #efe3cf 0%, #e8dcc8 55%, #dfd0b8 100%);
   background-blend-mode: multiply, normal, normal;
 }
 .app-layout.edition-demo.demo-theme-guardanapo,
@@ -2339,9 +2341,9 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-family: var(--font-ui);
 }
 .app-layout.edition-demo.demo-theme-guardanapo .demo-rail {
-  background-color: #faf6ee;
+  background-color: #fbf6ec;
   background-image:
-    linear-gradient(90deg, transparent 18px, rgba(196, 92, 62, 0.18) 18px, rgba(196, 92, 62, 0.18) 19px, transparent 19px),
+    linear-gradient(90deg, transparent 18px, rgba(196, 92, 62, 0.28) 18px, rgba(196, 92, 62, 0.28) 19.5px, transparent 19.5px),
     repeating-linear-gradient(
       transparent 0,
       transparent 27px,
@@ -2350,8 +2352,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
     );
   background-size: 100% 100%, 100% 28px;
   color: var(--ink);
-  border-right: none;
-  box-shadow: 6px 0 18px rgba(80, 60, 40, 0.06);
+  border-right: 1px solid rgba(44, 36, 25, 0.08);
+  box-shadow: 8px 0 20px rgba(80, 60, 40, 0.08);
   padding: 10px 10px 12px;
 }
 .app-layout.edition-demo.demo-theme-guardanapo .demo-rail-brand {
@@ -2518,7 +2520,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.02em;
+  word-spacing: 0.14em;
   text-transform: lowercase;
 }
 .app-layout.edition-demo.demo-theme-guardanapo .demo-topbar-sub {
@@ -2545,9 +2548,11 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   border-radius: 10px 5px 12px 6px / 7px 11px 5px 9px;
   box-shadow: 1px 2px 0 rgba(44, 36, 25, 0.08);
   text-transform: lowercase;
+  letter-spacing: 0.02em;
+  word-spacing: 0.16em;
 }
 .app-layout.edition-demo.demo-theme-guardanapo .btn-primary {
-  background: #e8a090;
+  background: #e39b86;
   color: var(--ink);
 }
 .app-layout.edition-demo.demo-theme-guardanapo .btn-primary:hover {
@@ -2634,8 +2639,9 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-family: var(--font-display);
   font-size: 46px;
   font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
+  letter-spacing: 0.01em;
+  word-spacing: 0.16em;
+  line-height: 1.05;
   text-transform: lowercase;
   margin-bottom: 8px;
 }
