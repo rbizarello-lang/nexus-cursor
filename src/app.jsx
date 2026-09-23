@@ -1040,8 +1040,9 @@ const ASSET_STATUSES = {
   liberado: { label: 'Liberado', badge: 'badge-muted' },
   controvertido: { label: 'Controvertido', badge: 'badge-red' }
 };
-// Headline do card de bem: espécie + identificador (matrícula/placa/titular).
-// A descrição livre fica secundária — não compete com o identificador operacional.
+// Headline do card de bem: espécie + identificador (matrícula/placa/registro).
+// SISBAJUD (origem): destaca tipo + valor — registro não se aplica.
+// A descrição livre fica na área de nota, secundária.
 function extractAssetPlate(text) {
   const s = String(text || '');
   const m = s.match(/\b([A-Z]{3}-?\d{4})\b/i) || s.match(/\b([A-Z]{3}\d[A-Z]\d{2})\b/i);
@@ -1052,11 +1053,11 @@ function extractAssetMatricula(text) {
   const m = s.match(/matr[ií]cula\s*[:.\-]?\s*([\d.\/\-]+)/i);
   return m ? m[1] : '';
 }
+function isSisbajudAsset(a) {
+  return /sisbajud|bacenjud/.test(String(a?.source || '').toLowerCase());
+}
 function assetSpeciesLabel(a) {
-  const src = String(a?.source || '').toLowerCase();
-  if (/sisbajud|bacenjud/.test(src) && (!a?.subtype || a.subtype === 'conta_bancaria' || a.subtype === 'investimento')) {
-    return 'SISBAJUD';
-  }
+  if (isSisbajudAsset(a)) return 'SISBAJUD';
   const labels = {
     imovel: 'IMÓVEL',
     veiculo: 'VEÍCULO',
@@ -1068,6 +1069,7 @@ function assetSpeciesLabel(a) {
   return labels[a?.subtype] || String(ASSET_SUBTYPES[a?.subtype] || a?.subtype || 'BEM').toUpperCase();
 }
 function assetIdentifier(a, people) {
+  if (isSisbajudAsset(a)) return '';
   const reg = String(a?.registry || '').trim();
   if (a?.subtype === 'imovel') {
     const id = reg || extractAssetMatricula(a.description);
@@ -1078,18 +1080,61 @@ function assetIdentifier(a, people) {
     return plate ? `PLACA ${plate}` : '';
   }
   if (a?.subtype === 'participacao') {
+    if (reg) return reg;
     const holder = (people || []).find(p => p.id === a.holderId);
     if (holder?.name) return holder.name;
-    const after = String(a.description || '').split(/[—–\-|]/).slice(1).join(' ').trim();
-    if (!after) return '';
-    return after.replace(/^\d+(?:[.,]\d+)?\s*%\s*/, '').trim() || after;
+    return '';
   }
   return reg;
 }
 function formatAssetHeadline(a, people) {
   const species = assetSpeciesLabel(a);
+  if (isSisbajudAsset(a)) return species;
   const id = assetIdentifier(a, people);
-  return id ? `${species} ${id}` : species;
+  return id ? `${species} · ${id}` : species;
+}
+function groupPrazosByLabel(rows, getKey, getLabel) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const key = getKey(r);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: getLabel(r, key),
+        processNumber: r.processNumber || '',
+        court: r.court || '',
+        opName: r.opName || '',
+        operationId: r.operationId,
+        incident: r.incident || null,
+        rows: []
+      });
+    }
+    const g = map.get(key);
+    g.rows.push(r);
+    if (!g.incident && r.incident) g.incident = r.incident;
+    if (!g.court && r.court) g.court = r.court;
+    if (!g.opName && r.opName) g.opName = r.opName;
+  }
+  const groups = [...map.values()];
+  groups.forEach(g => {
+    g.rows.sort((a, b) => a.group - b.group || (a.keyDate || '9999').localeCompare(b.keyDate || '9999'));
+    g.worstGroup = Math.min(...g.rows.map(r => r.group));
+    g.value = g.rows.reduce((s, r) => s + (r.value || 0), 0);
+  });
+  groups.sort((a, b) => a.worstGroup - b.worstGroup || String(a.label || '').localeCompare(String(b.label || ''), 'pt-BR'));
+  return groups;
+}
+function countPrazosActiveFilters(pf) {
+  let n = 0;
+  const lg = pf.listGroup || (pf.view === 'incidente' ? 'incidente' : 'processo');
+  if (lg && lg !== 'processo') n++;
+  const ops = Array.isArray(pf.operationIds) ? pf.operationIds : (pf.operationId ? [pf.operationId] : []);
+  if (ops.length) n++;
+  if (pf.incidentCover === 'yes' || pf.incidentCover === 'no' || pf.onlyIncident) n++;
+  if (pf.filed === 'yes' || pf.filed === 'no') n++;
+  if (pf.onlyNoCiencia) n++;
+  if (pf.personId && pf.personId !== 'all') n++;
+  return n;
 }
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
@@ -2420,8 +2465,12 @@ function formRequiredError(entityType, form) {
   if (entityType === 'task' && !t(form.title)) {
     return 'Informe o título da tarefa.';
   }
-  if (entityType === 'asset' && !t(form.description) && !t(form.registry)) {
-    return 'Informe a descrição do bem.';
+  if (entityType === 'asset') {
+    if (isSisbajudAsset(form)) {
+      if (!t(form.description) && !(Number(form.value) > 0)) return 'Informe a descrição ou o valor do bem.';
+    } else if (!t(form.description) && !t(form.registry)) {
+      return 'Informe a descrição ou o registro do bem.';
+    }
   }
   if (entityType === 'operation' && !t(form.name)) {
     return 'Informe o nome da operação.';
@@ -2802,6 +2851,7 @@ function App() {
   const [mesaSnoozeUntil, setMesaSnoozeUntil] = useState('');
   const [mesaSnoozeNote, setMesaSnoozeNote] = useState('');
   const [mesaParcDraft, setMesaParcDraft] = useState({});
+  const [prazosFilterOpen, setPrazosFilterOpen] = useState(false);
   const [art40Form, setArt40Form] = useState(null);
   const cdaScrollColsRef = useRef(false);
   const showToast = (msg) => {
@@ -3519,8 +3569,35 @@ function App() {
     const g = (prazosByDebt.get(d && d.id) || {}).group;
     return g === 1 || g === 2;
   };
-  const prazosFilters = { group: 0, operationId: '', onlyIncident: false, onlyNoCiencia: false, q: '', view: 'processo', sort: 'grupo', personId: 'all', ...(appSettings.prazosFilters || {}) };
-  const setPrazosFilters = (patch) => updateSetting('prazosFilters', { ...prazosFilters, ...patch });
+  const prazosFiltersRaw = { group: 0, operationId: '', onlyIncident: false, onlyNoCiencia: false, q: '', view: 'processo', sort: 'grupo', personId: 'all', listGroup: '', operationIds: null, incidentCover: '', filed: '', ...(appSettings.prazosFilters || {}) };
+  const prazosFilters = {
+    ...prazosFiltersRaw,
+    listGroup: prazosFiltersRaw.listGroup || (prazosFiltersRaw.view === 'incidente' ? 'incidente' : 'processo'),
+    operationIds: Array.isArray(prazosFiltersRaw.operationIds) && prazosFiltersRaw.operationIds.length
+      ? prazosFiltersRaw.operationIds
+      : (prazosFiltersRaw.operationId ? [prazosFiltersRaw.operationId] : []),
+    incidentCover: prazosFiltersRaw.incidentCover || (prazosFiltersRaw.onlyIncident ? 'yes' : ''),
+  };
+  const setPrazosFilters = (patch) => {
+    const next = { ...prazosFilters, ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, 'listGroup')) {
+      next.view = patch.listGroup === 'incidente' ? 'incidente' : 'processo';
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'operationIds')) {
+      const ids = Array.isArray(patch.operationIds) ? patch.operationIds : [];
+      next.operationIds = ids;
+      next.operationId = ids.length === 1 ? ids[0] : '';
+      if (ids.length !== 1) next.personId = 'all';
+    } else if (Object.prototype.hasOwnProperty.call(patch, 'operationId')) {
+      next.operationId = patch.operationId || '';
+      next.operationIds = patch.operationId ? [patch.operationId] : [];
+      if (!patch.operationId) next.personId = 'all';
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'incidentCover')) {
+      next.onlyIncident = patch.incidentCover === 'yes';
+    }
+    updateSetting('prazosFilters', next);
+  };
   const openPrazos = (group) => {
     setPrazosFilters({ group: group || 0 });
     setViewMode('prazos');
@@ -3952,16 +4029,48 @@ function App() {
     });
   };
   // Log an import run — type is one of: xls, eproc, pdf_sida, pdf_debcad, ai, assets
+  // SIDA/Debcad: também acumula data/hora em operation.importHistory (histórico da aba Importar).
   const logImport = (type, detail) => {
+    const timestamp = new Date().toISOString();
     const entry = {
       id: uid(),
       type,
-      timestamp: new Date().toISOString(),
+      timestamp,
       operationId: activeOpId || null,
       seen: false,
       ...detail
     };
-    setData(prev => ({...prev, importLogs: [...(prev.importLogs || []), entry].slice(-50)})); // cap: evita inchar o cache local
+    const stampSida = type === 'pdf_sida' || type === 'pdf_sida_debcad';
+    const stampDebcad = type === 'pdf_debcad' || type === 'pdf_sida_debcad';
+    setData(prev => {
+      let next = {...prev, importLogs: [...(prev.importLogs || []), entry].slice(-50)}; // cap: evita inchar o cache local
+      if (activeOpId && (stampSida || stampDebcad)) {
+        next = {
+          ...next,
+          operations: (next.operations || []).map(o => {
+            if (o.id !== activeOpId) return o;
+            const hist = o.importHistory || {};
+            let sida = [...(hist.sida || [])];
+            let debcad = [...(hist.debcad || [])];
+            // Na 1ª gravação, traz datas antigas do importLogs para não perder o histórico já existente
+            if (stampSida && sida.length === 0) {
+              (prev.importLogs || []).forEach(l => {
+                if (l.operationId === activeOpId && (l.type === 'pdf_sida' || l.type === 'pdf_sida_debcad') && l.timestamp) sida.push(l.timestamp);
+              });
+            }
+            if (stampDebcad && debcad.length === 0) {
+              (prev.importLogs || []).forEach(l => {
+                if (l.operationId === activeOpId && (l.type === 'pdf_debcad' || l.type === 'pdf_sida_debcad') && l.timestamp) debcad.push(l.timestamp);
+              });
+            }
+            if (stampSida) sida = [timestamp, ...sida];
+            if (stampDebcad) debcad = [timestamp, ...debcad];
+            return { ...o, importHistory: { ...hist, sida, debcad } };
+          })
+        };
+      }
+      return next;
+    });
   };
 
   // Add corresponsabilidade link
@@ -6150,6 +6259,48 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </>}
         </div>
 
+        {/* Histórico SIDA / DEBCAD — acumula datas abaixo dos controles */}
+        {(() => {
+          const op = (data.operations || []).find(o => o.id === opId);
+          const hist = op?.importHistory || {};
+          const fromLogs = (types) => (allLogs || [])
+            .filter(l => types.includes(l.type) && l.timestamp)
+            .map(l => l.timestamp);
+          // Prefere o acumulado na operação; se ainda vazio, usa o que já existir em importLogs
+          const sidaDates = [...(hist.sida && hist.sida.length ? hist.sida : fromLogs(['pdf_sida', 'pdf_sida_debcad']))]
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          const debcadDates = [...(hist.debcad && hist.debcad.length ? hist.debcad : fromLogs(['pdf_debcad', 'pdf_sida_debcad']))]
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          const fmtHist = (iso) => {
+            try {
+              return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch (_) { return iso; }
+          };
+          const histListStyle = { margin: '6px 0 0', paddingLeft: 16, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 };
+          const emptyStyle = { fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' };
+          return (
+            <div className="import-section" style={{ background: 'var(--bg-elevated)', borderLeft: '3px solid var(--border)' }}>
+              <h4 style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Histórico</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>SIDA</div>
+                  {sidaDates.length === 0
+                    ? <div style={emptyStyle}>Nenhuma importação SIDA ainda</div>
+                    : <ul style={histListStyle}>{sidaDates.map((iso, i) => <li key={'sida-' + iso + '-' + i}>{fmtHist(iso)}</li>)}</ul>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>DEBCAD</div>
+                  {debcadDates.length === 0
+                    ? <div style={emptyStyle}>Nenhuma importação DEBCAD ainda</div>
+                    : <ul style={histListStyle}>{debcadDates.map((iso, i) => <li key={'deb-' + iso + '-' + i}>{fmtHist(iso)}</li>)}</ul>}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Import Results */}
         {importResult && (
           <div className="import-section">
@@ -6411,9 +6562,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {(() => {
           // Reusable CDA card renderer
           const renderCDACard = (d) => {
-            const autoPresc = getPrescDate(d);
-            const prescDate = autoPresc;
-            const days = daysUntil(prescDate);
             const st = DEBT_STATUSES[d.status] || {};
             const isAjuizada = !!d.processNumber;
             const isHandled = !!d.prescriptionHandled;
@@ -6440,16 +6588,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div className="ec-row"><span className="label">Valor:</span><span style={{fontWeight:600}}>{fmtCur(d.value)}</span></div>
                 {d.processNumber && <div className="ec-row"><span className="label">Proc. Judicial:</span><Copyable value={d.processNumber} style={{fontSize:10,fontFamily:'var(--font-mono)'}}>{d.processNumber}</Copyable></div>}
                 {d.inscriptionDate && <div className="ec-row"><span className="label">Inscrição:</span><span>{fmtDate(d.inscriptionDate)}</span></div>}
-                <div className="ec-row"><span className="label">Prescrição{!isDemo && prescTag(d) ? ` (${prescTag(d)})` : ''}: </span>
-                  {isDemo ? (() => {
-                    const meta = betaPrescMeta(d);
-                    return <span className={meta.g1 ? 'intim-deadline overdue' : ''} style={{fontWeight: meta.g1 ? 700 : 500}}>
-                      {meta.text}{meta.expired ? ' · expirou o silêncio' : ''}
-                    </span>;
-                  })() : isAguardando ? <span style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}</span>
-                   : <span style={{color:days!==null&&days<=365?days<=180?'var(--red)':'var(--yellow)':'inherit',fontWeight:days!==null&&days<=365?600:400}}>
-                    {prescDate?fmtDate(prescDate):'—'} {days!==null&&days<=365?` (${days}d)`:''}
-                  </span>}</div>
+                <div className="ec-row"><span className="label">Prescrição: </span>
+                  {renderBetaCdaClosedLine(d)}</div>
                 </div>
                 {/* Notas da CDA */}
                 {(() => {
@@ -6642,8 +6782,6 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const renderCdaInlineDetail = (d) => {
         const st = DEBT_STATUSES[d.status] || {};
         const autoPresc = getPrescDate(d);
-        const prescDate = autoPresc;
-        const prescDays = daysUntil(prescDate);
         const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)) && !(d.sida && isSidaCondensedNote(n)));
         const responsabilidades = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id);
         const field = (label, value, color) => value ? (
@@ -6653,7 +6791,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </div>
         ) : null;
         return (
-          <div className="cda-inline-detail" onClick={ev => ev.stopPropagation()}>
+          <div className="cda-inline-detail cda-inline-detail--beta" onClick={ev => ev.stopPropagation()}>
             {isDemo && (
               <div className="cda-inline-actions cda-actions-sticky">
                 <button type="button" className="btn-secondary btn-xs" onClick={() => copyText(d.cdaNumber || '')}>Copiar</button>
@@ -6661,16 +6799,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Editar</button>
               </div>
             )}
+            {(() => {
+              const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
+              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} />;
+            })()}
             <div className="cda-inline-fields">
               {field('Status', st.label || d.status)}
               {field('Espécie', cdaEspecie(d))}
               {field('Tributo', d.tribute)}
               {field('Valor', d.value != null ? fmtCur(d.value) : null)}
               {field('Inscrição', fmtDate(d.inscriptionDate))}
-              {field('Prescrição', isDemo ? betaPrescMeta(d).text : (prescDate
-                ? `${fmtDate(prescDate)}${prescDays !== null ? ` (${prescDays}d)` : ''}${prescTag(d) ? ` · ${prescTag(d)}` : ''}`
-                : (prescLookup(d).phase === 'nao_iniciado' ? 'não iniciada (sem ciência lançada)' : '—')),
-                isDemo && betaPrescMeta(d).g1 ? 'var(--red)' : (prescDays !== null && prescDays <= 180 ? 'var(--red)' : undefined))}
               {d.prescriptionDate && d.prescriptionDate !== autoPresc && field('Prescrição informada (não substitui o cálculo)', fmtDate(d.prescriptionDate))}
               {d.prescriptionHandled && field('Tratamento',
                 d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada')}
@@ -6723,14 +6861,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>
               );
             })()}
-            {(() => {
-              const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-              return <>
-                <DebcadHistoryBlock debt={d} />
-                <SidaHistoryBlock debt={d} />
-                <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />
-              </>;
-            })()}
+            <DebcadHistoryBlock debt={d} />
+            <SidaHistoryBlock debt={d} />
             {notes.length > 0 && (
               <div className="note-stack" style={{ maxHeight: 100, overflowY: 'auto', marginTop: 8 }}>
                 {notes.map((n, i) => <div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
@@ -6848,82 +6980,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           : rm.riskClass === 'warning' ? 'risk-warning'
           : '';
 
-        return (<div className={`process-group ${processExpanded || hideProcessNumber ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
-          {!hideProcessNumber && (
-          <button type="button" className={`process-summary${isRelevant ? ' is-relevant' : ''}`} onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
-            <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
-            <span className="process-id">
-              <strong>{isExec ? <><ProcNum exec={e} empty="Processo sem número" />{isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}</> : 'CDAs sem processo'}</strong>
-              <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
-            </span>
-            <span className="process-stat"><small>Status</small><strong>{isExec ? (EXEC_STATUSES[e.status]?.label || e.status) : 'Não ajuizadas'}</strong></span>
-            <span className="process-stat"><small>CDAs</small><strong>{group.cdas.length} · {fmtCur(totalCDAValue)}</strong></span>
-            <span className={`process-risk ${riskClass}${anyG1Vencido ? ' intim-card overdue' : ''}`}><small>Prescrição</small><strong>{anyG1Vencido ? <span className="intim-deadline overdue">VENCIDA</span> : riskLabel}</strong></span>
-          </button>
-          )}
-          {hubCoveredBlock}
-          {(processExpanded || hideProcessNumber) && <div className="process-detail">
-            <div className="entity-card proc-expand-grid" style={{background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,opacity:statusOpacity,transition:'opacity 0.2s'}}>
-          {/* ═══ COL 1: Processo + CDAs ═══ */}
-          <div className="proc-expand-main">
-            {isExec ? (
-              <>
-                <div className="proc-expand-toolbar">
-                  {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
-                  <div className="process-meta">
-                    <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>
-                    {isApenso && <span className="proc-meta-chip">Apenso</span>}
-                    {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
-                    {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
-                    {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
-                    <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
-                    {e.hasGuarantee && <span className="proc-meta-chip">Garantia</span>}
-                    {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
-                    {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
-                    {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
-                  </div>
-                </div>
-                <div className="proc-expand-facts">
-                  {(e.court || e.className) && (
-                    <div className="proc-expand-fact">
-                      <span className="lbl">Juízo</span>
-                      <span className="val">{[e.court, e.className].filter(Boolean).join(' · ')}</span>
-                    </div>
-                  )}
-                  {execDebtor && (
-                    <div className="proc-expand-fact">
-                      <span className="lbl">Executado</span>
-                      <span className="val">
-                        <span style={{fontWeight:500,cursor:execDebtor.id?'pointer':'default'}} onClick={e2 => { if (execDebtor.id) { e2.stopPropagation(); setModal({type:'edit',entityType:'person',initial:execDebtor}); }}}>{execDebtor.name}</span>
-                        {execDebtor.cpfCnpj && <span className="doc">{execDebtor.cpfCnpj}</span>}
-                      </span>
-                    </div>
-                  )}
-                  {(e.protocolDate || e.prescriptionForecast) && (
-                    <div className="proc-expand-fact proc-expand-fact-dates">
-                      {e.protocolDate && <span><span className="lbl">Protocolo</span> <strong>{fmtDate(e.protocolDate)}</strong></span>}
-                      {e.prescriptionForecast && <span><span className="lbl">Prev. presc.</span> <strong style={{color:prescForecastDays!==null&&prescForecastDays<=365?prescForecastDays<=180?'var(--red)':'var(--yellow)':'inherit'}}>{fmtDate(e.prescriptionForecast)}{prescForecastDays!==null&&prescForecastDays<=365?` (${prescForecastDays}d)`:''}</strong></span>}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : <span className="proc-expand-unlinked">⚠ CDAs Não Ajuizadas</span>}
-
-            {/* CDAs list — nº copia; clique ao lado expande detalhe abaixo (como processos) */}
-            {group.cdas.length === 0 ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div> :
-            <div className="cda-inline-list" style={{maxHeight: expandedCdas.size ? 'none' : 260, overflowY: expandedCdas.size ? 'visible' : 'auto'}}>
+        const renderProcCdaList = () => (
+          group.cdas.length === 0
+            ? <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',padding:'4px 0'}}>Sem CDAs vinculadas a este processo</div>
+            : <div className="cda-inline-list" style={{maxHeight: expandedCdas.size ? 'none' : 260, overflowY: expandedCdas.size ? 'visible' : 'auto'}}>
               {group.cdas.map(d => {
-                const autoPresc = getPrescDate(d);
-                const prescDate = autoPresc;
-                const days = daysUntil(prescDate);
                 const isSelected = selectedCDAs.has(d.id);
                 const isHandled = !!d.prescriptionHandled;
                 const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
-                const cdaState = isHandled ? 'tratada' : days === null ? 'sem_dados' : days <= 0 ? 'prescrito' : days <= 180 ? 'critico' : days <= 365 ? 'alerta' : 'correndo';
-                const cdaSt = DEBT_STATUSES[d.status] || {};
                 const isExpanded = expandedCdas.has(d.id);
                 const toggleHandled = () => {
-                  // If this CDA is in the selection, apply to ALL selected CDAs
                   const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
                   const newVal = !d.prescriptionHandled;
                   setData(prev => ({...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? {...x, prescriptionHandled: newVal, prescriptionHandledAt: newVal ? new Date().toISOString().slice(0,10) : x.prescriptionHandledAt, prescriptionHandledType: newVal ? (x.prescriptionHandledType || 'declarada') : x.prescriptionHandledType, updatedAt: new Date().toISOString()} : x)}));
@@ -6975,19 +7041,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         </span>
                         <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtCur(d.value)}</span>
                       </div>
-                      <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center'}}>
-                        <span className="cda-status">{cdaSt.label||d.status}</span>
-                        {isDemo ? (() => {
-                          const meta = betaPrescMeta(d);
-                          return <span className={meta.g1 ? 'intim-deadline overdue' : ''} style={{fontWeight: meta.g1 ? 700 : 600, color: meta.g1 ? 'var(--red)' : 'var(--text-secondary)'}}>
-                            {meta.text}{meta.expired ? ' · expirou o silêncio' : ''}
-                          </span>;
-                        })() : isAguardando ? <span className="has-tip" style={{color:'var(--yellow)',fontWeight:700}}>⏳ Aguardando reconhecimento{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">Prescrição identificada. Aguardando reconhecimento judicial. Não gera mais alertas.</span></span>
-                         : isHandled ? <span className="has-tip" style={{color:'var(--green)',fontWeight:600}}>✓ Tratada{d.prescriptionHandledAt?` · ${fmtDate(d.prescriptionHandledAt)}`:''}<span className="tip-content">CDA tratada. Use ↻ para reabrir.</span></span> :
-                        <span className="has-tip" style={{color: cdaState==='critico'||cdaState==='prescrito'?'var(--red)':cdaState==='alerta'?'var(--yellow)':'var(--text-secondary)'}}>
-                          {prescDate?fmtDate(prescDate):'—'} {days!==null?`(${days}d)`:''}
-                          <span className="tip-content">{cdaState==='prescrito'?'PRESCRIÇÃO CONSUMADA':cdaState==='critico'?'CRÍTICO — <6 meses':cdaState==='alerta'?'Alerta — <1 ano':'Correndo normal'}</span>
-                        </span>}
+                      <div style={{display:'flex',gap:6,fontSize:10,color:'var(--text-muted)',marginTop:1,alignItems:'center',minWidth:0}}>
+                        {renderBetaCdaClosedLine(d)}
                       </div>
                     </div>
                     <div style={{display:'flex',gap:3,flexShrink:0}}>
@@ -7002,7 +7057,70 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   )}
                 </React.Fragment>);
               })}
-            </div>}
+            </div>
+        );
+
+        return (<div className={`process-group ${processExpanded || hideProcessNumber ? 'open' : ''}${hubCoveredBlock ? ' has-hub-efs' : ''}`}>
+          {!hideProcessNumber && (
+          <button type="button" className={`process-summary${isRelevant ? ' is-relevant' : ''}`} onClick={() => toggleGroup(processKey)} aria-expanded={processExpanded}>
+            <span className="process-toggle">{processExpanded ? '−' : '+'}</span>
+            <span className="process-id">
+              <strong>{isExec ? <><ProcNum exec={e} empty="Processo sem número" />{isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}</> : 'CDAs sem processo'}</strong>
+              <small>{isExec ? [e.className, e.court].filter(Boolean).join(' · ') : 'Créditos não vinculados a uma execução'}</small>
+            </span>
+            <span className="process-stat"><small>Status</small><strong>{isExec ? (EXEC_STATUSES[e.status]?.label || e.status) : 'Não ajuizadas'}</strong></span>
+            <span className="process-stat"><small>CDAs</small><strong>{group.cdas.length} · {fmtCur(totalCDAValue)}</strong></span>
+            <span className={`process-risk ${riskClass}${anyG1Vencido ? ' intim-card overdue' : ''}`}><small>Prescrição</small><strong>{anyG1Vencido ? <span className="intim-deadline overdue">VENCIDA</span> : riskLabel}</strong></span>
+          </button>
+          )}
+          {hubCoveredBlock}
+          {(processExpanded || hideProcessNumber) && <div className="process-detail">
+            <div className="entity-card proc-expand-grid demo-proc-expand" style={{background:isRelevant?'rgba(200,160,74,0.04)':bgColor,borderLeft:`${borderLeftWidth}px solid ${isRelevant?'var(--gold)':borderLeftColor}`,opacity:statusOpacity,transition:'opacity 0.2s'}}>
+          {/* ═══ COL 1: Processo + CDAs ═══ */}
+          <div className="proc-expand-main">
+            {isExec ? (
+              <>
+                <div className="proc-expand-toolbar">
+                  {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
+                  <div className="process-meta">
+                    <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>
+                    {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                    {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
+                    {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
+                    {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
+                    <span className={`ef-status-badge ${efBandKey(e)}`}>{st.label||e.status}</span>
+                    {e.hasGuarantee && <span className="proc-meta-chip">Garantia</span>}
+                    {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
+                    {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
+                    {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
+                  </div>
+                </div>
+                <div className="proc-expand-facts">
+                  {(e.court || e.className) && (
+                    <div className="proc-expand-fact">
+                      <span className="lbl">Juízo</span>
+                      <span className="val">{[e.court, e.className].filter(Boolean).join(' · ')}</span>
+                    </div>
+                  )}
+                  {execDebtor && (
+                    <div className="proc-expand-fact">
+                      <span className="lbl">Executado</span>
+                      <span className="val">
+                        <span style={{fontWeight:500,cursor:execDebtor.id?'pointer':'default'}} onClick={e2 => { if (execDebtor.id) { e2.stopPropagation(); setModal({type:'edit',entityType:'person',initial:execDebtor}); }}}>{execDebtor.name}</span>
+                        {execDebtor.cpfCnpj && <span className="doc">{execDebtor.cpfCnpj}</span>}
+                      </span>
+                    </div>
+                  )}
+                  {(e.protocolDate || e.prescriptionForecast) && (
+                    <div className="proc-expand-fact proc-expand-fact-dates">
+                      {e.protocolDate && <span><span className="lbl">Protocolo</span> <strong>{fmtDate(e.protocolDate)}</strong></span>}
+                      {e.prescriptionForecast && <span><span className="lbl">Prev. presc.</span> <strong style={{color:prescForecastDays!==null&&prescForecastDays<=365?prescForecastDays<=180?'var(--red)':'var(--yellow)':'inherit'}}>{fmtDate(e.prescriptionForecast)}{prescForecastDays!==null&&prescForecastDays<=365?` (${prescForecastDays}d)`:''}</strong></span>}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : <span className="proc-expand-unlinked">⚠ CDAs Não Ajuizadas</span>}
+
           </div>
 
           {/* ═══ COL 2: Notas (coluna média, à direita da ficha) ═══ */}
@@ -7058,6 +7176,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               </div>}
             </div>
           </div>
+          <div className="proc-expand-cdas">{renderProcCdaList()}</div>
             </div>
           </div>}
         </div>);
@@ -8166,34 +8285,41 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const notes = a.notesList || (a.notes ? [a.notes] : []);
               const linkedExec = a.processRef ? data.executions.find(e => e.operationId === opId && sameProc(e.processNumber, a.processRef)) : null;
               const ast = ASSET_STATUSES[a.status] || {};
-              const headline = formatAssetHeadline(a, data.people);
+              const isSis = isSisbajudAsset(a);
+              const idLine = !isSis ? assetIdentifier(a, data.people) : '';
               const desc = (a.description || '').trim();
-              const showDesc = desc && desc.toLowerCase() !== headline.toLowerCase();
+              const showDesc = !!desc;
               return (<div key={a.id} className="entity-card-selectable">
                 <input type="checkbox" checked={selectedAssets.has(a.id)} onChange={() => toggleAsset(a.id)} />
                 <div className="entity-card" style={{flex:1,display:'grid',gridTemplateColumns:'2fr 1fr 1.2fr auto',gap:12,alignItems:'start'}} onClick={() => setModal({type:'edit',entityType:'asset',initial:a})}>
-                  {/* Col 1: Espécie + identificador (destaque); descrição secundária */}
+                  {/* Col 1: Tipo + identificador (ou valor no SISBAJUD) */}
                   <div style={{minWidth:0}}>
-                    <div className="ec-title" style={{letterSpacing:'0.02em'}}>{headline}</div>
-                    {showDesc && <div className="ec-sub" style={{marginTop:3,fontSize:11,color:'var(--text-muted)',lineHeight:1.4}}>{desc}</div>}
+                    <div className="ec-title" style={{letterSpacing:'0.02em'}}>{isSis ? 'SISBAJUD' : (ASSET_SUBTYPES[a.subtype] || a.subtype || 'Bem').toUpperCase()}</div>
+                    {isSis ? (
+                      a.value ? <div style={{marginTop:3,fontSize:14,fontWeight:700,color:'var(--text-primary)',fontFamily:'var(--font-mono)'}}>{fmtCur(a.value)}</div>
+                        : <div style={{marginTop:3,fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Sem valor</div>
+                    ) : (
+                      idLine ? <div style={{marginTop:3,fontSize:12,fontWeight:600,color:'var(--text-primary)',fontFamily:'var(--font-mono)',letterSpacing:'0.02em'}}>{idLine}</div> : null
+                    )}
                     {a.processRef && <div style={{marginTop:3,fontSize:10}}>
                       <span style={{color:'var(--text-muted)'}}>Proc.: </span>
                       <span style={{fontFamily:'var(--font-mono)',color:'var(--text-secondary)',cursor:linkedExec?'pointer':'default',textDecoration:linkedExec?'underline':'none',textDecorationColor:'rgba(255,255,255,0.15)'}} onClick={e => { if (linkedExec) { e.stopPropagation(); setModal({type:'edit',entityType:'execution',initial:linkedExec}); }}}>{a.processRef}</span>
                     </div>}
                     {a.source && <div style={{fontSize:9,color:'var(--text-muted)',marginTop:2}}>Origem: {a.source}</div>}
                   </div>
-                  {/* Col 2: Valor + titular (devedor em destaque) */}
+                  {/* Col 2: Valor (se não for SISBAJUD) + titular */}
                   <div style={{fontSize:11}}>
-                    {a.value ? <div style={{marginBottom:4}}><strong style={{fontSize:13,color:'var(--text-primary)'}}>{fmtCur(a.value)}</strong></div> : <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginBottom:4}}>Sem avaliação</div>}
+                    {!isSis && (a.value ? <div style={{marginBottom:4}}><strong style={{fontSize:13,color:'var(--text-primary)'}}>{fmtCur(a.value)}</strong></div> : <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginBottom:4}}>Sem avaliação</div>)}
                     {holder ? <div style={{padding:'3px 7px',background:'rgba(255,255,255,0.04)',borderRadius:3,borderLeft:'2px solid rgba(59,130,246,0.4)'}}>
                       <div style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.3,fontWeight:600}}>Titular</div>
                       <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',cursor:'pointer'}} onClick={e => { e.stopPropagation(); setModal({type:'edit',entityType:'person',initial:holder}); }}>{holder.name}</div>
                       {holder.cpfCnpj && <div style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{holder.cpfCnpj}</div>}
                     </div> : a.holderDoc ? <div style={{fontSize:10,color:'var(--text-muted)'}}>Titular: {a.holderDoc}</div> : null}
                   </div>
-                  {/* Col 3: Notas */}
+                  {/* Col 3: Descrição (secundária) + notas */}
                   <div style={{fontSize:10,color:'var(--text-secondary)'}}>
-                    {notes.length > 0 ? <div className="note-stack" style={{maxHeight:100,overflowY:'auto'}}>
+                    {showDesc || notes.length > 0 ? <div className="note-stack" style={{maxHeight:100,overflowY:'auto'}}>
+                      {showDesc && <div className="note-item note-item-full" style={{color:'var(--text-muted)',fontStyle:'italic'}}>{desc}</div>}
                       {notes.map((n,i)=><div key={i} className="note-item note-item-full">{linkify(n)}</div>)}
                     </div> : <span style={{fontStyle:'italic',color:'var(--text-muted)'}}>Sem observações</span>}
                   </div>
@@ -8555,13 +8681,30 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const betaPrescMeta = (d) => {
     const row = prazosByDebt.get(d && d.id);
     const sil = prazosSilencedByDebt.get(d && d.id);
+    const presc = d ? prescLookup(d) : null;
+    const st = (d && DEBT_STATUSES[d.status]) || {};
+    const line = betaCdaClosedLine(d, row, sil, st.label || (d && d.status) || '', presc);
     return {
       row,
       sil,
-      text: betaCdaPrescText(d, row, sil),
+      presc,
+      line,
+      text: line.fullText || betaCdaPrescText(d, row, sil),
       g1: isG1Vencido(row),
       expired: !!(d && d.prescSnooze && row)
     };
+  };
+  const renderBetaCdaClosedLine = (d, extra = '') => {
+    const meta = betaPrescMeta(d);
+    const line = meta.line || {};
+    return (
+      <span className={`cda-closed-line${meta.g1 ? ' overdue' : ''}`} title={line.fullText || meta.text}>
+        <span className="cda-closed-status">{line.status || '—'}</span>
+        {line.situation ? <>{' — '}<span className="cda-closed-sit">{line.situation}</span></> : null}
+        {line.dateLabel ? <>{' — '}<span className="cda-closed-date">{line.dateLabel}</span></> : null}
+        {extra || (meta.expired ? ' · expirou o silêncio' : '')}
+      </span>
+    );
   };
   const openPrescEventForRow = (r, extra = {}) => {
     if (!r) return;
@@ -8853,16 +8996,23 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const pf = prazosFilters;
     const t = prazosRadar.totals || {};
     const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
+    const listGroup = pf.listGroup || (pf.view === 'incidente' ? 'incidente' : 'processo');
+    const opIds = Array.isArray(pf.operationIds) ? pf.operationIds : (pf.operationId ? [pf.operationId] : []);
+    const incidentCover = pf.incidentCover || (pf.onlyIncident ? 'yes' : '');
+    const activeFilterCount = countPrazosActiveFilters(pf);
     let rows = [...(prazosRadar.rows || [])];
     if (pf.group === 6) rows = rows.filter(r => rowShowsInConsumada(r));
     else if (pf.group) rows = rows.filter(r => r.group === pf.group);
     else rows = rows.filter(r => r.group !== 6);
-    if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);
+    if (opIds.length) rows = rows.filter(r => opIds.includes(r.operationId));
     const listPersonIds = (pf.personId && pf.personId !== 'all')
       ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId)
       : null;
     if (listPersonIds) rows = rows.filter(r => listPersonIds.has(r.id));
-    if (pf.onlyIncident) rows = rows.filter(r => !!r.incident);
+    if (incidentCover === 'yes') rows = rows.filter(r => !!r.incident);
+    if (incidentCover === 'no') rows = rows.filter(r => !r.incident);
+    if (pf.filed === 'yes') rows = rows.filter(r => !!r.processNumber);
+    if (pf.filed === 'no') rows = rows.filter(r => !r.processNumber);
     if (pf.onlyNoCiencia) rows = rows.filter(r => r.noCiencia);
     if (pf.q) {
       const raw = String(pf.q).toLowerCase();
@@ -8875,14 +9025,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       );
     }
     if (pf.sort === 'valor') rows.sort((a, b) => (b.value || 0) - (a.value || 0));
-    else if (pf.sort === 'operacao') rows.sort((a, b) => (a.opName || '').localeCompare(b.opName || '', 'pt-BR') || a.group - b.group);
+    else if (pf.sort === 'data') rows.sort((a, b) => (a.keyDate || '9999').localeCompare(b.keyDate || '9999') || a.group - b.group);
     else rows.sort((a, b) => a.group - b.group || (a.keyDate || '9999').localeCompare(b.keyDate || '9999'));
     const hideG5 = pf.group !== 5 && !pf.g5Open;
-    const procGroups = groupPrazosByProcess(rows);
-    const visibleGroups = hideG5 ? procGroups.filter(g => g.worstGroup !== 5) : procGroups;
-    const hiddenG5 = hideG5 ? procGroups.filter(g => g.worstGroup === 5) : [];
+    let listGroups;
+    if (listGroup === 'devedor') {
+      listGroups = groupPrazosByLabel(rows, r => (r.personName || '').trim().toLowerCase() || 'sem-devedor', r => (r.personName || '').trim() || 'Sem devedor');
+    } else if (listGroup === 'operacao') {
+      listGroups = groupPrazosByLabel(rows, r => r.operationId || 'sem-op', r => r.opName || 'Sem operação');
+    } else {
+      listGroups = groupPrazosByProcess(rows);
+    }
+    const visibleGroups = hideG5 ? listGroups.filter(g => g.worstGroup !== 5) : listGroups;
+    const hiddenG5 = hideG5 ? listGroups.filter(g => g.worstGroup === 5) : [];
     let incidents = [...(prazosRadar.incidents || [])];
-    if (pf.operationId) incidents = incidents.filter(b => b.operationId === pf.operationId);
+    if (opIds.length) incidents = incidents.filter(b => opIds.includes(b.operationId));
     if (listPersonIds) incidents = incidents.filter(b => (b.rows || []).some(r => listPersonIds.has(r.id)));
     if (pf.q) {
       const raw = String(pf.q).toLowerCase();
@@ -8893,6 +9050,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         (b.rows || []).some(r => (r.cdaNumber || '').toLowerCase().includes(raw))
       );
     }
+    const toggleOpFilter = (id) => {
+      const cur = new Set(opIds);
+      if (cur.has(id)) cur.delete(id); else cur.add(id);
+      setPrazosFilters({ operationIds: [...cur] });
+    };
+    const setXorFilter = (key, value) => setPrazosFilters({ [key]: pf[key] === value ? '' : value });
+    const clearPrazosPanelFilters = () => setPrazosFilters({
+      listGroup: 'processo', view: 'processo', operationIds: [], operationId: '',
+      incidentCover: '', onlyIncident: false, filed: '', onlyNoCiencia: false, personId: 'all'
+    });
     const seal = (inc) => {
       if (!inc) return null;
       const kind = inc.tag === 'cautelar_fiscal' ? 'MCF' : 'IDPJ';
@@ -8963,30 +9130,74 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         {!!prazosRadar.divergencias && (
           <div className="prazos-div">{prazosRadar.divergencias} divergência(s) — o cálculo do app é mais grave que a análise; a decisão importada foi mantida.</div>
         )}
-        <div className="prazos-toolbar">
+        <div className="prazos-toolbar prazos-toolbar-roomy">
           {renderPrazosMesaToggle()}
-          <div className="prazos-toggle">
-            <button type="button" className={pf.view !== 'incidente' ? 'active' : ''} onClick={() => setPrazosFilters({ view: 'processo' })}>Por processo</button>
-            <button type="button" className={pf.view === 'incidente' ? 'active' : ''} onClick={() => setPrazosFilters({ view: 'incidente' })}>Por incidente</button>
+          <div className="prazos-filter-wrap">
+            <button type="button" className={`btn-secondary btn-xs prazos-filter-btn${prazosFilterOpen ? ' open' : ''}${activeFilterCount ? ' has-filters' : ''}`} onClick={() => setPrazosFilterOpen(v => !v)}>
+              {activeFilterCount ? (activeFilterCount + ' filtro' + (activeFilterCount === 1 ? '' : 's')) : 'Filtros'}
+            </button>
+            {prazosFilterOpen && (
+              <div className="prazos-filter-panel" onClick={e => e.stopPropagation()}>
+                <div className="prazos-filter-sec">
+                  <div className="prazos-filter-label">Agrupar a lista</div>
+                  <div className="prazos-filter-radios">
+                    {[
+                      ['processo', 'Por processo'],
+                      ['incidente', 'Por incidente'],
+                      ['devedor', 'Por devedor'],
+                      ['operacao', 'Por operação'],
+                    ].map(([val, lab]) => (
+                      <label key={val} className="prazos-chk">
+                        <input type="radio" name="prazos-list-group" checked={listGroup === val} onChange={() => setPrazosFilters({ listGroup: val })} /> {lab}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="prazos-filter-sec">
+                  <div className="prazos-filter-label">Operações</div>
+                  <div className="prazos-filter-ops">
+                    {opsOpen.length === 0 && <span className="prazos-filter-hint">Nenhuma operação aberta</span>}
+                    {opsOpen.map(o => (
+                      <label key={o.id} className="prazos-chk">
+                        <input type="checkbox" checked={opIds.includes(o.id)} onChange={() => toggleOpFilter(o.id)} /> {o.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="prazos-filter-sec">
+                  <div className="prazos-filter-label">Incidente</div>
+                  <div className="prazos-filter-pair">
+                    <label className="prazos-chk"><input type="checkbox" checked={incidentCover === 'yes'} onChange={() => setXorFilter('incidentCover', 'yes')} /> abrangida por incidente</label>
+                    <label className="prazos-chk"><input type="checkbox" checked={incidentCover === 'no'} onChange={() => setXorFilter('incidentCover', 'no')} /> não abrangida</label>
+                  </div>
+                </div>
+                <div className="prazos-filter-sec">
+                  <div className="prazos-filter-label">Ajuizamento</div>
+                  <div className="prazos-filter-pair">
+                    <label className="prazos-chk"><input type="checkbox" checked={pf.filed === 'yes'} onChange={() => setXorFilter('filed', 'yes')} /> ajuizada</label>
+                    <label className="prazos-chk"><input type="checkbox" checked={pf.filed === 'no'} onChange={() => setXorFilter('filed', 'no')} /> não ajuizada</label>
+                  </div>
+                </div>
+                <label className="prazos-chk prazos-filter-alone"><input type="checkbox" checked={!!pf.onlyNoCiencia} onChange={e => setPrazosFilters({ onlyNoCiencia: e.target.checked })} /> só sem ciência lançada</label>
+                <div className="prazos-filter-actions">
+                  <button type="button" className="btn-secondary btn-xs" onClick={clearPrazosPanelFilters}>Limpar filtros</button>
+                  <button type="button" className="btn-secondary btn-xs" onClick={() => setPrazosFilterOpen(false)}>Fechar</button>
+                </div>
+              </div>
+            )}
           </div>
-          <select value={pf.operationId || ''} onChange={e => setPrazosFilters({ operationId: e.target.value, personId: 'all' })}>
-            <option value="">Todas as operações</option>
-            {opsOpen.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-          <label className="prazos-chk"><input type="checkbox" checked={!!pf.onlyIncident} onChange={e => setPrazosFilters({ onlyIncident: e.target.checked })} /> só sob incidente</label>
-          <label className="prazos-chk"><input type="checkbox" checked={!!pf.onlyNoCiencia} onChange={e => setPrazosFilters({ onlyNoCiencia: e.target.checked })} /> só sem ciência lançada</label>
-          <input className="prazos-q" value={pf.q || ''} placeholder="CDA, processo ou devedor" onChange={e => setPrazosFilters({ q: e.target.value })} />
-          <select value={pf.sort || 'grupo'} onChange={e => setPrazosFilters({ sort: e.target.value })}>
+          <select className="prazos-sort" value={pf.sort || 'grupo'} onChange={e => setPrazosFilters({ sort: e.target.value })} title="Ordenação">
             <option value="grupo">Grupo e data</option>
-            <option value="valor">Valor</option>
-            <option value="operacao">Operação</option>
+            <option value="valor">Por valor</option>
+            <option value="data">Por data</option>
           </select>
-          <button type="button" className="btn-secondary btn-xs" onClick={() => setPrescImport({ text: '', plan: null, after: null })}>Importar análise (formato NEXUS)</button>
+          <input className="prazos-q" value={pf.q || ''} placeholder="CDA, processo ou devedor" onChange={e => setPrazosFilters({ q: e.target.value })} />
+          <button type="button" className="btn-secondary btn-xs prazos-import-btn" onClick={() => setPrescImport({ text: '', plan: null, after: null })}>Importar análise (formato NEXUS)</button>
         </div>
-        {pf.operationId ? (
-          <PersonSubtabs data={data} opId={pf.operationId} currentFilter={pf.personId || 'all'} onChange={id => setPrazosFilters({ personId: id })} mode="cda" />
+        {opIds.length === 1 ? (
+          <PersonSubtabs data={data} opId={opIds[0]} currentFilter={pf.personId || 'all'} onChange={id => setPrazosFilters({ personId: id })} mode="cda" />
         ) : null}
-        {pf.view === 'incidente' ? (
+        {listGroup === 'incidente' ? (
           <div className="prazos-incidents">
             {incidents.length === 0 && <div className="empty-state"><p>Nenhum incidente neste filtro.</p></div>}
             {incidents.map(b => (
@@ -9018,10 +9229,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {visibleGroups.map(g => (
               <div key={g.key} className="prazos-proc">
                 <div className="prazos-proc-hd">
-                  <strong>{g.processNumber ? <ProcNum value={g.processNumber} /> : 'Sem processo'}</strong>
-                  <span>{g.court || '—'}</span>
-                  <span>◎ {g.opName}</span>
-                  {seal(g.incident) && <span className="prazos-seal">{seal(g.incident)}</span>}
+                  <strong>{
+                    listGroup === 'devedor' || listGroup === 'operacao'
+                      ? (g.label || '—')
+                      : (g.processNumber ? <ProcNum value={g.processNumber} /> : 'Sem processo')
+                  }</strong>
+                  {listGroup === 'processo' && <span>{g.court || '—'}</span>}
+                  {listGroup !== 'operacao' && <span>◎ {g.opName}</span>}
+                  {listGroup === 'processo' && seal(g.incident) && <span className="prazos-seal">{seal(g.incident)}</span>}
                   <span>{g.rows.length} CDA(s) · {fmtCur(g.value)}</span>
                 </div>
                 {g.rows.map(renderCdaRow)}
@@ -9432,7 +9647,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const opSlot = row.querySelector('[data-beta-op-slot]');
       const reserve = ((settings && settings.offsetWidth) || 40) + ((opSlot && opSlot.offsetWidth) || 168) + ((mais && mais.offsetWidth) || 0) + 12;
       const limit = row.clientWidth - reserve;
-      let used = 0;
+      let used = 12;
       const hide = [];
       btns.forEach((b, i) => {
         used += b.offsetWidth;
@@ -9592,14 +9807,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {isDemo ? (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`} ref={betaNavRef}>
         <div className="top-nav-cluster">
-          {betaNavItems.map(item => (
-            <button key={item.id} type="button" data-beta-nav={item.id}
-              className={`top-nav-btn ${item.active ? 'active' : ''}${item.id === 'intimacoes' ? ' top-nav-featured' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
-              onClick={() => { item.go(); setBetaMaisOpen(false); }}>
-              {item.label}
-              {item.extra > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({item.extra})</span> : null}
-            </button>
-          ))}
+          <div className="top-nav-capsule">
+            {betaNavItems.map(item => (
+              <button key={item.id} type="button" data-beta-nav={item.id}
+                className={`top-nav-btn ${item.active ? 'active' : ''}${item.id === 'intimacoes' ? ' top-nav-featured' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
+                onClick={() => { item.go(); setBetaMaisOpen(false); }}>
+                {item.label}
+                {item.extra > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({item.extra})</span> : null}
+              </button>
+            ))}
+          </div>
         </div>
         {betaNavOverflow.length > 0 && (
           <div className="top-nav-mais" data-beta-mais="1">
@@ -9632,29 +9849,31 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
       ) : (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`}>
-        <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
-        <button className={`top-nav-btn ${viewMode==='prazos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('prazos'))}>Prazos extintivos</button>
-        <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
-        <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
-          onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
-          title="Intimações e Tarefas">
-          Intimações e Tarefas
-          {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
-        </button>
-        <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
-          onClick={() => { setViewMode('mesa'); }}>
-          Mesa
-          {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
-        </button>
-        <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
-          Acompanhar
-          {(() => { const open = (data.watchlist||[]).filter(w=>w.status!=='encerrado').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
-        </button>
-        <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('audiencias'))}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
-        <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('modelos'))}>
-          Modelos
-          {(() => { const n = (data.models||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
-        </button>
+        <div className="top-nav-capsule">
+          <button className={`top-nav-btn ${viewMode==='painel'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('painel'))}>Painel</button>
+          <button className={`top-nav-btn ${viewMode==='prazos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('prazos'))}>Prazos extintivos</button>
+          <button className={`top-nav-btn ${viewMode==='operacoes'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Operações</button>
+          <button className={`top-nav-btn ${viewMode==='intimacoes'||viewMode==='tarefas_global'?'active':''}`}
+            onClick={() => startTabSwitch(() => setViewMode(viewMode==='tarefas_global'?'tarefas_global':'intimacoes'))}
+            title="Intimações e Tarefas">
+            Intimações e Tarefas
+            {(openIntimsCount + openTasksCount) > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({openIntimsCount + openTasksCount})</span> : null}
+          </button>
+          <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
+            onClick={() => { setViewMode('mesa'); }}>
+            Mesa
+            {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
+          </button>
+          <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
+            Acompanhar
+            {(() => { const open = (data.watchlist||[]).filter(w=>w.status!=='encerrado').length; return open > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({open})</span> : null; })()}
+          </button>
+          <button className={`top-nav-btn ${viewMode==='audiencias'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('audiencias'))}>Audiências{(() => { const t=new Date(); t.setHours(0,0,0,0); const n=(data.hearings||[]).filter(h=>(h.status==='agendada'||h.status==='redesignada')&&h.date&&new Date(h.date+'T00:00:00')>=t).length; return n>0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}</button>
+          <button className={`top-nav-btn ${viewMode==='modelos'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('modelos'))}>
+            Modelos
+            {(() => { const n = (data.models||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
+          </button>
+        </div>
         {activeOp && <><div className="top-nav-sep"></div>
           <button className={`top-nav-btn ${viewMode==='operation'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('operation'))}>
             {truncate(activeOp.name, 28)}
@@ -10226,9 +10445,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Clássico: Urgente no topo (exceto agrupamentos). Prazo final / dias restantes: só a data; sem prazo no fim.
+            // Clássico: Urgente no topo, exceto prazo final, dias restantes e agrupamentos.
+            // Beta + prazo mais próximo: Urgente fica no topo; dentro de cada grupo, o prazo manda.
             const groupedSorts = ['jurisdiction','class','operation','processo','action_date'];
             const deadlineOnlySorts = ['deadline', 'days_left', 'deadline_desc'];
+            const pinUrgent = !groupedSorts.includes(intimSort)
+              && (!deadlineOnlySorts.includes(intimSort) || (isDemo && intimSort === 'deadline'));
             if (isDemo && intimSort === 'overdue_first') {
               const dayKey = (x) => toDayKey(x.dateDeadline) || '';
               const isOver = (x) => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < now && intimIsOpenWork(x);
@@ -10240,7 +10462,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 if (da !== db) return da.localeCompare(db);
                 return 0;
               });
-            } else if (!groupedSorts.includes(intimSort) && !deadlineOnlySorts.includes(intimSort)) {
+            } else if (pinUrgent) {
               const pinsUrgent = (x) => intimIsOpenWork(x) && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
@@ -11817,14 +12039,14 @@ function SidaHistoryBlock({ debt }) {
   );
 }
 
-function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo }) {
+function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
   if (!timeline) return null;
   const keys = [
     { key: 'decadencia', title: 'Decadência' },
     { key: 'ordinaria', title: 'Prescrição ordinária' },
-    { key: 'intercorrente', title: 'Intercorrente' }
+    { key: 'intercorrente', title: 'Prescrição intercorrente' }
   ];
-  const safe = (s) => (isDemo ? betaSafeUiText(s) : s);
+  const safe = (s) => betaSafeUiText(s);
   return (
     <div className="cda-presc-cols">
       {keys.map(({ key, title }) => {
@@ -11832,7 +12054,6 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo })
         const col = buildCdaColumnView(timeline[key], { key, prescChecks: debt && debt.prescChecks });
         const sealClass = col.seal === 'sem dados' ? 'sem' : col.seal;
         const datesLine = (() => {
-          if (!isDemo) return col.datesLine;
           const raw = col.datesLine || '';
           if (!raw || raw === '—' || /^[\s—–-]+$/.test(raw)) return 'sem datas';
           return raw.replace(/[—–]/g, 'sem data');
@@ -11859,18 +12080,20 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo })
             <div className="cda-presc-block">
               <div className="cda-presc-k">Ocorrências</div>
               {col.occurrences.length === 0 ? <div className="cda-presc-empty">nenhuma</div> : (
-                <table className="cda-presc-occ">
-                  <tbody>
-                    {col.occurrences.map((o, i) => (
-                      <tr key={i}>
-                        <td>{o.dateLabel}</td>
-                        <td>{safe(o.fact)}{o.note ? ' — ' + safe(o.note) : ''}{o.source && /IDPJ|MCF/.test(o.source) ? <span className="cda-presc-inc-seal">{o.source}</span> : null}</td>
-                        <td>{safe(o.effect)}</td>
-                        <td>{o.sourceLabel}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="cda-presc-occ-list">
+                  {col.occurrences.map((o, i) => (
+                    <div key={i} className="cda-presc-occ-row">
+                      <div className="cda-presc-occ-date">{o.dateLabel}</div>
+                      <div className="cda-presc-occ-body">
+                        <div className="cda-presc-occ-fact">
+                          {safe(o.fact)}{o.note ? ' — ' + safe(o.note) : ''}
+                          {o.source && /IDPJ|MCF/.test(o.source) ? <span className="cda-presc-inc-seal">{o.source}</span> : null}
+                        </div>
+                        {o.effect ? <div className="cda-presc-occ-effect">{safe(o.effect)}</div> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
             {col.estimates.length > 0 && (
@@ -11945,7 +12168,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
   };
 
   return (
-    <div className="cda-inline-detail" onClick={ev => ev.stopPropagation()}>
+    <div className="cda-inline-detail cda-inline-detail--beta" onClick={ev => ev.stopPropagation()}>
       {isDemo && (
         <div className="cda-inline-actions cda-actions-sticky">
           <button type="button" className="btn-secondary btn-xs" onClick={() => copyText(d.cdaNumber || '').then(() => setCopied(true))}>Copiar</button>
@@ -11953,6 +12176,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
           <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>Editar</button>
         </div>
       )}
+      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} />
       <div className="cda-inline-fields">
         {field('Devedor', personName)}
         {field('CPF/CNPJ', d.cnpj)}
@@ -11994,8 +12218,6 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
 
       <DebcadHistoryBlock debt={d} />
       <SidaHistoryBlock debt={d} />
-
-      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} isDemo={isDemo} />
 
       <div className="cda-inline-actions" style={{alignItems:'center',flexWrap:'wrap'}}>
         <select className="btn-secondary btn-xs" value={scope} onChange={ev => setScope(ev.target.value)} style={{width:'auto'}}>
@@ -13071,18 +13293,28 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     </>);
   }
 
-  if (entityType === 'asset') return (<>
-    <div className="form-group"><label>Descrição</label><input value={form.description||''} onChange={e=>set('description',e.target.value)} placeholder="Imóvel Matrícula 12345 - CRI Curitiba" /></div>
+  if (entityType === 'asset') {
+    const sisForm = isSisbajudAsset(form);
+    const setSource = (v) => {
+      set('source', v);
+      if (/sisbajud|bacenjud/i.test(String(v || ''))) set('registry', '');
+    };
+    return (<>
     <div className="form-row-3">
       <div className="form-group"><label>Tipo</label><select value={form.subtype||'imovel'} onChange={e=>set('subtype',e.target.value)}>{Object.entries(ASSET_SUBTYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
       <div className="form-group"><label>Valor (R$)</label><input type="number" step="0.01" value={form.value||''} onChange={e=>set('value',parseFloat(e.target.value)||0)} /></div>
       <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
     <div className="form-row">
-      <div className="form-group"><label>Registro / Matrícula / Placa</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} placeholder={form.subtype==='veiculo'?'ABC1D23':form.subtype==='imovel'?'45.678':''} /></div>
+      <div className="form-group"><label>Origem / Sistema</label><input value={form.source||''} onChange={e=>setSource(e.target.value)} placeholder="CNIB, Sisbajud, Renajud, Analytics..." /></div>
+      <div className="form-group"><label>Processo Vinculado</label><input value={form.processRef||''} onChange={e=>set('processRef',e.target.value)} placeholder="Nº do processo de constrição" /></div>
+    </div>
+    <div className="form-row">
+      {!sisForm && <div className="form-group"><label>Registro / Matrícula / Placa</label><input value={form.registry||''} onChange={e=>set('registry',e.target.value)} placeholder={form.subtype==='veiculo'?'ABC1D23':form.subtype==='imovel'?'45.678':''} /></div>}
       <div className="form-group"><label>Titular</label><select value={form.holderId||''} onChange={e=>set('holderId',e.target.value)}><option value="">Nenhum</option>
         {(data?.people||[]).filter(p=>p.operationId===operationId).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
     </div>
+    {sisForm && <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8}}>SISBAJUD: registro / matrícula / placa não se aplica.</div>}
     <div className="form-group">
       <label>Registrado no Analytics</label>
       <select value={form.analyticsRegistered ? 'sim' : 'nao'} onChange={e => set('analyticsRegistered', e.target.value === 'sim')}>
@@ -13090,13 +13322,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         <option value="sim">✅ Sim — Registrado</option>
       </select>
     </div>
-    <div className="form-row">
-      <div className="form-group"><label>Origem / Sistema</label><input value={form.source||''} onChange={e=>set('source',e.target.value)} placeholder="CNIB, Sisbajud, Renajud, Analytics..." /></div>
-      <div className="form-group"><label>Processo Vinculado</label><input value={form.processRef||''} onChange={e=>set('processRef',e.target.value)} placeholder="Nº do processo de constrição" /></div>
-    </div>
+    <div className="form-group"><label>Descrição</label><input value={form.description||''} onChange={e=>set('description',e.target.value)} placeholder="Texto livre (opcional) — aparece na área de nota do card" /></div>
     {NotesList()}
     {Actions()}
   </>);
+  }
 
   if (entityType === 'model') {
     const tags = form.tags || [];
