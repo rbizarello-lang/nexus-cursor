@@ -306,7 +306,7 @@ const generateDemoData = () => {
   const intimations = [
     { id:'in-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Manifestar sobre exceção de pré-executividade — 15 dias', dateSent: iso(-3), dateStart: iso(-2), dateDeadline: iso(5), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false, notesList:['DIAGNÓSTICO E REVISÃO NA PASTA'] },
     { id:'in-3', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', jurisdiction:'PR', className:'IDPJ', partyName:'Marina Ferreira Norte', eventDescription:'Manifestação sobre instauração de IDPJ — 15 dias', dateStart: iso(-17), dateDeadline: iso(-2), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:true, notesList:['URGENTE — preparar memorial para audiência'] },
-    { id:'in-16', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'João Almeida Souza', eventDescription:'Intimação pessoal — redirecionamento', dateSent: iso(-20), dateStart: iso(-18), dateDeadline: iso(-5), status:'analisado', priority:'alta', difficulty:'media', urgent:false, responseAction:{ type:'peticionamento', peticionType:'Manifestação', respondedAt: ts(-6), description:'Peticionado sustentando art. 135 CTN.', peticionUrl:'https://docs.google.com/document/d/exemplo-demo-redir' } },
+    { id:'in-16', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', jurisdiction:'PR', className:'Execução Fiscal', partyName:'João Almeida Souza', eventDescription:'Intimação pessoal — redirecionamento', dateSent: iso(-20), dateStart: iso(-18), dateDeadline: iso(-5), status:'peca_edicao', priority:'alta', difficulty:'media', urgent:false, responseAction:{ type:'peticionamento', peticionType:'Manifestação', respondedAt: ts(-6), description:'Peticionado sustentando art. 135 CTN.', peticionUrl:'https://docs.google.com/document/d/exemplo-demo-redir' } },
     { id:'in-21', operationId:'op-demo-1', processNumber:'5001250-56.2025.4.04.7001', jurisdiction:'PR', className:'Agravo de Instrumento', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Contrarrazões ao agravo — 15 dias', dateStart: iso(-4), dateDeadline: iso(8), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:false, notesList:['Minuta em elaboração'] },
     { id:'in-22', operationId:'op-demo-1', processNumber:'5001240-56.2024.4.04.7001', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Comercial Fachada Norte LTDA', eventDescription:'Vista — complementação de documentos', dateStart: iso(-1), dateDeadline: iso(10), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-2', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Vista para réplica aos embargos — 15 dias', dateStart: iso(-3), dateDeadline: iso(12), status:'aguardando_subsidios', priority:'normal', difficulty:'media', urgent:false },
@@ -314,12 +314,12 @@ const generateDemoData = () => {
     { id:'in-23', operationId:'op-demo-2', processNumber:'5003340-22.2025.4.04.7002', jurisdiction:'PR', className:'IDPJ', partyName:'Carlos Eduardo Menezes', eventDescription:'Citação — IDPJ (laranja)', dateSent: iso(-8), dateStart: iso(-7), dateDeadline: iso(15), status:'aguardando_subsidios', priority:'alta', difficulty:'alta', urgent:false },
     { id:'in-24', operationId:'op-demo-2', processNumber:'5007780-88.2023.4.04.7002', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Distribuidora Vale Verde EIRELI', eventDescription:'Especificar provas — 10 dias', dateStart: iso(-2), dateDeadline: iso(6), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-25', operationId:'op-demo-2', processNumber:'5007777-88.2022.4.04.7002', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Transportes Vale Rápido LTDA', eventDescription:'Ofício — informações patrimoniais', dateStart: iso(0), dateDeadline: iso(14), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
-    { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-1), description:'Ciência registrada. Avaliar IDPJ à sucessora.' } },
+    { id:'in-4', operationId:'op-demo-3', processNumber:'5000045-12.2019.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Ciência de decisão — arquivamento art. 40 LEF', dateDeadline: iso(20), status:'ciencia_renuncia', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-1), description:'Ciência registrada. Avaliar IDPJ à sucessora.' } },
     { id:'in-15', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Indústria Metalúrgica Sul S/A', eventDescription:'Réplica aos embargos — 15 dias', dateStart: iso(-9), dateDeadline: iso(7), status:'aguardando_subsidios', priority:'normal', difficulty:'alta', urgent:false },
     { id:'in-26', operationId:'op-demo-3', processNumber:'5008890-77.2025.4.04.7003', jurisdiction:'PR', className:'IDPJ', partyName:'Nova Metal Sul LTDA', eventDescription:'Manifestação preliminar — sucessão de fato', dateStart: iso(-3), dateDeadline: iso(11), status:'pendente_analise', priority:'alta', difficulty:'alta', urgent:false, notesList:['Coletar contratos de transferência de ativos'] },
     { id:'in-27', operationId:'op-demo-3', processNumber:'5000050-12.2020.4.04.7003', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Ricardo Metalúrgico Sul', eventDescription:'Intimação — localização de bens', dateDeadline: iso(18), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
-    { id:'in-9', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência de levantamento de penhora parcial', dateDeadline: iso(25), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-3), description:'Ciência. Patrimônio remanescente suficiente.' } },
-    { id:'in-18', operationId:'op-demo-4', processNumber:'5002299-99.2023.4.04.7000', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência — embargos julgados improcedentes', dateDeadline: iso(30), status:'analisado', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-8), description:'Trânsito em andamento.' } },
+    { id:'in-9', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência de levantamento de penhora parcial', dateDeadline: iso(25), status:'ciencia_renuncia', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-3), description:'Ciência. Patrimônio remanescente suficiente.' } },
+    { id:'in-18', operationId:'op-demo-4', processNumber:'5002299-99.2023.4.04.7000', jurisdiction:'PR', className:'Embargos à Execução', partyName:'Holding Atlântico Participações S/A', eventDescription:'Ciência — embargos julgados improcedentes', dateDeadline: iso(30), status:'ciencia_renuncia', priority:'baixa', difficulty:'baixa', urgent:false, responseAction:{ type:'ciencia', respondedAt: ts(-8), description:'Trânsito em andamento.' } },
     { id:'in-28', operationId:'op-demo-4', processNumber:'5002220-99.2024.4.04.7000', jurisdiction:'PR', className:'Cumprimento de Sentença', partyName:'Holding Atlântico Participações S/A', eventDescription:'Manifestar sobre cálculo de garantia', dateStart: iso(-5), dateDeadline: iso(9), status:'peca_edicao', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-29', operationId:'op-demo-4', processNumber:'5002210-99.2020.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Atlântico Imóveis SPE LTDA', eventDescription:'Citação — SPE do grupo', dateSent: iso(-10), dateStart: iso(-9), dateDeadline: iso(16), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-30', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Clara Atlântico Costa', eventDescription:'Intimação Renajud — veículo penhorado', dateStart: iso(-1), dateDeadline: iso(12), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
@@ -665,8 +665,18 @@ const fmtCur = (v) => { if (!v && v !== 0) return '—'; return new Intl.NumberF
 // falhar em silêncio (CDA sem valor, EF "sem CDAs", intimação sem processo).
 // localIso, parseAnyDate, toDayKey, fmtDate, daysUntil, isBusinessDay, addBusinessDays,
 // coerceIntimDates, normProc e sameProc vêm de src/lib/dates.js (concatenados no build).
+function intimIsClosed(x) {
+  if (!x) return false;
+  if (x.responseAction) return true;
+  // Ciência com renúncia arquiva. "analisado" é status antigo: o card continua na lista.
+  return x.status === 'ciencia_renuncia';
+}
+function intimIsOpenWork(x) {
+  if (!x || intimIsClosed(x)) return false;
+  return x.status !== 'analisado';
+}
 const intimPrazoNaAgenda = (x) => {
-  if (!x || x.responseAction) return false;
+  if (!x || intimIsClosed(x)) return false;
   const dl = toDayKey(x.dateDeadline);
   if (!dl) return false;
   if (x.status === 'analisado') return dl >= localIso(new Date());
@@ -839,6 +849,10 @@ function isEfStylePanoramaCard(e) {
 
 function isIncidentProcess(e) {
   return !!e && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
+}
+/** IDPJ/MCF no panorama por padrão; some só se o usuário retirar (inPanorama === false). */
+function isIncidentOnPanorama(e) {
+  return isIncidentProcess(e) && e.inPanorama !== false;
 }
 
 function execCdaValue(ef, debts) {
@@ -1114,26 +1128,57 @@ const PROCESS_STAGE_TAGS = {
 // PROCESS_STAGE_TAGS is the single source of truth for stage definitions (legado — multi-seleção)
 
 // ─── Estágio processual V2 — HISTÓRICO POR FASE (cada fase guarda data, nº do evento e desfecho) ───
+const RECURSO_OUTCOMES = { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' };
 const PROCESS_STAGES = {
-  ajuizamento: { label: 'Ajuizamento',         outcomes: {} },
-  liminar:     { label: 'Liminar',             outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
-  recurso1:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
-  constricoes: { label: 'Constrições',         outcomes: {} },
-  saneamento:  { label: 'Saneamento e provas', outcomes: {}, textOnly: true }, // só texto — sem data/evento
-  decisao:     { label: 'Decisão final',       outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
-  recurso2:    { label: 'Recurso',             outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
-  transito:    { label: 'Trânsito em julgado', outcomes: {} },
+  ajuizamento: { label: 'Ajuizamento', outcomes: {} },
+  citacao: { label: 'Citação', outcomes: {} },
+  liminar: { label: 'Liminar', outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
+  audiencia: { label: 'Audiência', outcomes: {} },
+  contestacao: { label: 'Contestação / defesa', outcomes: {} },
+  saneamento: { label: 'Saneamento e provas', outcomes: {} },
+  constricoes: { label: 'Constrições', outcomes: {} },
+  embargos_declaracao: { label: 'Embargos de declaração', outcomes: { favoravel: 'acolhidos', desfavoravel: 'rejeitados' } },
+  decisao: { label: 'Decisão final', outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
+  recurso1: { label: 'Recurso', outcomes: RECURSO_OUTCOMES, multiRecurso: true },
+  recurso2: { label: 'Recurso', outcomes: RECURSO_OUTCOMES, multiRecurso: true },
+  transito: { label: 'Trânsito em julgado', outcomes: {} },
+  extincao: { label: 'Extinção', outcomes: {} }
 };
 const PROCESS_STAGE_KEYS = Object.keys(PROCESS_STAGES);
 // Fases próprias do processo CENTRAL (EF com redirecionamento discutido nos próprios autos — sem IDPJ/MCF apartado)
 const CENTRAL_STAGES = {
-  ajuizamento_ef: { label: 'Ajuizamento da EF',          outcomes: {} },
-  pedido_redir:   { label: 'Pedido de redirecionamento', outcomes: {} },
-  decisao:        { label: 'Decisão',                    outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
-  recurso:        { label: 'Recurso',                    outcomes: { provido: 'provido', nao_provido: 'não provido', pendente: 'pendente de julgamento' }, multiRecurso: true },
-  transito:       { label: 'Trânsito em julgado',        outcomes: {} },
+  ajuizamento_ef: { label: 'Ajuizamento da EF', outcomes: {} },
+  citacao: { label: 'Citação', outcomes: {} },
+  pedido_redir: { label: 'Pedido de redirecionamento', outcomes: {} },
+  constricoes: { label: 'Constrições', outcomes: {} },
+  garantia: { label: 'Garantia / penhora', outcomes: {} },
+  epe: { label: 'Exceção de pré-executividade', outcomes: { favoravel: 'rejeitada', desfavoravel: 'acolhida' } },
+  embargos: { label: 'Embargos à execução', outcomes: { favoravel: 'improcedentes', desfavoravel: 'procedentes' } },
+  audiencia: { label: 'Audiência', outcomes: {} },
+  art40: { label: 'Suspensão art. 40', outcomes: {} },
+  expropriacao: { label: 'Expropriação', outcomes: {} },
+  decisao: { label: 'Decisão', outcomes: { favoravel: 'favorável', desfavoravel: 'desfavorável' } },
+  recurso: { label: 'Recurso', outcomes: RECURSO_OUTCOMES, multiRecurso: true },
+  transito: { label: 'Trânsito em julgado', outcomes: {} }
 };
 const CENTRAL_STAGE_KEYS = Object.keys(CENTRAL_STAGES);
+function stageEventDate(m) {
+  if (m && m.sd && m.sd.multiRecurso) {
+    const dates = (m.recursos || []).map(r => r && r.date).filter(Boolean).sort();
+    if (dates[0]) return dates[0];
+  }
+  return (m && m.rec && m.rec.date) || '';
+}
+function compareStagesByDate(a, b) {
+  const da = stageEventDate(a);
+  const db = stageEventDate(b);
+  if (a.alwaysShow && !da && !(b.alwaysShow && !db)) return -1;
+  if (b.alwaysShow && !db && !(a.alwaysShow && !da)) return 1;
+  if (da && db && da !== db) return da.localeCompare(db);
+  if (da && !db) return -1;
+  if (!da && db) return 1;
+  return (a.i || 0) - (b.i || 0);
+}
 // Cor por desfecho: favorável/provido = verde; desfavorável/não provido = vermelho; registrada sem desfecho = azul
 const outcomeColor = (o) => (o === 'favoravel' || o === 'provido') ? 'var(--green)' : (o === 'desfavoravel' || o === 'nao_provido') ? 'var(--red)' : (o === 'pendente') ? 'var(--yellow)' : 'var(--blue)';
 const outcomeTint  = (o) => (o === 'favoravel' || o === 'provido') ? 'rgba(64,168,112,0.18)' : (o === 'desfavoravel' || o === 'nao_provido') ? 'rgba(244,63,94,0.18)' : (o === 'pendente') ? 'rgba(212,168,56,0.18)' : 'rgba(91,143,217,0.18)';
@@ -1156,7 +1201,12 @@ const recursoColor = (recs) => {
   return 'var(--green)';
 };
 const stageRecColor = (rec) => !rec ? 'var(--text-muted)' : outcomeColor(rec.outcome);
-const resolveStageDef = (STAGES, k, rec) => STAGES[k] || { label: (rec && String(rec.label || '').trim()) || 'Evento', outcomes: {}, custom: true };
+const resolveStageDef = (STAGES, k, rec) => {
+  if (STAGES[k]) return STAGES[k];
+  const label = (rec && String(rec.label || '').trim()) || 'Evento';
+  if (rec && rec.multiRecurso) return { label, outcomes: RECURSO_OUTCOMES, multiRecurso: true, custom: true };
+  return { label, outcomes: {}, custom: true };
+};
 // Mapeia tags legadas (PROCESS_STAGE_TAGS / processStages) para (fase, desfecho) do modelo por-fase
 const PROCESS_STAGE_LEGACY_MAP = {
   liminar_deferida:           { stage: 'liminar',    outcome: 'favoravel' },
@@ -1188,8 +1238,12 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
   const recs = getStageRecords(briefing, exec.id);
   const STG = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
   const keys = [...Object.keys(STG), ...Object.keys(recs).filter(k => !STG[k])];
-  const parts = keys.filter(k => recs[k]).map(k => {
-    const rec = recs[k] || {}, sd = resolveStageDef(STG, k, rec);
+  const dated = keys.filter(k => recs[k]).map((k, i) => {
+    const rec = recs[k] || {};
+    const sd = resolveStageDef(STG, k, rec);
+    return { k, i, rec, sd, recursos: sd.multiRecurso ? getRecursos(rec) : null, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
+  }).sort(compareStagesByDate);
+  const parts = dated.map(({ rec, sd }) => {
     const isMulti = !!sd.multiRecurso;
     const rs = isMulti ? getRecursos(rec) : [];
     const col = isMulti
@@ -1262,9 +1316,16 @@ const getBriefingEntries = (briefing) => {
 const INTIM_STATUSES = {
   pendente_analise: { label: 'Pendente de Análise', badge: 'badge-yellow' },
   aguardando_subsidios: { label: 'Aguardando Subsídios', badge: 'badge-muted' },
-  analisado: { label: 'Analisado', badge: 'badge-green' },
-  peca_edicao: { label: 'Peça em Edição', badge: 'badge-green-strong' }
+  aguardar: { label: 'Aguardar', badge: 'badge-muted' },
+  peca_edicao: { label: 'Peça em Edição', badge: 'badge-green-strong' },
+  ciencia_renuncia: { label: 'Ciência com Renúncia', badge: 'badge-green' }
 };
+const INTIM_STATUS_LEGACY = {
+  analisado: { label: 'Analisado', badge: 'badge-green' }
+};
+function intimStatusMeta(status) {
+  return INTIM_STATUSES[status] || INTIM_STATUS_LEGACY[status] || { label: status || '—', badge: 'badge-muted' };
+}
 const TASK_STATUSES = {
   pendente: { label: 'Pendente', badge: 'badge-red' },
   em_andamento: { label: 'Em andamento', badge: 'badge-yellow' },
@@ -3614,7 +3675,7 @@ function App() {
               }
               // Priority 2: find an unresolved one (still being worked on)
               if (!existing) {
-                existing = candidates.find(x => x.status !== 'analisado' && !x.responseAction);
+                existing = candidates.find(x => intimIsOpenWork(x));
               }
               // Sem match aberto: cria nova. Não gravar prazo novo em cima de resolvida.
             }
@@ -3733,7 +3794,7 @@ function App() {
     for (const x of data.intimations || []) {
       const m = meta[x.operationId];
       if (!m) continue;
-      const open = (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction;
+      const open = intimIsOpenWork(x);
       if (open) {
         m.openIntims++;
         if (x.dateDeadline) {
@@ -3741,7 +3802,7 @@ function App() {
           if (dd !== null && (m.soonestIntim === null || dd < m.soonestIntim)) m.soonestIntim = dd;
         }
       }
-      if (x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < today && x.status !== 'analisado') m.overdueIntims++;
+      if (x.dateDeadline && new Date(x.dateDeadline + 'T00:00:00') < today && intimIsOpenWork(x)) m.overdueIntims++;
     }
     for (const t of data.tasks || []) {
       const m = meta[t.operationId];
@@ -4260,7 +4321,6 @@ function App() {
     const now = new Date().toISOString();
     const respondedIntim = {
       ...intim,
-      status: 'analisado',
       responseAction: { ...action, respondedAt: now },
       updatedAt: now
     };
@@ -4779,6 +4839,7 @@ function App() {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   // Popup da régua do panorama: estado próprio (não passa por useTransition de toggleGroup).
   const [stagePopup, setStagePopup] = useState(null); // { execId, sk } | null
+  const [stageAddMenu, setStageAddMenu] = useState(null); // { execId, top, left, maxHeight } | null
   const [otherBucketOpen, setOtherBucketOpen] = useState({ recursos: false, embargos: false, outros: false });
   const panoOpRef = useRef(activeOpId);
   useEffect(() => {
@@ -5058,7 +5119,7 @@ function App() {
     const opAssets = getOpSlices(opId).assets;
     const opPeople = getOpSlices(opId).people;
     const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
-    const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction && x.status !== 'analisado');
+    const opIntims = (data.intimations || []).filter(x => x.operationId === opId && intimIsOpenWork(x));
     const activeDebts = opDebts.filter(d => d.status !== 'extinta');
     const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
     const constricted = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
@@ -5126,7 +5187,7 @@ function App() {
   <div class="kpi"><b class="${prescRisk.length>0?'alert':''}">${prescRisk.length}</b>CDAs c/ risco prescricional</div>
 </div>
 ${(() => { const ents = getBriefingEntries(briefing); if (!ents.length) return ''; const sk = (en) => en.eventDate || (en.createdAt || '').slice(0,10); const sorted = [...ents].sort((a,b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sk(b).localeCompare(sk(a)); }); return section(`Estratégia e notas (${sorted.length})`, sorted.map(en => { const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao; const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0,10)) : ''); return `<div class="entry"><div class="entry-hd"><span class="entry-type">${esc(t.label)}</span>${en.pinned ? '<span class="entry-pin">📌 fixada</span>' : ''}${dt ? `<span class="entry-dt">${dt}</span>` : ''}</div><div class="entry-body">${en.html || ''}</div></div>`; }).join('')); })()}
-${opIntims.length > 0 ? section(`Intimações abertas (${opIntims.length})`, `<table><tr><th>Processo</th><th>Prazo final</th><th>Status</th><th>Evento</th></tr>${opIntims.map(x => row([`<span class="mono">${esc(x.processNumber||'—')}</span>`, x.dateDeadline ? `<span class="${(daysUntil(x.dateDeadline)??99) <= 5 ? 'alert' : ''}">${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)</span>` : '<span class="muted">sem prazo</span>', esc(INTIM_STATUSES[x.status]?.label || x.status || ''), esc(truncate(x.eventDescription || x.parties || '', 80))])).join('')}</table>`) : ''}
+${opIntims.length > 0 ? section(`Intimações abertas (${opIntims.length})`, `<table><tr><th>Processo</th><th>Prazo final</th><th>Status</th><th>Evento</th></tr>${opIntims.map(x => row([`<span class="mono">${esc(x.processNumber||'—')}</span>`, x.dateDeadline ? `<span class="${(daysUntil(x.dateDeadline)??99) <= 5 ? 'alert' : ''}">${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)</span>` : '<span class="muted">sem prazo</span>', esc(intimStatusMeta(x.status).label), esc(truncate(x.eventDescription || x.parties || '', 80))])).join('')}</table>`) : ''}
 ${opTasks.length > 0 ? section(`Tarefas pendentes (${opTasks.length})`, `<table><tr><th>Tarefa</th><th>Vencimento</th><th>Prioridade</th></tr>${opTasks.map(t => row([esc(t.title||''), t.dueDate ? `${fmtDate(t.dueDate)} (${daysUntil(t.dueDate)}d)` : '<span class="muted">—</span>', esc(t.priority||'normal')])).join('')}</table>`) : ''}
 ${prescRisk.length > 0 ? section(`Risco prescricional — vencido/iminente e a conferir (${prescRisk.length} CDAs)`, `<table><tr><th>Prazo</th><th>CDA</th><th>Processo</th><th>Situação</th><th>Valor</th></tr>${prescRisk.map(x => row([`<span class="alert">${x.days == null ? '—' : x.days + 'd'} (${fmtDate(x.pd)})</span>`, `<span class="mono">${esc(x.d.cdaNumber||'S/N')}</span>`, `<span class="mono">${esc(x.d.processNumber||'—')}</span>`, esc(truncate(x.summary || '', 80)), fmtCur(x.d.value)])).join('')}</table>`) : ''}
 ${idpjs.length > 0 ? section(`IDPJ / Cautelares Fiscais (${idpjs.length})`, idpjs.map(ep => { const isIdpj = ep.processTag === 'idpj'; const st = EXEC_STATUSES[ep.status] || {}; const linkedEFIds = ep.linkedExecutionIds || []; const linkedEFExecs = opExecs.filter(e => linkedEFIds.includes(e.id)); const linkedEFProcNums = new Set(linkedEFExecs.map(e => normProc(e.processNumber)).filter(Boolean)); const hubCdas = opDebts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber))); const hubTotalValue = hubCdas.reduce((s,d) => s + (d.value||0), 0); const directCdas = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber)); const directVal = directCdas.reduce((s,d)=>s+(d.value||0),0); const stageHtml = renderStageHtmlV2(briefing, ep, esc); const efTable = linkedEFExecs.length > 0 ? `<table class="subtable"><tr><th>EF abrangida</th><th>Status</th><th>Juízo</th><th>CDAs</th><th>Valor</th></tr>${linkedEFExecs.map(ef => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)); const efVal = efCdas.reduce((s,d)=>s+(d.value||0),0); const efSt = EXEC_STATUSES[ef.status] || {}; return `<tr><td class="mono">${esc(ef.processNumber||'—')}</td><td>${esc(efSt.label||ef.status||'')}</td><td>${esc(ef.court||'')}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; }).join('')}</table>` : '<div class="muted" style="font-size:10px;margin-top:4px">Nenhuma execução fiscal vinculada a este incidente.</div>'; const relRecursos = opExecs.filter(r => r.parentExecutionId === ep.id && r.status !== 'extinta'); const recursosTable = relRecursos.length > 0 ? `<table class="subtable"><tr><th>Recurso/incidente vinculado</th><th>Classe</th><th>Status</th><th>Juízo</th></tr>${relRecursos.map(r => { const rSt = EXEC_STATUSES[r.status] || {}; return `<tr><td class="mono">${esc(r.processNumber||'—')}</td><td>${esc(r.className||'')}</td><td>${esc(rSt.label||r.status||'')}</td><td>${esc(r.court||'')}</td></tr>`; }).join('')}</table>` : ''; const notes = ep.notesList || (ep.notes ? [ep.notes] : []); const notesHtml = notes.length > 0 ? `<div class="idpj-notes"><strong>Notas:</strong><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''; return `<div class="idpj-block">` + `<div class="idpj-head"><span class="idpj-tag ${isIdpj?'':'mcf'}">${isIdpj?'IDPJ':'Cautelar Fiscal'}</span><span class="idpj-proc">${esc(ep.processNumber||'—')}</span><span class="idpj-st">${esc(st.label||ep.status||'')}</span>${ep.hasGuarantee?'<span class="idpj-st" style="background:#dff0e6;color:#207848">Garantida</span>':''}</div>` + `<div class="idpj-meta">${esc(ep.court||'Juízo não informado')}${ep.className?' · '+esc(ep.className):''}</div>` + `<div class="idpj-stage"><strong>Estágio processual:</strong> ${stageHtml}</div>` + `<div class="idpj-val"><strong>Valor da causa (EFs abrangidas):</strong> <b>${fmtCur(hubTotalValue)}</b> <span class="muted">(${linkedEFExecs.length} EF${linkedEFExecs.length===1?'':'s'} · ${hubCdas.length} CDAs)</span>${directVal>0?` · CDAs diretas no incidente: <b>${fmtCur(directVal)}</b>`:''}</div>` + efTable + recursosTable + notesHtml + `</div>`; }).join('')) : ''}
@@ -5283,8 +5344,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const dd = daysUntil(e.prescriptionForecast); return dd !== null && dd <= 365;
     }).length;
     const opIntims = (data.intimations || []).filter(x => x.operationId === activeOp.id);
-    const openIntims = opIntims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
-    const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado' && !x.responseAction).length;
+    const openIntims = opIntims.filter(x => intimIsOpenWork(x)).length;
+    const overdueIntims = opIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && intimIsOpenWork(x)).length;
     const openTasks = (data.tasks || []).filter(t => t.operationId === activeOp.id && t.status !== 'concluida' && t.status !== 'cancelada').length;
     const overdueTasks = (data.tasks || []).filter(t => t.operationId === activeOp.id && t.status !== 'concluida' && t.status !== 'cancelada' && t.dueDate && new Date(t.dueDate+'T00:00:00') < new Date()).length;
     // Indisponibilidades — bens com status ativo
@@ -5327,7 +5388,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
       const guarVal = opDebts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
       const constrictedAssets = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
-      const idpjs = opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
+      const idpjs = opExecs.filter(isIncidentOnPanorama);
       const mainEFs = opExecs
         .filter(e => (!e.processTag || e.processTag === 'normal') && !e.parentExecutionId && e.status !== 'extinta' && e.status !== 'arquivada')
         .map(ef => ({ ...ef, _cdaValue: opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s,d) => s + (d.value||0), 0) }))
@@ -5541,7 +5602,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
               const efsByIncident = {};
               Object.keys(coverage.efsByIncident).forEach(id => { efsByIncident[id] = sortEFsArquivadasLast(coverage.efsByIncident[id]); });
-              const uncoveredEFs = mainEFs.filter(ef => !coverage.coveredIds.has(ef.id) && isExecucaoFiscalClass(ef) && !ef.inPanorama);
+              const panoCoveredIds = new Set();
+              idpjs.forEach(ip => { (coverage.efsByIncident[ip.id] || []).forEach(ef => panoCoveredIds.add(ef.id)); });
+              const uncoveredEFs = mainEFs.filter(ef => !panoCoveredIds.has(ef.id) && isExecucaoFiscalClass(ef) && !ef.inPanorama);
               const uncoveredCardTotal = uncoveredEFs.reduce((s, ef) => s + (ef._cdaValue || 0), 0);
               const uncoveredOpen = panoFocusId === 'uncovered';
 
@@ -5626,7 +5689,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               };
               const renderSplitCard = (ip, STAGES, STAGE_KEYS, recs, myEFs, bm) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
-                const visible = metas.filter(m => m.has || m.alwaysShow);
+                const visible = metas.filter(m => m.has || m.alwaysShow).sort(compareStagesByDate);
                 const withHas = visible.filter(m => m.has);
                 const latest = (withHas.length ? withHas[withHas.length - 1] : visible[visible.length - 1]) || null;
                 const workSelPrefix = 'panowork-' + ip.id + ':';
@@ -5638,24 +5701,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   n.add(workSelPrefix + k);
                   return n;
                 });
-                const addable = metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom);
-                const addMenuKey = 'stageadd-' + ip.id;
-                const addOpen = collapsedGroups.has(addMenuKey);
-                const toggleAddMenu = () => setCollapsedGroups(prev => {
-                  const n = new Set(prev);
-                  if (n.has(addMenuKey)) n.delete(addMenuKey); else n.add(addMenuKey);
-                  return n;
-                });
-                const closeAddMenu = () => setCollapsedGroups(prev => {
-                  const n = new Set(prev); n.delete(addMenuKey); return n;
-                });
+                const addable = metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom && !m.sd.multiRecurso);
+                const addOpen = !!(stageAddMenu && stageAddMenu.execId === ip.id);
+                const closeAddMenu = () => setStageAddMenu(null);
+                const openAddMenu = (el) => {
+                  if (addOpen) { closeAddMenu(); return; }
+                  const r = el.getBoundingClientRect();
+                  const spaceBelow = window.innerHeight - r.bottom - 8;
+                  const openUp = spaceBelow < 220;
+                  const maxHeight = Math.min(340, Math.max(160, openUp ? r.top - 12 : spaceBelow));
+                  setStageAddMenu({
+                    execId: ip.id,
+                    top: openUp ? Math.max(8, r.top - maxHeight - 4) : r.bottom + 4,
+                    left: Math.min(r.left, window.innerWidth - 232),
+                    maxHeight
+                  });
+                };
                 const openPop = (k) => setStagePopup({ execId: ip.id, sk: k });
                 const closePop = () => setStagePopup(null);
                 const noteEditKey = (k) => 'stagenote-' + ip.id + '-' + k;
                 const afterAdd = (sk) => {
+                  closeAddMenu();
                   setCollapsedGroups(prev => {
                     const n = new Set(prev);
-                    n.delete(addMenuKey);
                     [...n].forEach(x => { if (x.startsWith(workSelPrefix)) n.delete(x); });
                     n.add(workSelPrefix + sk);
                     return n;
@@ -5676,6 +5744,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   setRec(ip.id, sk, { _present: true, _custom: true, label, date: '', evento: '', texto: '', outcome: '' });
                   afterAdd(sk);
                 };
+                const addRecursoStage = () => {
+                  const unused = metas.find(m => m.sd.multiRecurso && !m.has && STAGES[m.k]);
+                  if (unused) { addStage(unused.k); return; }
+                  const sk = 'recurso_' + uid();
+                  setRec(ip.id, sk, { _present: true, _custom: true, multiRecurso: true, label: 'Recurso', recursos: [emptyRecurso()] });
+                  afterAdd(sk);
+                };
                 const popupFor = (m) => stagePopup && stagePopup.execId === ip.id && stagePopup.sk === m.k && (
                   <StagePopup key={'stagepop-' + ip.id + '-' + m.k} sd={m.sd} rec={m.rec}
                     onCommit={(patch) => setRec(ip.id, m.k, { ...patch, _present: true })}
@@ -5686,38 +5761,48 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const addFaseBtn = (
                   <div className="pano-split-add" onClick={e => e.stopPropagation()}>
                     <button type="button" className="btn-secondary btn-xs"
-                      onClick={toggleAddMenu}
+                      onClick={e => openAddMenu(e.currentTarget)}
                       title="Incluir fase processual ou evento livre"
                       style={{fontSize:9,padding:'2px 8px',opacity:0.85,fontWeight:500}}>
                       + Fase
                     </button>
-                    {addOpen && (
-                      <div style={{position:'absolute',left:0,top:'100%',marginTop:3,zIndex:20,minWidth:200,maxHeight:280,overflowY:'auto',padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.35)'}}>
-                        <div style={{padding:'6px 10px'}}>
-                          <div style={{fontSize:9,color:'var(--text-muted)',marginBottom:4,fontWeight:700,letterSpacing:0.3,textTransform:'uppercase'}}>Outro evento</div>
-                          <input
-                            autoFocus
-                            placeholder="digite o nome e Enter"
-                            onKeyDown={e => {
-                              if (e.key === 'Enter' && e.target.value.trim()) {
-                                addCustomStage(e.target.value.trim());
-                              } else if (e.key === 'Escape') {
-                                closeAddMenu();
-                              }
-                            }}
-                            style={{width:'100%',fontSize:10,padding:'5px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />
-                        </div>
-                        {addable.length > 0 && <div style={{height:1,background:'var(--border)',margin:'4px 8px'}} />}
-                        {addable.map(m => (
-                          <button key={m.k} type="button"
-                            onClick={() => addStage(m.k)}
+                    {addOpen && stageAddMenu && (
+                      <>
+                        <div style={{position:'fixed',inset:0,zIndex:1100}} onClick={closeAddMenu} />
+                        <div style={{position:'fixed',top:stageAddMenu.top,left:stageAddMenu.left,zIndex:1110,minWidth:220,maxHeight:stageAddMenu.maxHeight,overflowY:'auto',padding:'4px 0',background:'var(--bg-card)',border:'1px solid var(--border-light)',borderRadius:6,boxShadow:'0 8px 24px rgba(0,0,0,0.45)'}}>
+                          <div style={{padding:'6px 10px'}}>
+                            <div style={{fontSize:9,color:'var(--text-muted)',marginBottom:4,fontWeight:700,letterSpacing:0.3,textTransform:'uppercase'}}>Outro evento</div>
+                            <input
+                              autoFocus
+                              placeholder="digite o nome e Enter"
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && e.target.value.trim()) {
+                                  addCustomStage(e.target.value.trim());
+                                } else if (e.key === 'Escape') {
+                                  closeAddMenu();
+                                }
+                              }}
+                              style={{width:'100%',fontSize:10,padding:'5px 8px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box'}} />
+                          </div>
+                          <div style={{height:1,background:'var(--border)',margin:'4px 8px'}} />
+                          <button type="button"
+                            onClick={addRecursoStage}
                             style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
                             onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
                             onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-                            {m.sd.label}
+                            Recurso
                           </button>
-                        ))}
-                      </div>
+                          {addable.map(m => (
+                            <button key={m.k} type="button"
+                              onClick={() => addStage(m.k)}
+                              style={{display:'block',width:'100%',textAlign:'left',padding:'5px 10px',fontSize:10,background:'transparent',border:'none',color:'var(--text-secondary)',cursor:'pointer'}}
+                              onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                              onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+                              {m.sd.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
                 );
@@ -5923,7 +6008,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                         : 0;
                       const displayVal = isEfCard ? ownVal + covVal : covVal;
                       const metas = stageMeta(STAGES, STAGE_KEYS, recs);
-                      const withHas = metas.filter(m => m.has);
+                      const withHas = metas.filter(m => m.has).sort(compareStagesByDate);
                       const current = withHas.length ? withHas[withHas.length - 1] : null;
                       const isOpen = panoFocusId === ip.id;
                       return (
@@ -6000,6 +6085,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                               </div>
                               <div className="pano-split-actions">
                                 <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'execution',initial:ip})}>Dados</button>
+                                {isIncidentProcess(ip) && (
+                                  <button type="button" className="btn-secondary btn-xs" title="Some da faixa do panorama; o processo continua cadastrado"
+                                    onClick={() => { upsert('executions', { ...ip, inPanorama: false }); setPanoFocusId(null); }}>
+                                    Retirar
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -6784,7 +6875,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const openTasksByProc = new Map();
       for (const x of data.intimations || []) {
         if (x.operationId !== opId || x.responseAction) continue;
-        if (!(x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao')) continue;
+        if (!intimIsOpenWork(x)) continue;
         const k = normProc(x.processNumber);
         if (!k) continue;
         let arr = openIntimsByProc.get(k);
@@ -8351,7 +8442,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     if (isDemo) setViewMode('hoje');
     alert('✅ Dados demo resetados (5 operações fictícias).');
   };
-  const openIntimsCount = (data.intimations || []).filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
+  const openIntimsCount = (data.intimations || []).filter(x => intimIsOpenWork(x)).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
   const deskCount = (data.desk || []).length;
   const watchCount = (data.watchlist || []).filter(w => w.status !== 'encerrado').length;
@@ -8827,7 +8918,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const totalValue = debts.reduce((s, d) => s + (d.value || 0), 0);
       const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
       const prescRisk = debts.filter(d => isPrazosRisco(d)).length;
-      const openIntims = intims.filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction).length;
+      const openIntims = intims.filter(x => intimIsOpenWork(x)).length;
       const openTasks = tasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
       const idpjCount = execs.filter(e => e.processTag === 'idpj').length;
       const cautelarCount = execs.filter(e => e.processTag === 'cautelar_fiscal').length;
@@ -9468,8 +9559,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const allTasks = data.tasks || [];
               const activeDebts = allDebts.filter(d => d.status !== 'extinta');
               const totalValue = activeDebts.reduce((s,d) => s+(d.value||0), 0);
-              const openIntims = allIntims.filter(x => (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length;
-              const overdueIntims = allIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && x.status !== 'analisado').length;
+              const openIntims = allIntims.filter(x => intimIsOpenWork(x)).length;
+              const overdueIntims = allIntims.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < new Date() && intimIsOpenWork(x)).length;
               const t = prazosRadar.totals || {};
               const n1 = (t[1] && t[1].n) || 0;
               const n2 = (t[2] && t[2].n) || 0;
@@ -9567,7 +9658,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const totalValue = debts.reduce((s,d) => s + (d.value||0), 0);
                 const guaranteedValue = debts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
                 const prescRisk = debts.filter(d => isPrazosRisco(d)).length;
-                const openIntims = intims.filter(x => (x.status==='pendente_analise'||x.status==='aguardando_subsidios'||x.status==='peca_edicao') && !x.responseAction).length;
+                const openIntims = intims.filter(x => intimIsOpenWork(x)).length;
                 const openTasks = tasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
                 const idpjCount = execs.filter(e => e.processTag === 'idpj').length;
                 const cautelarCount = execs.filter(e => e.processTag === 'cautelar_fiscal').length;
@@ -9765,7 +9856,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           const total = debts.filter(d => d.status !== 'extinta').reduce((s, d) => s + (d.value || 0), 0);
                           const people = data.people.filter(p => p.operationId === op.id).length;
                           const execs = data.executions.filter(e => e.operationId === op.id).length;
-                          const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction);
+                          const opIntims = (data.intimations || []).filter(x => x.operationId === op.id && intimIsOpenWork(x));
                           const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada');
                           const prescAlerts = debts.filter(d => isPrazosRisco(d)).length;
                           const notes = op.notesList || (op.notes ? [op.notes] : []);
@@ -9822,21 +9913,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {/* ═══ INTIMAÇÕES GLOBAIS ═══ */}
       {viewMode === 'intimacoes' && (() => {
         const allIntim = data.intimations || [];
-        // Default: exclude responded ones (they're archived in Docs). Filter "resolvidas" shows only resolved.
+        // Default: ativas = sem peça/ciência arquivada. "analisado" antigo permanece visível.
+        // Filtro "resolvidas" = responseAction ou ciência com renúncia.
         let filtered;
-        if (intimFilter === 'all') filtered = allIntim.filter(x => !x.responseAction);
-        else if (intimFilter === 'resolvidas') filtered = allIntim.filter(x => !!x.responseAction);
+        if (intimFilter === 'all') filtered = allIntim.filter(x => !intimIsClosed(x));
+        else if (intimFilter === 'resolvidas') filtered = allIntim.filter(x => intimIsClosed(x));
         else filtered = allIntim.filter(x => x.status === intimFilter && !x.responseAction);
         const today = new Date(); today.setHours(0,0,0,0);
         const byJuris = {};
-        allIntim.filter(x => !x.responseAction).forEach(x => { const j = x.jurisdiction || '?'; if (!byJuris[j]) byJuris[j] = { total: 0, abertos: 0, fechados: 0 }; byJuris[j].total++; if (x.dateDeadline) byJuris[j].abertos++; else byJuris[j].fechados++; });
-        const overdue = allIntim.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && x.status !== 'analisado' && !x.responseAction).length;
-        const resolvidasCount = allIntim.filter(x => !!x.responseAction).length;
+        allIntim.filter(x => !intimIsClosed(x)).forEach(x => { const j = x.jurisdiction || '?'; if (!byJuris[j]) byJuris[j] = { total: 0, abertos: 0, fechados: 0 }; byJuris[j].total++; if (x.dateDeadline) byJuris[j].abertos++; else byJuris[j].fechados++; });
+        const overdue = allIntim.filter(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today && intimIsOpenWork(x)).length;
+        const resolvidasCount = allIntim.filter(x => intimIsClosed(x)).length;
 
         return (<div key="inbox-intimacoes" className="entity-area demo-inbox-panel">
           <div className="intim-summary">
-            <div className="intim-summary-card has-tip"><div className="is-label">Total ativas</div><div className="is-value">{allIntim.filter(x => !x.responseAction).length}</div><span className="tip-content">Intimações que ainda requerem atuação.</span></div>
-            <div className="intim-summary-card"><div className="is-label">Pendentes</div><div className="is-value" style={{color:'var(--yellow)'}}>{allIntim.filter(x=>x.status==='pendente_analise' && !x.responseAction).length}</div></div>
+            <div className="intim-summary-card has-tip"><div className="is-label">Total ativas</div><div className="is-value">{allIntim.filter(x => !intimIsClosed(x)).length}</div><span className="tip-content">Intimações que ainda requerem atuação.</span></div>
+            <div className="intim-summary-card"><div className="is-label">Pendentes</div><div className="is-value" style={{color:'var(--yellow)'}}>{allIntim.filter(x=>x.status==='pendente_analise' && intimIsOpenWork(x)).length}</div></div>
             <div className="intim-summary-card"><div className="is-label">Vencidas</div><div className="is-value" style={{color:'var(--red)'}}>{overdue}</div></div>
             {(() => { const nNew = allIntim.filter(x => x._importFlag === 'new').length; const nUpd = allIntim.filter(x => x._importFlag === 'updated').length; if (nNew + nUpd === 0) return null; return <div className="intim-summary-card"><div className="is-label">Último import</div><div className="is-value" style={{fontSize:11}}>{nNew > 0 && <span style={{color:'var(--green)'}}>{nNew} nova(s)</span>}{nNew > 0 && nUpd > 0 && ' · '}{nUpd > 0 && <span style={{color:'var(--blue)'}}>{nUpd} atualiz.</span>}</div></div>; })()}
             {Object.keys(byJuris).length > 0 && Object.entries(byJuris).sort((a,b) => (jurisRank(a[0]) - jurisRank(b[0])) || a[0].localeCompare(b[0])).map(([j,v]) => <div key={j} className="intim-state-card"><div className="isc-uf">{j}</div><div className="isc-stats"><div className="isc-stat"><div className="isc-num" style={{color:'var(--blue)'}}>{v.abertos}</div><div className="isc-lbl">abertos</div></div><div className="isc-stat"><div className="isc-num" style={{color:'var(--text-muted)'}}>{v.fechados}</div><div className="isc-lbl">fechados</div></div><div className="isc-stat"><div className="isc-num">{v.total}</div><div className="isc-lbl">total</div></div></div></div>)}
@@ -9845,6 +9937,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <select value={intimFilter} onChange={e => setIntimFilter(e.target.value)}>
               <option value="all">Todas (ativas)</option>
               {Object.entries(INTIM_STATUSES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+              {allIntim.some(x => x.status === 'analisado' && !x.responseAction) && <option value="analisado">Analisado (antigo)</option>}
               <option value="resolvidas">✓ Resolvidas ({resolvidasCount})</option>
             </select>
             <select value={intimSort} onChange={e => setIntimSort(e.target.value)} style={{minWidth:200}} title="Padrão: prazo final mais próximo. Sem prazo vai para o fim da lista.">
@@ -9873,6 +9966,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           intimView === 'kanban' ? (() => {
             // Kanban view
             const statusCols = Object.entries(INTIM_STATUSES);
+            if (filtered.some(x => x.status === 'analisado')) statusCols.push(['analisado', INTIM_STATUS_LEGACY.analisado]);
             const handleDrop = (intimId, newStatus) => {
               setData(prev => ({...prev, intimations: prev.intimations.map(x => x.id === intimId ? {...x, status: newStatus} : x)}));
             };
@@ -9896,7 +9990,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('dragover')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); const id = e.dataTransfer.getData('text/plain'); if (id) handleDrop(id, statusKey); }}>
-                  <div className="kanban-col-header" style={{borderBottom:`2px solid ${statusKey==='pendente_analise'?'var(--yellow)':statusKey==='analisado'?'var(--green)':'#4ade80'}`}}>
+                  <div className="kanban-col-header" style={{borderBottom:`2px solid ${statusKey==='pendente_analise'?'var(--yellow)':statusKey==='ciencia_renuncia'?'var(--green)':statusKey==='aguardar'?'var(--text-muted)':'#4ade80'}`}}>
                     <span>{statusDef.label}</span>
                     <span className={`badge ${statusDef.badge}`}>{colItems.length}</span>
                   </div>
@@ -9958,7 +10052,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'deadline') sorted.sort(byDeadlineAsc);
             else if (intimSort === 'deadline_desc') sorted.sort((a,b) => { if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1; return new Date(b.dateDeadline) - new Date(a.dateDeadline); });
             else if (intimSort === 'days_left') sorted.sort((a,b) => { const da = daysUntil(a.dateDeadline), db = daysUntil(b.dateDeadline); if (da===null) return 1; if (db===null) return -1; return da - db; });
-            else if (intimSort === 'overdue_first') sorted.sort((a,b) => { const aO = a.dateDeadline && new Date(a.dateDeadline+'T00:00:00') < now && a.status!=='analisado'; const bO = b.dateDeadline && new Date(b.dateDeadline+'T00:00:00') < now && b.status!=='analisado'; if (aO&&!bO) return -1; if (!aO&&bO) return 1; if (a.dateDeadline&&b.dateDeadline) return new Date(a.dateDeadline)-new Date(b.dateDeadline); return 0; });
+            else if (intimSort === 'overdue_first') sorted.sort((a,b) => { const aO = a.dateDeadline && new Date(a.dateDeadline+'T00:00:00') < now && intimIsOpenWork(a); const bO = b.dateDeadline && new Date(b.dateDeadline+'T00:00:00') < now && intimIsOpenWork(b); if (aO&&!bO) return -1; if (!aO&&bO) return 1; if (a.dateDeadline&&b.dateDeadline) return new Date(a.dateDeadline)-new Date(b.dateDeadline); return 0; });
             else if (intimSort === 'sent') sorted.sort((a,b) => { if (!a.dateSent) return 1; if (!b.dateSent) return -1; return new Date(b.dateSent) - new Date(a.dateSent); });
             else if (intimSort === 'jurisdiction') sorted.sort((a,b) => (jurisRank(a.jurisdiction) - jurisRank(b.jurisdiction)) || (a.jurisdiction||'').localeCompare(b.jurisdiction||''));
             else if (intimSort === 'class') sorted.sort((a,b) => (a.className||'').localeCompare(b.className||''));
@@ -9968,7 +10062,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
             // Urgente no topo (exceto agrupamentos). Nas ordens de prazo, o prazo vale dentro de cada bloco.
             if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
-              const pinsUrgent = (x) => !x.responseAction && x.status !== 'analisado' && intimIsUrgent(x);
+              const pinsUrgent = (x) => intimIsOpenWork(x) && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
 
@@ -9978,9 +10072,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
             return (<div className="intim-grid">{sorted.map((intim, idx) => {
             const days = daysUntil(intim.dateDeadline);
-            const isOverdue = days !== null && days < 0 && intim.status !== 'analisado';
-            const isDueSoon = days !== null && days >= 0 && days <= 5 && intim.status !== 'analisado';
-            const st = INTIM_STATUSES[intim.status] || {};
+            const isOverdue = days !== null && days < 0 && intimIsOpenWork(intim);
+            const isDueSoon = days !== null && days >= 0 && days <= 5 && intimIsOpenWork(intim);
+            const st = intimStatusMeta(intim.status);
             const linkedOp = data.operations.find(o => o.id === intim.operationId);
             // Group header
             let groupHeader = null;
@@ -10001,7 +10095,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </div>;
               }
             }
-            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':intim.status==='analisado'?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${intimIsUrgent(intim)?' prio-urgente':intimImpKey(intim)==='alta'?' prio-alta':intimImpKey(intim)==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
+            return (<React.Fragment key={intim.id}>{groupHeader}<div className={`intim-card ${isOverdue?'overdue':isDueSoon?'due-soon':!intimIsOpenWork(intim)?'responded':intim.status==='peca_edicao'?'peca-edicao':(!intim.dateStart||!intim.dateDeadline)?'not-started':''}${intimIsUrgent(intim)?' prio-urgente':intimImpKey(intim)==='alta'?' prio-alta':intimImpKey(intim)==='baixa'?' prio-baixa':''}${intim._importFlag==='new'?' import-new':''}${intim._importFlag==='updated'?' import-updated':''}`}
               onClick={() => setModal({type:'edit',entityType:'intimation',initial:intim})}>
               {/* COL 1: party + process */}
               <div className="intim-left">
@@ -10044,7 +10138,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   <span className="im-label">Final:</span> <strong>{fmtDate(intim.dateDeadline)}</strong>
                 </div>
                 </>)}
-                {intim.dateStart && intim.status !== 'analisado' && (() => {
+                {intim.dateStart && intimIsOpenWork(intim) && (() => {
                   const embDate = addBusinessDays(intim.dateStart, 10);
                   const embDays = daysUntil(embDate);
                   const embOver = embDays !== null && embDays < 0;
@@ -11104,7 +11198,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     )}
     {intimWork && activeOp && (() => {
         const openIntims = (data.intimations || []).filter(x => x.operationId === activeOp.id)
-          .filter(x => (x.status === 'pendente_analise' || x.status === 'aguardando_subsidios' || x.status === 'peca_edicao') && !x.responseAction)
+          .filter(x => intimIsOpenWork(x))
           .sort((a, b) => (a.dateDeadline || '9999').localeCompare(b.dateDeadline || '9999'));
         return (
           <div className="intimwork-overlay" onClick={() => setIntimWork(false)}>
@@ -11121,7 +11215,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 {openIntims.length === 0 ? (
                   <div style={{padding:24,textAlign:'center',color:'var(--text-muted)',fontSize:12}}>Nenhuma intimação aberta nesta operação.</div>
                 ) : openIntims.map(intim => {
-                  const st = INTIM_STATUSES[intim.status] || { label: intim.status, badge: 'badge-muted' };
+                  const st = intimStatusMeta(intim.status);
                   const dl = intim.dateDeadline ? daysUntil(intim.dateDeadline) : null;
                   const party = (() => {
                     const name = intim.partyName || '';
@@ -12187,9 +12281,22 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(EXEC_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
-    {isHubProcess(form) && (
+    {isHubProcess(form) && !isIncidentProcess(form) && (
       <div style={{padding:'8px 10px',fontSize:11,color:'var(--text-secondary)',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8}}>
-        Este processo já tem card no Panorama processual por ser {form.processTag === 'idpj' ? 'IDPJ' : form.processTag === 'cautelar_fiscal' ? 'cautelar fiscal' : 'processo central'}.
+        Este processo já tem card no Panorama processual por ser processo central.
+      </div>
+    )}
+    {isIncidentProcess(form) && (
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
+          {form.inPanorama !== false
+            ? 'Este incidente aparece no Panorama. Retirar some só da faixa — o cadastro continua.'
+            : 'Este incidente está fora do Panorama. O processo segue na lista da operação.'}
+        </span>
+        <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
+          onClick={() => onSave({ ...form, inPanorama: form.inPanorama === false, _openPanorama: form.inPanorama === false })}>
+          {form.inPanorama !== false ? 'Retirar do panorama' : 'Exibir no panorama'}
+        </button>
       </div>
     )}
     {isExecucaoFiscalClass(form) && !isHubProcess(form) && (
@@ -12731,8 +12838,9 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         <div className="form-group"><label>Final Prazo</label><input type="date" value={form.dateDeadline||''} onChange={e=>set('dateDeadline',e.target.value)} /></div>
       </div>
       <div className="form-row">
-        <div className="form-group"><label>Status</label><select value={form.status||'pendente_analise'} onChange={e=>set('status',e.target.value)}>
+        <div className="form-group"><label>Status</label><select value={(INTIM_STATUSES[form.status] || form.status === 'analisado') ? form.status : 'pendente_analise'} onChange={e=>set('status',e.target.value)}>
           {Object.entries(INTIM_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          {form.status === 'analisado' && <option value="analisado">Analisado (antigo)</option>}
         </select></div>
         <div className="form-group"><label>Operação vinculada</label><select value={form.operationId||''} onChange={e=>set('operationId',e.target.value)}>
           <option value="">Nenhuma</option>{ops.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
