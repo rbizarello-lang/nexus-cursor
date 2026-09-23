@@ -962,14 +962,17 @@ const OP_CLASSIFICATIONS = {
   replicar: { label: 'Replicar', color: 'var(--yellow)', border: 'var(--yellow)' },
   replicado: { label: 'Replicado', color: 'var(--green)', border: 'var(--green)' },
   nao_replicar: { label: 'Não Replicar', color: 'var(--purple)', border: 'rgba(122,139,163,0.45)' },
-  fase_expropriacao: { label: 'Fase de Expropriação', color: 'var(--gold)', border: 'var(--gold)' }
+  fase_expropriacao: { label: 'Fase de Expropriação', color: 'var(--gold)', border: 'var(--gold)' },
+  transito_em_julgado: { label: 'Trânsito em Julgado', color: 'var(--green)', border: 'var(--green)' }
 };
-// Chaves antigas → critério atual. Critérios sem equivalente (trânsito, suspenso, recurso genérico) somem na leitura.
+// Chaves antigas → critério atual. Critérios sem equivalente (suspenso, recurso genérico) somem na leitura.
 const OP_CLASSIFICATION_ALIASES = {
   poucos_bens: 'bens_insuficientes',
   muitos_bens: 'bens_suficientes',
   parceladas: 'parcelamento_integral',
-  constricoes_ativas: 'constricao_ativa'
+  constricoes_ativas: 'constricao_ativa',
+  julgado: 'transito_em_julgado',
+  transito: 'transito_em_julgado'
 };
 const OP_PRIORITIES = {
   maxima: { label: 'Máxima', badge: 'badge-red' },
@@ -1394,7 +1397,8 @@ const INTIM_STATUSES = {
   aguardando_subsidios: { label: 'Aguardando Subsídios', badge: 'badge-muted' },
   aguardar: { label: 'Aguardar', badge: 'badge-muted' },
   peca_edicao: { label: 'Peça em Edição', badge: 'badge-green-strong' },
-  ciencia_renuncia: { label: 'Ciência com Renúncia', badge: 'badge-green' }
+  ciencia_renuncia: { label: 'Ciência com Renúncia', badge: 'badge-green' },
+  peca_pronta: { label: 'Peça Pronta', badge: 'badge-green' }
 };
 const INTIM_STATUS_LEGACY = {
   analisado: { label: 'Analisado', badge: 'badge-green' }
@@ -3552,7 +3556,7 @@ function App() {
   );
   const getPrescDate = useMemo(() => (d) => prescLookup.date(d), [prescLookup]);
   const prazosRadar = useMemo(
-    () => buildPrazosRadar(data, undefined, prescLookup, isDemo ? { policy: 'v2' } : undefined),
+    () => buildPrazosRadar(data, undefined, prescLookup, { policy: 'v2' }),
     [data.debts, data.executions, data.prescriptionEvents, data.operations, data.people, prescLookup, isDemo]
   );
   const prazosByDebt = useMemo(() => {
@@ -8808,14 +8812,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     setArt40Form(null);
     showToast(events.length + ' evento(s) lançado(s)');
   };
-  const prazosDeskMode = isDemo ? (appSettings.prazosDeskMode === 'lista' ? 'lista' : 'mesa') : 'lista';
+  const prazosDeskMode = appSettings.prazosDeskMode === 'lista' ? 'lista' : 'mesa';
   const setPrazosDeskMode = (mode) => updateSetting('prazosDeskMode', mode === 'lista' ? 'lista' : 'mesa');
-  const renderPrazosMesaToggle = () => isDemo ? (
+  const renderPrazosMesaToggle = () => (
     <div className="prazos-toggle mesa-mode-toggle">
       <button type="button" className={prazosDeskMode === 'mesa' ? 'active' : ''} onClick={() => setPrazosDeskMode('mesa')}>Mesa</button>
       <button type="button" className={prazosDeskMode === 'lista' ? 'active' : ''} onClick={() => setPrazosDeskMode('lista')}>Lista</button>
     </div>
-  ) : null;
+  );
   const renderMesaSnoozePopover = (r) => {
     if (!r || mesaSnoozeId !== r.id) return null;
     const today = localIso(new Date());
@@ -8992,7 +8996,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
   const renderPrazosView = () => {
-    if (isDemo && prazosDeskMode === 'mesa') return renderPrazosMesa();
+    if (prazosDeskMode === 'mesa') return renderPrazosMesa();
     const pf = prazosFilters;
     const t = prazosRadar.totals || {};
     const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
@@ -11392,7 +11396,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       const now = new Date().toISOString();
                       const { data: next } = commitNexusPrescricao(data, prescImport.plan, { uid, now });
                       const before = new Map((prazosRadar.rows || []).map(r => [r.id, r.group]));
-                      const afterRadar = buildPrazosRadar(next, undefined, undefined, isDemo ? { policy: 'v2' } : undefined);
+                      const afterRadar = buildPrazosRadar(next, undefined, undefined, { policy: 'v2' });
                       const after = [];
                       (prescImport.plan.processes || []).forEach(p => {
                         (p.cdas || []).forEach(c => {
