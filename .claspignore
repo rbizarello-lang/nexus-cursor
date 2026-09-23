@@ -18,8 +18,7 @@ _debug*
 Thumbs.db
 
 # Demos locais — o webapp (Código.js) só serve Nexus.html.
-# Não empurrar a demo nem os aliases locais (mesmo conteúdo, ~1,5 MB cada).
 Nexus.demo.html
+demo_experimental.html
 Nexus_demo.html
 Nexus_demo_experimental.html
-demo_experimental.html

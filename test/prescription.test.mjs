@@ -320,7 +320,7 @@ describe('decadência e prescrição ordinária', () => {
       asOf: ASOF
     });
     assert.equal(r.phase, 'interrompido');
-    assert.equal(r.status, 'seguro');
+    assert.equal(r.status, 'interrompido');
     assert.equal(r.diesAdQuem, null);
     assert.ok((r.memory || []).some(m => /383/.test(m.effect)));
     assert.match(r.summary + r.detail, /ajuizada/i);

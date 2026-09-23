@@ -22,10 +22,11 @@ npm run build
 ```
 
 4. Verificar sucesso no terminal (sem ERRO do `scripts/build.mjs`).
-5. Conferir que o par canônico foi atualizado/existe:
+5. Conferir que os três HTMLs foram atualizados/existem:
    - `Nexus.html` (clássico)
-   - `Nexus.demo.html` (Demo Experimental)
-   O build pode ainda gerar aliases locais (`Nexus_demo.html`, `Nexus_demo_experimental.html`, `demo_experimental.html`) — mesmo conteúdo da demo; não commitar.
+   - `Nexus.demo.html` (Demo — UI clássica, para compartilhar)
+   - `demo_experimental.html` (Demo Experimental — Beta)
+   O build **não** gera mais `Nexus_demo.html` nem `Nexus_demo_experimental.html`.
 6. Se o shell foi tocado: garantir que `<!--INJECT_APP_JS-->` ainda existe e que não voltou `babel-standalone`.
 
 ## Deploy (só se o usuário pedir push/deploy)
