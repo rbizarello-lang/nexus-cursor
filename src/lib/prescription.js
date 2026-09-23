@@ -1917,6 +1917,12 @@ export function attachPrescriptionSnapshots(data, asOf) {
     };
     const group = kind ? groupOfKind(kind, row) : 0;
     const key = prazosKeyMeta(kind, row);
+    const classified = applyConsumadaClassification({
+      ...row,
+      group,
+      prescDays: r.daysLeft,
+      prescKind: kind || ''
+    });
     d.prescriptionSnapshot = {
       diesAdQuem: r.diesAdQuem || '',
       daysLeft: r.daysLeft,
@@ -1932,7 +1938,8 @@ export function attachPrescriptionSnapshots(data, asOf) {
       checks: r.checks || [],
       estimated: !!r.estimated,
       incidents: r.incidents || [],
-      group,
+      group: classified.group,
+      consumada: classified.consumada || '',
       prescKind: kind || '',
       keyDate: key.date || '',
       keyLabel: key.label || '',
@@ -2326,6 +2333,7 @@ export function snoozeLimitDays(group) {
   if (group === 2) return 30;
   if (group === 3) return 7;
   if (group === 5) return 90;
+  if (group === 6) return 90;
   return 30;
 }
 
@@ -2852,8 +2860,44 @@ export const PRAZOS_GROUP_LABELS = {
   2: 'Provável — conferir nos autos',
   3: 'Cadastro a completar',
   4: 'Em acompanhamento',
-  5: 'Ainda impossível'
+  5: 'Ainda impossível',
+  6: 'Consumada'
 };
+
+/** Mesma janela do painel iminente (180d ≈ 6 meses): consumada recente ainda gera alerta. */
+export const CONSUMADA_ALERT_WINDOW = PAINEL_PRESC_WINDOW;
+
+const CONSUMADA_KINDS = new Set(['vencido', 'vencido_estimado', 'residual_alta']);
+
+/**
+ * Classifica prazo já vencido com o cálculo existente (prescDays).
+ * null = ainda não consumada; 'recent' = ≤6 meses (alerta + Consumada); 'old' = >6 meses (só Consumada).
+ */
+export function consumadaClass(row) {
+  if (!row || row.prescDays == null || row.prescDays > 0) return null;
+  const k = row.prescKind || row.kind;
+  if (!CONSUMADA_KINDS.has(k)) return null;
+  if (row.prescDays >= -CONSUMADA_ALERT_WINDOW) return 'recent';
+  return 'old';
+}
+
+/** Linha entra na sub-aba / card Consumada (recentes e antigas). */
+export function rowShowsInConsumada(row) {
+  return !!(row && (row.group === 6 || row.consumada === 'recent' || row.consumada === 'old'));
+}
+
+/** Ajusta grupo: antiga sai do alerta (vira 6); recente mantém o grupo de alerta e marca consumada. */
+export function applyConsumadaClassification(row) {
+  if (!row) return row;
+  const cls = consumadaClass(row);
+  if (!cls) return row;
+  row.consumada = cls;
+  if (cls === 'old') {
+    if (row.alertGroup == null) row.alertGroup = row.group;
+    row.group = 6;
+  }
+  return row;
+}
 
 function rowNeedsCadastro(row) {
   if (!row) return false;
@@ -3197,6 +3241,7 @@ export function buildPrazosRadar(data, asOf, prescLookup, opts) {
           }
         }
       }
+      applyConsumadaClassification(row);
       rows.push(row);
     });
   });
@@ -3231,7 +3276,8 @@ export function buildPrazosRadar(data, asOf, prescLookup, opts) {
     2: { n: 0, value: 0 },
     3: { n: 0, value: 0 },
     4: { n: 0, value: 0 },
-    5: { n: 0, value: 0 }
+    5: { n: 0, value: 0 },
+    6: { n: 0, value: 0 }
   };
   const byOp = {};
   rows.forEach(r => {
@@ -3239,10 +3285,16 @@ export function buildPrazosRadar(data, asOf, prescLookup, opts) {
       totals[r.group].n++;
       totals[r.group].value += r.value || 0;
     }
+    // Consumada recente continua no grupo de alerta e também conta no card Consumada
+    if (r.consumada === 'recent' && totals[6]) {
+      totals[6].n++;
+      totals[6].value += r.value || 0;
+    }
     if (!r.operationId) return;
-    if (!byOp[r.operationId]) byOp[r.operationId] = { g1: 0, g2: 0, g3: 0, g4: 0, g5: 0, risco: 0, completar: 0 };
+    if (!byOp[r.operationId]) byOp[r.operationId] = { g1: 0, g2: 0, g3: 0, g4: 0, g5: 0, g6: 0, risco: 0, completar: 0 };
     const slot = byOp[r.operationId];
     slot['g' + r.group] = (slot['g' + r.group] || 0) + 1;
+    if (r.consumada === 'recent') slot.g6 = (slot.g6 || 0) + 1;
     if (r.group === 1 || r.group === 2) slot.risco++;
     if (r.group === 3) slot.completar++;
   });
@@ -3284,6 +3336,7 @@ export function prazosRiskMetaForCdas(cdas, byDebt) {
     : n2 ? n2 + ' a conferir'
     : n3 ? n3 + ' a completar'
     : minGroup === 5 ? 'ainda impossível'
+    : minGroup === 6 ? 'consumada'
     : minGroup < 9 ? 'em acompanhamento'
     : '—';
   const riskClass = allHandled ? 'ok' : n1 ? 'critical' : (n2 || n3) ? 'warning' : '';

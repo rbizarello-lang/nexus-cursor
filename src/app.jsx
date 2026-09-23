@@ -2792,6 +2792,7 @@ function App() {
   const modalDirtyRef = useRef(false);
   const [betaMaisOpen, setBetaMaisOpen] = useState(false);
   const [betaNavOverflow, setBetaNavOverflow] = useState([]);
+  const [hojeFilter, setHojeFilter] = useState(null);
   const betaNavRef = useRef(null);
   const [mesaOverCapOpen, setMesaOverCapOpen] = useState(false);
   const [mesaRestoOpen, setMesaRestoOpen] = useState(false);
@@ -8434,65 +8435,85 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
   </div></>);
 
-  const buildHojeFila = () => {
+  const buildHojeFila = (filter) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const items = [];
-    (data.intimations || []).forEach(x => {
-      if (!intimPrazoNaAgenda(x)) return;
-      const dd = daysUntil(x.dateDeadline);
-      if (dd === null || dd > 7) return;
-      const op = data.operations.find(o => o.id === x.operationId);
-      items.push({
-        id: 'intim-' + x.id, kind: 'Intimação', due: dd,
-        title: truncate(x.className || x.eventDescription || x.processNumber || 'Intimação', 70),
-        meta: [op?.name, x.processNumber].filter(Boolean).join(' · '),
-        urgent: dd < 0 || dd <= 2,
-        go: () => { setViewMode('intimacoes'); setTimeout(() => setModal({ type: 'edit', entityType: 'intimation', initial: x }), 80); },
-      });
-    });
-    (data.tasks || []).forEach(t => {
-      if (t.status === 'concluida' || t.status === 'cancelada') return;
-      const dd = t.dueDate ? daysUntil(t.dueDate) : null;
-      if (dd === null || dd > 7) return;
-      const op = data.operations.find(o => o.id === t.operationId);
-      items.push({
-        id: 'task-' + t.id, kind: 'Tarefa', due: dd,
-        title: truncate(t.title || t.description || 'Tarefa', 70),
-        meta: [op?.name, t.priority].filter(Boolean).join(' · '),
-        urgent: dd < 0 || dd <= 2,
-        go: () => {
-          if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); startTabSwitch(() => setActiveTab('tarefas')); }
-          else setViewMode('tarefas_global');
-          setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
-        },
-      });
-    });
-    (data.hearings || []).forEach(h => {
-      if (h.status === 'realizada' || h.status === 'cancelada' || !h.date) return;
-      const dd = Math.round((new Date(h.date + 'T00:00:00') - today) / 86400000);
-      if (dd < 0 || dd > 7) return;
-      items.push({
-        id: 'hear-' + h.id, kind: 'Audiência', due: dd,
-        title: truncate(h.parties || h.processNumber || 'Audiência', 70),
-        meta: [h.time, h.processNumber].filter(Boolean).join(' · '),
-        urgent: dd <= 2,
-        go: () => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); },
-      });
-    });
-    (data.debts || []).forEach(d => {
-      if (d.prescriptionHandled) return;
-      const row = prazosByDebt.get(d.id);
-      if (!row || (row.group !== 1 && row.group !== 2)) return;
+    const pushPresc = (d, row) => {
       const dd = row.prescDays;
       const op = data.operations.find(o => o.id === d.operationId);
       items.push({
         id: 'presc-' + d.id, kind: 'Prescrição', due: dd,
         title: `CDA ${d.number || d.cdaNumber || ''} · ${fmtCur(d.value || 0)}`.trim(),
         meta: [op?.name, row.summary || (dd < 0 ? 'vencida' : `${dd}d`)].filter(Boolean).join(' · '),
-        urgent: row.group === 1,
+        urgent: row.group === 1 || (dd != null && dd <= 30),
         go: () => openPrazos(row.group),
       });
-    });
+    };
+    if (!filter || filter === 'intimacoes') {
+      (data.intimations || []).forEach(x => {
+        if (!intimPrazoNaAgenda(x)) return;
+        const dd = daysUntil(x.dateDeadline);
+        if (dd === null || dd > 7) return;
+        const op = data.operations.find(o => o.id === x.operationId);
+        items.push({
+          id: 'intim-' + x.id, kind: 'Intimação', due: dd,
+          title: truncate(x.className || x.eventDescription || x.processNumber || 'Intimação', 70),
+          meta: [op?.name, x.processNumber].filter(Boolean).join(' · '),
+          urgent: dd < 0 || dd <= 2,
+          go: () => { setViewMode('intimacoes'); setTimeout(() => setModal({ type: 'edit', entityType: 'intimation', initial: x }), 80); },
+        });
+      });
+    }
+    if (!filter || filter === 'tarefas') {
+      (data.tasks || []).forEach(t => {
+        if (t.status === 'concluida' || t.status === 'cancelada') return;
+        const dd = t.dueDate ? daysUntil(t.dueDate) : null;
+        if (dd === null || dd > 7) return;
+        const op = data.operations.find(o => o.id === t.operationId);
+        items.push({
+          id: 'task-' + t.id, kind: 'Tarefa', due: dd,
+          title: truncate(t.title || t.description || 'Tarefa', 70),
+          meta: [op?.name, t.priority].filter(Boolean).join(' · '),
+          urgent: dd < 0 || dd <= 2,
+          go: () => {
+            if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); startTabSwitch(() => setActiveTab('tarefas')); }
+            else setViewMode('tarefas_global');
+            setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
+          },
+        });
+      });
+    }
+    if (!filter) {
+      (data.hearings || []).forEach(h => {
+        if (h.status === 'realizada' || h.status === 'cancelada' || !h.date) return;
+        const dd = Math.round((new Date(h.date + 'T00:00:00') - today) / 86400000);
+        if (dd < 0 || dd > 7) return;
+        items.push({
+          id: 'hear-' + h.id, kind: 'Audiência', due: dd,
+          title: truncate(h.parties || h.processNumber || 'Audiência', 70),
+          meta: [h.time, h.processNumber].filter(Boolean).join(' · '),
+          urgent: dd <= 2,
+          go: () => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); },
+        });
+      });
+    }
+    if (!filter || filter === 'mesa') {
+      (data.debts || []).forEach(d => {
+        if (d.prescriptionHandled) return;
+        const row = prazosByDebt.get(d.id);
+        if (!row || (row.group !== 1 && row.group !== 2)) return;
+        pushPresc(d, row);
+      });
+    }
+    if (filter === 'prescricao') {
+      (data.debts || []).forEach(d => {
+        if (d.prescriptionHandled) return;
+        const row = prazosByDebt.get(d.id);
+        if (!row || row.group === 6 || row.consumada === 'old') return;
+        if (row.prescDays == null || row.prescDays > 30) return;
+        pushPresc(d, row);
+      });
+    }
     items.sort((a, b) => {
       const ad = a.due === null ? 9999 : a.due;
       const bd = b.due === null ? 9999 : b.due;
@@ -8736,6 +8757,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId)
       : null;
     if (mesaPersonIds) rows = rows.filter(r => mesaPersonIds.has(r.id));
+    // Mesa de trabalho: consumada há mais de 6 meses não entra na fila
+    rows = rows.filter(r => r.group !== 6);
     if (pf.q) {
       const raw = String(pf.q).toLowerCase();
       const q = raw.replace(/\D/g, '');
@@ -8831,7 +8854,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     const t = prazosRadar.totals || {};
     const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
     let rows = [...(prazosRadar.rows || [])];
-    if (pf.group) rows = rows.filter(r => r.group === pf.group);
+    if (pf.group === 6) rows = rows.filter(r => rowShowsInConsumada(r));
+    else if (pf.group) rows = rows.filter(r => r.group === pf.group);
+    else rows = rows.filter(r => r.group !== 6);
     if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);
     const listPersonIds = (pf.personId && pf.personId !== 'all')
       ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId)
@@ -8933,6 +8958,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {counterBtn(3, 'A completar')}
           {counterBtn(4, 'Acompanhamento')}
           {counterBtn(5, 'Ainda impossível')}
+          {counterBtn(6, 'Consumada')}
         </div>
         {!!prazosRadar.divergencias && (
           <div className="prazos-div">{prazosRadar.divergencias} divergência(s) — o cálculo do app é mais grave que a análise; a decisão importada foi mantida.</div>
@@ -9012,25 +9038,29 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
   const renderHojeView = () => {
-    const fila = buildHojeFila();
-    const hour = new Date().getHours();
-    const saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    const fila = buildHojeFila(hojeFilter);
+    const toggleHojeFilter = (key) => setHojeFilter(prev => prev === key ? null : key);
+    const emptyMsg = hojeFilter === 'intimacoes' ? 'Nenhuma intimação urgente nesta fila.'
+      : hojeFilter === 'tarefas' ? 'Nenhuma tarefa urgente nesta fila.'
+      : hojeFilter === 'mesa' ? 'Nenhum prazo da Mesa exige atuação urgente nesta fila.'
+      : hojeFilter === 'prescricao' ? 'Nenhuma prescrição com prazo de 30 dias ou menos.'
+      : 'Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use Operações ou Intimações e Tarefas para navegar o acervo.';
     return (
       <div className="demo-hoje">
         <div className="demo-hoje-hero">
           <div className="demo-hoje-kicker">NEXUS · Nova versão (beta)</div>
-          <h2>{saudacao}. O que exige ação hoje?</h2>
+          <h2>Tarefas de hoje</h2>
           <p>Fila unificada de intimações, tarefas, audiências e riscos prescricionais.</p>
           <div className="demo-hoje-ctas">
-            <button className="btn-primary" onClick={() => setViewMode('intimacoes')}>Abrir Intimações {openIntimsCount > 0 ? `(${openIntimsCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('tarefas_global')}>Abrir Tarefas {openTasksCount > 0 ? `(${openTasksCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setViewMode('mesa')}>Abrir Mesa {deskCount > 0 ? `(${deskCount})` : ''}</button>
-            <button className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: isDemo && activeOpId ? { operationId: activeOpId } : {} })}>Nova intimação</button>
-            <button className="btn-secondary" onClick={() => startTabSwitch(() => setViewMode('operacoes'))}>Ver operações</button>
+            <button type="button" className={hojeFilter === 'intimacoes' ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHojeFilter('intimacoes')}>Intimações</button>
+            <button type="button" className={hojeFilter === 'tarefas' ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHojeFilter('tarefas')}>Tarefas</button>
+            <button type="button" className={hojeFilter === 'mesa' ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHojeFilter('mesa')}>Mesa</button>
+            <button type="button" className={hojeFilter === 'prescricao' ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHojeFilter('prescricao')}>Prescrição</button>
+            <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'create', entityType: 'intimation', initial: isDemo && activeOpId ? { operationId: activeOpId } : {} })}>Nova intimação</button>
           </div>
         </div>
         {fila.length === 0 ? (
-          <div className="demo-fila-empty">Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use Operações ou Intimações e Tarefas para navegar o acervo.</div>
+          <div className="demo-fila-empty">{emptyMsg}</div>
         ) : (
           <div className="demo-fila">
             {fila.map(it => (
@@ -9382,7 +9412,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const betaNavItems = [
     { id: 'hoje', label: 'Hoje', active: viewMode === 'hoje', go: () => startTabSwitch(() => setViewMode('hoje')) },
     { id: 'painel', label: 'Painel', active: viewMode === 'painel', go: () => startTabSwitch(() => setViewMode('painel')) },
-    { id: 'prazos', label: 'Prazos', active: viewMode === 'prazos', go: () => startTabSwitch(() => setViewMode('prazos')) },
+    { id: 'prazos', label: 'Prescrição', active: viewMode === 'prazos', go: () => startTabSwitch(() => setViewMode('prazos')) },
     { id: 'operacoes', label: 'Operações', active: viewMode === 'operacoes', go: () => startTabSwitch(() => setViewMode('operacoes')) },
     { id: 'intimacoes', label: 'Intimações e Tarefas', extra: (openIntimsCount + openTasksCount) || 0, active: viewMode === 'intimacoes' || viewMode === 'tarefas_global', go: () => startTabSwitch(() => setViewMode(viewMode === 'tarefas_global' ? 'tarefas_global' : 'intimacoes')) },
     { id: 'mesa', label: 'Mesa', extra: deskCount, active: viewMode === 'mesa', go: () => startTabSwitch(() => setViewMode('mesa')) },
@@ -9399,8 +9429,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       btns.forEach(b => b.classList.remove('is-overflow'));
       const settings = row.querySelector('[data-beta-settings]');
       const mais = row.querySelector('[data-beta-mais]');
-      const op = row.querySelector('[data-beta-op]');
-      const reserve = ((settings && settings.offsetWidth) || 40) + ((op && op.offsetWidth) || 0) + ((mais && mais.offsetWidth) || 72) + 12;
+      const opSlot = row.querySelector('[data-beta-op-slot]');
+      const reserve = ((settings && settings.offsetWidth) || 40) + ((opSlot && opSlot.offsetWidth) || 168) + ((mais && mais.offsetWidth) || 0) + 12;
       const limit = row.clientWidth - reserve;
       let used = 0;
       const hide = [];
@@ -9564,7 +9594,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div className="top-nav-cluster">
           {betaNavItems.map(item => (
             <button key={item.id} type="button" data-beta-nav={item.id}
-              className={`top-nav-btn ${item.active ? 'active' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
+              className={`top-nav-btn ${item.active ? 'active' : ''}${item.id === 'intimacoes' ? ' top-nav-featured' : ''}${betaNavOverflow.includes(item.id) ? ' is-overflow' : ''}`}
               onClick={() => { item.go(); setBetaMaisOpen(false); }}>
               {item.label}
               {item.extra > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({item.extra})</span> : null}
@@ -9586,13 +9616,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
           </div>
         )}
-        {activeOp && <><div className="top-nav-sep"></div>
-          <button type="button" data-beta-op="1" className={`top-nav-btn top-nav-op ${viewMode==='operation'?'active':''}`}
-            title={activeOp.name}
-            onClick={() => startTabSwitch(() => setViewMode('operation'))}>
-            {truncate(activeOp.name, 22)}
-          </button>
-        </>}
+        <div className="top-nav-op-slot" data-beta-op-slot="1">
+          {activeOp && (
+            <button type="button" data-beta-op="1" className={`top-nav-btn top-nav-op ${viewMode==='operation'?'active':''}`}
+              title={activeOp.name}
+              onClick={() => startTabSwitch(() => setViewMode('operation'))}>
+              {truncate(activeOp.name, 22)}
+            </button>
+          )}
+        </div>
         <div style={{marginLeft:'auto',position:'relative',flexShrink:0}} data-beta-settings="1">
           <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="Configurações">⚙</button>
           {renderSettingsPanel()}
@@ -10194,9 +10226,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             else if (intimSort === 'operation') sorted.sort((a,b) => { const oa = data.operations.find(o=>o.id===a.operationId)?.name||'zzz'; const ob = data.operations.find(o=>o.id===b.operationId)?.name||'zzz'; return oa.localeCompare(ob); });
             else if (intimSort === 'action_date') sorted.sort((a,b) => { const ta = a.responseAction?.respondedAt, tb = b.responseAction?.respondedAt; if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1; return new Date(tb) - new Date(ta); });
 
-            // Clássico: Urgente no topo (exceto agrupamentos). Beta + Prazo final: vencidas primeiro; Urgente só desempata no mesmo dia.
-            const betaDeadline = isDemo && (intimSort === 'deadline' || intimSort === 'days_left' || intimSort === 'overdue_first');
-            if (betaDeadline) {
+            // Clássico: Urgente no topo (exceto agrupamentos). Prazo final / dias restantes: só a data; sem prazo no fim.
+            const groupedSorts = ['jurisdiction','class','operation','processo','action_date'];
+            const deadlineOnlySorts = ['deadline', 'days_left', 'deadline_desc'];
+            if (isDemo && intimSort === 'overdue_first') {
               const dayKey = (x) => toDayKey(x.dateDeadline) || '';
               const isOver = (x) => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < now && intimIsOpenWork(x);
               sorted.sort((a,b) => {
@@ -10205,9 +10238,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const da = dayKey(a), db = dayKey(b);
                 if (!da && db) return 1; if (da && !db) return -1;
                 if (da !== db) return da.localeCompare(db);
-                return (intimIsUrgent(b) ? 1 : 0) - (intimIsUrgent(a) ? 1 : 0);
+                return 0;
               });
-            } else if (!['jurisdiction','class','operation','processo','action_date'].includes(intimSort)) {
+            } else if (!groupedSorts.includes(intimSort) && !deadlineOnlySorts.includes(intimSort)) {
               const pinsUrgent = (x) => intimIsOpenWork(x) && intimIsUrgent(x);
               sorted.sort((a,b) => (pinsUrgent(a)?0:1) - (pinsUrgent(b)?0:1));
             }
@@ -10216,7 +10249,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             const needsGroupHeader = ['jurisdiction','class','operation','processo','action_date'].includes(intimSort);
             let lastGroup = null;
             let lastIntimBlock = null;
-            const betaDeadlineBlocks = isDemo && (intimSort === 'deadline' || intimSort === 'days_left' || intimSort === 'overdue_first') && !needsGroupHeader;
+            const betaDeadlineBlocks = isDemo && intimSort === 'overdue_first' && !needsGroupHeader;
 
             return (<div className="intim-grid">{sorted.map((intim, idx) => {
             const days = daysUntil(intim.dateDeadline);
