@@ -22,6 +22,16 @@ Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássic
 
 ---
 
+## 🧭 Claude-experimental — protótipo de layout (parte 1 ✅ 23/09/2026)
+
+Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
+
+- **Parte 1 (feita):** menu lateral com operações, Hoje, Intimações (lista, quadro e modo foco), gaveta da intimação com régua do prazo, linha do tempo com a contagem do art. 40, Carteira, página da operação, Prazos extintivos e busca ⌘K. Direções visuais Grafite, Ardósia e Maré.
+- **Próximas partes (sugestão):** 2 · escolher direção e ajustar densidade; 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens; 5 · ligar aos dados reais como terceira edição (`uiEdition`), sem mexer em parsers, prescrição ou sync.
+- Detalhes e atalhos: `design/claude-experimental/README.md`.
+
+---
+
 ## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
 **Ainda não implementado.** Pedir por fase: "vamos fazer o P1".

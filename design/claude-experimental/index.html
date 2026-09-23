@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NEXUS Claude Experimental</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+/* NEXUS · Claude-experimental — protótipo de layout (dados fictícios).
+   Três direções visuais: Ardósia (claro), Grafite (escuro) e Maré (herança do Mar Profundo).
+   Sem data-dir o app segue o tema do sistema. */
+:root, .nx[data-dir="ardosia"] {
+  color-scheme: light;
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+  --line: #dcdfe4; --line-strong: #c7cbd2;
+  --ink: #14161a; --ink-2: #4d535e; --ink-3: #828894;
+  --accent: #8a6722; --accent-soft: #f4ecdb; --accent-btn: #1b1e24; --accent-ink: #ffffff;
+  --red: #c2323d; --red-soft: #fbe8e9; --orange: #bf5f16; --orange-soft: #fcefe3;
+  --yellow: #946b00; --yellow-soft: #f8efd2; --blue: #2d62d3; --blue-soft: #e7eefc;
+  --green: #21845a; --green-soft: #e2f3eb; --violet: #6a4fd4; --violet-soft: #eeeafc;
+  --cyan: #0f7888; --cyan-soft: #e0f3f5;
+  --op1: #2d62d3; --op2: #bf5f16; --op3: #21845a; --op4: #6a4fd4; --op5: #0f7888;
+  --shadow: 0 1px 2px rgba(20,24,32,.05), 0 6px 20px rgba(20,24,32,.07);
+  --shadow-lg: 0 24px 64px rgba(20,24,32,.22);
+  --scrim: rgba(18,20,26,.34); --grid: rgba(20,24,32,.05); --hatch: rgba(20,24,32,.08);
+  --font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --r: 6px; --r-lg: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #101113; --panel: #131417; --surface: #18191d; --surface-2: #1c1d22; --hover: #222429;
+    --line: #26282e; --line-strong: #34373e;
+    --ink: #e8e9ec; --ink-2: #a1a5ad; --ink-3: #6c717a;
+    --accent: #d4ad60; --accent-soft: rgba(212,173,96,.13); --accent-btn: #d4ad60; --accent-ink: #17120a;
+    --red: #f0646f; --red-soft: rgba(240,100,111,.13); --orange: #f09a4c; --orange-soft: rgba(240,154,76,.13);
+    --yellow: #e8c95a; --yellow-soft: rgba(232,201,90,.12); --blue: #7aa8ff; --blue-soft: rgba(122,168,255,.13);
+    --green: #5cc493; --green-soft: rgba(92,196,147,.13); --violet: #a894ff; --violet-soft: rgba(168,148,255,.14);
+    --cyan: #5ccad8; --cyan-soft: rgba(92,202,216,.12);
+    --op1: #7aa8ff; --op2: #f09a4c; --op3: #5cc493; --op4: #a894ff; --op5: #5ccad8;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    --shadow-lg: 0 24px 80px rgba(0,0,0,.6);
+    --scrim: rgba(4,5,7,.58); --grid: rgba(255,255,255,.035); --hatch: rgba(255,255,255,.07);
+  }
+}
+:root[data-theme="dark"], .nx[data-dir="grafite"] {
+  color-scheme: dark;
+  --ground: #101113; --panel: #131417; --surface: #18191d; --surface-2: #1c1d22; --hover: #222429;
+  --line: #26282e; --line-strong: #34373e;
+  --ink: #e8e9ec; --ink-2: #a1a5ad; --ink-3: #6c717a;
+  --accent: #d4ad60; --accent-soft: rgba(212,173,96,.13); --accent-btn: #d4ad60; --accent-ink: #17120a;
+  --red: #f0646f; --red-soft: rgba(240,100,111,.13); --orange: #f09a4c; --orange-soft: rgba(240,154,76,.13);
+  --yellow: #e8c95a; --yellow-soft: rgba(232,201,90,.12); --blue: #7aa8ff; --blue-soft: rgba(122,168,255,.13);
+  --green: #5cc493; --green-soft: rgba(92,196,147,.13); --violet: #a894ff; --violet-soft: rgba(168,148,255,.14);
+  --cyan: #5ccad8; --cyan-soft: rgba(92,202,216,.12);
+  --op1: #7aa8ff; --op2: #f09a4c; --op3: #5cc493; --op4: #a894ff; --op5: #5ccad8;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  --shadow-lg: 0 24px 80px rgba(0,0,0,.6);
+  --scrim: rgba(4,5,7,.58); --grid: rgba(255,255,255,.035); --hatch: rgba(255,255,255,.07);
+}
+.nx[data-dir="mare"] {
+  color-scheme: dark;
+  --ground: #0e1828; --panel: #111c2f; --surface: #152238; --surface-2: #192840; --hover: #1e2f4a;
+  --line: #233657; --line-strong: #2f4670;
+  --ink: #e6ecf5; --ink-2: #9fb0c8; --ink-3: #687d99;
+  --accent: #caa55c; --accent-soft: rgba(202,165,92,.14); --accent-btn: #caa55c; --accent-ink: #16110a;
+  --red: #ef7282; --red-soft: rgba(239,114,130,.14); --orange: #f0a35e; --orange-soft: rgba(240,163,94,.14);
+  --yellow: #e4c562; --yellow-soft: rgba(228,197,98,.13); --blue: #86b6ee; --blue-soft: rgba(134,182,238,.14);
+  --green: #6fc89c; --green-soft: rgba(111,200,156,.14); --violet: #ad9cff; --violet-soft: rgba(173,156,255,.15);
+  --cyan: #6fd2de; --cyan-soft: rgba(111,210,222,.13);
+  --op1: #86b6ee; --op2: #f0a35e; --op3: #6fc89c; --op4: #ad9cff; --op5: #6fd2de;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(3,8,20,.4);
+  --shadow-lg: 0 24px 80px rgba(2,6,16,.65);
+  --scrim: rgba(4,9,20,.6); --grid: rgba(160,190,230,.045); --hatch: rgba(160,190,230,.09);
+}
+
+/* ─── Base ─── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 13px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+#root { height: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+svg.i { flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.mono { font-family: var(--mono); letter-spacing: -.01em; }
+.tnum { font-variant-numeric: tabular-nums; }
+.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.muted { color: var(--ink-3); }
+.boot { display: grid; place-items: center; height: 100%; color: var(--ink-3); font: 12px var(--mono); }
+
+/* ─── Shell ─── */
+.nx { height: 100%; display: grid; grid-template-columns: 244px minmax(0, 1fr); background: var(--ground); color: var(--ink); }
+.side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.side-head { display: flex; align-items: center; gap: 6px; height: 48px; padding: 0 8px 0 12px; flex: none; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; padding: 4px 6px; margin-left: -6px; border: 0; border-radius: 6px; background: none; text-align: left; }
+.brand:hover { background: var(--hover); }
+.brand-mark { position: relative; width: 24px; height: 24px; border-radius: 6px; background: var(--ink); color: var(--ground); display: grid; place-items: center; font: 600 12px/1 var(--mono); flex: none; }
+.brand-mark::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel); }
+.brand-name { font-weight: 600; letter-spacing: .04em; font-size: 12.5px; }
+.brand-sub { display: block; font-size: 11px; color: var(--ink-3); font-weight: 400; letter-spacing: 0; }
+.icon-btn { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--ink-3); flex: none; }
+.icon-btn:hover { background: var(--hover); color: var(--ink); }
+.side-scroll { flex: 1; overflow-y: auto; padding: 2px 8px 14px; min-height: 0; }
+.nav { display: flex; flex-direction: column; gap: 1px; }
+.nav-item { display: flex; align-items: center; gap: 9px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--ink-2); text-align: left; white-space: nowrap; }
+.nav-item:hover { background: var(--hover); color: var(--ink); }
+.nav-item.on { background: var(--hover); color: var(--ink); font-weight: 500; }
+.nav-item .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-count { font: 500 11px var(--mono); color: var(--ink-3); }
+.nav-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font: 600 10.5px/18px var(--mono); text-align: center; }
+.nav-badge.red { background: var(--red-soft); color: var(--red); }
+.nav-sec { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 500; color: var(--ink-3); padding: 18px 4px 6px 8px; }
+.op-sq { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.nav-op .chev { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ink-3); margin-left: -4px; transition: transform .15s; }
+.nav-op.open .chev { transform: rotate(90deg); }
+.nav-op .fav { color: var(--accent); }
+.nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 1px 0 4px; }
+.nav-sub .nav-item { padding-left: 32px; height: 28px; font-size: 12.5px; }
+.side-foot { flex: none; border-top: 1px solid var(--line); padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.side-foot-l { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--ink-3); padding: 0 2px; }
+.dir-sw { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.dir-opt { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 5px 3px 4px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); font-size: 10.5px; color: var(--ink-2); }
+.dir-opt:hover { border-color: var(--line-strong); }
+.dir-opt.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
+.swatch { width: 100%; height: 16px; border-radius: 4px; display: flex; overflow: hidden; border: 1px solid rgba(128,128,128,.25); }
+.swatch i { flex: 1; }
+.side-scrim { display: none; }
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { flex: none; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--ground); }
+.menu-btn { display: none; }
+.crumb { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink-3); white-space: nowrap; }
+.crumb .sep { opacity: .6; }
+.crumb b { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.top-r { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.search { display: flex; align-items: center; gap: 8px; height: 30px; width: 250px; padding: 0 6px 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink-3); text-align: left; }
+.search:hover { border-color: var(--line-strong); color: var(--ink-2); }
+.search .t { flex: 1; }
+kbd { font: 500 10.5px/1 var(--mono); padding: 3px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--ink-3); background: var(--surface-2); }
+.sync { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); white-space: nowrap; padding: 0 4px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.btn { height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 500; white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--accent-btn); border-color: transparent; color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-btn); filter: brightness(1.1); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--hover); color: var(--ink); }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; }
+.btn kbd { margin-left: 2px; }
+.btn.primary kbd { background: transparent; color: inherit; border-color: currentColor; opacity: .55; }
+.content { flex: 1; overflow-y: auto; min-height: 0; }
+.page { max-width: 1200px; margin: 0 auto; padding: 28px 32px 72px; }
+.page-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.page-h h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.page-h p { margin: 4px 0 0; color: var(--ink-2); max-width: 70ch; }
+.page-h .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ─── Common bits ─── */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); min-width: 0; }
+.card-h { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 7px 10px 7px 14px; }
+.card-h h2 { font-size: 13px; font-weight: 600; margin: 0; white-space: nowrap; }
+.card-h .aside { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.link-btn { border: 0; background: none; color: var(--ink-3); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 5px; white-space: nowrap; }
+.link-btn:hover { color: var(--ink); background: var(--hover); }
+.seg { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); gap: 1px; flex: none; }
+.seg button { height: 22px; padding: 0 8px; border: 0; border-radius: 5px; background: none; color: var(--ink-3); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(0,0,0,.08); }
+.seg .n { font: 500 10.5px var(--mono); color: var(--ink-3); }
+.seg.lg button { height: 26px; padding: 0 10px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 5px; font-size: 11.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.tag.red { color: var(--red); background: var(--red-soft); border-color: transparent; }
+.tag.orange { color: var(--orange); background: var(--orange-soft); border-color: transparent; }
+.tag.yellow { color: var(--yellow); background: var(--yellow-soft); border-color: transparent; }
+.tag.blue { color: var(--blue); background: var(--blue-soft); border-color: transparent; }
+.tag.green { color: var(--green); background: var(--green-soft); border-color: transparent; }
+.tag.violet { color: var(--violet); background: var(--violet-soft); border-color: transparent; }
+.tag.cyan { color: var(--cyan); background: var(--cyan-soft); border-color: transparent; }
+.op-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; min-width: 0; }
+.op-tag .ell { max-width: 100%; }
+.proc { font-family: var(--mono); font-size: 11.5px; white-space: nowrap; letter-spacing: -.02em; color: var(--ink); }
+.proc .d { color: var(--ink-3); }
+.uf { display: inline-block; font: 600 9.5px/1 var(--mono); padding: 3px 4px; border-radius: 3px; background: var(--cyan-soft); color: var(--cyan); margin-right: 6px; vertical-align: 1px; letter-spacing: .02em; }
+.ptag { display: inline-grid; place-items: center; min-width: 34px; height: 18px; padding: 0 4px; border-radius: 4px; font: 600 9.5px/1 var(--mono); letter-spacing: .03em; }
+.urg { font: 700 9px/1 var(--mono); letter-spacing: .06em; padding: 3px 5px; border-radius: 3px; background: var(--red); color: #fff; flex: none; }
+.due { font: 500 12px var(--mono); white-space: nowrap; letter-spacing: -.01em; }
+.due.late { color: var(--red); }
+.due.today { color: var(--orange); }
+.due.soon { color: var(--yellow); }
+.due.later { color: var(--ink-3); }
+.due.done { color: var(--green); }
+.imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.imp i { width: 3px; border-radius: 1px; background: var(--line-strong); }
+.imp i:nth-child(1) { height: 5px; } .imp i:nth-child(2) { height: 8px; } .imp i:nth-child(3) { height: 12px; }
+.imp[data-v="alta"] i { background: var(--red); }
+.imp[data-v="media"] i:nth-child(-n+2) { background: var(--ink-2); }
+.imp[data-v="baixa"] i:nth-child(1) { background: var(--ink-2); }
+.imp-urg { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 3px; background: var(--red); color: #fff; font: 700 10px/1 var(--mono); }
+.dif { display: inline-flex; gap: 2px; align-items: center; height: 12px; }
+.dif i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--line-strong); }
+.dif[data-v="alta"] i { background: var(--orange); border-color: var(--orange); }
+.dif[data-v="media"] i:nth-child(-n+2) { background: var(--ink-2); border-color: var(--ink-2); }
+.dif[data-v="baixa"] i:nth-child(1) { background: var(--ink-2); border-color: var(--ink-2); }
+.avs { display: flex; }
+.av { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 600 8.5px/1 var(--mono); color: var(--ink-2); background: var(--surface-2); border: 1.5px solid var(--surface); box-shadow: 0 0 0 1px var(--line); margin-left: -4px; }
+.av:first-child { margin-left: 0; }
+.av.pj { border-radius: 5px; }
+.bar { position: relative; width: 100%; min-width: 60px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--green); }
+.pct { font: 500 11.5px var(--mono); color: var(--ink-2); }
+.kind { font: 500 9.5px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; white-space: nowrap; }
+.toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 9px; background: var(--ink); color: var(--ground); box-shadow: var(--shadow-lg); font-size: 12.5px; animation: toast .2s ease-out; max-width: calc(100% - 32px); }
+@keyframes toast { from { transform: translate(-50%, 8px); opacity: 0; } }
+
+/* ─── Hoje ─── */
+.hello { font-size: 28px; font-weight: 600; letter-spacing: -.025em; margin: 6px 0; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 66ch; margin: 0; font-size: 13.5px; }
+.lede b { color: var(--ink); font-weight: 500; }
+.proto-note { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-3); border: 1px dashed var(--line-strong); border-radius: 6px; padding: 3px 8px; margin-top: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); margin: 22px 0 20px; overflow: hidden; }
+.kpi { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 14px 16px 13px; border: 0; border-left: 1px solid var(--line); background: none; text-align: left; color: inherit; min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi:hover { background: var(--hover); }
+.kpi-l { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.kpi-l svg { color: var(--ink-3); }
+.kpi-v { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; margin-top: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-v small { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-left: 3px; letter-spacing: 0; }
+.kpi-s { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-s.red { color: var(--red); } .kpi-s.orange { color: var(--orange); } .kpi-s.violet { color: var(--violet); }
+.spark { position: absolute; right: 14px; top: 38px; display: flex; align-items: flex-end; gap: 2px; height: 26px; }
+.spark i { width: 4px; border-radius: 1px; background: var(--line-strong); min-height: 1px; }
+.spark i.last { background: var(--accent); }
+.meter { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: var(--line); margin: 7px 0 3px; max-width: 180px; }
+.meter i { display: block; height: 100%; }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.q-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 18px 74px; align-items: center; gap: 12px; width: 100%; min-height: 42px; padding: 6px 14px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; color: inherit; }
+.q-row:hover { background: var(--hover); }
+.q-main { min-width: 0; }
+.q-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-title b { font-weight: 500; }
+.q-meta { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-row .due { text-align: right; }
+.q-ic { display: grid; place-items: center; color: var(--ink-3); }
+.empty-row { padding: 18px 14px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; }
+.dl-h { display: flex; gap: 6px; align-items: baseline; font-size: 11.5px; color: var(--ink-3); padding: 10px 14px 4px; }
+.dl-h b { color: var(--ink-2); font-weight: 500; }
+.dl-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 5px 14px; border: 0; background: none; text-align: left; color: inherit; min-height: 30px; }
+.dl-item:hover { background: var(--hover); }
+.dl-item .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-more { font-size: 11.5px; color: var(--ink-3); padding: 4px 14px 10px; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { font-size: 11.5px; font-weight: 500; color: var(--ink-3); text-align: left; padding: 7px 14px; border-top: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 9px 14px; border-top: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+.tbl tr.click { cursor: pointer; }
+.tbl tr.click:hover td { background: var(--hover); }
+.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cover { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.cover .bar { width: 96px; }
+.op-name-cell { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.callout { display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; border-radius: var(--r-lg); border: 1px solid color-mix(in srgb, var(--orange) 38%, var(--line)); background: var(--orange-soft); }
+.callout-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); color: var(--orange); flex: none; border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--line)); }
+.callout-t { font-weight: 600; }
+.callout-s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.callout-a { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.act { display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.act-ic { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; flex: none; background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line); }
+.act time { display: block; font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+/* ─── Intimações ─── */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar .sp { flex: 1; }
+.field { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink-3); width: 260px; max-width: 100%; }
+.field:focus-within { border-color: var(--accent); }
+.field input { border: 0; outline: 0; background: none; flex: 1; min-width: 0; color: var(--ink); }
+.sel-wrap { position: relative; display: inline-flex; align-items: center; }
+.sel-wrap .pre { position: absolute; left: 10px; font-size: 12px; color: var(--ink-3); pointer-events: none; }
+.sel-wrap select { height: 30px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); padding: 0 28px 0 10px; appearance: none; -webkit-appearance: none; font-size: 12.5px; cursor: pointer; }
+.sel-wrap svg { position: absolute; right: 9px; pointer-events: none; color: var(--ink-3); }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.list-h { display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 34px 44px 92px; column-gap: 14px; padding: 8px 14px; font-size: 11px; color: var(--ink-3); border-bottom: 1px solid var(--line); }
+.list-h .r { text-align: right; }
+.grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--surface-2); border: 0; border-top: 1px solid var(--line); text-align: left; color: var(--ink); font-weight: 500; }
+.list > .grp:nth-child(2), .list > .grp:first-child { border-top: 0; }
+.grp .n { font: 500 11px var(--mono); color: var(--ink-3); }
+.grp .caret { color: var(--ink-3); transition: transform .15s; display: grid; }
+.grp.closed .caret { transform: rotate(-90deg); }
+.grp .gsum { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+.i-row { position: relative; display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 34px 44px 92px; align-items: center; column-gap: 14px; min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--line); cursor: pointer; }
+.grp + .i-row { border-top-color: var(--line); }
+.i-row:hover { background: var(--hover); }
+.i-row.sel { background: var(--accent-soft); }
+.i-row.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--red); }
+.i-row.done { opacity: .72; }
+.i-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.i-party { display: flex; align-items: center; gap: 7px; font-weight: 500; min-width: 0; }
+.i-ev { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.i-note { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-3); min-width: 0; }
+.i-note svg { flex: none; }
+.i-note .ell { font-style: italic; }
+.i-sub { display: none; }
+.c-proc { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.c-proc .cls { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-op { min-width: 0; }
+.c-imp, .c-dif { display: flex; justify-content: center; }
+.c-due { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.c-due .sub { font: 400 10.5px var(--mono); color: var(--ink-3); }
+.st-ic { display: grid; place-items: center; }
+
+.board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.b-col { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); display: flex; flex-direction: column; min-width: 0; }
+.b-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 500; }
+.b-h .n { font: 500 11px var(--mono); color: var(--ink-3); }
+.b-list { display: flex; flex-direction: column; gap: 8px; padding: 0 8px 10px; }
+.b-card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; display: flex; flex-direction: column; gap: 7px; cursor: pointer; text-align: left; color: inherit; width: 100%; }
+.b-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.b-card .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.b-card .row .due { margin-left: auto; }
+.b-card .ev { font-size: 12px; color: var(--ink-2); }
+.b-card .nt { font-size: 11.5px; color: var(--ink-3); font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; border-left: 2px solid var(--line-strong); padding-left: 7px; }
+.b-empty { font-size: 12px; color: var(--ink-3); padding: 10px 6px; text-align: center; border: 1px dashed var(--line); border-radius: 8px; }
+
+/* ─── Detalhe (gaveta e foco) ─── */
+.scrim { position: fixed; inset: 0; z-index: 40; background: var(--scrim); animation: fade .15s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(560px, 100%); background: var(--surface); border-left: 1px solid var(--line-strong); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; animation: slide .2s cubic-bezier(.2, .8, .2, 1); padding-bottom: env(safe-area-inset-bottom, 0px); }
+@keyframes slide { from { transform: translateX(28px); opacity: .5; } }
+.dr-top { display: flex; align-items: center; gap: 6px; height: 48px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--line); flex: none; padding-top: env(safe-area-inset-top, 0px); box-sizing: content-box; }
+.dr-top .crumb { flex: 1; font-size: 12.5px; }
+.dr-body { flex: 1; overflow-y: auto; padding: 18px 20px 28px; }
+.dr-foot { flex: none; display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--surface-2); flex-wrap: wrap; align-items: center; }
+.dr-foot .sp { flex: 1; }
+.d-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.d-title { font-size: 19px; font-weight: 600; letter-spacing: -.015em; margin: 10px 0 3px; text-wrap: balance; line-height: 1.25; }
+.d-ev { color: var(--ink-2); margin: 0; font-size: 13.5px; }
+.sec-t { font: 500 10.5px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
+.sec-t .n { color: var(--ink-3); }
+.sec-t .r { margin-left: auto; text-transform: none; letter-spacing: 0; font-family: var(--font); }
+.ruler { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 14px 12px; background: var(--surface-2); margin-top: 16px; }
+.ruler-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ruler-big { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.ruler-big.late { color: var(--red); } .ruler-big.today { color: var(--orange); } .ruler-big.soon { color: var(--yellow); } .ruler-big.done { color: var(--green); }
+.ruler-s { font-size: 12px; color: var(--ink-3); }
+.track { position: relative; height: 6px; border-radius: 3px; background: var(--line); margin: 14px 4px 10px; }
+.track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink-3); opacity: .55; }
+.track .fill.late { background: var(--red); opacity: .75; }
+.track .mk { position: absolute; top: 50%; width: 2px; height: 12px; transform: translate(-50%, -50%); background: var(--ink-3); border-radius: 1px; }
+.track .mk.final { width: 10px; height: 10px; border-radius: 2px; transform: translate(-50%, -50%) rotate(45deg); background: var(--ink); }
+.track .mk.ed { background: var(--violet); }
+.track .now { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--accent); border: 2px solid var(--surface-2); box-shadow: 0 0 0 1px var(--accent); }
+.ruler-l { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; font-size: 11.5px; color: var(--ink-3); }
+.ruler-l b { display: block; font: 500 12px var(--mono); color: var(--ink); }
+.ruler-l .ed b { color: var(--violet); }
+.ruler-foot { font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+.gram { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 8px 16px; align-items: end; }
+.gram-f { display: flex; flex-direction: column; gap: 6px; }
+.gram-f > span { font-size: 11.5px; color: var(--ink-3); }
+.urg-t { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; color: var(--ink-2); }
+.urg-t.on { background: var(--red); border-color: var(--red); color: #fff; }
+.props { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 9px 12px; align-items: baseline; margin: 0; }
+.props dt { color: var(--ink-3); font-size: 12px; }
+.props dd { margin: 0; min-width: 0; }
+.copy { border: 0; background: none; color: var(--ink-3); padding: 2px 4px; border-radius: 4px; vertical-align: -3px; }
+.copy:hover { color: var(--ink); background: var(--hover); }
+.notes { display: flex; flex-direction: column; gap: 8px; }
+.note { padding: 9px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12.5px; }
+.note time { display: block; font: 400 10.5px var(--mono); color: var(--ink-3); margin-bottom: 3px; }
+.note-add { display: flex; gap: 8px; align-items: flex-end; }
+.note-add textarea { flex: 1; min-height: 38px; height: 38px; resize: vertical; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); outline: none; color: var(--ink); }
+.note-add textarea:focus { border-color: var(--accent); }
+.ctx { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.ctx-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface-2); min-width: 0; }
+.ctx-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 9px 12px; border-top: 1px solid var(--line); align-items: center; }
+.ctx-row .s { font-size: 11.5px; color: var(--ink-3); grid-column: 1 / -1; }
+.presc { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 2px 7px; border-radius: 5px; white-space: nowrap; font-weight: 500; }
+.presc.g1 { background: var(--red-soft); color: var(--red); }
+.presc.g2 { background: var(--orange-soft); color: var(--orange); }
+.presc.g3 { background: var(--yellow-soft); color: var(--yellow); }
+.presc.g4 { background: var(--blue-soft); color: var(--blue); }
+.presc.g0 { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line); }
+.ev-list { display: flex; flex-direction: column; }
+.ev-it { display: grid; grid-template-columns: 56px 12px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 4px 0; font-size: 12px; }
+.ev-it time { font: 400 11px var(--mono); color: var(--ink-3); }
+.ev-it .dm { width: 8px; height: 8px; transform: rotate(45deg); border-radius: 2px; margin-top: 2px; }
+.form { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface-2); margin-top: 18px; }
+.form h3 { margin: 0; font-size: 13.5px; }
+.form label { font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 5px; }
+.form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.input { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); outline: none; color: var(--ink); width: 100%; }
+.input:focus { border-color: var(--accent); }
+textarea.input { height: 64px; padding: 8px 10px; resize: vertical; }
+select.input { appearance: none; -webkit-appearance: none; }
+.form-acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.minuta { display: inline-flex; align-items: center; gap: 6px; color: var(--blue); font-size: 12.5px; }
+
+.focus-wrap { max-width: 1120px; margin: 0 auto; }
+.focus-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.focus-top .cnt { font: 500 12px var(--mono); color: var(--ink-2); white-space: nowrap; }
+.progress { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.focus { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+.focus-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px 20px; box-shadow: var(--shadow); min-width: 0; }
+.focus-card .d-title { font-size: 24px; margin-top: 12px; }
+.focus-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.focus-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--ink-3); font-size: 12px; margin-top: 14px; }
+.keys span { display: inline-flex; gap: 6px; align-items: center; }
+.focus-done { text-align: left; padding: 40px 28px; }
+
+/* ─── Paleta ⌘K ─── */
+.pal-wrap { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: center; align-items: flex-start; padding: max(10vh, 16px) 16px 16px; background: var(--scrim); animation: fade .12s ease-out; }
+.pal { width: min(640px, 100%); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; max-height: 100%; }
+.pal-in { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px; border-bottom: 1px solid var(--line); flex: none; color: var(--ink-3); }
+.pal-in input { flex: 1; border: 0; background: none; outline: none; font-size: 14.5px; color: var(--ink); min-width: 0; }
+.pal-chips { display: flex; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--line); overflow-x: auto; flex: none; }
+.pal-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.pal-chip.on { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.pal-list { overflow-y: auto; padding: 4px 6px 8px; min-height: 120px; }
+.pal-sec { font: 500 10.5px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); padding: 12px 8px 5px; }
+.pal-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 5px 8px; border: 0; border-radius: 7px; background: none; text-align: left; color: var(--ink); }
+.pal-item.sel { background: var(--hover); }
+.pal-item .ic { color: var(--ink-3); display: grid; }
+.pal-item .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pal-item .tt small { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pal-item .go { color: var(--ink-3); opacity: 0; }
+.pal-item.sel .go { opacity: 1; }
+.pal-item mark { background: var(--accent-soft); color: inherit; border-radius: 2px; }
+.pal-none { padding: 26px 12px; color: var(--ink-3); font-size: 12.5px; }
+.pal-foot { display: flex; gap: 14px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 11.5px; flex: none; flex-wrap: wrap; }
+.pal-foot span { display: inline-flex; gap: 5px; align-items: center; }
+
+/* ─── Linha do tempo ─── */
+.tl-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.tl-tools .sp { flex: 1; }
+.tl { display: grid; grid-template-columns: 300px minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.tl-l { border-right: 1px solid var(--line); min-width: 0; background: var(--surface); position: relative; z-index: 2; }
+.tl-hd { height: 50px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-end; padding: 0 12px 8px; font-size: 11.5px; color: var(--ink-3); }
+.tl-rl { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+.tl-rl.child { padding-left: 26px; }
+.tl-rl.sub { padding-left: 34px; color: var(--ink-2); font-size: 12px; }
+.tl-rl.sub.child { padding-left: 48px; }
+.tl-rl.ms { background: var(--surface-2); color: var(--ink-2); font-weight: 500; }
+.tl-rl .who { font-size: 11.5px; color: var(--ink-3); }
+.tl-rl .lbl2 { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.tl-r { overflow-x: auto; overflow-y: hidden; position: relative; }
+.tl-cv { position: relative; }
+.tl-axis { height: 50px; border-bottom: 1px solid var(--line); position: relative; background: var(--surface); }
+.tl-major { position: absolute; top: 7px; font-size: 11.5px; font-weight: 500; color: var(--ink-2); white-space: nowrap; padding-left: 6px; border-left: 1px solid var(--line-strong); height: 14px; line-height: 14px; }
+.tl-tick { position: absolute; bottom: 7px; font: 500 10.5px var(--mono); color: var(--ink-3); transform: translateX(-50%); white-space: nowrap; }
+.tl-tick.we { opacity: .55; }
+.tl-grid { position: absolute; top: 50px; bottom: 0; width: 1px; background: var(--grid); }
+.tl-grid.strong { background: var(--line); }
+.tl-shade { position: absolute; top: 50px; bottom: 0; background: var(--grid); }
+.tl-rr { height: 36px; border-bottom: 1px solid var(--line); position: relative; }
+.tl-rr.ms { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.tl-bar { position: absolute; top: 7px; height: 22px; border-radius: 6px; display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 11.5px; white-space: nowrap; overflow: hidden; overflow: clip; color: var(--ink-2); border: 1px solid color-mix(in srgb, var(--c) 32%, transparent); background: color-mix(in srgb, var(--c) 11%, var(--surface)); }
+.tl-bar.prazo { color: var(--ink); border-color: color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 22%, var(--surface)); }
+.tl-bar.open-end { border-right-style: dashed; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.tl-bar.ended { opacity: .7; }
+.tl-bar.prazo { top: 10px; height: 16px; font-size: 11px; cursor: pointer; }
+.tl-bar.prazo:hover { background: color-mix(in srgb, var(--c) 30%, var(--surface)); }
+.tl-bar .lbl { overflow: hidden; text-overflow: ellipsis; position: sticky; left: 8px; }
+.tl-seg { position: absolute; top: 11px; height: 14px; border-radius: 3px; }
+.tl-seg.susp { background: repeating-linear-gradient(135deg, var(--blue-soft) 0 5px, color-mix(in srgb, var(--blue) 30%, transparent) 5px 7px); border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+.tl-seg.pausa { background: repeating-linear-gradient(135deg, var(--green-soft) 0 5px, color-mix(in srgb, var(--green) 30%, transparent) 5px 7px); border: 1px solid color-mix(in srgb, var(--green) 40%, transparent); }
+.tl-seg.inter { background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 14%, transparent), color-mix(in srgb, var(--violet) 55%, transparent)); border: 1px solid color-mix(in srgb, var(--violet) 45%, transparent); }
+.tl-seg.cut { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--hatch) 5px 7px); border: 1px dashed var(--line-strong); }
+.tl-seg-l { position: absolute; top: 0; height: 36px; display: flex; align-items: center; font-size: 11px; color: var(--ink-2); white-space: nowrap; pointer-events: none; padding-left: 6px; }
+.tl-dm { position: absolute; top: 18px; width: 10px; height: 10px; transform: translate(-50%, -50%) rotate(45deg); border-radius: 2px; background: var(--c); box-shadow: 0 0 0 2px var(--surface); cursor: default; z-index: 1; }
+.tl-dm.lg { width: 12px; height: 12px; }
+.tl-dm-l { position: absolute; top: 0; height: 36px; line-height: 36px; font-size: 11px; color: var(--ink-2); white-space: nowrap; padding-left: 10px; pointer-events: none; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.tl-today { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px solid var(--accent); z-index: 3; pointer-events: none; }
+.tl-today span { position: absolute; top: 28px; left: 0; transform: translateX(-50%); font: 600 10px/1 var(--mono); background: var(--accent); color: var(--accent-ink); padding: 3px 5px; border-radius: 4px; white-space: nowrap; }
+.tl-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.tl-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 11.5px; color: var(--ink-3); align-items: center; }
+.tl-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.lg-sw { display: inline-block; width: 22px; height: 10px; border-radius: 3px; }
+.tl-note { margin-top: 10px; font-size: 12px; color: var(--ink-3); max-width: 80ch; }
+
+/* ─── Carteira e operação ─── */
+.op-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.op-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px 13px; display: flex; flex-direction: column; gap: 11px; cursor: pointer; text-align: left; color: inherit; min-width: 0; }
+.op-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.op-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.op-nm { font-weight: 600; font-size: 14px; }
+.op-h .fav { color: var(--accent); }
+.op-h .rv { margin-left: auto; }
+.op-desc { color: var(--ink-2); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.9em; margin: 0; }
+.op-money { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.op-money b { font: 600 15px var(--font); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.op-meta { display: flex; align-items: center; gap: 12px; font-size: 11.5px; color: var(--ink-3); flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); }
+.op-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.op-meta .avs { margin-left: auto; }
+.tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); margin: 18px 0 22px; overflow: hidden; }
+.stat { padding: 12px 14px; border-left: 1px solid var(--line); min-width: 0; }
+.stat:first-child { border-left: 0; }
+.stat-l { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.stat-v { font-size: 18px; font-weight: 600; letter-spacing: -.015em; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat-v.red { color: var(--red); } .stat-v.violet { color: var(--violet); }
+.op-hero { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.op-hero h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin: 0; }
+.sq-lg { width: 14px; height: 14px; border-radius: 4px; }
+.sub-h { display: flex; align-items: center; gap: 10px; margin: 26px 0 10px; }
+.sub-h h2 { font-size: 14px; font-weight: 600; margin: 0; }
+
+/* ─── Prazos extintivos ─── */
+.pgroups { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.pg { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 11px 13px; text-align: left; color: inherit; min-width: 0; }
+.pg:hover { border-color: var(--line-strong); }
+.pg.on { box-shadow: 0 0 0 1px var(--c); border-color: var(--c); }
+.pg-t { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.pg-n { font-size: 22px; font-weight: 600; margin-top: 6px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pg-s { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gnum { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font: 600 10.5px/1 var(--mono); color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); flex: none; }
+.p-row { display: grid; grid-template-columns: 18px minmax(0, 1.5fr) minmax(0, 2fr) 180px 110px; gap: 14px; align-items: center; padding: 11px 14px; border-top: 1px solid var(--line); }
+.p-row:hover { background: var(--hover); }
+.p-cda { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.p-sum { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.clock { display: flex; flex-direction: column; gap: 5px; }
+.clock .bar { height: 6px; }
+.clock .bar i { background: var(--c); }
+.clock-l { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--ink-3); }
+.p-date { text-align: right; }
+.p-date b { display: block; font: 500 12px var(--mono); }
+.p-date span { font-size: 11px; color: var(--ink-3); }
+
+/* ─── Placeholder ─── */
+.soon-card { max-width: 640px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 22px 24px; }
+.soon-card h2 { margin: 8px 0 6px; font-size: 18px; letter-spacing: -.015em; }
+.soon-card p { margin: 0; color: var(--ink-2); }
+.soon-card ul { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.soon-card li { display: flex; gap: 9px; align-items: baseline; color: var(--ink-2); }
+.soon-card li::before { content: ""; width: 5px; height: 5px; border-radius: 1px; background: var(--accent); transform: rotate(45deg) translateY(-2px); flex: none; }
+
+/* ─── Modal ─── */
+.modal-wrap { position: fixed; inset: 0; z-index: 55; display: flex; align-items: flex-start; justify-content: center; padding: max(8vh, 16px) 16px 16px; background: var(--scrim); animation: fade .12s; overflow-y: auto; }
+.modal { width: min(560px, 100%); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.modal-h { display: flex; align-items: center; gap: 8px; padding: 14px 14px 0 18px; }
+.modal-h h2 { margin: 0; font-size: 15px; flex: 1; }
+.modal-b { padding: 14px 18px 4px; display: flex; flex-direction: column; gap: 12px; }
+.modal-b label { font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 5px; }
+.modal-f { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px 16px; }
+
+/* ─── Responsivo ─── */
+@media (max-width: 1180px) {
+  .home-grid, .focus { grid-template-columns: minmax(0, 1fr); }
+  .op-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat:nth-child(4) { border-left: 0; }
+  .stat:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .pgroups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .list-h, .i-row { grid-template-columns: 18px minmax(0, 2.4fr) minmax(0, 1.4fr) 34px 44px 92px; }
+  .c-op, .list-h .h-op { display: none; }
+}
+@media (max-width: 900px) {
+  .nx { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; top: 0; bottom: 0; left: 0; width: min(290px, 86vw); z-index: 46; transform: translateX(-104%); transition: transform .22s cubic-bezier(.2, .8, .2, 1); box-shadow: var(--shadow-lg); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .nx.side-open .side { transform: none; }
+  .nx.side-open .side-scrim { display: block; position: fixed; inset: 0; z-index: 45; background: var(--scrim); }
+  .menu-btn { display: grid; margin-left: -6px; }
+  .top { padding: 0 12px; }
+  .search { width: 34px; padding: 0; justify-content: center; }
+  .search .t, .search kbd, .sync, .top .btn .lbl, .top .btn kbd { display: none; }
+  .top .btn.primary { width: 32px; padding: 0; justify-content: center; }
+  .page { padding: 20px 16px 64px; }
+  .hello { font-size: 24px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .spark { display: none; }
+  .list-h { display: none; }
+  .i-row { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: start; row-gap: 4px; }
+  .c-proc, .c-imp, .c-dif { display: none; }
+  .i-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .st-ic { padding-top: 2px; }
+  .q-row { grid-template-columns: 18px minmax(0, 1fr) 18px 64px; }
+  .q-row .kind { display: none; }
+  .op-grid { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(odd) { border-left: 0; }
+  .stat:nth-child(4) { border-left: 1px solid var(--line); }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .pgroups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .p-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .p-row .p-sum, .p-row .clock { grid-column: 2 / -1; }
+  .tl { grid-template-columns: 150px minmax(0, 1fr); }
+  .tl-rl .who, .tl-rl .ptag + .proc { display: none; }
+  .tl-rl.child { padding-left: 18px; }
+  .tl-rl.sub { padding-left: 22px; }
+  .tl-rl.sub.child { padding-left: 28px; }
+  .focus-card { padding: 18px 16px; }
+  .focus-card .d-title { font-size: 20px; }
+  .gram { grid-template-columns: auto auto; }
+  .ruler-l { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .props { grid-template-columns: 96px minmax(0, 1fr); }
+  .form .row2 { grid-template-columns: 1fr; }
+  .dr-body { padding: 16px 16px 24px; }
+  .dr-foot { padding: 10px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"><div class="boot">Carregando NEXUS · Claude-experimental…</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+(function () {
+'use strict';
+var h = React.createElement;
+var html = htm.bind(h);
+var useState = React.useState, useEffect = React.useEffect, useMemo = React.useMemo, useRef = React.useRef, useLayoutEffect = React.useLayoutEffect, useCallback = React.useCallback;
+
+/* ═════════════════════ Datas (tudo relativo a hoje) ═════════════════════ */
+var TODAY = (function () { var d = new Date(); d.setHours(12, 0, 0, 0); return d; })();
+var DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+var DOW_L = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+var MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+var MES_L = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function dt(off) { var d = new Date(TODAY); d.setDate(d.getDate() + off); return d; }
+function pad(n) { return String(n).padStart(2, '0'); }
+function dm(off) { var d = dt(off); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); }
+function dmy(off) { return dm(off) + '/' + dt(off).getFullYear(); }
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function isBiz(off) { var w = dt(off).getDay(); return w !== 0 && w !== 6; }
+function addBiz(off, k) { var d = off, c = 0; while (c < k) { d++; if (isBiz(d)) c++; } return d; }
+function bizBetween(a, b) { var c = 0; for (var d = a + 1; d <= b; d++) if (isBiz(d)) c++; return c; }
+function dueInfo(off) {
+  if (off < -1) return { tone: 'late', txt: 'há ' + (-off) + 'd' };
+  if (off === -1) return { tone: 'late', txt: 'Ontem' };
+  if (off === 0) return { tone: 'today', txt: 'Hoje' };
+  if (off === 1) return { tone: 'today', txt: 'Amanhã' };
+  if (off <= 5) return { tone: 'soon', txt: cap(DOW[dt(off).getDay()]) + ' ' + dm(off) };
+  return { tone: 'later', txt: dm(off) };
+}
+function pl(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+function relAgo(off) { if (off === 0) return 'hoje'; if (off === -1) return 'ontem'; return 'há ' + (-off) + ' dias'; }
+
+var BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+function money(v) { return BRL.format(v); }
+function moneyShort(v) {
+  if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mi';
+  if (v >= 1e3) return 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
+  return money(v);
+}
+function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function digits(s) { return String(s || '').replace(/\D/g, ''); }
+
+/* ═════════════════════ Dados fictícios ═════════════════════ */
+var OPS = [
+  { id: 'fn', name: 'Fachada Norte', color: 'var(--op1)', fav: true,
+    desc: 'Grupo econômico com interposição de pessoas e blindagem patrimonial no norte do PR. IDPJ em curso, liminar mantida pelo TRF4.',
+    tags: [['Alta relevância', 'red'], ['Constrição ativa', 'cyan']], sit: ['Em andamento', 'var(--blue)'],
+    debt: 18420500, guaranteed: 7552400, review: { every: 7, label: 'semanal', last: -9 },
+    targets: [['CF', 'pj', 'Comercial Fachada Norte LTDA', '12.345.678/0001-90'], ['NP', 'pj', 'Imobiliária Norte Prime LTDA', '23.456.789/0001-01'], ['MF', 'pf', 'Marina Ferreira Norte', '123.456.789-00'], ['JA', 'pf', 'João Almeida Souza', '234.567.890-11']] },
+  { id: 'lv', name: 'Laranjas do Vale', color: 'var(--op2)', fav: true,
+    desc: 'Interposição de pessoas (laranjas) na Distribuidora Vale Verde. Sócios de fato identificados; IDPJ ajuizado contra Carlos Menezes.',
+    tags: [['IDPJ em curso', 'red'], ['Poucos bens', '']], sit: ['Em andamento', 'var(--blue)'],
+    debt: 7864300, guaranteed: 1415600, review: { every: 15, label: 'quinzenal', last: -6 },
+    targets: [['VV', 'pj', 'Distribuidora Vale Verde EIRELI', '34.567.890/0001-12'], ['TV', 'pj', 'Transportes Vale Rápido LTDA', '45.678.901/0001-23'], ['CM', 'pf', 'Carlos Eduardo Menezes', '345.678.901-22'], ['LM', 'pf', 'Luciana Vale Menezes', '456.789.012-33']] },
+  { id: 'ss', name: 'Sucessão Empresarial Sul', color: 'var(--op3)', fav: false,
+    desc: 'Sucessão de fato entre a Indústria Metalúrgica Sul e a Nova Metal Sul: mesmo parque fabril, mesma clientela, mesmos empregados.',
+    tags: [['Replicar', 'green'], ['Recurso interposto', 'blue']], sit: ['Em andamento', 'var(--blue)'],
+    debt: 12310000, guaranteed: 7878400, review: { every: 30, label: 'mensal', last: -12 },
+    targets: [['MS', 'pj', 'Indústria Metalúrgica Sul S/A', '56.789.012/0001-34'], ['NM', 'pj', 'Nova Metal Sul LTDA', '67.890.123/0001-45'], ['RM', 'pf', 'Ricardo Metalúrgico Sul', '567.890.123-44']] },
+  { id: 'ha', name: 'Holding Atlântico', color: 'var(--op4)', fav: false,
+    desc: 'Blindagem patrimonial por holding familiar e SPE imobiliária. Execuções antigas com prescrição intercorrente iminente.',
+    tags: [['Alta relevância', 'red'], ['Risco prescricional', 'violet']], sit: ['Em risco', 'var(--red)'],
+    debt: 26905000, guaranteed: 3228600, review: { every: 7, label: 'semanal', last: -3 },
+    targets: [['HA', 'pj', 'Holding Atlântico Participações S/A', '78.901.234/0001-56'], ['AI', 'pj', 'Atlântico Imóveis SPE LTDA', '89.012.345/0001-67'], ['CC', 'pf', 'Clara Atlântico Costa', '678.901.234-55'], ['FE', 'pf', 'Família Atlântico — Espólio', '—']] },
+  { id: 'ah', name: 'Agro Horizonte', color: 'var(--op5)', fav: false,
+    desc: 'Agropecuária com parcelamento parcial e retenção de créditos de soja junto à cooperativa. Garantia quase integral.',
+    tags: [['Parcelamento parcial', 'green'], ['Bens suficientes', '']], sit: ['Parcelada em parte', 'var(--green)'],
+    debt: 5143800, guaranteed: 4526500, review: { every: 30, label: 'mensal', last: -4 },
+    targets: [['AH', 'pj', 'Agropecuária Horizonte LTDA', '90.123.456/0001-78'], ['GP', 'pj', 'Cooperativa Grãos do Planalto', '01.234.567/0001-89'], ['HH', 'pf', 'Helena Agro Horizonte', '789.012.345-66']] },
+];
+var OPS_BY = {}; OPS.forEach(function (o) { OPS_BY[o.id] = o; });
+
+/* Processos. events.k: marco | constricao | decisao | audiencia. presc: segmentos da contagem do art. 40. */
+var PROCS = [
+  { id: 'p3', op: 'fn', tag: 'IDPJ', num: '5009876-11.2024.4.04.7001', cls: 'Incidente de Desconsideração da Personalidade Jurídica', court: '1ª Vara Federal de Londrina', party: 'Marina Ferreira Norte e outros', start: -124, covers: ['p1', 'p2'],
+    events: [{ d: -124, l: 'Ajuizamento do IDPJ', k: 'marco' }, { d: -92, l: 'Liminar deferida · inclusão cautelar no polo', k: 'decisao' }, { d: -12, l: 'TRF4 mantém a liminar', k: 'decisao' }, { d: 1, l: 'Audiência de justificação · 14:30', k: 'audiencia' }] },
+  { id: 'p5', op: 'fn', tag: 'AI', num: '5031877-40.2026.4.04.0000', cls: 'Agravo de Instrumento', court: 'TRF4 · 2ª Turma', party: 'Marina Ferreira Norte (agravante)', start: -61, end: -12, parent: 'p3',
+    events: [{ d: -61, l: 'Agravo contra a liminar do IDPJ', k: 'marco' }, { d: -12, l: 'Acórdão: negado provimento', k: 'decisao' }] },
+  { id: 'p4', op: 'fn', tag: 'MCF', num: '5001240-56.2024.4.04.7001', cls: 'Medida Cautelar Fiscal', court: '1ª Vara Federal de Londrina', party: 'Imobiliária Norte Prime LTDA', start: -300,
+    events: [{ d: -291, l: 'Liminar de indisponibilidade', k: 'decisao' }, { d: -280, l: 'CNIB · matrícula 45.678', k: 'constricao' }, { d: -20, l: 'Pedido de extensão da indisponibilidade', k: 'marco' }] },
+  { id: 'p1', op: 'fn', tag: 'EF', num: '5001234-56.2023.4.04.7001', cls: 'Execução Fiscal', court: '1ª Vara Federal de Londrina', party: 'Comercial Fachada Norte LTDA', start: -905, value: 9812440.18,
+    events: [{ d: -842, l: 'Citação por AR', k: 'marco' }, { d: -610, l: 'Sisbajud parcial · R$ 212.400,00', k: 'constricao' }, { d: -418, l: 'Penhora · imóvel matrícula 45.678', k: 'constricao' }, { d: -52, l: 'Exceção de pré-executividade oposta', k: 'marco' }] },
+  { id: 'p2', op: 'fn', tag: 'EF', num: '5001235-56.2023.4.04.7001', cls: 'Execução Fiscal', court: '1ª Vara Federal de Londrina', party: 'João Almeida Souza (redirecionado)', start: -880, value: 640118.33,
+    events: [{ d: -845, l: 'Citação por edital', k: 'marco' }, { d: -700, l: 'Ciência da não localização de bens', k: 'marco' }, { d: -12, l: 'Renajud positivo · placa ABC1D23', k: 'constricao' }],
+    presc: { segs: [{ from: -700, to: -335, t: 'susp' }, { from: -335, to: -12, t: 'inter' }, { from: -12, to: 60, t: 'cut' }], note: 'Interrompida pelo Renajud positivo — vigiar' } },
+  { id: 'p6', op: 'ha', tag: 'EF', num: '5002200-99.2018.4.04.7000', cls: 'Execução Fiscal', court: '3ª Vara Federal de Curitiba', party: 'Holding Atlântico Participações S/A', start: -2950, value: 3321444.67,
+    events: [{ d: -2890, l: 'Citação por AR', k: 'marco' }, { d: -2141, l: 'Ciência da não localização de bens', k: 'marco' }, { d: -1776, l: 'Arquivamento · art. 40, § 2º', k: 'marco' }],
+    presc: { segs: [{ from: -2141, to: -1776, t: 'susp' }, { from: -1776, to: 50, t: 'inter' }], deadline: 50, note: 'Prescrição intercorrente prevista' } },
+  { id: 'p7', op: 'ha', tag: 'EF', num: '5002210-99.2020.4.04.7000', cls: 'Execução Fiscal', court: '3ª Vara Federal de Curitiba', party: 'Clara Atlântico Costa (redirecionada)', start: -2150, value: 8410200.00,
+    events: [{ d: -1500, l: 'Redirecionamento deferido · art. 135 CTN', k: 'decisao' }, { d: -900, l: 'Sisbajud parcial', k: 'constricao' }, { d: -35, l: 'Seguro-garantia apresentado', k: 'marco' }] },
+  { id: 'p8', op: 'ha', tag: 'AI', num: '5002300-99.2024.4.04.7000', cls: 'Agravo de Instrumento', court: 'TRF4 · 1ª Turma', party: 'Atlântico Imóveis SPE LTDA (agravante)', start: -45, parent: 'p7',
+    events: [{ d: -45, l: 'Agravo contra a penhora do imóvel da SPE', k: 'marco' }] },
+  { id: 'p9', op: 'ha', tag: 'EF', num: '5002220-99.2024.4.04.7000', cls: 'Execução Fiscal', court: '3ª Vara Federal de Curitiba', party: 'Holding Atlântico Participações S/A', start: -610, value: 15173355.33,
+    events: [{ d: -560, l: 'Citação por AR', k: 'marco' }, { d: -140, l: 'CNIB · 6 imóveis da holding', k: 'constricao' }] },
+  { id: 'p12', op: 'lv', tag: 'IDPJ', num: '5008888-77.2025.4.04.7003', cls: 'Incidente de Desconsideração da Personalidade Jurídica', court: '2ª Vara Federal de Maringá', party: 'Carlos Eduardo Menezes e Luciana Vale Menezes', start: -180, covers: ['p10'],
+    events: [{ d: -180, l: 'Ajuizamento do IDPJ', k: 'marco' }, { d: -150, l: 'Citação dos sócios de fato', k: 'marco' }] },
+  { id: 'p10', op: 'lv', tag: 'EF', num: '5007777-88.2022.4.04.7002', cls: 'Execução Fiscal', court: '1ª Vara Federal de Maringá', party: 'Distribuidora Vale Verde EIRELI', start: -1300, value: 5220300.00,
+    events: [{ d: -1240, l: 'Citação por AR', k: 'marco' }, { d: -900, l: 'Ciência da não localização de bens', k: 'marco' }, { d: -540, l: 'Penhora de faturamento (5%)', k: 'constricao' }] },
+  { id: 'p11', op: 'lv', tag: 'EMB', num: '5007780-88.2023.4.04.7002', cls: 'Embargos à Execução Fiscal', court: '1ª Vara Federal de Maringá', party: 'Distribuidora Vale Verde EIRELI (embargante)', start: -520, parent: 'p10',
+    events: [{ d: -520, l: 'Embargos recebidos sem efeito suspensivo', k: 'decisao' }] },
+  { id: 'p13', op: 'lv', tag: 'EF', num: '5008890-77.2025.4.04.7003', cls: 'Execução Fiscal', court: '2ª Vara Federal de Maringá', party: 'Transportes Vale Rápido LTDA', start: -250, value: 1424000.00,
+    events: [{ d: -214, l: 'Citação por AR', k: 'marco' }, { d: -15, l: 'Sisbajud parcial · R$ 184.221,07', k: 'constricao' }] },
+  { id: 'p14', op: 'ss', tag: 'EF', num: '5003333-22.2024.4.04.7002', cls: 'Execução Fiscal', court: '1ª Vara Federal de Maringá', party: 'Indústria Metalúrgica Sul S/A', start: -700, value: 9100000.00,
+    events: [{ d: -660, l: 'Citação por AR', k: 'marco' }, { d: -90, l: 'Pedido de redirecionamento à sucessora', k: 'marco' }, { d: -35, l: 'Redirecionamento deferido', k: 'decisao' }] },
+  { id: 'p15', op: 'ss', tag: 'EXC', num: '5003340-22.2025.4.04.7002', cls: 'Exceção de Pré-Executividade', court: '1ª Vara Federal de Maringá', party: 'Indústria Metalúrgica Sul S/A (excipiente)', start: -40, parent: 'p14',
+    events: [{ d: -40, l: 'Exceção oposta: ilegitimidade e decadência', k: 'marco' }] },
+  { id: 'p16', op: 'ss', tag: 'EF', num: '5005555-44.2025.4.04.7002', cls: 'Execução Fiscal', court: '1ª Vara Federal de Maringá', party: 'Ricardo Metalúrgico Sul', start: -230, value: 3210000.00,
+    events: [{ d: -190, l: 'Citação por oficial de justiça', k: 'marco' }, { d: -30, l: 'Embargos de declaração da parte', k: 'marco' }] },
+  { id: 'p17', op: 'ah', tag: 'EF', num: '5006600-22.2020.4.04.7006', cls: 'Execução Fiscal', court: '2ª Vara Federal de Ponta Grossa', party: 'Agropecuária Horizonte LTDA', start: -2000, value: 3890000.00,
+    events: [{ d: -1930, l: 'Citação por AR', k: 'marco' }, { d: -620, l: 'Adesão a parcelamento', k: 'marco' }, { d: -210, l: 'Rescisão parcial do parcelamento', k: 'marco' }, { d: -60, l: 'Penhora de créditos de soja', k: 'constricao' }],
+    presc: { segs: [{ from: -620, to: -210, t: 'pausa' }], note: 'Pausa por parcelamento (art. 151, VI, CTN)' } },
+  { id: 'p18', op: 'ah', tag: 'EF', num: '5006610-22.2022.4.04.7006', cls: 'Execução Fiscal', court: '2ª Vara Federal de Ponta Grossa', party: 'Cooperativa Grãos do Planalto (terceira)', start: -1100, value: 388120.14,
+    events: [{ d: -1040, l: 'Citação por AR', k: 'marco' }, { d: -60, l: 'Ofício de retenção expedido', k: 'marco' }] },
+  { id: 'p19', op: 'ah', tag: 'EF', num: '5006620-22.2025.4.04.7006', cls: 'Execução Fiscal', court: '2ª Vara Federal de Ponta Grossa', party: 'Helena Agro Horizonte', start: -160, value: 865680.00,
+    events: [{ d: -120, l: 'Citação por AR', k: 'marco' }] },
+];
+var PROC_BY = {}; PROCS.forEach(function (p) { PROC_BY[p.id] = p; });
+var TAG_C = { EF: 'var(--cyan)', IDPJ: 'var(--red)', MCF: 'var(--yellow)', AI: 'var(--blue)', EXC: 'var(--orange)', EMB: 'var(--orange)' };
+var TAG_L = { EF: 'Execução fiscal', IDPJ: 'IDPJ', MCF: 'Cautelar fiscal', AI: 'Agravo', EXC: 'Exceção', EMB: 'Embargos' };
+
+/* CDAs. g = grupo de prescrição (1 Urgentes · 2 A conferir · 3 A completar · 4 Acompanhamento · 5 Ainda impossível). */
+var CDAS = [
+  { n: '90.6.18.000300-30', op: 'ha', proc: 'p6', trib: 'IRPJ', sys: 'SIDA', v: 2418330.12, g: 1, kind: 'Intercorrente', from: -1776, due: 50, sum: 'Prazo de 1 ano + 5 anos vence em ' + dmy(50) + '. Diligência útil interrompe (Tema 566/STJ).' },
+  { n: '90.6.18.000301-30', op: 'ha', proc: 'p6', trib: 'CSLL', sys: 'SIDA', v: 903114.55, g: 1, kind: 'Intercorrente', from: -1776, due: 50, sum: 'Mesmo ciclo da CDA 90.6.18.000300-30.' },
+  { n: '90.7.19.000100-01', op: 'ss', proc: 'p14', trib: 'INSS', sys: 'DEBCAD', v: 1126770.00, g: 1, kind: 'Ordinária', from: -1787, due: 38, sum: 'Citação da sucessora ainda não efetivada. Cinco anos da constituição vencem em ' + dmy(38) + '.' },
+  { n: '90.6.19.000045-88', op: 'lv', proc: 'p10', trib: 'PIS/COFINS', sys: 'SIDA', v: 812004.90, g: 2, kind: 'Intercorrente', from: -900, due: 1291, sum: 'Provável. Conferir nos autos a ciência da não localização de bens (evento 58).' },
+  { n: '90.6.20.000310-30', op: 'fn', proc: 'p2', trib: 'IRPF', sys: 'SIDA', v: 640118.33, g: 3, kind: 'Intercorrente', from: -335, due: null, sum: 'Cadastro a completar: falta a data do Renajud positivo no evento.' },
+  { n: '90.6.20.000880-40', op: 'ah', proc: 'p17', trib: 'ITR', sys: 'SIDA', v: 1320500.00, g: 4, kind: 'Intercorrente', from: -210, due: null, sum: 'Prazo pausado de ' + dm(-620) + ' a ' + dm(-210) + '. Parcelamento vigente sobre parte do débito.' },
+  { n: '90.6.23.000123-45', op: 'fn', proc: 'p1', trib: 'IRPJ', sys: 'SIDA', v: 4210330.12, g: 5, kind: 'Ordinária', from: null, due: null, sum: 'Ciclo encerrado pela penhora de ' + dmy(-418) + '.' },
+  { n: '90.6.23.000124-45', op: 'fn', proc: 'p1', trib: 'CSLL', sys: 'SIDA', v: 1518002.40, g: 5, kind: 'Ordinária', from: null, due: null, sum: 'Ciclo encerrado pela penhora de ' + dmy(-418) + '.' },
+  { n: '90.6.23.000125-45', op: 'fn', proc: 'p1', trib: 'PIS/COFINS', sys: 'SIDA', v: 4084107.66, g: 5, kind: 'Ordinária', from: null, due: null, sum: 'Ciclo encerrado pela penhora de ' + dmy(-418) + '.' },
+  { n: '90.8.21.000200-02', op: 'ah', proc: 'p18', trib: 'FGTS', sys: 'FGTS', v: 388120.14, g: 5, kind: 'Ordinária', from: null, due: null, sum: 'FGTS: prazo trintenário, sem risco próximo.' },
+];
+var PGROUPS = [
+  { g: 1, l: 'Urgentes', s: 'Vencido ou iminente', c: 'var(--red)' },
+  { g: 2, l: 'A conferir', s: 'Provável, conferir nos autos', c: 'var(--orange)' },
+  { g: 3, l: 'A completar', s: 'Cadastro a completar', c: 'var(--yellow)' },
+  { g: 4, l: 'Acompanhamento', s: 'Em acompanhamento', c: 'var(--blue)' },
+  { g: 5, l: 'Ainda impossível', s: 'Sem risco no horizonte', c: 'var(--ink-3)' },
+];
+
+var ST = {
+  pendente_analise: { l: 'Pendente de análise', c: 'var(--yellow)' },
+  aguardando_subsidios: { l: 'Aguardando subsídios', c: 'var(--ink-3)' },
+  peca_edicao: { l: 'Peça em edição', c: 'var(--blue)' },
+  analisado: { l: 'Analisado', c: 'var(--green)' },
+};
+var ST_ORDER = ['pendente_analise', 'aguardando_subsidios', 'peca_edicao', 'analisado'];
+var LV = { alta: 3, media: 2, baixa: 1 };
+var LV_L = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+
+function N(at, t) { return { at: at, t: t }; }
+var INTIMS0 = [
+  { id: 'i1', op: 'fn', proc: 'p1', uf: 'PR', party: 'Comercial Fachada Norte LTDA', ev: 'Manifestar sobre exceção de pré-executividade — 15 dias', sent: -52, start: -42, due: -2, st: 'pendente_analise', imp: 'alta', dif: 'alta', urg: true, obj: 'Impugnar a ilegitimidade dos sócios e a prescrição alegadas na exceção.',
+    notes: [N(-3, 'Exceção alega ilegitimidade dos sócios. Rebater com os contratos sociais cruzados (evento 41) e o organograma do grupo.'), N(-9, 'Conferir se a penhora de ' + dm(-418) + ' foi averbada antes da alienação à Norte Prime.')] },
+  { id: 'i2', op: 'fn', proc: 'p3', uf: 'PR', party: 'Marina Ferreira Norte', ev: 'Manifestação sobre instauração de IDPJ — 15 dias', sent: -50, start: -40, due: 0, st: 'peca_edicao', imp: 'alta', dif: 'media', urg: false, obj: 'Sustentar confusão patrimonial e abuso da personalidade (art. 50 CC).', minuta: true,
+    notes: [N(-1, 'Minuta 80% pronta. Falta o quadro de confusão patrimonial (extratos Sisbajud × contratos).')] },
+  { id: 'i13', op: 'lv', proc: 'p13', uf: 'PR', party: 'Transportes Vale Rápido LTDA', ev: 'Ciência de bloqueio Sisbajud parcial', sent: -14, start: -4, due: -1, st: 'pendente_analise', imp: 'media', dif: 'baixa', urg: false, obj: 'Requerer a transferência do valor bloqueado para conta judicial.',
+    notes: [N(-2, 'Bloqueio de R$ 184.221,07. Pedir transferência e nova tentativa em 30 dias (teimosinha).')] },
+  { id: 'i3', op: 'lv', proc: 'p11', uf: 'PR', party: 'Distribuidora Vale Verde EIRELI', ev: 'Réplica aos embargos — 15 dias', sent: -41, start: -31, due: 1, st: 'aguardando_subsidios', imp: 'media', dif: 'alta', urg: false, obj: 'Réplica: nulidade da CDA e excesso de execução.',
+    notes: [N(-6, 'Pedi à RFB cópia integral do PAF 10980.720145/2021-11. Sem resposta até agora.')] },
+  { id: 'i4', op: 'ss', proc: 'p14', uf: 'PR', party: 'Nova Metal Sul LTDA', ev: 'Intimação pessoal — redirecionamento', sent: -30, start: -20, due: 2, st: 'pendente_analise', imp: 'alta', dif: 'media', urg: false, obj: 'Indicar endereço da sucessora e requerer citação.', notes: [] },
+  { id: 'i5', op: 'ha', proc: 'p6', uf: 'PR', party: 'Holding Atlântico Participações S/A', ev: 'Intimação para indicar bens à penhora (art. 40 LEF) — 30 dias', sent: -58, start: -48, due: 3, st: 'pendente_analise', imp: 'alta', dif: 'alta', urg: true, obj: 'Requerer Sisbajud, CNIB e Renajud antes do termo da intercorrente.',
+    notes: [N(-2, 'Prescrição intercorrente prevista para ' + dmy(50) + '. Pedir Sisbajud e CNIB agora: diligência positiva interrompe (Tema 566/STJ).')] },
+  { id: 'i6', op: 'ah', proc: 'p17', uf: 'PR', party: 'Agropecuária Horizonte LTDA', ev: 'Ofício — retenção de créditos de soja', sent: -20, start: -10, due: 4, st: 'pendente_analise', imp: 'media', dif: 'media', urg: false, obj: 'Responder ao ofício da cooperativa e pedir depósito judicial.',
+    notes: [N(-5, 'Cooperativa confirmou créditos de cerca de R$ 1,1 mi na safra 25/26.')] },
+  { id: 'i7', op: 'lv', proc: 'p12', uf: 'PR', party: 'Carlos Eduardo Menezes', ev: 'Especificar provas — 10 dias', sent: -24, start: -14, due: 5, st: 'pendente_analise', imp: 'media', dif: 'baixa', urg: false, obj: 'Requerer prova documental e oitiva do contador.', notes: [] },
+  { id: 'i14', op: 'ha', proc: 'p7', uf: 'PR', party: 'Clara Atlântico Costa', ev: 'Manifestar sobre cálculo de garantia', sent: -22, start: -12, due: 6, st: 'pendente_analise', imp: 'media', dif: 'alta', urg: false, obj: 'Recusar o seguro-garantia sem o acréscimo de 30%.',
+    notes: [N(-4, 'Apólice sem o acréscimo de 30% do art. 835, § 2º, do CPC.')] },
+  { id: 'i8', op: 'fn', proc: 'p4', uf: 'PR', party: 'Imobiliária Norte Prime LTDA', ev: 'Manifestar sobre extensão da indisponibilidade', sent: -16, start: -6, due: 8, st: 'pendente_analise', imp: 'alta', dif: 'alta', urg: false, obj: 'Estender a indisponibilidade às quotas da Norte Prime.', notes: [] },
+  { id: 'i9', op: 'ha', proc: 'p8', uf: 'TRF4', party: 'Atlântico Imóveis SPE LTDA', ev: 'Contrarrazões ao agravo — 15 dias', sent: -18, start: -8, due: 11, st: 'peca_edicao', imp: 'alta', dif: 'alta', urg: false, obj: 'Defender a penhora do imóvel da SPE (fraude à execução).', minuta: true,
+    notes: [N(-1, 'Usar o precedente do grupo Fachada Norte (confusão patrimonial em SPE).')] },
+  { id: 'i10', op: 'ss', proc: 'p15', uf: 'PR', party: 'Indústria Metalúrgica Sul S/A', ev: 'Vista à Fazenda — exceção de pré-executividade', sent: -12, start: -2, due: 13, st: 'pendente_analise', imp: 'baixa', dif: 'media', urg: false, obj: 'Rebater ilegitimidade e decadência.', notes: [] },
+  { id: 'i11', op: 'ah', proc: 'p18', uf: 'PR', party: 'Cooperativa Grãos do Planalto', ev: 'Ofício — informações patrimoniais', sent: -9, start: 1, due: 16, st: 'aguardando_subsidios', imp: 'baixa', dif: 'baixa', urg: false, obj: 'Aguardar a resposta da cooperativa.', notes: [] },
+  { id: 'i12', op: 'fn', proc: 'p2', uf: 'PR', party: 'João Almeida Souza', ev: 'Intimação Renajud — resultado positivo', sent: -12, start: -2, due: 19, st: 'pendente_analise', imp: 'media', dif: 'baixa', urg: false, obj: 'Requerer penhora, remoção e avaliação do veículo.',
+    notes: [N(-2, 'Veículo placa ABC1D23 localizado. Avaliar remoção e leilão.')] },
+  { id: 'i15', op: 'ah', proc: 'p19', uf: 'PR', party: 'Helena Agro Horizonte', ev: 'Vista — complementação de documentos', sent: -18, start: -8, due: 7, st: 'analisado', imp: 'baixa', dif: 'baixa', urg: false, obj: 'Juntar matrícula atualizada.', notes: [], resp: { type: 'Peticionamento', piece: 'Manifestação', at: -2 } },
+  { id: 'i16', op: 'ss', proc: 'p16', uf: 'PR', party: 'Ricardo Metalúrgico Sul', ev: 'Contrarrazões a embargos de declaração', sent: -20, start: -10, due: 4, st: 'analisado', imp: 'media', dif: 'media', urg: false, obj: 'Contrarrazoar os embargos de declaração.', notes: [], resp: { type: 'Peticionamento', piece: 'Contrarrazões', at: -1 } },
+  { id: 'i17', op: 'fn', proc: 'p1', uf: 'PR', party: 'Comercial Fachada Norte LTDA', ev: 'Ciência de levantamento de penhora parcial', sent: -15, start: -5, due: 5, st: 'analisado', imp: 'baixa', dif: 'baixa', urg: false, obj: '—', notes: [], resp: { type: 'Ciência', piece: '', at: -5 } },
+];
+INTIMS0.forEach(function (i) { i.num = PROC_BY[i.proc].num; i.cls = PROC_BY[i.proc].cls; });
+
+var TASKS = [
+  { id: 't1', op: 'ss', title: 'Analisar viabilidade de redirecionamento à sucessora', pr: 'urgente', due: 1 },
+  { id: 't2', op: 'fn', title: 'Avaliar CNIB do galpão de Londrina', pr: 'media', due: 0 },
+  { id: 't3', op: 'ha', title: 'Cálculo para homologação de garantia', pr: 'alta', due: -1 },
+  { id: 't4', op: 'lv', title: 'Avançar IDPJ contra Carlos Menezes', pr: 'alta', due: 2 },
+  { id: 't5', op: 'ah', title: 'Agendar diligência na fazenda', pr: 'baixa', due: 6 },
+  { id: 't6', op: 'ah', title: 'Acompanhar parcelamento da CSLL', pr: 'baixa', due: 12 },
+];
+var HEARINGS = [
+  { id: 'h1', op: 'fn', proc: 'p3', type: 'Audiência de justificação', d: 1, time: '14:30', mode: 'Virtual · Webex', parties: 'FAZENDA NACIONAL × Marina Ferreira Norte e outros' },
+  { id: 'h2', op: 'ah', proc: 'p17', type: 'Audiência de conciliação', d: 9, time: '10:00', mode: 'Presencial · 2ª Vara Federal de Ponta Grossa', parties: 'FAZENDA NACIONAL × Agropecuária Horizonte LTDA' },
+];
+var ACTIVITY = [
+  { ic: 'upload', t: 'Import do eproc: 7 intimações novas e 3 atualizadas', at: 'há 12 min' },
+  { ic: 'check', t: 'Atuação registrada: contrarrazões · Ricardo Metalúrgico Sul', at: 'ontem, 17:42' },
+  { ic: 'gavel', t: 'TRF4 negou provimento ao agravo contra a liminar do IDPJ · Fachada Norte', at: 'ontem, 11:05' },
+  { ic: 'hourglass', t: 'CDA 90.6.18.000300-30 entrou em Urgentes (intercorrente)', at: 'há 2 dias' },
+  { ic: 'lock', t: 'Sisbajud parcial de R$ 184.221,07 · Transportes Vale Rápido', at: 'há 3 dias' },
+  { ic: 'check', t: 'Revisão semanal concluída · Holding Atlântico', at: 'há 3 dias' },
+];
+var INTAKE = [3, 5, 2, 4, 6, 3, 7, 2, 4, 3, 5, 2, 7, 4];
+
+/* ═════════════════════ Ícones (traço 1.75, 24×24) ═════════════════════ */
+var ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/>',
+  tick: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  desk: '<path d="M3 7h18"/><path d="M5 7v13M19 7v13"/><path d="M8 3h8l1 4H7z"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
+  gantt: '<path d="M3 4v16h18"/><path d="M7 8h7"/><path d="M10 12h8"/><path d="M8 16h5"/>',
+  hourglass: '<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22"/><path d="M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+  scale: '<path d="M12 3v18"/><path d="M7 21h10"/><path d="M4 7h16"/><path d="M4 7l-2.5 6a3 3 0 0 0 5 0z"/><path d="M20 7l-2.5 6a3 3 0 0 0 5 0z"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  chevR: '<path d="m9 18 6-6-6-6"/>',
+  chevL: '<path d="m15 18-6-6 6-6"/>',
+  chevD: '<path d="m6 9 6 6 6-6"/>',
+  chevU: '<path d="m18 15-6-6-6 6"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  panel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><path d="m9.5 14 2 2 3.5-3.5"/>',
+  sort: '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10M11 8h7M11 12h4"/>',
+  arrowUR: '<path d="M7 17 17 7M8 7h9v9"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+  gavel: '<path d="m14.5 12.5-8 8a2.12 2.12 0 1 1-3-3l8-8"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/>',
+  zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  board: '<rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="14" y="3" width="7" height="11" rx="1.5"/>',
+  note: '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path d="M8 9h8M8 13h4"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  enter: '<path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  palette: '<circle cx="13.5" cy="6.5" r="1.3"/><circle cx="17.5" cy="10.5" r="1.3"/><circle cx="8.5" cy="7.5" r="1.3"/><circle cx="6.5" cy="12.5" r="1.3"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A5.7 5.7 0 0 0 22 9.7C22 5.4 17.5 2 12 2z"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+  flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+};
+function Icon(p) {
+  var s = p.s || 16;
+  return h('svg', { className: 'i ' + (p.className || ''), width: s, height: s, viewBox: '0 0 24 24', 'aria-hidden': 'true', style: p.style, dangerouslySetInnerHTML: { __html: ICONS[p.n] || '' } });
+}
+
+/* ═════════════════════ Peças pequenas ═════════════════════ */
+function StatusIcon(p) {
+  var s = p.s, c = (ST[s] || ST.pendente_analise).c;
+  var inner;
+  if (s === 'analisado') inner = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
+  else if (s === 'peca_edicao') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+  else if (s === 'aguardando_subsidios') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
+  else inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
+  return h('span', { className: 'st-ic', title: (ST[s] || {}).l }, h('svg', { width: 14, height: 14, viewBox: '0 0 14 14', dangerouslySetInnerHTML: { __html: inner } }));
+}
+function Imp(p) {
+  return html`<span className="imp" data-v=${p.v} title=${'Importância ' + LV_L[p.v].toLowerCase()}><i></i><i></i><i></i></span>`;
+}
+function Dif(p) {
+  return html`<span className="dif" data-v=${p.v} title=${'Complexidade ' + LV_L[p.v].toLowerCase()}><i></i><i></i><i></i></span>`;
+}
+function Prio(p) {
+  if (p.v === 'urgente') return html`<span className="imp-urg" title="Prioridade urgente">!</span>`;
+  return html`<${Imp} v=${p.v} />`;
+}
+function Due(p) {
+  if (p.done != null) return html`<span className="due done">✓ ${dm(p.done)}</span>`;
+  var d = dueInfo(p.off);
+  return html`<span className=${'due ' + d.tone} title=${'Final do prazo: ' + dmy(p.off)}>${d.txt}</span>`;
+}
+function Proc(p) {
+  var m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(p.num || '');
+  return html`<span className="proc">${p.uf ? html`<span className="uf">${p.uf}</span>` : null}${m ? [m[1], html`<span className="d" key="d">${m[2]}</span>`] : p.num}</span>`;
+}
+function OpTag(p) {
+  var o = OPS_BY[p.id];
+  if (!o) return html`<span className="op-tag muted">Sem operação</span>`;
+  return html`<span className="op-tag"><span className="op-sq" style=${{ background: o.color }}></span><span className="ell">${o.name}</span></span>`;
+}
+function PTag(p) {
+  var c = TAG_C[p.t] || 'var(--ink-3)';
+  return html`<span className="ptag" title=${TAG_L[p.t]} style=${{ color: c, background: 'color-mix(in srgb, ' + c + ' 15%, transparent)' }}>${p.t}</span>`;
+}
+function Avatars(p) {
+  var list = p.list.slice(0, p.max || 4);
+  return html`<span className="avs">${list.map(function (t) { return html`<span key=${t[0]} className=${'av' + (t[1] === 'pj' ? ' pj' : '')} title=${t[2] + (t[1] === 'pj' ? ' · PJ' : ' · PF')}>${t[0]}</span>`; })}${p.list.length > list.length ? html`<span className="av" title="Outros alvos">+${p.list.length - list.length}</span>` : null}</span>`;
+}
+function reviewInfo(o) {
+  var next = o.review.last + o.review.every;
+  if (next < 0) return { tone: 'orange', txt: 'Revisão atrasada há ' + (-next) + 'd' };
+  if (next === 0) return { tone: 'yellow', txt: 'Revisão hoje' };
+  return { tone: '', txt: 'Revisão em ' + next + 'd' };
+}
+function Sel(p) {
+  return html`<label className="sel-wrap">${p.pre ? html`<span className="pre">${p.pre}</span>` : null}<select id=${p.id} value=${p.value} onChange=${function (e) { p.onChange(e.target.value); }} style=${p.pre ? { paddingLeft: (p.pre.length * 7 + 20) + 'px' } : null} aria-label=${p.label || p.pre}>${p.options.map(function (o) { return html`<option key=${o[0]} value=${o[0]}>${o[1]}</option>`; })}</select><${Icon} n="chevD" s=${12} /></label>`;
+}
+function Seg(p) {
+  return html`<div className=${'seg ' + (p.className || '')} role="group" aria-label=${p.label}>${p.options.map(function (o) {
+    return html`<button key=${o[0]} type="button" className=${p.value === o[0] ? 'on' : ''} aria-pressed=${p.value === o[0]} onClick=${function () { p.onChange(o[0]); }}>${o[2] ? html`<${Icon} n=${o[2]} s=${13} />` : null}${o[1]}${o[3] != null ? html`<span className="n">${o[3]}</span>` : null}</button>`;
+  })}</div>`;
+}
+function copyText(text, toast) {
+  try {
+    navigator.clipboard.writeText(text).then(function () { toast('Copiado: ' + text); }, function () { toast('Selecione e copie: ' + text); });
+  } catch (e) { toast('Selecione e copie: ' + text); }
+}
+function useLS(key, init) {
+  var st = useState(function () { try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : init; } catch (e) { return init; } });
+  useEffect(function () { try { localStorage.setItem(key, JSON.stringify(st[0])); } catch (e) { } }, [key, st[0]]);
+  return st;
+}
+function isTyping(e) { var t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable); }
+
+/* ═════════════════════ Sidebar ═════════════════════ */
+var DIRS = [
+  ['auto', 'Auto', ['#f2f3f5', '#101113', '#d4ad60']],
+  ['grafite', 'Grafite', ['#101113', '#18191d', '#d4ad60']],
+  ['ardosia', 'Ardósia', ['#f2f3f5', '#ffffff', '#1b1e24']],
+  ['mare', 'Maré', ['#0e1828', '#152238', '#caa55c']],
+];
+function Sidebar(p) {
+  var route = p.route, go = p.go;
+  var openOps = p.openOps, setOpenOps = p.setOpenOps;
+  var openCount = p.intims.filter(function (i) { return i.st !== 'analisado'; }).length;
+  var lateCount = p.intims.filter(function (i) { return i.st !== 'analisado' && i.due < 0; }).length;
+  var g1 = CDAS.filter(function (c) { return c.g === 1; }).length;
+  function item(r, icon, label, extra) {
+    var on = route.name === r && !route.op;
+    return html`<button key=${r} type="button" className=${'nav-item' + (on ? ' on' : '')} aria-current=${on ? 'page' : null} onClick=${function () { go({ name: r }); }}><${Icon} n=${icon} /><span className="lbl">${label}</span>${extra || null}</button>`;
+  }
+  return html`<aside className="side" aria-label="Navegação">
+    <div className="side-head">
+      <button type="button" className="brand" onClick=${function () { go({ name: 'hoje' }); }} title="NEXUS · Claude-experimental">
+        <span className="brand-mark">N</span>
+        <span className="ell"><span className="brand-name">NEXUS</span><span className="brand-sub">Claude-experimental</span></span>
+      </button>
+      <button type="button" className="icon-btn" onClick=${p.onSearch} title="Buscar (⌘K)" aria-label="Buscar"><${Icon} n="search" /></button>
+    </div>
+    <div className="side-scroll">
+      <nav className="nav">
+        ${item('hoje', 'home', 'Hoje')}
+        ${item('intimacoes', 'inbox', 'Intimações', html`<span className=${'nav-badge' + (lateCount ? ' red' : '')} title=${lateCount + ' vencidas'}>${openCount}</span>`)}
+        ${item('tarefas', 'check', 'Tarefas', html`<span className="nav-count">${TASKS.length}</span>`)}
+        ${item('mesa', 'desk', 'Mesa', html`<span className="nav-count">3</span>`)}
+        <button type="button" className="nav-item" onClick=${p.onSearch}><${Icon} n="search" /><span className="lbl">Buscar</span><kbd>/</kbd></button>
+      </nav>
+      <div className="nav-sec"><span>Trabalho</span></div>
+      <nav className="nav">
+        ${item('carteira', 'briefcase', 'Carteira', html`<span className="nav-count">${OPS.length}</span>`)}
+        ${item('timeline', 'gantt', 'Linha do tempo')}
+        ${item('prazos', 'hourglass', 'Prazos extintivos', g1 ? html`<span className="nav-badge red">${g1}</span>` : null)}
+        ${item('agenda', 'calendar', 'Agenda', html`<span className="nav-count">${HEARINGS.length}</span>`)}
+        ${item('processos', 'scale', 'Processos')}
+        ${item('pessoas', 'users', 'Pessoas e bens')}
+        ${item('biblioteca', 'book', 'Biblioteca')}
+        ${item('acompanhar', 'eye', 'Acompanhar')}
+        ${item('importar', 'upload', 'Importar')}
+      </nav>
+      <div className="nav-sec"><span>Operações</span><button type="button" className="icon-btn" style=${{ width: 22, height: 22 }} title="Nova operação" aria-label="Nova operação" onClick=${function () { p.toast('Nova operação: formulário na próxima parte'); }}><${Icon} n="plus" s=${14} /></button></div>
+      <nav className="nav">
+        ${OPS.map(function (o) {
+          var open = !!openOps[o.id];
+          var onOp = route.op === o.id;
+          return html`<div key=${o.id}>
+            <div className=${'nav-item nav-op' + (open ? ' open' : '') + (onOp && route.name === 'op' ? ' on' : '')} role="button" tabIndex="0"
+              onClick=${function () { go({ name: 'op', op: o.id }); setOpenOps(Object.assign({}, openOps, (function () { var x = {}; x[o.id] = true; return x; })())); }}
+              onKeyDown=${function (e) { if (e.key === 'Enter') { go({ name: 'op', op: o.id }); } }}>
+              <span className="chev" onClick=${function (e) { e.stopPropagation(); var x = Object.assign({}, openOps); x[o.id] = !open; setOpenOps(x); }} aria-label=${open ? 'Recolher' : 'Expandir'}><${Icon} n="chevR" s=${12} /></span>
+              <span className="op-sq" style=${{ background: o.color }}></span>
+              <span className="lbl">${o.name}</span>
+              ${o.fav ? html`<${Icon} n="star" s=${12} className="fav" />` : null}
+            </div>
+            ${open ? html`<div className="nav-sub">
+              <button type="button" className=${'nav-item' + (onOp && route.name === 'op' ? ' on' : '')} onClick=${function () { go({ name: 'op', op: o.id }); }}><span className="lbl">Visão geral</span></button>
+              <button type="button" className=${'nav-item' + (onOp && route.name === 'timeline' ? ' on' : '')} onClick=${function () { go({ name: 'timeline', op: o.id }); }}><span className="lbl">Linha do tempo</span></button>
+              <button type="button" className=${'nav-item' + (onOp && route.name === 'briefing' ? ' on' : '')} onClick=${function () { go({ name: 'briefing', op: o.id }); }}><span className="lbl">Briefing</span></button>
+            </div>` : null}
+          </div>`;
+        })}
+      </nav>
+    </div>
+    <div className="side-foot">
+      <div className="side-foot-l"><span>Direção visual</span><span className="mono">v0.1</span></div>
+      <div className="dir-sw" role="radiogroup" aria-label="Direção visual">
+        ${DIRS.map(function (d) {
+          return html`<button key=${d[0]} type="button" role="radio" aria-checked=${p.dir === d[0]} className=${'dir-opt' + (p.dir === d[0] ? ' on' : '')} onClick=${function () { p.setDir(d[0]); }} title=${d[0] === 'auto' ? 'Segue o tema do sistema' : d[1]}>
+            <span className="swatch">${d[2].map(function (c, k) { return html`<i key=${k} style=${{ background: c }}></i>`; })}</span>${d[1]}
+          </button>`;
+        })}
+      </div>
+    </div>
+  </aside>`;
+}
+
+/* ═════════════════════ Top bar ═════════════════════ */
+function Topbar(p) {
+  return html`<header className="top">
+    <button type="button" className="icon-btn menu-btn" onClick=${p.onMenu} aria-label="Abrir menu"><${Icon} n="menu" /></button>
+    <div className="crumb">
+      <span>NEXUS</span>${p.crumbs.map(function (c, k) { return [html`<span key=${'s' + k} className="sep">/</span>`, k === p.crumbs.length - 1 ? html`<b key=${'c' + k}>${c}</b>` : html`<span key=${'c' + k}>${c}</span>`]; })}
+    </div>
+    <div className="top-r">
+      <span className="sync" title="Última sincronização com o Google Drive"><span className="dot" style=${{ background: 'var(--green)' }}></span>Drive · há 3 min</span>
+      <button type="button" className="search" onClick=${p.onSearch} aria-label="Buscar"><${Icon} n="search" s=${14} /><span className="t">Buscar ou ir para…</span><kbd>⌘K</kbd></button>
+      <button type="button" className="btn primary" onClick=${p.onNew} title="Nova intimação"><${Icon} n="plus" s=${14} /><span className="lbl">Nova intimação</span></button>
+    </div>
+  </header>`;
+}
+
+/* ═════════════════════ Hoje ═════════════════════ */
+function greeting() { var hr = new Date().getHours(); return hr < 12 ? 'Bom dia.' : hr < 18 ? 'Boa tarde.' : 'Boa noite.'; }
+function Hoje(p) {
+  var intims = p.intims;
+  var open = intims.filter(function (i) { return i.st !== 'analisado'; });
+  var late = open.filter(function (i) { return i.due < 0; });
+  var today = open.filter(function (i) { return i.due === 0; });
+  var next5 = open.filter(function (i) { return i.due >= 0 && i.due <= 5; });
+  var g1 = CDAS.filter(function (c) { return c.g === 1; });
+  var riskValue = CDAS.filter(function (c) { return c.g === 1 || c.g === 2; }).reduce(function (s, c) { return s + c.v; }, 0);
+  var debt = OPS.reduce(function (s, o) { return s + o.debt; }, 0);
+  var guar = OPS.reduce(function (s, o) { return s + o.guaranteed; }, 0);
+  var gpct = Math.round(guar / debt * 100);
+  var hearing = HEARINGS.filter(function (x) { return x.d >= 0 && x.d <= 2; })[0];
+  var tabS = useState('proximos'); var tab = tabS[0], setTab = tabS[1];
+
+  var queue = useMemo(function () {
+    var q = [];
+    intims.forEach(function (i) {
+      q.push({ key: i.id, kind: 'Intimação', ic: 'inbox', title: i.party, sub: i.ev, op: i.op, due: i.due, imp: i.imp, done: i.st === 'analisado' ? i.resp && i.resp.at : null, st: i.st, open: function () { p.openIntim(i.id); } });
+    });
+    TASKS.forEach(function (t) { q.push({ key: t.id, kind: 'Tarefa', ic: 'check', title: t.title, sub: 'Tarefa · ' + OPS_BY[t.op].name, op: t.op, due: t.due, prio: t.pr, open: function () { p.go({ name: 'tarefas' }); } }); });
+    HEARINGS.forEach(function (x) { q.push({ key: x.id, kind: 'Audiência', ic: 'calendar', title: x.type + ' · ' + x.time, sub: x.parties, op: x.op, due: x.d, open: function () { p.go({ name: 'op', op: x.op }); } }); });
+    CDAS.filter(function (c) { return c.g === 1 || c.g === 2; }).forEach(function (c) { q.push({ key: c.n, kind: 'Prescrição', ic: 'hourglass', title: 'CDA ' + c.n + ' · ' + c.trib, sub: c.sum, op: c.op, due: c.due, g: c.g, open: function () { p.go({ name: 'prazos' }); } }); });
+    return q;
+  }, [intims]);
+  var lists = {
+    proximos: queue.filter(function (x) { return x.done == null && x.due != null && x.due >= 0 && x.due <= 7; }).sort(function (a, b) { return a.due - b.due; }),
+    vencidos: queue.filter(function (x) { return x.done == null && x.due != null && x.due < 0; }).sort(function (a, b) { return a.due - b.due; }),
+    feitos: queue.filter(function (x) { return x.done != null; }).sort(function (a, b) { return b.done - a.done; }),
+  };
+  var shown = lists[tab];
+
+  var upcoming = queue.filter(function (x) { return x.done == null && x.kind !== 'Prescrição' && x.due >= 0 && x.due <= 7; }).sort(function (a, b) { return a.due - b.due; });
+  var buckets = [
+    ['Hoje', upcoming.filter(function (x) { return x.due === 0; })],
+    ['Amanhã', upcoming.filter(function (x) { return x.due === 1; })],
+    ['Próximos 7 dias', upcoming.filter(function (x) { return x.due > 1; })],
+  ];
+
+  var d = TODAY;
+  var lede = [];
+  if (late.length) lede.push(html`<b key="a">${late.length} ${late.length === 1 ? 'prazo vencido' : 'prazos vencidos'}</b>`);
+  if (today.length) lede.push(html`<b key="b">${today.length} vence hoje</b>`);
+  var sentence = lede.length === 2 ? [lede[0], ', ', lede[1]] : lede;
+
+  return html`<div className="page">
+    <div className="eyebrow">${DOW_L[d.getDay()]}, ${d.getDate()} de ${MES_L[d.getMonth()]}</div>
+    <h1 className="hello">${greeting()} O que exige ação hoje?</h1>
+    <p className="lede">Na sua fila: ${sentence}${hearing ? [' e a ', html`<b key="h">${hearing.type.toLowerCase()} do IDPJ ${OPS_BY[hearing.op].name} é ${hearing.d === 0 ? 'hoje' : hearing.d === 1 ? 'amanhã' : 'em ' + hearing.d + ' dias'}, ${hearing.time}</b>`] : null}. ${g1.length} CDAs estão em risco de prescrição.</p>
+    <div className="proto-note"><${Icon} n="layers" s=${13} />Protótipo com dados fictícios. Troque a direção visual no pé do menu.</div>
+
+    <div className="kpis">
+      <button type="button" className="kpi" onClick=${function () { p.go({ name: 'intimacoes' }); }}>
+        <span className="kpi-l"><${Icon} n="inbox" s=${14} />Intimações abertas</span>
+        <span className="kpi-v">${open.length}</span>
+        <span className=${'kpi-s' + (late.length ? ' red' : '')}>${late.length} vencidas · ${today.length} hoje</span>
+        <span className="spark" title="Entradas por dia útil, últimos 14 dias úteis" aria-hidden="true">${INTAKE.map(function (v, k) { return html`<i key=${k} className=${k === INTAKE.length - 1 ? 'last' : ''} style=${{ height: (v / 7 * 100) + '%' }}></i>`; })}</span>
+      </button>
+      <button type="button" className="kpi" onClick=${function () { p.go({ name: 'intimacoes' }); }}>
+        <span className="kpi-l"><${Icon} n="clock" s=${14} />Vencem em 5 dias</span>
+        <span className="kpi-v">${next5.length}</span>
+        <span className="kpi-s orange">${next5.filter(function (i) { return i.imp === 'alta'; }).length} de importância alta</span>
+      </button>
+      <button type="button" className="kpi" onClick=${function () { p.go({ name: 'prazos' }); }}>
+        <span className="kpi-l"><${Icon} n="hourglass" s=${14} />Prazos extintivos</span>
+        <span className="kpi-v">${g1.length}<small>urgentes</small></span>
+        <span className="kpi-s violet">${moneyShort(riskValue)} em risco</span>
+      </button>
+      <button type="button" className="kpi" onClick=${function () { p.go({ name: 'carteira' }); }}>
+        <span className="kpi-l"><${Icon} n="briefcase" s=${14} />Crédito sob gestão</span>
+        <span className="kpi-v">${moneyShort(debt)}</span>
+        <span className="meter" title=${gpct + '% garantido'}><i style=${{ width: gpct + '%', background: 'var(--green)' }}></i></span>
+        <span className="kpi-s">${gpct}% garantido · ${OPS.length} operações</span>
+      </button>
+    </div>
+
+    <div className="home-grid">
+      <div className="col">
+        <section className="card" aria-labelledby="h-fila">
+          <div className="card-h">
+            <h2 id="h-fila">Fila do dia</h2>
+            <div className="aside">
+              <${Seg} label="Filtro da fila" value=${tab} onChange=${setTab} options=${[['proximos', 'Próximos', null, lists.proximos.length], ['vencidos', 'Vencidos', null, lists.vencidos.length], ['feitos', 'Feitos', null, lists.feitos.length]]} />
+              <button type="button" className="link-btn" onClick=${function () { p.go({ name: 'intimacoes' }); }} title="Abrir Intimações"><${Icon} n="arrowUR" s=${14} /></button>
+            </div>
+          </div>
+          ${shown.length ? shown.slice(0, 9).map(function (x) {
+            return html`<button key=${x.key} type="button" className="q-row" onClick=${x.open}>
+              <span className="q-ic">${x.st ? html`<${StatusIcon} s=${x.st} />` : html`<${Icon} n=${x.ic} s=${14} />`}</span>
+              <span className="q-main"><div className="q-title"><b>${x.title}</b></div><div className="q-meta">${x.sub}</div></span>
+              <span className="kind">${x.kind}</span>
+              <span style=${{ display: 'grid', placeItems: 'center' }}>${x.imp ? html`<${Imp} v=${x.imp} />` : x.prio ? html`<${Prio} v=${x.prio} />` : x.g ? html`<span className=${'gnum'} style=${{ '--c': x.g === 1 ? 'var(--red)' : 'var(--orange)' }}>${x.g}</span>` : null}</span>
+              <span className="due-cell" style=${{ textAlign: 'right' }}>${x.done != null ? html`<${Due} done=${x.done} />` : html`<${Due} off=${x.due} />`}</span>
+            </button>`;
+          }) : html`<div className="empty-row">Nada aqui. Bom sinal.</div>`}
+        </section>
+
+        <section className="card" aria-labelledby="h-cart">
+          <div className="card-h"><h2 id="h-cart">Carteira</h2><div className="aside"><button type="button" className="link-btn" onClick=${function () { p.go({ name: 'carteira' }); }}>Todas as operações<${Icon} n="chevR" s=${13} /></button></div></div>
+          <div className="tbl-wrap"><table className="tbl">
+            <thead><tr><th>Operação</th><th>Situação</th><th>Garantido</th><th className="num">Dívida</th><th>Próximo prazo</th><th>Alvos</th></tr></thead>
+            <tbody>${OPS.map(function (o) {
+              var nx = intims.filter(function (i) { return i.op === o.id && i.st !== 'analisado'; }).sort(function (a, b) { return a.due - b.due; })[0];
+              var pct = Math.round(o.guaranteed / o.debt * 100);
+              return html`<tr key=${o.id} className="click" onClick=${function () { p.go({ name: 'op', op: o.id }); }}>
+                <td><span className="op-name-cell"><span className="op-sq" style=${{ background: o.color }}></span>${o.name}</span></td>
+                <td><span className="op-tag"><span className="dot" style=${{ background: o.sit[1] }}></span>${o.sit[0]}</span></td>
+                <td><span className="cover"><span className="bar"><i style=${{ width: pct + '%' }}></i></span><span className="pct">${pct}%</span></span></td>
+                <td className="num mono">${moneyShort(o.debt)}</td>
+                <td>${nx ? html`<${Due} off=${nx.due} />` : html`<span className="muted">—</span>`}</td>
+                <td><${Avatars} list=${o.targets} max=${3} /></td>
+              </tr>`;
+            })}</tbody>
+          </table></div>
+        </section>
+      </div>
+
+      <div className="col">
+        ${hearing ? html`<div className="callout" role="note">
+          <span className="callout-ic"><${Icon} n="gavel" s=${16} /></span>
+          <div style=${{ minWidth: 0 }}>
+            <div className="callout-t">${hearing.type} ${hearing.d === 0 ? 'hoje' : hearing.d === 1 ? 'amanhã' : 'em ' + hearing.d + ' dias'}, ${hearing.time}</div>
+            <div className="callout-s">${hearing.parties}</div>
+            <div className="callout-s"><${Proc} num=${PROC_BY[hearing.proc].num} /> · ${hearing.mode}</div>
+            <div className="callout-a">
+              <button type="button" className="btn sm" onClick=${function () { p.toast('Roteiro da audiência: próxima parte'); }}><${Icon} n="file" s=${13} />Roteiro</button>
+              <button type="button" className="btn sm ghost" onClick=${function () { p.go({ name: 'op', op: hearing.op }); }}>Abrir operação</button>
+            </div>
+          </div>
+        </div>` : null}
+
+        <section className="card" aria-labelledby="h-prox">
+          <div className="card-h"><h2 id="h-prox">Próximos prazos</h2><div className="aside"><button type="button" className="link-btn" onClick=${function () { p.go({ name: 'agenda' }); }}><${Icon} n="calendar" s=${13} />Agenda</button></div></div>
+          ${buckets.map(function (b) {
+            if (!b[1].length) return null;
+            return html`<div key=${b[0]}>
+              <div className="dl-h"><b>${b[0]}</b><span>${b[1].length}</span></div>
+              ${b[1].slice(0, 5).map(function (x) {
+                return html`<button key=${x.key} type="button" className="dl-item" onClick=${x.open}>
+                  <span className="op-sq" style=${{ background: OPS_BY[x.op].color }}></span>
+                  <span className="t">${x.kind === 'Intimação' ? x.sub.replace(/ — \d+ dias$/, '') : x.title}</span>
+                  ${x.imp ? html`<${Imp} v=${x.imp} />` : x.prio ? html`<${Prio} v=${x.prio} />` : html`<${Icon} n=${x.ic} s=${13} className="muted" />`}
+                  ${b[0] === 'Próximos 7 dias' ? html`<span className="due later" style=${{ minWidth: 40, textAlign: 'right' }}>${cap(DOW[dt(x.due).getDay()])}</span>` : null}
+                </button>`;
+              })}
+              ${b[1].length > 5 ? html`<div className="dl-more">+${b[1].length - 5} mais</div>` : null}
+            </div>`;
+          })}
+          <div style=${{ height: 6 }}></div>
+        </section>
+
+        <section className="card" aria-labelledby="h-act">
+          <div className="card-h"><h2 id="h-act">Atividade recente</h2><div className="aside"><button type="button" className="link-btn" onClick=${function () { p.go({ name: 'importar' }); }}>Importar<${Icon} n="chevR" s=${13} /></button></div></div>
+          ${ACTIVITY.map(function (a, k) {
+            return html`<div key=${k} className="act"><span className="act-ic"><${Icon} n=${a.ic} s=${12} /></span><div style=${{ minWidth: 0 }}>${a.t}<time>${a.at}</time></div></div>`;
+          })}
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ═════════════════════ Intimações ═════════════════════ */
+var SORTS = [['atencao', 'Atenção'], ['prazo', 'Prazo final'], ['importancia', 'Importância'], ['complexidade', 'Complexidade']];
+function sortFn(k) {
+  if (k === 'prazo') return function (a, b) { return a.due - b.due; };
+  if (k === 'importancia') return function (a, b) { return (LV[b.imp] - LV[a.imp]) || (a.due - b.due); };
+  if (k === 'complexidade') return function (a, b) { return (LV[b.dif] - LV[a.dif]) || (a.due - b.due); };
+  return function (a, b) { return (b.urg - a.urg) || (LV[b.imp] - LV[a.imp]) || (LV[b.dif] - LV[a.dif]) || (a.due - b.due); };
+}
+function groupIntims(items, by) {
+  var open = items.filter(function (i) { return i.st !== 'analisado'; });
+  var done = items.filter(function (i) { return i.st === 'analisado'; });
+  var groups;
+  if (by === 'estado') {
+    groups = ST_ORDER.filter(function (s) { return s !== 'analisado'; }).map(function (s) { return { key: s, label: ST[s].l, icon: html`<${StatusIcon} s=${s} />`, items: open.filter(function (i) { return i.st === s; }) }; });
+  } else if (by === 'operacao') {
+    groups = OPS.map(function (o) { return { key: o.id, label: o.name, icon: html`<span className="op-sq" style=${{ background: o.color }}></span>`, items: open.filter(function (i) { return i.op === o.id; }) }; });
+  } else {
+    groups = [
+      { key: 'late', label: 'Vencidas', icon: html`<span className="dot" style=${{ background: 'var(--red)' }}></span>`, items: open.filter(function (i) { return i.due < 0; }) },
+      { key: 'now', label: 'Hoje e amanhã', icon: html`<span className="dot" style=${{ background: 'var(--orange)' }}></span>`, items: open.filter(function (i) { return i.due >= 0 && i.due <= 1; }) },
+      { key: 'soon', label: 'Próximos 5 dias', icon: html`<span className="dot" style=${{ background: 'var(--yellow)' }}></span>`, items: open.filter(function (i) { return i.due >= 2 && i.due <= 5; }) },
+      { key: 'later', label: 'Mais adiante', icon: html`<span className="dot" style=${{ background: 'var(--ink-3)' }}></span>`, items: open.filter(function (i) { return i.due > 5; }) },
+    ];
+  }
+  groups.push({ key: 'done', label: 'Analisadas', icon: html`<${StatusIcon} s="analisado" />`, items: done, closedDefault: true });
+  return groups.filter(function (g) { return g.items.length; });
+}
+function IntimRow(p) {
+  var i = p.i;
+  var note = i.notes[0];
+  var done = i.st === 'analisado';
+  return html`<div className=${'i-row' + (i.urg && !done ? ' urgent' : '') + (p.sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex="0"
+      onClick=${function () { p.onOpen(i.id); }} onKeyDown=${function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onOpen(i.id); } }}>
+    <${StatusIcon} s=${i.st} />
+    <div className="i-main">
+      <div className="i-party">${i.urg && !done ? html`<span className="urg">URGENTE</span>` : null}<span className="ell">${i.party}</span></div>
+      <div className="i-ev">${i.ev}</div>
+      ${note ? html`<div className="i-note" title=${note.t}><${Icon} n="note" s=${12} /><span className="ell">${note.t}</span>${i.notes.length > 1 ? html`<span className="mono">+${i.notes.length - 1}</span>` : null}</div>` : null}
+      ${done && i.resp ? html`<div className="i-note"><${Icon} n="send" s=${12} /><span className="ell">${i.resp.type}${i.resp.piece ? ' · ' + i.resp.piece : ''} em ${dm(i.resp.at)}</span></div>` : null}
+      <div className="i-sub"><${Proc} num=${i.num} uf=${i.uf} /><${OpTag} id=${i.op} /><${Imp} v=${i.imp} /><${Dif} v=${i.dif} /></div>
+    </div>
+    <div className="c-proc"><${Proc} num=${i.num} uf=${i.uf} /><span className="cls">${i.cls}</span></div>
+    <div className="c-op"><${OpTag} id=${i.op} /></div>
+    <div className="c-imp"><${Imp} v=${i.imp} /></div>
+    <div className="c-dif"><${Dif} v=${i.dif} /></div>
+    <div className="c-due">${done ? html`<${Due} done=${i.resp ? i.resp.at : 0} />` : html`<${Due} off=${i.due} />`}<span className="sub">${done ? 'respondida' : 'final ' + dm(i.due)}</span></div>
+  </div>`;
+}
+function IntimList(p) {
+  var groups = groupIntims(p.items, p.groupBy);
+  var cl = useState({}); var closed = cl[0], setClosed = cl[1];
+  if (!groups.length) return html`<div className="list"><div className="empty-row" style=${{ borderTop: 0 }}>Nenhuma intimação com esses filtros.</div></div>`;
+  return html`<div className="list">
+    <div className="list-h"><span></span><span>Parte · evento · notas</span><span>Processo</span><span className="h-op">Operação</span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span className="r">Prazo</span></div>
+    ${groups.map(function (g) {
+      var isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
+      var sorted = g.items.slice().sort(sortFn(p.sort));
+      return [
+        html`<button key=${'g' + g.key} type="button" className=${'grp' + (isClosed ? ' closed' : '')} aria-expanded=${!isClosed} onClick=${function () { var x = Object.assign({}, closed); x[g.key] = !isClosed; setClosed(x); }}>
+          <span className="caret"><${Icon} n="chevD" s=${14} /></span>${g.icon}<span>${g.label}</span><span className="n">${g.items.length}</span>
+          ${g.key === 'late' ? html`<span className="gsum">prazo em dobro já consumido</span>` : null}
+        </button>`,
+        isClosed ? null : sorted.map(function (i) { return html`<${IntimRow} key=${i.id} i=${i} sel=${p.selId === i.id} onOpen=${p.onOpen} />`; }),
+      ];
+    })}
+  </div>`;
+}
+function Board(p) {
+  return html`<div className="board">${ST_ORDER.map(function (s) {
+    var items = p.items.filter(function (i) { return i.st === s; }).sort(sortFn(p.sort));
+    return html`<div key=${s} className="b-col">
+      <div className="b-h"><${StatusIcon} s=${s} />${ST[s].l}<span className="n">${items.length}</span></div>
+      <div className="b-list">${items.length ? items.map(function (i) {
+        var done = i.st === 'analisado';
+        return html`<button key=${i.id} type="button" className="b-card" onClick=${function () { p.onOpen(i.id); }}>
+          <div className="row"><${OpTag} id=${i.op} />${done ? html`<${Due} done=${i.resp ? i.resp.at : 0} />` : html`<${Due} off=${i.due} />`}</div>
+          <div className="row" style=${{ fontWeight: 500 }}>${i.urg && !done ? html`<span className="urg">URGENTE</span>` : null}<span className="ell">${i.party}</span></div>
+          <div className="ev">${i.ev}</div>
+          ${i.notes[0] ? html`<div className="nt">${i.notes[0].t}</div>` : null}
+          <div className="row"><${Proc} num=${i.num} /><span style=${{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}><${Imp} v=${i.imp} /><${Dif} v=${i.dif} /></span></div>
+        </button>`;
+      }) : html`<div className="b-empty">Vazio</div>`}</div>
+    </div>`;
+  })}</div>`;
+}
+function Intimacoes(p) {
+  var intims = p.intims;
+  var qS = useState(''); var q = qS[0], setQ = qS[1];
+  var opS = useState('all'); var opF = opS[0], setOpF = opS[1];
+  var view = p.view, setView = p.setView;
+  var gS = useLS('nx-claude-group', 'prazo'); var groupBy = gS[0], setGroupBy = gS[1];
+  var sS = useLS('nx-claude-sort', 'atencao'); var sort = sS[0], setSort = sS[1];
+  var filtered = intims.filter(function (i) {
+    if (opF !== 'all' && i.op !== opF) return false;
+    if (!q.trim()) return true;
+    var hay = norm(i.party + ' ' + i.ev + ' ' + i.cls + ' ' + i.num + ' ' + OPS_BY[i.op].name + ' ' + i.notes.map(function (n) { return n.t; }).join(' '));
+    return norm(q).split(/\s+/).every(function (t) { return hay.indexOf(t) >= 0 || (digits(t).length >= 3 && digits(i.num).indexOf(digits(t)) >= 0); });
+  });
+  var open = intims.filter(function (i) { return i.st !== 'analisado'; });
+  var late = open.filter(function (i) { return i.due < 0; }).length;
+  return html`<div className="page">
+    <div className="page-h">
+      <div><h1>Intimações</h1><p>${open.length} abertas, ${late} vencidas. Ordem padrão: urgente, importância, complexidade e prazo.</p></div>
+      <div className="acts">
+        <${Seg} className="lg" label="Visualização" value=${view} onChange=${setView} options=${[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
+      </div>
+    </div>
+    ${view === 'foco' ? html`<${Focus} ...${p} />` : html`<div>
+      <div className="toolbar">
+        <label className="field"><${Icon} n="search" s=${14} /><input id="f-q" value=${q} onInput=${function (e) { setQ(e.target.value); }} placeholder="Parte, processo, evento ou nota" aria-label="Filtrar intimações" /></label>
+        <${Sel} id="f-op" pre="Operação" label="Filtrar por operação" value=${opF} onChange=${setOpF} options=${[['all', 'Todas']].concat(OPS.map(function (o) { return [o.id, o.name]; }))} />
+        <span className="sp"></span>
+        ${view === 'lista' ? html`<${Sel} id="f-g" pre="Agrupar" value=${groupBy} onChange=${setGroupBy} options=${[['prazo', 'Prazo'], ['estado', 'Estado'], ['operacao', 'Operação']]} />` : null}
+        <${Sel} id="f-s" pre="Ordenar" value=${sort} onChange=${setSort} options=${SORTS} />
+      </div>
+      ${view === 'quadro' ? html`<${Board} items=${filtered} sort=${sort} onOpen=${p.openIntim} />` : html`<${IntimList} items=${filtered} groupBy=${groupBy} sort=${sort} onOpen=${p.openIntim} selId=${p.drawerId} />`}
+    </div>`}
+  </div>`;
+}
+
+/* ═════════════════════ Detalhe da intimação ═════════════════════ */
+function Ruler(p) {
+  var i = p.i;
+  var done = i.st === 'analisado';
+  var ed = addBiz(i.start, 10);
+  var lo = Math.min(i.sent, i.start), hi = Math.max(i.due, 0) + 1;
+  var span = Math.max(1, hi - lo);
+  function pos(d) { return Math.max(0, Math.min(100, (d - lo) / span * 100)); }
+  var info = dueInfo(i.due);
+  var biz = bizBetween(0, i.due);
+  var big, sub;
+  if (done) { big = 'Respondida em ' + dm(i.resp ? i.resp.at : 0); sub = (i.resp ? i.resp.type + (i.resp.piece ? ' · ' + i.resp.piece : '') : ''); }
+  else if (i.due < 0) { big = 'Vencida há ' + (-i.due) + (i.due === -1 ? ' dia' : ' dias'); sub = 'final em ' + dmy(i.due); }
+  else if (i.due === 0) { big = 'Vence hoje'; sub = 'final em ' + dmy(i.due); }
+  else { big = 'Faltam ' + i.due + (i.due === 1 ? ' dia' : ' dias'); sub = biz + (biz === 1 ? ' útil' : ' úteis') + ' · final em ' + dmy(i.due); }
+  var edTxt = ed < 0 ? 'expirado' : ed === 0 ? 'hoje' : bizBetween(0, ed) + 'd úteis';
+  return html`<div className="ruler">
+    <div className="ruler-h"><span className=${'ruler-big ' + (done ? 'done' : info.tone)}>${big}</span><span className="ruler-s">${sub}</span></div>
+    <div className="track" aria-hidden="true">
+      <i className=${'fill' + (i.due < 0 && !done ? ' late' : '')} style=${{ width: pos(0) + '%' }}></i>
+      <i className="mk" style=${{ left: pos(i.sent) + '%' }} title=${'Envio ' + dm(i.sent)}></i>
+      <i className="mk" style=${{ left: pos(i.start) + '%' }} title=${'Início ' + dm(i.start)}></i>
+      <i className="mk ed" style=${{ left: pos(ed) + '%' }} title=${'Embargos de declaração até ' + dm(ed)}></i>
+      <i className="mk final" style=${{ left: pos(i.due) + '%' }} title=${'Final ' + dm(i.due)}></i>
+      ${!done ? html`<i className="now" style=${{ left: pos(0) + '%' }} title="Hoje"></i>` : null}
+    </div>
+    <div className="ruler-l">
+      <span>Envio<b>${dm(i.sent)}</b></span>
+      <span>Início<b>${dm(i.start)}</b></span>
+      <span className="ed">Emb. decl. · ${edTxt}<b>${dm(ed)}</b></span>
+      <span>Final<b>${dm(i.due)}</b></span>
+    </div>
+    <div className="ruler-foot">Prazos contados em dobro para a Fazenda Nacional (art. 183 do CPC). Embargos de declaração: 10 dias úteis do início.</div>
+  </div>`;
+}
+function RespondForm(p) {
+  var tS = useState('Peticionamento'); var type = tS[0], setType = tS[1];
+  var pS = useState('Manifestação'); var piece = pS[0], setPiece = pS[1];
+  var uS = useState(''); var url = uS[0], setUrl = uS[1];
+  var dS = useState(''); var desc = dS[0], setDesc = dS[1];
+  var need = type === 'Peticionamento';
+  return html`<form className="form" onSubmit=${function (e) { e.preventDefault(); p.onSave({ type: type, piece: need ? piece : '', url: url, desc: desc, at: 0 }); }}>
+    <h3>Registrar atuação</h3>
+    <${Seg} label="Tipo de atuação" value=${type} onChange=${setType} options=${[['Peticionamento', 'Peticionamento'], ['Ciência', 'Ciência'], ['Outra medida', 'Outra medida']]} />
+    ${need ? html`<div className="row2">
+      <label>Tipo de peça<select id="r-piece" className="input" value=${piece} onChange=${function (e) { setPiece(e.target.value); }}>${['Manifestação', 'Contestação', 'Impugnação', 'Réplica', 'Contrarrazões', 'Recurso', 'Embargos de Declaração', 'Petição Avulsa', 'Outro'].map(function (x) { return html`<option key=${x}>${x}</option>`; })}</select></label>
+      <label>Link da petição (eproc)<input id="r-url" className="input" value=${url} onInput=${function (e) { setUrl(e.target.value); }} placeholder="https://eproc…" /></label>
+    </div>` : null}
+    <label>Descrição (opcional)<textarea id="r-desc" className="input" value=${desc} onInput=${function (e) { setDesc(e.target.value); }} placeholder="O que foi feito e o que falta acompanhar"></textarea></label>
+    <div className="form-acts"><button type="button" className="btn ghost" onClick=${p.onCancel}>Cancelar</button><button type="submit" className="btn primary"><${Icon} n="tick" s=${14} />Registrar e arquivar</button></div>
+  </form>`;
+}
+function IntimDetail(p) {
+  var i = p.i;
+  var proc = PROC_BY[i.proc];
+  var cdas = CDAS.filter(function (c) { return c.proc === i.proc; });
+  var ntS = useState(''); var nt = ntS[0], setNt = ntS[1];
+  var done = i.st === 'analisado';
+  function set(patch) { p.patch(i.id, patch); }
+  var evs = (proc.events || []).slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 4);
+  var evC = { marco: 'var(--ink-3)', constricao: 'var(--cyan)', decisao: 'var(--green)', audiencia: 'var(--orange)' };
+  return html`<div>
+    <div className="d-chips">
+      <${OpTag} id=${i.op} />
+      <span className="chip"><${StatusIcon} s=${i.st} />${ST[i.st].l}</span>
+      ${i.minuta ? html`<span className="chip"><${Icon} n="file" s=${12} />Minuta no Docs</span>` : null}
+    </div>
+    <h2 className="d-title">${i.party}</h2>
+    <p className="d-ev">${i.ev}</p>
+    <${Ruler} i=${i} />
+
+    <div className="sec-t">Gramática</div>
+    <div className="gram">
+      <div className="gram-f"><span>Importância</span><${Seg} label="Importância" value=${i.imp} onChange=${function (v) { set({ imp: v }); }} options=${[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
+      <div className="gram-f"><span>Complexidade</span><${Seg} label="Complexidade" value=${i.dif} onChange=${function (v) { set({ dif: v }); }} options=${[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
+      <div className="gram-f"><span>Marcação</span><button type="button" className=${'urg-t' + (i.urg ? ' on' : '')} aria-pressed=${i.urg} onClick=${function () { set({ urg: !i.urg }); }}><${Icon} n="flag" s=${13} />Urgente</button></div>
+    </div>
+
+    <div className="sec-t">Notas <span className="n">${i.notes.length}</span></div>
+    <div className="notes">
+      ${i.notes.map(function (n, k) { return html`<div key=${k} className="note"><time>${dmy(n.at)} · ${relAgo(n.at)}</time>${n.t}</div>`; })}
+      <form className="note-add" onSubmit=${function (e) { e.preventDefault(); if (!nt.trim()) return; set({ notes: [N(0, nt.trim())].concat(i.notes) }); setNt(''); }}>
+        <textarea id=${'nt-' + i.id} value=${nt} onInput=${function (e) { setNt(e.target.value); }} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown=${function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.target.form.requestSubmit(); } }}></textarea>
+        <button type="submit" className="btn">Anotar</button>
+      </form>
+    </div>
+
+    <div className="sec-t">Dados</div>
+    <dl className="props">
+      <dt>Processo</dt><dd><${Proc} num=${i.num} uf=${i.uf} /><button type="button" className="copy" title="Copiar número" aria-label="Copiar número" onClick=${function () { copyText(i.num, p.toast); }}><${Icon} n="copy" s=${13} /></button></dd>
+      <dt>Classe</dt><dd>${i.cls}</dd>
+      <dt>Órgão</dt><dd>${proc.court}</dd>
+      <dt>Objeto</dt><dd>${i.obj}</dd>
+      ${i.minuta ? html`<dt>Minuta</dt><dd><span className="minuta"><${Icon} n="link" s=${13} />Google Docs · minuta da peça</span></dd>` : null}
+    </dl>
+
+    <div className="sec-t">Contexto do processo</div>
+    <div className="ctx">
+      <div className="ctx-h"><${PTag} t=${proc.tag} /><span className="ell" style=${{ fontWeight: 500 }}>${proc.party}</span></div>
+      ${cdas.map(function (c) {
+        var g = PGROUPS[c.g - 1];
+        return html`<div key=${c.n} className="ctx-row">
+          <span className="ell"><span className="mono" style=${{ fontSize: 12 }}>${c.n}</span> <span className="muted">· ${c.trib} · ${money(c.v)}</span></span>
+          <span className=${'presc g' + (c.g <= 4 ? c.g : 0)}><${Icon} n="hourglass" s=${11} />${g.l}</span>
+          ${c.g <= 3 ? html`<span className="s">${c.sum}</span>` : null}
+        </div>`;
+      })}
+      <div className="ctx-row" style=${{ display: 'block' }}>
+        <div className="ev-list">${evs.map(function (e, k) { return html`<div key=${k} className="ev-it"><time>${dm(e.d)}${e.d < -300 ? '/' + String(dt(e.d).getFullYear()).slice(2) : ''}</time><span className="dm" style=${{ background: evC[e.k] }}></span><span>${e.l}</span></div>`; })}</div>
+      </div>
+    </div>
+    ${p.showRespond ? html`<${RespondForm} onCancel=${function () { p.setShowRespond(false); }} onSave=${function (r) { set({ st: 'analisado', resp: r }); p.setShowRespond(false); p.toast('Atuação registrada. Intimação movida para Analisadas.'); }} />` : null}
+  </div>`;
+}
+function Drawer(p) {
+  var i = p.intims.filter(function (x) { return x.id === p.id; })[0];
+  var rS = useState(false); var showRespond = rS[0], setShowRespond = rS[1];
+  useEffect(function () { setShowRespond(false); }, [p.id]);
+  if (!i) return null;
+  var order = p.order || [];
+  var idx = order.indexOf(i.id);
+  function nav(d) { var n = order[idx + d]; if (n) p.openIntim(n); }
+  var done = i.st === 'analisado';
+  return html`<div>
+    <div className="scrim" onClick=${p.onClose}></div>
+    <aside className="drawer" role="dialog" aria-modal="true" aria-label=${'Intimação · ' + i.party}>
+      <div className="dr-top">
+        <div className="crumb"><span>Intimações</span><span className="sep">/</span><b>${OPS_BY[i.op].name}</b></div>
+        <span className="mono muted" style=${{ fontSize: 11 }}>${idx >= 0 ? (idx + 1) + ' de ' + order.length : ''}</span>
+        <button type="button" className="icon-btn" disabled=${idx <= 0} onClick=${function () { nav(-1); }} title="Anterior (K)" aria-label="Anterior"><${Icon} n="chevU" /></button>
+        <button type="button" className="icon-btn" disabled=${idx < 0 || idx >= order.length - 1} onClick=${function () { nav(1); }} title="Próxima (J)" aria-label="Próxima"><${Icon} n="chevD" /></button>
+        <button type="button" className="icon-btn" onClick=${p.onClose} title="Fechar (Esc)" aria-label="Fechar"><${Icon} n="x" /></button>
+      </div>
+      <div className="dr-body"><${IntimDetail} i=${i} patch=${p.patch} toast=${p.toast} showRespond=${showRespond} setShowRespond=${setShowRespond} /></div>
+      ${!done && !showRespond ? html`<div className="dr-foot">
+        <button type="button" className="btn primary" onClick=${function () { setShowRespond(true); }}><${Icon} n="send" s=${14} />Registrar atuação</button>
+        <button type="button" className="btn" onClick=${function () { p.patch(i.id, { st: i.st === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' }); }}>${i.st === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
+        <button type="button" className="btn ghost" onClick=${function () { p.patch(i.id, { st: 'aguardando_subsidios' }); p.toast('Marcada como aguardando subsídios'); }}>Aguardar subsídios</button>
+        <span className="sp"></span>
+        <button type="button" className="icon-btn" onClick=${function () { p.toast('Enviada para a Mesa'); }} title="Enviar para a Mesa" aria-label="Enviar para a Mesa"><${Icon} n="desk" /></button>
+      </div>` : null}
+      ${done ? html`<div className="dr-foot"><span className="muted" style=${{ fontSize: 12 }}>Atuação registrada. A intimação está arquivada em Analisadas.</span><span className="sp"></span><button type="button" className="btn" onClick=${function () { p.patch(i.id, { st: 'pendente_analise', resp: null }); }}>Reabrir</button></div>` : null}
+    </aside>
+  </div>`;
+}
+
+/* ═════════════════════ Modo foco (triagem) ═════════════════════ */
+function Focus(p) {
+  var queue = useMemo(function () { return p.intims.filter(function (i) { return i.st !== 'analisado'; }).sort(sortFn('atencao')).map(function (i) { return i.id; }); }, []);
+  var ixS = useState(0); var ix = ixS[0], setIx = ixS[1];
+  var rS = useState(false); var showRespond = rS[0], setShowRespond = rS[1];
+  var cur = p.intims.filter(function (x) { return x.id === queue[ix]; })[0];
+  var handled = queue.filter(function (id) { var x = p.intims.filter(function (y) { return y.id === id; })[0]; return x && x.st === 'analisado'; }).length;
+  useEffect(function () { setShowRespond(false); }, [ix]);
+  useEffect(function () {
+    function onKey(e) {
+      if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey || p.blocked) return;
+      var k = e.key.toLowerCase();
+      if (k === 'j' || e.key === 'ArrowRight') { e.preventDefault(); setIx(function (v) { return Math.min(queue.length, v + 1); }); }
+      else if (k === 'k' || e.key === 'ArrowLeft') { e.preventDefault(); setIx(function (v) { return Math.max(0, v - 1); }); }
+      else if (k === 'r' && cur && cur.st !== 'analisado') { e.preventDefault(); setShowRespond(true); }
+      else if (k === 'u' && cur) { e.preventDefault(); p.patch(cur.id, { urg: !cur.urg }); }
+      else if (e.key === 'Escape') { p.setView('lista'); }
+    }
+    window.addEventListener('keydown', onKey);
+    return function () { window.removeEventListener('keydown', onKey); };
+  }, [cur, queue, p.blocked]);
+  var pct = queue.length ? Math.round(Math.min(ix, queue.length) / queue.length * 100) : 100;
+  if (!cur) {
+    return html`<div className="focus-wrap"><div className="focus-top"><span className="cnt">${queue.length} de ${queue.length}</span><span className="progress"><i style=${{ width: '100%' }}></i></span></div>
+      <div className="focus-card focus-done"><div className="eyebrow">Triagem concluída</div><h2 className="d-title">Você passou por ${queue.length} intimações.</h2><p className="d-ev">${handled} com atuação registrada nesta rodada. As demais seguem na lista com a gramática que você ajustou.</p>
+      <div className="focus-acts"><button type="button" className="btn primary" onClick=${function () { p.setView('lista'); }}>Voltar à lista</button><button type="button" className="btn" onClick=${function () { setIx(0); }}>Recomeçar</button></div></div></div>`;
+  }
+  var proc = PROC_BY[cur.proc];
+  var op = OPS_BY[cur.op];
+  var cdas = CDAS.filter(function (c) { return c.proc === cur.proc; });
+  var sameOp = p.intims.filter(function (x) { return x.op === cur.op && x.id !== cur.id && x.st !== 'analisado'; }).sort(function (a, b) { return a.due - b.due; });
+  return html`<div className="focus-wrap">
+    <div className="focus-top">
+      <button type="button" className="icon-btn" onClick=${function () { setIx(Math.max(0, ix - 1)); }} disabled=${ix === 0} aria-label="Anterior"><${Icon} n="chevL" /></button>
+      <span className="cnt">${ix + 1} de ${queue.length}</span>
+      <button type="button" className="icon-btn" onClick=${function () { setIx(ix + 1); }} aria-label="Próxima"><${Icon} n="chevR" /></button>
+      <span className="progress" aria-hidden="true"><i style=${{ width: pct + '%' }}></i></span>
+      <button type="button" className="btn sm ghost" onClick=${function () { p.setView('lista'); }}>Sair do foco <kbd>Esc</kbd></button>
+    </div>
+    <div className="focus">
+      <div className="focus-card">
+        <${IntimDetail} i=${cur} patch=${p.patch} toast=${p.toast} showRespond=${showRespond} setShowRespond=${setShowRespond} />
+        ${cur.st !== 'analisado' && !showRespond ? html`<div className="focus-acts">
+          <button type="button" className="btn primary" onClick=${function () { setShowRespond(true); }}><${Icon} n="send" s=${14} />Registrar atuação <kbd>R</kbd></button>
+          <button type="button" className="btn" onClick=${function () { p.patch(cur.id, { st: 'peca_edicao' }); setIx(ix + 1); }}>Peça em edição e seguir</button>
+          <button type="button" className="btn ghost" onClick=${function () { setIx(ix + 1); }}>Pular <kbd>J</kbd></button>
+        </div>` : null}
+        ${cur.st === 'analisado' ? html`<div className="focus-acts"><button type="button" className="btn primary" onClick=${function () { setIx(ix + 1); }}>Próxima <kbd>J</kbd></button></div>` : null}
+        <div className="keys"><span><kbd>J</kbd><kbd>K</kbd>navegar</span><span><kbd>R</kbd>registrar atuação</span><span><kbd>U</kbd>urgente</span><span><kbd>Esc</kbd>sair</span></div>
+      </div>
+      <div className="focus-side">
+        <section className="card">
+          <div className="card-h"><h2>Operação</h2><div className="aside"><button type="button" className="link-btn" onClick=${function () { p.go({ name: 'op', op: op.id }); }}>Abrir<${Icon} n="chevR" s=${13} /></button></div></div>
+          <div style=${{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="op-h"><span className="op-sq" style=${{ background: op.color }}></span><span className="op-nm">${op.name}</span></div>
+            <p className="op-desc" style=${{ minHeight: 0 }}>${op.desc}</p>
+            <div className="tags">${op.tags.map(function (t) { return html`<span key=${t[0]} className=${'tag ' + t[1]}>${t[0]}</span>`; })}</div>
+          </div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h2>Na mesma operação</h2><div className="aside"><span className="nav-count">${sameOp.length}</span></div></div>
+          ${sameOp.length ? sameOp.slice(0, 4).map(function (x) { return html`<button key=${x.id} type="button" className="dl-item" onClick=${function () { var k = queue.indexOf(x.id); if (k >= 0) setIx(k); }}><${StatusIcon} s=${x.st} /><span className="t">${x.ev.replace(/ — \d+ dias$/, '')}</span><${Due} off=${x.due} /></button>`; }) : html`<div className="empty-row">Nenhuma outra intimação aberta.</div>`}
+          <div style=${{ height: 6 }}></div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h2>Prescrição das CDAs</h2></div>
+          ${cdas.length ? cdas.map(function (c) { var g = PGROUPS[c.g - 1]; return html`<div key=${c.n} className="ctx-row"><span className="ell mono" style=${{ fontSize: 11.5 }}>${c.n}</span><span className=${'presc g' + (c.g <= 4 ? c.g : 0)}>${g.l}</span></div>`; }) : html`<div className="empty-row">Sem CDAs vinculadas a este processo.</div>`}
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ═════════════════════ Linha do tempo ═════════════════════ */
+var SCALES = {
+  semanas: { ppd: 22, from: -28, to: 49 },
+  meses: { ppd: 3.2, from: -320, to: 250 },
+  anos: { ppd: 0.62, from: -3050, to: 1460 },
+};
+var ROW = 36, AXIS = 50;
+function buildRows(opId, intims) {
+  var rows = [{ kind: 'ms' }];
+  var procs = PROCS.filter(function (p) { return p.op === opId; });
+  var tops = procs.filter(function (p) { return !p.parent; });
+  tops.forEach(function (p) {
+    rows.push({ kind: 'proc', p: p });
+    if (p.presc) rows.push({ kind: 'presc', p: p });
+    intims.filter(function (i) { return i.proc === p.id && i.st !== 'analisado'; }).forEach(function (i) { rows.push({ kind: 'prazo', i: i, p: p }); });
+    procs.filter(function (c) { return c.parent === p.id; }).forEach(function (c) {
+      rows.push({ kind: 'proc', p: c, child: true });
+      intims.filter(function (i) { return i.proc === c.id && i.st !== 'analisado'; }).forEach(function (i) { rows.push({ kind: 'prazo', i: i, p: c, child: true }); });
+    });
+  });
+  return rows;
+}
+function Timeline(p) {
+  var opId = p.op;
+  var sc = SCALES[p.scale];
+  var W = Math.round((sc.to - sc.from) * sc.ppd);
+  function x(d) { return (d - sc.from) * sc.ppd; }
+  var rows = useMemo(function () { return buildRows(opId, p.intims); }, [opId, p.intims]);
+  var scRef = useRef(null);
+  useLayoutEffect(function () { var el = scRef.current; if (el) el.scrollLeft = Math.max(0, x(0) - el.clientWidth * 0.42); }, [opId, p.scale]);
+
+  var axis = [], grid = [];
+  for (var d = sc.from; d <= sc.to; d++) {
+    var D = dt(d), dd = D.getDate(), mm = D.getMonth(), wd = D.getDay();
+    if (p.scale === 'semanas') {
+      axis.push(html`<span key=${'t' + d} className=${'tl-tick' + (wd === 0 || wd === 6 ? ' we' : '')} style=${{ left: x(d) + sc.ppd / 2 }}>${dd}</span>`);
+      if (wd === 6) grid.push(html`<span key=${'w' + d} className="tl-shade" style=${{ left: x(d), width: sc.ppd * 2 }}></span>`);
+      if (dd === 1 || d === sc.from) axis.push(html`<span key=${'m' + d} className="tl-major" style=${{ left: x(d) }}>${MES_L[mm]} ${D.getFullYear()}</span>`);
+      if (wd === 1) grid.push(html`<span key=${'g' + d} className="tl-grid" style=${{ left: x(d) }}></span>`);
+    } else if (p.scale === 'meses') {
+      if (dd === 1) { axis.push(html`<span key=${'t' + d} className="tl-tick" style=${{ left: x(d) + 15 * sc.ppd }}>${MES[mm]}</span>`); grid.push(html`<span key=${'g' + d} className="tl-grid strong" style=${{ left: x(d) }}></span>`); }
+      else if (wd === 1) grid.push(html`<span key=${'g' + d} className="tl-grid" style=${{ left: x(d) }}></span>`);
+      if ((dd === 1 && mm === 0) || d === sc.from) axis.push(html`<span key=${'y' + d} className="tl-major" style=${{ left: x(d) }}>${D.getFullYear()}</span>`);
+    } else {
+      if (dd === 1 && mm % 3 === 0) { axis.push(html`<span key=${'t' + d} className="tl-tick" style=${{ left: x(d) + 45 * sc.ppd }}>${'T' + (mm / 3 + 1)}</span>`); grid.push(html`<span key=${'g' + d} className=${'tl-grid' + (mm === 0 ? ' strong' : '')} style=${{ left: x(d) }}></span>`); }
+      if ((dd === 1 && mm === 0) || d === sc.from) axis.push(html`<span key=${'y' + d} className="tl-major" style=${{ left: x(d) }}>${D.getFullYear()}</span>`);
+    }
+  }
+
+  var yOf = {};
+  rows.forEach(function (r, k) { if (r.kind === 'proc') yOf[r.p.id] = AXIS + k * ROW + ROW / 2; });
+  var H = AXIS + rows.length * ROW;
+  var links = [];
+  PROCS.filter(function (q) { return q.op === opId; }).forEach(function (q) {
+    if (q.parent && yOf[q.parent] != null) links.push([q.start, yOf[q.parent], q.start, yOf[q.id]]);
+    (q.covers || []).forEach(function (c) { if (yOf[c] != null) links.push([q.start, yOf[q.id], q.start, yOf[c]]); });
+  });
+  var evC = { marco: 'var(--ink-2)', constricao: 'var(--cyan)', decisao: 'var(--green)', audiencia: 'var(--orange)' };
+  function clampBar(a, b) { var s = Math.max(a, sc.from), e = Math.min(b, sc.to); return e <= s ? null : { left: x(s), width: Math.max(4, (e - s) * sc.ppd) }; }
+  var minLbl = p.scale === 'anos' ? 220 : 120;
+
+  var msItems = [];
+  PROCS.filter(function (q) { return q.op === opId; }).forEach(function (q) {
+    (q.events || []).forEach(function (e) { if (e.k === 'audiencia' || e.k === 'decisao') msItems.push({ d: e.d, l: e.l, c: evC[e.k] }); });
+    if (q.presc && q.presc.deadline != null) msItems.push({ d: q.presc.deadline, l: 'Prescrição intercorrente · ' + dmy(q.presc.deadline), c: 'var(--violet)', big: true });
+  });
+  var o = OPS_BY[opId];
+  var nextRev = o.review.last + o.review.every;
+  msItems.push({ d: nextRev, l: 'Revisão ' + o.review.label, c: 'var(--accent)' });
+  msItems.sort(function (a, b) { return a.d - b.d; });
+
+  function rowLeft(r, k) {
+    if (r.kind === 'ms') return html`<div key=${k} className="tl-rl ms"><${Icon} n="flag" s=${13} />Marcos da operação<span className="nav-count" style=${{ marginLeft: 'auto' }}>${msItems.length}</span></div>`;
+    if (r.kind === 'proc') return html`<div key=${k} className=${'tl-rl' + (r.child ? ' child' : '')} title=${r.p.cls + ' · ' + r.p.num}><${PTag} t=${r.p.tag} /><span className="lbl2 ell"><span className="ell" style=${{ fontWeight: 500 }}>${r.p.party}</span><span className="who ell mono">${r.p.num}</span></span></div>`;
+    if (r.kind === 'presc') return html`<div key=${k} className="tl-rl sub"><${Icon} n="hourglass" s=${13} style=${{ color: 'var(--violet)' }} /><span className="ell">Prescrição · art. 40 LEF</span></div>`;
+    return html`<div key=${k} className=${'tl-rl sub' + (r.child ? ' child' : '')}><${StatusIcon} s=${r.i.st} /><span className="ell">${r.i.ev.replace(/ — \d+ dias$/, '')}</span></div>`;
+  }
+  function rowRight(r, k) {
+    var inner = [];
+    if (r.kind === 'ms') {
+      var vis = msItems.filter(function (m) { return m.d >= sc.from && m.d <= sc.to; });
+      vis.forEach(function (m, j) {
+        var X = x(m.d);
+        var next = vis[j + 1];
+        var room = next ? x(next.d) - X - 14 : 200;
+        inner.push(html`<span key=${'d' + j} className=${'tl-dm' + (m.big ? ' lg' : '')} style=${{ left: X, '--c': m.c }} title=${dmy(m.d) + ' · ' + m.l}></span>`);
+        if (room >= 90) inner.push(html`<span key=${'l' + j} className="tl-dm-l" style=${{ left: X, maxWidth: Math.min(room, 220) }}>${m.l}</span>`);
+      });
+    } else if (r.kind === 'proc') {
+      var q = r.p, end = q.end != null ? q.end : sc.to;
+      var b = clampBar(q.start, end);
+      if (b) inner.push(html`<div key="b" className=${'tl-bar' + (q.end == null ? ' open-end' : ' ended')} style=${{ left: b.left, width: b.width, '--c': TAG_C[q.tag] }} title=${q.cls + ' · desde ' + dmy(q.start)}>${b.width > 60 ? html`<span className="lbl">${TAG_L[q.tag]}${q.end != null ? ' · encerrado ' + dm(q.end) : ''}</span>` : null}</div>`);
+      (q.events || []).forEach(function (e, j) {
+        if (e.d < sc.from || e.d > sc.to) return;
+        inner.push(html`<span key=${'e' + j} className="tl-dm" style=${{ left: x(e.d), '--c': evC[e.k] }} title=${dmy(e.d) + ' · ' + e.l}></span>`);
+      });
+    } else if (r.kind === 'presc') {
+      r.p.presc.segs.forEach(function (s, j) {
+        var b = clampBar(s.from, s.to); if (!b) return;
+        inner.push(html`<span key=${'s' + j} className=${'tl-seg ' + s.t} style=${{ left: b.left, width: b.width }} title=${({ susp: 'Suspensão de 1 ano (art. 40, caput)', inter: 'Contagem da intercorrente (5 anos)', pausa: 'Pausa por parcelamento', cut: 'Contagem interrompida' })[s.t] + ' · ' + dm(s.from) + ' a ' + dm(s.to)}></span>`);
+        var lbl = ({ susp: 'Suspensão · 1 ano', inter: 'Intercorrente · 5 anos', pausa: 'Parcelamento', cut: 'Interrompida' })[s.t];
+        if (b.width > minLbl * 0.7) inner.push(html`<span key=${'l' + j} className="tl-seg-l" style=${{ left: b.left }}>${lbl}</span>`);
+      });
+      if (r.p.presc.deadline != null && r.p.presc.deadline <= sc.to) inner.push(html`<span key="dl" className="tl-dm lg" style=${{ left: x(r.p.presc.deadline), '--c': 'var(--violet)' }} title=${'Prescrição prevista em ' + dmy(r.p.presc.deadline)}></span>`);
+    } else {
+      var i = r.i, info = dueInfo(i.due);
+      var c = info.tone === 'late' ? 'var(--red)' : info.tone === 'today' ? 'var(--orange)' : info.tone === 'soon' ? 'var(--yellow)' : 'var(--ink-3)';
+      var b2 = clampBar(i.start, i.due + 1);
+      if (b2) inner.push(html`<div key="p" className="tl-bar prazo" role="button" tabIndex="0" style=${{ left: b2.left, width: b2.width, '--c': c }} onClick=${function () { p.openIntim(i.id); }} onKeyDown=${function (e) { if (e.key === 'Enter') p.openIntim(i.id); }} title=${i.ev + ' · final ' + dmy(i.due)}>${b2.width > 110 ? html`<span className="lbl">Prazo · final ${dm(i.due)}</span>` : null}</div>`);
+    }
+    return html`<div key=${k} className=${'tl-rr' + (r.kind === 'ms' ? ' ms' : '')}>${inner}</div>`;
+  }
+
+  return html`<div>
+    <div className="tl">
+      <div className="tl-l">
+        <div className="tl-hd">Processo · evento</div>
+        ${rows.map(rowLeft)}
+      </div>
+      <div className="tl-r" ref=${scRef}>
+        <div className="tl-cv" style=${{ width: W, height: H }}>
+          <div className="tl-axis">${axis}</div>
+          ${grid}
+          ${rows.map(rowRight)}
+          <svg className="tl-svg" width=${W} height=${H} aria-hidden="true">${links.map(function (l, k) {
+            if (l[0] < sc.from || l[0] > sc.to) return null;
+            var X = x(l[0]), y1 = l[1], y2 = l[3], bend = 16;
+            return html`<g key=${k}><path d=${'M' + X + ' ' + y1 + ' C ' + (X - bend) + ' ' + y1 + ', ' + (X - bend) + ' ' + y2 + ', ' + X + ' ' + y2} style=${{ fill: 'none', stroke: 'var(--line-strong)', strokeWidth: 1.5 }} /><circle cx=${X} cy=${y2} r="2.5" style=${{ fill: 'var(--ink-3)' }} /></g>`;
+          })}</svg>
+          <div className="tl-today" style=${{ left: x(0) }}><span>Hoje</span></div>
+        </div>
+      </div>
+    </div>
+    <div className="tl-legend">
+      <span><i className="lg-sw" style=${{ background: 'color-mix(in srgb, var(--cyan) 18%, var(--surface))', border: '1px solid color-mix(in srgb, var(--cyan) 45%, transparent)' }}></i>Processo</span>
+      <span><i className="tl-dm" style=${{ position: 'static', transform: 'rotate(45deg)', '--c': 'var(--green)', boxShadow: 'none' }}></i>Decisão</span>
+      <span><i className="tl-dm" style=${{ position: 'static', transform: 'rotate(45deg)', '--c': 'var(--cyan)', boxShadow: 'none' }}></i>Constrição</span>
+      <span><i className="tl-dm" style=${{ position: 'static', transform: 'rotate(45deg)', '--c': 'var(--orange)', boxShadow: 'none' }}></i>Audiência</span>
+      <span><i className="lg-sw tl-seg susp" style=${{ position: 'static' }}></i>Suspensão · 1 ano</span>
+      <span><i className="lg-sw tl-seg inter" style=${{ position: 'static' }}></i>Intercorrente · 5 anos</span>
+      <span><i className="lg-sw tl-seg pausa" style=${{ position: 'static' }}></i>Parcelamento</span>
+      <span><i className="lg-sw tl-seg cut" style=${{ position: 'static' }}></i>Interrompida</span>
+    </div>
+  </div>`;
+}
+function TimelinePage(p) {
+  var opId = p.route.op || 'fn';
+  return html`<div className="page" style=${{ maxWidth: 1400 }}>
+    <div className="page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição da operação numa mesma régua. Clique num prazo para abrir a intimação.</p></div></div>
+    <div className="tl-tools">
+      <${Sel} id="tl-op" pre="Operação" value=${opId} onChange=${function (v) { p.go({ name: 'timeline', op: v }); }} options=${OPS.map(function (o) { return [o.id, o.name]; })} />
+      <${Seg} className="lg" label="Escala" value=${p.scale} onChange=${p.setScale} options=${[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} />
+      <span className="sp"></span>
+      <span className="muted" style=${{ fontSize: 12 }}>Dica: use Anos para ver o art. 40 inteiro.</span>
+    </div>
+    <${Timeline} op=${opId} scale=${p.scale} intims=${p.intims} openIntim=${p.openIntim} />
+  </div>`;
+}
+
+/* ═════════════════════ Carteira e operação ═════════════════════ */
+function opStats(o, intims) {
+  var cdas = CDAS.filter(function (c) { return c.op === o.id; });
+  var procs = PROCS.filter(function (q) { return q.op === o.id; });
+  var constr = procs.reduce(function (s, q) { return s + (q.events || []).filter(function (e) { return e.k === 'constricao'; }).length; }, 0);
+  var risk = cdas.filter(function (c) { return c.g === 1 || c.g === 2; }).reduce(function (s, c) { return s + c.v; }, 0);
+  var open = intims.filter(function (i) { return i.op === o.id && i.st !== 'analisado'; });
+  return { cdas: cdas, procs: procs, efs: procs.filter(function (q) { return q.tag === 'EF'; }).length, constr: constr, risk: risk, open: open, tasks: TASKS.filter(function (t) { return t.op === o.id; }) };
+}
+function Carteira(p) {
+  var debt = OPS.reduce(function (s, o) { return s + o.debt; }, 0);
+  return html`<div className="page">
+    <div className="page-h"><div><h1>Carteira</h1><p>${OPS.length} operações ativas · ${moneyShort(debt)} sob gestão. Barra verde: parcela garantida da dívida.</p></div>
+      <div className="acts"><button type="button" className="btn" onClick=${function () { p.toast('Nova operação: formulário na próxima parte'); }}><${Icon} n="plus" s=${14} />Nova operação</button></div></div>
+    <div className="op-grid">${OPS.map(function (o) {
+      var s = opStats(o, p.intims);
+      var pct = Math.round(o.guaranteed / o.debt * 100);
+      var rv = reviewInfo(o);
+      var nx = s.open.slice().sort(function (a, b) { return a.due - b.due; })[0];
+      return html`<button key=${o.id} type="button" className="op-card" onClick=${function () { p.go({ name: 'op', op: o.id }); }}>
+        <div className="op-h"><span className="op-sq" style=${{ background: o.color }}></span><span className="op-nm ell">${o.name}</span>${o.fav ? html`<${Icon} n="star" s=${13} className="fav" />` : null}<span className=${'tag rv ' + rv.tone}>${rv.txt}</span></div>
+        <p className="op-desc">${o.desc}</p>
+        <div className="tags">${o.tags.map(function (t) { return html`<span key=${t[0]} className=${'tag ' + t[1]}>${t[0]}</span>`; })}</div>
+        <div>
+          <div className="op-money"><b>${moneyShort(o.debt)}</b><span className="pct">${pct}% garantido</span></div>
+          <div className="bar" style=${{ marginTop: 7 }}><i style=${{ width: pct + '%' }}></i></div>
+        </div>
+        <div className="op-meta">
+          <span title="Execuções fiscais"><${Icon} n="scale" s=${13} />${pl(s.efs, 'EF', 'EFs')}</span>
+          <span title="CDAs"><${Icon} n="file" s=${13} />${pl(s.cdas.length, 'CDA', 'CDAs')}</span>
+          <span title="Próximo prazo"><${Icon} n="clock" s=${13} />${nx ? html`<${Due} off=${nx.due} />` : '—'}</span>
+          <${Avatars} list=${o.targets} max=${3} />
+        </div>
+      </button>`;
+    })}</div>
+  </div>`;
+}
+function OpPage(p) {
+  var o = OPS_BY[p.route.op];
+  var s = opStats(o, p.intims);
+  var pct = Math.round(o.guaranteed / o.debt * 100);
+  var rv = reviewInfo(o);
+  var tS = useState('meses'); var sc = tS[0], setSc = tS[1];
+  var items = p.intims.filter(function (i) { return i.op === o.id; });
+  return html`<div className="page" style=${{ maxWidth: 1400 }}>
+    <div className="eyebrow">Operação</div>
+    <div className="op-hero" style=${{ marginTop: 6 }}>
+      <span className="sq-lg" style=${{ background: o.color }}></span><h1>${o.name}</h1>
+      ${o.fav ? html`<${Icon} n="star" s=${15} style=${{ color: 'var(--accent)' }} />` : null}
+      ${o.tags.map(function (t) { return html`<span key=${t[0]} className=${'tag ' + t[1]}>${t[0]}</span>`; })}
+      <span className=${'tag ' + rv.tone}><${Icon} n="history" s=${12} />${rv.txt} · ${o.review.label}</span>
+    </div>
+    <p className="lede" style=${{ marginTop: 8 }}>${o.desc}</p>
+    <div className="stats">
+      <div className="stat"><div className="stat-l">Dívida total</div><div className="stat-v">${moneyShort(o.debt)}</div></div>
+      <div className="stat"><div className="stat-l">Garantido</div><div className="stat-v">${pct}%</div></div>
+      <div className="stat"><div className="stat-l">Constrições</div><div className="stat-v">${s.constr}</div></div>
+      <div className="stat"><div className="stat-l">Presc. em risco</div><div className=${'stat-v' + (s.risk ? ' violet' : '')}>${s.risk ? moneyShort(s.risk) : '—'}</div></div>
+      <div className="stat"><div className="stat-l">Intimações abertas</div><div className=${'stat-v' + (s.open.some(function (i) { return i.due < 0; }) ? ' red' : '')}>${s.open.length}</div></div>
+      <div className="stat"><div className="stat-l">Tarefas</div><div className="stat-v">${s.tasks.length}</div></div>
+    </div>
+    <div className="sub-h"><h2>Linha do tempo</h2><span className="sp" style=${{ flex: 1 }}></span><${Seg} label="Escala" value=${sc} onChange=${setSc} options=${[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>
+    <${Timeline} op=${o.id} scale=${sc} intims=${p.intims} openIntim=${p.openIntim} />
+    <div className="sub-h"><h2>Intimações</h2><span className="nav-count">${items.length}</span></div>
+    <${IntimList} items=${items} groupBy="prazo" sort="atencao" onOpen=${p.openIntim} selId=${p.drawerId} />
+  </div>`;
+}
+
+/* ═════════════════════ Prazos extintivos ═════════════════════ */
+function Prazos(p) {
+  var gS = useState(0); var g = gS[0], setG = gS[1];
+  var list = CDAS.filter(function (c) { return g ? c.g === g : c.g <= 4; }).sort(function (a, b) { return (a.g - b.g) || ((a.due == null ? 1e9 : a.due) - (b.due == null ? 1e9 : b.due)); });
+  return html`<div className="page">
+    <div className="page-h"><div><h1>Prazos extintivos</h1><p>Decadência, prescrição ordinária e intercorrente das CDAs, pelo motor de regras v2026.09. Toque num grupo para filtrar.</p></div></div>
+    <div className="pgroups">${PGROUPS.map(function (x) {
+      var cs = CDAS.filter(function (c) { return c.g === x.g; });
+      var v = cs.reduce(function (s, c) { return s + c.v; }, 0);
+      return html`<button key=${x.g} type="button" className=${'pg' + (g === x.g ? ' on' : '')} style=${{ '--c': x.c }} onClick=${function () { setG(g === x.g ? 0 : x.g); }} aria-pressed=${g === x.g}>
+        <span className="pg-t"><span className="gnum">${x.g}</span>${x.l}</span>
+        <div className="pg-n">${cs.length}</div>
+        <div className="pg-s">${cs.length ? moneyShort(v) : x.s}</div>
+      </button>`;
+    })}</div>
+    <div className="list">
+      ${list.map(function (c) {
+        var x = PGROUPS[c.g - 1], proc = PROC_BY[c.proc];
+        var total = c.due != null && c.from != null ? c.due - c.from : null;
+        var el = total ? Math.max(0, Math.min(100, Math.round(-c.from / total * 100))) : null;
+        return html`<div key=${c.n} className="p-row" style=${{ '--c': x.c }}>
+          <span className="gnum" title=${x.l}>${c.g}</span>
+          <div className="p-cda">
+            <span className="ell"><span className="mono" style=${{ fontSize: 12.5, fontWeight: 500 }}>${c.n}</span><button type="button" className="copy" aria-label="Copiar CDA" onClick=${function () { copyText(c.n, p.toast); }}><${Icon} n="copy" s=${12} /></button></span>
+            <span className="muted ell" style=${{ fontSize: 11.5 }}>${c.sys} · ${c.trib} · ${money(c.v)}</span>
+            <span className="ell" style=${{ fontSize: 11.5 }}><${OpTag} id=${c.op} /> <span className="muted">· <${Proc} num=${proc.num} /></span></span>
+          </div>
+          <div className="p-sum"><span className="tag" style=${{ marginRight: 6 }}>${c.kind}</span>${c.sum}</div>
+          <div className="clock">${el != null ? [html`<div key="b" className="bar"><i style=${{ width: el + '%' }}></i></div>`, html`<div key="l" className="clock-l"><span>${el}% decorrido</span><span>${Math.max(0, c.due)}d restantes</span></div>`] : html`<div className="clock-l"><span>${c.g === 4 ? 'contagem pausada' : 'sem data para calcular'}</span></div>`}</div>
+          <div className="p-date">${c.due != null ? [html`<b key="d" style=${{ color: c.g === 1 ? 'var(--red)' : 'inherit' }}>${dmy(c.due)}</b>`, html`<span key="s">estimado</span>`] : html`<span>—</span>`}</div>
+        </div>`;
+      })}
+    </div>
+  </div>`;
+}
+
+/* ═════════════════════ Próximas partes ═════════════════════ */
+var SOON = {
+  tarefas: ['Tarefas', 'A mesma gramática das intimações para tarefas: prioridade, prazo e operação, em lista ou quadro.', ['Prioridades urgente, alta, média e baixa', 'Visibilidade interna à operação ou global', 'Link para o documento de trabalho']],
+  mesa: ['Mesa de trabalho', 'O que você separou para hoje, numa pilha só.', ['Intimações, tarefas e audiências misturadas', 'Arrastar para reordenar', 'Enviar para a Mesa a partir de qualquer lista']],
+  agenda: ['Agenda', 'Audiências e prazos numa grade semanal.', ['Aviso de audiência a menos de 48 horas', 'Roteiro e link da sala virtual', 'Feriados extras do calendário forense']],
+  processos: ['Processos', 'Hubs com as execuções que abrangem, em master–detail.', ['IDPJ, MCF e Central com as EFs abrangidas', 'EFs sem vínculo por situação', 'Panorama processual por etapa']],
+  pessoas: ['Pessoas e bens', 'Alvos, responsáveis e bens num seletor único.', ['Responsabilidade por CDA (originário, art. 135, IDPJ)', 'Indisponibilidades CNIB, Sisbajud e Renajud', 'Perfil da pessoa com processos e CDAs']],
+  biblioteca: ['Biblioteca', 'Modelos de peças com estágio, precedentes e contra-argumentos.', ['Estágios: em produção, revisado, aprovado', 'Precedentes vinculantes e qualificados', 'Serve para / não serve para']],
+  acompanhar: ['Acompanhar', 'Processos de terceiros que você vigia.', ['Motivo do acompanhamento', 'Aguardando, movimentado ou encerrado']],
+  importar: ['Importar', 'Os XLS do eproc e da Procuradoria com prévia antes de gravar.', ['Intimações do eproc (prazo em aberto e pendentes)', 'Inscrições, processos e bens', 'Resumo do que é novo e do que mudou']],
+  briefing: ['Briefing', 'A leitura estratégica da operação.', ['Hipótese, provas e próximos passos', 'Panorama processual dos hubs', 'Lembretes e checklists']],
+};
+function Soon(p) {
+  var s = SOON[p.name];
+  return html`<div className="page"><div className="soon-card">
+    <div className="eyebrow">Próxima parte desta trilha</div>
+    <h2>${s[0]}${p.op ? ' · ' + OPS_BY[p.op].name : ''}</h2>
+    <p>${s[1]}</p>
+    <ul>${s[2].map(function (t) { return html`<li key=${t}>${t}</li>`; })}</ul>
+    <div style=${{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+      <button type="button" className="btn" onClick=${function () { p.go({ name: 'hoje' }); }}>Voltar para Hoje</button>
+      <button type="button" className="btn ghost" onClick=${function () { p.go({ name: 'intimacoes' }); }}>Ver Intimações</button>
+    </div>
+  </div></div>`;
+}
+
+/* ═════════════════════ Paleta ⌘K ═════════════════════ */
+var PAL_CATS = [['all', 'Tudo', 'layers'], ['intim', 'Intimações', 'inbox'], ['proc', 'Processos', 'scale'], ['cda', 'CDAs', 'file'], ['pessoa', 'Pessoas', 'users'], ['op', 'Operações', 'briefcase']];
+function Palette(p) {
+  var qS = useState(''); var q = qS[0], setQ = qS[1];
+  var cS = useState('all'); var cat = cS[0], setCat = cS[1];
+  var sS = useState(0); var sel = sS[0], setSel = sS[1];
+  var inRef = useRef(null), listRef = useRef(null);
+  var index = useMemo(function () {
+    var out = [];
+    p.intims.forEach(function (i) { out.push({ t: 'intim', ic: 'inbox', title: i.party, sub: i.ev + ' · ' + i.num, hay: i.party + ' ' + i.ev + ' ' + i.num, run: function () { p.openIntim(i.id); } }); });
+    PROCS.forEach(function (q2) { out.push({ t: 'proc', ic: 'scale', title: q2.num, sub: q2.cls + ' · ' + q2.party, hay: q2.num + ' ' + q2.cls + ' ' + q2.party + ' ' + q2.tag, run: function () { p.go({ name: 'timeline', op: q2.op }); } }); });
+    CDAS.forEach(function (c) { out.push({ t: 'cda', ic: 'file', title: 'CDA ' + c.n, sub: c.trib + ' · ' + money(c.v) + ' · ' + OPS_BY[c.op].name, hay: c.n + ' ' + c.trib + ' ' + c.sys, run: function () { p.go({ name: 'prazos' }); } }); });
+    OPS.forEach(function (o) { o.targets.forEach(function (t) { out.push({ t: 'pessoa', ic: t[1] === 'pj' ? 'building' : 'user', title: t[2], sub: (t[1] === 'pj' ? 'CNPJ ' : 'CPF ') + t[3] + ' · ' + o.name, hay: t[2] + ' ' + t[3], run: function () { p.go({ name: 'op', op: o.id }); } }); }); });
+    OPS.forEach(function (o) { out.push({ t: 'op', ic: 'briefcase', title: 'Operação ' + o.name, sub: o.desc, hay: o.name + ' ' + o.desc, run: function () { p.go({ name: 'op', op: o.id }); } }); });
+    return out;
+  }, [p.intims]);
+  var actions = [
+    { t: 'acao', ic: 'zap', title: 'Iniciar triagem no modo foco', sub: 'Uma intimação por vez, com atalhos de teclado', run: function () { p.go({ name: 'intimacoes' }); p.setView('foco'); } },
+    { t: 'acao', ic: 'alert', title: 'Intimações vencidas', sub: 'Lista agrupada por prazo', run: function () { p.go({ name: 'intimacoes' }); p.setView('lista'); } },
+    { t: 'acao', ic: 'hourglass', title: 'Prazos extintivos urgentes', sub: 'CDAs no grupo 1', run: function () { p.go({ name: 'prazos' }); } },
+    { t: 'acao', ic: 'gantt', title: 'Linha do tempo · Holding Atlântico', sub: 'Onde a intercorrente está mais perto do fim', run: function () { p.go({ name: 'timeline', op: 'ha' }); p.setScale('anos'); } },
+    { t: 'acao', ic: 'palette', title: 'Direção visual: Grafite', sub: 'Escuro, denso', run: function () { p.setDir('grafite'); } },
+    { t: 'acao', ic: 'palette', title: 'Direção visual: Ardósia', sub: 'Claro, papel', run: function () { p.setDir('ardosia'); } },
+    { t: 'acao', ic: 'palette', title: 'Direção visual: Maré', sub: 'Azul-marinho e dourado, herança do Mar Profundo', run: function () { p.setDir('mare'); } },
+  ];
+  var recent = ['5001234', 'Marina', 'exceção', '90.6.18'];
+  var sections;
+  if (!q.trim()) {
+    sections = [['Buscas recentes', recent.map(function (r) { return { t: 'rec', ic: 'history', title: r, run: function () { setQ(r); setSel(0); }, keep: true }; })], ['Sugestões', actions]];
+  } else {
+    var toks = norm(q).split(/\s+/).filter(Boolean);
+    var hits = index.filter(function (it) {
+      if (cat !== 'all' && it.t !== cat) return false;
+      var hay = norm(it.hay), dg = digits(it.hay);
+      return toks.every(function (t) { return hay.indexOf(t) >= 0 || (digits(t).length >= 3 && dg.indexOf(digits(t)) >= 0); });
+    });
+    var act = cat === 'all' ? actions.filter(function (a) { var hay = norm(a.title + ' ' + a.sub); return toks.every(function (t) { return hay.indexOf(t) >= 0; }); }) : [];
+    var lbl = { intim: 'Intimações', proc: 'Processos', cda: 'CDAs', pessoa: 'Pessoas', op: 'Operações' };
+    sections = ['intim', 'proc', 'cda', 'pessoa', 'op'].map(function (k) { return [lbl[k], hits.filter(function (x) { return x.t === k; }).slice(0, 6)]; }).filter(function (s) { return s[1].length; });
+    if (act.length) sections.push(['Ações', act]);
+  }
+  var flat = []; sections.forEach(function (s) { s[1].forEach(function (it) { flat.push(it); }); });
+  var selC = Math.min(sel, Math.max(0, flat.length - 1));
+  function run(it) { if (!it) return; it.run(); if (!it.keep) p.onClose(); }
+  function onKey(e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSel(Math.min(flat.length - 1, selC + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(Math.max(0, selC - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); run(flat[selC]); }
+    else if (e.key === 'Escape') { e.preventDefault(); p.onClose(); }
+    else if (e.key === 'Tab') { e.preventDefault(); var k = PAL_CATS.findIndex(function (c) { return c[0] === cat; }); setCat(PAL_CATS[(k + (e.shiftKey ? PAL_CATS.length - 1 : 1)) % PAL_CATS.length][0]); setSel(0); }
+  }
+  useEffect(function () { var el = listRef.current && listRef.current.querySelector('.pal-item.sel'); if (el) el.scrollIntoView({ block: 'nearest' }); }, [selC, q, cat]);
+  function mark(text) {
+    var t = norm(q).trim().split(/\s+/)[0];
+    if (!t || t.length < 2) return text;
+    var k = norm(text).indexOf(t);
+    if (k < 0) return text;
+    return [text.slice(0, k), html`<mark key="m">${text.slice(k, k + t.length)}</mark>`, text.slice(k + t.length)];
+  }
+  var n = -1;
+  return html`<div className="pal-wrap" onMouseDown=${function (e) { if (e.target === e.currentTarget) p.onClose(); }}>
+    <div className="pal" role="dialog" aria-modal="true" aria-label="Buscar">
+      <div className="pal-in"><${Icon} n="search" /><input id="pal-q" ref=${inRef} value=${q} onInput=${function (e) { setQ(e.target.value); setSel(0); }} onKeyDown=${onKey} placeholder="Buscar intimações, processos, CDAs, pessoas, operações…" aria-label="Buscar" autoComplete="off" autoFocus /><kbd>Esc</kbd></div>
+      <div className="pal-chips">${PAL_CATS.map(function (c) { return html`<button key=${c[0]} type="button" className=${'pal-chip' + (cat === c[0] ? ' on' : '')} onClick=${function () { setCat(c[0]); setSel(0); if (inRef.current) inRef.current.focus(); }}><${Icon} n=${c[2]} s=${12} />${c[1]}</button>`; })}</div>
+      <div className="pal-list" ref=${listRef}>
+        ${flat.length ? sections.map(function (s) {
+          return html`<div key=${s[0]}><div className="pal-sec">${s[0]}</div>${s[1].map(function (it) {
+            n++; var me = n;
+            return html`<button key=${s[0] + me} type="button" className=${'pal-item' + (me === selC ? ' sel' : '')} onMouseMove=${function () { if (sel !== me) setSel(me); }} onClick=${function () { run(it); }}>
+              <span className="ic"><${Icon} n=${it.ic} /></span>
+              <span className="tt"><span className="ell">${mark(it.title)}</span>${it.sub ? html`<small>${it.sub}</small>` : null}</span>
+              <span className="go"><${Icon} n="enter" s=${14} /></span>
+            </button>`;
+          })}</div>`;
+        }) : html`<div className="pal-none">Nada encontrado para “${q}”. Dica: números de processo e de CDA funcionam sem pontuação.</div>`}
+      </div>
+      <div className="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd>navegar</span><span><kbd>↵</kbd>abrir</span><span><kbd>Tab</kbd>filtro</span><span style=${{ marginLeft: 'auto' }}>NEXUS</span></div>
+    </div>
+  </div>`;
+}
+
+/* ═════════════════════ Nova intimação ═════════════════════ */
+function NewIntim(p) {
+  var fS = useState({ num: '', party: '', ev: '', due: 10, op: 'fn', imp: 'media', dif: 'media' }); var f = fS[0], setF = fS[1];
+  function upd(k) { return function (e) { var x = Object.assign({}, f); x[k] = e && e.target ? e.target.value : e; setF(x); }; }
+  var ok = f.party.trim() && f.ev.trim();
+  useEffect(function () { function k(e) { if (e.key === 'Escape') p.onClose(); } window.addEventListener('keydown', k); return function () { window.removeEventListener('keydown', k); }; }, []);
+  return html`<div className="modal-wrap" onMouseDown=${function (e) { if (e.target === e.currentTarget) p.onClose(); }}>
+    <form className="modal" role="dialog" aria-modal="true" aria-label="Nova intimação" onSubmit=${function (e) { e.preventDefault(); if (!ok) return; p.onSave(f); }}>
+      <div className="modal-h"><h2>Nova intimação</h2><button type="button" className="icon-btn" onClick=${p.onClose} aria-label="Fechar"><${Icon} n="x" /></button></div>
+      <div className="modal-b">
+        <label>Parte adversa<input id="n-party" className="input" value=${f.party} onInput=${upd('party')} placeholder="Ex.: Comercial Fachada Norte LTDA" autoFocus /></label>
+        <label>Evento / prazo<input id="n-ev" className="input" value=${f.ev} onInput=${upd('ev')} placeholder="Ex.: Expedida/certificada a intimação eletrônica 10 dias" /></label>
+        <div className="form row2" style=${{ padding: 0, border: 0, background: 'none', margin: 0 }}>
+          <label>Processo<input id="n-num" className="input mono" value=${f.num} onInput=${upd('num')} placeholder="5000000-00.2026.4.04.7000" /></label>
+          <label>Final do prazo em (dias)<input id="n-due" className="input" type="number" value=${f.due} onInput=${upd('due')} /></label>
+        </div>
+        <label>Operação vinculada<select id="n-op" className="input" value=${f.op} onChange=${upd('op')}>${OPS.map(function (o) { return html`<option key=${o.id} value=${o.id}>${o.name}</option>`; })}</select></label>
+        <div className="gram">
+          <div className="gram-f"><span>Importância</span><${Seg} label="Importância" value=${f.imp} onChange=${upd('imp')} options=${[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
+          <div className="gram-f"><span>Complexidade</span><${Seg} label="Complexidade" value=${f.dif} onChange=${upd('dif')} options=${[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
+        </div>
+      </div>
+      <div className="modal-f"><button type="button" className="btn ghost" onClick=${p.onClose}>Cancelar</button><button type="submit" className="btn primary" disabled=${!ok} style=${{ opacity: ok ? 1 : .5 }}>Criar intimação</button></div>
+    </form>
+  </div>`;
+}
+
+/* ═════════════════════ App ═════════════════════ */
+var CRUMBS = { hoje: 'Hoje', intimacoes: 'Intimações', tarefas: 'Tarefas', mesa: 'Mesa', carteira: 'Carteira', timeline: 'Linha do tempo', prazos: 'Prazos extintivos', agenda: 'Agenda', processos: 'Processos', pessoas: 'Pessoas e bens', biblioteca: 'Biblioteca', acompanhar: 'Acompanhar', importar: 'Importar', briefing: 'Briefing' };
+var HASHES = ['hoje', 'intimacoes', 'foco', 'carteira', 'timeline', 'prazos'];
+function App() {
+  var initial = (function () { var hs = (location.hash || '').slice(1); return HASHES.indexOf(hs) >= 0 ? hs : 'hoje'; })();
+  var rS = useState({ name: initial === 'foco' ? 'intimacoes' : initial }); var route = rS[0], setRoute = rS[1];
+  var dS = useLS('nx-claude-dir', 'auto'); var dir = dS[0], setDir = dS[1];
+  var iS = useState(INTIMS0); var intims = iS[0], setIntims = iS[1];
+  var drS = useState(null); var drawerId = drS[0], setDrawerId = drS[1];
+  var palS = useState(false); var pal = palS[0], setPal = palS[1];
+  var sdS = useState(false); var sideOpen = sdS[0], setSideOpen = sdS[1];
+  var vS = useState(initial === 'foco' ? 'foco' : 'lista'); var view = vS[0], setView = vS[1];
+  var scS = useState('meses'); var scale = scS[0], setScale = scS[1];
+  var tS = useState(null); var toastMsg = tS[0], setToast = tS[1];
+  var nS = useState(false); var newOpen = nS[0], setNewOpen = nS[1];
+  var ooS = useLS('nx-claude-openops', { fn: true }); var openOps = ooS[0], setOpenOps = ooS[1];
+  var contentRef = useRef(null);
+  var toastT = useRef(null);
+
+  var toast = useCallback(function (m) { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(function () { setToast(null); }, 2600); }, []);
+  var go = useCallback(function (r) { setRoute(r); setSideOpen(false); if (contentRef.current) contentRef.current.scrollTop = 0; }, []);
+  var patch = useCallback(function (id, pt) { setIntims(function (list) { return list.map(function (i) { return i.id === id ? Object.assign({}, i, pt) : i; }); }); }, []);
+  var openIntim = useCallback(function (id) { setDrawerId(id); }, []);
+
+  var order = useMemo(function () {
+    var src = route.name === 'op' ? intims.filter(function (i) { return i.op === route.op; }) : intims;
+    return src.filter(function (i) { return i.st !== 'analisado'; }).sort(sortFn('atencao')).map(function (i) { return i.id; });
+  }, [intims, route]);
+
+  useEffect(function () {
+    function onKey(e) {
+      var k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === 'k') { e.preventDefault(); setPal(function (v) { return !v; }); return; }
+      if (pal || newOpen) return;
+      if (e.key === '/' && !isTyping(e)) { e.preventDefault(); setPal(true); return; }
+      if (e.key === 'Escape') { if (drawerId) setDrawerId(null); else if (sideOpen) setSideOpen(false); return; }
+      if (drawerId && !isTyping(e) && !e.metaKey && !e.ctrlKey) {
+        var ix = order.indexOf(drawerId);
+        if (k === 'j' && ix >= 0 && ix < order.length - 1) setDrawerId(order[ix + 1]);
+        if (k === 'k' && ix > 0) setDrawerId(order[ix - 1]);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return function () { window.removeEventListener('keydown', onKey); };
+  }, [pal, newOpen, drawerId, sideOpen, order]);
+
+  var crumbs = [];
+  if (route.name === 'op') crumbs = ['Carteira', OPS_BY[route.op].name];
+  else if (route.op && route.name !== 'timeline') crumbs = [OPS_BY[route.op].name, CRUMBS[route.name]];
+  else crumbs = [CRUMBS[route.name]];
+  if (route.name === 'intimacoes' && view === 'foco') crumbs = ['Intimações', 'Foco'];
+
+  var common = { intims: intims, go: go, openIntim: openIntim, patch: patch, toast: toast, drawerId: drawerId, route: route };
+  var page;
+  if (route.name === 'hoje') page = html`<${Hoje} ...${common} />`;
+  else if (route.name === 'intimacoes') page = html`<${Intimacoes} ...${common} view=${view} setView=${setView} blocked=${!!drawerId || pal || newOpen} />`;
+  else if (route.name === 'timeline') page = html`<${TimelinePage} ...${common} scale=${scale} setScale=${setScale} />`;
+  else if (route.name === 'carteira') page = html`<${Carteira} ...${common} />`;
+  else if (route.name === 'op') page = html`<${OpPage} key=${route.op} ...${common} />`;
+  else if (route.name === 'prazos') page = html`<${Prazos} ...${common} />`;
+  else page = html`<${Soon} name=${route.name} op=${route.op} go=${go} />`;
+
+  return html`<div className=${'nx' + (sideOpen ? ' side-open' : '')} data-dir=${dir === 'auto' ? null : dir}>
+    <${Sidebar} route=${route} go=${go} intims=${intims} dir=${dir} setDir=${setDir} onSearch=${function () { setPal(true); setSideOpen(false); }} openOps=${openOps} setOpenOps=${setOpenOps} toast=${toast} />
+    <div className="side-scrim" onClick=${function () { setSideOpen(false); }}></div>
+    <div className="main">
+      <${Topbar} crumbs=${crumbs} onSearch=${function () { setPal(true); }} onMenu=${function () { setSideOpen(true); }} onNew=${function () { setNewOpen(true); }} />
+      <main className="content" ref=${contentRef}>${page}</main>
+    </div>
+    ${drawerId ? html`<${Drawer} id=${drawerId} intims=${intims} order=${order} openIntim=${openIntim} patch=${patch} toast=${toast} onClose=${function () { setDrawerId(null); }} />` : null}
+    ${pal ? html`<${Palette} intims=${intims} go=${go} openIntim=${openIntim} setDir=${setDir} setView=${setView} setScale=${setScale} onClose=${function () { setPal(false); }} />` : null}
+    ${newOpen ? html`<${NewIntim} onClose=${function () { setNewOpen(false); }} onSave=${function (f) {
+      var id = 'n' + Date.now();
+      var due = parseInt(f.due, 10) || 0;
+      var procId = (PROCS.filter(function (q) { return q.op === f.op && q.tag === 'EF'; })[0] || PROCS[0]).id;
+      setIntims(function (l) { return [{ id: id, op: f.op, proc: procId, uf: 'PR', party: f.party.trim(), ev: f.ev.trim(), sent: 0, start: 1, due: due, st: 'pendente_analise', imp: f.imp, dif: f.dif, urg: false, obj: '—', notes: [], num: f.num.trim() || PROC_BY[procId].num, cls: PROC_BY[procId].cls }].concat(l); });
+      setNewOpen(false); toast('Intimação criada. Ela já aparece na fila.'); setDrawerId(id);
+    }} />` : null}
+    ${toastMsg ? html`<div className="toast" role="status"><${Icon} n="tick" s=${14} />${toastMsg}</div>` : null}
+  </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();
+</script>
+</body>
+</html>
