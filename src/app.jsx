@@ -3009,6 +3009,8 @@ function App() {
   const [cxDrawerId, setCxDrawerId] = useState(null);
   const [cxIntimView, setCxIntimView] = useState('lista');
   const [cxSideOpen, setCxSideOpen] = useState(false);
+  const [cxTlScale, setCxTlScale] = useState('meses');
+  const [cxTlOp, setCxTlOp] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
@@ -8618,12 +8620,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||''))
     : '';
 
-  const tabList = ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
-  const tabLabels = { notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
+  const tabList = isClaude ? ['visao','notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'] : ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
+  const tabLabels = { visao:'Visão geral', notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
   React.useEffect(() => {
     // Abas removidas (grafo, insights, timeline, Processos avulso) → Inscrições + Processos e Prescrição
     if (!tabList.includes(activeTab)) setActiveTab('prescricao_v2');
-  }, [activeTab]);
+  }, [activeTab, isClaude]);
   const openCdaInscricoes = (d, opts) => {
     const opId = d.opId || d.operationId;
     if (!opId || !d.id) return;
@@ -8660,6 +8662,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     } else {
       setViewMode(prev => (prev === 'hoje' ? 'painel' : prev));
     }
+    if (edition !== 'claude') setViewMode(prev => (prev === 'cx_timeline' ? 'operacoes' : prev));
     setCxDrawerId(null);
     setShowSettings(false);
   };
@@ -9885,7 +9888,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const cxGo = (vm) => { setCxSideOpen(false); startTabSwitch(() => setViewMode(vm)); };
   const cxOpenOp = (opId, tab) => {
     setCxSideOpen(false);
-    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); if (tab) setActiveTab(tab); });
+    setCxTlOp(null);
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(tab || 'visao'); });
     setTimeout(() => touchOperationAccess(opId), 800);
   };
   const cxOpenTask = (t) => {
@@ -9911,7 +9915,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     onWatch: (intim) => setModal({ type: 'create', entityType: 'watch', initial: { processNumber: intim.processNumber, parties: intim.parties, operationId: intim.operationId, reason: `Origem: ${intim.eventDescription || 'intimação'}`, createdAt: new Date().toISOString() } }),
   };
   const cxCrumbs = (() => {
-    const L = { hoje: 'Hoje', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
+    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
     if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, tabLabels[activeTab]].filter(Boolean);
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
@@ -10199,7 +10203,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
-      {viewMode === 'prazos' && renderPrazosView()}
+      {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
+      {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
+        a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento }}
+        onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
+        onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
+      {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
+        scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })} /></div>}
 
       {/* ═══ PAINEL GERAL ═══ */}
       {viewMode === 'painel' && (
@@ -10455,7 +10466,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
 
       {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
-      {viewMode === 'operacoes' && (
+      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt}
+        onOpenOp={(id) => cxOpenOp(id)} onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
+      {viewMode === 'operacoes' && !isClaude && (
         <div className="painel-container">
           {data.operations.length === 0 ? (
             <div className="welcome-screen" style={{height:'auto',padding:'60px 20px'}}>
@@ -11480,7 +11493,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'operation' && !activeOp && (
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
-      {viewMode === 'operation' && activeOp && <>
+      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
+        prazosRadar={prazosRadar} prescLookup={prescLookup}
+        onTab={(t) => startTabSwitch(() => setActiveTab(t))}
+        onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
+        onDiag={() => openDiagnostico(activeOp.id)}
+        onReport={() => generateHandoverReport(activeOp)}
+        onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
+        onOpenIntim={(id) => setCxDrawerId(id)}
+        onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
+      {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
             <h2>{activeOp.name}</h2>

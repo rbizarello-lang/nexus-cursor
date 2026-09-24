@@ -20,14 +20,15 @@ Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdi
 
 ---
 
-## 🧭 Claude · Ardósia — protótipo (✅ 23/09) e Fase 1 no app (✅ 24/09/2026)
+## 🧭 Claude · Ardósia — protótipo (✅ 23/09), Fases 1 e 2 no app (✅ 24/09/2026)
 
 Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
 
 - **Parte 1 (feita):** menu lateral com operações, Hoje, Intimações (lista, quadro e modo foco), gaveta da intimação com régua do prazo, linha do tempo com a contagem do art. 40, Carteira, página da operação, Prazos extintivos e busca ⌘K. Direções visuais Grafite, Ardósia e Maré.
 - **Direção escolhida:** Ardósia (claro).
 - **Fase 1 (feita, dados reais):** terceira edição `uiEdition: 'claude'` (⚙ → “Claude · Ardósia” ou `?edition=claude`). Menu lateral com operações e abas, barra superior com sync e busca, Hoje e Intimações (lista, quadro com arrastar, foco, gaveta com régua do prazo, gramática, notas e registrar atuação via `handleRespondIntim`). Demais telas são as do app dentro da casca, com tokens Ardósia. Código: `src/edition-claude.jsx` + bloco `EDIÇÃO CLAUDE` em `src/Nexus.shell.html`. Peso: +~195 KB no `Nexus.html`.
-- **Próximas fases (sugestão):** 2 · Linha do tempo, Carteira, página da operação e Prazos extintivos no visual novo; 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
+- **Fase 2 (feita, dados reais):** Carteira em cartões (filtro por classificação, ordenação, dívida e garantia, revisão, risco prescricional); Visão geral da operação (nova primeira aba, só na Ardósia: indicadores, linha do tempo, intimações, prazos extintivos, agenda; Revisada/Editar/Diagnóstico/Relatório); Linha do tempo (menu Trabalho: processos, prazos de intimação, marcos, contagem do art. 40 pela CDA em pior situação e CDAs sem processo com o prazo para ajuizar); Prazos extintivos em modo Mesa novo (Precisa de você · No radar · Silenciados · Consumadas, selos Calculado/Estimado/Cadastro, adiar com motivo e limite, adesão ao parcelamento na linha). A Mesa chama as mesmas funções do app (`applyMesaAction`, `applyPrescSnooze`, `clearPrescSnooze`, `createInlineParcelamento`); “Lista completa” abre a lista clássica.
+- **Próximas fases (sugestão):** 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
 - Detalhes e atalhos: `design/claude-experimental/README.md`.
 
 ---
