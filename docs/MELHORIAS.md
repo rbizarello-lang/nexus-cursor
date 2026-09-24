@@ -22,6 +22,18 @@ Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássic
 
 ---
 
+## 🧭 Claude · Ardósia — protótipo (✅ 23/09) e Fase 1 no app (✅ 24/09/2026)
+
+Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
+
+- **Parte 1 (feita):** menu lateral com operações, Hoje, Intimações (lista, quadro e modo foco), gaveta da intimação com régua do prazo, linha do tempo com a contagem do art. 40, Carteira, página da operação, Prazos extintivos e busca ⌘K. Direções visuais Grafite, Ardósia e Maré.
+- **Direção escolhida:** Ardósia (claro).
+- **Fase 1 (feita, dados reais):** terceira edição `uiEdition: 'claude'` (⚙ → “Claude · Ardósia” ou `?edition=claude`). Menu lateral com operações e abas, barra superior com sync e busca, Hoje e Intimações (lista, quadro com arrastar, foco, gaveta com régua do prazo, gramática, notas e registrar atuação via `handleRespondIntim`). Demais telas são as do app dentro da casca, com tokens Ardósia. Código: `src/edition-claude.jsx` + bloco `EDIÇÃO CLAUDE` em `src/Nexus.shell.html`. Peso: +~195 KB no `Nexus.html`.
+- **Próximas fases (sugestão):** 2 · Linha do tempo, Carteira, página da operação e Prazos extintivos no visual novo; 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
+- Detalhes e atalhos: `design/claude-experimental/README.md`.
+
+---
+
 ## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
 **Ainda não implementado.** Pedir por fase: "vamos fazer o P1".
