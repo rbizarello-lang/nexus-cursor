@@ -17,6 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 const jsxPath = path.join(root, 'src', 'app.jsx');
+const claudePath = path.join(root, 'src', 'edition-claude.jsx');
 const datesPath = path.join(root, 'src', 'lib', 'dates.js');
 const prescPath = path.join(root, 'src', 'lib', 'prescription.js');
 const docsPath = path.join(root, 'src', 'lib', 'docs.js');
@@ -133,6 +134,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'debcad-parser.js'), 'utf8')),
   '/* --- src/lib/sida-parser.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'sida-parser.js'), 'utf8')),
+  '/* --- src/edition-claude.jsx --- */',
+  unwrapModule(fs.readFileSync(claudePath, 'utf8')),
   '/* --- src/app.jsx --- */',
   unwrapModule(fs.readFileSync(jsxPath, 'utf8')),
 ].join('\n');
