@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 e 2
+   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 a 3
    Casca nova (menu lateral + barra superior), Hoje e Intimações (lista, quadro,
    foco e gaveta); Carteira, Visão geral da operação, Linha do tempo e Mesa de
-   prazos extintivos (Fase 2, mais abaixo). Lê e grava os MESMOS dados do App (props); não tem estado de
+   prazos extintivos (Fase 2); Tarefas, Agenda e Mesa de trabalho (Fase 3). Lê e grava os MESMOS dados do App (props); não tem estado de
    dados próprio. Telas ainda não redesenhadas continuam vindo do App.
    Concatenado ANTES de src/app.jsx pelo scripts/build.mjs — só declarações de
    função e constantes; helpers do app (daysUntil, INTIM_STATUSES…) são usados
@@ -1691,5 +1691,463 @@ function EditionClaudePrazos(p) {
       <span><span className="cx-cert estimado">Estimado</span>{CX_CERT_TIP.estimado}</span>
       <span><span className="cx-cert cadastro">Cadastro</span>{CX_CERT_TIP.cadastro}</span>
     </div>
+  </div>;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 3 — Tarefas, Agenda e Mesa de trabalho.
+   Gravações só pelas funções do app, recebidas por props (upsert, handleSave,
+   toggleDesk, removeFromDesk, reorderDeskInColumn). Edição completa continua
+   nos formulários do app (setModal).
+   ═══════════════════════════════════════════════════════════════════════════ */
+const CX_PRIO_ORDER = { urgente: 0, alta: 1, media: 2, baixa: 3 };
+const CX_TASK_ST_ORDER = ['pendente', 'em_andamento', 'concluida'];
+const CX_TASK_ST = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
+function cxLs(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
+function cxLsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+function cxTaskNotes(t) { return t.notesList && t.notesList.length ? t.notesList : (t.notes ? [t.notes] : []); }
+/* Mesma regra da tela clássica: sem operação, global ou legado aparecem na lista geral; "interna" fica só na operação. */
+function cxTaskIsGlobal(t) { return !t.operationId || t.taskVisibility !== 'operation'; }
+const cxTaskOpen = (t) => t.status !== 'concluida' && t.status !== 'cancelada';
+function cxTaskSort(a, b) {
+  const pa = CX_PRIO_ORDER[a.priority] ?? 2, pb = CX_PRIO_ORDER[b.priority] ?? 2;
+  if (pa !== pb) return pa - pb;
+  if (a.dueDate && b.dueDate) return String(a.dueDate).localeCompare(String(b.dueDate));
+  if (a.dueDate) return -1;
+  if (b.dueDate) return 1;
+  return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR');
+}
+function cxDeskBtn(on, onClick) {
+  return <button type="button" className={'cx-desk-btn' + (on ? ' on' : '')} aria-pressed={on} title={on ? 'Tirar da Mesa' : 'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); onClick(); }}><CxIcon n="desk" s={12} />{on ? 'na mesa' : 'Mesa'}</button>;
+}
+
+/* ═════════════════════ Tarefas ═════════════════════ */
+function CxTaskRow({ t, op, onOpen, onToggle, onOpenOp, deskOn, onDesk }) {
+  const notes = cxTaskNotes(t);
+  const done = t.status === 'concluida' || t.status === 'cancelada';
+  const urgent = t.priority === 'urgente' && !done;
+  return <div className={'cx-t-row' + (done ? ' done' : '') + (urgent ? ' urgent' : '')} role="button" tabIndex={0}
+    onClick={() => onOpen(t)} onKeyDown={e => { if (e.key === 'Enter') onOpen(t); }}>
+    <button type="button" className={'cx-tcheck' + (t.status === 'concluida' ? ' on' : '')} title={t.status === 'concluida' ? 'Reabrir' : 'Concluir'} aria-label={t.status === 'concluida' ? 'Reabrir tarefa' : 'Concluir tarefa'}
+      onClick={e => { e.stopPropagation(); onToggle(t); }}>{t.status === 'concluida' ? <CxIcon n="tick" s={11} /> : null}</button>
+    <div className="cx-i-main">
+      <div className="cx-t-title">
+        {urgent ? <span className="cx-urg">URGENTE</span> : null}
+        <span className="cx-ell">{t.title || 'Tarefa sem título'}</span>
+        {t.status === 'em_andamento' ? <span className="cx-tag yellow">em andamento</span> : null}
+        {t.status === 'cancelada' ? <span className="cx-tag">cancelada</span> : null}
+        {!cxTaskIsGlobal(t) ? <span className="cx-tag" title="Tarefa interna: na lista clássica aparece só na operação">interna</span> : null}
+      </div>
+      {t.description ? <div className="cx-i-ev" title={t.description}>{t.description}</div> : null}
+      {notes.length ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
+      <div className="cx-i-sub"><CxOpTag op={op} /><CxPrio v={t.priority} />{t.processNumber ? <CxProc num={t.processNumber} /> : null}</div>
+    </div>
+    <div className="cx-c-proc">{op ? <CxOpTag op={op} onOpen={onOpenOp} /> : <span className="cx-op-tag cx-muted">Avulsa</span>}{t.processNumber ? <CxProc num={t.processNumber} /> : null}</div>
+    <div className="cx-c-imp"><CxPrio v={t.priority} /></div>
+    <div className="cx-t-acts">
+      {t.docUrl ? <a className="cx-icon-btn cx-sm" href={t.docUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Abrir documento" aria-label="Abrir documento"><CxIcon n="file" s={13} /></a> : null}
+      {done ? null : cxDeskBtn(deskOn, onDesk)}
+    </div>
+    <div className="cx-c-due">
+      {t.status === 'concluida' ? <span className="cx-due done">✓ {t.updatedAt ? cxDM(t.updatedAt) : ''}</span> : <CxDue iso={t.dueDate} />}
+      <span className="cx-sub">{t.status === 'concluida' ? 'concluída' : t.dueDate ? 'limite ' + cxDM(t.dueDate) : 'sem data'}</span>
+    </div>
+  </div>;
+}
+function cxGroupTasks(items, by, opsById) {
+  const dot = (c) => <span className="cx-dot" style={{ background: c }} />;
+  if (by === 'operacao') {
+    const ids = [];
+    items.forEach(t => { const k = t.operationId || ''; if (!ids.includes(k)) ids.push(k); });
+    return ids.map(id => { const op = opsById.get(id); return { key: 'op' + id, label: op ? cxOpName(op) : 'Avulsas (sem operação)', sortKey: op ? cxOpName(op) : '￿', icon: op ? <span className="cx-op-sq" style={{ background: cxOpColor(op.id) }} /> : dot('var(--cx-line-strong)'), items: items.filter(t => (t.operationId || '') === id) }; })
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey, 'pt-BR'));
+  }
+  if (by === 'prioridade') {
+    return ['urgente', 'alta', 'media', 'baixa'].map(k => ({ key: 'p' + k, label: TASK_PRIORITIES[k].label, icon: <CxPrio v={k} />, items: items.filter(t => (CX_PRIO_ORDER[t.priority] != null ? t.priority : 'media') === k) })).filter(g => g.items.length);
+  }
+  const dd = (t) => daysUntil(t.dueDate);
+  return [
+    { key: 'late', label: 'Atrasadas', icon: dot('var(--cx-red)'), items: items.filter(t => { const d = dd(t); return d !== null && d < 0; }) },
+    { key: 'today', label: 'Hoje', icon: dot('var(--cx-orange)'), items: items.filter(t => dd(t) === 0) },
+    { key: 'week', label: 'Próximos 7 dias', icon: dot('var(--cx-yellow)'), items: items.filter(t => { const d = dd(t); return d !== null && d >= 1 && d <= 7; }) },
+    { key: 'later', label: 'Mais adiante', icon: dot('var(--cx-ink-3)'), items: items.filter(t => { const d = dd(t); return d !== null && d > 7; }) },
+    { key: 'none', label: 'Sem data limite', icon: dot('var(--cx-line-strong)'), items: items.filter(t => dd(t) === null) },
+  ].filter(g => g.items.length);
+}
+function CxTaskBoard({ items, done, opsById, onOpen, onSetStatus }) {
+  const [over, setOver] = React.useState(null);
+  return <div className="cx-board cx-board-3">{CX_TASK_ST_ORDER.map(s => {
+    const col = s === 'concluida' ? done.slice(0, 20) : items.filter(t => (t.status || 'pendente') === s).sort(cxTaskSort);
+    const n = s === 'concluida' ? done.length : col.length;
+    return <div key={s} className={'cx-b-col' + (over === s ? ' over' : '')}
+      onDragOver={e => { e.preventDefault(); if (over !== s) setOver(s); }}
+      onDragLeave={() => setOver(o => (o === s ? null : o))}
+      onDrop={e => { e.preventDefault(); setOver(null); const id = e.dataTransfer.getData('text/plain'); if (id) onSetStatus(id, s); }}>
+      <div className="cx-b-h"><span className="cx-dot" style={{ background: s === 'pendente' ? 'var(--cx-ink-3)' : s === 'em_andamento' ? 'var(--cx-yellow)' : 'var(--cx-green)' }} />{CX_TASK_ST[s]}<span className="cx-n">{n}</span></div>
+      <div className="cx-b-list">{col.length ? col.map(t => {
+        const notes = cxTaskNotes(t);
+        return <button key={t.id} type="button" className={'cx-b-card' + (s === 'concluida' ? ' cx-b-done' : '')} draggable onDragStart={e => e.dataTransfer.setData('text/plain', t.id)} onClick={() => onOpen(t)}>
+          <span className="cx-b-row"><CxOpTag op={opsById.get(t.operationId)} />{s === 'concluida' ? null : <CxDue iso={t.dueDate} />}</span>
+          <span className="cx-b-row" style={{ fontWeight: 500 }}>{t.priority === 'urgente' && s !== 'concluida' ? <span className="cx-urg">URGENTE</span> : null}<span className="cx-ell">{t.title || 'Tarefa'}</span></span>
+          {t.description ? <span className="cx-b-ev">{t.description}</span> : null}
+          {notes.length ? <span className="cx-b-nt">{notes[notes.length - 1]}</span> : null}
+          <span className="cx-b-row">{t.processNumber ? <CxProc num={t.processNumber} /> : <span className="cx-muted cx-small">sem processo</span>}<span className="cx-b-glyphs"><CxPrio v={t.priority} /></span></span>
+        </button>;
+      }) : <div className="cx-b-empty">Arraste uma tarefa para cá</div>}</div>
+    </div>;
+  })}</div>;
+}
+function EditionClaudeTarefas(p) {
+  const { data, opsById } = p;
+  const [scope, setScopeS] = React.useState(() => cxLs('nexus_cx_task_scope', 'globais'));
+  const [view, setViewS] = React.useState(() => cxLs('nexus_cx_task_view', 'lista'));
+  const [groupBy, setGroupByS] = React.useState(() => cxLs('nexus_cx_task_group', 'prazo'));
+  const setScope = (v) => { setScopeS(v); cxLsSet('nexus_cx_task_scope', v); };
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_task_view', v); };
+  const setGroupBy = (v) => { setGroupByS(v); cxLsSet('nexus_cx_task_group', v); };
+  const [q, setQ] = React.useState('');
+  const [opF, setOpF] = React.useState('all');
+  const [closed, setClosed] = React.useState({ done: true });
+  const [draft, setDraft] = React.useState({ title: '', dueDate: '', priority: 'media', operationId: '' });
+  const all = data.tasks || [];
+  const inScope = all.filter(t => scope === 'todas' || cxTaskIsGlobal(t));
+  const toks = cxNorm(q).split(/\s+/).filter(Boolean);
+  const filtered = inScope.filter(t => {
+    if (opF === 'none' ? !!t.operationId : opF !== 'all' && t.operationId !== opF) return false;
+    if (!toks.length) return true;
+    const hay = cxNorm([t.title, t.description, t.processNumber, (opsById.get(t.operationId) || {}).name, cxTaskNotes(t).join(' ')].join(' '));
+    return toks.every(tk => hay.includes(tk));
+  });
+  const open = filtered.filter(cxTaskOpen);
+  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  const openAll = inScope.filter(cxTaskOpen);
+  const late = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
+  const week = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
+  const hidden = all.filter(t => cxTaskOpen(t) && !cxTaskIsGlobal(t)).length;
+  const opIds = [...new Set(all.map(t => t.operationId).filter(Boolean))];
+  const opOptions = [['all', 'Todas'], ['none', 'Avulsas']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
+  const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
+  const groups = cxGroupTasks(open, groupBy, opsById);
+  const toggle = (t) => { const next = t.status === 'concluida' ? 'pendente' : 'concluida'; p.upsert('tasks', { ...t, status: next }); cxNotify(next === 'concluida' ? 'Tarefa concluída' : 'Tarefa reaberta'); };
+  const addTask = (e) => {
+    e.preventDefault();
+    const title = draft.title.trim();
+    if (!title) return;
+    p.onCreate({ title, dueDate: draft.dueDate || '', priority: draft.priority, operationId: draft.operationId || '' });
+    setDraft({ ...draft, title: '', dueDate: '' });
+  };
+  const row = (t) => <CxTaskRow key={t.id} t={t} op={opsById.get(t.operationId)} onOpen={p.onOpenTask} onToggle={toggle} onOpenOp={p.onOpenOp} deskOn={p.isOnDesk('task', t.id)} onDesk={() => p.toggleDesk('task', t.id, daysUntil(t.dueDate))} />;
+  return <div className="cx cx-page">
+    <div className="cx-page-h">
+      <div><h1>Tarefas</h1><p>{cxPl(openAll.length, 'aberta', 'abertas')}{late ? ', ' + cxPl(late, 'atrasada', 'atrasadas') : ''}{week ? ', ' + week + ' para os próximos 7 dias' : ''}. {scope === 'globais' && hidden ? cxPl(hidden, 'tarefa interna fica', 'tarefas internas ficam') + ' só na operação.' : 'Ordem: prioridade, depois data limite.'}</p></div>
+      <div className="cx-acts">
+        <button type="button" className="cx-btn" onClick={p.onNewTask}><CxIcon n="plus" s={14} />Tarefa completa</button>
+        <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board']]} />
+      </div>
+    </div>
+    <form className="cx-quick" onSubmit={addTask}>
+      <CxIcon n="plus" s={15} className="cx-muted" />
+      <input id="cx-task-new" className="cx-quick-t" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="Nova tarefa: escreva e tecle Enter" aria-label="Título da nova tarefa" />
+      <input id="cx-task-new-d" type="date" className="cx-input cx-quick-d" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} aria-label="Data limite" title="Data limite (opcional)" />
+      <select id="cx-task-new-p" className="cx-input cx-quick-p" value={draft.priority} onChange={e => setDraft({ ...draft, priority: e.target.value })} aria-label="Prioridade">{Object.keys(TASK_PRIORITIES).map(k => <option key={k} value={k}>{TASK_PRIORITIES[k].label}</option>)}</select>
+      <select id="cx-task-new-o" className="cx-input cx-quick-o" value={draft.operationId} onChange={e => setDraft({ ...draft, operationId: e.target.value })} aria-label="Operação"><option value="">Sem operação</option>{opsOpen.map(o => <option key={o.id} value={o.id}>{cxOpName(o)}</option>)}</select>
+      <button type="submit" className="cx-btn sm primary" disabled={!draft.title.trim()}>Criar</button>
+    </form>
+    <div className="cx-toolbar">
+      <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-task-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Título, descrição, processo ou nota" aria-label="Filtrar tarefas" /></label>
+      <CxSelect id="cx-task-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
+      <CxSeg label="Quais tarefas" value={scope} onChange={setScope} options={[['globais', 'Globais e avulsas'], ['todas', 'Todas', null, hidden || null]]} />
+      <span className="cx-sp" />
+      {view === 'lista' ? <CxSelect id="cx-task-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Data limite'], ['prioridade', 'Prioridade'], ['operacao', 'Operação']]} /> : null}
+    </div>
+    {view === 'quadro'
+      ? <CxTaskBoard items={open} done={done} opsById={opsById} onOpen={p.onOpenTask} onSetStatus={(id, s) => { const t = all.find(x => x.id === id); if (t && t.status !== s) { p.upsert('tasks', { ...t, status: s }); cxNotify(CX_TASK_ST[s]); } }} />
+      : <div className="cx-list">
+        {!groups.length && !done.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{all.length ? 'Nenhuma tarefa com esses filtros.' : 'Nenhuma tarefa ainda. Escreva a primeira no campo acima.'}</div> : null}
+        {!groups.length && done.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nada em aberto neste recorte.</div> : null}
+        {groups.map(g => {
+          const isClosed = !!closed[g.key];
+          return <React.Fragment key={g.key}>
+            <button type="button" className={'cx-grp' + (isClosed ? ' closed' : '')} aria-expanded={!isClosed} onClick={() => setClosed(c => ({ ...c, [g.key]: !isClosed }))}>
+              <span className="cx-caret"><CxIcon n="chevD" s={14} /></span>{g.icon}<span>{g.label}</span><span className="cx-n">{g.items.length}</span>
+            </button>
+            {isClosed ? null : g.items.slice().sort(cxTaskSort).map(row)}
+          </React.Fragment>;
+        })}
+        {done.length ? <>
+          <button type="button" className={'cx-grp' + (closed.done ? ' closed' : '')} aria-expanded={!closed.done} onClick={() => setClosed(c => ({ ...c, done: !c.done }))}>
+            <span className="cx-caret"><CxIcon n="chevD" s={14} /></span><CxIcon n="check" s={14} className="cx-muted" /><span>Concluídas</span><span className="cx-n">{done.length}</span>
+          </button>
+          {closed.done ? null : done.slice(0, 30).map(row)}
+          {!closed.done && done.length > 30 ? <div className="cx-more">+{done.length - 30} concluídas mais antigas</div> : null}
+        </> : null}
+      </div>}
+  </div>;
+}
+
+/* ═════════════════════ Agenda ═════════════════════ */
+const CX_AG_KINDS = [['aud', 'Audiências', 'var(--cx-orange)'], ['prazo', 'Prazos', 'var(--cx-blue)'], ['tarefa', 'Tarefas', 'var(--cx-green)'], ['presc', 'Prescrição', 'var(--cx-violet)']];
+const CX_AG_C = { aud: 'var(--cx-orange)', prazo: 'var(--cx-blue)', tarefa: 'var(--cx-green)', presc: 'var(--cx-violet)' };
+function cxMonday(d) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function cxAddDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+/* Junta, por dia, audiências, prazos de intimação, tarefas com data limite e termos de prescrição (grupos 1 a 4). */
+function cxAgendaByDay(data, prazosRadar, fromIso, toIso, opF) {
+  const by = {};
+  const put = (iso, it) => { const k = toDayKey(iso); if (!k || k < fromIso || k > toIso) return; (by[k] || (by[k] = [])).push(it); };
+  const okOp = (id) => opF === 'all' || (opF === 'none' ? !id : id === opF);
+  (data.hearings || []).forEach(h => { if (!h.date || h.status === 'cancelada' || h.status === 'realizada' || !okOp(h.operationId)) return; put(h.date, { id: 'h' + h.id, kind: 'aud', time: h.time || '', title: (CX_HEARING[h.hearingType] || 'Audiência'), sub: h.parties || h.processNumber || '', op: h.operationId, ref: h }); });
+  (data.intimations || []).forEach(x => { if (!intimPrazoNaAgenda(x) || !okOp(x.operationId)) return; put(x.dateDeadline, { id: 'i' + x.id, kind: 'prazo', title: cxPartyName(x), sub: x.eventDescription || x.className || '', op: x.operationId, urgent: intimIsUrgent(x), ref: x }); });
+  (data.tasks || []).forEach(t => { if (!t.dueDate || !cxTaskOpen(t) || !okOp(t.operationId)) return; put(t.dueDate, { id: 't' + t.id, kind: 'tarefa', title: t.title || 'Tarefa', sub: t.description || '', op: t.operationId, urgent: t.priority === 'urgente', ref: t }); });
+  (prazosRadar.rows || []).forEach(r => { if (!r.keyDate || r.group > 4 || r.silenceReason || !okOp(r.operationId)) return; put(r.keyDate, { id: 'p' + r.id, kind: 'presc', title: 'CDA ' + (r.cdaNumber || 'S/N'), sub: betaSafeUiText(r.why || r.summary || ''), op: r.operationId, urgent: r.group === 1, ref: r }); });
+  const rank = { aud: 0, prazo: 1, tarefa: 2, presc: 3 };
+  Object.keys(by).forEach(k => by[k].sort((a, b) => rank[a.kind] - rank[b.kind] || String(a.time || '').localeCompare(String(b.time || '')) || (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0)));
+  return by;
+}
+function CxAgItem({ it, opsById, compact, onOpen }) {
+  const op = opsById.get(it.op);
+  return <button type="button" className={'cx-ag-it k-' + it.kind + (compact ? ' compact' : '')} style={{ '--c': CX_AG_C[it.kind] }} onClick={() => onOpen(it)}
+    title={[it.time, it.title, it.sub, op ? op.name : ''].filter(Boolean).join(' · ')}>
+    <span className="cx-ag-t">{it.urgent ? <span className="cx-ag-urg" aria-label="urgente">!</span> : null}{it.time ? <b className="cx-mono">{it.time}</b> : null}<span className="cx-ell">{it.title}</span></span>
+    {compact ? null : <>
+      {it.sub ? <span className="cx-ag-s">{it.sub}</span> : null}
+      {op ? <span className="cx-ag-op"><span className="cx-op-sq" style={{ background: cxOpColor(op.id) }} /><span className="cx-ell">{cxOpName(op)}</span></span> : null}
+    </>}
+  </button>;
+}
+function CxHearingRow({ h, op, onOpen, onOpenOp, deskOn, onDesk }) {
+  const closed = h.status === 'realizada' || h.status === 'cancelada';
+  const d = cxDate(h.date);
+  const dd = daysUntil(h.date);
+  const tone = closed ? '' : dd !== null && dd >= 0 && dd <= 2 ? 'red' : dd !== null && dd > 2 && dd <= 7 ? 'yellow' : '';
+  const when = closed ? (AUDIENCIA_STATUSES[h.status] || {}).label.replace(/^[^ ]+ /, '') : dd === null ? 'sem data' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd > 0 ? 'em ' + dd + ' dias' : 'há ' + (-dd) + ' dias';
+  const mat = h.roteiro || (h.notesList && h.notesList.length) || (h.documentIds && h.documentIds.length);
+  return <div className={'cx-h-row' + (closed ? ' done' : '') + (tone ? ' ' + tone : '')} role="button" tabIndex={0} onClick={() => onOpen(h)} onKeyDown={e => { if (e.key === 'Enter') onOpen(h); }}>
+    <div className="cx-h-date"><b>{d ? d.getDate() : '—'}</b><span>{d ? CX_MES_L[d.getMonth()].slice(0, 3) : ''}</span>{h.time ? <span className="cx-mono cx-h-time">{h.time}</span> : null}</div>
+    <div className="cx-i-main">
+      <div className="cx-t-title"><span className="cx-ell">{h.parties || 'Audiência'}</span></div>
+      <div className="cx-h-meta">
+        <span className="cx-tag">{CX_HEARING[h.hearingType] || 'Audiência'}</span>
+        {h.status === 'redesignada' ? <span className="cx-tag yellow">redesignada</span> : null}
+        <span className="cx-muted">{h.modality === 'virtual' ? 'Virtual' : 'Presencial'}{h.location ? ' · ' + h.location : ''}</span>
+        {mat ? <span className="cx-tag blue" title="Roteiro, notas ou documentos anexados"><CxIcon n="note" s={11} />material</span> : null}
+      </div>
+      {h.processNumber ? <div className="cx-h-proc"><CxProc num={h.processNumber} /></div> : null}
+    </div>
+    <div className="cx-h-side">
+      <span className={'cx-h-when' + (tone ? ' ' + tone : '')}>{when}</span>
+      {op ? <CxOpTag op={op} onOpen={onOpenOp} /> : <span className="cx-op-tag cx-muted">Sem operação</span>}
+      <span className="cx-h-acts">
+        {h.docUrl ? <a className="cx-icon-btn cx-sm" href={h.docUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Abrir documento" aria-label="Abrir documento"><CxIcon n="file" s={13} /></a> : null}
+        {closed ? null : cxDeskBtn(deskOn, onDesk)}
+      </span>
+    </div>
+  </div>;
+}
+function EditionClaudeAgenda(p) {
+  const { data, opsById, prazosRadar } = p;
+  const [view, setViewS] = React.useState(() => cxLs('nexus_cx_ag_view', 'semana'));
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_ag_view', v); };
+  const [anchor, setAnchor] = React.useState(() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; });
+  const [kinds, setKindsS] = React.useState(() => { try { const v = JSON.parse(localStorage.getItem('nexus_cx_ag_kinds') || 'null'); return v && typeof v === 'object' ? v : { aud: true, prazo: true, tarefa: true, presc: true }; } catch (e) { return { aud: true, prazo: true, tarefa: true, presc: true }; } });
+  const setKinds = (v) => { setKindsS(v); cxLsSet('nexus_cx_ag_kinds', JSON.stringify(v)); };
+  const [opF, setOpF] = React.useState('all');
+  const [pastOpen, setPastOpen] = React.useState(false);
+  const todayIso = localIso(new Date());
+  let days, label;
+  if (view === 'mes') {
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 12);
+    const start = cxMonday(first);
+    const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 12);
+    const n = Math.round((cxAddDays(cxMonday(last), 6) - start) / 86400000) + 1;
+    days = Array.from({ length: n }, (_, i) => cxAddDays(start, i));
+    label = cxCap(CX_MES_L[anchor.getMonth()]) + ' de ' + anchor.getFullYear();
+  } else if (view === 'lista') {
+    const start = new Date(anchor); start.setHours(12, 0, 0, 0);
+    days = Array.from({ length: 30 }, (_, i) => cxAddDays(start, i));
+    label = 'De ' + cxDM(localIso(days[0])) + ' a ' + cxDM(localIso(days[29])) + '/' + days[29].getFullYear();
+  } else {
+    const start = cxMonday(anchor);
+    days = Array.from({ length: 7 }, (_, i) => cxAddDays(start, i));
+    const a = days[0], b = days[6];
+    label = a.getDate() + (a.getMonth() !== b.getMonth() ? ' de ' + CX_MES_L[a.getMonth()] : '') + ' a ' + b.getDate() + ' de ' + CX_MES_L[b.getMonth()] + ' de ' + b.getFullYear();
+  }
+  const fromIso = localIso(days[0]), toIso = localIso(days[days.length - 1]);
+  const byDayAll = cxAgendaByDay(data, prazosRadar, fromIso, toIso, opF);
+  const byDay = {};
+  const counts = { aud: 0, prazo: 0, tarefa: 0, presc: 0 };
+  Object.keys(byDayAll).forEach(k => { byDayAll[k].forEach(it => { counts[it.kind]++; }); byDay[k] = byDayAll[k].filter(it => kinds[it.kind]); });
+  const shift = (n) => { const d = new Date(anchor); if (view === 'mes') { d.setDate(1); d.setMonth(d.getMonth() + n); } else d.setDate(d.getDate() + (view === 'lista' ? 30 : 7) * n); setAnchor(d); };
+  const goToday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setAnchor(d); };
+  const open = (it) => {
+    if (it.kind === 'aud') p.onOpenHearing(it.ref);
+    else if (it.kind === 'prazo') p.onOpenIntim(it.ref.id);
+    else if (it.kind === 'tarefa') p.onOpenTask(it.ref);
+    else p.onOpenCda(it.ref);
+  };
+  const opIds = [...new Set([].concat((data.hearings || []).map(h => h.operationId), (data.intimations || []).map(x => x.operationId), (data.tasks || []).map(t => t.operationId)).filter(Boolean))];
+  const opOptions = [['all', 'Todas'], ['none', 'Sem operação']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
+  const hearings = (data.hearings || []).filter(h => opF === 'all' || (opF === 'none' ? !h.operationId : h.operationId === opF));
+  const isClosedH = (h) => h.status === 'realizada' || h.status === 'cancelada';
+  const upcoming = hearings.filter(h => !isClosedH(h) && h.date && daysUntil(h.date) >= 0).sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.time || '').localeCompare(String(b.time || '')));
+  const noDate = hearings.filter(h => !isClosedH(h) && !h.date);
+  const past = hearings.filter(h => isClosedH(h) || (h.date && daysUntil(h.date) < 0)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const hRow = (h) => <CxHearingRow key={h.id} h={h} op={opsById.get(h.operationId)} onOpen={p.onOpenHearing} onOpenOp={p.onOpenOp} deskOn={p.isOnDesk('hearing', h.id)} onDesk={() => p.toggleDesk('hearing', h.id, daysUntil(h.date))} />;
+  const total = Object.values(byDay).reduce((s, a) => s + a.length, 0);
+  const dayHead = (d) => { const k = localIso(d); return <><span className="cx-ag-dow">{CX_DOW[d.getDay()]}</span><span className={'cx-ag-n' + (k === todayIso ? ' today' : '')}>{d.getDate()}</span></>; };
+  return <div className="cx cx-page cx-page-wide">
+    <div className="cx-page-h">
+      <div><h1>Agenda</h1><p>Audiências, finais de prazo, tarefas com data limite e termos de prescrição num só calendário. Clique num item para abrir.</p></div>
+      <div className="cx-acts">
+        <button type="button" className="cx-btn primary" onClick={p.onNewHearing}><CxIcon n="plus" s={14} />Nova audiência</button>
+      </div>
+    </div>
+    <div className="cx-toolbar">
+      <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['semana', 'Semana'], ['mes', 'Mês'], ['lista', 'Lista']]} />
+      <span className="cx-ag-nav">
+        <button type="button" className="cx-icon-btn" onClick={() => shift(-1)} aria-label="Anterior" title="Anterior"><CxIcon n="chevL" s={15} /></button>
+        <button type="button" className="cx-btn sm" onClick={goToday}>Hoje</button>
+        <button type="button" className="cx-icon-btn" onClick={() => shift(1)} aria-label="Próximo" title="Próximo"><CxIcon n="chevR" s={15} /></button>
+      </span>
+      <b className="cx-ag-label">{label}</b>
+      <span className="cx-sp" />
+      <CxSelect id="cx-ag-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
+    </div>
+    <div className="cx-chips" role="group" aria-label="Mostrar na agenda">
+      {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '')} style={{ '--c': k[2] }} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
+        <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-n">{counts[k[0]]}</span>
+      </button>)}
+      <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} neste período</span>
+    </div>
+    {view === 'lista' ? <div className="cx-list cx-ag-list">
+      {days.filter(d => (byDay[localIso(d)] || []).length).map(d => { const k = localIso(d); return <div key={k} className="cx-ag-lday">
+        <div className={'cx-ag-lh' + (k === todayIso ? ' today' : '')}>{dayHead(d)}<span className="cx-muted cx-small">{CX_DOW_L[d.getDay()]}, {d.getDate()} de {CX_MES_L[d.getMonth()]}</span><span className="cx-n" style={{ marginLeft: 'auto' }}>{byDay[k].length}</span></div>
+        <div className="cx-ag-lits">{byDay[k].map(it => <CxAgItem key={it.id} it={it} opsById={opsById} onOpen={open} />)}</div>
+      </div>; })}
+      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nada nos próximos 30 dias com esses filtros.</div> : null}
+    </div> : <div className={'cx-ag-grid' + (view === 'mes' ? ' month' : '')}>
+      {view === 'mes' ? ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(n => <div key={n} className="cx-ag-mh">{n}</div>) : null}
+      {days.map(d => {
+        const k = localIso(d), its = byDay[k] || [];
+        const out = view === 'mes' && d.getMonth() !== anchor.getMonth();
+        const we = d.getDay() === 0 || d.getDay() === 6;
+        const max = view === 'mes' ? 3 : 99;
+        return <div key={k} className={'cx-ag-day' + (k === todayIso ? ' today' : '') + (k < todayIso ? ' past' : '') + (out ? ' out' : '') + (we ? ' we' : '')}>
+          <div className="cx-ag-dh">{view === 'mes' ? <span className={'cx-ag-n' + (k === todayIso ? ' today' : '')}>{d.getDate()}</span> : dayHead(d)}</div>
+          <div className="cx-ag-its">
+            {its.slice(0, max).map(it => <CxAgItem key={it.id} it={it} opsById={opsById} compact={view === 'mes'} onOpen={open} />)}
+            {its.length > max ? <button type="button" className="cx-ag-more" onClick={() => { setAnchor(new Date(d)); setView('semana'); }}>+{its.length - max} mais</button> : null}
+            {!its.length && view === 'semana' ? <span className="cx-ag-empty">—</span> : null}
+          </div>
+        </div>;
+      })}
+    </div>}
+    <div className="cx-sub-h"><h2>Audiências</h2><span className="cx-count">{upcoming.length} agendada{upcoming.length === 1 ? '' : 's'}</span></div>
+    <div className="cx-list">
+      {!hearings.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma audiência cadastrada. Cadastre para acompanhar data, roteiro e material de apoio, e ser avisado quando a data se aproximar.</div> : null}
+      {upcoming.map(hRow)}
+      {noDate.length ? <><div className="cx-pz-gh">Sem data definida<span className="cx-n">{noDate.length}</span></div>{noDate.map(hRow)}</> : null}
+      {past.length ? <>
+        <button type="button" className={'cx-grp' + (pastOpen ? '' : ' closed')} aria-expanded={pastOpen} onClick={() => setPastOpen(v => !v)}><span className="cx-caret"><CxIcon n="chevD" s={14} /></span><span>Realizadas e passadas</span><span className="cx-n">{past.length}</span></button>
+        {pastOpen ? past.slice(0, 30).map(hRow) : null}
+      </> : null}
+    </div>
+  </div>;
+}
+
+/* ═════════════════════ Mesa de trabalho ═════════════════════ */
+const CX_DESK_COLS = [['intimation', 'Intimações', 'inbox'], ['task', 'Tarefas', 'check'], ['hearing', 'Audiências', 'gavel']];
+function cxDeskResolve(data, d) {
+  const coll = d.type === 'intimation' ? data.intimations : d.type === 'task' ? data.tasks : data.hearings;
+  const x = (coll || []).find(i => i.id === d.id);
+  if (!x) return null;
+  const iso = d.type === 'intimation' ? x.dateDeadline : d.type === 'task' ? x.dueDate : x.date;
+  const notes = d.type === 'intimation' ? cxNotes(x) : cxTaskNotes(x);
+  const title = d.type === 'intimation' ? cxPartyName(x) : d.type === 'task' ? (x.title || 'Tarefa') : (x.parties || 'Audiência');
+  const sub = d.type === 'intimation' ? (x.eventDescription || x.className || '') : d.type === 'task' ? (x.description || '') : ((CX_HEARING[x.hearingType] || 'Audiência') + (x.time ? ' · ' + x.time : '') + (x.location ? ' · ' + x.location : ''));
+  return { d, x, iso, notes, title, sub, doc: d.type === 'intimation' ? x.minutaUrl : x.docUrl, urgent: d.type === 'intimation' ? intimIsUrgent(x) : d.type === 'task' ? x.priority === 'urgente' : false };
+}
+function cxDeskWhen(dd) {
+  if (dd === null) return { t: 'sem data', c: '' };
+  if (dd < 0) return { t: 'vencido há ' + (-dd) + 'd', c: 'red' };
+  if (dd === 0) return { t: 'hoje', c: 'red' };
+  if (dd === 1) return { t: 'amanhã', c: 'orange' };
+  if (dd <= 7) return { t: 'em ' + dd + ' dias', c: 'yellow' };
+  return { t: 'em ' + dd + ' dias', c: '' };
+}
+function EditionClaudeMesa(p) {
+  const { data, opsById, a } = p;
+  const [drag, setDrag] = React.useState(null);
+  const [overId, setOverId] = React.useState(null);
+  const [sugOpen, setSugOpenS] = React.useState(() => cxLs('nexus_cx_desk_sug', '1') === '1');
+  const setSugOpen = (v) => { setSugOpenS(v); cxLsSet('nexus_cx_desk_sug', v ? '1' : '0'); };
+  const items = (data.desk || []).map(d => cxDeskResolve(data, d)).filter(Boolean);
+  const onDesk = new Set((data.desk || []).map(d => d.type + ':' + d.id));
+  // Sugestões: o que vence logo e ainda não está na mesa
+  const sug = [];
+  (data.intimations || []).forEach(x => { if (!cxIsOpen(x) || onDesk.has('intimation:' + x.id)) return; const dd = daysUntil(x.dateDeadline); if ((dd !== null && dd <= 2) || intimIsUrgent(x)) sug.push({ type: 'intimation', x, dd, why: intimIsUrgent(x) && (dd === null || dd > 2) ? 'urgente' : cxDeskWhen(dd).t }); });
+  (data.tasks || []).forEach(t => { if (!cxTaskOpen(t) || onDesk.has('task:' + t.id)) return; const dd = daysUntil(t.dueDate); if ((dd !== null && dd <= 1) || t.priority === 'urgente') sug.push({ type: 'task', x: t, dd, why: t.priority === 'urgente' && (dd === null || dd > 1) ? 'urgente' : cxDeskWhen(dd).t }); });
+  (data.hearings || []).forEach(h => { if (!h.date || h.status === 'realizada' || h.status === 'cancelada' || onDesk.has('hearing:' + h.id)) return; const dd = daysUntil(h.date); if (dd !== null && dd >= 0 && dd <= 3) sug.push({ type: 'hearing', x: h, dd, why: cxDeskWhen(dd).t }); });
+  sug.sort((m, n) => (m.dd ?? 999) - (n.dd ?? 999));
+  const openItem = (type, x) => { if (type === 'intimation') a.openIntim(x.id); else if (type === 'task') a.openTask(x); else a.openHearing(x); };
+  const move = (type, col, i, dir) => { const j = i + dir; if (j < 0 || j >= col.length) return; a.reorder(type, col[i].d.id, col[j].d.id); };
+  const card = (it, i, col) => {
+    const { d, x } = it;
+    const dd = daysUntil(it.iso);
+    const w = cxDeskWhen(dd);
+    const op = opsById.get(x.operationId);
+    const key = d.type + ':' + d.id;
+    return <div key={key} className={'cx-dk-card' + (drag === key ? ' dragging' : '') + (overId === key ? ' over' : '')} draggable
+      onDragStart={e => { e.dataTransfer.setData('text/plain', key); e.dataTransfer.effectAllowed = 'move'; setDrag(key); }}
+      onDragEnd={() => { setDrag(null); setOverId(null); }}
+      onDragOver={e => { if (drag && drag.split(':')[0] === d.type) { e.preventDefault(); if (overId !== key) setOverId(key); } }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); const from = e.dataTransfer.getData('text/plain'); setDrag(null); setOverId(null); if (!from) return; const [ft, fid] = from.split(':'); if (ft === d.type && fid !== d.id) a.reorder(d.type, fid, d.id); }}>
+      <div className="cx-dk-top">
+        <span className="cx-dk-grip" title="Arraste para reordenar" aria-hidden="true">⠿</span>
+        <span className={'cx-dk-when' + (w.c ? ' ' + w.c : '')}>{w.t}{it.iso ? <span className="cx-mono"> · {cxDM(it.iso)}</span> : null}</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => move(d.type, col, i, -1)} disabled={i === 0} aria-label="Subir" title="Subir"><CxIcon n="chevU" s={13} /></button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => move(d.type, col, i, 1)} disabled={i === col.length - 1} aria-label="Descer" title="Descer"><CxIcon n="chevD" s={13} /></button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => a.remove(d.type, d.id)} aria-label="Tirar da mesa" title="Tirar da mesa (sem concluir)"><CxIcon n="x" s={13} /></button>
+      </div>
+      <button type="button" className="cx-dk-title" onClick={() => openItem(d.type, x)}>{it.urgent ? <span className="cx-urg">URGENTE</span> : null}<span>{it.title}</span></button>
+      {it.sub ? <div className="cx-dk-sub">{it.sub}</div> : null}
+      <div className="cx-dk-meta">{x.processNumber ? <CxProc num={x.processNumber} /> : null}{op ? <CxOpTag op={op} onOpen={a.openOp} /> : null}</div>
+      {it.notes.length ? <div className="cx-dk-notes">{it.notes.slice(-2).map((n, k) => <div key={k} className="cx-dk-note">{n}</div>)}{it.notes.length > 2 ? <span className="cx-muted cx-small">+{it.notes.length - 2} nota{it.notes.length - 2 === 1 ? '' : 's'}</span> : null}</div> : null}
+      <div className="cx-dk-acts">
+        {it.doc ? <a className="cx-btn sm" href={it.doc} target="_blank" rel="noopener noreferrer"><CxIcon n="file" s={12} />Documento</a> : null}
+        {d.type === 'intimation' ? <button type="button" className="cx-btn sm" onClick={() => a.openIntim(x.id)}><CxIcon n="send" s={12} />Registrar atuação</button> : null}
+        <button type="button" className="cx-btn sm ghost" onClick={() => openItem(d.type, x)}>Abrir</button>
+      </div>
+    </div>;
+  };
+  return <div className="cx cx-page cx-page-wide">
+    <div className="cx-page-h">
+      <div><h1>Mesa de trabalho</h1><p>{items.length ? cxPl(items.length, 'item em foco', 'itens em foco') + '. ' : ''}O que você escolheu atacar agora. Tirar da mesa não conclui nada: o item continua na sua lista.</p></div>
+    </div>
+    {sug.length ? <section className="cx-card cx-dk-sug">
+      <button type="button" className="cx-pz-fold" onClick={() => setSugOpen(!sugOpen)} aria-expanded={sugOpen}>
+        <span className="cx-caret" style={{ transform: sugOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
+        <b>Sugestões</b><span className="cx-n">{sug.length}</span><span className="cx-pz-fold-s">vence logo ou está marcado como urgente, e ainda não está na mesa</span>
+      </button>
+      {sugOpen ? <div className="cx-dk-sug-list">{sug.slice(0, 8).map(s => {
+        const r = cxDeskResolve(data, { type: s.type, id: s.x.id });
+        const icon = CX_DESK_COLS.find(c => c[0] === s.type)[2];
+        return <div key={s.type + s.x.id} className="cx-dk-sug-row">
+          <CxIcon n={icon} s={14} className="cx-muted" />
+          <button type="button" className="cx-dk-sug-t" onClick={() => openItem(s.type, s.x)}><span className="cx-ell">{r ? r.title : ''}</span><span className="cx-ell cx-muted">{r ? r.sub : ''}</span></button>
+          <span className={'cx-dk-when ' + cxDeskWhen(s.dd).c}>{s.why}</span>
+          <button type="button" className="cx-btn sm" onClick={() => a.toggle(s.type, s.x.id, s.dd)}><CxIcon n="plus" s={12} />Mesa</button>
+        </div>;
+      })}{sug.length > 8 ? <div className="cx-more">+{sug.length - 8} nas listas de Intimações, Tarefas e Agenda</div> : null}</div> : null}
+    </section> : null}
+    <div className="cx-dk-board">{CX_DESK_COLS.map(c => {
+      const col = items.filter(it => it.d.type === c[0]);
+      return <section key={c[0]} className="cx-dk-col"
+        onDragOver={e => { if (drag && drag.split(':')[0] === c[0]) e.preventDefault(); }}
+        onDrop={e => { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); setDrag(null); setOverId(null); if (!from || !col.length) return; const [ft, fid] = from.split(':'); const last = col[col.length - 1]; if (ft === c[0] && fid !== last.d.id) a.reorder(c[0], fid, last.d.id); }}>
+        <div className="cx-b-h"><CxIcon n={c[2]} s={14} className="cx-muted" />{c[1]}<span className="cx-n">{col.length}</span></div>
+        <div className="cx-dk-list">{col.length ? col.map((it, i) => card(it, i, col)) : <div className="cx-b-empty">Nada aqui. Use o botão Mesa nas listas{c[0] === 'intimation' ? ' ou na gaveta da intimação' : ''}.</div>}</div>
+      </section>;
+    })}</div>
   </div>;
 }

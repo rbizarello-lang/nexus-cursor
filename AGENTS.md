@@ -7,7 +7,7 @@ Painel de Operações Fiscais (Google Apps Script + React). Frontend pré-compil
 | Arquivo | Função |
 |---|---|
 | `src/app.jsx` | Lógica React, parsers, domínio, UI clássica e demo |
-| `src/edition-claude.jsx` | Nexus Prumo (menu, barra, Hoje, Intimações, Carteira, Visão geral, Linha do tempo, Mesa de prazos). Concatenado antes de `app.jsx` |
+| `src/edition-claude.jsx` | Nexus Prumo (menu, barra, Hoje, Intimações, Carteira, Visão geral, Linha do tempo, Mesa de prazos, Tarefas, Agenda, Mesa de trabalho). Concatenado antes de `app.jsx` |
 | `src/Nexus.shell.html` | HTML, CSS, CDN, portal de tooltips (`<!--INJECT_APP_JS-->`) |
 | `Código.js` | Backend Apps Script (`doGet`, sync Drive, backups) |
 | `RESUMO-DIARIO.js` | Lógica de resumo diário no Apps Script |
@@ -37,7 +37,7 @@ Após mudanças em `src/`, rode `npm run build` antes de considerar a tarefa pro
 - **Clássico** (default): `Nexus.html` / `doGet`. Temas: Mar Profundo · Claro · Ferro e Maré.
 - **Demo** (`Nexus.demo.html`): mesma interface do clássico, para compartilhar e testes menores. ⚙ → Resetar dados demo.
 - **Demo Experimental** (`demo_experimental.html`): `uiEdition: 'demo'` — Nova versão (beta): Hoje, Agenda unificada, Mesa de prazos. Ativar também via ⚙ → “Nova versão (beta)” ou `?edition=demo`.
-- **Nexus Prumo** (antes “Claude · Ardósia”; tema Ardósia): `uiEdition: 'claude'` (chave interna mantida) — menu lateral com operações, Hoje, Intimações, Carteira, Visão geral da operação (aba `visao`, só nesta edição), Linha do tempo (`viewMode: 'cx_timeline'`) e Mesa de prazos extintivos novos; demais telas vêm do app dentro da casca. Ativar via ⚙ ou `?edition=claude`. Código em `src/edition-claude.jsx`.
+- **Nexus Prumo** (antes “Claude · Ardósia”; tema Ardósia): `uiEdition: 'claude'` (chave interna mantida) — menu lateral com operações, Hoje, Intimações, Carteira, Visão geral da operação (aba `visao`, só nesta edição), Linha do tempo (`viewMode: 'cx_timeline'`), Mesa de prazos extintivos, Tarefas, Agenda e Mesa de trabalho novos; demais telas vêm do app dentro da casca. Ativar via ⚙ ou `?edition=claude`. Código em `src/edition-claude.jsx`.
 - A Beta e o Nexus Prumo **não** substituem o clássico. Modelo de dados, parsers, sync Drive, formulários e calculadora de prescrição devem permanecer compatíveis entre edições, salvo pedido explícito.
 
 ## Planejamento

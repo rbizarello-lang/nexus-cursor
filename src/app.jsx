@@ -3051,6 +3051,7 @@ function App() {
   const cdaScrollColsRef = useRef(false);
   const showToast = (msg) => {
     if (!msg) return;
+    if (isClaude) { cxNotify(msg); return; } // Nexus Prumo: um só aviso, no estilo da edição
     setFlashToast(msg);
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setFlashToast(null), 2800);
@@ -10211,6 +10212,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
         scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })} /></div>}
+      {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+        onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+        onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
+        onCreate={(f) => handleSave('task', { id: uid(), status: 'pendente', taskVisibility: 'global', ...f })}
+        onOpenOp={(id) => cxOpenOp(id, 'tarefas')} /></div>}
+      {viewMode === 'audiencias' && isClaude && <div className="cx-scroll"><EditionClaudeAgenda data={data} opsById={opsById} prazosRadar={prazosRadar} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+        onOpenIntim={(id) => setCxDrawerId(id)} onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+        onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onNewHearing={() => setModal({ type: 'create', entityType: 'hearing', initial: { status: 'agendada', modality: 'presencial', hearingType: 'instrucao', remindDays: '3' } })}
+        onOpenOp={(id) => cxOpenOp(id)} /></div>}
+      {viewMode === 'mesa' && isClaude && <div className="cx-scroll"><EditionClaudeMesa data={data} opsById={opsById}
+        a={{ openIntim: (id) => setCxDrawerId(id), openTask: (t) => setModal({ type: 'edit', entityType: 'task', initial: t }), openHearing: (h) => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
+          openOp: (id) => cxOpenOp(id), remove: removeFromDesk, reorder: reorderDeskInColumn, toggle: toggleDesk }} /></div>}
 
       {/* ═══ PAINEL GERAL ═══ */}
       {viewMode === 'painel' && (
@@ -11167,7 +11182,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ MESA DE TRABALHO ═══ */}
-      {viewMode === 'mesa' && (() => {
+      {viewMode === 'mesa' && !isClaude && (() => {
         const COLS = [
           { type: 'intimation', label: 'Intimações', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
           { type: 'task', label: 'Tarefas', color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
@@ -11283,7 +11298,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ TAREFAS GLOBAIS ═══ */}
-      {viewMode === 'tarefas_global' && (() => {
+      {viewMode === 'tarefas_global' && !isClaude && (() => {
         // Global tasks view: show tasks with explicit 'global' visibility, OR legacy tasks
         // without operation link, OR legacy tasks from before taskVisibility existed (backward compat).
         // Tasks linked to an operation AND with taskVisibility === 'operation' are HIDDEN here.
@@ -11434,7 +11449,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>);
       })()}
 
-      {viewMode === 'audiencias' && (() => {
+      {viewMode === 'audiencias' && !isClaude && (() => {
         const all = data.hearings || [];
         const today = new Date(); today.setHours(0,0,0,0);
         const weekBlock = isDemo ? renderAgendaWeek() : null;
