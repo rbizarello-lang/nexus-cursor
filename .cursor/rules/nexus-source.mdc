@@ -9,10 +9,11 @@ alwaysApply: false
 | Área | Arquivo |
 |---|---|
 | React / parsers / UI | `src/app.jsx` |
+| Edição Claude · Ardósia | `src/edition-claude.jsx` |
 | Shell HTML/CSS | `src/Nexus.shell.html` |
 | Backend Apps Script | `Código.js` |
 | Resumo diário | `RESUMO-DIARIO.js` |
 
-- Clássico é o default (`doGet` → `Nexus.html`). Demo Experimental (`uiEdition: 'demo'`) é trilha paralela — não remover nem fundir no clássico sem pedido explícito.
+- Clássico é o default (`doGet` → `Nexus.html`). Demo Experimental (`uiEdition: 'demo'`) e Claude · Ardósia (`uiEdition: 'claude'`) são trilhas paralelas — não remover nem fundir no clássico sem pedido explícito.
 - Manter compatibilidade de modelo de dados entre clássico e demo (parsers, sync Drive, formulários, calculadora de prescrição).
 - Planejamento e fases: `docs/MELHORIAS.md`. Executar **uma** fase/item por vez quando o usuário pedir P2–P6 ou “item N”.

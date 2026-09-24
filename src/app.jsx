@@ -2934,12 +2934,13 @@ function App() {
       if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
       const dth = DEMO_THEMES_OK.includes(s.demoTheme) ? s.demoTheme : demoThemeDefault;
       // Bootstrap Demo: window.__NEXUS_DEMO__ (Nexus.demo.html) ou ?edition=demo
-      let edition = s.uiEdition === 'demo' ? 'demo' : 'classic';
+      let edition = s.uiEdition === 'demo' ? 'demo' : s.uiEdition === 'claude' ? 'claude' : 'classic';
       let bootstrapped = false;
       try {
         if (typeof window !== 'undefined') {
           if (window.__NEXUS_DEMO__ === true) { edition = 'demo'; bootstrapped = true; }
           else if (/[?&]edition=demo\b/.test(window.location.search || '')) { edition = 'demo'; bootstrapped = true; }
+          else if (/[?&]edition=claude\b/.test(window.location.search || '')) { edition = 'claude'; bootstrapped = true; }
         }
       } catch {}
       // Demo Processos A/B/C/D — prefer nexus_settings; fallback legacy key nexus_demo_proc_view
@@ -2952,7 +2953,7 @@ function App() {
       if (isDemoStandalone) pvm = 'D';
       const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', demoTheme: dth, uiEdition: edition, processViewModel: pvm, prazosFilters: s.prazosFilters };
       // Persiste bootstrap (?edition=demo / Nexus.demo.html) e migração de tema legado
-      if ((bootstrapped && s.uiEdition !== 'demo') || themeMigrated || s.theme !== next.theme) {
+      if ((bootstrapped && s.uiEdition !== edition) || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
       return next;
@@ -2960,6 +2961,8 @@ function App() {
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} if (key === 'processViewModel') { try { localStorage.setItem('nexus_demo_proc_view', val); } catch {} } return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
+  // Edição Claude (Ardósia) — src/edition-claude.jsx. Mesmos dados; casca e telas novas.
+  const isClaude = appSettings.uiEdition === 'claude';
   const demoThemeId = (appSettings.demoTheme && DEMO_THEMES_OK.includes(appSettings.demoTheme)) ? appSettings.demoTheme : demoThemeDefault;
   // Clara = tokens base de .edition-demo; demais = .demo-theme-*
   const demoThemeClass = isDemo && demoThemeId !== 'clara' ? `demo-theme-${demoThemeId}` : '';
@@ -2987,8 +2990,13 @@ function App() {
     try {
       if (typeof window !== 'undefined' && (window.__NEXUS_DEMO__ || /[?&]edition=demo\b/.test(window.location.search || ''))) return 'hoje';
     } catch {}
+    if (appSettings.uiEdition === 'claude') return 'hoje';
     return 'painel';
   }); // 'hoje' | 'painel' | 'operation' | ...
+  // Estado de interface da edição Claude (gaveta da intimação, visão da lista, menu no celular)
+  const [cxDrawerId, setCxDrawerId] = useState(null);
+  const [cxIntimView, setCxIntimView] = useState('lista');
+  const [cxSideOpen, setCxSideOpen] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
@@ -8273,9 +8281,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       if (!DEMO_THEMES_OK.includes(appSettings.demoTheme)) updateSetting('demoTheme', demoThemeDefault);
       setViewMode(prev => (prev === 'painel' ? 'hoje' : prev));
       setDemoZone(tabToDemoZone(activeTab));
+    } else if (edition === 'claude') {
+      setViewMode(prev => (prev === 'painel' ? 'hoje' : prev));
     } else {
       setViewMode(prev => (prev === 'hoje' ? 'painel' : prev));
     }
+    setCxDrawerId(null);
     setShowSettings(false);
   };
   const loadDemoData = ({ force = false } = {}) => {
@@ -8307,10 +8318,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     <div className="settings-group">
       <div className="settings-label">Edição da interface</div>
       <div className="settings-options">
-        <button className={`settings-opt ${!isDemo ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
+        <button className={`settings-opt ${!isDemo && !isClaude ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
         <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>{isDemoStandalone ? 'Demo' : 'Demo Experimental'}</button>
+        <button className={`settings-opt ${isClaude ? 'active' : ''}`} onClick={() => switchEdition('claude')} title="Edição Claude · Ardósia (experimental)">Claude · Ardósia</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A Demo remodela navegação e layout (Central de Comando). Dados e funcionalidades permanecem os mesmos.</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A Demo e a Claude · Ardósia remodelam navegação e layout. Dados e funcionalidades permanecem os mesmos.</div>
     </div>
     <div className="settings-group">
       <div className="settings-label">Zoom / Escala</div>
@@ -8330,7 +8342,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
       <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Altera a tipografia de toda a interface. Números de processo e campos técnicos permanecem em mono.</div>
     </div>
-    {!isDemo && <div className="settings-group">
+    {!isDemo && !isClaude && <div className="settings-group">
       <div className="settings-label">Tema</div>
       <div className="settings-options">
         <button className={`settings-opt ${appSettings.theme==='theme-mar'?'active':''}`} onClick={() => updateSetting('theme','theme-mar')}>Mar Profundo</button>
@@ -9004,7 +9016,59 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     );
   };
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${demoThemeClass} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo?'':appSettings.theme} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  // ─── Edição Claude (Ardósia): ações compartilhadas pelas telas novas (src/edition-claude.jsx) ───
+  const cxGo = (vm) => { setCxSideOpen(false); startTabSwitch(() => setViewMode(vm)); };
+  const cxOpenOp = (opId, tab) => {
+    setCxSideOpen(false);
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); if (tab) setActiveTab(tab); });
+    setTimeout(() => touchOperationAccess(opId), 800);
+  };
+  const cxOpenTask = (t) => {
+    if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); }
+    else setViewMode('tarefas_global');
+    setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
+  };
+  const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
+  const cxNewIntim = () => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } });
+  const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
+    const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
+    const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
+    const da = intimDifOrder(a), db = intimDifOrder(b); if (da !== db) return da - db;
+    if (!a.dateDeadline) return 1; if (!b.dateDeadline) return -1;
+    return String(a.dateDeadline).localeCompare(String(b.dateDeadline));
+  }).map(x => x.id) : [];
+  const cxDetailActions = {
+    data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
+    onRespond: handleRespondIntim,
+    onOpenIntim: (id) => setCxDrawerId(id),
+    onOpenOp: (id) => { setCxDrawerId(null); cxOpenOp(id); },
+    onEditFull: (intim) => setModal({ type: 'edit', entityType: 'intimation', initial: intim }),
+    onWatch: (intim) => setModal({ type: 'create', entityType: 'watch', initial: { processNumber: intim.processNumber, parties: intim.parties, operationId: intim.operationId, reason: `Origem: ${intim.eventDescription || 'intimação'}`, createdAt: new Date().toISOString() } }),
+  };
+  const cxCrumbs = (() => {
+    const L = { hoje: 'Hoje', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
+    if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, tabLabels[activeTab]].filter(Boolean);
+    if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
+    return [L[viewMode] || 'NEXUS'];
+  })();
+  const cxSyncTime = (() => {
+    const m = /(\d{2}\/\d{2}\/\d{4}),?\s+(\d{1,2}:\d{2})/.exec(cloudLastSync || '');
+    if (!m) return cloudLastSync || '';
+    return m[1] === new Date().toLocaleDateString('pt-BR') ? m[2] : m[1].slice(0, 5) + ' ' + m[2];
+  })();
+  const cxLateIntims = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado' && daysUntil(x.dateDeadline) !== null && daysUntil(x.dateDeadline) < 0).length : 0;
+
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${demoThemeClass} ${isDemo && (!sidebarCollapsed || (carteiraContext && carteiraTreeOpen))?'demo-rail-expanded':''} ${carteiraContext && carteiraTreeOpen?'demo-carteira-open':''} ${isDemo ? '' : isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+    {/* ═══ EDIÇÃO CLAUDE · MENU ═══ */}
+    {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
+      counts={{ openIntims: openIntimsCount, lateIntims: cxLateIntims, openTasks: openTasksCount, desk: deskCount, watch: watchCount, hearings: hearingsAheadCount, models: (data.models || []).length, presc1: ((prazosRadar.totals || {})[1] || {}).n || 0 }}
+      onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} onOpenOpTab={(id, tab) => cxOpenOp(id, tab)}
+      onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
+      onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
+      onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
+      onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
+    {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
+
     {/* ═══ DEMO RAIL ═══ */}
     {isDemo && <nav className="demo-rail">
       <div className="demo-rail-brand">
@@ -9228,7 +9292,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </>}
         <div style={{marginLeft:'auto',position:'relative'}}>
           <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="Configurações">⚙</button>
-          {renderSettingsPanel()}
+          {!isClaude && renderSettingsPanel()}
         </div>
       </div>
 
@@ -9271,11 +9335,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>
       </div>}
 
+      {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)}
+        onSearch={() => { setGlobalSearch(true); setGsQuery(''); }} onNewIntim={cxNewIntim}
+        sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}
+        onToggleSettings={() => setShowSettings(!showSettings)} settingsPanel={renderSettingsPanel()} />}
+
       {(() => {
+        if (isClaude && viewMode === 'hoje') return null; // o Hoje da edição Claude já mostra a audiência próxima
         const today = new Date(); today.setHours(0,0,0,0);
         const imm = (data.hearings||[]).filter(h => h.status !== 'realizada' && h.status !== 'cancelada' && h.date).map(h => ({ h, dd: Math.round((new Date(h.date+'T00:00:00') - today)/86400000) })).filter(x => x.dd >= 0 && x.dd <= 2).sort((a,b) => a.dd - b.dd);
         if (imm.length === 0) return null;
         const f = imm[0];
+        if (isClaude) return <CxHearingBanner item={f} more={imm.length - 1} onOpen={() => cxOpenHearing(f.h)} />;
         return (<div onClick={() => { setViewMode('audiencias'); setTimeout(() => setModal({type:'edit',entityType:'hearing',initial:f.h}), 100); }} style={{margin:'8px 16px 0',padding:'8px 14px',background:'rgba(244,63,94,0.12)',border:'1px solid var(--red)',borderRadius:6,cursor:'pointer',display:'flex',alignItems:'center',gap:10,fontSize:12}}>
           <span style={{fontSize:15}}>⚖️</span>
           <span style={{color:'var(--red)',fontWeight:700}}>{f.dd === 0 ? 'Audiência HOJE' : f.dd === 1 ? 'Audiência AMANHÃ' : `Audiência em ${f.dd} dias`}</span>
@@ -9285,7 +9356,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* Intimações e Tarefas fundidas — transição interna na mesma aba */}
-      {(viewMode === 'intimacoes' || viewMode === 'tarefas_global') && (
+      {(viewMode === 'intimacoes' || viewMode === 'tarefas_global') && !isClaude && (
         <div className="demo-inbox-switch" role="tablist" aria-label="Intimações e Tarefas">
           <button type="button" role="tab" aria-selected={viewMode==='intimacoes'}
             className={`demo-inbox-tab ${viewMode==='intimacoes'?'active':''}`}
@@ -9301,7 +9372,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
 
       {/* ═══ HOJE (Demo Command Center) ═══ */}
-      {viewMode === 'hoje' && renderHojeView()}
+      {viewMode === 'hoje' && !isClaude && renderHojeView()}
+      {viewMode === 'hoje' && isClaude && <div className="cx-scroll"><EditionClaudeHoje data={data} prazosRadar={prazosRadar} prazosByDebt={prazosByDebt} opsById={opsById}
+        onOpenIntim={(id) => setCxDrawerId(id)} onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} openPrazos={openPrazos}
+        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }} /></div>}
+      {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
+        drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
+        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
       {viewMode === 'prazos' && renderPrazosView()}
 
       {/* ═══ PAINEL GERAL ═══ */}
@@ -9674,7 +9751,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
 
       {/* ═══ INTIMAÇÕES GLOBAIS ═══ */}
-      {viewMode === 'intimacoes' && (() => {
+      {viewMode === 'intimacoes' && !isClaude && (() => {
         const allIntim = data.intimations || [];
         // Default: exclude responded ones (they're archived in Docs). Filter "resolvidas" shows only resolved.
         let filtered;
@@ -10917,6 +10994,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     )}
 
     {/* Global Search */}
+    {isClaude && cxDrawerId && <EditionClaudeDrawer intimId={cxDrawerId} order={cxIntimOrder} a={cxDetailActions} onClose={() => setCxDrawerId(null)} />}
+    {isClaude && <CxToastHost />}
     {globalSearch && (
       <div className="global-search-overlay" onClick={() => setGlobalSearch(false)}>
         <div className="global-search-box" onClick={e => e.stopPropagation()}>
@@ -10935,6 +11014,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 }
                 if (r.type === 'intimation') {
                   setViewMode('intimacoes');
+                  if (isClaude && r.entity) { setCxDrawerId(r.entity.id); return; }
                   if (r.entity) setTimeout(() => setModal({type:'edit',entityType:'intimation',initial:r.entity}), 100);
                   return;
                 }
