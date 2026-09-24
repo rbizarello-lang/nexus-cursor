@@ -1,860 +1,1007 @@
-# Relatório da Beta — o que mudou e o que depende de você
+# Relatório da Nova versão (beta) — para quem opera o painel
 
 **Para:** Roger  
-**Data:** 18/09/2026  
-**Base:** versão estável `1dc76ea`  
-**Nada disto foi gravado no git.** Este texto não altera o app. Serve para você marcar **adotar** ou **não** no inventário, com o comportamento explicado em português.
+**Data desta redação:** 19/09/2026  
+**Versão no painel:** **2.0.12** (já publicada no Apps Script)  
+**Inventário técnico (números #1–#217):** `docs/INVENTARIO-BETA.md`
 
-Inventário técnico (linhas 1–202): `docs/INVENTARIO-BETA.md`.  
-Regras do app (R1–R12): `MOTOR_PRESCRICAO.md`.  
-Telas de conferência: `C:\Users\User\AppData\Local\Temp\nexus-audit\qa-final\beta\` (e o clássico desta mesma data em `qa-final\classic-now\`). A pasta `beta-mesa` pedida no plano **não existe**; as telas da Mesa estão em `beta\03-mesa.png`, `04-mesa-resto.png`, `05-gaveta.png`, `07-adiar-gaveta.png`.
+Este texto substitui o relatório de 18/09/2026. Aquele dizia que nada tinha sido gravado. **Isso mudou.** A maior parte já está no painel. O que resta é você **confirmar** o que a Beta faz com a fila de prazos — e saber, com clareza, o que cada peça altera na sua mesa.
 
-Como ler cada capítulo: o que aparece na tela, como o clássico faz hoje, por que mudou, se há uma escolha sua, quais números do inventário cobrem o tema, e como testar com os dados demo (Fachada Norte, Laranjas do Vale, Sucessão Empresarial Sul, Holding Atlântico, Agro Horizonte).
+Não há código aqui. Há o que o app **mostra**, o que **deixa de calar**, o que **deixa de gritar**, e o que acontece no crédito se você recusar o item.
 
 ---
 
-## 0. O que é a Beta, em uma página
+## Como ler
 
-A **Nova versão (beta)** é a sucessora da antiga “Demo Experimental”. Não substitui o clássico. O app que você abre no dia a dia (`Nexus.html`) continua sendo o clássico. A Beta abre por ⚙ → **Nova versão (beta)**, ou pelo arquivo `Nexus.demo.html`. A aba do navegador passa a dizer **NEXUS Beta**.
+Cada tópico responde a quatro perguntas de quem usa o NEXUS para **não perder prazo e não tratar alarme falso como urgência**:
 
-A Beta usa a **mesma casa** do clássico: coluna da esquerda com as cinco operações, faixa de abas em cima, e, dentro da operação, Briefing · Pessoas · Inscrições · Processos e Prescrição · Bens · Tarefas · Importar · Arquivos. Saiu o trilho estreito “Central de Comando”, o título enorme, as quatro “zonas” e as paletas Clara / Ardósia / Grafite. Os temas são os três que você já conhece: Mar Profundo, Claro, Ferro e Maré.
+1. **Para que serve no app** — o que isso protege (ordinária, 1 ano + 5 anos, cadastro, caixa de entrada).
+2. **O que você vê agora** — a tela, com exemplo.
+3. **O que acontecia antes** — o risco prático (silêncio, termo errado, ficha oca).
+4. **Se recusar** — o que volta.
 
-O princípio que organiza a Beta é **alarme ≠ consciência**. Vermelho, KPI e o bloco **PRECISA DE VOCÊ** existem só para o que pede decisão **hoje**. O resto continua visível, sem alarme, com contagem. Nada some: o que saiu da fila principal vai para a gaveta **SILENCIADOS (N)** no rodapé da Mesa. Parcelamento vigente, “ainda impossível” e o que você mesmo adiou ficam lá, com data.
+**Onde vale**
 
-A Mesa de prazos (Prazos → **Mesa**) é a novidade visível. A lista de grupos (Urgentes / A conferir / …) continua a um clique, no botão **Lista**. Há outra “Mesa” na faixa de cima — a antiga, de pins de intimação. As duas coexistem. Esta Beta não apagou a Mesa de pins.
+- **Clássico + Beta:** as duas edições. Recusar mexe no dia a dia, mesmo sem ligar a Nova versão.
+- **Só Beta:** só aparece com ⚙ → **Nova versão (beta)** ou no arquivo `demo_experimental.html`.
 
-Os dados demo são os mesmos de sempre. Nenhuma operação foi inventada para este lote.
+**Três arquivos (isto mudou depois do relatório antigo)**
 
-### Alarme ≠ consciência
+| Arquivo | Uso |
+|---|---|
+| Painel no Google (`Nexus.html`) | Clássico do dia a dia |
+| `Nexus.demo.html` | Demo para **compartilhar** — cara do clássico, dados de teste |
+| `demo_experimental.html` | **Nova versão (beta)** — Hoje, Agenda, Mesa de prazos |
 
-Destaque (borda vermelha, selo VENCIDA, número no KPI) só para o que exige ato seu agora: termo calculado nos 180 dias, cadastro que se completa com um clique, ou data de rever já passada. O restante — prazo em curso, ainda impossível, parcelamento vigente, aguardando decisão — permanece na tela, sem gritar. A gaveta Silenciados é a garantia de que o app não “come” inscrição.
+O relatório antigo dizia que `Nexus.demo.html` *era* a Beta. **Não é mais.**
 
-### O que o clássico já recebeu, além das contas (Bloco C)
+**O que você já decidiu nesta conversa**
 
-Mesmo se você **rejeitar a Beta inteira**, o clássico desta árvore de trabalho **não** é bit a bit o de `1dc76ea`. Ele já ganhou:
+- Contas do motor (Bloco A) — **adotar**.
+- Leitura DEBCAD e SIDA Relatório Completo, com as regras do que vira evento — **adotar**.
+- Frases das colunas (protesto na intercorrente; data da rescisão) — **adotar**.
+- Juntar fichas duplicadas de pessoa no mesmo CPF/CNPJ — **adotar**.
 
-- campos mínimos obrigatórios (número da CDA, processo ou descrição da intimação, título da tarefa, nome da operação) e faixa vermelha dentro da janela;
-- tecla Esc fecha a janela; clique no fundo escuro fecha; se você já digitou, o navegador pergunta;
-- recado curto no rodapé ao salvar (“CDA salva”, “Ciência registrada — ver Resolvidas”);
-- ⚙ com botão ✕, clique fora e Esc; o interruptor passou a dizer **Nova versão (beta)** em vez de “Demo Experimental”;
-- o tubo de ensaio “Resetar / carregar dados demo” saiu da coluna da esquerda e ficou só no ⚙;
-- ao parar o mouse em **NÃO AJ** / **AJ** e nas setas ⬇ ⬆, aparece o nome por extenso;
-- cartão de Briefing sem texto deixa de aparecer;
-- no Painel, ao voltar de Mês para Semana, a grade cai na semana de **hoje** (14–20 set 2026 nos testes), não na primeira semana do mês;
-- o ⚙ mostra **NEXUS 2.0.7**.
-
-Isso é o Bloco C. Detalhe no capítulo C.
-
-### Recapitulação do Bloco A (já explicado)
-
-Itens **#1–#20** do inventário. Corrigem a **conta** nas três colunas da CDA e, no clássico, na lista “Prazos extintivos”. Valem nas duas edições. Pausas que se sobrepõem deixam de ser somadas duas vezes; a primeira ciência inicia o 1 ano + 5 anos; fato datado depois de hoje não entra na conta; 29/02 aniversaria em 28/02; ordinária ajuizada deixa de se chamar “seguro”; suspensão do art. 40 datada vale como ciência, com aviso. Recusar o Bloco A **mantém o erro de conta**. Recusar só a Beta e **adotar o A** é coerente: o clássico fica com a conta certa e sem Mesa. Recusar o A e adotar a Mesa **não** é coerente: a Mesa lê o radar; as contas erradas apareceriam nas frases. O e-mail da manhã **não** acompanha o A até alguém pedir (capítulo H).
+**O que ainda pede o seu “sim” de política** — a fila da Beta (Bloco B) e o desenho da Mesa (Blocos D–F). O código **já está publicado**. Recusar agora seria **desfazer**, não “não implementar”.
 
 ---
 
-## Bloco B — A fila nova (só Beta)
+## 0. Para que o NEXUS existe, neste lote
 
-O clássico continua com a fila antiga (política v1). A Beta pede a fila nova (v2). Mesmo cadastro, duas leituras. É a mudança de fundo da Mesa: quem entra, quem vai à gaveta, quem some de vez.
+O app é a mesa da operação fiscal: inscrições, execuções, intimações e **três relógios** que não se misturam:
 
-### Duas filas no mesmo app
+1. **Decadência** — constituir o crédito.
+2. **Prescrição ordinária** (art. 174) — cinco anos da inscrição até o ajuizamento (e o que a LC 208/2024 faz com o protesto lavrado).
+3. **Intercorrente** — 1 ano + 5 anos **depois** da ciência de não localização / ausência de bens (ou, na política da casa, depois da **rescisão** do parcelamento).
 
-**O que você vê.** Abrir o clássico: aba **Prazos extintivos**, cinco contadores. Nos dados demo, em 18/09/2026: **2 urgentes · 0 a conferir · 8 a completar · 0 acompanhamento · 2 ainda impossível** (`qa-final\classic-now\02-prazos.png`). Abrir a Beta: aba **Prazos**, seletor Mesa | Lista. Na Lista: **2 urgentes · 0 a conferir · 1 a completar · 0 acompanhamento · 9 ainda impossível** (`qa-final\beta\12-prazos-lista.png`). As duas CDAs urgentes são as mesmas (ITR e IRPF da Agro, sem processo). O que mudou foi o miolo: oito “a completar” viraram um; dois “ainda impossível” viraram nove.
+A auditoria (motor estressado com carteira grande + revisão de telas) mostrou dois vícios opostos:
 
-**Antes.** Uma fila só. Status “parcelada” ou “tratada — aguardando reconhecimento” tiravam a CDA da aba. IDPJ sem constrição puxava inscrição “ainda impossível” para “cadastro a completar”.
+- **Silêncio indevido:** ficha “parcelada” sem adesão sumia; “aguardando reconhecimento” sumia; protesto do Debcad não entrava; segunda ciência reiniciava o ciclo.
+- **Alarme indevido:** IDPJ sem constrição puxava para “completar cadastro” um crédito que **ainda não pode** ter prescrito; KPI somava urgência com o que só pedia conferência.
 
-**Por que mudou.** A auditoria mostrou falsos negativos (ficha parcelada sem adesão sumia; “aguardando reconhecimento” sumia) e falsos alarmes (piso futuro + IDPJ sem constrição virava “completar cadastro”). O plano pediu: clássico intocado na fila; Beta com a política nova.
+A pesquisa de uso (Fable) fixou a regra da Beta: **alarme ≠ consciência**. Vermelho só no que pede ato **hoje**. O resto permanece visível, com contagem, na gaveta **Silenciados**. Nada some.
 
-**Decisão sua.** **A fila v2 vale só na Beta.** Alternativa: levar a mesma fila ao clássico — a lista “Prazos extintivos” mudaria de oito para um “a completar” e a gaveta não existiria lá. Outra alternativa: rejeitar a v2 e ficar com a Mesa lendo a fila antiga — as frases e a gaveta perderiam o sentido. Consequência de adotar: você passa a ter dois recortes da mesma carteira, conforme a edição. Consequência de recusar: a Beta vira só rearranjo visual da fila que você já conhece, e vários temas abaixo caem juntos.
+---
 
-**Itens do inventário:** #21, #22.
+# Bloco A — A conta nas três colunas
 
-**Como testar.** ⚙ → Clássico → Prazos extintivos: anote os cinco números. ⚙ → Nova versão (beta) → Prazos → Lista: compare. Os dois urgentes da Agro devem permanecer; o “a completar” deve cair de 8 para 1.
+**Onde vale:** clássico e Beta. **Estado:** no painel 2.0.12. Recusar = termo ou frase **errados** de novo.
 
-### “Aguardando reconhecimento” continua visível
+A finalidade aqui é o núcleo do app: a data que você lê na ficha tem de ser a data com a qual a União pode (ou não) afirmar prescrição.
 
-**O que você vê.** Na Beta, CDA marcada “Prescrita — aguardando reconhecimento judicial” **não some**. Vai para acompanhamento / Silenciados, selo “aguardando decisão”, frase “A prescrição já foi apontada e aguarda decisão judicial.” Só saem de vez: declaração em juízo, reconhecimento, CDA extinta.
+### #1 Pausas que se encostam ou se cobrem
 
-**Antes.** No clássico, “aguardando reconhecimento” tira a inscrição da aba Prazos, como se o caso tivesse acabado.
+**Para que serve.** Embargos, depósito, parcelamento, IDPJ — cada um **pausa** o relógio. Se dois fatos valem no mesmo calendário, o dia só pode ser descontado **uma vez**.
 
-**Por que mudou.** Achado da auditoria: o app calava um crédito que ainda depende de decisão judicial. O princípio do plano: nunca calar por status sozinho. Terminais de verdade são só os três acima.
+**O que você vê.** Dois períodos que se sobrepõem (embargos 2018–2020 e depósito 2019–2021) empurram o termo até o **fim real** da pausa conjunta (2021), não a soma dos dois.
 
-**Decisão sua.** **“Aguardando” fica visível, sem alarme.** Alternativa: voltar a esconder (como o clássico). Consequência de adotar: a gaveta/acompanhamento cresce com casos que você já apontou e ainda não transitou. Consequência de recusar: esses casos saem da consciência diária até você lembrar de abrir a ficha.
+**Antes.** O app somava os dois inteiros e o termo ia **um ano para a frente**. Você planejava peça com folga que não existia — ou deixava de apontar consumação que já era sustentável.
 
-**Itens do inventário:** #23, #24.
+**Se recusar.** Termo tarde demais. Risco de perder janela de arguição ou de afirmar prescrição cedo demais no calendário verdadeiro.
 
-**Como testar.** Na Lista da Beta, abra uma CDA → Tratar → escolha aguardando reconhecimento. Ela deve permanecer na fila/gaveta, não desaparecer. Marcar “declarada” deve tirá-la.
+**Como testar.** CDA com duas pausas sobrepostas. O termo deve bater o calendário unificado, não a soma.
 
-### Ficha parcelada sem adesão = cadastro a completar
+---
 
-**O que você vê.** Status “parcelada” / “negociada SISPAR” / execução “suspensa por parcelamento”, **sem** evento de adesão vigente: a Beta **não** tira da fila. Vira inconsistência, frase “A ficha diz parcelada, mas não há adesão lançada — o prazo segue correndo.” Há campo de data na linha da Mesa: Enter lança a adesão. Nos dados demo, a gaveta rotula como **Parcelamento vigente · até 17/12/2026** as CDAs `90.6.22.000777-01`, `778-01` e `779-01` (Laranjas) e `90.6.18.000300-30`, `301-30` e `302-30` (Holding) — 90 dias depois de hoje, só para você rever se a pausa ainda vale. Nem todas essas seis têm o selo Parcelada na ficha; o que as silencia é o **fato de adesão vigente** que o app liga à inscrição.
+### #2 A primeira ciência inicia o 1 ano + 5 anos
 
-**Antes.** Status “parcelada” sozinho escondia a CDA da aba Prazos, mesmo sem data de adesão. R6 do caderno de regras (“parcelamento vigente sai da fila”) era lido pelo **status**, não só pelo fato.
+**Para que serve.** O ciclo intercorrente nasce na **primeira** certidão de não localização / ausência de bens. Certidão nova é fato do processo; **não** é novo dies a quo.
 
-**Por que mudou.** Falso negativo: alguém pintava a ficha de parcelada e o prazo continuava correndo sem pausa, fora da vista.
+**O que você vê.** Ciências em 01/01/2018 e 01/06/2019 → termo **01/01/2024**. A segunda aparece como ocorrência: “nova certidão — não reinicia”.
 
-**Decisão sua.** **Status sem fato não pausa nem esconde; pede a data da adesão.** Alternativa: manter o clássico (status sozinho tira da fila). Consequência de adotar: mais linhas de cadastro na Mesa até você lançar a adesão — e o 1 ano + 5 anos **segue** até lá. Consequência de recusar: a Beta volta a calar ficha “parcelada na caneta”.
+**Antes.** A segunda ciência **substituía** a primeira. O ciclo recomeçava. Cinco anos a mais de “ainda dá tempo”.
 
-**Itens do inventário:** #25 (a ação de um clique é #114, no capítulo E).
+**Se recusar.** Cada certidão posterior empurra o termo. A União perde a leitura correta do art. 40 / Tema 566 na ficha.
 
-**Como testar.** Mesa → SILENCIADOS: as seis números acima, com “Parcelamento vigente”. Se você criar uma CDA só com status Parcelada e sem adesão, ela deve permanecer na Mesa pedindo a data — não ir à gaveta.
+---
 
-### Ordinária consumada em CDA ajuizada vira urgente
+### #3 a #6 Fato datado depois de hoje não entra na conta
 
-**O que você vê.** CDA já ajuizada cuja prescrição **ordinária** (os 5 anos da inscrição até o ajuizamento) já venceu: na Beta entra no grupo 1, frase “Os 5 anos da inscrição venceram antes do ajuizamento.” Não cai mais em “ainda impossível”.
+**Para que serve.** O app calcula **hoje**. Adesão, rescisão, penhora ou pausa com data futura ainda **não aconteceram**. Não podem pausar, interromper nem abrir ciclo.
 
-**Antes.** Esse caso ia para o grupo 5 e saía do alarme, como se o ciclo intercorrente (que ainda nem começou) fosse o único relógio.
+**O que você vê.**
 
-**Por que mudou.** R1 diz que os três relógios não se misturam. R12 diz que a ordinária ajuizada olha o que veio **antes** da propositura. A fila antiga tratava “ajuizada” como “ordinária resolvida”, mesmo quando o quinquênio da inscrição já tinha estourado.
+- (#3) Parcelamento “a partir do ano que vem” **não** tira a CDA da fila hoje.
+- (#4) Na ordinária, o fato futuro aparece em **Conferir nos autos**, sem mudar o termo.
+- (#5) Na intercorrente, constrição futura continua “pedido sem resultado”; rescisão futura **não** reabre o 1+5.
+- (#6) Status ou evento “parcelada no futuro” não vale como parcelamento vigente **hoje**.
 
-**Decisão sua.** **Ordinária vencida em CDA ajuizada = alarme (grupo 1).** Alternativa: deixar no grupo 5 (como o clássico). Consequência de adotar: entra no vermelho um crédito que o clássico considerava “ainda impossível”. Consequência de recusar: o ajuizamento tardio continua invisível na fila.
+**Antes.** Um fato lançado com data posterior a hoje distorcia termo e fila: crédito “sumia” ou o ciclo “já tinha recomeçado” num dia que ainda não chegou.
 
-**Itens do inventário:** #26.
+**Se recusar.** Cadastro otimista (ou erro de digitação de ano) cala ou empurra prazo que, no mundo, ainda está correndo.
 
-**Como testar.** Os dados demo desta data **não** trazem esse caso na Mesa. A regra está coberta pelos testes do motor. Se quiser ver na tela: CDA com inscrição antiga, ajuizamento depois dos 5 anos, sem ciência do art. 40.
+---
 
-### CDA só no IDPJ pede vínculo à execução fiscal
+### #7 e #8 Conferir: data futura e ciência antes do ajuizamento
 
-**O que você vê.** Número da CDA aponta para IDPJ ou cautelar, não para execução fiscal. A Beta não trata como “sem processo”. Pede: “O número apontado é de incidente, não de execução fiscal.” Botão **Vincular EF**.
+**Para que serve.** O cálculo segue (não apaga a data). A coluna **avisa** o que o operador precisa bater nos autos.
 
-**Antes.** Podia cair no recorte de inscrição sem processo (R6 das decisões de política: só alerta se a ordinária já venceu ou está a 180 dias).
+**O que você vê.** “Evento com data futura” e “ciência anterior ao ajuizamento — conferir data”. Ciência de 2018 numa execução ajuizada em 2020 **não some**; pede conferência.
 
-**Por que mudou.** O número existe; está no processo errado. Completar o vínculo é o ato, não “cadastrar processo do zero”.
+**Antes.** Ou o fato futuro entrava na conta (#3–#6), ou a ciência antiga passava batido, como se o art. 40 pudesse nascer antes da execução.
 
-**Decisão sua.** **Incidente no lugar da EF = inconsistência, não “sem processo”.** Alternativa: tratar como inscrição sem execução (alerta só se a ordinária apertar). Consequência de adotar: mais “cadastro a completar” quando o número da CDA for o do IDPJ. Consequência de recusar: a Beta deixa de empurrar o vínculo.
+**Se recusar.** Volta o silêncio sobre inconsistência de datas. O termo pode até estar “certo” na fórmula e **errado** no processo.
 
-**Itens do inventário:** #27 (o motor já marca o caso no #16, Bloco A).
+---
 
-**Como testar.** Na Mesa, se aparecer linha com “Vincular EF”, o número deve ser de IDPJ/cautelar. O botão foca o campo do processo na ficha.
+### #9 Termo já passou e há pedido sem resultado
 
-### Piso futuro não vira alarme de cadastro
+**Para que serve.** Não dizer “prazo em curso” com dias **negativos**. Há petição nos autos; declarar consumação sem conferir o desfecho é risco.
 
-**O que você vê.** CDA da Sucessão `90.6.19.000047-88` (PIS/COFINS, R$ 890.000), execução `5000045-12.2019.4.04.7003`, IDPJ `5008890-77.2025.4.04.7003` sem constrição lançada. Na Beta a frase é “Ainda não pode ter prescrito: o ato mais recente mais 1 ano e 5 anos não chegou.” Data: até 02/05/2028. **Não** sobe a PRECISA DE VOCÊ. Vai para Silenciados como **Ainda impossível** (`05-gaveta.png`). A irmã `90.6.19.000045-88` (IRPJ, R$ 5.600.000) **não** é este caso: o ciclo já corre e a ficha diverge do termo (26/01/2027 × 14/08/2031); ela fica em **O RESTO**, grupo 3, sem alarme vermelho (`04-mesa-resto.png`).
+**O que você vê.** “Termo calculado em dd/mm já passou; há pedido de dd/mm sem resultado — conferir antes de declarar.” Continua vermelho, com selo de pedido pendente — não some para “residual”.
 
-**Antes.** No clássico, a `000047-88` aparece como grupo **3** (“a completar”), com o texto longo do IDPJ sem constrição **em cada CDA** daquela execução (`classic-now\02-prazos.png`). O “não antes de 02/05/2028” existia, mas o alarme era de cadastro, não de “ainda impossível”.
+**Antes.** Situação “Prazo em curso” e “−990 dias”. Contradição na cara da ficha.
 
-**Por que mudou.** R8 (“não antes de”): enquanto o ato mais recente + 1 ano + 5 anos não chegou, consumação é impossível. O IDPJ sem constrição é nota, não deve roubar o grupo. Além disso, o mesmo recado “não tem constrição lançada” se repetia em cada CDA do processo.
+**Se recusar.** A tela mente: parece que o prazo ainda corre.
 
-**Decisão sua (piso).** **Piso futuro permanece grupo 5, mesmo com IDPJ sem constrição.** Alternativa: clássico (o incidente puxa para grupo 3). Consequência de adotar: R$ 890.000 da `047-88` saem do “a completar” e vão à gaveta até 2028. Consequência de recusar: a Mesa gritria cadastro num prazo que ainda não pode ter prescrito.
+---
 
-**Decisão sua (recado uma vez).** O motor tira o aviso repetido da linha da CDA e guarda uma nota **por processo**. **A Mesa não lista essa nota em lugar nenhum.** Alternativa: mostrar o recado uma vez no processo (não foi feito). Consequência de adotar como está: o IDPJ sem constrição some da linha da CDA e **não reaparece** numa tela da Mesa; a CDA grupo 5 continua na gaveta. Consequência de recusar o dedupe: o texto volta a se repetir em cada irmã, como no clássico.
+### #10 Gramática do encerramento (“pelo” / “pela”)
 
-**Itens do inventário:** #28, #29, #123.
+**Para que serve.** A frase do ciclo encerrado é o que você lê para saber **qual ato** fechou o 1+5 (penhora, arresto, Sisbajud…).
 
-**Como testar.** Beta → Prazos → Mesa → abra **SILENCIADOS**. Ache `90.6.19.000047-88`. Compare com o clássico: lá ela está em “A completar”, não em “Ainda impossível”.
+**O que você vê.** “Ciclo encerrado **pelo** arresto / **pelo** bloqueio Sisbajud / **pela** penhora / **pela** citação.”
 
-### Análise importada não apaga o vermelho
+**Antes.** “pela arresto”, “pela bloqueio”. Não muda o termo; muda a leitura rápida.
 
-**O que você vê.** Se você cola uma análise (bloco NEXUS) dizendo “ciclo encerrado”, mas o cálculo do app está com termo já vencido (grupo 1), a Beta **mantém o vermelho**. A análise continua anotada. A comparação do que piorou usa a fila v2.
+**Se recusar.** Só o português. A conta permanece.
 
-**Antes.** A decisão importada governava o grupo. Um “ciclo encerrado” colado rebaixava o alarme.
+---
 
-**Por que mudou.** R11: data digitada e planilha não calam o cálculo. A análise colada é do mesmo jaez.
+### #11 29 de fevereiro
 
-**Decisão sua.** **Importada não rebaixa grupo 1 calculado.** Alternativa: a análise manda (clássico). Consequência de adotar: você não consegue “desligar” um vencido só colando texto. Consequência de recusar: uma análise otimista esconde o termo calculado.
+**Para que serve.** Aniversário em anos (1+5, piso). 29/02 não existe em ano comum.
 
-**Itens do inventário:** #30, #142.
+**O que você vê.** Ciência em 29/02/2024 → termo em **28/02/2030**, não 01/03/2030.
 
-**Como testar.** Prazos → **Importar análise (formato NEXUS)**. Cole um bloco que diga ciclo encerrado numa CDA que a Mesa mostra como termo nos 180 dias. O vermelho deve permanecer; a nota da análise, também.
+**Antes.** O dia estourava para 1º de março. Um dia a mais no calendário da União — irrelevante na maior parte dos casos, decisivo no limite.
 
-### Uma frase e uma ação por linha
+**Se recusar.** Termo um dia depois do último dia de fevereiro.
 
-**O que você vê.** Cada linha da Mesa traz **por que está ali**, em português curto, sem Tema, Súmula, “piso”, “teto”, “dies”, “marco”, “CENÁRIO”. Exemplos reais da conferência:
+---
 
-- Agro `90.6.23.000884-40` (ITR, R$ 48.000, sem processo, selo **CALCULADO**): “O termo calculado cai nos próximos 180 dias.”
+### #12 Ordinária ajuizada não se chama “seguro”
+
+**Para que serve.** Ajuizar **interrompe** a ordinária (Tema 383). Não significa que o crédito está a salvo para sempre: a intercorrente pode estar em curso ou nem ter começado.
+
+**O que você vê.** Selo **Interrompida — vigiar**, não “seguro”.
+
+**Antes.** A coluna chamava de seguro só porque houve propositura. Leitura complacente.
+
+**Se recusar.** A palavra “seguro” volta a anestesiar a ordinária ajuizada.
+
+---
+
+### #13 Suspensão do art. 40 datada vale como ciência (R10)
+
+**Para que serve.** Muitas vezes o que está nos autos é o despacho de suspensão do art. 40, não a certidão com esse nome. A casa já decidiu: com **data**, vale como início do 1+5, **com aviso** para confirmar a certidão.
+
+**O que você vê.** Início = data da suspensão. Ocorrência: “Suspensão do art. 40 … vale como ciência.” Conferir: “certidão de não localização/sem bens não lançada — confirmar data.”
+
+**Antes.** O ciclo corria na conta e a linha Datas dizia **“sem ciência lançada”**. Você lia que o prazo não tinha começado — e o termo já existia.
+
+**Se recusar.** A contradição volta: termo no motor, “sem ciência” na boca da coluna.
+
+---
+
+### #14 Aviso de incidente só na coluna da intercorrente
+
+**Para que serve.** “IDPJ sem constrição” diz respeito ao **ciclo da execução**, não aos 5 anos da inscrição.
+
+**O que você vê.** O recado **não se repete** na coluna da ordinária. Continua na intercorrente. Falta de constituição, conflito de data etc. continuam em todas as colunas, porque são cadastro.
+
+**Antes.** O mesmo aviso de IDPJ aparecia nas duas colunas. Ruído; a ordinária parece “incompleta” por fato que não a afeta.
+
+**Se recusar.** O recado volta a poluir a ordinária.
+
+---
+
+### #15 Índice de eventos (carteira grande)
+
+**Para que serve.** Abrir Prazos numa operação com dezenas de CDAs sem o painel travar. **Não muda o termo.**
+
+**O que você vê.** Nada, numa operação de 5 nomes. Em carteira grande, a aba responde.
+
+**Antes.** A fila varria eventos CDA a CDA (dezenas de segundos em teste ×100).
+
+**Se recusar.** Risco de tela lenta; as contas do A dependem deste índice em vários pontos — recuar só isto sem o resto quebra a fila.
+
+---
+
+### #16 CDA cujo número é o do IDPJ (marca interna)
+
+**Para que serve.** Distinguir “não ajuizada” de “ajuizada no processo **errado**” (incidente no lugar da EF).
+
+**O que você vê no clássico.** Quase nada sozinho. **Na Beta (#27)** a Mesa pede “vincule à execução fiscal”.
+
+**Antes.** O número existia; o app podia tratar como inscrição sem execução.
+
+**Se recusar.** A Beta deixa de ter como saber que o CNJ é de IDPJ/cautelar.
+
+---
+
+### #17 Status “parcelada” no clássico continua escondendo
+
+**Para que serve.** Deixar o **clássico** como você já conhece: status parcelada **ou** adesão vigente tira da lista de prazos. A novidade “status sem fato não esconde” é **só Beta (#25)**.
+
+**O que você vê.** No clássico, CDA “parcelada” na ficha **sem** evento de adesão **continua fora** da aba Prazos extintivos.
+
+**Se recusar.** Só faria sentido junto com levar a fila v2 ao clássico — não foi o pedido deste lote.
+
+---
+
+### #18 Rótulo “Suspensão do art. 40”
+
+**Para que serve.** Nome curto na tabela de ocorrências.
+
+**O que você vê.** “Suspensão do art. 40”, não “Registro de suspensão do art. 40”.
+
+**Se recusar.** Só o rótulo. A regra #13 permanece.
+
+---
+
+### #19 e #143 Página de regras: parágrafo 2026.09a
+
+**Para que serve.** A janela ⓘ **Regras de prazos** passa a contar, em português, as contas novas do Bloco A.
+
+**O que você vê.** Histórico **2026.09a** (18/09/2026). O **número** no título e no ⚙ continua **v2026.09** (#144) — o rodapé das colunas não “grita” que a conta mudou; o parágrafo do histórico sim.
+
+**Se recusar só o parágrafo.** A tela de regras fica muda sobre pausas fundidas, 29/02, art. 40 etc., embora a conta na ficha já seja a nova.
+
+---
+
+### #20 Nada foi apagado “porque não usava”
+
+**Para que serve.** Não perder capacidade. Peças internas que ninguém pediu para remover **continuam**.
+
+**O que você vê.** Nada. É garantia de que o lote não “limpou” feature viva.
+
+---
+
+# Bloco B — A fila da Beta (o que entra no vermelho)
+
+**Onde vale:** só Beta. **Estado:** publicado. **Ainda pede a sua confirmação de política.**
+
+A finalidade aqui não é o termo da coluna. É **quem aparece** na sua manhã: o que pede peça ou conferência **hoje**, versus o que deve permanecer à vista sem alarme.
+
+O clássico **não** mudou de fila. Você pode comparar as duas leituras da mesma carteira.
+
+---
+
+### #21 e #22 Duas filas no mesmo app
+
+**Para que serve.** Experimentar a política nova **sem** alterar a lista “Prazos extintivos” do clássico.
+
+**O que você vê.** ⚙ → Clássico: fila antiga. ⚙ → Nova versão (beta): fila nova. Nos dados demo (18/09/2026): clássico **2 urgentes · 8 a completar · 2 ainda impossível**; Beta lista **2 urgentes · 1 a completar · 9 ainda impossível**. Os dois urgentes da Agro (ITR e IRPF sem processo) são os **mesmos**. Mudou o miolo: o que era falso “completar cadastro” virou “ainda impossível” na gaveta.
+
+**Antes.** Uma fila só. Status pintado na ficha mandava no silêncio.
+
+**Se recusar.** A Mesa da Beta perde o sentido (ela lê esta fila). Alternativa: levar a v2 ao clássico — a lista de lá mudaria os oito “a completar”.
+
+**Como testar.** Anote os cinco números no clássico. Ligue a Beta → Prazos → **Lista**. Compare. Os dois urgentes da Agro devem permanecer.
+
+---
+
+### #23 e #24 “Aguardando reconhecimento” não some
+
+**Para que serve.** Prescrição **apontada** e ainda sem trânsito / reconhecimento **não é caso encerrado**. Calar a CDA é perder o acompanhamento da decisão judicial.
+
+**O que você vê na Beta.** A inscrição permanece, sem vermelho de consumação nova. Selo “aguardando decisão”. Frase: “A prescrição já foi apontada e aguarda decisão judicial.” Só saem de vez: **declarada**, **reconhecida**, CDA **extinta**.
+
+**Antes (e no clássico ainda).** “Aguardando reconhecimento” tira da aba Prazos, como se o crédito tivesse acabado.
+
+**Se recusar.** Esses casos saem da consciência diária até você lembrar de abrir a ficha.
+
+**Como testar.** Beta → CDA → Tratar → aguardando reconhecimento. Deve permanecer na fila/gaveta. Marcar “declarada” deve sair.
+
+---
+
+### #25 Ficha “parcelada” sem adesão = cadastro a completar
+
+**Para que serve.** R6 (parcelamento vigente sai da fila) lê o **fato** (adesão), não a tinta do status. Status sem data **não pausa** o art. 174 nem o 1+5. Esconder a CDA nesse estado é o pior silêncio: o prazo corre e a mesa não mostra.
+
+**O que você vê na Beta.** Status parcelada / negociada SISPAR / execução suspensa por parcelamento, **sem** evento de adesão: permanece na Mesa, frase “A ficha diz parcelada, mas não há adesão lançada — o prazo segue correndo.” Campo de data na linha: Enter lança a adesão (#114).
+
+As CDAs da Laranjas e da Holding **com** adesão vigente vão para **Silenciados** (“Parcelamento vigente · até …”), não para o vermelho.
+
+**Antes / clássico.** Status sozinho esconde.
+
+**Se recusar.** A Beta volta a calar ficha “parcelada na caneta”. O 1+5 segue nos autos, invisível.
+
+**Como testar.** SILENCIADOS: as seis com fato de adesão. Crie uma CDA só com status Parcelada, sem adesão: deve **pedir a data**, não ir à gaveta.
+
+---
+
+### #26 Ordinária já vencida em CDA ajuizada = urgente
+
+**Para que serve.** R1: os relógios não se misturam. Ajuizar **não apaga** o fato de que os 5 anos da inscrição já tinham caído **antes** da propositura. Isso é ordinária consumada, não “ainda impossível” por falta de ciência do art. 40.
+
+**O que você vê na Beta.** Grupo 1, selo ordinária, frase “Os 5 anos da inscrição venceram antes do ajuizamento.”
+
+**Antes.** Caía no grupo 5 e saía do alarme — como se só existisse o relógio intercorrente.
+
+**Se recusar.** Ajuizamento tardio continua invisível na fila. Você não é empurrado a tratar a ordinária já perdida.
+
+**Como testar.** Os dados demo desta data **não** trazem o caso na Mesa. Para ver: inscrição antiga, ajuizamento depois dos 5 anos, sem ciência do art. 40.
+
+---
+
+### #16 + #27 Número da CDA é o do IDPJ / cautelar
+
+**Para que serve.** Completar o **vínculo à execução fiscal**. O CNJ existe; está no incidente. Tratar como “sem processo” só alerta quando a ordinária aperta. O ato certo é ligar à EF.
+
+**O que você vê na Beta.** “O número apontado é de incidente, não de execução fiscal.” Botão **Vincular EF**.
+
+**Antes.** Podia cair no recorte de inscrição sem execução.
+
+**Se recusar.** A Beta deixa de empurrar o vínculo. O crédito pode ficar órfão de EF na fila.
+
+---
+
+### #28 Piso futuro não vira alarme de cadastro
+
+**Para que serve.** R8: enquanto o ato mais recente + 1 ano + 5 anos **não chegou**, consumação é impossível. IDPJ sem constrição é **nota**, não deve roubar o grupo.
+
+**O que você vê.** Sucessão `90.6.19.000047-88` (PIS/COFINS, R$ 890.000), IDPJ sem constrição, “não antes de” 02/05/2028. Na Beta: **Ainda impossível**, gaveta, **sem** PRECISA DE VOCÊ. No clássico: grupo 3 (“a completar”), com o texto do IDPJ.
+
+A irmã `000045-88` (R$ 5,6 mi) **não** é este caso: o ciclo já corre e a ficha diverge do termo; fica em **O RESTO**, sem vermelho.
+
+**Se recusar.** A Mesa gritaria cadastro num prazo que ainda não pode ter prescrito. R$ 890 mil voltariam ao “completar”.
+
+**Como testar.** Beta → Mesa → SILENCIADOS → `000047-88`. Clássico: a mesma CDA em “A completar”.
+
+---
+
+### #29 e #123 Recado de IDPJ uma vez — e hoje sem tela
+
+**Para que serve.** Não repetir “sem constrição lançada” em **cada** CDA da mesma EF.
+
+**O que você vê.** O recado **saiu** da linha de cada inscrição. O motor guarda uma nota por processo. **A Mesa não desenha essa nota.** A CDA grupo 5 continua na gaveta; o texto do incidente **não reaparece** numa tela própria.
+
+**Se recusar o dedupe.** O texto volta a se repetir em cada irmã, como o clássico.
+
+**Atenção.** Adotar como está = o aviso some da linha **e** não ganha outro lugar. Se você quiser o recado **uma vez no processo**, isso **não foi feito**. É item em aberto de tela, não de conta.
+
+---
+
+### #30 e #142 Análise colada não apaga o vermelho
+
+**Para que serve.** R11: planilha e texto colado não calam o cálculo. Uma análise “ciclo encerrado” não pode desligar termo já vencido.
+
+**O que você vê na Beta.** Grupo 1 calculado **permanece**. A análise fica anotada. A comparação do que piorou usa a fila nova.
+
+**Antes / clássico.** A decisão importada governava o grupo.
+
+**Se recusar.** Uma análise otimista esconde o termo calculado. Você “desliga” o vencido colando texto.
+
+**Como testar.** Prazos → Importar análise. Cole “ciclo encerrado” numa CDA que a Mesa mostra nos 180 dias. O vermelho deve ficar; a nota, também.
+
+---
+
+### #31 e #152 Uma frase e uma ação por linha
+
+**Para que serve.** Na manhã, uma linha deve dizer **por que esta CDA está aqui** e **o que fazer**, sem Tema, Súmula, “piso”, “dies”, “marco”. Isso fica na memória técnica (Copiar) e na página ⓘ Regras.
+
+**O que você vê (exemplos reais)**
+
+- Agro `90.6.23.000884-40` (ITR, R$ 48.000, CALCULADO): “O termo calculado cai nos próximos **180 dias**.”
 - Agro `90.6.20.000881-40` (IRPF, R$ 95.000): a mesma frase.
-- Sucessão `90.6.19.000045-88`: “O prazo de 1 ano + 5 anos está em curso.”
-- Gaveta, parceladas: “Parcelamento vigente”.
-- Gaveta, `000047-88`: “Ainda não pode ter prescrito…”.
+- Sucessão `000045-88`: “O prazo de 1 ano + 5 anos está em curso.”
+- Parcelada com fato: “Parcelamento vigente”.
+- `000047-88`: “Ainda não pode ter prescrito…”.
+- Ordinária perdida antes do ajuizamento: “Os 5 anos da inscrição venceram antes do ajuizamento.”
+- Parcelada sem adesão: “A ficha diz parcelada, mas não há adesão lançada — o prazo segue correndo.”
 
-Há também um tipo de ação sugerida (lançar fato, conferir nos autos, corrigir ficha, vincular EF, lançar ciência, ou nenhuma). A Mesa usa isso nos botões (capítulo E).
+Ações: lançar fato, conferir autos, corrigir ficha, vincular EF, lançar ciência, ou nenhuma.
 
-**Antes.** A lista clássica mistura resumo técnico, data, travessão e o texto do IDPJ. “Tema/Súmula” nas dicas do formulário. A coluna da inscrição no clássico já evitava essas palavras (caderno de regras, “O que a tela da inscrição não mostra”); a **fila** ainda não.
+**Atenção honesta.** A frase de vigiar ainda diz **“resultado útil”** (“O ciclo encerrou por resultado útil; vigiar nova inércia.”). O filtro tira Tema/piso; **não** tira essa expressão.
 
-**Por que mudou.** Princípio do plano: uma frase, um selo, uma ação. Jargão só na memória técnica (Copiar) e na página ⓘ Regras.
+**Se recusar o catálogo.** A Mesa fica muda ou com o texto técnico antigo. A janela de 180 dias na boca da fila **já era** decisão da casa.
 
-**Decisão sua.** O catálogo de frases **fixa 180 dias** na boca da Mesa (“cai nos próximos 180 dias”). Isso já era decisão da casa no caderno (fila urgente: 180 dias). Recusar o catálogo e manter a Mesa deixa as linhas mudas ou com o texto antigo. Atenção honesta: a frase de ciclo encerrado ainda diz **“resultado útil”** (“O ciclo encerrou por resultado útil; vigiar nova inércia.”). O filtro da Beta tira Tema/Súmula/piso; não tira essa expressão. A memória técnica continua com a base legal.
+---
 
-**Itens do inventário:** #31, #152, #99 (filtro de jargão, capítulo E).
+### #32 Data para rever (despertador)
 
-**Como testar.** Mesa: leia as duas linhas da Agro. Não deve aparecer “Tema”, “Súmula” nem travessão solto. Abrir ⓘ Regras deve continuar com o caderno completo, inclusive Temas.
+**Para que serve.** O que hoje não é urgente precisa **voltar** à mesa num dia certo. Sem isso, “consciência” vira esquecimento.
 
-### Data para rever (fora dos grupos 1 e 2)
+**O que você não vê** (nome técnico). O que vê: uma linha de acompanhamento **sobe** a PRECISA DE VOCÊ quando a data passou.
 
-**O que você vê.** Você não vê o nome técnico. Vê o efeito: uma linha de acompanhamento pode **subir** a PRECISA DE VOCÊ quando a data de rever já passou. Regras internas: pausa → fim conhecido ou +90 dias; ciclo encerrado para vigiar → interrupção + 1 ano (no mínimo hoje + 30 dias); ainda impossível → a data do “não antes de”; aguardando decisão → +90 dias; inconsistência de cadastro → +30 dias.
+Regras: pausa → fim conhecido ou +90 dias; ciclo encerrado para vigiar → interrupção + 1 ano (mínimo hoje + 30); ainda impossível → a data do “não antes de”; aguardando decisão → +90 dias; inconsistência de cadastro → +30 dias.
 
-**Antes.** Não havia “voltar a me mostrar isto em dd/mm”. Grupo 4 e 5 só saíam da vista ou ficavam no fundo da lista.
+**Antes.** Grupo 4 e 5 só saíam da vista ou ficavam no fundo. Não havia “me mostre de novo em dd/mm”.
 
-**Por que mudou.** Alarme ≠ consciência precisa de um despertador para o que hoje não é urgente.
+**Se recusar.** O que está quieto só volta se você abrir a gaveta. Uma pausa que já acabou pode permanecer invisível.
 
-**Decisão sua.** **Adotar esses prazos de revisita** (90 / 1 ano / 30 / data do piso). Alternativa: nunca puxar acompanhamento de volta ao bloco vermelho. Consequência de adotar: daqui a 90 dias uma pausa ou um “aguardando” pode voltar a PRECISA DE VOCÊ sozinha. Consequência de recusar: o que hoje está quieto só volta se você abrir a gaveta.
+**Como testar.** Nos dados demo desta data, o bloco de cima só tem as duas da Agro (grupo 1); o despertador não disparou no meio.
 
-**Itens do inventário:** #32.
+---
 
-**Como testar.** Na Mesa, uma linha grupo 4 com data de rever no passado deveria estar em PRECISA DE VOCÊ mesmo sem ser grupo 1. Nos dados demo desta data, o bloco de cima só tem as duas da Agro (grupo 1); o despertador não disparou em ninguém do meio.
+### #33 e #158 Silenciados (nada some)
 
-### Silenciados no motor (antes da gaveta)
+**Para que serve.** R6 continua: parcelamento **vigente** não gera alerta. A novidade: **não desaparece**. Você revê em até 90 dias se a pausa ainda vale.
 
-**O que você vê.** A fila v2 devolve, além das linhas da Mesa, uma lista do que ficou de fora: parcelamento **vigente por evento** e itens que você adiou. O clássico não tem essa lista. Sem ela, a gaveta do capítulo E não existe.
+**O que você vê.** Gaveta **SILENCIADOS (15)** nos dados demo. Seis com “Parcelamento vigente · até 17/12/2026”; o restante, “ainda impossível”.
 
 **Antes.** Parcelamento vigente sumia da aba. Não havia gaveta.
 
-**Por que mudou.** “Nada some.” R6 continua: parcelamento vigente **não gera alerta**. A novidade é não desaparecer.
-
-**Decisão sua.** Cobre-se com a da gaveta (capítulo E) e com a do parcelamento sem adesão, acima.
-
-**Itens do inventário:** #33, #158.
-
-**Como testar.** Mesa → SILENCIADOS (15) nos dados demo. Seis parceladas visíveis no topo da gaveta; o restante é “ainda impossível”.
-
-### Adiar: o motor por trás do botão
-
-**O que você vê.** Você esconde a linha até uma data, com motivo fechado. O motor **fura** o silêncio (a linha volta sozinha) se: a data passou; o grupo **piorou**; entrou fato novo depois que você adiou; o motivo foi “Outro” sem texto; ou o motivo é desconhecido. Limites máximos: grupo 1 = **14 dias**, grupo 2 = **30**, grupo 3 = **7**, grupo 5 = **90**, demais = **30**. Motivos: Aguardando certidão, Peça protocolada, Garantia em análise, Não priorizar agora, Outro (texto obrigatório).
-
-**Antes.** Não existia. No clássico, “Tratar” tira da fila de outro jeito (handled), sem data de volta.
-
-**Por que mudou.** Precisava de um silêncio **temporário**, que não sobreviva a um fato novo. Campo novo e opcional na CDA (`prescSnooze`). O clássico ignora.
-
-**Decisão sua.** **Adotar estes tetos e estes furos.** Alternativa: tetos maiores (ex.: 30 dias no grupo 1) — o urgente poderia sumir um mês. Alternativa: não furar quando o grupo piora — um adiamento “não priorizar” esconderia uma consumação nova. Consequência de adotar: grupo 1 só some no máximo duas semanas, e volta se o caso piorar. Consequência de recusar o Adiar: a Mesa não tem como calar uma linha sem “Tratar”.
-
-**Itens do inventário:** #34, #35, #161–#166.
-
-**Como testar.** Ver capítulo E, tema Adiar (os mesmos números, na tela).
+**Se recusar.** Volta o sumiço. A União “esquece” de conferir se o SISPAR ainda está de pé.
 
 ---
 
-## Bloco C — Correções que já estão no clássico
+### #34, #35 e #161–#166 Adiar com furo
 
-Tudo abaixo aparece em **Nexus.html** e na Beta, salvo onde o texto disser o contrário. Se você adotar só o clássico, estas telas mudam mesmo assim.
+**Para que serve.** Silêncio **temporário**, com motivo, que **não sobrevive** a fato novo nem a piora. Não é “Tratar” (handled). O clássico ignora o campo.
 
-### Formulários: não grava vazio, avisa, Esc, clique fora
+**O que você vê.** Motivos fechados: Aguardando certidão, Peça protocolada, Garantia em análise, Não priorizar agora, Outro (texto **obrigatório**). Tetos: grupo 1 = **14 dias**, grupo 2 = **30**, grupo 3 = **7**, grupo 5 = **90**.
 
-**O que você vê.** Sem o número da CDA, Salvar não grava; faixa vermelha **dentro** da janela: “Informe o número da CDA.” Intimação sem processo **e** sem descrição: “Informe o número do processo ou a descrição do evento.” Tarefa sem título, bem sem descrição/matrícula, operação sem nome: o mesmo padrão. Esc fecha. Clique no fundo escuro fecha. Se você já escreveu, o navegador pergunta “Há texto digitado. Fechar sem salvar?”. Na conferência da Beta, a janela de intimação nova se chama **Nova intimação** (`19-validacao.png`); o título limpo é só Beta (capítulo F). A validação em si vale nos dois.
+O silêncio **fura** (a linha volta) se: a data passou; o grupo piorou; entrou fato depois do adiamento; “Outro” sem texto.
 
-**Antes.** Dava para salvar CDA sem número. Esc não fechava. Clique fora fechava sem perguntar.
+**Antes.** Não existia. “Tratar” tirava da fila de outro jeito, sem data de volta.
 
-**Por que mudou.** Achado de uso: fichas vazias e perda de texto ao clicar fora.
+**Se recusar.** A Mesa não cala uma linha sem “Tratar”. Se recusar só os furos: um “não priorizar” esconderia consumação nova. Se alargar o teto do grupo 1: urgente some um mês.
 
-**Decisão sua.** Nenhuma — correção/ajuste de tela. (Se recusar, o clássico volta a aceitar ficha sem número.)
-
-**Itens do inventário:** #36, #37, #38, #39, #40, #58.
-
-**Como testar.** Clássico ou Beta: + Inscrição → Salvar em branco. Deve aparecer a faixa vermelha. Digite um número, clique fora: deve perguntar.
-
-### Recado ao salvar e ao registrar atuação
-
-**O que você vê.** Depois de Salvar, caixa no rodapé (~3 segundos): “Intimação salva”, “CDA salva”, “Tarefa salva”, “Operação salva”, ou “Salvo”. Ao registrar ciência/peticionamento na intimação: “Ciência registrada — ver Resolvidas” (e equivalentes). Não abre a aba sozinho.
-
-**Antes.** O registro ia para Resolvidas sem confirmação visível.
-
-**Por que mudou.** Dúvida de “foi ou não foi”.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela.
-
-**Itens do inventário:** #41, #42, #43.
-
-**Como testar.** Salve uma intimação. Olhe o rodapé.
-
-### Painel ⚙: dá para fechar de verdade
-
-**O que você vê.** Cabeçalho com **✕**. Clique fora do retângulo fecha. Esc fecha. Trocar de Painel para Intimações fecha o ⚙. O interruptor de edição diz **Clássico** | **Nova versão (beta)**, com o texto “A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada…”. Versão **NEXUS 2.0.7**. Regras: **Versão 2026.09** (o número no título **não** virou 2026.09a; o parágrafo novo está dentro de Abrir regras). Captura: `classic-now\13-settings.png` e `beta\20-settings.png`.
-
-**Antes.** Só clicando de novo na engrenagem. Rótulo “Demo Experimental”. Versão 2.0.6.
-
-**Por que mudou.** O ⚙ ficava preso na frente da tela.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela. O nome “Nova versão (beta)” é rótulo; a edição em si é o resto deste relatório.
-
-**Itens do inventário:** #44–#49, #56, #59, #60.
-
-**Como testar.** ⚙ → clique no ✕; abra de novo → Esc; abra de novo → clique no fundo.
-
-### Tubo de ensaio saiu da coluna da esquerda
-
-**O que você vê.** A sidebar, nas duas edições, não tem mais **Resetar / carregar dados demo**. Continua em ⚙ → Dados / Sync. As setas ⬇ ⬆ ganharam o nome ao parar o mouse: Exportar JSON / Importar JSON.
-
-**Antes.** O botão de demo ficava à esquerda, fácil de clicar sem querer e **zerar** o cadastro local pelos dados fictícios.
-
-**Por que mudou.** Risco de apagar o acervo de trabalho numa sessão local.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela. Os dados demo **continuam** existindo; só o atalho mudou de lugar.
-
-**Itens do inventário:** #50, #51, #186.
-
-**Como testar.** Olhe a coluna da esquerda: só + Operação e as setas. ⚙ → Dados / Sync: o tubo de ensaio está lá.
-
-### Selos por extenso ao parar o mouse
-
-**O que você vê.** **NÃO AJ** na CDA `90.8.21.000200-02` (Agro, FGTS) mostra “Não ajuizada”. **AJ** mostra “Ajuizada”. O código curto do processo (A, IA…) ganha a frase completa.
-
-**Antes.** O `title` longo das colunas já existia; o selo curto não dizia o nome.
-
-**Por que mudou.** Sigla opaca na lista.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela.
-
-**Itens do inventário:** #52, #53.
-
-**Como testar.** Inscrições da Agro → pare o mouse em NÃO AJ.
-
-### Briefing: cartão vazio some
-
-**O que você vê.** Cartão “Observação” (e equivalentes) **sem texto** não aparece mais, nas duas edições. Títulos antigos (Hipótese, Situação, Pendências…) são lidos como os tipos novos. Os textos demo da Fachada Norte etc. continuam, porque têm corpo.
-
-**Antes.** Um cartão oco ocupava a página.
-
-**Por que mudou.** Achado de tela: ruído.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela.
-
-**Itens do inventário:** #54.
-
-**Como testar.** Abra o Briefing de uma operação demo. Não deve haver cartão de observação em branco.
-
-### Agenda da semana: volta para a semana de hoje
-
-**O que você vê.** No **Painel** (clássico e Beta), o quadro Semana/Mês/Hoje, ao sair do mês e voltar para Semana, mostra a semana corrente. Na conferência: **14–20 set 2026**. Antes, ia para a semana do dia 1 daquele mês.
-
-**Antes.** Mês → Semana = primeira semana do mês que você estava olhando.
-
-**Por que mudou.** Você perdia a semana de trabalho.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela. (Na Beta, a aba **Agenda** reutiliza o mesmo quadro — capítulo D.)
-
-**Itens do inventário:** #55.
-
-**Como testar.** Painel → Mês → Semana. Deve cair em 14–20 set (ou a semana de hoje, se a data do sistema mudou).
-
-### Atributos invisíveis (preparação para a Beta)
-
-**O que você vê.** No clássico, nada. Por baixo, a linha da CDA ganha um identificador para a Beta poder rolar até as três colunas, e alguns campos ganham marca para o cursor cair na data. Ao salvar, o app apaga essas marcas para não ir para o JSON / Planilha.
-
-**Antes.** Não existiam.
-
-**Por que mudou.** Sem isso, “Abrir” / “Conferir” na Mesa não acertam as colunas.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela.
-
-**Itens do inventário:** #40, #57, #58.
+**Como testar.** Adiar a ITR da Agro com “Peça protocolada”. Some da PRECISA DE VOCÊ, vai à gaveta com **Reabrir agora**. Parcelamento vigente **não** tem esse botão.
 
 ---
 
-## Bloco D — Estrutura da Beta (layout, Hoje, Agenda)
+# Bloco C — Acabamento que já está no clássico
 
-### A Beta mora na casa do clássico
-
-**O que você vê.** Coluna da esquerda com as cinco operações. Faixa de cima. Temas Mar / Claro / Ferro. Captura da primeira tela: `01-hoje.png`. Tema Claro: `24-tema-claro.png` — mesmo layout, papel claro, **sem** a paleta Ardósia/Grafite. Quem tinha salvado “Ardósia” na Demo antiga volta ao tema clássico gravado (em geral Mar Profundo).
-
-**Antes.** Demo = trilho preto 76 px, título enorme “Hoje / Carteira / Biblioteca”, pílula **Demo**, quatro zonas dentro da operação, gaveta Trabalho, visões A/B/C de Processos.
-
-**Por que mudou.** Princípio do plano: clássico intocado; Beta herda a navegação que você já usa, não uma casa paralela.
-
-**Decisão sua.** **Adotar este casco** (sidebar + top-nav). Alternativa neste lote **não existe**: o trilho foi apagado da Beta. Recusar o casco e “ficar com a Demo antiga” exigiria restaurar o que saiu, não é um interruptor. Consequência de adotar: some Central de Comando, zonas, árvore Carteira no trilho, ranking extra em Operações, A/B/C. Consequência de recusar a Beta: você permanece no clássico, que nunca teve trilho.
-
-**Itens do inventário:** #61, #62, #63, #64, #65, #82, #83, #181, #188.
-
-**Como testar.** ⚙ → Nova versão (beta). Deve haver sidebar. Não deve haver barra “Central de Comando”. ⚙ → Aparência/Tema: só Mar, Claro, Ferro.
-
-### O que saiu da Demo antiga (e o que ficou no arquivo sem tela)
-
-**O que você vê.** Dentro da Agro Horizonte, as abas clássicas — não Briefing/Acervo/Risco/Ferramentas. Sem chevron “Trabalho”. Sem lista de operações **dentro** do trilho. Sem bloco “Painel da Carteira” **em Operações** (o ranking do **Painel** clássico, visível em `02-painel-kpi.png`, **não** é isso: ele já existia no clássico e continua). Processos: só a visão master–detail. A busca “Filtrar processo / CDA” ocupa o lugar do seletor A/B/C.
-
-Você **não vê** Ardósia/Grafite. Há desenho antigo ainda no arquivo, desligado. O ranking da Carteira da Demo permanece no arquivo, sem tela. Não é capacidade nova nem tela extra.
-
-**Antes.** Demo Experimental com trilho, zonas, A/B/C, Trabalho.
-
-**Por que mudou.** Uma navegação só.
-
-**Decisão sua.** Nenhuma — o casco do tema acima já decide. Limpeza futura do desenho morto não muda o que você usa.
-
-**Itens do inventário:** #66–#70, #81, #182–#185, #189, #193, #194.
-
-### Faixa de cima: nove itens, e o que não cabe vai para Mais
-
-**O que você vê.** **Hoje · Painel · Prazos · Operações · Intimações e Tarefas (40) · Mesa (7) · Acompanhar (6) · Agenda (8) · Modelos (6)** e, à direita, o nome da operação truncado (`Operação Agro Hori…`). Não diz “Prazos extintivos” nem “Audiências”. **Intimações** e **Tarefas** são **um** botão na faixa, com a soma; por dentro, as duas abas continuam (Intimações · 20 / Tarefas · 28 na captura `18-intimacoes.png`). A **Mesa** desta faixa é a de **pins de intimação**, não a Mesa de prazos. Prazos da prescrição estão no item **Prazos**.
-
-Se a janela ou o zoom não couber, os últimos itens saem da faixa e entram em **Mais ▾**. Não quebra linha. Nos testes 90/100/110 %, a faixa inteira coube, sem Mais.
-
-**Antes.** Clássico: Painel, Prazos extintivos, Operações, Intimações e Tarefas, Mesa, Acompanhar, Audiências, Modelos. Demo: trilho + topbar próprio.
-
-**Por que mudou.** Zoom 90 + nome da operação quebrava a faixa.
-
-**Decisão sua.** Nenhuma — ajuste de tela, dado o casco. Atenção: duas coisas chamadas “Mesa”. Se isso confundir, o remédio seria renomear uma delas — **não foi feito**.
-
-**Itens do inventário:** #71, #72, #73, #157, #201.
-
-**Como testar.** Olhe a faixa em `01-hoje.png`. Aperte o zoom. Se algum item sumir, deve estar em Mais ▾, não numa segunda linha.
-
-### Vista Hoje como primeira tela
-
-**O que você vê.** Ao ligar a Beta, a primeira tela é **Hoje**. Kicker: **NEXUS · Nova versão (beta)**. Título: **Bom dia. O que exige ação hoje?** Fila única de intimações, tarefas, audiências e riscos. Botões: Abrir Intimações (20), Abrir Tarefas (20), Abrir Mesa (7), Nova intimação, Ver operações. Primeira linha da fila nos dados demo: tarefa **Analisar viabilidade de redirecionamento à sucessora** (Sucessão, **4d atrasado**). Em seguida a intimação IDPJ da Fachada Norte `5009876-11.2024.4.04.7001` (**2d atrasado**) e a audiência 16:00 da Agro. Não há botão de resetar dados demo nesta página. `01-hoje.png`.
-
-Ao **voltar** para Clássico estando em Hoje, o app cai no **Painel** (o clássico não tem aba Hoje).
-
-**Antes.** Demo abria num “Central de Comando” com outro texto. Clássico abre no Painel.
-
-**Por que mudou.** Herança útil da Demo: um lugar que responde “o que eu faço agora?”, sem o casco antigo.
-
-**Decisão sua.** Nenhuma — ajuste de tela, se a Beta for adotada. O retorno ao Painel (#153) evita uma tela fantasma no clássico.
-
-**Itens do inventário:** #74, #75, #76, #77, #153, #186.
-
-**Como testar.** ⚙ → Nova versão (beta): deve abrir Hoje. Nova intimação a partir daí, com a Agro aberta: o campo operação já vem **Operação Agro Horizonte**. ⚙ → Clássico: deve ir ao Painel.
-
-### Agenda unificada
-
-**O que você vê.** Item **Agenda** (não “Audiências”). Em cima: grade Semana | Mês, setas **‹ ›**, botão **Hoje**, intervalo **14 de set. – 20 de set. de 2026**. Embaixo: a lista que você já conhece — **Esta semana** (audiência 20 set 16:00 Agro; 22 set 14:30 Fachada Norte) e **Este mês**. `21-agenda-semana.png`. O mês: calendário de setembro de 2026 + a mesma lista (`22-agenda-mes.png`). No clássico a aba continua só a lista, nome **Audiências**.
-
-**Antes.** Demo tinha agenda à parte; clássico, só cards Esta semana / Este mês.
-
-**Por que mudou.** Um lugar só para “quando”.
-
-**Decisão sua.** Nenhuma — ajuste de tela. A troca Mês→Semana cair na semana de hoje já vale no Painel clássico (#55).
-
-**Itens do inventário:** #78, #79.
-
-**Como testar.** Beta → Agenda. Deve ver a grade **e** os cards. Clássico → Audiências: só os cards.
-
-### Título da janela e tela de carregamento
-
-**O que você vê.** Aba do navegador: **NEXUS Beta**. “Carregando NEXUS 2.0.7 Beta…”.
-
-**Antes.** “NEXUS Demo — Central de Comando”.
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #80, #147.
+**Onde vale:** as duas edições (salvo o que o texto disser). **Estado:** no painel. São correções de uso, não de prazo. Recusar = ficha vazia, ⚙ preso, demo fácil de clicar sem querer.
 
 ---
 
-## Bloco E — Prazos / Mesa de trabalho
+### #36 e #37 Não grava ficha oca
 
-Aqui está o coração visível da Beta. Preferência gravada: Mesa ou Lista (padrão **Mesa**). O clássico não tem o seletor.
+**Para que serve.** CDA sem número, intimação sem processo e sem descrição, tarefa sem título, bem sem descrição/matrícula, operação sem nome — não entram no acervo. O app vive de **identificadores** (CDA, CNJ). Ficha oca polui Inscrições e some na busca.
 
-### A Mesa e seu teto de 12
+**O que você vê.** Faixa vermelha **dentro** da janela, acima de Cancelar/Salvar: “Informe o número da CDA.” (e equivalentes).
 
-**O que você vê.** Prazos abre em **Mesa**. Filtros: operação + busca “CDA, processo ou devedor”. Bloco de cima, borda esquerda vermelha, título **PRECISA DE VOCÊ**. Nos dados demo: **duas** linhas — `90.6.23.000884-40` (R$ 48.000) e `90.6.20.000881-40` (R$ 95.000), ambas Agro, **sem processo**, selo verde **CALCULADO**, frase dos 180 dias, botões Evento · Abrir · Conferir · Adiar…. Abaixo, uma linha só: **O RESTO G1 0 · G2 0 · G3 1 · G4 0 · G5 9**. Clique expande. Sem alarme vermelho. `03-mesa.png`, `04-mesa-resto.png`.
+**Antes.** Dava para salvar vazio.
 
-Quem entra em PRECISA DE VOCÊ: grupo 1 **sempre**; grupo 2 só se a estimativa **já passou**; grupo 3 só se a ação for lançar fato / corrigir ficha / vincular EF; qualquer grupo se a data de rever já passou. **“Só conferir nos autos” no grupo 3 não sobe.** Por isso a `000045-88` (R$ 5,6 mi, Sucessão, prazo em curso, cadastro a completar por conflito de data e IDPJ) fica em O RESTO, não no vermelho.
-
-Teto: **12** linhas no bloco de cima. A 13ª vira botão vermelho **+K acima do orçamento**, clicável. Nos dados demo o teto não dispara (só 2). Numa carteira de teste grande, o botão leu **+828 acima do orçamento**, com 12 linhas visíveis; depois de um ajuste de desenho, o botão **não** fica escondido atrás da barra Silenciados.
-
-Vazio: “Nada exige decisão agora. O restante está abaixo, sem alarme.” Termo já passado ganha o mesmo vermelho das intimações vencidas. Selo de certeza: calculado / estimado / cadastro.
-
-**Antes.** Lista de cinco grupos, todos com o mesmo peso visual de contador. Oito “a completar” no mesmo andar que dois urgentes. Sem teto. Sem “precisa de você”.
-
-**Por que mudou.** Alarme ≠ consciência. Uma lista de 15 urgentes sem corte vira parede. Grupo 3 “só ler os autos” não é ato de um clique.
-
-**Decisão sua (teto 12).** **No máximo 12 no bloco vermelho; o resto atrás de um botão.** Alternativa: sem teto (tudo vermelho) ou teto maior. Consequência de adotar: na carteira real, o 13º urgente exige um clique a mais. Consequência de recusar o teto: o bloco de cima pode ficar maior que a tela (o teste grande mostrou centenas acima de 12).
-
-**Decisão sua (quem sobe).** **Grupo 3 só sobe com ação de um clique; G3 “conferir autos” fica no RESTO; G5 sai do RESTO e vai à gaveta.** Alternativa: todo grupo 3 no vermelho — a `000045-88` de R$ 5,6 mi subiria, embora a ação seja conferir, não lançar fato. Alternativa: G5 no RESTO — “ainda impossível” inflaria o meio da tela. Consequência de adotar: o vermelho da demo são só as duas da Agro (R$ 143.000). A de R$ 5,6 mi continua visível, sem alarme.
-
-**Itens do inventário:** #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #95, #96, #97, #98, #101, #167, #168, #169, #170, #171.
-
-**Como testar.** Beta → Prazos. Deve abrir Mesa, duas linhas vermelhas da Agro, RESTO com G3 1, Silenciados (15). Clique O RESTO: a `000045-88` de R$ 5.600.000. Clique Lista: os cinco contadores da fila v2.
-
-### A gaveta Silenciados
-
-**O que você vê.** Barra no rodapé: **SILENCIADOS (15) ▸**. Abre a lista. Parceladas com evento: “Parcelamento vigente · até 17/12/2026”, **sem** botão Reabrir. Ainda impossível: `90.6.19.000047-88` “Ainda impossível · até 02/05/2028”, e irmãs da Agro/Holding/Fachada com datas até 2032. `05-gaveta.png`. Se um Adiar seu acaba nesta semana, a barra avisa em amarelo: “K adiamentos vencem esta semana”.
-
-**Antes.** Essas CDAs ou sumiam (parcelamento) ou inchavam “A completar” / “Ainda impossível” na lista. Não havia gaveta.
-
-**Por que mudou.** Nada some. R6 respeitado (sem alerta), com consciência.
-
-**Decisão sua.** **G5 e parcelamento vigente moram na gaveta, não no alarme.** Alternativa: G5 continuar nos contadores do meio (clássico lista). Consequência de adotar: nove “ainda impossível” saem da vista principal; você só as vê abrindo a gaveta. Consequência de recusar a gaveta: a Mesa perde o lugar do que não é alarme — voltariam à lista ou sumiriam.
-
-**Itens do inventário:** #109, #110, #111, #158, #174.
-
-**Como testar.** Clique SILENCIADOS (15). Confira as seis parceladas no topo e a `000047-88`. Parcelamento vigente **não** deve ter Reabrir agora.
-
-### Adiar com motivo
-
-**O que você vê.** Botão **Adiar…** na linha. Motivo (lista fechada), data (mínimo hoje, máximo o teto do grupo), texto se Outro. Sem motivo/data não grava. Toast “Adiada até …”. Conferência: a ITR `000884-40` com **Peça protocolada** até **02/10/2026** (hoje 18/09 + 14 dias) some de PRECISA DE VOCÊ e vai à gaveta com **Reabrir agora**. Silenciados passa a (16). A IRPF `000881-40` permanece no vermelho. Toast “Adiada até 02/10/2026”. `07-adiar-gaveta.png`. Reabrir: toast “Reaberta na mesa”; a ITR volta. `08-reabrir.png`. Se o adiamento caducar ou o motor furar, a linha volta com selo **expirou o silêncio**.
-
-**Antes.** Não havia. Só Tratar (tira de outro modo) ou deixar no vermelho.
-
-**Por que mudou.** Precisava calar o alarme **com prazo e motivo**, sem fingir que o crédito acabou.
-
-**Decisão sua.** Os tetos e furos já estão no Bloco B. Na tela: **sem texto em “Outro”, não adia** (toast “Descreva o motivo para adiar”). Alternativa: aceitar “Outro” vazio — o motivo some e o silêncio fica opaco. O campo fica no JSON; o clássico não lê (capítulo H).
-
-**Itens do inventário:** #112, #94, #165.
-
-**Como testar.** Na ITR da Agro → Adiar… → Peça protocolada → data máxima → Adiar. A linha some do vermelho. Gaveta → Reabrir agora. Deve voltar.
-
-### Ações de um clique
-
-**O que você vê.** Além dos quatro botões fixos, a Mesa pode mostrar um botão extra: **Lançar fato**, **Vincular EF**, **Corrigir ficha**, **Lançar ciência**. Parcelada sem adesão: **campo de data na própria linha**, “Enter lança a adesão”, toast “Adesão lançada” — sem abrir a janela grande. Vincular EF foca o número do processo; corrigir ficha foca a data de prescrição.
-
-**Antes.** Abrir + Evento em branco, ou editar a ficha caçando o campo.
-
-**Por que mudou.** Cadastro a completar tem de ser ato, não leitura.
-
-**Decisão sua.** Nenhuma além das do Bloco B (o que **é** inconsistência). O desenho do clique é ajuste de tela.
-
-**Itens do inventário:** #113, #114.
-
-**Como testar.** Crie uma CDA Parcelada sem adesão. Na Mesa deve aparecer o campo de data. Enter com uma data de hoje: a linha deve sair do vermelho/cadastro e, se a adesão ficar vigente, ir à gaveta.
-
-### + Evento e o IDPJ
-
-**O que você vê.** **Evento** na linha já traz a CDA. Conferência: título **Novo(a) Evento Prescricional**, faixa “CDA: 90.6.23.000884-40 — R$ 48.000”. Como essa ITR **não tem** execução, o campo EXECUÇÃO FISCAL fica em **Selecione…** (as quatro EFs da Agro aparecem na lista). O cursor cai na data. `09-evento-prefill.png`. Na **Lista** da Beta, + Evento faz o mesmo.
-
-Se o destino escolhido for IDPJ/cautelar, a família deixa de se chamar “Penhora / resultado útil” e passa a **Constrição no incidente (pausa as EFs)**. A família de ciência passa a **Ciência do art. 40**. Confirmado na reteste da conferência (depois de escolher o incidente). Sisbajud: “se houve constrição”, não “resultado útil”. Formulário da CDA na Beta: some “(política interna)”; “Datas do crédito…” no lugar de “Marcos do crédito”; dica da data digitada: “Se o app já calculou o termo, esta data aparece como conflito — não cala o cálculo.” O clássico **continua** com Tema 566 e Súmula 622 nas dicas — a janela é a mesma; só a Beta troca o texto.
-
-**Antes.** + Evento pedia CDA/EF na mão. No IDPJ, o menu falava como se fosse a execução.
-
-**Por que mudou.** R7: constrição no incidente **pausa** as EFs; não encerra o ciclo da execução. O rótulo antigo induzia “resultado útil na EF”.
-
-**Decisão sua.** Nenhuma — ajuste de tela, alinhado a R7. Recusar só o filtro de jargão (#99) deixa Tema 566 nas dicas da Beta.
-
-**Itens do inventário:** #115, #116, #117, #99.
-
-**Como testar.** Mesa → Evento na ITR da Agro: CDA preenchida, data em foco, EF vazia. Numa CDA da Sucessão com IDPJ, abra Evento, escolha o IDPJ na execução: a família deve dizer constrição no incidente.
-
-### Abrir / Conferir: cai nas três colunas
-
-**O que você vê.** **Abrir** ou **Conferir** vai à aba Inscrições da operação, **rola até as três colunas**, com **Copiar / Evento / Editar** grudados em cima. `10-conferir.png`, `11-abrir-colunas.png`. Cabeçalho da Agro começa **recolhido** (sem a faixa DÍVIDA TOTAL / PRESC. CDA) — capítulo F. Embaixo, as ajuizadas já mostram a frase nova: “Ainda não pode ter prescrito… · em 6 anos”.
-
-**Antes.** Abrir ia às Inscrições, mas você caía no topo da lista e as colunas ficavam fora da vista. Os três botões sumiam ao rolar.
-
-**Por que mudou.** Conferir nos autos é olhar as colunas, não a lista.
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #118, #119, #178.
-
-**Como testar.** Mesa → Conferir na ITR. Deve ver Decadência | Prescrição ordinária no alto, Copiar/Evento/Editar visíveis, Regras v2026.09.
-
-### KPI honesto
-
-**O que você vê.** Painel da Beta, quarto cartão, rótulo **Prazos**: **2 urgentes · 1 para completar cadastro · R$ 143.000,00**, subtítulo **só o que pede decisão agora**. O real é o das **urgentes** (grupo 1), não a soma com grupo 2. A `000045-88` de R$ 5,6 mi **não** entra nesse R$. `02-painel-kpi.png`. Abaixo, o azulejo “Prazos extintivos” ainda mostra 2 urgentes · 0 a conferir · 1 a completar (os três números da fila v2).
-
-No cabeçalho da operação (quando você **abre** o resumo ▾): o clássico diz **PRESC. CDA 2 risco (1+2)**. A Beta conta **só o grupo 1** e, se já venceu, o selo **VENCIDA** no mesmo peso da intimação. Card de processo: se alguma CDA está grupo 1 vencido, o card grita **VENCIDA**.
-
-**Antes.** “Risco prescricional **2** · R$ 143.000 em risco” no clássico — neste demo o R$ coincidiu porque não há grupo 2. O “8 a completar” do clássico **incluía** as ainda impossíveis puxadas pelo IDPJ. “risco (1+2)” no cabeçalho misturava calculado e estimado.
-
-**Por que mudou.** KPI que soma estimado com calculado e que inclui “ainda impossível” como cadastro mente sobre o que é urgente hoje.
-
-**Decisão sua.** **O R$ do cartão Prazos é só grupo 1.** Alternativa: somar grupo 2 (estimado) — o número de crédito “em risco” sobe com hipótese, não com termo calculado. Alternativa: incluir G3 no R$ — a Sucessão de R$ 5,6 mi inflaria o cartão embora esteja em O RESTO. Consequência de adotar: o Painel da Beta, neste demo, mostra R$ 143.000, não R$ 5,7 mi. Consequência de recusar: o cartão volta a parecer o clássico e o princípio alarme ≠ consciência enfraquece no primeiro número que você vê de manhã.
-
-**Itens do inventário:** #107, #108, #106.
-
-**Como testar.** Beta → Painel: leia o quarto cartão. Compare com Clássico → Painel: “Risco prescricional 2 · R$ 143.000”. Abra a Agro na Beta, expanda o resumo ▾: PRESC. CDA deve ser 2, sem o texto “risco (1+2)”.
-
-### A linha da inscrição
-
-**O que você vê.** Inscrições da Agro (`13-inscricoes.png`): campo **Filtrar processo / CDA**. FGTS `90.8.21.000200-02`: “Prescrição: **sem ciência lançada**” (não um travessão). IRPF `000881-40`: “O termo calculado cai nos próximos 180 dias. · 160d”. ITR `000884-40`: a mesma frase · **70d**. Some a tag “(informada)” ao lado do rótulo; se a ficha diverge, a frase vira “Ficha 26/01/2027 · app 14/08/2031 — conferir”. CDA já tratada: “Tratada em dd/mm”, não a contagem. Prazos longos: **em N anos** / **há N anos**, nunca um número absurdo entre parênteses. No card do processo, a Beta evita a palavra **Prescrita** quando o app só estimou.
-
-Processos e Prescrição (`14-processos.png`): o mesmo filtro; visão D; cautelar `5006699-22.2025.4.04.7006` com “ainda impossível”; sem seletor A/B/C.
-
-**Antes.** “27/03/2027 (190d)” ou “—”. “(informada)” no rótulo. Estimativa podia dizer Prescrita.
-
-**Por que mudou.** R11 (ficha não cala o cálculo) precisa aparecer na linha, não só nas colunas. Travessão não é informação.
-
-**Decisão sua.** Nenhuma — ajuste de tela, lendo a fila v2. Recusar o filtro de jargão deixa “piso” nas frases se o texto cru voltar.
-
-**Itens do inventário:** #102, #103, #104, #105, #154, #135, #136.
-
-**Como testar.** Agro → Inscrições. Digite `884-40`: deve sobrar a ITR. A linha não deve ser “—”. Ajuizadas: “em 6 anos”, não um inteiro enorme.
-
-### Lista da Beta (se você recusar a Mesa)
-
-**O que você vê.** Botão **Lista**: os cinco contadores da v2, agrupado por processo, + Evento pré-preenchido, frases passadas pelo filtro de jargão. `12-prazos-lista.png`. A `000047-88` aparece como grupo **5** (não 3). Rodapé: “Ainda impossível — 8 inscrição(ões) recolhidas.”
-
-**Antes.** A lista clássica com 8 a completar.
-
-**Decisão sua.** Nenhuma além de Mesa vs Lista. Dá para adotar a Beta **sem** a Mesa: fica esta Lista v2.
-
-**Itens do inventário:** #122, #84.
-
-**Como testar.** Mesa | Lista → Lista. Compare os contadores com o clássico.
-
-### Arquivada art. 40: pede a data
-
-**O que você vê.** Ao marcar o processo **Arquivada art. 40** na Beta, em vez do sim/não das CDAs, abre a janela **Arquivada art. 40 — lançar a data**. “O que você tem em mãos?”: data da ciência (não localização / sem bens) ou data do arquivamento. Se ciência: tipo **Suspensão do art. 40 (vale como ciência)** ou **Ciência de ausência de bens**. Data obrigatória. **Agora não** / **Lançar**. Sem data: toast “Informe a data”. Lançar cria um evento **por CDA ligada**. Toast “N evento(s) lançado(s)”. Processo da conferência: `5006610-22.2022.4.04.7006`. Extinta na Beta **ainda** usa o confirm antigo.
-
-**Antes.** Um sim/não. Status “Arquivada art. 40” **sem data** não inicia o ciclo (R10). Fácil marcar o status e ficar sem ciência lançada.
-
-**Por que mudou.** R10: suspensão do art. 40 **com data** vale como ciência, com aviso. Status sozinho não prova a data.
-
-**Decisão sua.** Nenhuma — o R10 você já adotou no caderno. A janela só impede o status oco. Recusar a janela: a Beta volta ao sim/não e o risco do R10 volta.
-
-**Itens do inventário:** #120.
-
-**Como testar.** Agro → Processos → uma EF → status Arquivada art. 40. Deve pedir a data. Lançar ciência: a coluna da CDA deve mostrar Início nessa data (Bloco A #13).
-
-### Status garantida: Sisbajud não pinta sozinho
-
-**O que você vê.** Na Beta, lançar **bloqueio Sisbajud**, **CNIB** ou **constrição de IDPJ** **não** muda o status da CDA para Garantida. **Penhora** e **arresto** ainda pintam, e o app marca que foi ele quem pintou (`statusSource: auto`). O clássico **continua** promovendo Sisbajud/CNIB/IDPJ a garantida.
-
-**Antes.** Qualquer desses fatos pintava Garantida. O KPI GARANTIDO e os filtros acompanhavam.
-
-**Por que mudou.** Quem lança o Sisbajud decide se houve constrição / resultado útil (decisão de política n. 6 do caderno). Pintar Garantida no status misturava “houve bloqueio” com “há garantia”. R3: bloqueio positivo **na própria execução** encerra o ciclo — isso continua no **cálculo**, se você lançar o fato como resultado útil. O que parou foi o **status** automático.
-
-**Decisão sua.** **Na Beta, só penhora e arresto pintam Garantida.** Alternativa: clássico (Sisbajud/CNIB/IDPJ também pintam). Consequência de adotar: o cartão GARANTIDO da operação **não** sobe só porque houve Sisbajud; você pinta na mão se quiser. Consequência de recusar: a Beta volta a inflar “garantido” com bloqueio de conta. Se você lançar Sisbajud na Beta e depois voltar ao clássico, o status **não** terá sido pintado — o clássico não “completa” o que a Beta recusou.
-
-**Itens do inventário:** #121, #202 (o campo `statusSource`).
-
-**Como testar.** Na Beta, Evento → Sisbajud numa CDA ativa. O selo da inscrição **não** deve virar Garantida. Repita penhora: deve virar.
+**Se recusar.** Volta a ficha sem número.
 
 ---
 
-## Bloco F — Demais telas da Beta
+### #38 e #39 Esc, clique fora, pergunta se já digitou
 
-### Intimações: vencidas primeiro, dois blocos
+**Para que serve.** Fechar sem perder texto. Clique no fundo escuro não pode jogar fora uma minuta de nota.
 
-**O que você vê.** Modo padrão **Prazo final (mais próximo)**. Título **Vencidas** (vermelho) acima de **Urgentes no prazo** (amarelo). Primeira: Fachada Norte, Marina Ferreira Norte, `5009876-11.2024.4.04.7001`, IDPJ, **VENCIDA 2d**, mesmo com ⚑ Urgente em outras que ainda têm prazo. `18-intimacoes.png`. **Importar eproc** continua no canto. Janela nova: título **Nova intimação** (não “Novo(a) Intimação”); **Cancelar/Salvar** grudados embaixo; operação já preenchida se você veio de uma operação aberta (`19-validacao.png`).
+**O que você vê.** Esc fecha. Clique fora fecha. Se já escreveu: “Há texto digitado. Fechar sem salvar?”
 
-**Antes.** Urgente manual podia ficar acima de uma já vencida. Título “Novo(a) Intimação”. Salvar sumia em intimação longa.
-
-**Por que mudou.** Vencida é fato; Urgente é marca sua. Fato primeiro.
-
-**Decisão sua.** Nenhuma — ajuste de tela. Recusar só isto: a ordem volta à do clássico, com Urgente podendo cobrir vencida.
-
-**Itens do inventário:** #124, #125, #126, #127, #128, #176.
-
-**Como testar.** Beta → Intimações e Tarefas. A VENCIDA da Fachada Norte deve ser a primeira. + Intimação: título “Nova intimação”.
-
-### Tarefas: um número, atraso visível
-
-**O que você vê.** Aba Tarefas da operação: “N aberta(s)” e a linha “G globais · M só na operação”. Some o itálico longo do clássico (“Todas as tarefas desta operação…”). Na lista geral, a mesma conta. Tarefa com prazo passado: selo **ATRASADA Nd**, no padrão das intimações. A de redirecionamento à sucessora (4d atrasada na Hoje) é o exemplo.
-
-**Antes.** “4 aberta(s) · 0 concluída(s)” e o texto 🔒. Atraso só na cor da data.
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #129, #130, #131, #132.
-
-**Como testar.** Agro → Tarefas. Deve dizer globais vs só na operação. Sucessão → a tarefa de redirecionamento, se ainda atrasada, com ATRASADA.
-
-### Relatório gerado
-
-**O que você vê.** Depois do HTML de passagem de serviço, um recado curto **Relatório gerado** (além do download).
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #133.
-
-### Cabeçalho da operação começa fechado
-
-**O que você vê.** Ao abrir a Agro na Beta, os cartões DÍVIDA TOTAL / GARANTIDO / PRESC. CDA começam **fechados**. O botão ▾/▴ abre. Os chips do panorama do Briefing **já** nasciam fechados — isso não mudou. Capturas 10/11/13/14: chips ALTA · Em Andamento no canto, sem a faixa de oito cartões.
-
-**Antes.** Os oito cartões ocupavam o primeiro terço da operação.
-
-**Por que mudou.** Pedido de uso: chips/KPIs recolhidos; a ficha primeiro.
-
-**Decisão sua.** Nenhuma — ajuste de tela. A preferência grava-se no navegador; se você já abriu o resumo, ele lembra.
-
-**Itens do inventário:** #134.
-
-**Como testar.** ⚙ → Beta (de uma sessão limpa). Abra a Agro: sem a faixa de KPIs até clicar ▾.
-
-### Busca, chips zerados, KPIs numa linha, dicas abaixo
-
-**O que você vê.** **Filtrar processo / CDA** em Inscrições e em Processos. Chip “Parcelamento Integral (0)” **não aparece** na Beta; no clássico o chip zerado continua. Tema Claro + zoom 90: os cartões do cabeçalho (quando abertos) tentam ficar numa faixa só, sem quebrar palavra no meio. Dicas (tooltip) abrem **abaixo** do alvo, para não cobrir a Agenda nem o nome da operação na faixa.
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #135, #136, #137, #138, #139, #177, #179.
-
-**Como testar.** Operações na Beta: não deve haver chip com (0). Passe o mouse num selo da faixa de cima: a dica deve nascer abaixo.
-
-### Rótulo Aparência
-
-**O que você vê.** No ⚙ da Beta, o grupo Mar / Claro / Ferro chama-se **Aparência**. No clássico, **Tema**. (A captura `20-settings.png` mostra o grupo em maiúsculas; o texto-fonte desta árvore é Aparência na Beta.)
-
-**Decisão sua.** Nenhuma — ajuste de tela.
-
-**Itens do inventário:** #140.
-
-### Abrir CDA a partir da lista clássica
-
-**O que você vê.** “Abrir” na aba Prazos, nas duas edições, vai sempre a Inscrições. O desvio das zonas da Demo antiga acabou.
-
-**Decisão sua.** Nenhuma — correção/ajuste de tela.
-
-**Itens do inventário:** #141.
+**Antes.** Esc não fechava. Clique fora descartava.
 
 ---
 
-## Bloco G — Documentação, testes e o que você não vê
+### #40, #57 e #58 Marcas invisíveis (para a Mesa acertar a ficha)
 
-Este bloco quase não tem tela. Existe para o app não regressar e para o HTML da Beta existir.
+**Para que serve.** Na Beta, “Abrir” / “Conferir” / “Lançar fato” precisam cair na **data** e nas **três colunas**, sem gravar lixo na Planilha.
 
-**O que você vê.** Página ⓘ **Regras de prazos**: o histórico ganha o parágrafo **2026.09a** (18/09/2026) descrevendo as contas do Bloco A. O **número** no título da janela e no ⚙ continua **v2026.09**. Sem gerar o HTML (`npm run build`), só o arquivo no computador muda. O caderno `docs/MELHORIAS.md` passou a chamar a Demo de Nova versão (beta); a data do topo do caderno **não** foi atualizada (continua 03/08/2026). Esse caderno **não** sobe para o Apps Script.
+**O que você vê no clássico.** Nada. Ao salvar, o app apaga as marcas internas.
 
-**Antes.** Histórico parava em 2026.09.
-
-**Por que mudou.** As contas mudaram; o número da versão na tela **não** foi promovido, de propósito, para não sugerir um pacote de regras novo além do parágrafo.
-
-**Decisão sua.** Nenhuma — o 2026.09a é o texto do Bloco A. Recusar só o parágrafo deixa a página de regras muda sobre as contas novas.
-
-**Itens do inventário:** #143, #144, #145, #19.
-
-**Como testar.** Qualquer edição → ⚙ → Abrir regras → final do texto, Histórico 2026.09a.
-
-### Rede de segurança (testes e compilação)
-
-Não é tela. 37 testes a mais (27 da política/contas + 10 da Mesa). A suíte vai de 196 para 233. Sem o arquivo da Mesa entrar no HTML gerado, a Beta não tem frases nem recorte. Atalhos antigos no seu computador (`Nexus_demo.html` etc.) ainda abrem a Beta; não vão para o git. Comentários do compilador dizem “NEXUS Beta”.
-
-Há restos **invisíveis**: um fechamento de modal de atuação declarado e não usado; o ranking da Carteira da Demo ainda no arquivo; CSS do trilho antigo desligado. A regra da casa é não apagar capacidade sem pedido. Nada disso muda o que você clica.
-
-**Decisão sua.** Nenhuma — sem isto a Beta não monta. Recusar testes é recusar a rede que prova o Bloco A e a Mesa.
-
-**Itens do inventário:** #146–#151, #155, #156, #159, #160, #192, #195.
+**Se recusar.** A Mesa da Beta erra o scroll ou suja o JSON.
 
 ---
 
-## Bloco H — O que não mudou
+### #41, #42 e #43 Recado ao salvar e ao dar ciência
 
-Confirmado pelo confronto com a versão `1dc76ea`. Não há alteração no servidor Apps Script (`Código.js`: abertura do app, backups, Drive). Não há alteração nos leitores de planilha/PDF (eproc, XLS da Procuradoria, bens, processos, PDF PGFN). **Importar eproc continua no botão** — não foi removido. Sync ⬆⬇ e auto-sync no ⚙ são os mesmos (só o tubo de ensaio saiu da sidebar). Os dados demo das cinco operações são os mesmos, inclusive a audiência 16:00 da Agro. A calculadora **v1** do clássico (a fila antiga) permanece para quem abre `Nexus.html`. Formulários além da validação e dos textos listados: iguais.
+**Para que serve.** Saber que **foi**. Ciência vai para Resolvidas sem abrir a aba; o rodapé confirma (~3 s): “Ciência registrada — ver Resolvidas”, “CDA salva”, etc.
 
-### O e-mail da manhã continua o de antes
-
-**O que você vê (na prática, na caixa de entrada).** O resumo diário **não foi mexido**. Ele ainda:
-
-- olha o **retrato gravado** de cada CDA no JSON (o que o app grava ao salvar na Planilha), classificado pela fila **antiga** (v1) — mesmo que você esteja usando a Beta na tela;
-- usa janela de **90 dias** para acompanhamento (grupo 4), não os 180 da fila da tela;
-- inclui grupos 1, 2 e 3 desse retrato; grupo 5 **nunca**; “aguardando reconhecimento” **não entra** (está marcada como tratada);
-- ficha parcelada **sem** adesão **não entra** (v1 esconde);
-- a seção “Mesa” do e-mail é a Mesa **de pins** (intimações/tarefas/audiências), não a Mesa de prazos.
-
-O plano registrou, **fora de escopo**: não tratar a data de interrupção como se fosse o termo; incluir grupo 1 vencidos com mais clareza; janela por grupo. **Ninguém fez.**
-
-**Por que importa.** Você pode adotar as contas certas e a Mesa honesta **e**, na manhã seguinte, o e-mail ainda listar as oito “a completar” do clássico (IDPJ puxando ainda impossível) e **calar** a ficha parcelada sem adesão. Tela e e-mail passam a discordar.
-
-**Decisão sua.** **Deixar o e-mail antigo** (o que este lote faz) **ou** pedir um lote específico para o resumo diário. Alternativa não feita: o e-mail ler a fila v2, incluir Silenciados, usar 180 dias, não calar “aguardando”. Consequência de adotar o lote como está: a Beta na tela não muda o e-mail das 7h. Consequência de recusar o lote por causa do e-mail: você segura a tela certa por um canal que nem foi alterado.
-
-**Itens do inventário:** #196, #197, #190.
-
-### Campos novos se você usar a Beta e voltar ao clássico
-
-**O que você vê.** Nada, no clássico. Por baixo, a CDA pode ganhar `prescSnooze` (o Adiar) e `statusSource` (marca de status pintado pelo app). JSON antigo abre nas duas edições. Rejeitar a Beta **não** exige migrar arquivo.
-
-Se você adiar na Beta e voltar ao clássico: o campo fica parado; o clássico **mostra a CDA na fila** como se não houvesse adiamento. Se a Beta recusou pintar Garantida no Sisbajud e você volta ao clássico: o status continua o que era (não-garantida), até você lançar de novo no clássico — aí o clássico pinta.
-
-**Decisão sua.** Nenhuma obrigação de migrar. Só saber: **Adiar não viaja para o clássico.** Status que a Beta não pintou também não aparece pintado lá.
-
-**Itens do inventário:** #202.
-
-### A Mesa de pins não foi o alvo
-
-A vista **Mesa** da faixa (7 pins no demo) continua. A Mesa nova é a de **Prazos**. Duas portas, mesmo nome. Inventário #201.
-
-### Parsers, sync, dataset
-
-**Itens do inventário:** #198, #199, #200.
+**Antes.** Dúvida de “foi ou não foi”.
 
 ---
 
-## Bloco I — Leitura do DEBCAD (correção de 18/09/2026)
+### #44 a #49 e #153 Painel ⚙ fecha; nome da edição
 
-Correção nas **duas edições**. Não é tela da Beta. O PDF `RelatorioCompleto-debcad-149630450.pdf` (AGROTRAC, inscrição 08/05/2021, não ajuizada) era o caso.
+**Para que serve.** O ⚙ não pode ficar preso na frente da tela. O interruptor precisa dizer **Nova versão (beta)**, não “Demo Experimental”.
 
-**O que você vê.** Na ficha da CDA 149630450, a coluna de prescrição ordinária deixa de mostrar “consumada em 08/05/2026” em vermelho. Depois de importar o PDF Debcad, aparece o protesto lavrado e o termo **17/03/2031**. A nota cinza `[Debcad] Histórico (4 fases): …` some. No lugar, um bloco recolhido **Histórico DEBCAD** (cabeçalho com a conta de fases, atualizações, protestos e se há ajuizamento). Aberto: tabela das fases, o card do protesto (identificação, tabelionato, situação LAVRADO, valor) com a linha “Protesto lavrado” marcada como o evento de prescrição em 17/03/2026, a linha “Não há ajuizamento.” e as atualizações (CADIN, PERT) atrás de outro clique, porque são muitas.
+**O que você vê.** ✕, clique fora, Esc, fecha ao trocar de Painel para Intimações. Texto: a Beta usa a navegação do clássico, com Hoje e Agenda. Ao **desligar** a Beta estando em Hoje, cai no **Painel** (#153) — o clássico não tem aba Hoje.
 
-**Antes.** O leitor só conhecia as seções Dados, Histórico e Atualizações. O bloco PROTESTOS do relatório PGFN era engolido pelas atualizações e perdido. Só o PDF do SIDA criava o evento de protesto extrajudicial. A ordinária da AGROTRAC rodava só da inscrição (08/05/2021 + 5 anos = 08/05/2026), já vencida, no grau máximo de urgência. O histórico vinha como um parágrafo único ilegível.
-
-**Por que mudou.** LC 208/2024: protesto extrajudicial da CDA lavrado a partir de 03/07/2024 interrompe a ordinária (art. 174, parágrafo único, II, CTN, na redação da lei). O motor **já** sabia disso (`int_protesto_extrajudicial`). Faltava o Debcad entregar o fato. A efetivação do “Protesto lavrado (Inf. do Cartório)” neste PDF é **17/03/2026** — depois da vigência. O protocolo (08/03/2026) e a data de criação da ocorrência (20/03/2026) **não** são a data do evento.
-
-**Decisão sua.** Duas escolhas deste lote: (1) a data que conta é a **efetivação do lavrado**, não o protocolo no tabelionato — a mesma regra já usada no SIDA; (2) a nota condensada `[Debcad] Histórico` **sai** e o histórico passa a ser ficha estruturada. Recusar #204 mantém a ordinária “consumada” neste caso. Recusar #206 devolve o parágrafo feio se alguém reimportar com o código antigo.
-
-**Itens do inventário:** #203–#208.
-
-**Como testar.** Clássico (`Nexus.html`) ou Beta. Operação qualquer → criar a pessoa AGROTRAC e a CDA **149630450** (não ajuizada, inscrição 08/05/2021) → Importar → PDFs (SIDA/Debcad) → o arquivo `RelatorioCompleto-debcad-149630450.pdf`. Conferir o log (“1 protesto”, evento LC 208/2024). Abrir a ficha da CDA → expandir Histórico DEBCAD → conferir a linha marcada do lavrado e a coluna ordinária com termo 17/03/2031.
+**Antes.** Só clicando de novo na engrenagem. Rótulo antigo. Risco de tela fantasma ao voltar.
 
 ---
 
-## Bloco J — Leitura do SIDA (Relatório Completo)
+### #50 e #186 Tubo de ensaio saiu da coluna da esquerda
 
-Correção nas **duas edições**. Não é tela da Beta. O PDF `SIDA-Relatorio-Completo-18092026.pdf` (VERTICALI, 54 inscrições, consulta de 18/09/2026) é o caso. As seções selecionadas no relatório são só **Dados Gerais, Devedores, Parcelamentos, Ocorrências e Protestos**. Não há tabelas de Garantias, DARF, Compensações ou CADIN como seção própria — CADIN e pagamentos aparecem como linhas de ocorrência.
+**Para que serve.** **Resetar dados demo** zera o cadastro local pelos cinco nomes fictícios. Na sidebar era um clique sem querer no meio do trabalho.
 
-**O que você vê.** Depois de importar o PDF na operação onde as CDAs já existem, a ficha de cada inscrição ganha o bloco recolhido **Histórico SIDA** (conta de ocorrências, parcelamentos, protestos e devedores). Aberto: dados gerais (situação, valores, juízo), tabela de devedores (principal + corresponsáveis), parcelamentos com a linha que gerou evento marcada, card de protesto (marca “Protesto lavrado” quando for o caso), ajuizamento, e CADIN / pagamentos / ocorrências atrás de outro clique. O log da importação lista cada evento de prescrição criado.
+**O que você vê.** Só em ⚙ → Dados / Sync. Saiu da Hoje da Beta também.
 
-**Antes.** O leitor antigo só enxergava alguns rótulos (`CPF/CNPJ:` colado, `R$` sem espaço). Neste PDF o rótulo vem `CPF/ CNPJ:` e o valor `R $ 48.088,85`. Devedores, juízo (muitas vezes na página seguinte) e eventos de protesto quebrados em duas linhas se perdiam. Não havia ficha estruturada `debt.sida`. A coluna da ordinária, no protesto, dizia “registro do caso” em vez de “interrompe”.
-
-**Por que mudou.** O dono passou a usar o Relatório Completo. Sem ler protesto lavrado (LC 208/2024) e parcelamento rescindido, a ordinária e o ciclo 1+5 saem errados. Sem a ficha, CADIN e pagamentos somem. O texto da coluna era só rótulo: o motor **já** interrompia no protesto pós-03/07/2024; a frase não acompanhava.
-
-**Decisão sua.** Três escolhas deste lote: (1) parcelamento **AGUARDANDO** (pedido SISPAR de 17/09/2026, ainda sem deferimento) e **INDEFERIMENTO** **não** viram evento de prescrição — só aparecem no Histórico SIDA; cancelamento **depois** de deferido conta como rescisão; (2) CADIN, pagamentos e “Bloqueio do Ajuizamento” **não** viram evento (o motor não tem tipo para CADIN); (3) a data do protesto que conta continua sendo a **efetivação do lavrado**, não o protocolo. Recusar #213 neste PDF faria o pedido de 17/09/2026 pausar indevidamente os prazos.
-
-**Itens do inventário:** #209–#215.
-
-**Como testar.** Clássico (`Nexus.html`) ou Beta. Operação qualquer → criar a pessoa VERTICALI (CNPJ 00.841.065/0001-60) e ao menos as CDAs **00 2 11 002974-31** (protesto devolvido) e **00 2 19 021348-10** (protesto lavrado em 23/02/2026) → Importar → PDFs (SIDA/Debcad) → o arquivo `SIDA-Relatorio-Completo-18092026.pdf`. Conferir o log (54 inscrições, protesto LC 208/2024 só nas lavradas, sem evento no AGUARDANDO). Abrir a ficha → expandir Histórico SIDA → conferir corresponsáveis, parcelamentos marcados e a coluna ordinária da CDA lavrada com a linha “interrompe a prescrição ordinária (LC 208/2024)”.
+**Se recusar.** O atalho perigoso volta à esquerda.
 
 ---
 
-## Bloco K — frases das colunas
+### #51 a #53 Nomes ao parar o mouse
 
-Só texto. A conta não muda.
-
-**O que você vê.** Na coluna da **intercorrente**, o protesto lavrado depois de 03/07/2024 passa a dizer **não encerra o ciclo de 1 ano + 5 anos**. A coluna da **ordinária** continua **interrompe a prescrição ordinária (LC 208/2024)**. Se o 1 ano + 5 anos começou na rescisão do parcelamento, a linha Datas mostra a data da rescisão (não “sem ciência lançada”). Parcelamento ainda vigente, como a CDA do print, permanece **Início: sem ciência lançada**. No primeiro ano após a rescisão, a Situação fala da rescisão, não de ciência de não localização.
-
-**Antes.** A mesma frase de protesto ia para as duas colunas. Depois da rescisão, a linha Datas dizia “sem ciência lançada” mesmo com o ciclo já contando da data da queda.
-
-**Por que mudou.** O protesto interrompe só o art. 174; o motor já ignorava o protesto como interrupção do art. 40. A rescisão já era o início do ciclo 1+5; faltava a data na linha.
-
-**Itens do inventário:** #216–#217.
-
-**Como testar.** Ficha de CDA ajuizada com protesto lavrado em 23/02/2026: conferir as duas colunas. Ficha com parcelamento rescindido: Datas da intercorrente com a data da rescisão. CDA do print (parcelamento vigente): continua “sem ciência lançada”.
+**Para que serve.** ⬇⬆ = Exportar / Importar JSON. **NÃO AJ** = Não ajuizada. **AJ** = Ajuizada. A, IA… = espécie por extenso. Sigla opaca na lista de CDAs da Agro (`90.8.21.000200-02`, FGTS).
 
 ---
 
-## Resumo das decisões que dependem de você
+### #54 Briefing: cartão vazio some
 
-Escolha feita neste lote em **negrito**. Marque o inventário ao lado.
-
-1. **Fila nova só na Beta; clássico permanece na fila antiga.** Alternativa: levar a v2 ao clássico, ou rejeitar a v2 (a Mesa perde o sentido). (#21, #22)
-2. **“Aguardando reconhecimento” permanece visível, sem alarme.** Alternativa: esconder como o clássico. (#23, #24)
-3. **Ficha parcelada / SISPAR / execução suspensa por parcelamento, sem adesão lançada = cadastro a completar; o prazo segue correndo.** Alternativa: status sozinho tira da fila (R6 lido pelo status). (#25)
-4. **Ordinária já vencida em CDA ajuizada = grupo 1 (urgente), não “ainda impossível”.** Alternativa: grupo 5. (#26)
-5. **CDA cujo número é de IDPJ/cautelar pede vínculo à execução fiscal**, não é tratada como “sem processo”. (#27)
-6. **Piso futuro (“não antes de”) permanece grupo 5 mesmo com IDPJ sem constrição.** Alternativa: o incidente puxa para “cadastro a completar”, como o clássico. (#28)
-7. **O recado “IDPJ sem constrição” sai da linha de cada CDA e hoje não tem tela na Mesa.** Alternativa: mostrar uma vez no processo (não feito). (#29, #123)
-8. **Análise colada não rebaixa grupo 1 calculado.** Alternativa: a análise manda. (#30, #142)
-9. **A frase de iminente fixa a janela de 180 dias** (já era decisão da casa no caderno). Recusar o catálogo deixa a Mesa sem frase clara. A expressão “resultado útil” **permanece** na frase de vigiar. (#31, #152)
-10. **Acompanhamento volta ao alarme pela data de rever** (pausa +90d / vigiar +1 ano / piso na data / aguardando +90d / cadastro +30d). Alternativa: nunca puxar sozinho. (#32)
-11. **Parcelamento vigente por evento vai à gaveta (até +90d para você conferir se ainda vale), não some.** Alternativa: sumir como o clássico. (#33)
-12. **Adiar: tetos 14 / 30 / 7 / 90 dias (grupos 1 / 2 / 3 / 5) e furos se o grupo piorar, se entrar fato novo, se a data passar, ou se “Outro” vier sem texto.** Alternativa: tetos maiores ou silêncio cego. (#34, #35, #112, #165, #166)
-13. **Teto de 12 linhas em PRECISA DE VOCÊ; o restante atrás de “+K acima do orçamento”.** Alternativa: sem teto. (#85, #92)
-14. **PRECISA DE VOCÊ = grupo 1 + grupo 2 já estourado + grupo 3 só com ação de um clique + data de rever vencida. Grupo 5 vai à gaveta, não ao RESTO.** Alternativa: todo G3 no vermelho (a CDA de R$ 5,6 mi subiria) ou G5 no meio da tela. (#86, #87, #168)
-15. **O R$ do cartão Prazos (e o número PRESC. CDA da operação) é só grupo 1.** Alternativa: somar grupo 2 e/ou o valor do cadastro. (#107, #108)
-16. **Na Beta, Sisbajud / CNIB / constrição de IDPJ não pintam status Garantida; penhora e arresto pintam.** Alternativa: clássico (os três também pintam). (#121)
-17. **Casco da Beta = sidebar e abas do clássico; Demo antiga (trilho, zonas, A/B/C, Ardósia) não volta por interruptor.** Recusar isto é recusar a Beta deste lote. (#61–#70)
-18. **O e-mail das 7h permanece com a lógica antiga (90 dias, fila v1, sem gaveta).** Alternativa: um lote só para o resumo diário — não feito. (#197)
-19. **Adiar e a marca de status automático ficam no cadastro, opcionais; o clássico ignora.** Voltar ao clássico depois da Beta não some dado, mas o adiamento **não esconde** a linha lá. (#202)
-20. **No Debcad, a data do protesto que interrompe a ordinária é a efetivação do “Protesto lavrado”, não o protocolo; a nota condensada `[Debcad] Histórico` sai em favor da ficha estruturada.** Alternativa: contar o protocolo (08/03/2026 neste caso) ou manter o parágrafo único. (#203–#207)
-21. **No SIDA Relatório Completo, AGUARDANDO e indeferimento não geram evento de prescrição; CADIN/pagamentos só na ficha; protesto só se lavrado (efetivação).** Alternativa: o pedido SISPAR de 17/09/2026 pausaria o prazo, ou o CADIN viraria “outro evento”. (#209–#214)
-
-Itens de tela sem escolha jurídica (Esc, toast, ✕ do ⚙, tooltips, Briefing vazio, semana de hoje, título Nova intimação, ATRASADA, filtro CDA, chips zero, dicas abaixo, Aparência, testes, CSS): trate como pacote de acabamento da edição que você adotar. Inventário no final de cada tema, acima.
+**Para que serve.** “Observação” sem texto não ocupa a página da operação. Títulos antigos (Hipótese, Pendências…) continuam lidos. Os textos demo da Fachada Norte **têm corpo** — permanecem.
 
 ---
 
-## Combinações possíveis
+### #55 Semana da agenda: volta para a semana de hoje
 
-Três pacotes realistas. Tudo parte do Bloco A: as contas certas.
+**Para que serve.** No Painel, Mês → Semana não pode te jogar na semana do dia 1 daquele mês. Você perde a semana de trabalho (prazos, audiência).
 
-### (1) Só Bloco A + C no clássico, sem Beta
-
-Você publica o clássico com as contas corrigidas e o acabamento (formulários, ⚙, toast, demo só no ⚙). **Não** liga a Nova versão.
-
-**O que você ganha.** Termo certo (pausas fundidas, primeira ciência, fato futuro ignorado, 29/02, art. 40 datado, ordinária “interrompida”). Menos ficha vazia. ⚙ que fecha.
-
-**O que você abre mão.** Mesa, gaveta, Adiar, fila v2, Hoje, Agenda unificada, KPI só grupo 1, Sisbajud que não pinta Garantida, “aguardando” visível, parcelada-sem-adesão visível, ordinária consumada ajuizada no alarme. A aba Prazos extintivos **continua** com os oito “a completar” e as duas “ainda impossível” deste demo. O e-mail, como neste lote, também.
-
-### (2) A + C + Beta inteira
-
-Clássico com A+C **e** ⚙ → Nova versão (beta) no dia a dia. Mesa padrão, Lista a um clique.
-
-**O que você ganha.** Tudo o que a Mesa mostra neste relatório: duas urgentes da Agro no vermelho, R$ 143.000 no KPI, R$ 5,6 mi visível sem alarme, quinze na gaveta, Adiar de 14 dias, Hoje, Agenda, intimações vencidas primeiro.
-
-**O que você abre mão.** A Demo Experimental (trilho, Ardósia). Uma só “Mesa” com nome inequívoco (continuam duas). E-mail alinhado à tela (continuam divergentes). Recado de IDPJ numa tela própria (hoje não há). Teto 12: o 13º urgente pede clique. G5 só na gaveta: “ainda impossível” exige abrir o rodapé.
-
-### (3) A + C + Beta sem Mesa (só a Lista v2)
-
-Beta ligada, Prazos no botão **Lista** (a preferência grava). Sem o bloco PRECISA DE VOCÊ, sem gaveta naquela vista, sem Adiar na linha.
-
-**O que você ganha.** A fila nova (1 a completar, 9 ainda impossível, parcelada-sem-adesão visível, aguardando visível) **e** Hoje / Agenda / intimações / KPI do Painel. Frases mais limpas. + Evento pré-preenchido.
-
-**O que você abre mão.** O recorte “só o que precisa de você hoje”, o teto 12, a gaveta na cara, o Adiar, as ações de um clique na linha, o silêncio furado. O KPI honesto do Painel **permanece** (ele lê a fila, não a Mesa). Silenciados existem no motor, mas **você não tem a gaveta** para abri-los — as nove ainda impossíveis ficam no contador 5 da Lista, recolhidas atrás de “Expandir”, como o clássico já fazia com o grupo 5.
+**O que você vê.** Semana corrente (na conferência: 14–20 set 2026). Vale no clássico. A Agenda da Beta reutiliza o mesmo quadro (#78).
 
 ---
 
-*Fim do relatório. Nenhuma alteração foi gravada no git. Para marcar item a item, use `docs/INVENTARIO-BETA.md` com este texto ao lado.*
+### #56 Versão no ⚙
+
+**Para que serve.** Saber se o Google está na build nova. No ⚙ de 19/09/2026 deve ler **NEXUS 2.0.12** (o inventário antigo citava 2.0.7 — desatualizado).
+
+---
+
+### #59 e #60 Fonte e tema
+
+**Para que serve.** Beta e clássico compartilham Mar Profundo · Claro · Ferro e Maré. Fonte vazia diz **Public Sans**, não “Padrão (Demo)”. Na Beta o grupo chama-se **Aparência** (#140).
+
+---
+
+# Bloco D — A casa da Beta
+
+**Onde vale:** só Beta. **Estado:** publicado. Recusar o casco neste lote **não** religa o trilho antigo — ele foi retirado da Beta. Recusar a Beta inteira = ficar no clássico.
+
+---
+
+### #61 a #65, #82, #83 A Beta mora na casa do clássico
+
+**Para que serve.** Uma navegação só. Você não reaprende “Central de Comando” para ver a Mesa de prazos. Temas os mesmos. Coluna da esquerda = operações. Faixa de cima = abas.
+
+**O que você vê.** Sidebar. Sem trilho preto. Sem título enorme “Hoje / Carteira / Biblioteca”. Sem pílula **Demo**. Quem tinha Ardósia na Demo antiga volta ao tema clássico gravado.
+
+**Antes.** Casa paralela (trilho, zonas, paleta Clara/Ardósia/Grafite).
+
+**Se recusar só o casco.** Neste lote não há interruptor “Demo antiga”. Ou Beta nesta casa, ou clássico.
+
+---
+
+### #66 a #70, #81, #182–#185, #189 O que saiu da Demo Experimental
+
+**Para que serve.** Dentro da operação, as **mesmas abas** do clássico: Briefing · Pessoas · Inscrições · Processos e Prescrição · Bens · Tarefas · Importar · Arquivos. Processos = visão master–detail (D). Sem A/B/C. Sem ranking extra “Painel da Carteira” em Operações (o ranking do **Painel** clássico **não** é isso — já existia e continua).
+
+**O que você não vê.** Ardósia/Grafite. Há desenho antigo no arquivo, desligado — não é tela extra (#81, #193, #194).
+
+---
+
+### #71 a #73, #157, #201 Faixa de cima — e duas “Mesas”
+
+**Para que serve.** Chegar em Hoje, Prazos, Agenda e na operação sem a faixa quebrar no zoom.
+
+**O que você vê.** Hoje · Painel · **Prazos** · Operações · Intimações e Tarefas (soma) · **Mesa** · Acompanhar · **Agenda** · Modelos · nome da operação. Não diz “Prazos extintivos” nem “Audiências”. Intimações e Tarefas são **um** botão na faixa; por dentro, as duas abas continuam.
+
+**Atenção.** A **Mesa da faixa** é a de **pins de intimação**. A Mesa **nova** (prazos) está em **Prazos**. Dois nomes iguais. **Não foi renomeado.**
+
+Se não couber, sobra **Mais ▾** — não segunda linha.
+
+---
+
+### #74 a #77, #153 Vista Hoje
+
+**Para que serve.** Responder “o que eu faço **hoje**?”: intimações, tarefas, audiências, riscos, num só lugar — sem ser a casa antiga da Demo.
+
+**O que você vê.** “Bom dia. O que exige ação hoje?” Nos dados demo: tarefa de redirecionamento da Sucessão **atrasada**; intimação IDPJ da Fachada Norte atrasada; audiência 16:00 da Agro. Nova intimação a partir daqui **já traz** a operação aberta. Sem botão de resetar demo nesta página.
+
+Ao ligar a Beta pelo ⚙, cai em Hoje. Ao voltar ao clássico, cai no Painel.
+
+---
+
+### #78 e #79 Agenda unificada
+
+**Para que serve.** Um lugar para “quando”: grade da semana/mês **e** a lista Esta semana / Este mês (audiência 20 set 16:00 Agro; 22 set 14:30 Fachada Norte).
+
+**No clássico.** A aba continua só a lista, nome **Audiências**.
+
+---
+
+### #80 Título da aba
+
+**Para que serve.** Saber se você está na Beta. Aba do navegador: **NEXUS Beta** em `demo_experimental.html`. (O `Nexus.demo.html` de compartilhar **não** é mais essa aba.)
+
+---
+
+# Bloco E — Mesa de prazos (o coração visível da Beta)
+
+**Onde vale:** só Beta. **Estado:** publicado. Lê a fila do Bloco B. Recusar a Mesa e ficar com a Beta = usar o botão **Lista**.
+
+**Para que serve o bloco inteiro.** Separar o que pede **ato hoje** (peça, lançar adesão, vincular EF, termo nos 180 dias) do que deve permanecer **visível sem vermelho** (parcelamento vigente, ainda impossível, o que você adiou).
+
+---
+
+### #84 Seletor Mesa | Lista
+
+**O que você vê.** Prazos abre em **Mesa**. Um clique volta à lista de grupos (Urgentes / A conferir / …), com as frases limpas da v2 (#122). A preferência grava (#180): se escolher Lista e recarregar, continua Lista.
+
+---
+
+### #85, #91, #92 Teto de 12 no vermelho
+
+**Para que serve.** Orçamento de atenção. Quinze urgentes não cabem numa manhã; 12 na cara, o resto atrás de **+K acima do orçamento** (vermelho, clicável).
+
+**Se recusar o teto.** O bloco de cima cresce sem limite. Se recusar só o botão: a 13ª some.
+
+---
+
+### #86 e #168 O que é “PRECISA DE VOCÊ”
+
+**Para que serve.** Definir alarme com rigor de processo, não com “tudo que está na fila”.
+
+Entra:
+
+- grupo 1 (urgente calculado) **sempre**;
+- grupo 2 **só** se o teto estimado **já passou**;
+- grupo 3 **só** se a ação é de um clique (lançar fato / corrigir ficha / vincular EF) — “só conferir autos” **não** sobe;
+- qualquer grupo se a **data de rever** já passou (#32).
+
+**O que você vê nos dados demo.** Duas linhas: `90.6.23.000884-40` e `90.6.20.000881-40` (Agro, sem processo, CALCULADO, termo nos 180 dias, R$ 48.000 e R$ 95.000). A CDA de R$ 5,6 mi **não** está aqui.
+
+**Se alargar (todo G3 no vermelho).** Os R$ 5,6 mi sobem. Se pôr G5 no meio da tela: “ainda impossível” infla o alarme.
+
+---
+
+### #87 e #96 O RESTO e o G5
+
+**Para que serve.** Consciência sem alarme. “Ainda impossível” **não** infla o miolo — vai à gaveta.
+
+**O que você vê.** “O RESTO G1 0 · G2 0 · G3 1 · G4 0 · G5 9”. Clique expande. Sem borda vermelha.
+
+---
+
+### #88 a #90, #93, #94 Linha: selo, frase, vermelho de vencida, silêncio expirado
+
+**Para que serve.** Uma linha = CDA · processo · certeza (calculado / estimado / cadastro) · uma frase · valor · botões.
+
+Termo **já passado** ganha o mesmo peso visual de intimação **VENCIDA** (#93, e no card do processo #106). Se o adiamento furou, a linha volta com “expirou o silêncio” (#94).
+
+---
+
+### #95, #113 a #117 Botões da linha e + Evento
+
+**Para que serve.** Do alarme ao **lançamento do fato**, sem caçar a CDA na lista.
+
+- **Evento / Abrir / Conferir / Adiar…** sempre.
+- Extra: **Lançar fato**, **Vincular EF**, **Corrigir ficha**, **Lançar ciência**, conforme a ação (#113).
+- Parcelada sem adesão: data na linha, Enter (#114).
+- Evento já vem com CDA, EF e tipo; cursor na data (#115).
+- Se o destino é IDPJ/cautelar, o menu não diz “Penhora / resultado útil” como se fosse a execução: diz **Constrição no incidente (pausa as EFs)** (#116).
+- Ajuda do formulário na Beta **sem** “Tema 566/568”; Sisbajud pergunta se houve constrição; data digitada na CDA **não cala** o cálculo — aparece como conflito (#117). O **clássico** continua com Tema e Súmula 622 nas dicas.
+
+---
+
+### #97 e #98 Desenho e filtro
+
+**Para que serve.** A barra Silenciados não pode cobrir o botão de orçamento. O recorte por operação e a busca (CDA, processo, devedor) são os da lista clássica, na Mesa.
+
+---
+
+### #99 a #105, #154 Frase da inscrição sem travessão e sem “Prescrita” estimada
+
+**Para que serve.** Na lista Inscrições e no card do processo, a Beta **não** pode mostrar “—” nem chamar de **Prescrita** uma **estimativa**. Conflito ficha × app: “Ficha 26/01/2027 · app 14/08/2031 — conferir.” Tratada: “Tratada em dd/mm”, não a contagem. Dias longos: “há 2 anos” / “em 3 anos”, nunca “(-61034)”.
+
+**Jargão (#99).** Na Beta, frases do dia a dia sem Tema/Súmula/piso/teto/dies/marco/CENÁRIO. A memória técnica **não** passa por esse filtro.
+
+---
+
+### #107 e #108 KPI honesto (R$ só do urgente de verdade)
+
+**Para que serve.** O cartão **Prazos** não pode somar “ainda impossível” com “vence nos 180 dias”. Isso inflava o risco e empurrava a CDA de R$ 5,6 mi para o mesmo balde das duas da Agro.
+
+**O que você vê na Beta.** “**2 urgentes · 1 para completar cadastro · R$ 143.000,00** — só o que pede decisão agora.” O real é o das **urgentes** (grupo 1). A `000045-88` de R$ 5,6 mi **não** entra nesse R$. No cabeçalho da operação, some “risco (1+2)”; se já venceu, selo VENCIDA.
+
+**Clássico.** Continua “Risco prescricional” n1+n2.
+
+**Se recusar.** Volta a soma que mistura alarme com consciência.
+
+---
+
+### #109 a #112 Gaveta Silenciados e Adiar na tela
+
+**Para que serve.** Ver o que a fila tirou do vermelho, **reabrir** o que você mesmo adiou, e ser avisado se o adiamento acaba **esta semana**.
+
+**O que você vê.** Barra **SILENCIADOS (15) ▸**. Motivo, até quando, **Reabrir agora** só no adiamento do usuário — não no parcelamento vigente. Popover Adiar: sem motivo/data não grava; “Outro” vazio → “Descreva o motivo para adiar.” Grupo 1: calendário no máximo 14 dias (18/09 → 02/10 na conferência).
+
+---
+
+### #118 e #119 Abrir / Conferir cai nas três colunas
+
+**Para que serve.** O detalhe que importa para arguir prescrição são as **três colunas**. Abrir a CDA no meio da lista de inscrições, sem as colunas, perde o ato.
+
+**O que você vê.** Aba Inscrições, colunas visíveis, Copiar / Evento / Editar **grudados** no topo ao rolar.
+
+---
+
+### #120 Arquivada art. 40 pede a data
+
+**Para que serve.** Marcar a EF “arquivada art. 40” sem a **data da ciência** (ou do arquivamento) deixa a coluna no estado #13 às avessas: status sem fato. O mini-formulário cria o evento **por CDA ligada**.
+
+**O que você vê.** “O que você tem em mãos?” Ciência ou arquivamento; tipo (suspensão que vale como ciência / ciência de ausência de bens); data. **Agora não** / **Lançar**. Sem data, não grava. Extinta na Beta ainda usa o sim/não antigo.
+
+**Clássico.** Continua o confirm simples.
+
+---
+
+### #121 Sisbajud / CNIB / IDPJ não pintam Garantida sozinhos (Beta)
+
+**Para que serve.** **Garantida** na ficha mistura “houve bloqueio” com “há garantia nos autos”. Quem lança o Sisbajud decide se houve constrição / resultado útil. R3: bloqueio **positivo na própria execução** encerra o ciclo **no cálculo**, se você lançar o fato certo. O que parou foi pintar o **status** automático.
+
+**O que você vê na Beta.** Penhora e arresto ainda pintam Garantida (com marca de status automático). Sisbajud, CNIB e constrição de IDPJ **não**.
+
+**Clássico.** Os três ainda pintam Garantida.
+
+**Se recusar.** Bloqueio vira “garantida” na ficha e some da urgência visual, mesmo sem garantia.
+
+---
+
+# Bloco F — Caixa de entrada e demais telas da Beta
+
+**Onde vale:** só Beta, salvo #141. Finalidade: a intimação vencida e a tarefa atrasada não perdem para o que ainda tem prazo, só porque alguém marcou “Urgente”.
+
+---
+
+### #124 a #128 Intimações: vencidas primeiro; Nova intimação
+
+**Para que serve.** No modo “Prazo final”, o que **já venceu** sobe antes do que ainda tem prazo — mesmo que o que está no prazo esteja marcado Urgente. Dois blocos: **Vencidas** / **Urgentes no prazo**. Janela **Nova intimação**; Salvar visível em intimação longa.
+
+**Exemplo.** Fachada Norte `5009876-11.2024.4.04.7001` atrasada sobe antes de uma no prazo “urgente”.
+
+---
+
+### #129 a #132 Tarefas: um número e ATRASADA
+
+**Para que serve.** Ver quantas são globais e quantas só da operação, e o atraso no **mesmo peso** da intimação vencida (“ATRASADA 4d” na tarefa de redirecionamento da Sucessão).
+
+---
+
+### #133 Relatório gerado
+
+**Para que serve.** Depois do HTML de passagem de serviço, um recado curto — além do download — para não achar que “não foi”.
+
+---
+
+### #134 Cabeçalho da operação começa fechado
+
+**Para que serve.** DÍVIDA TOTAL / GARANTIDO / PRESC. CDA não ocupam a primeira tela. ▴/▾ abre. Os chips do panorama do Briefing **já** nasciam fechados.
+
+---
+
+### #135 e #136 Busca processo / CDA
+
+**Para que serve.** Achar `884-40` na Agro sem rolar 50 inscrições. O mesmo campo em Processos e Prescrição (no lugar do seletor A/B/C).
+
+---
+
+### #137 Chip zerado some
+
+**Para que serve.** “Parcelamento Integral (0)” não polui o filtro. No clássico o chip zerado **continua**.
+
+---
+
+### #138 e #177 KPIs numa linha (tema Claro, zoom 90)
+
+**Para que serve.** Os cartões do cabeçalho não quebram a palavra no meio.
+
+---
+
+### #139 Dicas abaixo do alvo
+
+**Para que serve.** O tooltip não cobre a Agenda nem o nome da operação na faixa.
+
+---
+
+### #141 Abrir CDA a partir da lista (caminho único)
+
+**Para que serve.** “Abrir” em Prazos vai para Inscrições nas duas edições, sem o desvio das zonas da Demo antiga.
+
+---
+
+# Bloco G — O que você quase não vê (rede de segurança)
+
+Estes números **não mudam a mesa** sozinhos. Garantem que a conta e a Mesa **não quebrem** na próxima alteração.
+
+| O que é | Números | Para o operador |
+|---|---|---|
+| Página de regras 2026.09a | #19, #143, #144 | Já no Bloco A. O número da versão das regras **não** virou 2026.09a. |
+| Caderno MELHORIAS | #145 | Texto interno; não sobe ao Google. |
+| Compilação da Mesa no HTML | #146, #147, #155 | Sem isto a Beta no Google não teria Mesa. |
+| Testes (conta, fila, Mesa) | #148–#151 | Se alguém desfizer #1 ou #25, o teste falha. Hoje a suíte está **265** verdes (o inventário antigo dizia 233). |
+| Funções da Mesa “por trás” | #101, #159–#175, #167–#174 | São as mesmas regras #84–#123, só o nome interno. **Não decida duas vezes.** |
+| CSS da Mesa / modal / colunas | #97, #126, #132, #176–#179 | Desenho dos itens já descritos. |
+| Preferências gravadas | #180–#182 | Lista vs Mesa; Ardósia antiga ignorada; visão D. |
+| Textos removidos da Demo | #183–#189, #195 | Central de Comando, Biblioteca no trilho, etc. — já no Bloco D. |
+| Snapshot do clássico usa o índice, fila v1 | #190 | Clássico continua v1, só mais rápido. |
+| Data do pedido pendente na frase #9 | #191 | Já no Bloco A. |
+| Código morto (não usado na tela) | #192 | Função de fechar atuação com pergunta: **não** está ligada. Esc no modal de ciência fecha sem perguntar. |
+
+**#156 (atualizado).** O build **não** gera mais os atalhos `Nexus_demo.html` / `Nexus_demo_experimental.html`. Gera só os três arquivos da tabela do início. Se aqueles nomes ainda existirem no disco, o build **apaga**.
+
+---
+
+# Bloco H — O que não mudou (e o e-mail)
+
+### #196 Planilha e `doGet`
+
+Publicar o HTML **não** muda a Planilha nem o endereço clássico do app no Google.
+
+### #197 E-mail das 7h — **ainda o de antes**
+
+**Para que serve (quando alguém pedir o lote).** O resumo da manhã deveria acompanhar a tela: não tratar interrupção como termo; incluir vencidos do grupo 1; janela por grupo.
+
+**O que você recebe hoje.** A lógica **antiga** (90 dias, fila v1, sem gaveta). A **tela** pode mostrar a CDA na gaveta ou no vermelho da Beta; o **e-mail** não.
+
+**Isto não foi feito de propósito.** É o próximo lote natural, se você quiser tela e caixa de entrada alinhadas.
+
+### #198 Importar eproc e XLS da Procuradoria
+
+**Não foram removidos.** Continuam na aba Importar. (O precedente do projeto: não apagar via “não usada”.)
+
+### #199 Sync Drive / Planilha
+
+⬆⬇ e auto-sync iguais. Só o botão demo saiu da sidebar (#50).
+
+### #200 Dados demo
+
+As cinco operações fictícias são as **mesmas**: Fachada Norte, Laranjas do Vale, Sucessão Empresarial Sul, Holding Atlântico, Agro Horizonte.
+
+### #201 Mesa de pins
+
+Não foi o alvo. Continua no menu. Daí as duas “Mesas”.
+
+### #202 Campos novos são opcionais
+
+Adiar e a marca de status automático ficam no cadastro. JSON antigo abre nas duas edições. Se você adiar na Beta e voltar ao clássico, o campo **fica parado**: o clássico **não esconde** a linha por causa dele.
+
+---
+
+# Bloco I — DEBCAD (clássico e Beta) — **adotado**
+
+**Para que serve.** LC 208/2024: protesto extrajudicial **lavrado** a partir de 03/07/2024 **interrompe a ordinária**. O motor já sabia (`int_protesto_extrajudicial`). O relatório Debcad **não entregava** o fato: o bloco PROTESTOS ia parar nas “atualizações” e sumia. A AGROTRAC (CDA 149630450, inscrição 08/05/2021, não ajuizada) aparecia **consumada em 08/05/2026** — grau máximo de urgência — quando o lavrado de **17/03/2026** empurra o termo para **17/03/2031**.
+
+### #203 Lê PROTESTOS e AJUIZAMENTO
+
+Cabeçalhos sem depender de acento. Para em FIM DO RELATÓRIO. “Não há Ajuizamento.” não inventa processo.
+
+### #204 Cria o evento na data da **efetivação do lavrado**
+
+Não é o protocolo no tabelionato (08/03/2026 neste PDF) nem a criação da ocorrência (20/03/2026). É a linha **Protesto lavrado**.
+
+### #205 e #207 Ficha **Histórico DEBCAD**
+
+Campo na CDA, atualizado a cada reimportação. Bloco recolhido: fases, card do protesto (marca a linha que gerou o evento), ajuizamento, atualizações atrás de outro clique.
+
+### #206 Some a nota cinza `[Debcad] Histórico`
+
+O parágrafo “4 fases: 03/05/2021 — Fase 514…” era ilegível. Só essa nota é apagada; as outras ficam.
+
+### #208 Rede de testes no PDF real
+
+Se o leitor do protesto quebrar de novo, o teste da AGROTRAC falha.
+
+**Como testar.** Importar `RelatorioCompleto-debcad-149630450.pdf` na CDA 149630450. Ordinária com termo 17/03/2031. Histórico DEBCAD com o lavrado marcado.
+
+---
+
+# Bloco J — SIDA Relatório Completo (clássico e Beta) — **adotado**
+
+**Para que serve.** O PDF novo (VERTICALI, 54 inscrições, 18/09/2026) é mais largo: `CPF/ CNPJ:`, `R $ 48.088,85`, juízo na página seguinte, protesto partido em duas linhas. Sem ler **rescisão** e **protesto lavrado**, a ordinária e o 1+5 saem errados. Sem a ficha, CADIN e pagamentos somem da vista — e **não devem** virar evento de prescrição (o motor não tem tipo para CADIN; pagamento não é interrupção).
+
+### #209 Lê por seções
+
+Dados Gerais, Devedores, Parcelamentos (deferidos e indeferidos), Protestos com eventos, Ocorrências com data+hora juntas. Para no FIM DO RELATÓRIO.
+
+### #210 e #212 Ficha **Histórico SIDA**
+
+Ocorrências · parcelamentos · protestos · devedores. Aberto: valores, juízo, tabela de devedores (principal + corresponsáveis), parcelamentos com a linha do evento marcada, card de protesto, CADIN/pagamentos atrás de outro clique.
+
+### #211 Não volta o parágrafo `[SIDA]`
+
+Trava para reimportação de dados antigos.
+
+### #213 Eventos **só** no que é inequívoco — **sua decisão, ratificada**
+
+| Entra como evento de prazo | Não entra (só na ficha / log) |
+|---|---|
+| Parcelamento **deferido** com adesão/rescisão; cancelamento **depois** de deferido | **AGUARDANDO** (pedido SISPAR 17/09/2026) |
+| Protesto **LAVRADO** (data = efetivação, ex. 23/02/2026 na CDA `00 2 19 021348-10`) | **INDEFERIMENTO** |
+| Falência se a data veio preenchida | CADIN, pagamentos, bloqueio de ajuizamento |
+
+Se o AGUARDANDO virasse evento, o pedido de 17/09/2026 **pausaria** o prazo sem deferimento.
+
+### #214 (e depois #216) Texto do protesto
+
+Na **ordinária**: “interrompe a prescrição ordinária (LC 208/2024)” se após 03/07/2024. Antes: “não interrompe (anterior à LC 208/2024)”. A conta já fazia isso; a frase caía em “registro do caso”.
+
+### #215 Testes no PDF das 54 CDAs
+
+**Como testar.** Importar o Relatório Completo na operação da Verticali (CDAs já cadastradas pela planilha). Log: 54 inscrições; protesto LC 208 só nas lavradas; sem evento no AGUARDANDO. Abrir Histórico SIDA.
+
+---
+
+# Bloco K — Frases das colunas — **adotado**
+
+**Só texto. A conta não muda.**
+
+### #216 Protesto na **intercorrente**
+
+O protesto interrompe o art. 174, **não** o ciclo de 1 ano + 5 anos da execução. A linha da intercorrente não pode repetir “interrompe a prescrição ordinária”.
+
+**O que você vê.** Intercorrente, pós-LC 208: **não encerra o ciclo de 1 ano + 5 anos**. Ordinária: permanece a frase da LC 208. Antes da LC 208, nas duas: **não interrompe (anterior à LC 208/2024)**.
+
+### #217 Início depois da **rescisão**
+
+O 1+5 da política da casa nasce na **queda** do parcelamento, não numa ciência inventada.
+
+**O que você vê.** Datas da intercorrente com a **data da rescisão**. No primeiro ano: “Primeiro ano após a rescisão do parcelamento.” Parcelamento **ainda vigente** (CDA do print): continua **Início: sem ciência lançada**.
+
+---
+
+# Bloco L — Fichas de pessoa (19/09/2026) — **adotado**
+
+**Não estava no inventário de 18/09.** Nasceu ao importar o mesmo SIDA da Verticali.
+
+**Para que serve.** O filtro **Filtrar por pessoa** só funciona se Himugui, Nivaldo e Daniel forem **uma ficha cada**, ligadas a todas as CDAs em que o relatório os aponta. Sem isso, o filtro vira uma parede de botões (179) e você não consegue recortar a operação pelo corresponsável.
+
+**O que acontecia.** O Relatório Completo lista os mesmos três corresponsáveis em **cada** inscrição. O painel criava uma ficha nova a cada CDA. A Verticali já existia, por isso ficou uma só (59). Os outros apareciam dezenas de vezes com (1).
+
+**O que você vê agora.** Na abertura do painel, fichas do mesmo CPF/CNPJ **na mesma operação** se juntam. Os vínculos com as inscrições passam para a que fica. Filiais (CNPJs 14 distintos) **não** se misturam. Na próxima importação, o mesmo documento reaproveita a ficha.
+
+**Como testar.** Recarregar (F5) a operação Verticali. O filtro deve ficar perto de: Todas · Verticali · Himugui · Nivaldo · Daniel. Reimportar o PDF não deve multiplicar nomes.
+
+---
+
+# Resumo: o que ainda depende de você
+
+**Já decidido:** A, C (acabamento), I, J (incluindo o que não vira evento), K, L.
+
+**Já publicado, à espera de “mantenho a Beta assim?”**
+
+1. Fila nova **só na Beta**; clássico na fila antiga. (#21–#22)
+2. “Aguardando reconhecimento” visível, sem alarme. (#23–#24)
+3. Status parcelada sem adesão = cadastro a completar; o prazo segue. (#25)
+4. Ordinária vencida em CDA ajuizada = urgente. (#26)
+5. CNJ de IDPJ pede vínculo à EF. (#27)
+6. “Ainda não pode ter prescrito” não vira alarme só por IDPJ sem constrição. (#28)
+7. Recado de IDPJ saiu da linha e **não ganhou tela** — quer o recado uma vez no processo? (#29, #123)
+8. Análise colada não rebaixa grupo 1. (#30)
+9. Frases da Mesa; “resultado útil” permanece na de vigiar; janela 180 dias. (#31, #152)
+10. Despertador (data de rever). (#32)
+11. Parcelamento vigente na gaveta, não some. (#33)
+12. Adiar: tetos 14/30/7 e furos. (#34–#35)
+13. Teto de 12 no vermelho. (#85, #92)
+14. PRECISA DE VOCÊ como definido em #86 (R$ 5,6 mi fora).
+15. R$ do cartão Prazos = só grupo 1. (#107–#108)
+16. Sisbajud não pinta Garantida na Beta. (#121)
+17. Casco da Beta (sidebar); Demo antiga não volta por interruptor. (#61+)
+18. Duas “Mesas” — quer renomear? (#201)
+19. E-mail das 7h **ainda antigo**. (#197)
+
+Itens de tela sem escolha jurídica (Esc, toast, ✕, tooltips, Briefing vazio, semana de hoje, Nova intimação, ATRASADA, busca CDA, chips zero, dicas abaixo, Aparência): pacote de acabamento da edição que você usar.
+
+---
+
+## Três jeitos de usar (o código já está no 2.0.12)
+
+**1. Clássico no dia a dia**  
+Contas certas, importação SIDA/DEBCAD, fichas de pessoa corrigidas, ⚙ que fecha. Sem Mesa, sem gaveta, sem fila nova. A Beta existe no ⚙, você não liga.
+
+**2. Beta no dia a dia** — o plano original  
+⚙ → Nova versão (beta) ou `demo_experimental.html`. Mesa padrão. Lista a um clique. Alarme ≠ consciência.
+
+**3. Beta, Prazos na Lista**  
+Fila nova + Hoje + Agenda, sem o bloco vermelho nem a gaveta na cara. Silenciados existem no motor; **você não tem a gaveta** nessa vista.
+
+---
+
+## O que ainda não foi feito (fora deste lote)
+
+- Alinhar o **e-mail da manhã** à tela.
+- Mostrar o recado de IDPJ **uma vez** no processo.
+- Renomear uma das duas Mesas.
+- Redesign visual P2 em diante (Grafo/Insights, processos colapsados) — outro caderno (`docs/MELHORIAS.md`).
+
+---
+
+*Para marcar item a item no sentido técnico, o inventário permanece em `docs/INVENTARIO-BETA.md`. Este relatório é o texto para operar e decidir. Versão do painel: 2.0.12.*

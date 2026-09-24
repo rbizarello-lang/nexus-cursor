@@ -2953,6 +2953,70 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text-secondary); vertical-align: top;
 }
 .demo-proc-table td.mono { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-weight: 600; color: var(--text-primary); }
+/* Número à esquerda; símbolos ~12px depois (5 ícones + 2 bolas); STATUS recua; PRESCRIÇÃO à direita */
+.app-layout:not(.edition-claude) .demo-proc-table th.proc-num-col,
+.app-layout:not(.edition-claude) .demo-proc-table td.proc-num-col {
+  width: 1%; white-space: nowrap;
+  padding-right: 12px;
+}
+.app-layout:not(.edition-claude) .demo-proc-table th.proc-syms-col,
+.app-layout:not(.edition-claude) .demo-proc-table td.proc-syms-col {
+  /* Célula permanece table-cell (nunca display:flex no td) */
+  width: 1%; white-space: nowrap;
+  min-width: 132px;
+  padding-left: 0; padding-right: 32px;
+  vertical-align: middle;
+  text-align: left;
+}
+.app-layout:not(.edition-claude) .demo-proc-table th.proc-status-col,
+.app-layout:not(.edition-claude) .demo-proc-table td.proc-status-col {
+  width: 18%;
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.app-layout:not(.edition-claude) .demo-proc-table th.proc-valor-col,
+.app-layout:not(.edition-claude) .demo-proc-table td.proc-valor-col {
+  white-space: nowrap;
+  padding-left: 20px;
+  padding-right: 16px;
+}
+.app-layout:not(.edition-claude) .demo-proc-table th.proc-presc-col,
+.app-layout:not(.edition-claude) .demo-proc-table td.proc-presc-col {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 20px;
+  padding-right: 12px;
+}
+.app-layout:not(.edition-claude) .proc-row-syms {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px;
+  line-height: 1; vertical-align: middle;
+  min-width: 124px;
+}
+/* Linha de processo em uma faixa: número, chips e demais células não quebram */
+.app-layout:not(.edition-claude) .demo-proc-table-row > td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.app-layout:not(.edition-claude) .demo-proc-table-row > td .proc-rel-chips {
+  display: inline-flex; flex-wrap: nowrap; align-items: center;
+  gap: 5px; margin-top: 0; margin-left: 6px; vertical-align: middle;
+}
+.app-layout:not(.edition-claude) .proc-row-sym {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted); opacity: 0.9;
+  width: 16px; height: 16px; flex-shrink: 0;
+}
+.app-layout:not(.edition-claude) .proc-row-sym.proc-row-sym-star { color: var(--gold, #c8a04a); opacity: 1; }
+.app-layout:not(.edition-claude) .proc-row-sym svg { display: block; width: 16px; height: 16px; }
+.app-layout:not(.edition-claude) .proc-row-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.app-layout:not(.edition-claude) .proc-row-dot-task { background: var(--yellow); }
+.app-layout:not(.edition-claude) .proc-row-dot-intim { background: var(--blue); }
 .demo-proc-table-row { cursor: pointer; }
 .demo-proc-table-row:hover td { background: color-mix(in srgb, var(--accent, #9a6b3a) 6%, transparent); }
 .demo-proc-table-detail td {
@@ -3204,6 +3268,12 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   font-size: 8px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--blue); flex-shrink: 0;
 }
+.proc-rel-chip-sigla { padding: 1px 5px; gap: 0; }
+.proc-rel-chips-full .proc-rel-chip .mono {
+  max-width: none; overflow: visible; text-overflow: unset;
+}
+.proc-row-rel-full { padding: 10px 12px 0; }
+.proc-row-rel-full .proc-rel-chips { margin-top: 0; }
 .proc-hub-rel { margin-top: 10px; }
 .proc-hub-rel .proc-rel-chips { margin-top: 0; }
 .proc-section-card {
@@ -3664,6 +3734,69 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   }
   .proc-md-hub-stat:last-child { border-bottom: none; padding-bottom: 0; }
 }
+/* ─── Beta: ficha de arquivo (categoria | valor, separados por picote) ─── */
+.edition-demo .ficha {
+  display: inline-flex; align-items: stretch; vertical-align: middle;
+  border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+}
+.edition-demo .ficha-k {
+  display: flex; align-items: center; padding: 1px 7px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--bg-elevated); color: var(--text-muted);
+  border-right: 1px dashed var(--border);
+}
+.edition-demo .ficha-v { display: flex; align-items: center; padding: 1px 7px; color: var(--text-primary); }
+.edition-demo .ficha-v .mesa-cda { font-size: 11px; }
+.edition-demo .ficha.accent { border-color: var(--accent); }
+.edition-demo .ficha.accent .ficha-k { background: var(--accent-dim); color: var(--accent); border-right-color: var(--accent); }
+.edition-demo .ficha.overdue { border-color: var(--red); }
+.edition-demo .ficha.overdue .ficha-k { background: var(--red-dim); color: var(--red); border-right-color: var(--red); }
+.edition-demo .ficha.overdue .ficha-v { color: var(--red); }
+.edition-demo .ficha.cert-calculado .ficha-v { color: var(--green); }
+.edition-demo .ficha.cert-estimado .ficha-v { color: var(--orange); }
+.edition-demo .ficha.cert-cadastro .ficha-v { color: var(--yellow); }
+
+/* ─── Beta: carimbo — só estados finais/raros (extinta, arquivada, garantida) ─── */
+.edition-demo .ef-status-badge.stamp {
+  display: inline-block; transform: rotate(-3deg);
+  background: transparent; border: 2px solid currentColor; border-radius: 3px;
+  outline: 1px solid currentColor; outline-offset: 2px;
+  padding: 1px 6px; margin: 4px 5px; white-space: nowrap;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.edition-demo .ef-status-badge.stamp.extinta,
+.edition-demo .ef-status-badge.stamp.stamp-muted { color: var(--text-secondary); }
+.edition-demo .ef-status-badge.stamp.stamp-green { color: var(--green); }
+.edition-demo .demo-proc-table-row .ef-status-badge.stamp { margin: 2px 4px; }
+
+/* ─── Beta: régua do quinquênio (detalhe da CDA) ─── */
+.edition-demo .presc-ruler { margin: 0 0 10px; padding: 4px 0 2px; }
+.edition-demo .presc-ruler-track { position: relative; height: 18px; }
+.edition-demo .presc-ruler-track::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 2px;
+  background: var(--bg-elevated); border: 1px solid var(--border); box-sizing: border-box;
+}
+.edition-demo .presc-ruler-fill { position: absolute; left: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--text-secondary); }
+.edition-demo .presc-ruler.tone-yellow .presc-ruler-fill { background: var(--yellow); }
+.edition-demo .presc-ruler.tone-red .presc-ruler-fill { background: var(--red); }
+.edition-demo .presc-ruler.estimated .presc-ruler-fill {
+  background: repeating-linear-gradient(90deg, var(--text-muted) 0 6px, transparent 6px 10px);
+}
+.edition-demo .presc-ruler-mark { position: absolute; top: 1px; width: 2px; height: 16px; margin-left: -1px; background: var(--blue); cursor: help; }
+.edition-demo .presc-ruler-now {
+  position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
+  background: var(--text-primary); border: 2px solid var(--bg-card); box-sizing: border-box;
+}
+.edition-demo .presc-ruler.tone-yellow .presc-ruler-now { background: var(--yellow); }
+.edition-demo .presc-ruler.tone-red .presc-ruler-now { background: var(--red); }
+.edition-demo .presc-ruler-ends {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: 3px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+}
+.edition-demo .presc-ruler.tone-red .presc-ruler-ends span:nth-child(2) { color: var(--red); font-weight: 700; }
+.edition-demo .presc-ruler-note { font-size: 10px; color: var(--orange); margin-top: 2px; }
+
 /* ─── Mesa de prazos (clássico + Beta) ─── */
 /* height:0 + flex-grow: o painel herda a altura do main-content e o
    corpo rola; o rodapé SILENCIADOS fica no fluxo (não sobrepõe as linhas). */

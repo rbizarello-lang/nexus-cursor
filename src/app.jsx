@@ -254,7 +254,7 @@ const generateDemoData = () => {
 
   const executions = [
     // Op1
-    { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, protocolDate: iso(-500), notesList:['Penhora imóvel ativa', 'Exceção de pré-executividade pendente'] },
+    { id:'ex-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', hasGuarantee:false, prescriptionInterrupted:true, analyticsRegistered:true, isRelevant:true, meuAcervo:true, copiaNaPasta:true, protocolDate: iso(-500), notesList:['Penhora imóvel ativa', 'Exceção de pré-executividade pendente'] },
     { id:'ex-1b', operationId:'op-demo-1', processNumber:'5001235-56.2023.4.04.7001', className:'Execução Fiscal', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', parentExecutionId:'ex-1', protocolDate: iso(-450), notesList:['Execução apensada à principal'] },
     { id:'ex-2', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', className:'Incidente de Desconsideração da Personalidade Jurídica', court:'1ª Vara Federal de Maringá', processTag:'idpj', status:'ativa', linkedExecutionIds:['ex-1', 'ex-1b'], protocolDate: iso(-120) },
     { id:'ex-18', operationId:'op-demo-1', processNumber:'5001240-56.2024.4.04.7001', className:'Exceção de Pré-Executividade', court:'1ª Vara Federal de Maringá', processTag:'normal', status:'ativa', parentExecutionId:'ex-1', protocolDate: iso(-40) },
@@ -277,7 +277,7 @@ const generateDemoData = () => {
     // Op5
     { id:'ex-11', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', protocolDate: iso(-1100), notesList:['CNIB fazenda ativo'] },
     { id:'ex-16', operationId:'op-demo-5', processNumber:'5006699-22.2025.4.04.7006', className:'Medida Cautelar Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'cautelar_fiscal', status:'ativa', linkedExecutionIds:['ex-11'], protocolDate: iso(-25) },
-    { id:'ex-25', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', protocolDate: iso(-700) },
+    { id:'ex-25', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', className:'Execução Fiscal', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', acompanhar:true, protocolDate: iso(-700) },
     { id:'ex-26', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', className:'Exceção de Pré-Executividade', court:'Vara Federal de Ponta Grossa', processTag:'normal', status:'ativa', parentExecutionId:'ex-11', protocolDate: iso(-12) },
   ];
 
@@ -332,23 +332,23 @@ const generateDemoData = () => {
   ];
 
   const tasks = [
-    { id:'ta-1', operationId:'op-demo-1', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
-    { id:'ta-10', operationId:'op-demo-1', title:'Preparar memorial audiência IDPJ', description:'Roteiro + documentos do grupo econômico.', priority:'alta', dueDate: iso(3), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-1', operationId:'op-demo-1', processNumber:'5001234-56.2023.4.04.7001', title:'Requerer extensão de penhora sobre imóvel matrícula 45.678', description:'Peticionar nos autos da EF requerendo ampliação da constrição.', priority:'alta', dueDate: iso(3), status:'pendente', taskVisibility:'global' },
+    { id:'ta-10', operationId:'op-demo-1', processNumber:'5009876-11.2024.4.04.7001', title:'Preparar memorial audiência IDPJ', description:'Roteiro + documentos do grupo econômico.', priority:'alta', dueDate: iso(3), status:'em_andamento', taskVisibility:'operation' },
     { id:'ta-16', operationId:'op-demo-1', title:'Mapear quotas Norte Prime', description:'Cruzar Analytics com contratos sociais.', priority:'media', dueDate: iso(7), status:'pendente', taskVisibility:'operation' },
-    { id:'ta-17', operationId:'op-demo-1', title:'Contrarrazões ao agravo IDPJ', description:'Prazo em curso no TRF4.', priority:'alta', dueDate: iso(8), status:'em_andamento', taskVisibility:'global' },
-    { id:'ta-2', operationId:'op-demo-2', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-17', operationId:'op-demo-1', processNumber:'5001250-56.2025.4.04.7001', title:'Contrarrazões ao agravo IDPJ', description:'Prazo em curso no TRF4.', priority:'alta', dueDate: iso(8), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-2', operationId:'op-demo-2', processNumber:'5007780-88.2023.4.04.7002', title:'Elaborar réplica aos embargos à execução', description:'Rebater tese de excesso de execução.', priority:'media', dueDate: iso(9), status:'em_andamento', taskVisibility:'operation' },
     { id:'ta-11', operationId:'op-demo-2', title:'Renovar Sisbajud — Vale Verde', description:'Novo ciclo de pesquisa patrimonial.', priority:'media', dueDate: iso(14), status:'pendente', taskVisibility:'operation' },
-    { id:'ta-18', operationId:'op-demo-2', title:'Avançar IDPJ contra Carlos Menezes', description:'Consolidar provas de interposição.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
+    { id:'ta-18', operationId:'op-demo-2', processNumber:'5003340-22.2025.4.04.7002', title:'Avançar IDPJ contra Carlos Menezes', description:'Consolidar provas de interposição.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
     { id:'ta-19', operationId:'op-demo-2', title:'Avaliar CNIB do galpão Londrina', description:'Pedido de indisponibilidade ainda pendente.', priority:'media', dueDate: iso(11), status:'pendente', taskVisibility:'operation' },
     { id:'ta-3', operationId:'op-demo-3', title:'Analisar viabilidade de redirecionamento à sucessora', description:'Reunir provas da sucessão de fato para IDPJ.', priority:'media', dueDate: iso(-4), status:'pendente', taskVisibility:'global' },
     { id:'ta-15', operationId:'op-demo-3', title:'Decidir IDPJ Nova Metal Sul', description:'Parecer interno sobre sucessão de fato.', priority:'alta', dueDate: iso(8), status:'pendente', taskVisibility:'global' },
-    { id:'ta-20', operationId:'op-demo-3', title:'Réplica aos embargos — Metalúrgica Sul', description:'Aguardando subsídios do setor de cálculo.', priority:'alta', dueDate: iso(7), status:'em_andamento', taskVisibility:'operation' },
+    { id:'ta-20', operationId:'op-demo-3', processNumber:'5008888-77.2025.4.04.7003', title:'Réplica aos embargos — Metalúrgica Sul', description:'Aguardando subsídios do setor de cálculo.', priority:'alta', dueDate: iso(7), status:'em_andamento', taskVisibility:'operation' },
     { id:'ta-21', operationId:'op-demo-3', title:'Reavaliar imóvel CIC liberado', description:'Verificar se cabe nova constrição pós-embargos.', priority:'baixa', dueDate: iso(20), status:'pendente', taskVisibility:'operation' },
     { id:'ta-7', operationId:'op-demo-4', title:'Homologar cálculo de garantia', description:'Conferir cobertura vs crédito remanescente.', priority:'media', dueDate: iso(21), status:'pendente', taskVisibility:'operation' },
     { id:'ta-22', operationId:'op-demo-4', title:'Acompanhar parcelamento CSLL', description:'Monitorar inadimplência do parcelamento.', priority:'baixa', dueDate: iso(15), status:'pendente', taskVisibility:'operation' },
     { id:'ta-23', operationId:'op-demo-4', title:'Petição — SPE Atlântico Imóveis', description:'Avancar constrição sobre quotas da SPE.', priority:'media', dueDate: iso(6), status:'em_andamento', taskVisibility:'global' },
-    { id:'ta-8', operationId:'op-demo-5', title:'Agendar diligência na fazenda', description:'Coordenar com oficial de justiça / CNIB.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
-    { id:'ta-24', operationId:'op-demo-5', title:'Impugnar exceção de pré-executividade (ITR)', description:'Prazo curto — minuta em edição.', priority:'urgente', dueDate: iso(3), status:'em_andamento', taskVisibility:'global' },
+    { id:'ta-8', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', title:'Agendar diligência na fazenda', description:'Coordenar com oficial de justiça / CNIB.', priority:'alta', dueDate: iso(5), status:'pendente', taskVisibility:'global' },
+    { id:'ta-24', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', title:'Impugnar exceção de pré-executividade (ITR)', description:'Prazo curto — minuta em edição.', priority:'urgente', dueDate: iso(3), status:'em_andamento', taskVisibility:'global' },
     { id:'ta-25', operationId:'op-demo-5', title:'Estender Renajud a colheitadeira', description:'Pedido ainda sem resultado útil.', priority:'alta', dueDate: iso(4), status:'pendente', taskVisibility:'operation' },
     { id:'ta-26', operationId:'op-demo-5', title:'Oficiar cooperativa — retenção de créditos', description:'Garantir bloqueio de valores a pagar.', priority:'media', dueDate: iso(10), status:'pendente', taskVisibility:'operation' },
     { id:'ta-4', operationId:'', title:'Revisar rotina de importação do eproc (geral)', description:'Tarefa geral, sem operação vinculada.', priority:'baixa', dueDate: iso(18), status:'pendente', taskVisibility:'global' },
@@ -857,6 +857,123 @@ function isIncidentOnPanorama(e) {
   return isIncidentProcess(e) && e.inPanorama !== false;
 }
 
+/** Tipos de evento prescricional que comprovam constrição/indisponibilidade no processo. */
+const PROC_CONSTRICTION_EVENT_TYPES = new Set([
+  'int_penhora', 'int_arresto', 'int_sisbajud', 'int_cnib', 'susp_idpj_mcf_constricao'
+]);
+
+/** Constrição já ligada ao processo por bem (processRef) ou evento prescricional. */
+function execHasLinkedConstriction(exec, data) {
+  if (!exec) return false;
+  const opId = exec.operationId;
+  const hasAsset = (data?.assets || []).some(a =>
+    a.operationId === opId
+    && a.processRef
+    && sameProc(a.processRef, exec.processNumber)
+    && (a.status === 'indisponibilidade_ativa' || a.status === 'indisponibilidade_requerida')
+  );
+  if (hasAsset) return true;
+  return (data?.prescriptionEvents || []).some(ev =>
+    ev.executionId === exec.id && PROC_CONSTRICTION_EVENT_TYPES.has(ev.type)
+  );
+}
+
+function execShowsConstriction(exec, data) {
+  return !!(exec && (exec.hasConstriction || execHasLinkedConstriction(exec, data)));
+}
+
+/** Tarefa em aberto já ligada ao processo pelo nº CNJ (`processNumber`), como no alerta do card. */
+function execHasOpenTask(exec, data) {
+  if (!exec || !normProc(exec.processNumber)) return false;
+  return (data?.tasks || []).some(t =>
+    t.status !== 'concluida' && t.status !== 'cancelada'
+    && sameProc(t.processNumber, exec.processNumber)
+    && (!exec.operationId || !t.operationId || t.operationId === exec.operationId)
+  );
+}
+
+/** Intimação na caixa de entrada ativa (`intimIsOpenWork`), pelo mesmo nº CNJ. */
+function execHasOpenIntim(exec, data) {
+  if (!exec || !normProc(exec.processNumber)) return false;
+  return (data?.intimations || []).some(x =>
+    intimIsOpenWork(x)
+    && sameProc(x.processNumber, exec.processNumber)
+    && (!exec.operationId || !x.operationId || x.operationId === exec.operationId)
+  );
+}
+
+/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação). */
+function ProcRowSymbols({ exec, data }) {
+  if (!exec) return null;
+  const showStar = !!exec.isRelevant;
+  const showPin = !!exec.meuAcervo;
+  const showWatch = !!exec.acompanhar;
+  const showCopy = !!exec.copiaNaPasta;
+  const showLock = execShowsConstriction(exec, data);
+  const showTask = execHasOpenTask(exec, data);
+  const showIntim = execHasOpenIntim(exec, data);
+  if (!showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
+  const copyTip = exec.copiaNaPastaDate
+    ? `Cópia na pasta · ${fmtDate(exec.copiaNaPastaDate)}`
+    : 'Cópia na pasta';
+  return (
+    <span className="proc-row-syms" onClick={ev => ev.stopPropagation()}>
+      {showStar && (
+        <span className="proc-row-sym proc-row-sym-star has-tip" title="Relevante" aria-label="Relevante">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z"/>
+          </svg>
+          <span className="tip-content">Relevante</span>
+        </span>
+      )}
+      {showPin && (
+        <span className="proc-row-sym has-tip" title="Meu acervo" aria-label="Meu acervo">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3.5 11.2 12 4.2l8.5 7"/>
+            <path d="M6 10.6V19.5h12V10.6"/>
+            <path d="M10 19.5v-5h4v5"/>
+          </svg>
+          <span className="tip-content">Meu acervo</span>
+        </span>
+      )}
+      {showWatch && (
+        <span className="proc-row-sym has-tip" title="Acompanhar" aria-label="Acompanhar">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/>
+          </svg>
+          <span className="tip-content">Acompanhar</span>
+        </span>
+      )}
+      {showCopy && (
+        <span className="proc-row-sym has-tip" title={copyTip} aria-label={copyTip}>
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/>
+          </svg>
+          <span className="tip-content">{copyTip}</span>
+        </span>
+      )}
+      {showLock && (
+        <span className="proc-row-sym has-tip" title="Constrição" aria-label="Constrição">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/>
+          </svg>
+          <span className="tip-content">Constrição</span>
+        </span>
+      )}
+      {showTask && (
+        <span className="proc-row-dot proc-row-dot-task has-tip" title="Tarefa" aria-label="Tarefa">
+          <span className="tip-content">Tarefa</span>
+        </span>
+      )}
+      {showIntim && (
+        <span className="proc-row-dot proc-row-dot-intim has-tip" title="Intimação aberta" aria-label="Intimação aberta">
+          <span className="tip-content">Intimação aberta</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function execCdaValue(ef, debts) {
   return (debts || []).filter(d => sameProc(d.processNumber, ef && ef.processNumber)).reduce((s, d) => s + (d.value || 0), 0);
 }
@@ -890,20 +1007,34 @@ function computeIncidentCoverage(execs, debts) {
   return { idpjs, efsByIncident, coveredIds, coveredEFs, uncoveredEFs, coveredTotal, uncoveredTotal, grand, pct };
 }
 
-/** Espécie curta para Outros processos (coluna Espécie + chips). */
+/** Espécie curta para Outros processos (coluna Espécie + chips na linha). */
 function otherSpecies(e) {
-  const cn = (e?.className || '').toLowerCase();
-  if (/mandado\s+de\s+seguran[çc]a|\bms\b/.test(cn)) return { code: 'MS', label: 'Mandado de segurança' };
+  const raw = e?.className || '';
+  const cn = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/mandado\s+de\s+seguranca|\bms\b/.test(cn)) return { code: 'MS', label: 'Mandado de segurança' };
   if (/agravo\s+de\s+instrumento|agravo\s+instrument/.test(cn)) return { code: 'AI', label: 'Agravo de instrumento' };
+  if (/agravo\s+interno|agravo\s+regimental/.test(cn)) return { code: 'AGI', label: 'Agravo interno' };
+  if (/apelac/.test(cn)) return { code: 'APL', label: 'Apelação' };
+  if (/recurso\s+inominado/.test(cn)) return { code: 'RI', label: 'Recurso inominado' };
+  if (/recurso\s+especial/.test(cn)) return { code: 'RESP', label: 'Recurso especial' };
+  if (/recurso\s+extraordinario/.test(cn)) return { code: 'RE', label: 'Recurso extraordinário' };
+  if (/reexame\s+necessario|remessa\s+necessaria/.test(cn)) return { code: 'RN', label: 'Remessa necessária' };
+  if (/reclamacao/.test(cn)) return { code: 'RCL', label: 'Reclamação' };
+  if (/embargos?\s+de\s+declaracao/.test(cn)) return { code: 'ED', label: 'Embargos de declaração' };
+  if (/embargos?\s+infringente/.test(cn)) return { code: 'EI', label: 'Embargos infringentes' };
+  if (/embargos?\s+de\s+divergencia/.test(cn)) return { code: 'EDV', label: 'Embargos de divergência' };
+  if (/embargos?\s+de\s+terceir/.test(cn)) return { code: 'ET', label: 'Embargos de terceiro' };
+  if (/embargos?.{0,24}execucao/.test(cn)) return { code: 'EMB', label: 'Embargos à execução' };
   if (/embargo/.test(cn)) return { code: 'EMB', label: 'Embargos' };
-  if (/apela[çc][ãa]o/.test(cn)) return { code: 'APL', label: 'Apelação' };
-  if (/procedimento\s+comum|conhecimento|a[çc][ãa]o\s+ordin[aá]ria|monit[oó]ria/.test(cn)) {
+  if (/excecao\s+de\s+pre/.test(cn)) return { code: 'EPE', label: 'Exceção de pré-executividade' };
+  if (/procedimento\s+comum|conhecimento|acao\s+ordinaria|monitoria/.test(cn)) {
     return { code: 'PROC', label: 'Procedimento comum' };
   }
-  if (/cumprimento\s+de\s+senten[çc]a/.test(cn)) return { code: 'OUTROS', label: 'Cumprimento de Sentença' };
-  return { code: 'OUTROS', label: e?.className || 'Outros' };
+  if (/cumprimento\s+de\s+sentenca/.test(cn)) return { code: 'CUMP', label: 'Cumprimento de sentença' };
+  if (/agravo/.test(cn)) return { code: 'AG', label: raw || 'Agravo' };
+  if (/\brecurso\b/.test(cn)) return { code: 'REC', label: raw || 'Recurso' };
+  return { code: 'OUTROS', label: raw || 'Outros' };
 }
-/** @deprecated use otherSpecies — mantido para chips legíveis */
 
 /** Card superior = IDPJ / Cautelar / Central / Execução Fiscal. Demais → Outros. */
 function isOtherProcClass(e) {
@@ -2113,6 +2244,56 @@ function ProcNum({ exec, value, empty = '—', className = '', style, maxLen, pr
     <Copyable value={raw} className={`proc-num ${className}`.trim()} style={style} title={`Clique para copiar: ${raw}`}>
       {prefix}{shown}
     </Copyable>
+  );
+}
+
+/** Beta: etiqueta "ficha de arquivo" — categoria e valor na mesma peça, separados por picote. */
+function Ficha({ k, children, tone = '', title }) {
+  return (
+    <span className={`ficha${tone ? ' ' + tone : ''}`} title={title}>
+      <span className="ficha-k">{k}</span>
+      <span className="ficha-v">{children}</span>
+    </span>
+  );
+}
+
+/** Beta: carimbo só para estados finais ou raros (extinta, arquivada, garantida). */
+const STAMP_EF_BANDS = new Set(['extinta', 'arquivada']);
+const STAMP_DEBT_STATUSES = new Set(['garantida', 'extinta']);
+
+/**
+ * Beta: régua do quinquênio. Só desenha datas que a linha do tempo já calculou
+ * (diesAQuo → diesAdQuem + ocorrências); não faz cálculo de prescrição próprio.
+ */
+function PrescRuler({ seg, seal }) {
+  if (!seg || !seg.diesAQuo || !seg.diesAdQuem) return null;
+  if (seg.phase === 'interrompido' || seg.phase === 'nao_iniciado') return null;
+  const t = (iso) => new Date(String(iso).slice(0, 10) + 'T00:00:00').getTime();
+  const start = t(seg.diesAQuo), end = t(seg.diesAdQuem);
+  if (!(end > start)) return null;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const pos = (ms) => Math.max(0, Math.min(100, ((ms - start) / (end - start)) * 100));
+  const nowPct = pos(now.getTime());
+  const daysLeft = Math.round((end - now.getTime()) / 86400000);
+  const tone = daysLeft <= 180 ? 'red' : daysLeft <= 540 ? 'yellow' : 'neutral';
+  const marks = (seg.occurrences || [])
+    .filter(o => o.date && t(o.date) > start && t(o.date) < end)
+    .map((o, i) => ({ key: i, pct: pos(t(o.date)), title: fmtDate(o.date) + ' · ' + betaSafeUiText(o.fact || '') }));
+  const estimated = seal === 'estimado';
+  return (
+    <div className={`presc-ruler tone-${tone}${estimated ? ' estimated' : ''}`}>
+      <div className="presc-ruler-track">
+        <div className="presc-ruler-fill" style={{ width: nowPct + '%' }} />
+        {marks.map(m => <span key={m.key} className="presc-ruler-mark" style={{ left: m.pct + '%' }} title={m.title} />)}
+        <span className="presc-ruler-now" style={{ left: nowPct + '%' }} title={'Hoje · ' + fmtDate(localIso(now))} />
+      </div>
+      <div className="presc-ruler-ends">
+        <span>{fmtDate(seg.diesAQuo)}</span>
+        <span>{daysLeft < 0 ? 'termo passou' : daysLeft === 0 ? 'termo hoje' : `faltam ${daysLeft}d`}</span>
+        <span>{fmtDate(seg.diesAdQuem)}</span>
+      </div>
+      {estimated && <div className="presc-ruler-note">Datas estimadas: confira nos autos.</div>}
+    </div>
   );
 }
 
@@ -6813,7 +6994,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
             {(() => {
               const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} />;
+              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />;
             })()}
             <div className="cda-inline-fields">
               {field('Status', st.label || d.status)}
@@ -6948,12 +7129,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           return { intims, tasks, overdueIntim: intims.some(x => x.dateDeadline && new Date(x.dateDeadline+'T00:00:00') < today), overdueTask: tasks.some(t => t.dueDate && new Date(t.dueDate+'T00:00:00') < today) };
         })() : { intims: [], tasks: [] };
 
-        // Relevance flag
         const isRelevant = isExec && e.isRelevant;
-        const toggleRelevant = (ev) => {
-          ev.stopPropagation();
-          upsert('executions', { ...e, isRelevant: !e.isRelevant });
-        };
 
         // Border color based on variant
         const borderLeftColor = cardVariant === 'idpj' ? 'var(--pgfn)'
@@ -7095,7 +7271,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <div className="proc-expand-toolbar">
                   {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
                   <div className="process-meta">
-                    <button type="button" className={isRelevant?'active':''} onClick={toggleRelevant}>{isRelevant?'Relevante':'Marcar relevante'}</button>
+                    {isDemo ? (<>
+                      {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                      {myApensosGroups.length > 0 && <Ficha k="Apensos">{myApensosGroups.length}</Ficha>}
+                      {isTagged && <Ficha k="Classe" tone="accent">{tagLabels[e.processTag]||e.processTag}</Ficha>}
+                      {isLinkedToIDPJ2 && !isTagged && <Ficha k="Vínculo">IDPJ</Ficha>}
+                      <span className={`ef-status-badge ${efBandKey(e)}${STAMP_EF_BANDS.has(efBandKey(e)) ? ' stamp' : ''}`}>{st.label||e.status}</span>
+                      {e.hasGuarantee && <span className="ef-status-badge stamp stamp-green">Garantia</span>}
+                      {e.prescriptionInterrupted && <Ficha k="Prescrição">interrompida</Ficha>}
+                      {procAlerts.intims.length > 0 && <Ficha k="Intimações" tone={procAlerts.overdueIntim ? 'overdue' : ''}>{procAlerts.intims.length}</Ficha>}
+                      {procAlerts.tasks.length > 0 && <Ficha k="Tarefas" tone={procAlerts.overdueTask ? 'overdue' : ''}>{procAlerts.tasks.length}</Ficha>}
+                    </>) : (<>
                     {isApenso && <span className="proc-meta-chip">Apenso</span>}
                     {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
                     {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
@@ -7105,6 +7291,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     {e.prescriptionInterrupted && <span className="proc-meta-chip" title="Prescrição interrompida">PI</span>}
                     {procAlerts.intims.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueIntim?' overdue':''}`}>{procAlerts.intims.length} intimação(ões)</span>}
                     {procAlerts.tasks.length > 0 && <span className={`proc-meta-chip${procAlerts.overdueTask?' overdue':''}`}>{procAlerts.tasks.length} tarefa(s)</span>}
+                    </>)}
                   </div>
                 </div>
                 <div className="proc-expand-facts">
@@ -7427,7 +7614,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                             <Copyable value={d.cdaNumber || ''} className="cda-link">{d.cdaNumber || 'CDA'}</Copyable>
                           </td>
                           <td><span className="especie-badge" title={especie}>{especie}</span></td>
-                          <td><span className="ef-status-badge nao_ajuizada">{st.label || d.status || '—'}</span></td>
+                          <td><span className={`ef-status-badge nao_ajuizada${isDemo && STAMP_DEBT_STATUSES.has(d.status) ? ' stamp stamp-' + (d.status === 'garantida' ? 'green' : 'muted') : ''}`}>{st.label || d.status || '—'}</span></td>
                           <td>{fmtCur(d.value || 0)}</td>
                           <td className={`risk-${riskClass}${meta && meta.g1 ? ' intim-deadline overdue' : ''}`}>{prescLabel}</td>
                           <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
@@ -7457,7 +7644,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           if (!exec) return <span className="ef-status-badge">Não ajuizadas</span>;
           const k = efBandKey(exec);
           const label = EXEC_STATUSES[exec.status]?.label || exec.status || '—';
-          return <span className={`ef-status-badge ${k}`}>{label}</span>;
+          return <span className={`ef-status-badge ${k}${isDemo && STAMP_EF_BANDS.has(k) ? ' stamp' : ''}`}>{label}</span>;
         };
 
         const otherBucketMeta = {
@@ -7492,19 +7679,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           requestAnimationFrame(() => setTimeout(() => tryScroll(10), 60));
         };
 
-        const relatedChips = (execId) => {
+        const relatedChips = (execId, mode = 'full') => {
           const rel = (othersByParent && othersByParent[execId]) || [];
           if (!rel.length) return null;
+          const compact = mode === 'siglas';
           return (
-            <div className="proc-rel-chips" onClick={ev => ev.stopPropagation()}>
+            <div className={`proc-rel-chips${compact ? ' proc-rel-chips-siglas' : ' proc-rel-chips-full'}`} onClick={ev => ev.stopPropagation()}>
               {rel.map(og => {
                 const sp = otherSpecies(og.exec);
                 const bucketLabel = otherBucketMeta[otherProcBucket(og.exec)]?.title || 'Outros';
+                const num = og.exec.processNumber || 'S/N';
                 return (
-                  <button type="button" key={og.exec.id} className="proc-rel-chip"
-                    title={`Abrir em ${bucketLabel}: ${sp.label}`}
+                  <button type="button" key={og.exec.id} className={`proc-rel-chip${compact ? ' proc-rel-chip-sigla' : ''}`}
+                    title={compact ? `${sp.label}: ${num}` : `Abrir em ${bucketLabel}: ${sp.label}`}
                     onClick={() => jumpToOther(og.exec.id)}>
-                    <ProcNum exec={og.exec} empty="S/N" maxLen={18} className="mono" />
+                    {!compact && <ProcNum exec={og.exec} empty="S/N" className="mono" />}
                     <span className="nat">{sp.code}</span>
                   </button>
                 );
@@ -7585,10 +7774,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <React.Fragment key={rowId}>
                 <tr id={domId} className={`demo-proc-table-row risk-${meta.riskClass}${expanded ? ' open' : ''} ${bandCls}${nested ? ' is-apenso' : ''}${isRelevant ? ' is-relevant' : ''}`}
                   onClick={() => toggleGroup(pk)}>
-                  <td className={`mono${nested ? ' proc-apenso-cell' : ''}`}>
+                  <td className={`mono proc-num-col${nested ? ' proc-apenso-cell' : ''}`}>
                     {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
                     {g.type === 'unlinked' ? 'CDAs sem processo' : <ProcNum exec={g.exec} />}
-                    {isRelevant && <span className="relevant-star" title="Processo relevante">★</span>}
                     {(nested || isStandaloneApenso) && apensoBadge}
                     {isStandaloneApenso && (
                       <span className="proc-apenso-parent-ref" title={`Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
@@ -7596,14 +7784,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       </span>
                     )}
                     {g.type === 'exec' && dupBadge(g.exec.id)}
-                    {!isOthers && g.type === 'exec' && relatedChips(g.exec.id)}
+                    {!isOthers && g.type === 'exec' && relatedChips(g.exec.id, 'siglas')}
                     {!isOthers && childApensos.length > 0 && (
                       <span className="apenso-count" title={`${childApensos.length} apenso(s)`}>
                         {childApensos.length} apenso{childApensos.length === 1 ? '' : 's'}
                       </span>
                     )}
                   </td>
-                  <td>{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
+                  {!isClaude && <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} /> : null}</td>}
+                  <td className="proc-status-col">{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
                   {isOthers ? (
                     <>
                       <td className="proc-related-cell">
@@ -7624,8 +7813,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </>
                   ) : (
                     <>
-                      <td>{fmtCur(meta.total)}</td>
-                      <td className={`risk-${meta.riskClass}`}>{meta.label}</td>
+                      <td className="proc-valor-col">{fmtCur(meta.total)}</td>
+                      <td className={`proc-presc-col risk-${meta.riskClass}`}>{meta.label}</td>
                     </>
                   )}
                   <td className="proc-md-row-actions" onClick={ev => ev.stopPropagation()}>
@@ -7637,7 +7826,15 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 </tr>
                 {expanded && (
                   <tr className="demo-proc-table-detail">
-                    <td colSpan={5}>{ProcPrescCard({ group: g, cardVariant: cv, hideProcessNumber: true, isApenso: nested })}</td>
+                    <td colSpan={6}>
+                      {!isOthers && g.type === 'exec' && (othersByParent[g.exec.id] || []).length > 0 && (
+                        <div className="proc-row-rel-full">
+                          <div className="proc-md-block-label">Recursos / embargos vinculados</div>
+                          {relatedChips(g.exec.id, 'full')}
+                        </div>
+                      )}
+                      {ProcPrescCard({ group: g, cardVariant: cv, hideProcessNumber: true, isApenso: nested })}
+                    </td>
                   </tr>
                 )}
                 {!isOthers && childApensos.map(ap => renderOneRow(ap, { nested: true }))}
@@ -7650,9 +7847,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               <table className="demo-proc-table proc-md-table">
                 <thead>
                   <tr>
-                    <th>Processo</th>
-                    <th>Status</th>
-                    {isOthers ? <><th>Relacionado</th><th>Espécie</th></> : <><th>Valor</th><th>Prescrição</th></>}
+                    <th className="proc-num-col">Processo</th>
+                    {!isClaude && <th className="proc-syms-col" aria-label="Indicadores"></th>}
+                    <th className="proc-status-col">Status</th>
+                    {isOthers ? <><th>Relacionado</th><th>Espécie</th></> : <><th className="proc-valor-col">Valor</th><th className="proc-presc-col">Prescrição</th></>}
                     <th></th>
                   </tr>
                 </thead>
@@ -7914,7 +8112,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                           {(othersByParent[selectedHub.exec.id] || []).length > 0 && (
                             <div className="proc-hub-rel">
                               <div className="proc-md-block-label">Recursos / embargos vinculados</div>
-                              {relatedChips(selectedHub.exec.id)}
+                              {relatedChips(selectedHub.exec.id, 'full')}
                             </div>
                           )}
                         </div>
@@ -8406,6 +8604,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
     const isEdit = type === 'edit';
     return <EntityFormRouter entityType={entityType} initial={initial} data={data} operationId={activeOpId}
+      showListIndicators={!isClaude}
       addResponsibility={addResponsibility} removeResponsibility={removeResponsibility}
       onSave={(e) => handleSave(entityType, e)} onCancel={requestCloseModal}
       onDirtyChange={(d) => { modalDirtyRef.current = !!d; }}
@@ -8867,9 +9066,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     return (
       <div key={r.id} className={`mesa-row g${r.group}${isG1Vencido(r) ? ' g1-vencido' : ''}`}>
         <div className="mesa-row-main">
-          <span className="mesa-cda">{r.cdaNumber || 'S/N'}</span>
+          {isDemo
+            ? <Ficha k="CDA" tone="accent"><span className="mesa-cda">{r.cdaNumber || 'S/N'}</span></Ficha>
+            : <span className="mesa-cda">{r.cdaNumber || 'S/N'}</span>}
           <span className="mesa-proc">{r.processNumber ? <ProcNum value={r.processNumber} /> : 'sem processo'}</span>
-          <span className={`mesa-cert ${cert}`}>{cert}</span>
+          {isDemo
+            ? <Ficha k="Cálculo" tone={'cert-' + cert}>{cert}</Ficha>
+            : <span className={`mesa-cert ${cert}`}>{cert}</span>}
           {expired && <span className="mesa-expired">expirou o silêncio</span>}
           <span className="mesa-why">{betaSafeUiText(r.why || r.prescLabel || '')}</span>
           <span className="mesa-val">{fmtCur(r.value || 0)}</span>
@@ -12121,7 +12324,7 @@ function SidaHistoryBlock({ debt }) {
   );
 }
 
-function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
+function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo }) {
   if (!timeline) return null;
   const keys = [
     { key: 'decadencia', title: 'Decadência' },
@@ -12146,6 +12349,7 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules }) {
               <span className="cda-presc-title">{title}</span>
               <span className={'cda-presc-seal ' + sealClass}>{safe(col.seal)}</span>
             </div>
+            {isDemo && key !== 'decadencia' && <PrescRuler seg={timeline[key]} seal={col.seal} />}
             <div className="cda-presc-block">
               <div className="cda-presc-k">Situação</div>
               <div className="cda-presc-sum">
@@ -12258,7 +12462,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
           <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>Editar</button>
         </div>
       )}
-      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} />
+      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} isDemo={isDemo} />
       <div className="cda-inline-fields">
         {field('Devedor', personName)}
         {field('CPF/CNPJ', d.cnpj)}
@@ -12854,7 +13058,7 @@ function CheckList({ options, selected, onChange, emptyText, alwaysSearch }) {
   </div>);
 }
 
-function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo }) {
+function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo, showListIndicators = true }) {
   // Migração one-shot: se esta entidade é intimação com obs1/obs2 legado e ainda não tem notesList,
   // converte ao abrir o formulário. Os campos antigos são removidos no save (ver `save` abaixo).
   const migratedInitial = (() => {
@@ -13153,6 +13357,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
 
   if (entityType === 'execution') {
     const opExecs = (data?.executions||[]).filter(e=>e.operationId===operationId && e.id !== form.id);
+    const linkedConstriction = execHasLinkedConstriction(form, data);
     return (<>
     <div className="form-group"><label>Nº Processo</label><input value={form.processNumber||''} onChange={e=>set('processNumber',e.target.value)} placeholder="50000000020244047001" style={validateCNJ(form.processNumber) === false ? {borderColor:'var(--red)'} : {}} />
       {validateCNJ(form.processNumber) === false && <span style={{fontSize:10,color:'var(--red)',fontWeight:600}}>⚠ Dígito verificador CNJ inválido — confira o número (um typo aqui impede o casamento com importações do eproc).</span>}
@@ -13172,6 +13377,45 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(EXEC_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
+    {showListIndicators && <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8}}>
+      <label style={{display:'block',marginBottom:8}}>Indicadores na lista</label>
+      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginBottom:8}}>
+        <input type="checkbox" checked={!!form.isRelevant} onChange={e=>set('isRelevant', e.target.checked)} style={{width:15,height:15,cursor:'pointer'}} />
+        <span>Relevante</span>
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginBottom:8}}>
+        <input type="checkbox" checked={!!form.meuAcervo} onChange={e=>set('meuAcervo', e.target.checked)} style={{width:15,height:15,cursor:'pointer'}} />
+        <span>Meu acervo <span style={{fontSize:10,color:'var(--text-muted)'}}>— sob meus cuidados</span></span>
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginBottom:8}}>
+        <input type="checkbox" checked={!!form.acompanhar} onChange={e=>set('acompanhar', e.target.checked)} style={{width:15,height:15,cursor:'pointer'}} />
+        <span>Acompanhar <span style={{fontSize:10,color:'var(--text-muted)'}}>— fora do acervo, mas preciso acompanhar</span></span>
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginBottom: form.copiaNaPasta ? 8 : 0}}>
+        <input type="checkbox" checked={!!form.copiaNaPasta} onChange={e => {
+          const on = e.target.checked;
+          setForm(prev => ({ ...prev, copiaNaPasta: on, copiaNaPastaDate: on ? (prev.copiaNaPastaDate || '') : '' }));
+        }} style={{width:15,height:15,cursor:'pointer'}} />
+        <span>Cópia na pasta <span style={{fontSize:10,color:'var(--text-muted)'}}>— download para análise</span></span>
+      </label>
+      {form.copiaNaPasta && (
+        <div className="form-group" style={{marginBottom: linkedConstriction ? 8 : 0, marginLeft:23}}>
+          <label>Data da cópia</label>
+          <input type="date" value={form.copiaNaPastaDate||''} onChange={e=>set('copiaNaPastaDate', e.target.value)} />
+        </div>
+      )}
+      {linkedConstriction ? (
+        <div style={{fontSize:11,color:'var(--text-secondary)',marginTop: form.copiaNaPasta ? 0 : 8}}>
+          Constrição: <strong style={{color:'var(--text-primary)'}}>sim</strong>
+          <span style={{color:'var(--text-muted)'}}> — bem ou evento já vinculado a este processo</span>
+        </div>
+      ) : (
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,marginTop:8}}>
+          <input type="checkbox" checked={!!form.hasConstriction} onChange={e=>set('hasConstriction', e.target.checked)} style={{width:15,height:15,cursor:'pointer'}} />
+          <span>Constrição</span>
+        </label>
+      )}
+    </div>}
     {isHubProcess(form) && !isIncidentProcess(form) && (
       <div style={{padding:'8px 10px',fontSize:11,color:'var(--text-secondary)',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8}}>
         Este processo já tem card no Panorama processual por ser processo central.
