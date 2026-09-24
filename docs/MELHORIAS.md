@@ -20,7 +20,7 @@ Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdi
 
 ---
 
-## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 e 2 no app (✅ 24/09/2026)
+## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 a 4 no app (✅ 24/09/2026)
 
 Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
 
@@ -28,7 +28,10 @@ Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo ún
 - **Direção escolhida:** Ardósia (claro). **Nome da edição:** Nexus Prumo (24/09/2026). Chave interna continua `uiEdition: 'claude'`.
 - **Fase 1 (feita, dados reais):** terceira edição `uiEdition: 'claude'` (⚙ → “Nexus Prumo” ou `?edition=claude`). Menu lateral com operações e abas, barra superior com sync e busca, Hoje e Intimações (lista, quadro com arrastar, foco, gaveta com régua do prazo, gramática, notas e registrar atuação via `handleRespondIntim`). Demais telas são as do app dentro da casca, com tokens Ardósia. Código: `src/edition-claude.jsx` + bloco `EDIÇÃO CLAUDE` em `src/Nexus.shell.html`. Peso: +~195 KB no `Nexus.html`.
 - **Fase 2 (feita, dados reais):** Carteira em cartões (filtro por classificação, ordenação, dívida e garantia, revisão, risco prescricional); Visão geral da operação (nova primeira aba, só na Ardósia: indicadores, linha do tempo, intimações, prazos extintivos, agenda; Revisada/Editar/Diagnóstico/Relatório); Linha do tempo (menu Trabalho: processos, prazos de intimação, marcos, contagem do art. 40 pela CDA em pior situação e CDAs sem processo com o prazo para ajuizar); Prazos extintivos em modo Mesa novo (Precisa de você · No radar · Silenciados · Consumadas, selos Calculado/Estimado/Cadastro, adiar com motivo e limite, adesão ao parcelamento na linha). A Mesa chama as mesmas funções do app (`applyMesaAction`, `applyPrescSnooze`, `clearPrescSnooze`, `createInlineParcelamento`); “Lista completa” abre a lista clássica.
-- **Próximas fases (sugestão):** 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
+- **Fase 3 (feita, dados reais):** Tarefas (lista agrupada por data limite, prioridade ou operação; quadro por situação com arrastar; criação rápida com Enter; concluir no círculo; "Globais e avulsas" como no clássico ou "Todas", incluindo as internas); Agenda (semana, mês e lista de 30 dias com audiências, finais de prazo, tarefas com data limite e termos de prescrição dos grupos 1 a 4, com filtro por tipo e operação, e a lista de audiências com as realizadas); Mesa de trabalho (três colunas, reordenar arrastando ou com as setas, tirar da mesa, registrar atuação pela gaveta e sugestões do que vence logo). Tudo pelas funções do app (`upsert`, `handleSave`, `toggleDesk`, `removeFromDesk`, `reorderDeskInColumn`); edição completa continua nos formulários. Avisos (toast) do app aparecem no estilo da edição.
+- **Menu lateral (24/09):** busca de operação sempre visível (nome e descrição) e filtro por classificação igual ao do Clássico e da Beta. O filtro é o mesmo estado do app (`opClassFilter`): vale no menu, na Carteira e no Clássico ao trocar de edição.
+- **Fase 4 (feita, dados reais):** cabeçalho Prumo em todas as abas da operação (nome, classificações, revisão, resumo com dívida, garantia, CDAs, processos, intimações e alarme de prescrição; Revisada, Editar, Diagnóstico, Relatório; abas). Pessoas e Bens viram uma aba só, **Partes e bens**, com seletor interno (decisão P4), mantendo por baixo as abas `pessoas` e `bens`. Processos e prescrição, Inscrições e Partes e bens seguem com o conteúdo do app (sem reescrever prescrição) e ganham o visual Prumo (tipografia, botões, etiquetas, campos, cartões). Busca “Filtrar processo / CDA” da Beta ligada também no Prumo; corrigida para achar apensos (vale para a Beta).
+- **Próximas fases (sugestão):** 5 · Acompanhar, Biblioteca e Painel; depois, formulários (modais) no visual Prumo.
 - Detalhes e atalhos: `design/claude-experimental/README.md`.
 
 ---

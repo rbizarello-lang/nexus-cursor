@@ -3051,6 +3051,7 @@ function App() {
   const cdaScrollColsRef = useRef(false);
   const showToast = (msg) => {
     if (!msg) return;
+    if (isClaude) { cxNotify(msg); return; } // Nexus Prumo: um só aviso, no estilo da edição
     setFlashToast(msg);
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setFlashToast(null), 2800);
@@ -6601,7 +6602,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       // Apply person filter — show CDAs where the selected person has ANY responsibility role
       let items = cdaPersonFilter === 'all' ? allItems :
         allItems.filter(d => allLinks.some(l => l.cdaId === d.id && l.personId === cdaPersonFilter));
-      if (isDemo && procCdaQuery) {
+      if ((isDemo || isClaude) && procCdaQuery) {
         const qRaw = String(procCdaQuery).trim().toLowerCase();
         const qDigits = qRaw.replace(/\D/g, '');
         items = items.filter(d => {
@@ -6700,8 +6701,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
           <span style={{color:'var(--text-muted)',fontSize:11}}>{items.length} inscrição(ões){cdaPersonFilter !== 'all' && ` (filtrada de ${allItems.length})`} · Total ativo: {fmtCur(totalActive)}</span>
           <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            {isDemo && (
-              <input value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo / CDA" style={{width:180,fontSize:11,padding:'4px 8px'}} />
+            {(isDemo || isClaude) && (
+              <input value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo / CDA" className={isClaude ? 'cx-tab-q' : undefined} style={isClaude ? undefined : {width:180,fontSize:11,padding:'4px 8px'}} />
             )}
             <select value={cdaSort} onChange={e=>{setCdaSort(e.target.value);setCollapsedGroups(new Set());}} style={{width:'auto',fontSize:10,padding:'4px 8px'}}>
               <option value="por_processo">Por Processo (IDPJ / apenso)</option>
@@ -6921,7 +6922,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const classified = (() => {
         let src = classifiedRaw;
         if (personCdaIds) src = filterClassifiedByPerson(src, personCdaIds, allDebts);
-        if (!isDemo || !procCdaQuery) return src;
+        if ((!isDemo && !isClaude) || !procCdaQuery) return src;
         const qRaw = String(procCdaQuery).trim().toLowerCase();
         const qDigits = qRaw.replace(/\D/g, '');
         if (!qRaw) return src;
@@ -6933,16 +6934,18 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             return n.includes(qRaw) || (qDigits && n.replace(/\D/g, '').includes(qDigits));
           });
         };
-        const hubs = (src.hubs || []).filter(h => hit(h) || ((src.coveredByHub || {})[h.exec.id] || []).some(hit));
+        // Apensos ficam aninhados sob a EF principal: a busca pelo nº do apenso também mostra a principal.
+        const hitDeep = (g) => hit(g) || !!(g && g.exec && ((src.apensosByParent || {})[g.exec.id] || []).some(hit));
+        const hubs = (src.hubs || []).filter(h => hitDeep(h) || ((src.coveredByHub || {})[h.exec.id] || []).some(hitDeep));
         const coveredByHub = {};
-        hubs.forEach(h => { coveredByHub[h.exec.id] = ((src.coveredByHub || {})[h.exec.id] || []).filter(hit); });
+        hubs.forEach(h => { coveredByHub[h.exec.id] = ((src.coveredByHub || {})[h.exec.id] || []).filter(hitDeep); });
         return {
           ...src,
           hubs,
           coveredByHub,
-          uncoveredEFs: (src.uncoveredEFs || []).filter(hit),
-          extinct: (src.extinct || []).filter(hit),
-          others: (src.others || []).filter(hit),
+          uncoveredEFs: (src.uncoveredEFs || []).filter(hitDeep),
+          extinct: (src.extinct || []).filter(hitDeep),
+          others: (src.others || []).filter(hitDeep),
           unlinked: (src.unlinked || []).filter(hit),
         };
       })();
@@ -8285,12 +8288,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       return (<div className="entity-area">
         {/* Header — same create entry point as the old Processos (execucoes) tab */}
         <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-          {isDemo && (
+          {(isDemo || isClaude) && (
             <input
               value={procCdaQuery}
               onChange={e => setProcCdaQuery(e.target.value)}
               placeholder="Filtrar processo / CDA"
-              style={{width:180,fontSize:11,padding:'4px 8px'}}
+              className={isClaude ? 'cx-tab-q' : undefined}
+              style={isClaude ? undefined : {width:180,fontSize:11,padding:'4px 8px'}}
             />
           )}
           <button
@@ -9916,7 +9920,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   };
   const cxCrumbs = (() => {
     const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
-    if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, tabLabels[activeTab]].filter(Boolean);
+    if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, activeTab === 'pessoas' ? 'Partes' : activeTab === 'bens' ? 'Bens' : tabLabels[activeTab]].filter(Boolean);
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
   })();
@@ -9930,6 +9934,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
   return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
+      classFilter={opClassFilter} setClassFilter={setOpClassFilter}
       counts={{ openIntims: openIntimsCount, lateIntims: cxLateIntims, openTasks: openTasksCount, desk: deskCount, watch: watchCount, hearings: hearingsAheadCount, models: (data.models || []).length, presc1: ((prazosRadar.totals || {})[1] || {}).n || 0 }}
       onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} onOpenOpTab={(id, tab) => cxOpenOp(id, tab)}
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
@@ -10211,6 +10216,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
         scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })} /></div>}
+      {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+        onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+        onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
+        onCreate={(f) => handleSave('task', { id: uid(), status: 'pendente', taskVisibility: 'global', ...f })}
+        onOpenOp={(id) => cxOpenOp(id, 'tarefas')} /></div>}
+      {viewMode === 'audiencias' && isClaude && <div className="cx-scroll"><EditionClaudeAgenda data={data} opsById={opsById} prazosRadar={prazosRadar} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+        onOpenIntim={(id) => setCxDrawerId(id)} onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+        onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onNewHearing={() => setModal({ type: 'create', entityType: 'hearing', initial: { status: 'agendada', modality: 'presencial', hearingType: 'instrucao', remindDays: '3' } })}
+        onOpenOp={(id) => cxOpenOp(id)} /></div>}
+      {viewMode === 'mesa' && isClaude && <div className="cx-scroll"><EditionClaudeMesa data={data} opsById={opsById}
+        a={{ openIntim: (id) => setCxDrawerId(id), openTask: (t) => setModal({ type: 'edit', entityType: 'task', initial: t }), openHearing: (h) => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
+          openOp: (id) => cxOpenOp(id), remove: removeFromDesk, reorder: reorderDeskInColumn, toggle: toggleDesk }} /></div>}
 
       {/* ═══ PAINEL GERAL ═══ */}
       {viewMode === 'painel' && (
@@ -10466,7 +10485,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
 
       {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
-      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt}
+      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
         onOpenOp={(id) => cxOpenOp(id)} onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
       {viewMode === 'operacoes' && !isClaude && (
         <div className="painel-container">
@@ -11167,7 +11186,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ MESA DE TRABALHO ═══ */}
-      {viewMode === 'mesa' && (() => {
+      {viewMode === 'mesa' && !isClaude && (() => {
         const COLS = [
           { type: 'intimation', label: 'Intimações', color: 'var(--blue)', bg: 'rgba(91,143,217,0.18)' },
           { type: 'task', label: 'Tarefas', color: 'var(--yellow)', bg: 'rgba(212,168,56,0.18)' },
@@ -11283,7 +11302,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ TAREFAS GLOBAIS ═══ */}
-      {viewMode === 'tarefas_global' && (() => {
+      {viewMode === 'tarefas_global' && !isClaude && (() => {
         // Global tasks view: show tasks with explicit 'global' visibility, OR legacy tasks
         // without operation link, OR legacy tasks from before taskVisibility existed (backward compat).
         // Tasks linked to an operation AND with taskVisibility === 'operation' are HIDDEN here.
@@ -11434,7 +11453,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         </div>);
       })()}
 
-      {viewMode === 'audiencias' && (() => {
+      {viewMode === 'audiencias' && !isClaude && (() => {
         const all = data.hearings || [];
         const today = new Date(); today.setHours(0,0,0,0);
         const weekBlock = isDemo ? renderAgendaWeek() : null;
@@ -11505,6 +11524,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
+        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab}
+          onTab={(t) => startTabSwitch(() => setActiveTab(t))}
+          onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
+          onDiag={() => openDiagnostico(activeOp.id)}
+          onReport={() => generateHandoverReport(activeOp)}
+          onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
+          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }} />}
+        {!isClaude && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
             <h2>{activeOp.name}</h2>
@@ -11590,7 +11617,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </button>
           </div>
         )}
-        <div className="op-tab-panel">
+        </>}
+        <div className={`op-tab-panel${isClaude ? ' cx-tabpanel' : ''}`}>
         {(() => {
           try { return renderTab(); }
           catch (err) {
