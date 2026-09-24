@@ -49,6 +49,7 @@ const CX_ICONS = {
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   settings: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+  filter: '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   timeline: '<path d="M3 6h9M3 12h14M3 18h6"/><circle cx="15" cy="6" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/>',
 };
@@ -247,11 +248,31 @@ function EditionClaudeSidebar(p) {
   const [openOps, setOpenOps] = React.useState(() => ({}));
   const [filter, setFilter] = React.useState('');
   const [showClosed, setShowClosed] = React.useState(false);
+  const [menu, setMenu] = React.useState(false);
+  const [localCls, setLocalCls] = React.useState('all');
+  const cls = p.classFilter || localCls;
+  const setCls = p.setClassFilter || setLocalCls;
+  const menuRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!menu) return undefined;
+    const raf = requestAnimationFrame(() => { const el = menuRef.current && menuRef.current.querySelector('.cx-side-menu'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); });
+    const onDown = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenu(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setMenu(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [menu]);
   const ops = (data.operations || []).slice().sort(sortOpsByName);
   const q = cxNorm(filter.trim());
-  const match = (o) => !q || cxNorm(o.name).includes(q);
+  const match = (o) => (!q || cxNorm(o.name + ' ' + (o.description || '')).includes(q)) && opMatchesClassFilter(o, cls);
   const active = ops.filter(o => o.status !== 'encerrada' && match(o));
   const closed = ops.filter(o => o.status === 'encerrada' && match(o));
+  const totalActive = ops.filter(o => o.status !== 'encerrada').length;
+  const nClosedAll = ops.length - totalActive;
+  const clsKeys = opClassChipKeys(ops, { hideEmpty: true });
+  const clsMeta = cls !== 'all' && cls !== 'encerrada' ? OP_CLASSIFICATIONS[resolveOpClassKey(cls) || cls] : null;
+  const pick = (k) => { setCls(k); setMenu(false); };
+  const closedOpen = showClosed || cls === 'encerrada';
   const item = (vm, icon, label, extra, onClick) => {
     const on = viewMode === vm;
     return <button key={vm} type="button" className={'cx-nav-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} onClick={onClick || (() => p.onNav(vm))}>
@@ -297,7 +318,7 @@ function EditionClaudeSidebar(p) {
       </nav>
       <div className="cx-nav-sec"><span>Trabalho</span></div>
       <nav className="cx-nav">
-        {item('operacoes', 'briefcase', 'Carteira', <span className="cx-count">{active.length}</span>)}
+        {item('operacoes', 'briefcase', 'Carteira', <span className="cx-count">{totalActive}</span>)}
         {item('prazos', 'hourglass', 'Prazos extintivos', counts.presc1 ? <span className="cx-badge red">{counts.presc1}</span> : null)}
         {item('cx_timeline', 'timeline', 'Linha do tempo')}
         {item('audiencias', 'calendar', 'Agenda', counts.hearings ? <span className="cx-count">{counts.hearings}</span> : null)}
@@ -307,12 +328,30 @@ function EditionClaudeSidebar(p) {
         <button type="button" className="cx-nav-item" onClick={p.onImportEproc}><CxIcon n="upload" /><span className="cx-lbl">Importar eproc</span></button>
       </nav>
       <div className="cx-nav-sec"><span>Operações</span><button type="button" className="cx-icon-btn cx-sm" title="Nova operação" aria-label="Nova operação" onClick={p.onNewOp}><CxIcon n="plus" s={14} /></button></div>
-      {ops.length > 8 ? <label className="cx-side-filter"><CxIcon n="search" s={13} /><input id="cx-op-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filtrar operações" aria-label="Filtrar operações" /></label> : null}
+      {ops.length ? <div className="cx-side-tools" ref={menuRef}>
+        <label className="cx-side-filter">
+          <CxIcon n="search" s={13} />
+          <input id="cx-op-filter" value={filter} onChange={e => setFilter(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setFilter(''); }} placeholder="Buscar operação" aria-label="Buscar operação pelo nome" />
+          {filter ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => setFilter('')} aria-label="Limpar busca" title="Limpar busca"><CxIcon n="x" s={12} /></button> : null}
+        </label>
+        <button type="button" className={'cx-icon-btn cx-side-fbtn' + (cls !== 'all' ? ' on' : '') + (menu ? ' open' : '')} onClick={() => setMenu(v => !v)} aria-haspopup="true" aria-expanded={menu} title="Filtrar por classificação" aria-label="Filtrar por classificação"><CxIcon n="filter" s={14} /></button>
+        {menu ? <div className="cx-side-menu" role="menu" aria-label="Classificação da operação">
+          <button type="button" role="menuitemradio" aria-checked={cls === 'all'} className={'cx-side-mi' + (cls === 'all' ? ' on' : '')} onClick={() => pick('all')}><span className="cx-dot" style={{ background: 'var(--cx-ink-3)' }} /><span className="cx-lbl">Todas</span><span className="cx-count">{ops.length}</span></button>
+          {clsKeys.map(k => { const m = OP_CLASSIFICATIONS[k]; return m ? <button key={k} type="button" role="menuitemradio" aria-checked={cls === k} className={'cx-side-mi' + (cls === k ? ' on' : '')} onClick={() => pick(k)}><span className="cx-dot" style={{ background: m.color }} /><span className="cx-lbl">{m.label}</span><span className="cx-count">{ops.filter(o => opMatchesClassFilter(o, k)).length}</span></button> : null; })}
+          {nClosedAll ? <button type="button" role="menuitemradio" aria-checked={cls === 'encerrada'} className={'cx-side-mi' + (cls === 'encerrada' ? ' on' : '')} onClick={() => pick('encerrada')}><span className="cx-dot" style={{ background: 'var(--cx-line-strong)' }} /><span className="cx-lbl">Encerradas</span><span className="cx-count">{nClosedAll}</span></button> : null}
+        </div> : null}
+      </div> : null}
+      {cls !== 'all' ? <div className="cx-side-active">
+        <span className="cx-dot" style={{ background: clsMeta ? clsMeta.color : 'var(--cx-line-strong)' }} />
+        <span className="cx-ell">{clsMeta ? clsMeta.label : 'Encerradas'}</span>
+        <span className="cx-count">{active.length + closed.length}</span>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => setCls('all')} aria-label="Limpar filtro" title="Mostrar todas"><CxIcon n="x" s={12} /></button>
+      </div> : null}
       <nav className="cx-nav">
         {active.map(renderOp)}
-        {active.length === 0 ? <div className="cx-side-empty">{ops.length ? 'Nenhuma operação com esse nome.' : 'Crie sua primeira operação.'}</div> : null}
-        {closed.length ? <button type="button" className="cx-nav-item cx-nav-closed" onClick={() => setShowClosed(v => !v)}><span className="cx-chev" style={{ transform: showClosed ? 'rotate(90deg)' : 'none' }}><CxIcon n="chevR" s={12} /></span><span className="cx-lbl">Encerradas</span><span className="cx-count">{closed.length}</span></button> : null}
-        {showClosed ? closed.map(renderOp) : null}
+        {active.length === 0 && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
+        {closed.length && cls !== 'encerrada' ? <button type="button" className="cx-nav-item cx-nav-closed" onClick={() => setShowClosed(v => !v)}><span className="cx-chev" style={{ transform: showClosed ? 'rotate(90deg)' : 'none' }}><CxIcon n="chevR" s={12} /></span><span className="cx-lbl">Encerradas</span><span className="cx-count">{closed.length}</span></button> : null}
+        {closedOpen ? closed.map(renderOp) : null}
       </nav>
     </div>
     <div className="cx-side-foot">
@@ -1050,6 +1089,12 @@ function cxReviewTag(op) {
   const tone = rs.overdue ? 'orange' : rs.daysLeft <= 3 ? 'yellow' : '';
   return <span className={'cx-tag ' + tone} title={'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase()}><CxIcon n="history" s={11} />{rs.label}</span>;
 }
+function cxOpPrioTag(op, long) {
+  const k = normalizeOpPriority(op.priority);
+  if (k !== 'maxima' && k !== 'alta') return null;
+  const lab = OP_PRIORITIES[k].label;
+  return <span className={'cx-tag ' + (k === 'maxima' ? 'red' : 'orange')}>{long ? 'Prioridade ' + lab.toLowerCase() : lab}</span>;
+}
 function cxClsTag(k) {
   const c = OP_CLASSIFICATIONS[k];
   if (!c) return null;
@@ -1082,17 +1127,16 @@ function cxOpIndex(data, prazosByDebt) {
 /* ═════════════════════ Carteira ═════════════════════ */
 function EditionClaudeCarteira(p) {
   const { data, prazosByDebt } = p;
-  const [filter, setFilter] = React.useState('all');
+  const [localF, setLocalF] = React.useState('all');
+  const filter = p.classFilter || localF;
+  const setFilter = p.setClassFilter || setLocalF;
   const [q, setQ] = React.useState('');
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
   const ops = data.operations || [];
-  const used = {};
-  ops.forEach(o => getOpClassifications(o).forEach(k => { used[k] = (used[k] || 0) + 1; }));
   const chips = [['all', 'Todas', ops.filter(o => o.status !== 'encerrada').length]];
-  ['alta_relevancia', 'parceladas'].forEach(k => { const n = ops.filter(o => opMatchesClassFilter(o, k)).length; if (n) chips.push([k, OP_CLASSIFICATIONS[k].label, n]); });
-  Object.keys(used).filter(k => k !== 'alta_relevancia' && k !== 'parceladas').sort((a, b) => OP_CLASSIFICATIONS[a].label.localeCompare(OP_CLASSIFICATIONS[b].label, 'pt-BR')).forEach(k => chips.push([k, OP_CLASSIFICATIONS[k].label, used[k]]));
+  opClassChipKeys(ops, { hideEmpty: true }).forEach(k => { if (OP_CLASSIFICATIONS[k]) chips.push([k, OP_CLASSIFICATIONS[k].label, ops.filter(o => opMatchesClassFilter(o, k)).length]); });
   const nClosed = ops.filter(o => o.status === 'encerrada').length;
   if (nClosed) chips.push(['encerrada', 'Encerradas', nClosed]);
   const toks = cxNorm(q).split(/\s+/).filter(Boolean);
@@ -1138,7 +1182,7 @@ function EditionClaudeCarteira(p) {
         <span className="cx-op-h">
           <span className="cx-op-sq" style={{ background: cxOpColor(o.id) }} />
           <span className="cx-op-nm cx-ell" title={o.name}>{cxOpName(o)}</span>
-          {o.priority === 'alta' ? <span className="cx-tag red">Alta</span> : null}
+          {cxOpPrioTag(o)}
           <span className="cx-sp" />
           {closed ? <span className="cx-tag">Encerrada</span> : cxReviewTag(o)}
         </span>
@@ -1481,7 +1525,7 @@ function EditionClaudeOpOverview(p) {
     <div className="cx-op-top">
       <div className="cx-minw0">
         <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>
-        <div className="cx-op-hero"><span className="cx-sq-lg" style={{ background: cxOpColor(op.id) }} /><h1>{op.name}</h1>{op.priority === 'alta' ? <span className="cx-tag red">Prioridade alta</span> : null}</div>
+        <div className="cx-op-hero"><span className="cx-sq-lg" style={{ background: cxOpColor(op.id) }} /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
         {op.description ? <p className="cx-lede cx-op-lede">{op.description}</p> : null}
         <div className="cx-tags" style={{ marginTop: 10 }}>{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
       </div>

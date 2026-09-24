@@ -9931,6 +9931,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
   return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
+      classFilter={opClassFilter} setClassFilter={setOpClassFilter}
       counts={{ openIntims: openIntimsCount, lateIntims: cxLateIntims, openTasks: openTasksCount, desk: deskCount, watch: watchCount, hearings: hearingsAheadCount, models: (data.models || []).length, presc1: ((prazosRadar.totals || {})[1] || {}).n || 0 }}
       onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} onOpenOpTab={(id, tab) => cxOpenOp(id, tab)}
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
@@ -10481,7 +10482,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       )}
 
       {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
-      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt}
+      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
         onOpenOp={(id) => cxOpenOp(id)} onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
       {viewMode === 'operacoes' && !isClaude && (
         <div className="painel-container">
