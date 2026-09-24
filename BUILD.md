@@ -8,7 +8,7 @@ O JSX é compilado **na sua máquina** antes do `clasp push`.
 | Arquivo | Função |
 |---|---|
 | `src/app.jsx` | **Edite aqui** a lógica React / parsers / domínio |
-| `src/edition-claude.jsx` | Edição Claude · Ardósia (concatenada antes de `app.jsx`) |
+| `src/edition-claude.jsx` | Nexus Prumo, edição `claude` (concatenada antes de `app.jsx`) |
 | `src/Nexus.shell.html` | **Edite aqui** HTML, CSS, CDN e o portal de tooltips |
 | `Nexus.html` | **Gerado** pelo build (clássico) — não edite à mão |
 | `Nexus.demo.html` | **Gerado** (Demo — clássico, para compartilhar) — não edite à mão |

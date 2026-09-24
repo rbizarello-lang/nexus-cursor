@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   NEXUS · Edição Claude (Ardósia) — Fases 1 e 2
+   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 e 2
    Casca nova (menu lateral + barra superior), Hoje e Intimações (lista, quadro,
    foco e gaveta); Carteira, Visão geral da operação, Linha do tempo e Mesa de
    prazos extintivos (Fase 2, mais abaixo). Lê e grava os MESMOS dados do App (props); não tem estado de
@@ -280,9 +280,9 @@ function EditionClaudeSidebar(p) {
   };
   return <aside className="cx cx-side" aria-label="Navegação">
     <div className="cx-side-head">
-      <button type="button" className="cx-brand" onClick={() => p.onNav('hoje')} title="NEXUS · edição Claude (Ardósia)">
+      <button type="button" className="cx-brand" onClick={() => p.onNav('hoje')} title="Nexus Prumo · início">
         <span className="cx-brand-mark">N</span>
-        <span className="cx-ell"><span className="cx-brand-name">NEXUS</span><span className="cx-brand-sub">Ardósia · {NEXUS_VERSION}</span></span>
+        <span className="cx-ell"><span className="cx-brand-name">NEXUS</span><span className="cx-brand-sub">Prumo · {NEXUS_VERSION}</span></span>
       </button>
       <button type="button" className="cx-icon-btn" onClick={p.onSearch} title="Buscar (Ctrl+K)" aria-label="Buscar"><CxIcon n="search" /></button>
       <button type="button" className="cx-icon-btn cx-side-close" onClick={p.onClose} aria-label="Fechar menu"><CxIcon n="x" /></button>
@@ -316,7 +316,7 @@ function EditionClaudeSidebar(p) {
       </nav>
     </div>
     <div className="cx-side-foot">
-      <span>Edição Claude · Ardósia</span>
+      <span>Nexus Prumo</span>
       <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
     </div>
   </aside>;

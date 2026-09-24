@@ -2952,7 +2952,7 @@ function App() {
       if (th === 'theme-obsidian' || th === undefined || th === null) th = 'theme-mar';
       // Migra Noite Azulada ('' / theme-noite) → Claro (tokens Clara da Demo)
       if (th === '' || th === 'theme-noite' || th === 'theme-noite-azulada') { th = 'theme-claro'; themeMigrated = true; }
-      // Bootstrap: demo_experimental.html → Beta; Nexus.demo.html → clássico; ?edition=claude → Ardósia
+      // Bootstrap: demo_experimental.html → Beta; Nexus.demo.html → clássico; ?edition=claude → Nexus Prumo
       let edition = s.uiEdition === 'demo' ? 'demo' : s.uiEdition === 'claude' ? 'claude' : 'classic';
       let bootstrapped = false;
       try {
@@ -2972,7 +2972,7 @@ function App() {
   });
   const updateSetting = (key, val) => { setAppSettings(prev => { const next = { ...prev, [key]: val }; try { localStorage.setItem('nexus_settings', JSON.stringify(next)); } catch {} return next; }); };
   const isDemo = appSettings.uiEdition === 'demo';
-  // Edição Claude (Ardósia) — src/edition-claude.jsx. Mesmos dados; casca e telas novas.
+  // Nexus Prumo (uiEdition 'claude', tema Ardósia) — src/edition-claude.jsx. Mesmos dados; casca e telas novas.
   const isClaude = appSettings.uiEdition === 'claude';
 
   // Propaga classe de fonte para <html> (body + herança) além do .app-layout
@@ -8702,9 +8702,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div className="settings-options">
         <button className={`settings-opt ${!isDemo && !isClaude ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
         <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Nova versão (beta)</button>
-        <button className={`settings-opt ${isClaude ? 'active' : ''}`} onClick={() => switchEdition('claude')} title="Edição Claude · Ardósia (experimental)">Claude · Ardósia</button>
+        <button className={`settings-opt ${isClaude ? 'active' : ''}`} onClick={() => switchEdition('claude')} title="Nexus Prumo: menu lateral e telas novas, tema Ardósia">Nexus Prumo</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada. A Claude · Ardósia tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada. O Nexus Prumo tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
       {isShareDemo && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>Nexus.demo.html</strong> — Demo para compartilhar (interface clássica).</div>}
       {isDemoStandalone && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>demo_experimental.html</strong> — Demo Experimental (testes da nova versão).</div>}
     </div>
@@ -9884,7 +9884,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     window.addEventListener('resize', measure);
     return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [isDemo, viewMode, activeOpId, appSettings.zoom, openIntimsCount, openTasksCount, deskCount, watchCount, hearingsAheadCount]);
-  // ─── Edição Claude (Ardósia): ações compartilhadas pelas telas novas (src/edition-claude.jsx) ───
+  // ─── Nexus Prumo (edição 'claude'): ações compartilhadas pelas telas novas (src/edition-claude.jsx) ───
   const cxGo = (vm) => { setCxSideOpen(false); startTabSwitch(() => setViewMode(vm)); };
   const cxOpenOp = (opId, tab) => {
     setCxSideOpen(false);
