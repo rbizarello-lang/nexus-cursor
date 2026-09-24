@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 a 3
+   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 a 4
    Casca nova (menu lateral + barra superior), Hoje e Intimações (lista, quadro,
    foco e gaveta); Carteira, Visão geral da operação, Linha do tempo e Mesa de
-   prazos extintivos (Fase 2); Tarefas, Agenda e Mesa de trabalho (Fase 3). Lê e grava os MESMOS dados do App (props); não tem estado de
+   prazos extintivos (Fase 2); Tarefas, Agenda e Mesa de trabalho (Fase 3);
+   cabeçalho da operação para as abas do app e aba Partes e bens (Fase 4). Lê e grava os MESMOS dados do App (props); não tem estado de
    dados próprio. Telas ainda não redesenhadas continuam vindo do App.
    Concatenado ANTES de src/app.jsx pelo scripts/build.mjs — só declarações de
    função e constantes; helpers do app (daysUntil, INTIM_STATUSES…) são usados
@@ -72,7 +73,9 @@ const CX_IMP = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' };
 const CX_DIF = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const CX_HEARING = { instrucao: 'Audiência de instrução', conciliacao: 'Audiência de conciliação', una: 'Audiência una', justificacao: 'Audiência de justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 const CX_OP_COLORS = ['var(--cx-op1)', 'var(--cx-op2)', 'var(--cx-op3)', 'var(--cx-op4)', 'var(--cx-op5)', 'var(--cx-op6)'];
-const CX_OP_TABS = [['notas', 'Briefing'], ['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Pessoas'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const CX_OP_TABS = [['notas', 'Briefing'], ['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes e bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+/* "Partes e bens" é uma aba só, com seletor interno; por baixo continuam as abas 'pessoas' e 'bens' do app. */
+function cxTabOn(activeTab, key) { return key === 'pessoas' ? (activeTab === 'pessoas' || activeTab === 'bens') : activeTab === key; }
 
 function cxOpColor(id) {
   let h = 0;
@@ -295,7 +298,7 @@ function EditionClaudeSidebar(p) {
       </div>
       {open ? <div className="cx-nav-sub">
         <button type="button" className={'cx-nav-item' + (onOp && activeTab === 'visao' ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
-        {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={'cx-nav-item' + (onOp && activeTab === t[0] ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, t[0])}><span className="cx-lbl">{t[1]}</span></button>)}
+        {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={'cx-nav-item' + (onOp && cxTabOn(activeTab, t[0]) ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, t[0] === 'pessoas' && onOp && activeTab === 'bens' ? 'bens' : t[0])}><span className="cx-lbl">{t[1]}</span></button>)}
       </div> : null}
     </div>;
   };
@@ -2193,5 +2196,54 @@ function EditionClaudeMesa(p) {
         <div className="cx-dk-list">{col.length ? col.map((it, i) => card(it, i, col)) : <div className="cx-b-empty">Nada aqui. Use o botão Mesa nas listas{c[0] === 'intimation' ? ' ou na gaveta da intimação' : ''}.</div>}</div>
       </section>;
     })}</div>
+  </div>;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 4 — Cabeçalho da operação para as abas do app (Briefing, Processos e
+   prescrição, Inscrições, Partes e bens, Tarefas, Arquivos, Importar).
+   O conteúdo das abas é o do app, com o visual Prumo aplicado pelo CSS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function EditionClaudeOpHeader(p) {
+  const { op, opStats: s, activeTab } = p;
+  const rs = reviewStatus(op);
+  const cls = getOpClassifications(op);
+  const onPartes = activeTab === 'pessoas' || activeTab === 'bens';
+  const sum = [];
+  if (s) {
+    sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
+    sum.push(<span key="g">{s.total ? Math.round(s.guar / s.total * 100) : 0}% garantido</span>);
+    sum.push(<span key="c">{cxPl(s.debts, 'CDA', 'CDAs')}</span>);
+    sum.push(<span key="e">{cxPl(s.execs, 'processo', 'processos')}</span>);
+    sum.push(<span key="i" className={s.overdueIntims ? 'cx-red-t' : ''}>{cxPl(s.openIntims, 'intimação aberta', 'intimações abertas')}{s.overdueIntims ? ' · ' + cxPl(s.overdueIntims, 'vencida', 'vencidas') : ''}</span>);
+    if (s.prescA) sum.push(<button key="p" type="button" className="cx-violet-t cx-oph-link" onClick={p.onOpenPrazos}>{cxPl(s.prescA, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição')}</button>);
+  }
+  return <div className="cx cx-oph">
+    <div className="cx-oph-top">
+      <div className="cx-minw0 cx-oph-main">
+        <div className="cx-oph-name">
+          <span className="cx-sq-lg" style={{ background: cxOpColor(op.id) }} />
+          <h1 className="cx-ell" title={op.name}>{op.name}</h1>
+          {op.status === 'encerrada' ? <span className="cx-tag">Encerrada</span> : null}
+          {cxOpPrioTag(op)}
+          <span className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</span>
+        </div>
+        {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
+      </div>
+      <div className="cx-op-actions">
+        <button type="button" className={'cx-btn sm' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={13} />Revisada</button>
+        <button type="button" className="cx-btn sm" onClick={p.onEdit}><CxIcon n="edit" s={13} />Editar</button>
+        <button type="button" className="cx-btn sm ghost" onClick={p.onDiag}>Diagnóstico</button>
+        <button type="button" className="cx-btn sm ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={13} />Relatório</button>
+      </div>
+    </div>
+    <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
+      <button type="button" onClick={() => p.onTab('visao')}>Visão geral</button>
+      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!(t[0] === 'pessoas' && onPartes)) p.onTab(t[0]); }}>{t[1]}</button>)}
+    </nav>
+    {onPartes ? <div className="cx-oph-sub">
+      <CxSeg className="lg" label="Partes ou bens" value={activeTab} onChange={p.onTab} options={[['pessoas', 'Partes', null, s ? s.people : null], ['bens', 'Bens', null, s ? s.assets : null]]} />
+      <span className="cx-muted cx-small">{activeTab === 'pessoas' ? 'Alvos e pessoas relacionadas, com a exposição de cada uma.' : 'Bens por situação, com titular, origem e processo.'}</span>
+    </div> : null}
   </div>;
 }

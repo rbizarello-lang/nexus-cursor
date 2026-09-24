@@ -4594,6 +4594,58 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
   .cx-dk-sug-row .cx-dk-when { display: none; }
 }
 
+/* ═══ Fase 4 · cabeçalho da operação e visual Prumo nas abas do app ═══ */
+.cx-oph { flex: none; padding: 16px 28px 0; background: var(--cx-ground); border-bottom: 1px solid var(--cx-line); }
+.cx-oph-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.cx-oph-main { flex: 1 1 420px; }
+.cx-oph-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.cx-oph-name h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; margin: 0; max-width: 100%; }
+.cx-oph-tags { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.cx-oph-sum { display: flex; flex-wrap: wrap; gap: 3px 14px; margin-top: 6px; font-size: 12.5px; color: var(--cx-ink-2); }
+.cx-oph-sum b { color: var(--cx-ink); font-weight: 600; }
+.cx-oph-link { cursor: pointer; font-size: 12.5px; }
+.cx-oph-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.cx-oph .cx-optabs.cx-oph-tabs { margin: 10px 0 0; border-bottom: 0; }
+.cx-oph-sub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0 10px; border-top: 1px solid var(--cx-line); }
+
+.app-layout.edition-claude .cx-tabpanel { background: var(--cx-ground); font-family: var(--cx-font); }
+.app-layout.edition-claude .cx-tabpanel .entity-area { padding: 18px 28px 64px; }
+.app-layout.edition-claude .cx-tabpanel button { font-family: var(--cx-font); letter-spacing: 0; }
+.app-layout.edition-claude .cx-tabpanel :is(.btn-secondary, .btn-primary, .btn-danger) { border-radius: 7px; font-weight: 500; text-transform: none; box-shadow: none; }
+.app-layout.edition-claude .cx-tabpanel .btn-secondary { background: var(--cx-surface); border: 1px solid var(--cx-line); color: var(--cx-ink); }
+.app-layout.edition-claude .cx-tabpanel .btn-secondary:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); }
+.app-layout.edition-claude .cx-tabpanel .btn-sm { min-height: 28px; padding: 0 11px; font-size: 12.5px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.app-layout.edition-claude .cx-tabpanel :is(.btn-sm, .btn-xs, .btn-primary, .btn-secondary) { white-space: nowrap; flex-shrink: 0; }
+.app-layout.edition-claude .cx-tabpanel .btn-xs { min-height: 24px; padding: 0 8px; font-size: 11.5px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.app-layout.edition-claude .cx-tabpanel .badge { font-family: var(--cx-font); text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 500; border-radius: 5px; padding: 1px 7px; }
+.app-layout.edition-claude .cx-tabpanel :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { font-family: var(--cx-font); border: 1px solid var(--cx-line); border-radius: 7px; background: var(--cx-surface); color: var(--cx-ink); box-shadow: none; }
+.app-layout.edition-claude .cx-tabpanel :is(input, select, textarea):focus { border-color: var(--cx-accent); outline: none; box-shadow: none; }
+.app-layout.edition-claude .cx-tabpanel select { font-size: 12.5px; }
+.app-layout.edition-claude .cx-tabpanel input[type="checkbox"] { accent-color: var(--cx-btn); }
+.app-layout.edition-claude .cx-tabpanel .entity-card { border-radius: 10px; border-color: var(--cx-line); background: var(--cx-surface); box-shadow: none; }
+.app-layout.edition-claude .cx-tabpanel .entity-card:hover { border-color: var(--cx-line-strong); box-shadow: var(--cx-shadow); transform: none; }
+.app-layout.edition-claude .cx-tabpanel .group-header .gh-label { font-family: var(--cx-font); color: var(--cx-ink); font-weight: 600; font-size: 13px; }
+.app-layout.edition-claude .cx-tabpanel .group-header:hover { background: var(--cx-hover); }
+.app-layout.edition-claude .cx-tabpanel .ec-title { font-family: var(--cx-font); font-weight: 600; }
+.app-layout.edition-claude .cx-tabpanel .empty-state { color: var(--cx-ink-3); }
+.app-layout.edition-claude .cx-tabpanel .empty-state .empty-icon { filter: grayscale(1); }
+.app-layout.edition-claude .cx-tab-q { width: 240px; height: 30px; padding: 0 10px; font-size: 12.5px; }
+/* Processos e prescrição (painel lista + detalhe) */
+.app-layout.edition-claude .cx-tabpanel :is(.proc-md-frame, .proc-md-rail, .proc-md-pane) { border-color: var(--cx-line); }
+.app-layout.edition-claude .cx-tabpanel .proc-md-frame { border-radius: 10px; background: var(--cx-surface); overflow: hidden; }
+.app-layout.edition-claude .cx-tabpanel .proc-md-rail { background: var(--cx-surface-2); }
+.app-layout.edition-claude .cx-tabpanel .proc-md-hub.active { background: var(--cx-surface); box-shadow: inset 3px 0 0 var(--cx-ink); }
+.app-layout.edition-claude .cx-tabpanel .demo-proc-table th { font-family: var(--cx-font); text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 500; color: var(--cx-ink-3); }
+.app-layout.edition-claude .cx-tabpanel .demo-proc-table td { border-color: var(--cx-line); }
+.app-layout.edition-claude .cx-tabpanel .demo-proc-table-row:hover td, .app-layout.edition-claude .cx-tabpanel .cda-row:hover { background: var(--cx-hover) !important; }
+@media (max-width: 900px) {
+  .cx-oph { padding: 12px 16px 0; }
+  .cx-oph-name h1 { font-size: 17px; white-space: normal; }
+  .cx-oph .cx-op-actions { width: 100%; }
+  .app-layout.edition-claude .cx-tabpanel .entity-area { padding: 14px 14px 56px; }
+  .app-layout.edition-claude .cx-tab-q { width: 100%; }
+}
+
 /* ─── Responsivo ─── */
 @media (max-width: 1180px) {
   .cx-home-grid, .cx-focus { grid-template-columns: minmax(0, 1fr); }
