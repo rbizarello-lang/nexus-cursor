@@ -29,9 +29,9 @@ const sortArquivadasLast = groups => [...(groups || [])].sort((a, b) => (a?.exec
 
 const factory = new Function(
   'normProc', 'isExecucaoFiscalClass', 'isHubProcess', 'isOtherProcClass', 'sortArquivadasLast', 'clusterDuplicateExecutions',
-  `${extractFunction('buildCdaGroups')}\n${extractFunction('classifyProcGroups')}\nreturn { buildCdaGroups, classifyProcGroups };`
+  `${extractFunction('buildCdaGroups')}\n${extractFunction('classifyProcGroups')}\n${extractFunction('cdaIdsForPerson')}\n${extractFunction('filterClassifiedByPerson')}\n${extractFunction('countClassifiedProcesses')}\nreturn { buildCdaGroups, classifyProcGroups, cdaIdsForPerson, filterClassifiedByPerson, countClassifiedProcesses };`
 );
-const { buildCdaGroups, classifyProcGroups } = factory(normProc, isExecucaoFiscalClass, isHubProcess, isOtherProcClass, sortArquivadasLast, clusterDuplicateExecutions);
+const { buildCdaGroups, classifyProcGroups, cdaIdsForPerson, filterClassifiedByPerson, countClassifiedProcesses } = factory(normProc, isExecucaoFiscalClass, isHubProcess, isOtherProcClass, sortArquivadasLast, clusterDuplicateExecutions);
 
 function representedIds(classified) {
   return new Set([
@@ -155,5 +155,51 @@ describe('execução fiscal no panorama sem marca de hub', () => {
     const ef = { id: 'e1', className: 'Execução Fiscal', processTag: 'central', inPanorama: true, status: 'ativa' };
     assert.equal(panoHelpers.isUserPanoramaEf(ef), false);
     assert.equal(panoHelpers.isEfStylePanoramaCard(ef), true);
+  });
+});
+
+describe('filtro por pessoa em Processos e Prescrição', () => {
+  const executions = [
+    { id: 'ef1', processNumber: '5001234-56.2023.4.04.7001', className: 'Execução Fiscal', status: 'ativa' },
+    { id: 'ef2', processNumber: '5001235-56.2023.4.04.7001', className: 'Execução Fiscal', status: 'ativa' },
+    { id: 'hub', processNumber: '5009876-11.2024.4.04.7001', className: 'IDPJ', processTag: 'idpj', status: 'ativa', linkedExecutionIds: ['ef1', 'ef2'] },
+    { id: 'epe', processNumber: '5001240-56.2024.4.04.7001', className: 'Exceção de Pré-Executividade', status: 'ativa', parentExecutionId: 'ef1' },
+  ];
+  const debts = [
+    { id: 'cda-a', processNumber: '5001234-56.2023.4.04.7001' },
+    { id: 'cda-b', processNumber: '5001234-56.2023.4.04.7001' },
+    { id: 'cda-c', processNumber: '5001235-56.2023.4.04.7001' },
+    { id: 'cda-d' },
+  ];
+  const classified = classifyProcGroups(buildCdaGroups(executions, debts), executions);
+
+  it('reúne CDAs pela mesma responsabilidade usada nas Inscrições', () => {
+    const links = [
+      { cdaId: 'cda-a', personId: 'marina' },
+      { cdaId: 'cda-b', personId: 'fachada' },
+      { cdaId: 'cda-d', personId: 'imobiliaria' },
+    ];
+    assert.deepEqual([...cdaIdsForPerson(links, 'marina')], ['cda-a']);
+    assert.equal(cdaIdsForPerson(links, 'all').size, 0);
+  });
+
+  it('mantém o processo inteiro e o IDPJ se a pessoa figura em alguma CDA', () => {
+    const filtered = filterClassifiedByPerson(classified, new Set(['cda-a']), debts);
+    const ids = representedIds(filtered);
+    assert.equal(ids.has('ef1'), true);
+    assert.equal(ids.has('hub'), true);
+    assert.equal(ids.has('epe'), true);
+    assert.equal(ids.has('ef2'), false);
+    const ef1 = (filtered.coveredByHub.hub || []).find(g => g.exec.id === 'ef1');
+    assert.ok(ef1);
+    assert.deepEqual(ef1.cdas.map(d => d.id).sort(), ['cda-a', 'cda-b']);
+  });
+
+  it('no grupo sem processo mostra só as CDAs da pessoa', () => {
+    const filtered = filterClassifiedByPerson(classified, new Set(['cda-d']), debts);
+    assert.equal(representedIds(filtered).size, 0);
+    assert.equal(filtered.unlinked.length, 1);
+    assert.deepEqual(filtered.unlinked[0].cdas.map(d => d.id), ['cda-d']);
+    assert.equal(countClassifiedProcesses(filtered), 0);
   });
 });

@@ -86,6 +86,24 @@ describe('detalhe da inscrição — três colunas', () => {
     assert.doesNotMatch(inter.summary + inter.occurrences.map(o => o.fact + o.effect + o.source).join(' '), UI_FORBIDDEN);
   });
 
+  it('CDA com rescisão de parcelamento: Início da intercorrente é a data da rescisão', () => {
+    const debt = { id: 'd-parc', cdaNumber: '00 1 20 000001-00', inscriptionDate: '2020-01-15', processNumber: '50012345620204047000' };
+    const executions = [{ id: 'e1', processNumber: '50012345620204047000', protocolDate: '2021-03-01' }];
+    const events = [
+      { id: 'parc', executionId: 'e1', type: 'susp_parcelamento', date: '2020-06-01', endDate: '2021-06-01' },
+      { id: 'resc', executionId: 'e1', type: 'int_rescisao_parcelamento', date: '2021-06-01' }
+    ];
+    const tl = computeCdaLegalTimeline({ debt, executions, events, asOf: PRINT_ASOF });
+    const inter = buildCdaColumnView(tl.intercorrente, { key: 'intercorrente' });
+    assert.match(inter.datesLine, /01\/06\/2021/);
+    assert.doesNotMatch(inter.datesLine, /sem ciência lançada/);
+    assert.doesNotMatch(inter.summary, /ciência de não localização/i);
+    const firstYear = computeCdaLegalTimeline({ debt, executions, events, asOf: '2021-08-01' });
+    const firstCol = buildCdaColumnView(firstYear.intercorrente, { key: 'intercorrente' });
+    assert.match(firstCol.summary, /rescisão do parcelamento/);
+    assert.doesNotMatch(firstCol.summary, /ciência de não localização/i);
+  });
+
   it('CDA não ajuizada: sem coluna intercorrente; ordinária em curso ou estimada', () => {
     const debt = { id: 'd3', cdaNumber: '77 1 21 000002-00', inscriptionDate: '2021-11-14' };
     const tl = computeCdaLegalTimeline({ debt, executions: [], events: [], asOf: PRINT_ASOF });

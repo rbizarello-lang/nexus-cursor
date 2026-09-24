@@ -7,6 +7,7 @@ import {
   digitsOnly,
   findPersonByDoc,
   formatCpfCnpj,
+  mergePersonDoc,
   normalizePersonName
 } from './docs.js';
 
@@ -133,4 +134,180 @@ export function buildPdfImportConfirmMessage(assessment, operationName) {
 
   msg += 'Cancelar: não importa nada.\nOK: importar mesmo assim.';
   return msg;
+}
+
+function isPlaceholderPersonName(name) {
+  return /^\[Importado SIDA\]/i.test(String(name || '').trim());
+}
+
+/**
+ * Localiza ou cria o corresponsável na lista de trabalho (a mesma da importação em curso).
+ * Sem essa lista, cada CDA do PDF gerava uma ficha nova da mesma pessoa.
+ */
+export function ensureCorespPerson(people, { operationId, cr, now, newId, note } = {}) {
+  const list = Array.isArray(people) ? people : [];
+  const doc = (cr && (cr.cpfCnpjFormatted || cr.cpfCnpj)) || '';
+  if (!digitsOnly(doc)) return { person: null, created: false, changed: false, people: list };
+
+  let person = findPersonByDoc(list, { operationId, cpfCnpj: doc, name: cr && cr.name });
+  if (person) {
+    const updated = mergePersonDoc(person, doc);
+    if (updated === person) return { person, created: false, changed: false, people: list };
+    return {
+      person: updated,
+      created: false,
+      changed: true,
+      people: list.map(p => p.id === person.id ? updated : p)
+    };
+  }
+
+  const digits = digitsOnly(doc);
+  const hasName = cr && cr.name && String(cr.name).trim().length > 2;
+  const stamp = now || new Date().toISOString();
+  person = {
+    id: typeof newId === 'function' ? newId() : `p-${digits}`,
+    operationId,
+    name: hasName ? String(cr.name).trim() : `[Importado SIDA] ${formatCpfCnpj(doc) || doc}`,
+    cpfCnpj: formatCpfCnpj(doc) || doc,
+    subtype: digits.length > 11 ? 'PJ' : 'PF',
+    operationRole: 'relacionada',
+    role: 'Corresponsável',
+    notesList: note ? [note] : [],
+    createdAt: stamp,
+    updatedAt: stamp
+  };
+  return { person, created: true, changed: true, people: [...list, person] };
+}
+
+function personDocGroupKey(person) {
+  const d = digitsOnly(person && person.cpfCnpj);
+  if (d.length !== 11 && d.length !== 14) return '';
+  return `${person.operationId || ''}|${d}`;
+}
+
+function scoreKeeper(person) {
+  let s = 0;
+  if ((person.operationRole || 'alvo') === 'alvo') s += 100;
+  if (!isPlaceholderPersonName(person.name)) s += 20;
+  const notes = person.notesList || [];
+  s += Math.min(5, notes.length);
+  return s;
+}
+
+function pickKeeper(group) {
+  return [...group].sort((a, b) => {
+    const ds = scoreKeeper(b) - scoreKeeper(a);
+    if (ds) return ds;
+    return String(a.createdAt || '').localeCompare(String(b.createdAt || ''))
+      || String(a.id).localeCompare(String(b.id));
+  })[0];
+}
+
+function uniqNotes(lists) {
+  const seen = new Set();
+  const out = [];
+  for (const list of lists || []) {
+    for (const n of list || []) {
+      const text = typeof n === 'string' ? n : (n && (n.text || n.content)) || '';
+      const key = String(text).trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(n);
+    }
+  }
+  return out;
+}
+
+function mergeKeeperPerson(keeper, group) {
+  let next = { ...keeper };
+  for (const p of group) {
+    if (p.id === keeper.id) continue;
+    next = mergePersonDoc(next, p.cpfCnpj);
+    if (isPlaceholderPersonName(next.name) && p.name && !isPlaceholderPersonName(p.name)) {
+      next = { ...next, name: p.name };
+    }
+    if ((p.operationRole || 'alvo') === 'alvo') next.operationRole = 'alvo';
+  }
+  next.notesList = uniqNotes(group.map(p => p.notesList));
+  return next;
+}
+
+function remapPersonId(id, remap) {
+  return (id && remap.has(id)) ? remap.get(id) : id;
+}
+
+function dedupeLinkList(links, remap, keyFn) {
+  const seen = new Set();
+  const out = [];
+  for (const link of links || []) {
+    if (!link) continue;
+    const next = { ...link, personId: remapPersonId(link.personId, remap) };
+    const key = keyFn(next);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(next);
+  }
+  return out;
+}
+
+/**
+ * Junta fichas da mesma pessoa (mesmo CPF de 11 dígitos ou CNPJ de 14)
+ * dentro da mesma operação. Reaponta CDA, bem e vínculos.
+ * Não mistura filiais (CNPJs 14 distintos) nem operações diferentes.
+ */
+export function dedupePeopleByDoc(data) {
+  if (!data || !Array.isArray(data.people)) return { data, removed: 0 };
+
+  const groups = new Map();
+  for (const person of data.people) {
+    if (!person) continue;
+    const key = personDocGroupKey(person);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(person);
+  }
+
+  const remap = new Map();
+  const drop = new Set();
+  const keeperById = new Map();
+
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const keeper = pickKeeper(group);
+    keeperById.set(keeper.id, mergeKeeperPerson(keeper, group));
+    for (const person of group) {
+      if (person.id === keeper.id) continue;
+      remap.set(person.id, keeper.id);
+      drop.add(person.id);
+    }
+  }
+
+  if (remap.size === 0) return { data, removed: 0 };
+
+  const people = data.people
+    .filter(p => p && !drop.has(p.id))
+    .map(p => keeperById.get(p.id) || p);
+
+  const debts = (data.debts || []).map(d => (
+    d && d.personId && remap.has(d.personId) ? { ...d, personId: remap.get(d.personId) } : d
+  ));
+  const assets = (data.assets || []).map(a => (
+    a && a.holderId && remap.has(a.holderId) ? { ...a, holderId: remap.get(a.holderId) } : a
+  ));
+  const links = { ...(data.links || {}) };
+  links.cdaResponsibilities = dedupeLinkList(
+    links.cdaResponsibilities,
+    remap,
+    l => `${l.cdaId || ''}|${l.personId || ''}|${l.role || ''}`
+  );
+  links.measurePeople = dedupeLinkList(
+    links.measurePeople,
+    remap,
+    l => `${l.measureId || ''}|${l.personId || ''}`
+  );
+
+  return {
+    data: { ...data, people, debts, assets, links },
+    removed: drop.size
+  };
 }

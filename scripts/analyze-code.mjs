@@ -39,7 +39,7 @@ const browserGlobals = new Set([
   'crypto', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'MutationObserver', 'ResizeObserver', 'IntersectionObserver',
   'React', 'ReactDOM', 'XLSX', 'LZString', 'pdfjsLib', 'google', 'HtmlService', 'SpreadsheetApp', 'DriveApp', 'MailApp',
   'Utilities', 'Session', 'ScriptApp', 'PropertiesService', 'Logger', 'ContentService', 'LockService', 'CacheService',
-  '__NEXUS_BUILD__', '__NEXUS_VERSION__', '__NEXUS_DEMO__', 'process', 'global', 'globalThis',
+  '__NEXUS_BUILD__', '__NEXUS_VERSION__', '__NEXUS_DEMO__', '__NEXUS_SHARE_DEMO__', 'process', 'global', 'globalThis',
   // Lucide / Icons globals or libraries if loaded in shell
   'lucide'
 ]);

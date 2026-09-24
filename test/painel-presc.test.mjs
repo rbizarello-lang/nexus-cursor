@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPainelPrescAlerts, classifyPainelPrescAlert, groupOfKind, buildPrazosRadar, attachPrescriptionSnapshots } from '../src/lib/prescription.js';
+import { buildPainelPrescAlerts, classifyPainelPrescAlert, groupOfKind, buildPrazosRadar, attachPrescriptionSnapshots, consumadaClass, rowShowsInConsumada } from '../src/lib/prescription.js';
 
 const ASOF = '2026-08-16';
 const op = { id: 'op1', name: 'Op Teste', status: 'ativa' };
@@ -330,10 +330,11 @@ describe('buildPrazosRadar — cobertura da fila', () => {
     const radar = buildPrazosRadar(data, ASOF);
     const ids = radar.rows.map(r => r.id);
     assert.equal(ids.length, new Set(ids).size);
-    const sum = Object.values(radar.totals).reduce((s, t) => s + t.n, 0);
+    const sum = [1, 2, 3, 4, 5].reduce((s, g) => s + ((radar.totals[g] && radar.totals[g].n) || 0), 0)
+      + radar.rows.filter(r => r.group === 6).length;
     assert.equal(sum, radar.rows.length);
     radar.rows.forEach(r => {
-      assert.ok(r.group >= 1 && r.group <= 5, r.id + ' sem grupo');
+      assert.ok(r.group >= 1 && r.group <= 6, r.id + ' sem grupo');
     });
     const idSet = new Set(ids);
     assert.ok(!idSet.has('d13'), 'parcelada não entra na fila');
@@ -343,9 +344,11 @@ describe('buildPrazosRadar — cobertura da fila', () => {
     assert.ok(idSet.has('d17'), 'ordinária iminente sem processo entra');
     assert.ok(idSet.has('d19'), 'ordinária vencida sem processo entra');
     const d09 = radar.rows.find(r => r.id === 'd09');
-    assert.equal(d09.group, 2);
+    // residual alta com piso já antigo: sai do alerta e vai a Consumada (>6 meses)
+    assert.equal(d09.group, 6);
+    assert.equal(d09.consumada, 'old');
     const d14 = radar.rows.find(r => r.id === 'd14');
-    assert.equal(d14.group, 2);
+    assert.ok(d14.group === 2 || d14.group === 6, 'd14 permanece a conferir ou vai a Consumada se >6m');
     assert.ok((d14.checks || []).some(c => /pausa/i.test(c)));
     const d07 = radar.rows.find(r => r.id === 'd07');
     assert.equal(d07.group, 3);
@@ -363,10 +366,57 @@ describe('buildPrazosRadar — cobertura da fila', () => {
     };
     attachPrescriptionSnapshots(data, ASOF);
     const snap = data.debts[0].prescriptionSnapshot;
-    assert.equal(snap.group, 1);
+    // Marco 2018 → termo ~2024; em 2026-08 já passou de 6 meses → Consumada (grupo 6)
+    assert.equal(snap.group, 6);
+    assert.equal(snap.consumada, 'old');
     assert.ok(snap.summary);
     assert.ok(snap.keyDate);
     assert.equal(typeof snap.firstCheck, 'string');
+  });
+});
+
+describe('consumada — alerta recente vs arquivo >6 meses', () => {
+  it('classifica recent / old / null sem recalcular o termo', () => {
+    assert.equal(consumadaClass({ prescKind: 'iminente', prescDays: 30 }), null);
+    assert.equal(consumadaClass({ prescKind: 'vencido', prescDays: 0 }), 'recent');
+    assert.equal(consumadaClass({ prescKind: 'vencido', prescDays: -90 }), 'recent');
+    assert.equal(consumadaClass({ prescKind: 'vencido', prescDays: -180 }), 'recent');
+    assert.equal(consumadaClass({ prescKind: 'vencido', prescDays: -181 }), 'old');
+    assert.equal(consumadaClass({ prescKind: 'vencido_estimado', prescDays: -400 }), 'old');
+    assert.equal(consumadaClass({ prescKind: 'correndo', prescDays: -10 }), null);
+  });
+
+  it('radar: vencida antiga sai do grupo 1; recente fica no 1 e conta em Consumada', () => {
+    const data = {
+      operations: [op],
+      executions: [
+        ef({ id: 'e-old', processNumber: '50011111120234047001', protocolDate: '2015-01-01', operationId: 'op1' }),
+        ef({ id: 'e-new', processNumber: '50022222220234047001', protocolDate: '2020-01-01', operationId: 'op1' })
+      ],
+      prescriptionEvents: [
+        { id: 'm-old', executionId: 'e-old', type: 'marco_sem_bens', date: '2018-01-01' },
+        { id: 'm-new', executionId: 'e-new', type: 'marco_sem_bens', date: '2020-03-01' }
+      ],
+      debts: [
+        cda({ id: 'd-old', processNumber: '50011111120234047001', inscriptionDate: '2010-01-15', value: 10 }),
+        cda({ id: 'd-recent', processNumber: '50022222220234047001', inscriptionDate: '2019-01-15', value: 20 })
+      ],
+      people: []
+    };
+    // ASOF 2026-03-01: m-new → termo 2026-03-01 (0d, recent); m-old → termo 2024-01-01 (old)
+    const radar = buildPrazosRadar(data, '2026-03-01', null, { policy: 'v2' });
+    const old = radar.rows.find(r => r.id === 'd-old');
+    const recent = radar.rows.find(r => r.id === 'd-recent');
+    assert.ok(old, 'antiga entra na fila');
+    assert.equal(old.group, 6);
+    assert.equal(old.consumada, 'old');
+    assert.ok(recent, 'recente entra na fila');
+    assert.equal(recent.group, 1);
+    assert.equal(recent.consumada, 'recent');
+    assert.ok(rowShowsInConsumada(old));
+    assert.ok(rowShowsInConsumada(recent));
+    assert.ok(radar.totals[6].n >= 2);
+    assert.ok(radar.totals[1].n >= 1);
   });
 });
 

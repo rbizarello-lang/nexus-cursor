@@ -7,29 +7,28 @@ Para executar um item, basta pedir: "vamos fazer o item N do docs/MELHORIAS.md".
 
 ---
 
-## 🧪 Demo Experimental — Central de Comando (✅ 02–03/08/2026)
+## 🧪 Nova versão (beta) (substitui a Demo Experimental — 18/09/2026)
 
-Trilha **paralela** ao redesign progressivo (P2–P6). Não substitui o clássico. **Implementada.**
+Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdition: 'demo'` (`isDemo`).
 
-- **O quê:** edição `uiEdition: 'demo'` com rail (Hoje / Intimações e Tarefas / Carteira / Agenda / Biblioteca / Trabalho=Mesa), zonas da operação, Command Center “Hoje”, grade semanal, temas Clara·Mar·Ardósia·Grafite (padrão Mar Profundo).
-- **Zonas da operação:** Briefing (aba Briefing) · Acervo (Pessoas | Bens) · Risco (Processos e Prescrição) · Ferramentas (Tarefas | Importar | Arquivos). Abas legadas (Grafo/Timeline/CDAs) foram fundidas/removidas da navegação; o mapper ainda redireciona IDs órfãos.
-- **Processos Visão D (clássico) + A/B/C/D (Demo):** o app clássico usa **Visão D · Master–detail** (rail de hubs + painel com EFs abrangidas / sem vínculo; Extintas·Outros demoted; detalhe só ao clicar a linha / Abrir) via `renderProcViewMasterDetail` + `classifyProcGroups`. No Demo Experimental o seletor é **A · Árvore** | **B · Hub com EFs no card** | **C · Seções + tabela** | **D · Master–detail** (padrão se `processViewModel` unset; valor já persistido é respeitado) — `nexus_settings.processViewModel` / `nexus_demo_proc_view`.
-- **Temas clássicos (03/08/2026):** removido **Noite Azulada** (`theme: ''`); adicionado **Claro** (`theme-claro`) com tokens papel-ardósia da Demo Clara (`.edition-demo` base). Padrão continua **Mar Profundo**. Migração: `''` / `theme-noite*` → `theme-claro`. Lista clássica: Mar Profundo · Claro · Ferro e Maré.
-- **Panorama Processual — texto por evento (03/08/2026):** restaurado campo `texto` em `briefing.processStageV2[execId][stageKey]` (StagePopup + click-to-edit inline na mesma linha do rótulo; "—" se vazio). `saneamento` continua `textOnly`.
-- **Como ativar:** ⚙ → “Demo Experimental”, ou abrir na raiz do repo `Nexus.demo.html`, ou `?edition=demo` (persiste em `nexus_settings`).
+- **O quê:** mesma navegação do clássico (sidebar + top-nav + abas da operação), com **Hoje** como primeira vista e **Agenda** unificada (grade semana/mês + lista). Temas: os 3 do clássico (Mar Profundo · Claro · Ferro e Maré). Processos: só visão D (master–detail).
+- **Como ativar:** ⚙ → “Nova versão (beta)”, ou abrir `demo_experimental.html`, ou `?edition=demo`.
 - **O que não muda:** modelo de dados, parsers, sync Drive, formulários, calculadora de prescrição. Clássico continua default no `doGet` (`Nexus.html`).
-- **Build:** `npm run build` gera na raiz o par canônico `Nexus.html` + `Nexus.demo.html`. Aliases locais da demo podem aparecer no disco, mas não entram no git.
+- **Build:** `npm run build` gera `Nexus.html` (clássico), `Nexus.demo.html` (Demo para compartilhar, UI clássica) e `demo_experimental.html` (esta Beta).
+- **Temas clássicos (03/08/2026):** removido Noite Azulada; adicionado Claro (`theme-claro`) com tokens papel-ardósia. Migração: `''` / `theme-noite*` → `theme-claro`.
+- **Panorama Processual:** campo `texto` em `briefing.processStageV2` (StagePopup + click-to-edit). `saneamento` continua `textOnly`.
 
 ---
 
-## 🧭 Claude · Ardósia — protótipo (✅ 23/09) e Fase 1 no app (✅ 24/09/2026)
+## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 e 2 no app (✅ 24/09/2026)
 
 Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
 
 - **Parte 1 (feita):** menu lateral com operações, Hoje, Intimações (lista, quadro e modo foco), gaveta da intimação com régua do prazo, linha do tempo com a contagem do art. 40, Carteira, página da operação, Prazos extintivos e busca ⌘K. Direções visuais Grafite, Ardósia e Maré.
-- **Direção escolhida:** Ardósia (claro).
-- **Fase 1 (feita, dados reais):** terceira edição `uiEdition: 'claude'` (⚙ → “Claude · Ardósia” ou `?edition=claude`). Menu lateral com operações e abas, barra superior com sync e busca, Hoje e Intimações (lista, quadro com arrastar, foco, gaveta com régua do prazo, gramática, notas e registrar atuação via `handleRespondIntim`). Demais telas são as do app dentro da casca, com tokens Ardósia. Código: `src/edition-claude.jsx` + bloco `EDIÇÃO CLAUDE` em `src/Nexus.shell.html`. Peso: +~195 KB no `Nexus.html`.
-- **Próximas fases (sugestão):** 2 · Linha do tempo, Carteira, página da operação e Prazos extintivos no visual novo; 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
+- **Direção escolhida:** Ardósia (claro). **Nome da edição:** Nexus Prumo (24/09/2026). Chave interna continua `uiEdition: 'claude'`.
+- **Fase 1 (feita, dados reais):** terceira edição `uiEdition: 'claude'` (⚙ → “Nexus Prumo” ou `?edition=claude`). Menu lateral com operações e abas, barra superior com sync e busca, Hoje e Intimações (lista, quadro com arrastar, foco, gaveta com régua do prazo, gramática, notas e registrar atuação via `handleRespondIntim`). Demais telas são as do app dentro da casca, com tokens Ardósia. Código: `src/edition-claude.jsx` + bloco `EDIÇÃO CLAUDE` em `src/Nexus.shell.html`. Peso: +~195 KB no `Nexus.html`.
+- **Fase 2 (feita, dados reais):** Carteira em cartões (filtro por classificação, ordenação, dívida e garantia, revisão, risco prescricional); Visão geral da operação (nova primeira aba, só na Ardósia: indicadores, linha do tempo, intimações, prazos extintivos, agenda; Revisada/Editar/Diagnóstico/Relatório); Linha do tempo (menu Trabalho: processos, prazos de intimação, marcos, contagem do art. 40 pela CDA em pior situação e CDAs sem processo com o prazo para ajuizar); Prazos extintivos em modo Mesa novo (Precisa de você · No radar · Silenciados · Consumadas, selos Calculado/Estimado/Cadastro, adiar com motivo e limite, adesão ao parcelamento na linha). A Mesa chama as mesmas funções do app (`applyMesaAction`, `applyPrescSnooze`, `clearPrescSnooze`, `createInlineParcelamento`); “Lista completa” abre a lista clássica.
+- **Próximas fases (sugestão):** 3 · Tarefas, Agenda e Mesa; 4 · Processos e Pessoas e bens.
 - Detalhes e atalhos: `design/claude-experimental/README.md`.
 
 ---
