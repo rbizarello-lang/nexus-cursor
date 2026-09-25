@@ -4973,7 +4973,7 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 /* ═══ Fase 8 · Processos Prumo (aba "Processos e prescrição" no Nexus Prumo) ═══
    Sinais (coluna de posição fixa), ficha lateral e cartões agrupados para
    dezenas de processos — src/edition-claude.jsx: EditionClaudeProcDrawer,
-   EditionClaudeProcessos. */
+   EditionClaudeCdaDrawer (ficha própria da CDA), EditionClaudeProcessos. */
 
 /* Sinais: coluna de posição fixa (7 casas), mesmos desenhos/cores/ordem da Beta. */
 .app-layout.edition-claude .proc-row-syms-fixed { display: inline-flex; align-items: center; gap: 6px; min-width: 108px; }
@@ -5114,6 +5114,23 @@ tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-
 .cx-pp-bulk { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; margin-top: 4px; background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-radius: 10px; box-shadow: var(--cx-shadow-lg); font-size: 12.5px; }
 .cx-pp-bulk-warn { flex-basis: 100%; font-size: 11px; color: var(--cx-ink-3); }
 @media (max-width: 720px) { .cx-pp-bulk { position: static; } .cx-pp-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; } }
+
+/* Rótulo de risco (crítico/alerta/ok) reutilizado fora da tabela — ficha da CDA e aba CDAs
+   da ficha do processo, mesmas cores da coluna Prescrição. */
+.cx-risk-critical { color: var(--cx-red); font-weight: 600; }
+.cx-risk-warning { color: var(--cx-orange); }
+.cx-risk-ok, .cx-risk- { color: var(--cx-ink-3); }
+
+/* ── Ficha lateral da CDA (EditionClaudeCdaDrawer) — bloco "Prazos extintivos" ── */
+.cx-cd-prazos-top { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
+.cx-cd-prazos-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--cx-ink-2); flex-wrap: wrap; }
+.cx-cd-prazos-why { margin-top: 6px; font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.45; font-style: italic; }
+.cx-cd-prazos .cx-pd-cda-stack { margin-top: 12px; }
+
+/* Bloco "Eventos" da ficha da CDA */
+.cx-cd-events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cx-cd-event-row { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px dotted var(--cx-line); font-size: 12px; }
+.cx-cd-event-row:last-child { border-bottom: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    Gaveta em blocos e esteira da peça (Nexus Prumo)

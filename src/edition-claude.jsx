@@ -3497,10 +3497,9 @@ function cxSortCdasByPresc(cdas, prazosByDebt) {
 
 /* ═════════════ Ficha lateral (8a) — processo ou CDA avulsa ═════════════ */
 function EditionClaudeProcDrawer(p) {
-  const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck, onClose, onOpenExec, relatedOthers, linkify } = p;
+  const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, onClose, onOpenExec, onOpenCda, relatedOthers, linkify } = p;
   const [tab, setTab] = React.useState('resumo');
-  const [openCda, setOpenCda] = React.useState(null);
-  React.useEffect(() => { setTab('resumo'); setOpenCda(null); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
+  React.useEffect(() => { setTab('resumo'); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
     window.addEventListener('keydown', onKey);
@@ -3576,43 +3575,22 @@ function EditionClaudeProcDrawer(p) {
           {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}
           {cdas.map(d => {
             const isSel = selectedCDAs.has(d.id);
-            const isOpen = openCda === d.id;
             const isHandled = !!d.prescriptionHandled;
             const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
             const st = DEBT_STATUSES[d.status] || {};
             const pd = cxPrescDisplay([d], prazosByDebt);
             const toggleSel = () => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(d.id)) n.delete(d.id); else n.add(d.id); return n; });
             return (
-              <div key={d.id} className={'cx-pd-cda' + (isOpen ? ' open' : '') + (isHandled ? ' handled' : '')}>
-                <div className="cx-pd-cda-h" onClick={() => setOpenCda(isOpen ? null : d.id)}>
+              <div key={d.id} className={'cx-pd-cda' + (isHandled ? ' handled' : '')}>
+                {/* Clique abre a ficha própria da CDA à direita (fecha esta); checkbox só seleciona. */}
+                <div className="cx-pd-cda-h" onClick={() => onOpenCda && onOpenCda(d.id, e ? e.id : null)}>
                   <input type="checkbox" checked={isSel} onChange={ev => { ev.stopPropagation(); toggleSel(); }} onClick={ev => ev.stopPropagation()} />
                   <span className="cx-mono">{d.cdaNumber || 'CDA'}</span>
                   <span className="cx-muted cx-small">{cdaEspecie(d)}</span>
                   <span className="cx-sp" />
                   <span className="cx-mono cx-small">{fmtCur(d.value)}</span>
                 </div>
-                <div className="cx-pd-cda-s">{st.label || d.status} · {isAguardando ? <span className="risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-green-t">tratada</span> : <span className={'risk-' + pd.riskClass}>{pd.bar}{pd.text}</span>}</div>
-                {isOpen && <div className="cx-pd-cda-b" onClick={ev => ev.stopPropagation()}>
-                  {(() => {
-                    const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-                    // Três contagens empilhadas, a de selo mais grave primeiro (tl.worst, já calculado
-                    // pelo motor de prescrição) — CdaPrescColumns chamado uma vez por segmento, sem
-                    // alterar o componente usado pelo Clássico/Beta.
-                    const segKeys = ['decadencia', 'ordinaria', 'intercorrente'].filter(k => tl[k]);
-                    const ordered = tl.worst && tl.worst.key && segKeys.includes(tl.worst.key)
-                      ? [tl.worst.key, ...segKeys.filter(k => k !== tl.worst.key)]
-                      : segKeys;
-                    return <div className="cx-pd-cda-stack">
-                      {ordered.map(k => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />)}
-                    </div>;
-                  })()}
-                  <div className="cx-pd-cda-acts">
-                    <button type="button" className="cx-btn sm" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: d.id, executionId: '', _focusDate: true } })}>+ Evento</button>
-                    <button type="button" className="cx-btn sm" onClick={() => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData)}>{isHandled ? '↻ Reabrir' : '✓ Tratada'}</button>
-                    {!isHandled && <button type="button" className="cx-btn sm" onClick={() => markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef: e ? (e.processNumber || '') : null, className: e ? e.className : '', court: e ? e.court : '' })}>⏳ Aguardando reconhecimento</button>}
-                    <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Editar inscrição</button>
-                  </div>
-                </div>}
+                <div className="cx-pd-cda-s">{st.label || d.status} · {isAguardando ? <span className="cx-risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-risk-ok">tratada</span> : <span className={'cx-risk-' + pd.riskClass}>{pd.bar}{pd.text}</span>}</div>
               </div>
             );
           })}
@@ -3667,6 +3645,181 @@ function EditionClaudeProcDrawer(p) {
     </aside>
   </>;
 }
+
+/* ═════════════ Ficha lateral da CDA (8c) — mesmo padrão da ficha do processo ═════════════
+   Aberta ao clicar numa linha de CDA (cartão "CDAs não ajuizadas" e a lista de CDAs dentro
+   da ficha do processo, aba CDAs). Só leitura do motor de prescrição existente — nenhum
+   cálculo novo aqui. Pronta para reuso pela futura aba Inscrições (props explícitas). */
+
+/** Três contagens empilhadas (decadência/ordinária/intercorrente), a mais grave primeiro —
+ *  mesmo cálculo que a aba CDAs da ficha do processo já fazia inline; extraído para reuso. */
+function CxCdaPrescStack({ debt, data, togglePrescCheck }) {
+  const tl = computeCdaLegalTimeline({ debt, executions: data.executions, events: data.prescriptionEvents || [] });
+  const segKeys = ['decadencia', 'ordinaria', 'intercorrente'].filter(k => tl[k]);
+  const ordered = tl.worst && tl.worst.key && segKeys.includes(tl.worst.key)
+    ? [tl.worst.key, ...segKeys.filter(k => k !== tl.worst.key)]
+    : segKeys;
+  return <div className="cx-pd-cda-stack">
+    {ordered.map(k => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={debt} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />)}
+  </div>;
+}
+
+/** Bloco "Prazos extintivos": situação na Mesa (prazosByDebt), o mesmo rótulo e barra de
+ *  horizonte usados na coluna Prescrição da aba, e as três contagens empilhadas. */
+function CxCdaPrazosBlock({ debt, prazosByDebt, data, togglePrescCheck }) {
+  const row = prazosByDebt.get(debt.id);
+  const pd = cxPrescDisplay([debt], prazosByDebt);
+  const isHandled = !!debt.prescriptionHandled;
+  const isAguardando = isHandled && debt.prescriptionHandledType === 'aguardando_reconhecimento';
+  return <div className="cx-cd-prazos">
+    <div className={'cx-cd-prazos-top cx-risk-' + pd.riskClass}>
+      {pd.bar}<span>{pd.text}</span>
+      {isAguardando ? <span className="cx-tag orange">aguardando reconhecimento</span> : isHandled ? <span className="cx-tag">tratada</span> : null}
+    </div>
+    {row ? <div className="cx-cd-prazos-row">
+      <span className="cx-gnum" style={{ '--c': CX_GROUP_C[row.group] }} title={'Grupo ' + row.group}>{row.group}</span>
+      <span>{PRAZOS_GROUP_LABELS[row.group] || ''}</span>
+      {row.keyDate ? <span className="cx-muted">termo {fmtDate(row.keyDate)}</span> : null}
+      {row.prescDays != null ? <span className="cx-muted">{formatPrescHorizon(row.prescDays)}</span> : null}
+    </div> : null}
+    {row && (row.why || row.summary) ? <div className="cx-cd-prazos-why">{betaSafeUiText(row.why || row.summary)}</div> : null}
+    <CxCdaPrescStack debt={debt} data={data} togglePrescCheck={togglePrescCheck} />
+  </div>;
+}
+
+/** Bloco "Dados da inscrição" — mesmos campos do detalhe clássico (status, espécie, tributo,
+ *  valor, inscrição, prescrição informada, tratamento, processo, situação origem). */
+function CxCdaDadosBlock({ debt: d, exec }) {
+  const st = DEBT_STATUSES[d.status] || {};
+  const field = (label, value) => (value !== null && value !== undefined && value !== '') ? (
+    <div key={label} className="cda-inline-field">
+      <span className="im-label">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  ) : null;
+  return <div className="cda-inline-fields">
+    {field('Status', st.label || d.status)}
+    {field('Espécie', cdaEspecie(d))}
+    {field('Tributo', d.tribute)}
+    {field('Valor', d.value != null ? fmtCur(d.value) : null)}
+    {field('Inscrição', d.inscriptionDate ? fmtDate(d.inscriptionDate) : null)}
+    {field('Prescrição informada (não substitui o cálculo)', d.prescriptionDate ? fmtDate(d.prescriptionDate) : null)}
+    {field('Tratamento', d.prescriptionHandled ? (d.prescriptionHandledType === 'aguardando_reconhecimento' ? 'Aguardando reconhecimento' : 'Tratada') : null)}
+    {field('Processo', d.processNumber ? d.processNumber + (exec && exec.court ? ' · ' + exec.court : '') : null)}
+    {field('Situação origem', d.rawStatus)}
+  </div>;
+}
+
+/** Bloco "Eventos": collectEventsForCda + inferParcelamentoEnds (mesmo motor do clássico); ✎ abre o evento. */
+function CxCdaEventsBlock({ debt, data, setModal }) {
+  const pevs = collectEventsForCda(debt, data.executions, data.prescriptionEvents || []).events;
+  if (!pevs.length) return <div className="cx-empty-row">Sem eventos lançados.</div>;
+  const inferredEnds = inferParcelamentoEnds(pevs);
+  return <ul className="cx-cd-events">
+    {pevs.map(ev => {
+      const meta = PRESC_EVENT_TYPES[normalizePrescEventType(ev.type)] || {};
+      const pedido = ev.requestDate && ev.requestDate !== ev.date;
+      const inferred = !ev.endDate ? inferredEnds.get(ev.id) : null;
+      return <li key={ev.id} className="cx-cd-event-row">
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => setModal({ type: 'edit', entityType: 'prescriptionEvent', initial: ev })} title="Editar evento" aria-label="Editar evento"><CxIcon n="edit" s={12} /></button>
+        <span>
+          <b>{meta.label || ev.type}</b>
+          {pedido ? ' · pedido ' + fmtDate(ev.requestDate) : ''}
+          {ev.date ? ' · ' + (pedido ? 'efetiva ' : '') + fmtDate(ev.date) : ''}
+          {ev.endDate ? ' · até ' + fmtDate(ev.endDate) : (inferred ? ' · até ' + fmtDate(inferred.end) + ' (inferido)' : '')}
+        </span>
+      </li>;
+    })}
+  </ul>;
+}
+
+const CX_CDA_BLK_DEFAULTS = { prazos: true, resp: false, dados: false, eventos: false, hist: false, notas: false };
+function cxLoadCdaDrawerBlocks() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('nexus_cx_cda_drawer_blocks') || 'null');
+    if (raw && typeof raw === 'object') return { ...CX_CDA_BLK_DEFAULTS, ...raw };
+  } catch (e) { /* ignore */ }
+  return { ...CX_CDA_BLK_DEFAULTS };
+}
+function cxSaveCdaDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_cda_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
+
+/** Ficha da CDA — props explícitas para reuso (a futura aba Inscrições usa o mesmo componente):
+ *  debt (a CDA), exec (execução vinculada, se houver), data, prazosByDebt, onClose, onOpenExec,
+ *  setModal, selectedCDAs/setSelectedCDAs, setData, togglePrescCheck. */
+function EditionClaudeCdaDrawer(p) {
+  const { debt: d, exec, data, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, togglePrescCheck, onClose, onOpenExec, opId, linkify } = p;
+  const [blocks, setBlocks] = React.useState(cxLoadCdaDrawerBlocks);
+  const toggleBlock = (key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveCdaDrawerBlocks(next); return next; });
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  if (!d) return null;
+  const st = DEBT_STATUSES[d.status] || {};
+  const isHandled = !!d.prescriptionHandled;
+  const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
+  const respCount = (data.links?.cdaResponsibilities || []).filter(r => r.cdaId === d.id).length;
+  const pevsCount = collectEventsForCda(d, data.executions, data.prescriptionEvents || []).events.length;
+  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(n => n && !(d.debcad && isDebcadCondensedNote(n)) && !(d.sida && isSidaCondensedNote(n)));
+  const hasHist = !!(d.debcad || d.sida);
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd cx-cd" role="dialog" aria-modal="true" aria-label="CDA">
+      <div className="cx-dr-top">
+        <div className="cx-crumb">
+          <span className="cx-pd-kind">CDA</span>
+          <Copyable value={d.cdaNumber || ''} className="cx-mono cx-pd-num">{d.cdaNumber || 'S/N'}</Copyable>
+        </div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        <dl className="cx-props">
+          <dt>Espécie</dt><dd>{[cdaEspecie(d), d.tribute, d.system].filter(Boolean).join(' · ') || '—'}</dd>
+          <dt>Valor</dt><dd className="cx-mono">{d.value != null ? fmtCur(d.value) : '—'}</dd>
+          <dt>Situação</dt><dd>{isAguardando ? <span className="cx-risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-risk-ok">tratada</span> : (st.label || d.status || '—')}</dd>
+          <dt>Inscrição</dt><dd>{d.inscriptionDate ? fmtDate(d.inscriptionDate) : '—'}</dd>
+          {exec ? <><dt>Processo</dt><dd><button type="button" className="cx-link-btn" onClick={() => onOpenExec && onOpenExec(exec.id)}>{exec.processNumber || 'Abrir processo'}<CxIcon n="chevR" s={12} /></button></dd></> : (d.processNumber ? <><dt>Processo</dt><dd className="cx-mono cx-small">{d.processNumber}</dd></> : null)}
+        </dl>
+
+        <CxBlock title="Prazos extintivos" open={!!blocks.prazos} onToggle={() => toggleBlock('prazos')}>
+          <CxCdaPrazosBlock debt={d} prazosByDebt={prazosByDebt} data={data} togglePrescCheck={togglePrescCheck} />
+        </CxBlock>
+
+        <CxBlock title="Responsáveis" count={respCount} open={!!blocks.resp} onToggle={() => toggleBlock('resp')}>
+          <ResponsibilityChips cdaId={d.id} data={data} onClickPerson={(pp) => setModal({ type: 'edit', entityType: 'person', initial: pp })} />
+        </CxBlock>
+
+        <CxBlock title="Dados da inscrição" open={!!blocks.dados} onToggle={() => toggleBlock('dados')}>
+          <CxCdaDadosBlock debt={d} exec={exec} />
+        </CxBlock>
+
+        <CxBlock title="Eventos" count={pevsCount} open={!!blocks.eventos} onToggle={() => toggleBlock('eventos')}>
+          <CxCdaEventsBlock debt={d} data={data} setModal={setModal} />
+        </CxBlock>
+
+        {hasHist ? <CxBlock title="Histórico SIDA / Debcad" open={!!blocks.hist} onToggle={() => toggleBlock('hist')}>
+          <DebcadHistoryBlock debt={d} />
+          <SidaHistoryBlock debt={d} />
+        </CxBlock> : null}
+
+        <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggleBlock('notas')}>
+          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => {
+            const text = typeof n === 'string' ? n : ((n && (n.text || n.content || n.body)) || '');
+            return <div key={i} className="cx-pd-note">{linkify ? linkify(text) : text}</div>;
+          })}
+        </CxBlock>
+      </div>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn sm" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: d.id, executionId: exec ? exec.id : '', _focusDate: true } })}>+ Evento</button>
+        <button type="button" className="cx-btn sm" onClick={() => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData)}>{isHandled ? '↻ Reabrir' : '✓ Tratada'}</button>
+        {!isHandled ? <button type="button" className="cx-btn sm" onClick={() => markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef: exec ? (exec.processNumber || '') : null, className: exec ? exec.className : '', court: exec ? exec.court : '' })}>⏳ Aguardando reconhecimento</button> : null}
+        <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>✎ Editar inscrição</button>
+      </div>
+    </aside>
+  </>;
+}
+
 /* ═════════════ Cartões para dezenas de processos (8b) ═════════════ */
 function cxEfMeta(group, prazosByDebt) {
   const rm = prazosRiskMetaForCdas(group.cdas || [], prazosByDebt);
@@ -3761,6 +3914,7 @@ function EditionClaudeProcessos(p) {
   const toggleSigFilter = (k) => setSigActive(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const [sortBy, setSortBy] = React.useState('valor');
   const [drawerExecId, setDrawerExecId] = React.useState(null);
+  const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null — exclusivo com drawerExecId
   const [cardGroupSel, setCardGroupSel] = React.useState({ inc: 'all' });
   const [bandsOn, setBandsOn] = React.useState(() => ({ ativa: true, suspensa: true, suspensa_parcelamento: true, arquivada: true, nao_ajuizada: true, extinta: false }));
   const [showMore, setShowMore] = React.useState({});
@@ -3805,8 +3959,12 @@ function EditionClaudeProcessos(p) {
   const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
   const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
 
-  const openDrawerFor = (execId) => setDrawerExecId(execId);
+  // Só uma ficha por vez: abrir a do processo fecha a da CDA e vice-versa.
+  const openDrawerFor = (execId) => { setDrawerExecId(execId); setDrawerCda(null); };
   const closeDrawer = () => setDrawerExecId(null);
+  const openCdaDrawer = (cdaId, execId) => { setDrawerCda({ id: cdaId, execId: execId || null }); setDrawerExecId(null); };
+  const closeCdaDrawer = () => setDrawerCda(null);
+  const drawerOpen = !!drawerExecId || !!drawerCda;
   const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (collapsedCards.has(id)) setCollapsedCards(prev => { const n = new Set(prev); n.delete(id); return n; }); };
 
   const toggleGroupSelect = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const all = cdas.every(d => n.has(d.id)); cdas.forEach(d => all ? n.delete(d.id) : n.add(d.id)); return n; });
@@ -3823,9 +3981,9 @@ function EditionClaudeProcessos(p) {
       <tr className={'cx-pt-row' + (drawerExecId === g.exec.id ? ' on' : '')} onClick={() => openDrawerFor(g.exec.id)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>{depth > 1 && <span className="cx-pt-nest">↳</span>}<span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
-        {!drawerExecId && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
+        {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
-        {!drawerExecId && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
+        {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(meta.total)}</td>
         <CxPrescCell cdas={g.cdas} prazosByDebt={prazosByDebt} />
       </tr>
@@ -3834,7 +3992,7 @@ function EditionClaudeProcessos(p) {
   };
 
   const ProcTableHead = () => (
-    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerExecId && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerExecId && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerOpen && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerOpen && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
@@ -3849,8 +4007,8 @@ function EditionClaudeProcessos(p) {
     const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     return <React.Fragment>
       {label && <tr className="cx-pt-band">
-        <td className="cx-pt-ck"></td><td colSpan={drawerExecId ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
-        {!drawerExecId && <td className="cx-pt-r">{cdaCount}</td>}
+        <td className="cx-pt-ck"></td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
+        {!drawerOpen && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
@@ -3890,9 +4048,9 @@ function EditionClaudeProcessos(p) {
           <span className="cx-mono">{h.exec.processNumber || 'S/N'}</span>
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
         </td>
-        {!drawerExecId && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
+        {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (hMeta.st.badge || 'badge-muted')}>{hMeta.st.label || h.exec.status || '—'}</span></td>
-        {!drawerExecId && <td className="cx-pt-r">{cdaCount}</td>}
+        {!drawerOpen && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono"><b>{fmtCur(totalVal)}</b></td>
         <CxPrescCell cdas={cdasFlat} prazosByDebt={prazosByDebt} />
       </tr>
@@ -4032,12 +4190,13 @@ function EditionClaudeProcessos(p) {
               return <React.Fragment>
                 {visN.map(d => {
                   const isSel = selectedCDAs.has(d.id);
-                  return <tr key={d.id} className="cx-pt-row cx-pt-row-cda" onClick={() => openDrawerFor('cda:' + d.id)}>
+                  const isOpen = !!drawerCda && drawerCda.id === d.id;
+                  return <tr key={d.id} className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => openCdaDrawer(d.id)}>
                     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
                     <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
-                    {!drawerExecId && <td className="cx-pt-sig"></td>}
+                    {!drawerOpen && <td className="cx-pt-sig"></td>}
                     <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
-                    {!drawerExecId && <td className="cx-pt-r">—</td>}
+                    {!drawerOpen && <td className="cx-pt-r">—</td>}
                     <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
                     <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
                   </tr>;
@@ -4095,18 +4254,22 @@ function EditionClaudeProcessos(p) {
         </section>
       </div>
 
-      {drawerCtx && (() => {
-        let group = drawerCtx.group;
-        if (typeof drawerExecId === 'string' && drawerExecId.indexOf('cda:') === 0) {
-          const cdaId = drawerExecId.slice(4);
-          const d = allDebts.find(x => x.id === cdaId);
-          group = { type: 'unlinked', exec: null, cdas: d ? [d] : [] };
-        }
-        return <EditionClaudeProcDrawer group={group} data={data} opId={opId} hubLabel={drawerCtx.hubLabel}
+      {drawerCda ? (() => {
+        const d = allDebts.find(x => x.id === drawerCda.id);
+        if (!d) return null;
+        const exec = drawerCda.execId
+          ? execs.find(x => x.id === drawerCda.execId)
+          : (data.executions || []).find(x => x.processNumber && sameProc(x.processNumber, d.processNumber));
+        return <EditionClaudeCdaDrawer debt={d} exec={exec} data={data} opId={opId} prazosByDebt={prazosByDebt}
+          selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
+          togglePrescCheck={togglePrescCheck} onClose={closeCdaDrawer} onOpenExec={openDrawerFor} linkify={p.linkify} />;
+      })() : drawerCtx && (
+        <EditionClaudeProcDrawer group={drawerCtx.group} data={data} opId={opId} hubLabel={drawerCtx.hubLabel}
           apensoNums={drawerCtx.apensoNums} relatedOthers={drawerCtx.relatedOthers} prazosByDebt={prazosByDebt}
           selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
-          upsert={upsert} togglePrescCheck={togglePrescCheck} onClose={closeDrawer} onOpenExec={openDrawerFor} linkify={p.linkify} />;
-      })()}
+          upsert={upsert} togglePrescCheck={togglePrescCheck} onClose={closeDrawer} onOpenExec={openDrawerFor}
+          onOpenCda={openCdaDrawer} linkify={p.linkify} />
+      )}
     </div>
 
     {selectedCDAs.size > 0 && (
