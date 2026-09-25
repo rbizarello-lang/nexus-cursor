@@ -675,7 +675,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
   const urgent = intimIsUrgent(intim) && !done;
   const ra = intim.responseAction;
   return <div className={'cx-i-row' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex={0}
-    onClick={() => onOpen(intim.id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(intim.id); } }}>
+    onClick={() => onOpen(intim.id)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}>
     <CxStatusIcon s={resolved ? 'analisado' : intim.status} />
     <div className="cx-i-main">
       <div className="cx-i-party">
@@ -742,7 +742,7 @@ function CxBoard({ items, sort, onOpen, onSetStatus, opsById }) {
 function EditionClaudeIntimacoes(p) {
   const { data, opsById, view, setView } = p;
   const [q, setQ] = React.useState('');
-  const [opF, setOpF] = React.useState('all');
+  const [opFRaw, setOpF] = React.useState('all');
   const [scope, setScope] = React.useState('ativas');
   const lsGet = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   const [groupBy, setGroupByS] = React.useState(() => lsGet('nexus_cx_group', 'prazo'));
@@ -750,6 +750,7 @@ function EditionClaudeIntimacoes(p) {
   const setGroupBy = (v) => { setGroupByS(v); try { localStorage.setItem('nexus_cx_group', v); } catch (e) { /* ignore */ } };
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_sort', v); } catch (e) { /* ignore */ } };
   const all = data.intimations || [];
+  const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && all.some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const opIds = [...new Set(all.map(x => x.operationId).filter(Boolean))];
   const opOptions = [['all', 'Todas'], ['none', 'Sem operação']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
   const toks = cxNorm(q).split(/\s+/).filter(Boolean);
@@ -1780,7 +1781,7 @@ function CxTaskRow({ t, op, onOpen, onToggle, onOpenOp, deskOn, onDesk }) {
   const done = t.status === 'concluida' || t.status === 'cancelada';
   const urgent = t.priority === 'urgente' && !done;
   return <div className={'cx-t-row' + (done ? ' done' : '') + (urgent ? ' urgent' : '')} role="button" tabIndex={0}
-    onClick={() => onOpen(t)} onKeyDown={e => { if (e.key === 'Enter') onOpen(t); }}>
+    onClick={() => onOpen(t)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(t); }}>
     <button type="button" className={'cx-tcheck' + (t.status === 'concluida' ? ' on' : '')} title={t.status === 'concluida' ? 'Reabrir' : 'Concluir'} aria-label={t.status === 'concluida' ? 'Reabrir tarefa' : 'Concluir tarefa'}
       onClick={e => { e.stopPropagation(); onToggle(t); }}>{t.status === 'concluida' ? <CxIcon n="tick" s={11} /> : null}</button>
     <div className="cx-i-main">
@@ -1859,10 +1860,11 @@ function EditionClaudeTarefas(p) {
   const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_task_view', v); };
   const setGroupBy = (v) => { setGroupByS(v); cxLsSet('nexus_cx_task_group', v); };
   const [q, setQ] = React.useState('');
-  const [opF, setOpF] = React.useState('all');
+  const [opFRaw, setOpF] = React.useState('all');
   const [closed, setClosed] = React.useState({ done: true });
   const [draft, setDraft] = React.useState({ title: '', dueDate: '', priority: 'media', operationId: '' });
   const all = data.tasks || [];
+  const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && all.some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const inScope = all.filter(t => scope === 'todas' || cxTaskIsGlobal(t));
   const toks = cxNorm(q).split(/\s+/).filter(Boolean);
   const filtered = inScope.filter(t => {
@@ -1974,7 +1976,7 @@ function CxHearingRow({ h, op, onOpen, onOpenOp, deskOn, onDesk }) {
   const tone = closed ? '' : dd !== null && dd >= 0 && dd <= 2 ? 'red' : dd !== null && dd > 2 && dd <= 7 ? 'yellow' : '';
   const when = closed ? (AUDIENCIA_STATUSES[h.status] || {}).label.replace(/^[^ ]+ /, '') : dd === null ? 'sem data' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd > 0 ? 'em ' + dd + ' dias' : 'há ' + (-dd) + ' dias';
   const mat = h.roteiro || (h.notesList && h.notesList.length) || (h.documentIds && h.documentIds.length);
-  return <div className={'cx-h-row' + (closed ? ' done' : '') + (tone ? ' ' + tone : '')} role="button" tabIndex={0} onClick={() => onOpen(h)} onKeyDown={e => { if (e.key === 'Enter') onOpen(h); }}>
+  return <div className={'cx-h-row' + (closed ? ' done' : '') + (tone ? ' ' + tone : '')} role="button" tabIndex={0} onClick={() => onOpen(h)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(h); }}>
     <div className="cx-h-date"><b>{d ? d.getDate() : '—'}</b><span>{d ? CX_MES_L[d.getMonth()].slice(0, 3) : ''}</span>{h.time ? <span className="cx-mono cx-h-time">{h.time}</span> : null}</div>
     <div className="cx-i-main">
       <div className="cx-t-title"><span className="cx-ell">{h.parties || 'Audiência'}</span></div>
@@ -2003,7 +2005,7 @@ function EditionClaudeAgenda(p) {
   const [anchor, setAnchor] = React.useState(() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; });
   const [kinds, setKindsS] = React.useState(() => { try { const v = JSON.parse(localStorage.getItem('nexus_cx_ag_kinds') || 'null'); return v && typeof v === 'object' ? v : { aud: true, prazo: true, tarefa: true, presc: true }; } catch (e) { return { aud: true, prazo: true, tarefa: true, presc: true }; } });
   const setKinds = (v) => { setKindsS(v); cxLsSet('nexus_cx_ag_kinds', JSON.stringify(v)); };
-  const [opF, setOpF] = React.useState('all');
+  const [opFRaw, setOpF] = React.useState('all');
   const [pastOpen, setPastOpen] = React.useState(false);
   const todayIso = localIso(new Date());
   let days, label;
@@ -2025,6 +2027,7 @@ function EditionClaudeAgenda(p) {
     label = a.getDate() + (a.getMonth() !== b.getMonth() ? ' de ' + CX_MES_L[a.getMonth()] : '') + ' a ' + b.getDate() + ' de ' + CX_MES_L[b.getMonth()] + ' de ' + b.getFullYear();
   }
   const fromIso = localIso(days[0]), toIso = localIso(days[days.length - 1]);
+  const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && [].concat(data.hearings || [], data.intimations || [], data.tasks || []).some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const byDayAll = cxAgendaByDay(data, prazosRadar, fromIso, toIso, opF);
   const byDay = {};
   const counts = { aud: 0, prazo: 0, tarefa: 0, presc: 0 };
@@ -2275,7 +2278,7 @@ function CxWatchRow({ w, op, onOpen, onOpenOp, onCheck, onStatus }) {
   const stale = !closed && (checked === null ? (since !== null && since >= CX_WATCH_STALE) : checked >= CX_WATCH_STALE);
   const notes = cxWatchNotes(w);
   return <div className={'cx-w-row' + (closed ? ' done' : '') + (stale ? ' stale' : '')} role="button" tabIndex={0}
-    onClick={() => onOpen(w)} onKeyDown={e => { if (e.key === 'Enter') onOpen(w); }}>
+    onClick={() => onOpen(w)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(w); }}>
     <span className="cx-dot cx-w-dot" style={{ background: st.c }} title={st.l} />
     <div className="cx-i-main">
       <div className="cx-t-title"><span className="cx-mono cx-w-proc">{w.processNumber ? <CxProc num={w.processNumber} /> : <span className="cx-muted">Sem nº</span>}</span>
@@ -2306,8 +2309,9 @@ function EditionClaudeAcompanhar(p) {
   const [sort, setSortS] = React.useState(() => cxLs('nexus_cx_watch_sort', 'verificacao'));
   const setSort = (v) => { setSortS(v); cxLsSet('nexus_cx_watch_sort', v); };
   const [q, setQ] = React.useState('');
-  const [opF, setOpF] = React.useState('all');
+  const [opFRaw, setOpF] = React.useState('all');
   const all = data.watchlist || [];
+  const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && all.some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const openAll = all.filter(w => w.status !== 'encerrado');
   const closedAll = all.filter(w => w.status === 'encerrado');
   const isStale = (w) => { const a = cxWatchCheckAge(w); return w.status !== 'encerrado' && a !== null && a >= CX_WATCH_STALE; };
@@ -2500,7 +2504,7 @@ function EditionClaudePainel(p) {
             const pctW = o.totalValue / maxV * 100;
             const gPct = o.totalValue > 0 ? o.guaranteedValue / o.totalValue * 100 : 0;
             const rs = cxRS(o.op);
-            return <tr key={o.op.id} className="click" onClick={() => p.onOpenOp(o.op.id)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') p.onOpenOp(o.op.id); }}>
+            return <tr key={o.op.id} className="click" onClick={() => p.onOpenOp(o.op.id)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) p.onOpenOp(o.op.id); }}>
               <td><span className="cx-op-cell"><span className="cx-panel-rank">{i + 1}</span><span className="cx-op-sq" style={{ background: cxOpColor(o.op.id) }} /><span className="cx-ell" title={o.op.name}>{cxOpName(o.op)}</span>{cxOpPrioTag(o.op)}</span>
                 <span className="cx-panel-sub">{cxPl(o.debtsCount, 'CDA', 'CDAs')} · {o.execsCount} proc. · {cxPl(o.assetsCount, 'bem', 'bens')}</span></td>
               <td className="cx-panel-bar-td" title={'Crédito ' + fmtCur(o.totalValue) + ' · garantido ' + fmtCur(o.guaranteedValue) + ' (' + Math.round(gPct) + '%)'}>
