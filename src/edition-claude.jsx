@@ -1854,7 +1854,7 @@ function EditionClaudeOpOverview(p) {
       ? <button type="button" className="cx-stat click" onClick={opts.onClick} title={opts.tip}>{body}</button>
       : <div className="cx-stat" title={opts.tip}>{body}</div>;
   };
-  return <div className="cx cx-page cx-page-wide">
+  return <div className="cx cx-page cx-page-wide cx-op-page">
     <div className="cx-op-top">
       <div className="cx-minw0">
         <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>

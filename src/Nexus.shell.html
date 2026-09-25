@@ -4637,6 +4637,19 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 
 .app-layout.edition-claude .cx-tabpanel { background: var(--cx-ground); font-family: var(--cx-font); }
 .app-layout.edition-claude .cx-tabpanel .entity-area { padding: 18px 28px 64px; }
+/* Largura única nas abas da operação: todas alinham com o cabeçalho (28px de cada lado, sem largura máxima própria). */
+.app-layout.edition-claude .cx-tabpanel .cx-page,
+.app-layout.edition-claude .cx-page.cx-op-page { max-width: none; margin: 0; padding: 18px 28px 64px; }
+.app-layout.edition-claude .cx-page.cx-op-page { padding-top: 16px; }
+/* Reserva o espaço da barra de rolagem (Windows) para a largura não mudar entre abas curtas e longas. */
+.app-layout.edition-claude .cx-tabpanel > .cx-page { flex: 1; min-height: 0; overflow-y: auto; width: 100%; }
+.app-layout.edition-claude :is(.cx-scroll, .cx-oph, .cx-tabpanel > .cx-page, .cx-tabpanel > .entity-area) { scrollbar-gutter: stable; }
+.app-layout.edition-claude .cx-oph { overflow-y: hidden; }
+@media (max-width: 900px) {
+  .app-layout.edition-claude .cx-tabpanel .cx-page,
+  .app-layout.edition-claude .cx-tabpanel .entity-area,
+  .app-layout.edition-claude .cx-page.cx-op-page { padding-left: 16px; padding-right: 16px; }
+}
 .app-layout.edition-claude .cx-tabpanel button { font-family: var(--cx-font); letter-spacing: 0; }
 .app-layout.edition-claude .cx-tabpanel :is(.btn-secondary, .btn-primary, .btn-danger) { border-radius: 7px; font-weight: 500; text-transform: none; box-shadow: none; }
 .app-layout.edition-claude .cx-tabpanel .btn-secondary { background: var(--cx-surface); border: 1px solid var(--cx-line); color: var(--cx-ink); }
