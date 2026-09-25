@@ -20,7 +20,7 @@ Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdi
 
 ---
 
-## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 a 5 no app (✅ 25/09/2026)
+## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 a 6 no app (✅ 25/09/2026)
 
 Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
 
@@ -32,7 +32,8 @@ Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo ún
 - **Menu lateral (24/09):** busca de operação sempre visível (nome e descrição) e filtro por classificação igual ao do Clássico e da Beta. O filtro é o mesmo estado do app (`opClassFilter`): vale no menu, na Carteira e no Clássico ao trocar de edição.
 - **Fase 4 (feita, dados reais):** cabeçalho Prumo em todas as abas da operação (nome, classificações, revisão, resumo com dívida, garantia, CDAs, processos, intimações e alarme de prescrição; Revisada, Editar, Diagnóstico, Relatório; abas). Pessoas e Bens viram uma aba só, **Partes e bens**, com seletor interno (decisão P4), mantendo por baixo as abas `pessoas` e `bens`. Processos e prescrição, Inscrições e Partes e bens seguem com o conteúdo do app (sem reescrever prescrição) e ganham o visual Prumo (tipografia, botões, etiquetas, campos, cartões). Busca “Filtrar processo / CDA” da Beta ligada também no Prumo; corrigida para achar apensos (vale para a Beta).
 - **Fase 5 (feita, dados reais):** Acompanhar (lista com situação, conferência “verificado há N dias” e destaque do que passa de 7 dias sem conferência, botão Verificar, troca de situação na linha, link para o eproc, busca e filtros); Painel da carteira (indicadores, tabela de operações com barra de crédito e parte garantida, mesmas 10 ordenações do Painel clássico — estado `carteiraSort` —, prescrição por grupo com atalho para a lista, revisões devidas com “Revisada”, resumo dos próximos 7 dias com atalho para a Agenda). A Biblioteca continua sendo a tela do app (evolui pelo Cursor) com o visual Prumo aplicado por CSS.
-- **Próximas fases (sugestão):** 6 · formulários (modais) no visual Prumo.
+- **Fase 6 (feita):** formulários (janelas de criar e editar) no visual Prumo, só por CSS (`.app-layout.edition-claude .modal`): título e rótulos em texto normal, campos claros com foco destacado, botões no estilo Prumo, Salvar/Cancelar sempre visíveis no pé da janela; no celular a janela sobe de baixo, com os campos em uma coluna. A lógica dos formulários é a mesma do app.
+- **Próximos passos (sugestão):** ajustes finos a partir do uso real.
 - Detalhes e atalhos: `design/claude-experimental/README.md`.
 
 ---

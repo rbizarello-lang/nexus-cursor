@@ -4745,6 +4745,40 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
   .cx-w-st select.cx-input { width: 100%; }
 }
 
+/* ═══ Fase 6 · formulários (janelas de criar e editar) no visual Prumo ═══
+   Só aparência: os formulários continuam os do app (EntityFormRouter), com a mesma lógica. */
+.app-layout.edition-claude .modal { font-family: var(--cx-font); color: var(--cx-ink); background: var(--cx-surface); border-radius: 12px; padding: 22px 24px; width: min(92%, 620px); }
+.app-layout.edition-claude .modal h3 { font-family: var(--cx-font); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--cx-ink); margin: 0 0 18px; }
+.app-layout.edition-claude .modal .form-group { margin-bottom: 14px; }
+.app-layout.edition-claude .modal .form-group > label { font-family: var(--cx-font); font-size: 12px; font-weight: 500; color: var(--cx-ink-2); text-transform: none; letter-spacing: 0; margin-bottom: 5px; }
+.app-layout.edition-claude .modal .form-row, .app-layout.edition-claude .modal .form-row-3 { gap: 12px; }
+.app-layout.edition-claude .modal :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) { font-family: var(--cx-font); font-size: 13px; color: var(--cx-ink); background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 7px; padding: 7px 10px; text-transform: none; letter-spacing: 0; box-shadow: none; }
+.app-layout.edition-claude .modal :is(input, select):not([type="checkbox"]):not([type="radio"]) { min-height: 34px; }
+.app-layout.edition-claude .modal :is(input, select, textarea):hover { border-color: var(--cx-line-strong); }
+.app-layout.edition-claude .modal :is(input, select, textarea):focus { border-color: var(--cx-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cx-accent) 16%, transparent); }
+.app-layout.edition-claude .modal input::placeholder, .app-layout.edition-claude .modal textarea::placeholder { color: var(--cx-ink-3); opacity: 1; }
+.app-layout.edition-claude .modal input[type="checkbox"], .app-layout.edition-claude .modal input[type="radio"] { accent-color: var(--cx-btn); }
+.app-layout.edition-claude .modal button { font-family: var(--cx-font); letter-spacing: 0; text-transform: none; }
+.app-layout.edition-claude .modal :is(.btn-secondary, .btn-primary, .btn-danger) { border-radius: 7px; font-weight: 500; box-shadow: none; white-space: nowrap; }
+.app-layout.edition-claude .modal .btn-secondary { background: var(--cx-surface); border: 1px solid var(--cx-line); color: var(--cx-ink); }
+.app-layout.edition-claude .modal .btn-secondary:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); }
+.app-layout.edition-claude .modal .btn-danger { background: var(--cx-surface); border: 1px solid color-mix(in srgb, var(--cx-red) 35%, var(--cx-line)); color: var(--cx-red); }
+.app-layout.edition-claude .modal .btn-danger:hover { background: var(--cx-red-soft); }
+.app-layout.edition-claude .modal .btn-sm { min-height: 30px; padding: 0 12px; font-size: 12.5px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.app-layout.edition-claude .modal .btn-xs { min-height: 26px; padding: 0 9px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.app-layout.edition-claude .modal .form-actions > button { min-height: 34px; padding: 0 16px; font-size: 13px; }
+.app-layout.edition-claude .modal .badge { font-family: var(--cx-font); text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 500; border-radius: 5px; }
+.app-layout.edition-claude .modal .form-inline-error { font-size: 12.5px; color: var(--cx-red); background: var(--cx-red-soft); border-left: 3px solid var(--cx-red); border-radius: 7px; padding: 9px 12px; }
+/* Botões de salvar sempre à vista no pé da janela */
+.app-layout.edition-claude .modal:not(.modal-sticky-footer) .form-actions { position: sticky; bottom: -22px; z-index: 2; margin: 20px -24px -22px; padding: 12px 24px; background: var(--cx-surface); border-top: 1px solid var(--cx-line); }
+.app-layout.edition-claude .modal .op-classif-grid label { font-family: var(--cx-font); text-transform: none; letter-spacing: 0; }
+@media (max-width: 900px) {
+  .app-layout.edition-claude .modal-overlay { align-items: flex-end; }
+  .app-layout.edition-claude .modal { width: 100%; max-width: 100% !important; max-height: 92vh; border-radius: 14px 14px 0 0; padding: 18px 16px; }
+  .app-layout.edition-claude .modal:not(.modal-sticky-footer) .form-actions { bottom: -18px; margin: 18px -16px -18px; padding: 12px 16px; }
+  .app-layout.edition-claude .modal .form-row, .app-layout.edition-claude .modal .form-row-3 { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
 /* ─── Responsivo ─── */
 @media (max-width: 1180px) {
   .cx-home-grid, .cx-focus { grid-template-columns: minmax(0, 1fr); }
