@@ -534,7 +534,7 @@ function EditionClaudeHoje(p) {
     </p>
 
     <div className="cx-kpis">
-      <div className="cx-kpi" role="button" tabIndex={0} onClick={() => p.onNav('intimacoes')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNav('intimacoes'); } }}>
+      <div className="cx-kpi" role="button" tabIndex={0} onClick={() => p.onNav('intimacoes')} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNav('intimacoes'); } }}>
         <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
         <span className="cx-kpi-v">{open.length}</span>
         <span className={'cx-kpi-s' + (late.length ? ' red' : '')}>{cxPl(late.length, 'vencida', 'vencidas')} · {today.length} hoje</span>
