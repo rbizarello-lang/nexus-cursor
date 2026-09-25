@@ -1416,13 +1416,71 @@ const getStageRecords = (briefing, execId) => {
   if (raw && typeof raw === 'object' && !('stage' in raw)) return raw;
   return deriveStageRecords(((briefing || {}).processTags || {})[execId], ((briefing || {}).processStages || {})[execId]);
 };
+// Um registro de fase gravado só para dispensar uma sugestão do Nexus Prumo
+// (`{ _dismissed: true }`, sem mais nenhum campo) não conta como fase registrada
+// em lugar nenhum: nem no stageMeta/has do painel, nem no relatório, nem na
+// linha do tempo, nem na Visão geral. Usar sempre junto de uma checagem de
+// presença (ex.: `rec && !isDismissedOnlyStageRec(rec)`).
+const isDismissedOnlyStageRec = (rec) => !!(rec && rec._dismissed && !rec._present && !rec.date && !rec.evento
+  && !rec.outcome && !rec._custom && !(Array.isArray(rec.recursos) && rec.recursos.length)
+  && !(rec.texto && String(rec.texto).trim()) && !(rec.label && String(rec.label).trim()));
+// Metadados de cada fase/evento de uma régua (Panorama clássico e Briefing do
+// Nexus Prumo usam a mesma função). STAGE_KEYS é a lista de chaves fixas do
+// tipo (PROCESS_STAGES/CENTRAL_STAGES); recs vem de getStageRecords().
+const stageMeta = (STAGES, STAGE_KEYS, recs) => {
+  const extraKeys = Object.keys(recs || {}).filter(k => !STAGES[k]);
+  return [...STAGE_KEYS, ...extraKeys].map((k, i) => {
+    const rec = recs[k];
+    const sd = resolveStageDef(STAGES, k, rec);
+    const recursos = sd.multiRecurso ? getRecursos(rec) : null;
+    const has = sd.multiRecurso
+      ? (recursos.length > 0 || !!(rec && rec._present))
+      : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || rec._custom || (rec.texto && String(rec.texto).trim()) || (rec.label && String(rec.label).trim())));
+    const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
+    let info = '';
+    if (sd.multiRecurso) {
+      info = '';
+    } else if (sd.textOnly) {
+      info = (rec?.texto && String(rec.texto).trim()) || '';
+    } else if (has) {
+      const parts = [];
+      if (rec.date) parts.push(fmtDate(rec.date));
+      if (rec.evento) parts.push('Ev. ' + rec.evento);
+      if (rec.texto && String(rec.texto).trim()) parts.push(String(rec.texto).trim());
+      info = parts.join(' · ');
+    }
+    const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
+    const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
+    return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
+  });
+};
+// Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
+const badgeFor = (ip) => {
+  const tag = ip?.processTag;
+  if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
+  if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
+  if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+  return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
+};
+// Meta compacta de uma fase (info curta ao lado da bolinha na régua)
+const stageCompactMeta = (m) => {
+  if (m.sd.multiRecurso) {
+    const n = (m.recursos || []).length;
+    return n ? (n + ' julgamento' + (n !== 1 ? 's' : '')) : '';
+  }
+  if (m.sd.textOnly) return '';
+  const parts = [];
+  if (m.rec?.date) parts.push(fmtDate(m.rec.date));
+  if (m.rec?.evento) parts.push('Ev. ' + m.rec.evento);
+  return parts.join(' · ');
+};
 // Estágio processual em HTML para a Passagem de Serviço (usa o modelo V2 — antes o
 // relatório ainda lia as tags legadas e ignorava tudo que era preenchido na régua).
 const renderStageHtmlV2 = (briefing, exec, esc) => {
   const recs = getStageRecords(briefing, exec.id);
   const STG = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
   const keys = [...Object.keys(STG), ...Object.keys(recs).filter(k => !STG[k])];
-  const dated = keys.filter(k => recs[k]).map((k, i) => {
+  const dated = keys.filter(k => recs[k] && !isDismissedOnlyStageRec(recs[k])).map((k, i) => {
     const rec = recs[k] || {};
     const sd = resolveStageDef(STG, k, rec);
     return { k, i, rec, sd, recursos: sd.multiRecurso ? getRecursos(rec) : null, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
@@ -1506,11 +1564,14 @@ const briefingEntryHasText = (en) => {
 };
 const normalizeBriefingEntry = (en) => {
   if (!en) return en;
-  if (en.html && en.type) return en;
+  // Entradas do formato antigo por-campo ({title, body, updatedAt}, sem createdAt)
+  // não têm data de criação própria — sem isso, tanto o Diário quanto o
+  // relatório (Diário/Anexos) mostram a entrada sem data.
+  if (en.html && en.type) return en.createdAt ? en : { ...en, createdAt: en.updatedAt || '' };
   const title = String(en.title || '').trim().toLowerCase();
   const type = en.type || BRIEFING_TITLE_TO_TYPE[title] || 'observacao';
   const html = en.html || (en.body ? escapeHtmlText(en.body) : '');
-  return { ...en, type, html };
+  return { ...en, type, html, createdAt: en.createdAt || en.updatedAt || '' };
 };
 const getBriefingEntries = (briefing) => {
   const b = briefing || {};
@@ -5235,7 +5296,7 @@ function App() {
   const buildFrontRule = (execRec, execObj) => {
     const STG = isEfStylePanoramaCard(execObj) ? CENTRAL_STAGES : PROCESS_STAGES;
     const keys = [...Object.keys(STG), ...Object.keys(execRec).filter(k => !STG[k])];
-    const dated = keys.filter(k => execRec[k]).map((k, i) => {
+    const dated = keys.filter(k => execRec[k] && !isDismissedOnlyStageRec(execRec[k])).map((k, i) => {
       const rec = execRec[k] || {};
       const sd = resolveStageDef(STG, k, rec);
       return { k, i, rec, sd, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
@@ -5879,6 +5940,14 @@ function App() {
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction);
 
+      // Nexus Prumo: aba "Briefing" tem componente próprio (src/edition-claude.jsx).
+      // Clássico e Beta continuam com o painel abaixo, sem nenhuma mudança.
+      if (isClaude) {
+        return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
+          opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
+          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab} />;
+      }
+
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
       const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
       const guarVal = opDebts.filter(d => d.status === 'garantida').reduce((s,d) => s + (d.value||0), 0);
@@ -6134,54 +6203,8 @@ function App() {
                   {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
                 </div>);
               };
-              const stageMeta = (STAGES, STAGE_KEYS, recs) => {
-                const extraKeys = Object.keys(recs || {}).filter(k => !STAGES[k]);
-                return [...STAGE_KEYS, ...extraKeys].map((k, i) => {
-                const rec = recs[k];
-                const sd = resolveStageDef(STAGES, k, rec);
-                const recursos = sd.multiRecurso ? getRecursos(rec) : null;
-                const has = sd.multiRecurso
-                  ? (recursos.length > 0 || !!(rec && rec._present))
-                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || rec._custom || (rec.texto && String(rec.texto).trim()) || (rec.label && String(rec.label).trim())));
-                const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
-                let info = '';
-                if (sd.multiRecurso) {
-                  info = '';
-                } else if (sd.textOnly) {
-                  info = (rec?.texto && String(rec.texto).trim()) || '';
-                } else if (has) {
-                  const parts = [];
-                  if (rec.date) parts.push(fmtDate(rec.date));
-                  if (rec.evento) parts.push('Ev. ' + rec.evento);
-                  if (rec.texto && String(rec.texto).trim()) parts.push(String(rec.texto).trim());
-                  info = parts.join(' · ');
-                }
-                const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
-                const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
-                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
-              });
-              };
-              // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
-              const badgeFor = (ip) => {
-                const tag = ip?.processTag;
-                if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
-                if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
-                if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
-                return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
-              };
-              const stageCompactMeta = (m) => {
-                if (m.sd.multiRecurso) {
-                  const n = (m.recursos || []).length;
-                  return n ? (n + ' julgamento' + (n !== 1 ? 's' : '')) : '';
-                }
-                // textOnly: texto vai no painel de trabalho — sem placeholder "com texto"
-                if (m.sd.textOnly) return '';
-                // Desfecho fica só no nome (ex.: "Liminar · favorável") — meta traz data/evento
-                const parts = [];
-                if (m.rec?.date) parts.push(fmtDate(m.rec.date));
-                if (m.rec?.evento) parts.push('Ev. ' + m.rec.evento);
-                return parts.join(' · ');
-              };
+              // stageMeta / badgeFor / stageCompactMeta: funções puras extraídas para o
+              // topo do arquivo (reaproveitadas pelo Briefing do Nexus Prumo).
               const renderSplitCard = (ip, STAGES, STAGE_KEYS, recs, myEFs, bm) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                 const visible = metas.filter(m => m.has || m.alwaysShow).sort(compareStagesByDate);
