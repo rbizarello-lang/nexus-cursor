@@ -361,13 +361,14 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
     <div class="eyebrow">Nexus Prumo · proposta de layout</div>
     <h1>Briefing, Processos e prescrição, e Relatório</h1>
     <p class="lede">Proposta para reorganizar duas abas da página da operação e o relatório de passagem de serviço, partindo do que cada peça precisa responder. Dados das maquetes: operação demo <b>Agro Horizonte</b> em 25/09/2026. Os prazos extintivos (Mesa) ficam para outro momento. Onde a demo não tem conteúdo (a entrada de risco do diário, os links em Fontes, a segunda frase da tese), o texto é ilustrativo.</p>
+    <p class="lede" style="font-size:13.5px;margin-top:8px"><b>Revisão 2 (25/09):</b> incorpora a avaliação do Fable. Regra fechada para a tese; régua só com fases registradas; Tarefas fora do Briefing; barra de prescrição só onde há termo; Processos começa pela ficha lateral; Relatório 9a só com o modelo de passagem de serviço.</p>
     <nav class="toc">
       <a href="#papeis">0 · Para que serve cada coisa</a>
       <a href="#briefing">1 · Briefing</a>
       <a href="#processos">2 · Processos e prescrição</a>
       <a href="#relatorio">3 · Relatório</a>
       <a href="#plano">4 · Plano por fases</a>
-      <a href="#decisoes">5 · Decisões suas</a>
+      <a href="#decisoes">5 · Decisões</a>
     </nav>
   </div>
   <div class="stamp">design/mockups/<br>prumo-briefing-processos-relatorio.html<br>maquete estática · não implementada</div>
@@ -414,7 +415,7 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
 <!-- ═══════════════ 1 BRIEFING ═══════════════ -->
 <section class="part" id="briefing">
   <div class="part-h"><span class="part-n">01</span><h2>Briefing → dossiê da operação</h2></div>
-  <p class="part-lede">O Briefing é a memória estratégica da operação: o que você concluiu, em que fase está cada frente e o que falta. Hoje ele é uma pilha de blocos em ordem de chegada. A proposta separa uma coluna de leitura (tese, frentes, diário) de uma coluna de apoio (fontes, lembretes, checklists, tarefas).</p>
+  <p class="part-lede">O Briefing é a memória estratégica da operação: o que você concluiu, em que fase está cada frente e o que falta. Hoje ele é uma pilha de blocos em ordem de chegada. A proposta separa uma coluna de leitura (tese, frentes, diário) de uma coluna de apoio (fontes, lembretes, checklists).</p>
 
   <div class="two">
     <div class="box">
@@ -431,11 +432,11 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
     <div class="box">
       <h4><span class="pill green">Proposta</span> O que muda</h4>
       <ol>
-        <li><b>Leitura da operação</b> no topo: as entradas fixadas aparecem em destaque, em texto maior. Sem campo novo: usa o <span class="mono">pinned</span> que já existe.</li>
-        <li><b>Frentes processuais em trilhas horizontais</b>: todas as frentes visíveis ao mesmo tempo. Cada uma tem a régua de fases (feitas e próximas típicas), o valor coberto e a fase atual.</li>
-        <li><b>Trabalho da fase logo abaixo da régua</b>: texto da fase, notas do processo e EFs cobertas numa faixa só, aberta na frente selecionada.</li>
+        <li><b>Leitura da operação</b> no topo, com uma entrada só em destaque: a Estratégia fixada mais recente; se não houver, a fixada mais recente de qualquer tipo. As outras fixadas ficam em “Ver as outras”. Sem campo novo: usa o <span class="mono">pinned</span> que já existe.</li>
+        <li><b>Frentes processuais em trilhas horizontais</b>: todas as frentes visíveis ao mesmo tempo. Cada uma tem a régua só com as fases registradas (recursos com a contagem de julgamentos, fases livres com o nome dado), o valor coberto e a fase atual.</li>
+        <li><b>Trabalho da fase logo abaixo da régua</b>: texto da fase, notas do processo e EFs cobertas numa faixa só, aberta na frente selecionada, com botão “Editar fase” visível (sem depender de duplo clique).</li>
         <li><b>Diário</b> com a data na margem e filtro por tipo com contagem. O editor rico continua o mesmo.</li>
-        <li><b>Coluna de apoio fixa</b>: Fontes (com nome), Lembretes, Checklists com barra de progresso, e só as 3 próximas tarefas, com atalho para a aba.</li>
+        <li><b>Coluna de apoio fixa</b>: Fontes (com nome), Lembretes e Checklists com barra de progresso. Tarefas saem do Briefing: a aba Tarefas e a Visão geral já as mostram.</li>
         <li><b>Novidades do import</b> numa linha, com “Ver” abrindo o detalhe, em vez do painel grande.</li>
       </ol>
     </div>
@@ -462,7 +463,7 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
           <div class="card lead anchor"><span class="mk">1</span>
             <div class="lead-k"><span class="pill green">Estratégia</span><span>fixada · 18/09/2026</span><span style="margin-left:auto">✎</span></div>
             <div class="lead-t">Consolidar a CNIB da fazenda, <mark>estender a indisponibilidade às máquinas</mark> e fazer diligência in loco. A MCF sustenta a cobrança da EF principal; o risco está nas CDAs de ITR/IRPF ainda sem processo.</div>
-            <div class="lead-f"><span>1 de 3 entradas fixadas</span><span>Ver as outras ▾</span></div>
+            <div class="lead-f"><span>Estratégia fixada mais recente · mais 1 fixada (Risco)</span><span>Ver as outras ▾</span></div>
           </div>
 
           <div class="card anchor"><span class="mk">2</span>
@@ -477,14 +478,12 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
                 <div class="ruler anchor"><span class="mk" style="left:60px;top:6px">3</span>
                   <div class="stp done"><div class="d"></div><div class="l">Ajuizamento</div><div class="w">31/08 · ev. 1</div></div>
                   <div class="stp fav now"><div class="d"></div><div class="l">Liminar · favorável</div><div class="w">07/09 · ev. 6</div></div>
-                  <div class="stp ghost"><div class="d"></div><div class="l">Contestação</div><div class="w">—</div></div>
-                  <div class="stp ghost"><div class="d"></div><div class="l">Audiência</div><div class="w">06/10 (agendada)</div></div>
-                  <div class="stp ghost"><div class="d"></div><div class="l">Decisão final</div><div class="w">—</div></div>
-                  <div class="stp add"><div class="d"></div><div class="l muted">+ Fase</div></div>
+                  <div class="stp add"><div class="d"></div><div class="l muted">+ Fase</div><div class="w">fase, recurso ou evento livre</div></div>
+                  <div class="stp" style="flex:2"></div>
                 </div>
                 <div class="lane-work">
                   <div class="work">
-                    <div class="k">Liminar · favorável <span class="muted" style="text-transform:none;letter-spacing:0">· clique para editar</span></div>
+                    <div class="k">Liminar · favorável <span class="btn sm" style="margin-left:auto;text-transform:none;letter-spacing:0">Editar fase</span></div>
                     <p>Indisponibilidade parcial deferida (matrícula 12.340). Falta estender às máquinas: Renajud da colheitadeira ainda sem resultado útil.</p>
                     <div class="k" style="margin-top:10px">Notas do processo <span style="margin-left:auto">+</span></div>
                     <p class="muted">Nenhuma nota.</p>
@@ -539,23 +538,16 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
               <div class="chk-row"><span>Decisão final do IDPJ</span><span class="mono small muted">0/5</span><div class="bar"><i style="width:0"></i></div></div>
             </div>
           </div>
-          <div class="card rail-card"><div class="card-h"><h5>Próximas tarefas</h5><span class="count">4</span><span class="sp"></span><span class="lnk">Tarefas →</span></div>
-            <div class="card-b">
-              <div class="tk"><span class="p" style="background:var(--red)"></span><span>Impugnar exceção de pré-executividade (ITR)</span><span class="due soon">Seg 28/09</span></div>
-              <div class="tk"><span class="p" style="background:var(--orange)"></span><span>Estender Renajud a colheitadeira</span><span class="due soon">Ter 29/09</span></div>
-              <div class="tk"><span class="p" style="background:var(--orange)"></span><span>Agendar diligência na fazenda</span><span class="due soon">Qua 30/09</span></div>
-            </div>
-          </div>
-        </aside>
+          </aside>
       </div>
     </div>
   </div>
   <div class="notes">
-    <div class="note"><span class="mk">1</span><div><b>Leitura da operação.</b> Mostra as entradas fixadas do diário. Se nenhuma estiver fixada, aparece um convite: “Fixe a entrada que resume a operação”. É o primeiro texto do Relatório.</div></div>
+    <div class="note"><span class="mk">1</span><div><b>Leitura da operação.</b> Uma entrada em destaque: a Estratégia fixada mais recente; na falta dela, a fixada mais recente. Sem nenhuma fixada, aparece um convite: “Fixe a entrada que resume a operação”. É o primeiro texto do Relatório, com a mesma regra.</div></div>
     <div class="note"><span class="mk">2</span><div><b>Uma trilha por frente</b> (IDPJ, MCF, Central, EF levada ao panorama), na ordem de hoje. “Sem incidente” fica como trilha discreta, sem régua. “Retirar” e “Dados” vão para o menu da trilha.</div></div>
-    <div class="note"><span class="mk">3</span><div><b>Régua horizontal</b> com as fases registradas (cheias) e as próximas fases típicas do tipo (tracejadas), tiradas de <span class="mono">PROCESS_STAGES</span>/<span class="mono">CENTRAL_STAGES</span>. Clique: mostra o trabalho da fase. Duplo clique: abre o StagePopup de hoje.</div></div>
+    <div class="note"><span class="mk">3</span><div><b>Régua horizontal só com as fases registradas</b>, na ordem de <span class="mono">compareStagesByDate</span>. Recursos aparecem como um nó com “n julgamentos”; fases livres, com o nome dado. Se passar da largura, a régua rola na horizontal. Clique mostra o trabalho da fase; “Editar fase” abre o StagePopup de hoje.</div></div>
     <div class="note"><span class="mk">4</span><div><b>Diário</b> = o <span class="mono">BriefingStrategyPanel</span> com outra apresentação: data na margem, filtro por tipo sempre visível e com contagem, editor aberto no lugar da entrada.</div></div>
-    <div class="note"><span class="mk">5</span><div><b>Coluna de apoio fixa</b>, de 300 px, sem barra de arrastar. Abaixo de 1100 px ela desce para depois do diário. Os checklists abrem os itens no próprio cartão.</div></div>
+    <div class="note"><span class="mk">5</span><div><b>Coluna de apoio fixa</b>, de 300 px, sem barra de arrastar: Fontes, Lembretes e Checklists. Abaixo de 1100 px ela desce para depois do diário. Os checklists abrem os itens no próprio cartão.</div></div>
     <div class="note"><span class="mk">6</span><div><b>Novidades do import</b> numa linha. “Ver” abre o detalhe atual (CDAs, processos, bens e pessoas novos ou alterados).</div></div>
   </div>
 </section>
@@ -582,10 +574,10 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
       <ol>
         <li><b>Composição do crédito</b> no topo: uma barra por estrutura (sob incidente, EF sem incidente, não ajuizadas) e outra pela situação da prescrição. Clicar num trecho filtra a árvore.</li>
         <li><b>Árvore única:</b> incidentes com as EFs e os apensos embaixo, depois as EFs sem incidente por situação, as CDAs não ajuizadas, e Recursos, Embargos e Outros no fim. Grupos vazios não aparecem.</li>
-        <li><b>Coluna de prescrição visual:</b> barra do horizonte (quanto falta para o termo, até 5 anos) e rótulo curto, na mesma escala de cores da Mesa.</li>
+        <li><b>Coluna de prescrição mais legível:</b> barra do horizonte só onde há termo a contar (CDAs não ajuizadas e grupos 1 a 4), na mesma escala de cores da Mesa. Nos demais casos, o selo e um rótulo curto (“interrompida”, “intercorrente não iniciada”).</li>
         <li><b>Ficha lateral</b> do processo ou da CDA: fatos, abas Resumo, CDAs e Notas, e as três contagens <b>empilhadas</b> (decadência, ordinária, intercorrente), cada uma com selo, ocorrências e “conferir nos autos”.</li>
         <li><b>Agrupar por Prescrição</b>, uma segunda leitura da mesma árvore: as CDAs da operação por horizonte, com o processo de cada uma ao lado.</li>
-        <li><b>A barra de seleção em lote fica no pé da tela</b>, com as mesmas ações de hoje.</li>
+        <li><b>A barra de seleção em lote fica no pé da tela</b>, com as mesmas ações de hoje. No celular ela não fica presa: aparece acima da lista.</li>
       </ol>
     </div>
   </div>
@@ -623,11 +615,11 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
           <table class="tree">
             <thead><tr><th style="width:24px"></th><th>Processo</th><th>Situação</th><th class="r">CDAs</th><th class="r">Valor</th><th>Prescrição</th><th>Pendências</th></tr></thead>
             <tbody>
-              <tr class="grp"><td><span class="ck"></span></td><td colspan="4"><div class="gt"><span class="chev">▾</span><span class="kind mcf" style="padding:1px 6px">MCF</span><b class="mono" style="font-size:12px">5006699-22.2025.4.04.7006</b><span class="muted small">· liminar favorável · cobre 1 EF</span></div></td><td><div class="pz"><div class="hb"><i style="width:100%;background:#9aa6b8"></i></div><span class="muted">em curso</span></div></td><td><div class="pend"><span>1 int.</span><span>aud. 06/10</span></div></td></tr>
-              <tr class="sel"><td><span class="ck on"></span></td><td class="ind1"><span class="chev">▾</span><span class="num">5006600-22.2020.4.04.7006</span></td><td><span class="st">Ativa</span></td><td class="r">2</td><td class="r">920.000</td><td><div class="pz"><div class="hb"><i style="width:96%;background:#9aa6b8"></i></div><span>interrompida</span></div></td><td><div class="pend"><span>2 int.</span><span>1 tar.</span></div></td></tr>
+              <tr class="grp"><td><span class="ck"></span></td><td colspan="4"><div class="gt"><span class="chev">▾</span><span class="kind mcf" style="padding:1px 6px">MCF</span><b class="mono" style="font-size:12px">5006699-22.2025.4.04.7006</b><span class="muted small">· liminar favorável · cobre 1 EF</span></div></td><td><div class="pz"><div></div><span class="muted">em curso</span></div></td><td><div class="pend"><span>1 int.</span><span>aud. 06/10</span></div></td></tr>
+              <tr class="sel"><td><span class="ck on"></span></td><td class="ind1"><span class="chev">▾</span><span class="num">5006600-22.2020.4.04.7006</span></td><td><span class="st">Ativa</span></td><td class="r">2</td><td class="r">920.000</td><td><div class="pz"><div></div><span>interrompida</span></div></td><td><div class="pend"><span>2 int.</span><span>1 tar.</span></div></td></tr>
               <tr><td></td><td class="ind2"><span class="chev"></span><span class="num">↳ 5006620-22.2025.4.04.7006</span><span class="rel">EPE</span></td><td><span class="st">Ativa</span></td><td class="r">0</td><td class="r muted">—</td><td class="muted small">não se aplica</td><td><div class="pend"><span class="hot">prazo 28/09</span><span class="hot">aud. 27/09</span></div></td></tr>
               <tr class="grp"><td><span class="ck"></span></td><td colspan="4"><div class="gt"><span class="chev">▾</span><span class="kind ef" style="padding:1px 6px">EF</span><b>Sem incidente</b><span class="muted small">· ativas · 1</span></div></td><td></td><td></td></tr>
-              <tr><td><span class="ck"></span></td><td class="ind1"><span class="chev">▸</span><span class="num">5006610-22.2022.4.04.7006</span></td><td><span class="st">Ativa</span></td><td class="r">1</td><td class="r">125.000</td><td><div class="pz"><div class="hb"><i style="width:88%;background:#9aa6b8"></i></div><span>interrompida</span></div></td><td><div class="pend"><span>1 int.</span></div></td></tr>
+              <tr><td><span class="ck"></span></td><td class="ind1"><span class="chev">▸</span><span class="num">5006610-22.2022.4.04.7006</span></td><td><span class="st">Ativa</span></td><td class="r">1</td><td class="r">125.000</td><td><div class="pz"><div></div><span>interrompida</span></div></td><td><div class="pend"><span>1 int.</span></div></td></tr>
               <tr class="grp"><td><span class="ck"></span></td><td colspan="4"><div class="gt"><span class="chev">▾</span><span class="kind cen" style="padding:1px 6px">CDA</span><b>Não ajuizadas</b><span class="muted small">· 3 CDAs · R$ 243 mil</span></div></td><td></td><td></td></tr>
               <tr><td><span class="ck on"></span></td><td class="ind1"><span class="chev"></span><span class="num">90.6.23.000884-40</span> <span class="muted small">ITR</span></td><td><span class="st nj">Ativa</span></td><td class="r"></td><td class="r">48.000</td><td><div class="pz"><div class="hb"><i style="width:4%;background:var(--red)"></i></div><span class="late">70 dias · 04/12</span></div></td><td></td></tr>
               <tr><td><span class="ck on"></span></td><td class="ind1"><span class="chev"></span><span class="num">90.6.20.000881-40</span> <span class="muted small">IRPF</span></td><td><span class="st nj">Ativa</span></td><td class="r"></td><td class="r">95.000</td><td><div class="pz"><div class="hb"><i style="width:9%;background:var(--orange)"></i></div><span class="soon">160 dias · 04/03/27</span></div></td><td></td></tr>
@@ -674,7 +666,7 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
     <div class="note"><span class="mk">2</span><div><b>Barra de ferramentas.</b> Busca (a mesma de hoje, que acha apensos), pessoa (o <span class="mono">PersonSubtabs</span> vira um seletor) e “Agrupar por”. Não inventa filtro novo.</div></div>
     <div class="note"><span class="mk">3</span><div><b>Ficha lateral</b> de 420 px, no mesmo padrão da gaveta de Intimações. Resumo: status, garantia, recursos vinculados e fases (se for incidente). Pendências: intimações e tarefas do processo.</div></div>
     <div class="note"><span class="mk">4</span><div><b>Contagens empilhadas</b> em vez de três colunas lado a lado. O conteúdo é o mesmo do <span class="mono">buildCdaColumnView</span>, na ordem ordinária → intercorrente → decadência, e a contagem com selo mais grave vem primeiro. Nenhum cálculo muda.</div></div>
-    <div class="note"><span class="mk">5</span><div><b>A barra de seleção em lote fica no pé da tela</b>, com as mesmas ações de hoje (evento em lote com <span class="mono">batchCdaIds</span>, tratadas, aguardando reconhecimento, reabrir). O aviso de seleção entre processos vira uma linha na própria barra.</div></div>
+    <div class="note"><span class="mk">5</span><div><b>A barra de seleção em lote fica no pé da tela</b>, com as mesmas ações de hoje (evento em lote com <span class="mono">batchCdaIds</span>, tratadas, aguardando reconhecimento, reabrir). O aviso de seleção entre processos vira uma linha na própria barra. No celular, a barra não fica presa ao pé (conflito com a rolagem do Prumo) e aparece acima da lista.</div></div>
     <div class="note"><span class="mk">·</span><div><b>Estados.</b> Sem incidente: o grupo não aparece. Sem processo: a árvore começa em “Não ajuizadas”. Ficha fechada: a árvore ocupa a largura toda. Clicar numa linha abre a ficha; a seta ▸ só expande.</div></div>
   </div>
 
@@ -839,7 +831,7 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
     </div>
   </div>
 
-  <h3 class="sub">Janela de geração (botão Relatório no cabeçalho)</h3>
+  <h3 class="sub">Janela de geração (botão Relatório no cabeçalho) · fase 9b</h3>
   <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start">
     <div class="dlg">
       <div class="dlg-h">Gerar relatório da operação</div>
@@ -856,7 +848,8 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
     <div class="box">
       <h4>Como cada modelo usa os dados que já existem</h4>
       <ul>
-        <li><b>Próximos 15 dias</b> junta <span class="mono">intimations</span> (prazo final), <span class="mono">hearings</span>, <span class="mono">tasks</span> e os termos dos grupos 1 a 4 (<span class="mono">prazosRadar</span>), com a mesma regra da Agenda do Prumo (<span class="mono">cxAgendaByDay</span>).</li>
+        <li><b>Próximos 15 dias</b> junta <span class="mono">intimations</span> (prazo final), <span class="mono">hearings</span>, <span class="mono">tasks</span> e os termos dos grupos 1 a 4 (<span class="mono">prazosRadar</span>). A regra hoje fica em <span class="mono">cxAgendaByDay</span>, no arquivo do Prumo, que o build monta depois de <span class="mono">src/lib</span>; por isso ela passa para <span class="mono">src/lib/agenda.js</span>, e a Agenda e o relatório usam a mesma função.</li>
+        <li><b>Coleta nova, dado existente:</b> audiências, checklists, fontes e partes relacionadas não entram no relatório de hoje. O dado já existe; o código de coleta é novo.</li>
         <li><b>Frentes</b> usa <span class="mono">getStageRecords</span> e o texto da fase, os mesmos dados do Briefing.</li>
         <li><b>Prestação de contas</b> lê intimações com <span class="mono">responseAction</span> no período, <span class="mono">docs</span>, <span class="mono">prescriptionEvents</span>, fases com data e entradas do diário pela data do fato.</li>
         <li><b>Lembretes</b> vêm desligados por padrão: costumam ser anotação interna.</li>
@@ -873,27 +866,27 @@ table.plan { width: 100%; border-collapse: collapse; background: var(--surface);
   <table class="plan">
     <thead><tr><th>Fase</th><th>Entrega</th><th>Como</th><th>Risco</th></tr></thead>
     <tbody>
-      <tr><td>7a</td><td><b>Briefing: esqueleto do dossiê.</b> Leitura da operação, diário com a nova apresentação, coluna de apoio (fontes, lembretes, checklists, próximas tarefas), novidades do import numa linha.</td><td>Novo <span class="mono">EditionClaudeBriefing</span> em <span class="mono">src/edition-claude.jsx</span>, ligado quando <span class="mono">isClaude &amp;&amp; activeTab === 'notas'</span>. Grava pelas mesmas funções (<span class="mono">upsert</span>, <span class="mono">updateBriefing</span>). O diário reaproveita <span class="mono">RichNoteEditor</span>, <span class="mono">sanitizeNoteHtml</span> e <span class="mono">getBriefingEntries</span>.</td><td><span class="pill yellow">médio</span></td></tr>
-      <tr><td>7b</td><td><b>Briefing: frentes processuais em trilhas.</b> Régua horizontal com fases feitas e próximas típicas, trabalho da fase, EFs cobertas, + Fase, Retirar.</td><td>Tirar <span class="mono">stageMeta</span>, <span class="mono">badgeFor</span> e <span class="mono">setRec/delRec</span> de dentro do <span class="mono">renderTab</span> para funções no topo do arquivo, sem mudar o comportamento (o Clássico passa a chamá-las). O <span class="mono">StagePopup</span> continua o mesmo.</td><td><span class="pill yellow">médio</span></td></tr>
-      <tr><td>8a</td><td><b>Processos: árvore única e ficha do processo.</b> Composição do crédito, barra de ferramentas, árvore por estrutura, coluna de prescrição visual, ficha com Resumo, Notas e Pendências.</td><td>Novo <span class="mono">EditionClaudeProcessos</span> que recebe <span class="mono">processTabModel</span> e <span class="mono">classified</span> já calculados pelo app (busca e filtro por pessoa incluídos). As ações abrem os mesmos <span class="mono">setModal</span>.</td><td><span class="pill red">médio-alto</span></td></tr>
-      <tr><td>8b</td><td><b>Processos: ficha da CDA e lote.</b> Aba CDAs da ficha com as contagens empilhadas, conferir nos autos, tratada e aguardando reconhecimento, a barra de lote no pé e o agrupamento por prescrição.</td><td>Novo renderizador sobre <span class="mono">computeCdaLegalTimeline</span> + <span class="mono">buildCdaColumnView</span> (só leitura). <span class="mono">togglePrescCheck</span>, <span class="mono">markAsAguardando</span> e <span class="mono">toggleHandled</span> saem do card para funções do app, sem mudar o comportamento.</td><td><span class="pill red">médio-alto</span></td></tr>
-      <tr><td>9a</td><td><b>Relatório: novo modelo de passagem de serviço</b> (capa, frentes, anexos) e janela de geração com seções.</td><td>Novo <span class="mono">src/lib/report.js</span> (HTML puro, testável com <span class="mono">node --test</span> em <span class="mono">test/</span>). O botão Relatório do Prumo abre a janela; o clássico mantém o <span class="mono">generateHandoverReport</span> de hoje até você decidir.</td><td><span class="pill green">baixo</span></td></tr>
-      <tr><td>9b</td><td><b>Relatório: resumo de uma página e prestação de contas</b> por período.</td><td>Mesma biblioteca, com filtros de data. Sem dado novo.</td><td><span class="pill green">baixo</span></td></tr>
+      <tr><td>7a</td><td><b>Briefing: esqueleto do dossiê.</b> Leitura da operação (regra da decisão 1), diário com a nova apresentação, coluna de apoio (fontes, lembretes, checklists), novidades do import numa linha. Tarefas saem do Briefing.</td><td>Novo <span class="mono">EditionClaudeBriefing</span> em <span class="mono">src/edition-claude.jsx</span>, ligado quando <span class="mono">isClaude &amp;&amp; activeTab === 'notas'</span>. Grava pelas mesmas funções (<span class="mono">upsert</span>, <span class="mono">updateBriefing</span>). O diário reaproveita <span class="mono">RichNoteEditor</span>, <span class="mono">sanitizeNoteHtml</span> e <span class="mono">getBriefingEntries</span>.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>7b</td><td><b>Briefing: frentes processuais em trilhas.</b> Régua horizontal só com as fases registradas (recursos com contagem, fases livres), trabalho da fase com “Editar fase”, EFs cobertas, + Fase, Retirar.</td><td>Subir para o topo do arquivo só as funções que não gravam (<span class="mono">stageMeta</span>, <span class="mono">badgeFor</span>, <span class="mono">stageCompactMeta</span>). <span class="mono">setRec</span>/<span class="mono">delRec</span> chegam por props, a partir de <span class="mono">updateBriefing</span>. O render do Clássico não é tocado nesta fase. O <span class="mono">StagePopup</span> continua o mesmo.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>8a</td><td><b>Processos: ficha lateral sobre a lista atual.</b> Clicar num processo ou numa CDA abre a ficha (fatos, Resumo, CDAs, Notas, Pendências) com as contagens da prescrição empilhadas, conferir nos autos, tratada e aguardando reconhecimento. A árvore e as molduras de hoje continuam.</td><td>Padrão da gaveta do Prumo (<span class="mono">cx-drawer</span>). Renderizador novo, só de leitura, sobre <span class="mono">computeCdaLegalTimeline</span> + <span class="mono">buildCdaColumnView</span>. <span class="mono">toggleHandled</span> e <span class="mono">markAsAguardando</span>, hoje closures do card que dependem de <span class="mono">selectedCDAs</span>, viram funções do app com o mesmo comportamento; <span class="mono">togglePrescCheck</span> já é.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>8b</td><td><b>Processos: árvore única.</b> Composição do crédito, barra de ferramentas, árvore por estrutura, coluna de prescrição (barra só onde há termo), agrupar por prescrição, barra de lote no pé (no celular, acima da lista).</td><td>Novo <span class="mono">EditionClaudeProcessos</span> que recebe <span class="mono">processTabModel</span> e <span class="mono">classified</span> já calculados pelo app (busca e filtro por pessoa incluídos). É a fase que reescreve a tela: o bloco atual tem cerca de 1.450 linhas, com muito estado local (<span class="mono">selectedCDAs</span>, <span class="mono">expandedCdas</span>, <span class="mono">collapsedGroups</span>, hub selecionado, filtro por pessoa, painel de recursos, aviso de seleção entre processos).</td><td><span class="pill red">alto</span></td></tr>
+      <tr><td>9a</td><td><b>Relatório: modelo de passagem de serviço</b> (capa com leitura, próximos 15 dias, alertas, números e fontes; frentes; anexos), com seções fixas. O botão continua baixando o HTML, como hoje.</td><td>Novo <span class="mono">src/lib/report.js</span> (HTML puro, testável com <span class="mono">node --test</span> em <span class="mono">test/</span>). A regra dos próximos 15 dias sai de <span class="mono">cxAgendaByDay</span> para <span class="mono">src/lib/agenda.js</span> e passa a ser usada pela Agenda e pelo relatório. Coleta nova de audiências, checklists, fontes e partes relacionadas. O Clássico mantém o <span class="mono">generateHandoverReport</span> de hoje até a validação.</td><td><span class="pill green">baixo</span></td></tr>
+      <tr><td>9b</td><td><b>Relatório: janela de geração.</b> Seções que se ligam e desligam, “Abrir para imprimir”, Resumo de uma página e Prestação de contas por período. Depois de validado, o relatório novo passa também para o Clássico.</td><td>Mesma biblioteca, com filtros de data. Sem dado novo.</td><td><span class="pill green">baixo</span></td></tr>
     </tbody>
   </table>
-  <p class="small muted" style="margin-top:10px">Ordem sugerida: 9a primeiro, porque é isolado, de baixo risco e já ensina o que a capa precisa mostrar. Depois 7a → 7b, e por último 8a → 8b, que tocam a tela mais densa. Cada fase entra em <span class="mono">docs/MELHORIAS.md</span> e, se precisar de estilo novo, num bloco próprio do CSS do Prumo em <span class="mono">src/Nexus.shell.html</span>.</p>
+  <p class="small muted" style="margin-top:10px">Ordem sugerida: 9a e 9b primeiro, porque são isolados, de baixo risco e já ensinam o que a capa precisa mostrar. Depois 7a → 7b. Em Processos, 8a (ficha lateral) entrega o ganho de leitura da prescrição com risco médio, e só depois vem 8b, a árvore, que reescreve a tela. Cada fase entra em <span class="mono">docs/MELHORIAS.md</span> e, se precisar de estilo novo, num bloco próprio do CSS do Prumo em <span class="mono">src/Nexus.shell.html</span>.</p>
 </section>
 
 <!-- ═══════════════ 5 DECISÕES ═══════════════ -->
 <section class="part" id="decisoes">
-  <div class="part-h"><span class="part-n">05</span><h2>Decisões suas antes de começar</h2></div>
+  <div class="part-h"><span class="part-n">05</span><h2>Decisões</h2></div>
   <div class="qs">
-    <div class="qq"><b>1. “Leitura da operação” = entradas fixadas?</b>Sem campo novo, a tese é a entrada fixada do diário. A alternativa é um campo próprio (“Em uma frase”), mas isso muda o modelo de dados.<span class="rec">Sugestão: usar as fixadas.</span></div>
-    <div class="qq"><b>2. Tarefas no Briefing</b>Mostrar só as 3 próximas com atalho, ou tirar do Briefing (a aba Tarefas e a Visão geral já mostram).<span class="rec">Sugestão: 3 próximas no trilho.</span></div>
-    <div class="qq"><b>3. Próximas fases típicas na régua</b>Mostrar tracejadas as fases que costumam vir depois (útil para prever) ou só as registradas (mais fiel).<span class="rec">Sugestão: mostrar até 3 próximas, tracejadas.</span></div>
-    <div class="qq"><b>4. Ficha lateral ou expansão na linha</b>A ficha lateral tira o aninhamento, mas estreita a árvore quando está aberta. Em telas menores de 1280 px ela vira gaveta sobre a árvore.<span class="rec">Sugestão: ficha lateral.</span></div>
-    <div class="qq"><b>5. Relatório novo também no Clássico?</b>O relatório é HTML separado, sem dependência de edição. Dá para trocar nas três edições de uma vez.<span class="rec">Sugestão: Prumo primeiro; clássico após validar.</span></div>
-    <div class="qq"><b>6. Lembretes no relatório</b>Lembretes costumam ser anotações internas. Incluir por padrão ou deixar como opção desligada.<span class="rec">Sugestão: opção desligada.</span></div>
+    <div class="qq"><b>1. Leitura da operação <span class="pill green">fechada</span></b>Usa as entradas fixadas do diário, com uma só em destaque: a Estratégia fixada mais recente; na falta dela, a fixada mais recente. As outras ficam em “Ver as outras”. Sem campo novo.</div>
+    <div class="qq"><b>2. Tarefas no Briefing <span class="pill green">fechada</span></b>Saem do Briefing. A aba Tarefas e a Visão geral já cobrem, e a coluna de apoio ganha espaço para Fontes.</div>
+    <div class="qq"><b>3. Fases futuras na régua <span class="pill green">fechada</span></b>Não na primeira versão: a régua mostra só as fases registradas, com recursos e fases livres. Podem voltar depois, se fizerem falta.</div>
+    <div class="qq"><b>4. Ficha lateral ou expansão na linha <span class="pill green">fechada</span></b>Ficha lateral, entregue antes da árvore (fase 8a), sobre a lista atual. Abaixo de 1280 px ela vira gaveta sobre a lista.</div>
+    <div class="qq"><b>5. Relatório novo no Clássico <span class="pill green">fechada</span></b>Sim, depois de validado no Prumo (fim da 9b). É HTML separado, sem dependência de edição.</div>
+    <div class="qq"><b>6. Lembretes no relatório <span class="pill yellow">aberta</span></b>Lembretes costumam ser anotações internas. Incluir por padrão ou deixar como opção desligada na janela de geração.<span class="rec">Sugestão: opção desligada.</span></div>
   </div>
 </section>
 
