@@ -1,9 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 a 4
+   Nexus Prumo (uiEdition 'claude', tema Ardósia) — Fases 1 a 5
    Casca nova (menu lateral + barra superior), Hoje e Intimações (lista, quadro,
    foco e gaveta); Carteira, Visão geral da operação, Linha do tempo e Mesa de
    prazos extintivos (Fase 2); Tarefas, Agenda e Mesa de trabalho (Fase 3);
-   cabeçalho da operação para as abas do app e aba Partes e bens (Fase 4). Lê e grava os MESMOS dados do App (props); não tem estado de
+   cabeçalho da operação para as abas do app e aba Partes e bens (Fase 4);
+   Acompanhar e Painel (Fase 5). Lê e grava os MESMOS dados do App (props); não tem estado de
    dados próprio. Telas ainda não redesenhadas continuam vindo do App.
    Concatenado ANTES de src/app.jsx pelo scripts/build.mjs — só declarações de
    função e constantes; helpers do app (daysUntil, INTIM_STATUSES…) são usados

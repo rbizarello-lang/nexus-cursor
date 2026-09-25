@@ -20,7 +20,7 @@ Trilha **paralela** ao clássico. Não o substitui. Flag interna continua `uiEdi
 
 ---
 
-## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 a 4 no app (✅ 24/09/2026)
+## 🧭 Nexus Prumo (antes “Claude · Ardósia”) — protótipo (✅ 23/09), Fases 1 a 5 no app (✅ 25/09/2026)
 
 Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo único, dados fictícios). Não entra no build nem no `clasp push`.
 
@@ -31,7 +31,8 @@ Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo ún
 - **Fase 3 (feita, dados reais):** Tarefas (lista agrupada por data limite, prioridade ou operação; quadro por situação com arrastar; criação rápida com Enter; concluir no círculo; "Globais e avulsas" como no clássico ou "Todas", incluindo as internas); Agenda (semana, mês e lista de 30 dias com audiências, finais de prazo, tarefas com data limite e termos de prescrição dos grupos 1 a 4, com filtro por tipo e operação, e a lista de audiências com as realizadas); Mesa de trabalho (três colunas, reordenar arrastando ou com as setas, tirar da mesa, registrar atuação pela gaveta e sugestões do que vence logo). Tudo pelas funções do app (`upsert`, `handleSave`, `toggleDesk`, `removeFromDesk`, `reorderDeskInColumn`); edição completa continua nos formulários. Avisos (toast) do app aparecem no estilo da edição.
 - **Menu lateral (24/09):** busca de operação sempre visível (nome e descrição) e filtro por classificação igual ao do Clássico e da Beta. O filtro é o mesmo estado do app (`opClassFilter`): vale no menu, na Carteira e no Clássico ao trocar de edição.
 - **Fase 4 (feita, dados reais):** cabeçalho Prumo em todas as abas da operação (nome, classificações, revisão, resumo com dívida, garantia, CDAs, processos, intimações e alarme de prescrição; Revisada, Editar, Diagnóstico, Relatório; abas). Pessoas e Bens viram uma aba só, **Partes e bens**, com seletor interno (decisão P4), mantendo por baixo as abas `pessoas` e `bens`. Processos e prescrição, Inscrições e Partes e bens seguem com o conteúdo do app (sem reescrever prescrição) e ganham o visual Prumo (tipografia, botões, etiquetas, campos, cartões). Busca “Filtrar processo / CDA” da Beta ligada também no Prumo; corrigida para achar apensos (vale para a Beta).
-- **Próximas fases (sugestão):** 5 · Acompanhar, Biblioteca e Painel; depois, formulários (modais) no visual Prumo.
+- **Fase 5 (feita, dados reais):** Acompanhar (lista com situação, conferência “verificado há N dias” e destaque do que passa de 7 dias sem conferência, botão Verificar, troca de situação na linha, link para o eproc, busca e filtros); Painel da carteira (indicadores, tabela de operações com barra de crédito e parte garantida, mesmas 10 ordenações do Painel clássico — estado `carteiraSort` —, prescrição por grupo com atalho para a lista, revisões devidas com “Revisada”, resumo dos próximos 7 dias com atalho para a Agenda). A Biblioteca continua sendo a tela do app (evolui pelo Cursor) com o visual Prumo aplicado por CSS.
+- **Próximas fases (sugestão):** 6 · formulários (modais) no visual Prumo.
 - Detalhes e atalhos: `design/claude-experimental/README.md`.
 
 ---
