@@ -10227,12 +10227,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onNewHearing={() => setModal({ type: 'create', entityType: 'hearing', initial: { status: 'agendada', modality: 'presencial', hearingType: 'instrucao', remindDays: '3' } })}
         onOpenOp={(id) => cxOpenOp(id)} /></div>}
+      {viewMode === 'acompanhar' && isClaude && <div className="cx-scroll"><EditionClaudeAcompanhar data={data} opsById={opsById} upsert={upsert}
+        onNew={() => setModal({ type: 'create', entityType: 'watch', initial: {} })}
+        onOpen={(w) => setModal({ type: 'edit', entityType: 'watch', initial: w })}
+        onOpenOp={(id) => cxOpenOp(id)} /></div>}
+      {viewMode === 'painel' && isClaude && <div className="cx-scroll"><EditionClaudePainel data={data} prazosRadar={prazosRadar} prazosByDebt={prazosByDebt}
+        sort={carteiraSort} setSort={setCarteiraSort}
+        onOpenOp={(id) => cxOpenOp(id)}
+        onOpenPrazos={() => { setPrazosFilters({ operationId: '', personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+        onOpenGroup={(g) => { setPrazosFilters({ group: g, operationId: '', personId: 'all' }); setPrazosDeskMode('lista'); cxGo('prazos'); }}
+        onOpenIntims={() => cxGo('intimacoes')} onOpenAgenda={() => cxGo('audiencias')}
+        onReviewed={(op) => { upsert('operations', { ...op, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
+        onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
       {viewMode === 'mesa' && isClaude && <div className="cx-scroll"><EditionClaudeMesa data={data} opsById={opsById}
         a={{ openIntim: (id) => setCxDrawerId(id), openTask: (t) => setModal({ type: 'edit', entityType: 'task', initial: t }), openHearing: (h) => setModal({ type: 'edit', entityType: 'hearing', initial: h }),
           openOp: (id) => cxOpenOp(id), remove: removeFromDesk, reorder: reorderDeskInColumn, toggle: toggleDesk }} /></div>}
 
       {/* ═══ PAINEL GERAL ═══ */}
-      {viewMode === 'painel' && (
+      {viewMode === 'painel' && !isClaude && (
         <div className="painel-container">
           {data.operations.length === 0 ? (
             <div className="welcome-screen" style={{height:'auto',padding:'60px 20px'}}>
@@ -10946,7 +10958,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ MODELOS ═══ */}
-      {viewMode === 'modelos' && (() => {
+      {viewMode === 'modelos' && <div className={isClaude ? 'op-tab-panel cx-tabpanel cx-lib' : undefined} style={isClaude ? undefined : { display: 'contents' }}>{(() => {
         const models = data.models || [];
         const cats = [...new Set(models.map(m => m.category || 'Sem categoria'))].sort();
         const matterSet = new Set(modelMatters.map(x => x.materia));
@@ -11183,7 +11195,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             </div>
           </div>}
         </div>);
-      })()}
+      })()}</div>}
 
       {/* ═══ MESA DE TRABALHO ═══ */}
       {viewMode === 'mesa' && !isClaude && (() => {
@@ -11386,7 +11398,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       })()}
 
       {/* ═══ ACOMPANHAR (WATCHLIST) ═══ */}
-      {viewMode === 'acompanhar' && (() => {
+      {viewMode === 'acompanhar' && !isClaude && (() => {
         const allWatch = data.watchlist || [];
         const open = allWatch.filter(w => w.status !== 'encerrado');
         const closed = allWatch.filter(w => w.status === 'encerrado');
