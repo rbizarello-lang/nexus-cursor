@@ -3834,7 +3834,7 @@ function EditionClaudeProcessos(p) {
   };
 
   const ProcTableHead = () => (
-    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerExecId && <th className="cx-pt-sig">Sinais</th>}<th>Situação</th>{!drawerExecId && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerExecId && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerExecId && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
@@ -3884,9 +3884,8 @@ function EditionClaudeProcessos(p) {
     const unitLabel = covered.length + ' ' + bm.unit + (covered.length === 1 ? '' : 's');
     return <React.Fragment key={h.exec.id}>
       <tr className={'cx-pt-hubrow' + (drawerExecId === h.exec.id ? ' on' : '')} onClick={() => openDrawerFor(h.exec.id)}>
-        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}></td>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button></td>
         <td className="cx-pt-num">
-          <button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button>
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
           <span className="cx-mono">{h.exec.processNumber || 'S/N'}</span>
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>

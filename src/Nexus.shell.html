@@ -4641,6 +4641,8 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .app-layout.edition-claude .cx-tabpanel .cx-page,
 .app-layout.edition-claude .cx-page.cx-op-page { max-width: none; margin: 0; padding: 18px 28px 64px; }
 .app-layout.edition-claude .cx-page.cx-op-page { padding-top: 16px; }
+/* Largura única também nas telas principais (Hoje, Intimações, Tarefas, Mesa, Carteira…): mesmo recuo de 28px, sem largura máxima. */
+.app-layout.edition-claude .cx-page { max-width: none; margin: 0; padding-left: 28px; padding-right: 28px; }
 /* Reserva o espaço da barra de rolagem (Windows) para a largura não mudar entre abas curtas e longas. */
 .app-layout.edition-claude .cx-tabpanel > .cx-page { flex: 1; min-height: 0; overflow-y: auto; width: 100%; }
 .app-layout.edition-claude :is(.cx-scroll, .cx-oph, .cx-tabpanel > .cx-page, .cx-tabpanel > .entity-area) { scrollbar-gutter: stable; }
@@ -5102,8 +5104,8 @@ tr.cx-pt-hubrow.on td { background: var(--cx-accent-soft); }
 tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: normal; }
 .cx-chev.sm { border: none; background: transparent; padding: 0; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--cx-ink-3); cursor: pointer; font-size: 11px; flex: none; }
 .cx-pt-hub-s { flex-basis: 100%; font-weight: 400; font-size: 11px; color: var(--cx-ink-3); margin-left: 0; }
-.cx-pt-num.nest1 { padding-left: 28px; }
-.cx-pt-num.nest2 { padding-left: 46px; }
+.cx-pt td.cx-pt-num.nest1 { padding-left: 34px; }
+.cx-pt td.cx-pt-num.nest2 { padding-left: 52px; }
 
 /* Barra de horizonte da prescrição — quanto falta até o termo, escala de 5 anos. */
 .cx-hb { display: inline-block; width: 34px; height: 6px; border-radius: 3px; background: var(--cx-line); overflow: hidden; vertical-align: middle; margin-right: 6px; }
