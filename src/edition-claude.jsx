@@ -1945,18 +1945,17 @@ const CX_AG_KINDS = [['aud', 'Audiências', 'var(--cx-orange)'], ['prazo', 'Praz
 const CX_AG_C = { aud: 'var(--cx-orange)', prazo: 'var(--cx-blue)', tarefa: 'var(--cx-green)', presc: 'var(--cx-violet)' };
 function cxMonday(d) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
 function cxAddDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-/* Junta, por dia, audiências, prazos de intimação, tarefas com data limite e termos de prescrição (grupos 1 a 4). */
+/* Junta, por dia, audiências, prazos de intimação, tarefas com data limite e termos de prescrição (grupos 1 a 4).
+   A lógica em si mora em src/lib/agenda.js (buildAgendaByDay), reaproveitada pelo Relatório. */
 function cxAgendaByDay(data, prazosRadar, fromIso, toIso, opF) {
-  const by = {};
-  const put = (iso, it) => { const k = toDayKey(iso); if (!k || k < fromIso || k > toIso) return; (by[k] || (by[k] = [])).push(it); };
-  const okOp = (id) => opF === 'all' || (opF === 'none' ? !id : id === opF);
-  (data.hearings || []).forEach(h => { if (!h.date || h.status === 'cancelada' || h.status === 'realizada' || !okOp(h.operationId)) return; put(h.date, { id: 'h' + h.id, kind: 'aud', time: h.time || '', title: (CX_HEARING[h.hearingType] || 'Audiência'), sub: h.parties || h.processNumber || '', op: h.operationId, ref: h }); });
-  (data.intimations || []).forEach(x => { if (!intimPrazoNaAgenda(x) || !okOp(x.operationId)) return; put(x.dateDeadline, { id: 'i' + x.id, kind: 'prazo', title: cxPartyName(x), sub: x.eventDescription || x.className || '', op: x.operationId, urgent: intimIsUrgent(x), ref: x }); });
-  (data.tasks || []).forEach(t => { if (!t.dueDate || !cxTaskOpen(t) || !okOp(t.operationId)) return; put(t.dueDate, { id: 't' + t.id, kind: 'tarefa', title: t.title || 'Tarefa', sub: t.description || '', op: t.operationId, urgent: t.priority === 'urgente', ref: t }); });
-  (prazosRadar.rows || []).forEach(r => { if (!r.keyDate || r.group > 4 || r.silenceReason || !okOp(r.operationId)) return; put(r.keyDate, { id: 'p' + r.id, kind: 'presc', title: 'CDA ' + (r.cdaNumber || 'S/N'), sub: betaSafeUiText(r.why || r.summary || ''), op: r.operationId, urgent: r.group === 1, ref: r }); });
-  const rank = { aud: 0, prazo: 1, tarefa: 2, presc: 3 };
-  Object.keys(by).forEach(k => by[k].sort((a, b) => rank[a.kind] - rank[b.kind] || String(a.time || '').localeCompare(String(b.time || '')) || (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0)));
-  return by;
+  return buildAgendaByDay(data, prazosRadar, fromIso, toIso, opF, {
+    hearingLabel: (t) => CX_HEARING[t] || 'Audiência',
+    partyName: cxPartyName,
+    intimOnAgenda: intimPrazoNaAgenda,
+    isUrgentIntim: intimIsUrgent,
+    taskOpen: cxTaskOpen,
+    safeText: betaSafeUiText,
+  });
 }
 function CxAgItem({ it, opsById, compact, onOpen }) {
   const op = opsById.get(it.op);

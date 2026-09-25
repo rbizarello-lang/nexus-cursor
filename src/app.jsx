@@ -2922,6 +2922,11 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showPrescRules, setShowPrescRules] = useState(false);
   const [showExportPicker, setShowExportPicker] = useState(false);
+  const [reportModalOp, setReportModalOp] = useState(null);
+  const [reportModel, setReportModel] = useState('passagem');
+  const [reportSections, setReportSectionsS] = useState(() => defaultReportSections());
+  const setReportSections = (patch) => setReportSectionsS(prev => ({ ...prev, ...patch }));
+  const [reportPeriod, setReportPeriod] = useState({ from: '', to: '', wholeOp: true });
   const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
   const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
@@ -5203,100 +5208,443 @@ function App() {
     setAssetText('');
   };
 
-  // ─── RELATÓRIO DE PASSAGEM DE SERVIÇO ───
-  // Gera um HTML standalone (imprimível) com o estado completo da operação:
-  // briefing, processos ativos, prazos abertos, bens constritos, pessoas.
-  const generateHandoverReport = (op) => {
-    const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ─── RELATÓRIO DA OPERAÇÃO (Passagem de serviço / Resumo / Prestação de contas) ───
+  // Monta os dados já filtrados/calculados e delega a montagem do HTML para
+  // src/lib/report.js (função pura, testada em test/report.test.mjs). A janela
+  // de geração (modelo, seções, período) mora em renderReportModal(), abaixo.
+  const HEARING_STATUS_OPEN_ON_AGENDA = (h) => h && h.date && h.status !== 'cancelada' && h.status !== 'realizada';
+  const signalsTextFor = (exec) => {
+    const parts = [];
+    if (exec.isRelevant) parts.push('relevante');
+    if (exec.meuAcervo) parts.push('acervo');
+    if (exec.acompanhar) parts.push('acompanhar');
+    if (exec.copiaNaPasta) parts.push('cópia');
+    if (execShowsConstriction(exec, data)) parts.push('constrição');
+    if (execHasOpenTask(exec, data)) parts.push('tarefa');
+    if (execHasOpenIntim(exec, data)) parts.push('intimação');
+    return parts.join(' · ');
+  };
+  const prescSummaryForExec = (exec, opDebts) => {
+    const cdas = opDebts.filter(d => sameProc(d.processNumber, exec.processNumber));
+    for (const d of cdas) {
+      const row = prazosByDebt.get(d.id);
+      if (row && (row.summary || row.why)) return betaSafeUiText(row.summary || row.why);
+    }
+    return cdas.length ? 'sem dados suficientes' : '—';
+  };
+  const buildFrontRule = (execRec, execObj) => {
+    const STG = isEfStylePanoramaCard(execObj) ? CENTRAL_STAGES : PROCESS_STAGES;
+    const keys = [...Object.keys(STG), ...Object.keys(execRec).filter(k => !STG[k])];
+    const dated = keys.filter(k => execRec[k]).map((k, i) => {
+      const rec = execRec[k] || {};
+      const sd = resolveStageDef(STG, k, rec);
+      return { k, i, rec, sd, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
+    }).sort(compareStagesByDate);
+    const steps = dated.map(({ rec, sd }) => ({
+      label: sd.label,
+      dateLabel: rec.date ? fmtDate(rec.date) : '',
+      favoravel: rec.outcome === 'favoravel' || rec.outcome === 'provido',
+    }));
+    let currentPhaseText = '';
+    if (dated.length) {
+      const last = dated[dated.length - 1];
+      const rec = last.rec, sd = last.sd;
+      const outcomeTxt = rec.outcome && sd.outcomes[rec.outcome] ? sd.outcomes[rec.outcome] : '';
+      currentPhaseText = [sd.label, outcomeTxt, rec.texto].filter(Boolean).join(' — ');
+    }
+    return { steps, currentPhaseText };
+  };
+  const buildOperationReportData = (op, model, sections, period) => {
     const opId = op.id;
     const briefing = op.briefing || {};
-    const opDebts = getOpSlices(opId).debts;
-    const opExecs = getOpSlices(opId).executions;
-    const opAssets = getOpSlices(opId).assets;
-    const opPeople = getOpSlices(opId).people;
-    const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
-    const opIntims = (data.intimations || []).filter(x => x.operationId === opId && intimIsOpenWork(x));
+    const slices = getOpSlices(opId);
+    const opDebts = slices.debts;
+    const opExecs = slices.executions;
+    const opAssets = slices.assets;
+    const opPeople = slices.people;
+    const opTasksAll = (data.tasks || []).filter(t => t.operationId === opId);
+    const opTasksOpen = opTasksAll.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
+    const opIntimsAll = (data.intimations || []).filter(x => x.operationId === opId);
+    const opIntimsOpen = opIntimsAll.filter(intimIsOpenWork);
+    const opHearings = (data.hearings || []).filter(h => h.operationId === opId);
+    const opDocuments = (data.documents || []).filter(d => d.operationId === opId);
+    const opReminders = (data.stickyNotes || []).filter(n => n.operationId === opId);
+    const opChangeLog = (data.changeLog || []).filter(l => l.operationId === opId);
     const activeDebts = opDebts.filter(d => d.status !== 'extinta');
-    const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
-    const constricted = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
-    const constrVal = constricted.reduce((s,a) => s + (a.value||0), 0);
-    const idpjs = opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-    const activeExecs = opExecs.filter(e => e.status !== 'extinta' && e.status !== 'arquivada');
-    const prescRisk = activeDebts.map(d => {
+    const now = new Date();
+    const todayIso = localIso(now);
+    const generatedAtLabel = now.toLocaleString('pt-BR');
+    const generatedDateLabel = now.toLocaleDateString('pt-BR');
+
+    // ── Identificação ──
+    const prio = normalizeOpPriority(op.priority);
+    const rs = reviewStatus(op);
+    const reportOp = {
+      name: op.name || 'Operação',
+      description: op.description || '',
+      priorityLabel: 'Prioridade ' + ((OP_PRIORITIES[prio] || {}).label || ''),
+      statusLabel: op.status === 'encerrada' ? 'Encerrada' : 'Em andamento',
+      tagsExtra: getOpClassifications(op).map(k => (OP_CLASSIFICATIONS[k] || {}).label).filter(Boolean),
+      reviewLabel: rs.label,
+      reviewLate: rs.overdue,
+      docTitle: model === 'resumo' ? 'Nexus · Resumo' : 'Nexus · Passagem de serviço',
+    };
+
+    if (model === 'prestacao') {
+      const wholeOp = !!period.wholeOp;
+      const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
+      const toIso = wholeOp ? todayIso : (period.to || todayIso);
+      const inPeriod = (iso) => { const k = toDayKey(iso); return !!k && k >= fromIso && k <= toIso; };
+      const events = [];
+      opIntimsAll.forEach(x => {
+        const respAt = x.responseAction && x.responseAction.respondedAt;
+        const d = respAt ? toDayKey(respAt) : '';
+        if (!d || !inPeriod(d)) return;
+        const a = x.responseAction || {};
+        const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
+      });
+      opDocuments.forEach(doc => {
+        const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Peça', text: doc.title || doc.type || 'Documento', mono: doc.processNumber || '' });
+      });
+      opExecs.forEach(ex => {
+        const recs = getStageRecords(briefing, ex.id);
+        Object.keys(recs).forEach(k => {
+          const rec = recs[k];
+          if (!rec || !rec.date) return;
+          const d = toDayKey(rec.date);
+          if (!d || !inPeriod(d)) return;
+          const STG = isEfStylePanoramaCard(ex) ? CENTRAL_STAGES : PROCESS_STAGES;
+          const sd = resolveStageDef(STG, k, rec);
+          const isFree = !STG[k];
+          events.push({ date: d, dateLabel: fmtDate(d), kind: isFree ? 'Fase' : 'Fase', text: `${isFree ? 'Evento livre: ' : ''}${sd.label}${rec.texto ? ' — ' + rec.texto : ''}`, mono: ex.processNumber || '' });
+        });
+      });
+      (data.prescriptionEvents || []).forEach(pe => {
+        if (!pe || pe.operationId !== opId) return;
+        const d = pe.date ? toDayKey(pe.date) : '';
+        if (!d || !inPeriod(d)) return;
+        const debt = opDebts.find(x => x.id === pe.debtId);
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Evento lançado: ${pe.type || 'evento'}${debt ? ' · CDA ' + (debt.cdaNumber || debt.id) : ''}` });
+      });
+      opDebts.forEach(dbt => {
+        if (!dbt.prescriptionHandledAt) return;
+        const d = toDayKey(dbt.prescriptionHandledAt);
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Prescrição tratada — CDA ${dbt.cdaNumber || dbt.id}` });
+      });
+      getBriefingEntries(briefing).forEach(en => {
+        const d = en.eventDate ? toDayKey(en.eventDate) : (en.createdAt ? toDayKey(en.createdAt) : '');
+        if (!d || !inPeriod(d)) return;
+        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
+        const plain = String(en.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Diário', text: `${t.label}: ${truncate(plain, 140)}` });
+      });
+      opReminders.forEach(rm => {
+        const d = toDayKey(rm.createdAt || rm.updatedAt);
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Lembrete', text: truncate(rm.content || '', 140) });
+      });
+      opHearings.forEach(h => {
+        if (h.status !== 'realizada') return;
+        const d = h.date ? toDayKey(h.date) : '';
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Audiência', text: `Realizada — ${CX_HEARING[h.hearingType] || 'Audiência'}${h.parties ? ': ' + h.parties : ''}`, mono: h.processNumber || '' });
+      });
+      const taskLabelByCol = { status: 'Status', dueDate: 'Vencimento' };
+      opChangeLog.forEach(le => {
+        const d = le.date ? toDayKey(le.date) : '';
+        if (!d || !inPeriod(d)) return;
+        if (le.col === 'tasks' && le.field === 'status' && le.to === 'concluida') {
+          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Tarefa', text: `Concluída: ${le.ref || ''}` });
+        } else if (le.col === 'assets' && le.field === 'status') {
+          const toLabel = (ASSET_STATUSES[le.to] || {}).label || le.to;
+          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Constrição', text: `${le.ref || 'Bem'} → ${toLabel}` });
+        } else if ((le.col === 'executions' || le.col === 'debts') && le.field === 'status') {
+          const map = le.col === 'executions' ? EXEC_STATUSES : DEBT_STATUSES;
+          const toLabel = (map[le.to] || {}).label || le.to;
+          events.push({ date: d, dateLabel: fmtDate(d), kind: le.col === 'executions' ? 'Fase' : 'Prescrição', text: `${le.ref || ''} → ${toLabel}` });
+        }
+      });
+      const periodLabel = wholeOp ? `desde o início da operação até ${fmtDate(todayIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
+      return {
+        model, op: reportOp, sections, generatedAtLabel, periodLabel,
+        accountingEvents: events,
+        accountingNote: 'o histórico de alterações (changeLog) guarda só os últimos 500 registros de todo o app, e a revisão da operação guarda só a data mais recente. As demais fontes já estão completas.',
+      };
+    }
+
+    // ── Leitura da operação ──
+    const entries = getBriefingEntries(briefing);
+    const highlightRaw = sections.leitura ? pickHighlightEntry(entries) : null;
+    const highlight = highlightRaw ? {
+      typeLabel: (BRIEFING_ENTRY_TYPES[highlightRaw.type] || BRIEFING_ENTRY_TYPES.observacao).label,
+      html: highlightRaw.html || '',
+      dateLabel: highlightRaw.eventDate ? fmtDate(highlightRaw.eventDate) : (highlightRaw.createdAt ? fmtDate(highlightRaw.createdAt.slice(0, 10)) : ''),
+    } : null;
+
+    // ── Próximos 15 dias ──
+    const next15Items = [];
+    if (sections.proximos) {
+      opIntimsOpen.forEach(x => {
+        if (!x.dateDeadline) return;
+        const title = `${cxPartyName(x)}${x.eventDescription ? ' — ' + x.eventDescription : ''}`;
+        next15Items.push({ date: toDayKey(x.dateDeadline), kind: 'prazo', dateLabel: fmtDate(x.dateDeadline), kindLabel: 'Prazo', title, mono: x.processNumber || '' });
+      });
+      opHearings.forEach(h => {
+        if (!HEARING_STATUS_OPEN_ON_AGENDA(h)) return;
+        const label = CX_HEARING[h.hearingType] || 'Audiência';
+        const title = `${label}${h.time ? ', ' + h.time : ''}${h.modality ? ', ' + (h.modality === 'virtual' ? 'virtual' : 'presencial') : ''}${h.parties ? ' — ' + h.parties : ''}`;
+        next15Items.push({ date: toDayKey(h.date), kind: 'aud', dateLabel: fmtDate(h.date), kindLabel: 'Audiência', title, mono: h.processNumber || '' });
+      });
+      opTasksOpen.forEach(t => {
+        if (!t.dueDate) return;
+        next15Items.push({ date: toDayKey(t.dueDate), kind: 'tarefa', dateLabel: fmtDate(t.dueDate), kindLabel: 'Tarefa', title: t.title || 'Tarefa' });
+      });
+      (prazosRadar.rows || []).forEach(r => {
+        if (r.operationId !== opId || !r.keyDate || r.group > 4 || r.silenceReason) return;
+        const why = betaSafeUiText(r.why || r.summary || '');
+        next15Items.push({ date: toDayKey(r.keyDate), kind: 'presc', dateLabel: fmtDate(r.keyDate), kindLabel: 'Prescrição', title: `CDA ${r.cdaNumber || 'S/N'}${why ? ' — ' + why : ''}` });
+      });
+    }
+    const next15 = buildNext15Days(next15Items, { fromIso: todayIso, days: 15 });
+
+    // ── Alertas: CDAs no alarme (grupos 1 e 2) ──
+    const alerts = [];
+    if (sections.alertas) {
+      activeDebts.forEach(d => {
+        const row = prazosByDebt.get(d.id);
+        if (!row || (row.group !== 1 && row.group !== 2)) return;
+        const termIso = row.keyDate || row.prescDate;
+        const summaryTxt = betaSafeUiText(row.summary || row.why || '');
+        alerts.push({
+          cda: d.cdaNumber || d.id,
+          termLabel: termIso ? fmtDate(termIso) : '—',
+          late: row.group === 1,
+          situacao: summaryTxt || (d.processNumber ? 'em acompanhamento' : 'sem processo — ajuizar'),
+          valorLabel: fmtCur(d.value),
+          _days: row.prescDays ?? 9999,
+        });
+      });
+      alerts.sort((a, b) => a._days - b._days);
+      alerts.forEach(a => { delete a._days; });
+    }
+
+    // ── Números ──
+    const constrictedActive = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
+    const constrictedReq = opAssets.filter(a => a.status === 'indisponibilidade_requerida');
+    const constrValActive = constrictedActive.reduce((s, a) => s + (a.value || 0), 0);
+    const constrValReq = constrictedReq.reduce((s, a) => s + (a.value || 0), 0);
+    const totalVal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
+    const guarVal = opDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
+    const guarPct = totalVal > 0 ? Math.round((guarVal / totalVal) * 100) : 0;
+    const coverage = computeIncidentCoverage(opExecs, opDebts);
+    const numbers = [
+      { label: 'Crédito', value: fmtCur(totalVal), sub: `${activeDebts.length} CDAs · ${guarPct}% garantido` },
+      { label: 'Indisponível', value: fmtCur(constrValActive), sub: constrValReq > 0 ? `+ ${fmtCur(constrValReq)} requerido` : `${constrictedActive.length} bem(ns)` },
+      { label: 'Cobertura', value: coverage.grand > 0 ? `${coverage.pct}%` : '—', sub: coverage.grand > 0 ? `${fmtCur(coverage.coveredTotal)}` : 'sem EFs ativas' },
+      { label: 'Abertos', value: `${opIntimsOpen.length} · ${opTasksOpen.length}`, sub: 'intimações · tarefas' },
+    ];
+
+    // ── Onde estão as coisas (fontes) ──
+    const sources = [];
+    if (sections.fontes) {
+      const links = briefing.externalLinks || [];
+      const migrated = [...links];
+      if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migrated.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+      if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migrated.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+      migrated.forEach(l => sources.push({ label: l.label || 'Link', url: l.url, urlLabel: '' }));
+      opDocuments.forEach(doc => { if (doc.url) sources.push({ label: doc.title || doc.type || 'Documento', url: doc.url, urlLabel: '' }); });
+    }
+
+    // ── Frentes processuais ──
+    const idpjExecs = opExecs.filter(isIncidentOnPanorama);
+    const centralExecs = opExecs.filter(e => isCentralProcess(e) && !isIncidentProcess(e));
+    const coveredIds = new Set();
+    idpjExecs.forEach(ip => (ip.linkedExecutionIds || []).forEach(id => coveredIds.add(id)));
+    centralExecs.forEach(e => coveredIds.add(e.id));
+
+    const fronts = sections.frentes ? [...idpjExecs, ...centralExecs].map(ex => {
+      const isIdpj = ex.processTag === 'idpj';
+      const isMcf = ex.processTag === 'cautelar_fiscal';
+      const kindLabel = isIdpj ? 'IDPJ' : isMcf ? 'MCF' : 'Central';
+      const recs = getStageRecords(briefing, ex.id);
+      const { steps, currentPhaseText } = buildFrontRule(recs, ex);
+      const linkedEFIds = ex.linkedExecutionIds || [];
+      const linkedEFExecs = isIdpj || isMcf ? opExecs.filter(e => linkedEFIds.includes(e.id)) : [ex];
+      const covered = linkedEFExecs.map(ef => {
+        const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber));
+        const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
+        const stLabel = (EXEC_STATUSES[ef.status] || {}).label || ef.status || '';
+        return { proc: ef.processNumber || '—', situacao: stLabel, cdas: String(efCdas.length), valorLabel: fmtCur(efVal), prescricao: prescSummaryForExec(ef, opDebts), signals: signalsTextFor(ef) };
+      });
+      const hubTotal = covered.reduce((s, c) => s + (opDebts.filter(d => sameProc(d.processNumber, c.proc)).reduce((s2, d) => s2 + (d.value || 0), 0)), 0);
+      return {
+        kindLabel, title: ex.processNumber || '—', valueLabel: hubTotal > 0 ? fmtCur(hubTotal) : '', statusLine: `${ex.className || kindLabel} · ${ex.court || 'juízo não informado'}${ex.status ? ' · ' + ((EXEC_STATUSES[ex.status] || {}).label || ex.status) : ''}`,
+        steps, currentPhaseText, covered, centralLabel: isIdpj || isMcf ? 'EF coberta' : 'Processo',
+      };
+    }) : [];
+
+    // ── EFs sem incidente ──
+    const kindOf = (e) => {
+      const cn = (e.className || '').toLowerCase();
+      if (e.processTag === 'idpj') return 'idpj';
+      if (e.processTag === 'cautelar_fiscal') return 'mcf';
+      if (isCentralProcess(e)) return 'central';
+      if (/embargo/.test(cn)) return 'embargo';
+      if (/agravo|apela[çc][ãa]o|recurso|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recurso';
+      return 'ef';
+    };
+    const semIncidenteExecs = opExecs.filter(e => {
+      if (e.status === 'extinta') return false;
+      const k = kindOf(e);
+      if (k === 'idpj' || k === 'mcf' || k === 'central') return false;
+      if (coveredIds.has(e.id)) return false;
+      if (k === 'ef') return true;
+      return false;
+    });
+    const semIncidente = sections.frentes ? semIncidenteExecs.map(e => {
+      const efCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber));
+      const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
+      return { proc: e.processNumber || '—', situacao: (EXEC_STATUSES[e.status] || {}).label || e.status || '', cdas: String(efCdas.length), valorLabel: fmtCur(efVal), prescricao: prescSummaryForExec(e, opDebts) };
+    }) : [];
+    const semIncidenteValueLabel = semIncidente.length ? fmtCur(semIncidenteExecs.reduce((s, e) => s + opDebts.filter(d => sameProc(d.processNumber, e.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0)) : '';
+
+    // ── CDAs não ajuizadas ──
+    const naoAjuizadasDebts = sections.frentes ? activeDebts.filter(d => !d.processNumber) : [];
+    const naoAjuizadas = naoAjuizadasDebts.map(d => {
       const row = prazosByDebt.get(d.id);
-      if (!row || (row.group !== 1 && row.group !== 2)) return null;
-      return { d, pd: row.keyDate || row.prescDate, days: row.prescDays, summary: row.summary || '' };
-    }).filter(Boolean).sort((a,b) => (a.days ?? 9999) - (b.days ?? 9999));
-    const alvos = opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo');
-    const row = (cells) => `<tr>${cells.map(x => `<td>${x}</td>`).join('')}</tr>`;
-    const section = (title, body) => `<h2>${title}</h2>${body}`;
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Passagem de Serviço — ${esc(op.name)}</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1a1a2e; max-width: 900px; margin: 24px auto; padding: 0 16px; }
-  h1 { font-size: 19px; border-bottom: 3px solid #9b2848; padding-bottom: 6px; }
-  h2 { font-size: 14px; color: #9b2848; margin-top: 22px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  th, td { border: 1px solid #ccc; padding: 4px 7px; text-align: left; font-size: 11px; vertical-align: top; }
-  th { background: #f0ecf2; font-weight: 700; }
-  .kpis { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
-  .kpi { border: 1px solid #ddd; border-radius: 6px; padding: 8px 14px; min-width: 130px; }
-  .kpi b { display: block; font-size: 15px; }
-  .alert { color: #b3122e; font-weight: 700; }
-  .muted { color: #777; }
-  .mono { font-family: 'Consolas', monospace; font-size: 10.5px; }
-  .free { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; border-radius: 5px; padding: 8px 10px; }
-  .entry { border: 1px solid #e2e2e8; border-left: 3px solid #9b2848; border-radius: 5px; padding: 7px 10px; margin-bottom: 6px; }
-  .entry-hd { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
-  .entry-type { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #9b2848; }
-  .entry-pin { font-size: 9px; color: #987020; font-weight: 700; }
-  .entry-dt { font-size: 9.5px; color: #777; font-family: 'Consolas', monospace; margin-left: auto; }
-  .entry-body { font-size: 11px; line-height: 1.55; }
-  .entry-body ul, .entry-body ol { margin: 2px 0 2px 18px; }
-  .idpj-block { border: 1px solid #d8cdd4; border-left: 4px solid #9b2848; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; background: #fbf7f9; }
-  .idpj-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
-  .idpj-tag { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; background: #9b2848; color: #fff; letter-spacing: 0.4px; }
-  .idpj-tag.mcf { background: #a06020; }
-  .idpj-proc { font-family: 'Consolas', monospace; font-size: 12px; font-weight: 700; }
-  .idpj-st { font-size: 9.5px; padding: 1px 7px; border-radius: 3px; background: #ececf0; color: #444; font-weight: 600; }
-  .idpj-meta { font-size: 10.5px; color: #555; margin-bottom: 4px; }
-  .idpj-stage, .idpj-val { font-size: 11px; margin-bottom: 5px; }
-  .idpj-val b { color: #9b2848; font-size: 13px; }
-  .stage-tag { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 3px; margin: 0 4px 2px 0; border: 1px solid; }
-  .subtable { width: 100%; border-collapse: collapse; margin-top: 4px; }
-  .subtable th, .subtable td { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; text-align: left; vertical-align: top; }
-  .subtable th { background: #f4eef1; font-weight: 700; }
-  .idpj-notes { font-size: 10px; color: #333; margin-top: 6px; background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; }
-  .idpj-notes ul { margin: 2px 0 0 16px; padding: 0; }
-  .proc-notes { background: #fbf9f5; font-size: 10px; color: #333; padding: 5px 10px 5px 22px; border-left: 3px solid #c9a84a; }
-  .proc-notes ul { margin: 2px 0 0 16px; padding: 0; }
-  .proc-notes strong { color: #8b6d20; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px; }
-  @media print { body { margin: 8px; } h2 { page-break-after: avoid; } tr { page-break-inside: avoid; } }
-</style></head><body>
-<h1>Relatório de Passagem de Serviço — ${esc(op.name)}</h1>
-<p class="muted">Gerado em ${new Date().toLocaleString('pt-BR')} · NEXUS — Painel de Operações Fiscais · ${esc(op.description || '')}</p>
-<div class="kpis">
-  <div class="kpi"><b>${fmtCur(totalVal)}</b>Crédito ativo (${activeDebts.length} CDAs)</div>
-  <div class="kpi"><b>${activeExecs.length}</b>Processos ativos (${idpjs.length} IDPJ/MCF)</div>
-  <div class="kpi"><b>${fmtCur(constrVal)}</b>Bens constritos (${constricted.length})</div>
-  <div class="kpi"><b class="${opIntims.length>0?'alert':''}">${opIntims.length}</b>Intimações abertas</div>
-  <div class="kpi"><b class="${opTasks.length>0?'alert':''}">${opTasks.length}</b>Tarefas pendentes</div>
-  <div class="kpi"><b class="${prescRisk.length>0?'alert':''}">${prescRisk.length}</b>CDAs c/ risco prescricional</div>
-</div>
-${(() => { const ents = getBriefingEntries(briefing); if (!ents.length) return ''; const sk = (en) => en.eventDate || (en.createdAt || '').slice(0,10); const sorted = [...ents].sort((a,b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sk(b).localeCompare(sk(a)); }); return section(`Estratégia e notas (${sorted.length})`, sorted.map(en => { const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao; const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0,10)) : ''); return `<div class="entry"><div class="entry-hd"><span class="entry-type">${esc(t.label)}</span>${en.pinned ? '<span class="entry-pin">📌 fixada</span>' : ''}${dt ? `<span class="entry-dt">${dt}</span>` : ''}</div><div class="entry-body">${en.html || ''}</div></div>`; }).join('')); })()}
-${opIntims.length > 0 ? section(`Intimações abertas (${opIntims.length})`, `<table><tr><th>Processo</th><th>Prazo final</th><th>Status</th><th>Evento</th></tr>${opIntims.map(x => row([`<span class="mono">${esc(x.processNumber||'—')}</span>`, x.dateDeadline ? `<span class="${(daysUntil(x.dateDeadline)??99) <= 5 ? 'alert' : ''}">${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)</span>` : '<span class="muted">sem prazo</span>', esc(intimStatusMeta(x.status).label), esc(truncate(x.eventDescription || x.parties || '', 80))])).join('')}</table>`) : ''}
-${opTasks.length > 0 ? section(`Tarefas pendentes (${opTasks.length})`, `<table><tr><th>Tarefa</th><th>Vencimento</th><th>Prioridade</th></tr>${opTasks.map(t => row([esc(t.title||''), t.dueDate ? `${fmtDate(t.dueDate)} (${daysUntil(t.dueDate)}d)` : '<span class="muted">—</span>', esc(t.priority||'normal')])).join('')}</table>`) : ''}
-${prescRisk.length > 0 ? section(`Risco prescricional — vencido/iminente e a conferir (${prescRisk.length} CDAs)`, `<table><tr><th>Prazo</th><th>CDA</th><th>Processo</th><th>Situação</th><th>Valor</th></tr>${prescRisk.map(x => row([`<span class="alert">${x.days == null ? '—' : x.days + 'd'} (${fmtDate(x.pd)})</span>`, `<span class="mono">${esc(x.d.cdaNumber||'S/N')}</span>`, `<span class="mono">${esc(x.d.processNumber||'—')}</span>`, esc(truncate(x.summary || '', 80)), fmtCur(x.d.value)])).join('')}</table>`) : ''}
-${idpjs.length > 0 ? section(`IDPJ / Cautelares Fiscais (${idpjs.length})`, idpjs.map(ep => { const isIdpj = ep.processTag === 'idpj'; const st = EXEC_STATUSES[ep.status] || {}; const linkedEFIds = ep.linkedExecutionIds || []; const linkedEFExecs = opExecs.filter(e => linkedEFIds.includes(e.id)); const linkedEFProcNums = new Set(linkedEFExecs.map(e => normProc(e.processNumber)).filter(Boolean)); const hubCdas = opDebts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber))); const hubTotalValue = hubCdas.reduce((s,d) => s + (d.value||0), 0); const directCdas = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber)); const directVal = directCdas.reduce((s,d)=>s+(d.value||0),0); const stageHtml = renderStageHtmlV2(briefing, ep, esc); const efTable = linkedEFExecs.length > 0 ? `<table class="subtable"><tr><th>EF abrangida</th><th>Status</th><th>Juízo</th><th>CDAs</th><th>Valor</th></tr>${linkedEFExecs.map(ef => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)); const efVal = efCdas.reduce((s,d)=>s+(d.value||0),0); const efSt = EXEC_STATUSES[ef.status] || {}; return `<tr><td class="mono">${esc(ef.processNumber||'—')}</td><td>${esc(efSt.label||ef.status||'')}</td><td>${esc(ef.court||'')}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; }).join('')}</table>` : '<div class="muted" style="font-size:10px;margin-top:4px">Nenhuma execução fiscal vinculada a este incidente.</div>'; const relRecursos = opExecs.filter(r => r.parentExecutionId === ep.id && r.status !== 'extinta'); const recursosTable = relRecursos.length > 0 ? `<table class="subtable"><tr><th>Recurso/incidente vinculado</th><th>Classe</th><th>Status</th><th>Juízo</th></tr>${relRecursos.map(r => { const rSt = EXEC_STATUSES[r.status] || {}; return `<tr><td class="mono">${esc(r.processNumber||'—')}</td><td>${esc(r.className||'')}</td><td>${esc(rSt.label||r.status||'')}</td><td>${esc(r.court||'')}</td></tr>`; }).join('')}</table>` : ''; const notes = ep.notesList || (ep.notes ? [ep.notes] : []); const notesHtml = notes.length > 0 ? `<div class="idpj-notes"><strong>Notas:</strong><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''; return `<div class="idpj-block">` + `<div class="idpj-head"><span class="idpj-tag ${isIdpj?'':'mcf'}">${isIdpj?'IDPJ':'Cautelar Fiscal'}</span><span class="idpj-proc">${esc(ep.processNumber||'—')}</span><span class="idpj-st">${esc(st.label||ep.status||'')}</span>${ep.hasGuarantee?'<span class="idpj-st" style="background:#dff0e6;color:#207848">Garantida</span>':''}</div>` + `<div class="idpj-meta">${esc(ep.court||'Juízo não informado')}${ep.className?' · '+esc(ep.className):''}</div>` + `<div class="idpj-stage"><strong>Estágio processual:</strong> ${stageHtml}</div>` + `<div class="idpj-val"><strong>Valor da causa (EFs abrangidas):</strong> <b>${fmtCur(hubTotalValue)}</b> <span class="muted">(${linkedEFExecs.length} EF${linkedEFExecs.length===1?'':'s'} · ${hubCdas.length} CDAs)</span>${directVal>0?` · CDAs diretas no incidente: <b>${fmtCur(directVal)}</b>`:''}</div>` + efTable + recursosTable + notesHtml + `</div>`; }).join('')) : ''}
-${(() => { const byId = Object.fromEntries(opExecs.map(e => [e.id, e])); const idpjByLinkedEF = {}; opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(ip => { (ip.linkedExecutionIds || []).forEach(efId => { if (!idpjByLinkedEF[efId]) idpjByLinkedEF[efId] = ip; }); }); const kindOf = (e) => { const cn = (e.className||'').toLowerCase(); if (e.processTag === 'idpj') return 'idpj'; if (e.processTag === 'cautelar_fiscal') return 'mcf'; if (e.processTag === 'central') return 'central'; if (/embargo/.test(cn)) return 'embargo'; if (/agravo|apela[çc][ãa]o|recurso|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recurso'; return 'ef'; }; const reportExecs = opExecs.filter(e => { if (e.status === 'extinta') return false; const k = kindOf(e); if (k === 'idpj' || k === 'mcf') return false; if (k === 'ef' || k === 'central') return true; const p = byId[e.parentExecutionId]; return !!(p && (kindOf(p) === 'ef' || kindOf(p) === 'central')); }); if (reportExecs.length === 0) return ''; const relOf = (e) => { const parts = []; const k = kindOf(e); if (k === 'central') parts.push('◆ Central'); if (e.parentExecutionId && byId[e.parentExecutionId]) { const p = byId[e.parentExecutionId]; const rel = k === 'embargo' ? 'Embargos de' : k === 'recurso' ? 'Recurso de' : 'Apenso a'; parts.push(`${rel} <span class="mono">${esc(p.processNumber||'—')}</span>`); } if (idpjByLinkedEF[e.id]) { const ip = idpjByLinkedEF[e.id]; const lbl = ip.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'; parts.push(`Abrangida por ${lbl} <span class="mono">${esc(ip.processNumber||'—')}</span>`); } return parts.length ? parts.join('<br>') : '<span class="muted">—</span>'; }; const stOrder = { ativa: 0, suspensa: 1, arquivada: 2 }; const kindOrder = { ef: 0, central: 0, embargo: 1, recurso: 1 }; const sortedExecs = [...reportExecs].sort((a,b) => { const ka = kindOrder[kindOf(a)] ?? 2, kb = kindOrder[kindOf(b)] ?? 2; if (ka !== kb) return ka - kb; return (stOrder[a.status] ?? 3) - (stOrder[b.status] ?? 3); }); const rowsHtml = sortedExecs.map(e => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber)); const efVal = efCdas.reduce((s,d) => s + (d.value||0), 0); const stLabel = EXEC_STATUSES[e.status]?.label || e.status || ''; const stColor = e.status === 'arquivada' || e.status === 'extinta' ? '#999' : e.status === 'suspensa' ? '#a06020' : '#207848'; const dim = (e.status === 'arquivada') ? ' style="opacity:0.6"' : ''; const eNotes = e.notesList || (e.notes ? [e.notes] : []); const mainRow = `<tr${dim}><td class="mono">${esc(e.processNumber||'—')}</td><td>${esc(e.className||'')}</td><td>${esc(e.court||'')}</td><td style="color:${stColor};font-weight:600">${esc(stLabel)}</td><td style="font-size:10px">${relOf(e)}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; const notesRow = eNotes.length > 0 ? `<tr${dim}><td colspan="7" class="proc-notes"><strong>📝 Notas:</strong><ul>${eNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></td></tr>` : ''; return mainRow + notesRow; }).join(''); return section(`Processos — execuções fiscais e recursos vinculados (${reportExecs.length})`, `<table><tr><th>Processo</th><th>Classe</th><th>Juízo</th><th>Status</th><th>Relacionamento</th><th>CDAs</th><th>Valor</th></tr>${rowsHtml}</table>`); })()}
-${constricted.length > 0 ? section(`Bens com indisponibilidade ativa (${constricted.length} — ${fmtCur(constrVal)})`, `<table><tr><th>Descrição</th><th>Tipo</th><th>Registro/Matrícula</th><th>Titular</th><th>Status</th><th>Analytics</th><th>Origem</th><th>Processo</th><th>Valor</th><th>Notas</th></tr>${constricted.map(a => { const holder = a.holderId ? data.people.find(p => p.id === a.holderId) : null; const holderTxt = holder ? (holder.name + (holder.cpfCnpj ? ' ('+holder.cpfCnpj+')' : '')) : (a.holderDoc || '—'); const aSt = ASSET_STATUSES[a.status]?.label || a.status || '—'; const aNotes = a.notesList || (a.notes ? [a.notes] : []); const notesTxt = aNotes.length > 0 ? aNotes.map(n => esc(n)).join('<br>') : '<span class="muted">—</span>'; return row([esc(truncate(a.description||'', 70)), esc(ASSET_SUBTYPES[a.subtype]||a.subtype||''), `<span class="mono">${esc(a.registry||'—')}</span>`, esc(truncate(holderTxt, 45)), esc(aSt), a.analyticsRegistered ? '✅' : '❌', esc(a.source||'—'), `<span class="mono">${esc(a.processRef||'—')}</span>`, fmtCur(a.value), `<span style="font-size:10px">${notesTxt}</span>`]); }).join('')}</table>`) : ''}
-${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><tr><th>Nome</th><th>CPF/CNPJ</th><th>Tipo</th></tr>${alvos.map(p => row([esc(p.name||''), `<span class="mono">${esc(p.cpfCnpj||'—')}</span>`, esc(p.subtype||'')])).join('')}</table>`) : ''}
-<p class="muted" style="margin-top:24px">— Fim do relatório. Para imprimir: Ctrl+P. Documento gerado automaticamente pelo NEXUS.</p>
-</body></html>`;
+      const termIso = row && (row.keyDate || row.prescDate);
+      return { cda: d.cdaNumber || d.id, tributo: d.tribute || d.system || '—', valorLabel: fmtCur(d.value), prescricao: termIso ? `termo ${fmtDate(termIso)}` : 'sem dados suficientes' };
+    });
+    const naoAjuizadasValueLabel = naoAjuizadas.length ? fmtCur(naoAjuizadasDebts.reduce((s, d) => s + (d.value || 0), 0)) : '';
+
+    // ── Diário destacado na página 2 (fixadas + risco recente) ──
+    const diaryAll = entries.map(en => ({
+      dateLabel: en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0, 10)) : ''),
+      _key: en.eventDate || (en.createdAt || '').slice(0, 10) || '',
+      typeLabel: (BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao).label,
+      html: en.html || '',
+      pinned: !!en.pinned,
+    })).sort((a, b) => (b.pinned - a.pinned) || b._key.localeCompare(a._key));
+    const diaryDestaque = diaryAll.slice(0, 5);
+    const remindersAll = opReminders.map(r => ({ dateLabel: fmtDate((r.createdAt || '').slice(0, 10)), _key: r.createdAt || '', text: r.content || '' })).sort((a, b) => b._key.localeCompare(a._key));
+    const remindersDestaque = remindersAll.slice(0, 3);
+
+    // ── Anexos ──
+    const diary = sections.diario ? diaryAll : [];
+    const reminders = sections.lembretes ? remindersAll : [];
+    const chk = briefing.checklists || {};
+    const idpjItems = ['idpj_efs', 'idpj_requeridos', 'idpj_preclusao', 'idpj_formulario', 'idpj_saj'];
+    const vistaItems = ['vista_triar', 'vista_formulario', 'vista_bens', 'vista_analisar'];
+    const checklists = sections.lembretes ? [
+      { label: 'Decisão final do IDPJ', done: idpjItems.filter(k => chk[k]).length, total: idpjItems.length },
+      { label: '1ª vista da operação', done: vistaItems.filter(k => chk[k]).length, total: vistaItems.length },
+    ] : [];
+    const assets = sections.bens ? opAssets.map(a => {
+      const holder = a.holderId ? data.people.find(p => p.id === a.holderId) : null;
+      return { descricao: truncate(a.description || assetSpeciesLabel(a), 60), titular: holder ? holder.name : (a.holderDoc || '—'), situacao: (ASSET_STATUSES[a.status] || {}).label || a.status || '—', origem: a.source || '—', valorLabel: fmtCur(a.value) };
+    }) : [];
+    const people = sections.partes ? {
+      alvos: opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo').map(p => ({ nome: p.name || '', doc: p.cpfCnpj || '—', tipo: p.role || p.subtype || '' })),
+      relacionadas: opPeople.filter(p => p.operationRole === 'relacionada').map(p => ({ nome: p.name || '', doc: p.cpfCnpj || '—', tipo: p.role || p.subtype || '' })),
+    } : { alvos: [], relacionadas: [] };
+    const openIntimations = opIntimsOpen.map(x => ({
+      proc: x.processNumber || '—',
+      prazoLabel: x.dateDeadline ? `${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)` : 'sem prazo',
+      late: x.dateDeadline ? (daysUntil(x.dateDeadline) ?? 99) <= 5 : false,
+      status: intimStatusMeta(x.status).label,
+      evento: truncate(x.eventDescription || x.parties || '', 80),
+    }));
+
+    const hasAnexos = model === 'passagem';
+    return {
+      model, op: reportOp, sections, generatedAtLabel, generatedDateLabel, pageFooter: '', pageFooter2: '',
+      highlight, next15, alerts, numbers, sources, fronts, semIncidente, semIncidenteValueLabel,
+      naoAjuizadas, naoAjuizadasValueLabel, diarioDestaque: sections.diario ? diaryDestaque : [], lembretesDestaque: sections.lembretes ? remindersDestaque : [],
+      anexosNote: hasAnexos ? `Anexos na página seguinte: bens (${assets.length || opAssets.length}), partes (${(people.alvos.length || 0) + (people.relacionadas.length || 0)}), intimações abertas (${openIntimations.length}), diário completo e checklists.` : '',
+      diary, reminders, checklists, assets, people, openIntimations, hasAnexos,
+    };
+  };
+
+  const downloadReport = (op, model, sections, period) => {
+    const rd = buildOperationReportData(op, model, sections, period);
+    const html = renderReportDocument(rd);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    const safeName = (op.name || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
-    a.download = `passagem_servico_${safeName}_${new Date().toISOString().slice(0, 10)}.html`; a.click();
+    a.download = reportFileName(model, op.name, new Date().toISOString().slice(0, 10));
+    a.click();
     if (isDemo) showToast('Relatório gerado');
+  };
+  const openReportForPrint = (op, model, sections, period) => {
+    const rd = buildOperationReportData(op, model, sections, period);
+    const html = renderReportDocument(rd);
+    const w = window.open('', '_blank');
+    if (!w) { alert('O navegador bloqueou a nova aba. Permita pop-ups para imprimir.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 300);
+  };
+  const renderReportModal = () => {
+    if (!reportModalOp) return null;
+    const op = reportModalOp;
+    const models = [
+      { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.' },
+      { id: 'resumo', label: 'Resumo de uma página', hint: 'Só a página 1. Para a chefia ou uma reunião.' },
+      { id: 'prestacao', label: 'Prestação de contas', hint: 'Tudo o que foi feito, num período ou desde o início da operação.' },
+    ];
+    const sectionChips = [
+      ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
+      ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
+    ];
+    return (
+      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação">
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{op.name}</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {models.map(m => (
+              <label key={m.id} style={{ display: 'grid', gridTemplateColumns: '18px 1fr', gap: 10, padding: '10px 12px', border: `1px solid ${reportModel === m.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 9, cursor: 'pointer' }}>
+                <input type="radio" name="report-model" checked={reportModel === m.id} onChange={() => setReportModel(m.id)} style={{ marginTop: 2 }} />
+                <span>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{m.label}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{m.hint}</div>
+                </span>
+              </label>
+            ))}
+          </div>
+          {reportModel === 'prestacao' ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <input type="checkbox" checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
+                Desde o início da operação
+              </label>
+              {!reportPeriod.wholeOp && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>De <input type="date" value={reportPeriod.from} onChange={e => setReportPeriod({ ...reportPeriod, from: e.target.value })} /></label>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Até <input type="date" value={reportPeriod.to} onChange={e => setReportPeriod({ ...reportPeriod, to: e.target.value })} /></label>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>Seções</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {sectionChips.map(([key, label]) => {
+                  const on = !!reportSections[key];
+                  return <span key={key} onClick={() => setReportSections({ [key]: !on })} style={{ cursor: 'pointer', fontSize: 12, padding: '3px 9px', border: `1px solid ${on ? 'var(--text-primary)' : 'var(--border)'}`, borderRadius: 999, color: on ? 'var(--text-primary)' : 'var(--text-muted)', borderStyle: on ? 'solid' : 'dashed' }}>{on ? '✓ ' : ''}{label}</span>;
+                })}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
+            <button type="button" className="btn-secondary" onClick={() => downloadReport(op, reportModel, reportSections, reportPeriod)}>Baixar HTML</button>
+            <button type="button" className="btn-primary" onClick={() => openReportForPrint(op, reportModel, reportSections, reportPeriod)}>Abrir para imprimir</button>
+          </div>
+        </div>
+      </Modal>
+    );
   };
 
   // Backup / Restore
@@ -11529,7 +11877,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
         onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
         onDiag={() => openDiagnostico(activeOp.id)}
-        onReport={() => generateHandoverReport(activeOp)}
+        onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
         onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
@@ -11540,7 +11888,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           onTab={(t) => startTabSwitch(() => setActiveTab(t))}
           onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
           onDiag={() => openDiagnostico(activeOp.id)}
-          onReport={() => generateHandoverReport(activeOp)}
+          onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
           onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
           onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }} />}
         {!isClaude && <>
@@ -11602,7 +11950,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{display:'grid',gridTemplateColumns:'auto auto',gap:6,justifyContent:'end'}}>
               <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
               <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
-              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
               <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
@@ -11691,6 +12039,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </Modal>
 
     {renderExportPicker()}
+    {renderReportModal()}
 
     {prescImport && (
       <div className="global-search-overlay" onClick={() => setPrescImport(null)}>
