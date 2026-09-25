@@ -159,6 +159,40 @@ describe('renderReportDocument / reportFileName', () => {
     const html = renderReportDocument(rd);
     assert.match(html, /últimos 500 registros/);
   });
+
+  it('checklists ficam num bloco "Checklists" próprio, separado de Lembretes', () => {
+    const rd = {
+      model: 'passagem', op, sections: defaultReportSections(),
+      generatedAtLabel: '25/09/2026, 10:20', generatedDateLabel: '25/09/2026',
+      highlight: null, next15: { items: [], overflowCount: 0, overflowFirst: null }, alerts: [], numbers: [], sources: [],
+      fronts: [], semIncidente: [], naoAjuizadas: [], diarioDestaque: [], lembretesDestaque: [], hasAnexos: true,
+      diary: [], reminders: [{ dateLabel: '20/09/2026', text: 'Ligar para o perito' }],
+      checklists: [{ label: '1ª vista da operação', done: 2, total: 4 }],
+      assets: [], people: { alvos: [], relacionadas: [] }, openIntimations: [],
+    };
+    const html = renderReportDocument(rd);
+    const lembretesIdx = html.indexOf('Lembretes (1)');
+    const checklistsIdx = html.indexOf('>Checklists<');
+    assert.ok(lembretesIdx > -1, 'seção Lembretes presente');
+    assert.ok(checklistsIdx > lembretesIdx, 'Checklists vem depois de Lembretes, como bloco próprio');
+    // O texto do checklist não aparece dentro do <h2>Lembretes</h2>...</table> do lembrete.
+    const lembretesBlock = html.slice(lembretesIdx, checklistsIdx);
+    assert.doesNotMatch(lembretesBlock, /1ª vista da operação/);
+    assert.match(html.slice(checklistsIdx), /1ª vista da operação: 2\/4/);
+  });
+
+  it('sem checklists, nenhum bloco "Checklists" vazio aparece', () => {
+    const rd = {
+      model: 'passagem', op, sections: defaultReportSections(),
+      generatedAtLabel: '25/09/2026, 10:20', generatedDateLabel: '25/09/2026',
+      highlight: null, next15: { items: [], overflowCount: 0, overflowFirst: null }, alerts: [], numbers: [], sources: [],
+      fronts: [], semIncidente: [], naoAjuizadas: [], diarioDestaque: [], lembretesDestaque: [], hasAnexos: true,
+      diary: [], reminders: [], checklists: [],
+      assets: [], people: { alvos: [], relacionadas: [] }, openIntimations: [],
+    };
+    const html = renderReportDocument(rd);
+    assert.doesNotMatch(html, />Checklists</);
+  });
 });
 
 describe('buildAgendaByDay (src/lib/agenda.js)', () => {

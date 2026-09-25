@@ -5279,12 +5279,24 @@ function App() {
     // ── Identificação ──
     const prio = normalizeOpPriority(op.priority);
     const rs = reviewStatus(op);
+    const statusLabel = op.status === 'encerrada' ? 'Encerrada' : 'Em andamento';
+    const priorityLabel = 'Prioridade ' + ((OP_PRIORITIES[prio] || {}).label || '');
+    // Cabeçalho: etiquetas repetidas (ex. "Em andamento" e "Em Andamento") saem
+    // duplicadas — deduplicar sem diferenciar maiúsculas de minúsculas.
+    const seenLabels = new Set([statusLabel.toLowerCase(), priorityLabel.toLowerCase()]);
+    const tagsExtra = [];
+    getOpClassifications(op).map(k => (OP_CLASSIFICATIONS[k] || {}).label).filter(Boolean).forEach(label => {
+      const key = label.toLowerCase();
+      if (seenLabels.has(key)) return;
+      seenLabels.add(key);
+      tagsExtra.push(label);
+    });
     const reportOp = {
       name: op.name || 'Operação',
       description: op.description || '',
-      priorityLabel: 'Prioridade ' + ((OP_PRIORITIES[prio] || {}).label || ''),
-      statusLabel: op.status === 'encerrada' ? 'Encerrada' : 'Em andamento',
-      tagsExtra: getOpClassifications(op).map(k => (OP_CLASSIFICATIONS[k] || {}).label).filter(Boolean),
+      priorityLabel,
+      statusLabel,
+      tagsExtra,
       reviewLabel: rs.label,
       reviewLate: rs.overdue,
       docTitle: model === 'resumo' ? 'Nexus · Resumo' : 'Nexus · Passagem de serviço',
@@ -5460,6 +5472,33 @@ function App() {
     }
 
     // ── Frentes processuais ──
+    // Mesma classificação de apensos/vinculados que a aba Processos usa, para que
+    // um processo filho (parentExecutionId → EF) apareça aninhado sob a EF-mãe,
+    // dentro da frente em que a mãe está, e não como linha própria em "Sem incidente".
+    const cdaGroupsForReport = buildCdaGroups(opExecs, opDebts);
+    const classifiedForReport = classifyProcGroups(cdaGroupsForReport, opExecs);
+    const childrenOf = (execId) => {
+      const a = (classifiedForReport.apensosByParent && classifiedForReport.apensosByParent[execId]) || [];
+      const o = (classifiedForReport.othersByParent && classifiedForReport.othersByParent[execId]) || [];
+      return [...a, ...o].filter(g => g && g.exec);
+    };
+    const nestedExecIds = new Set();
+    Object.values(classifiedForReport.apensosByParent || {}).forEach(arr => (arr || []).forEach(g => g && g.exec && nestedExecIds.add(g.exec.id)));
+    Object.values(classifiedForReport.othersByParent || {}).forEach(arr => (arr || []).forEach(g => g && g.exec && nestedExecIds.add(g.exec.id)));
+    const buildProcRow = (ef, depth) => {
+      const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber));
+      const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
+      const stLabel = (EXEC_STATUSES[ef.status] || {}).label || ef.status || '';
+      const children = childrenOf(ef.id).map(g => buildProcRow(g.exec, depth + 1));
+      return {
+        proc: (depth > 0 ? '↳ ' : '') + (ef.processNumber || '—'),
+        situacao: stLabel, cdas: String(efCdas.length), valorLabel: fmtCur(efVal),
+        prescricao: prescSummaryForExec(ef, opDebts), signals: signalsTextFor(ef),
+        children,
+      };
+    };
+    const flattenProcRow = (row) => [row, ...(row.children || []).flatMap(flattenProcRow)];
+
     const idpjExecs = opExecs.filter(isIncidentOnPanorama);
     const centralExecs = opExecs.filter(e => isCentralProcess(e) && !isIncidentProcess(e));
     const coveredIds = new Set();
@@ -5474,13 +5513,8 @@ function App() {
       const { steps, currentPhaseText } = buildFrontRule(recs, ex);
       const linkedEFIds = ex.linkedExecutionIds || [];
       const linkedEFExecs = isIdpj || isMcf ? opExecs.filter(e => linkedEFIds.includes(e.id)) : [ex];
-      const covered = linkedEFExecs.map(ef => {
-        const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber));
-        const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
-        const stLabel = (EXEC_STATUSES[ef.status] || {}).label || ef.status || '';
-        return { proc: ef.processNumber || '—', situacao: stLabel, cdas: String(efCdas.length), valorLabel: fmtCur(efVal), prescricao: prescSummaryForExec(ef, opDebts), signals: signalsTextFor(ef) };
-      });
-      const hubTotal = covered.reduce((s, c) => s + (opDebts.filter(d => sameProc(d.processNumber, c.proc)).reduce((s2, d) => s2 + (d.value || 0), 0)), 0);
+      const covered = linkedEFExecs.flatMap(ef => flattenProcRow(buildProcRow(ef, 0)));
+      const hubTotal = linkedEFExecs.reduce((s, ef) => s + opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0);
       return {
         kindLabel, title: ex.processNumber || '—', valueLabel: hubTotal > 0 ? fmtCur(hubTotal) : '', statusLine: `${ex.className || kindLabel} · ${ex.court || 'juízo não informado'}${ex.status ? ' · ' + ((EXEC_STATUSES[ex.status] || {}).label || ex.status) : ''}`,
         steps, currentPhaseText, covered, centralLabel: isIdpj || isMcf ? 'EF coberta' : 'Processo',
@@ -5502,15 +5536,14 @@ function App() {
       const k = kindOf(e);
       if (k === 'idpj' || k === 'mcf' || k === 'central') return false;
       if (coveredIds.has(e.id)) return false;
+      if (nestedExecIds.has(e.id)) return false;
       if (k === 'ef') return true;
       return false;
     });
-    const semIncidente = sections.frentes ? semIncidenteExecs.map(e => {
-      const efCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber));
-      const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
-      return { proc: e.processNumber || '—', situacao: (EXEC_STATUSES[e.status] || {}).label || e.status || '', cdas: String(efCdas.length), valorLabel: fmtCur(efVal), prescricao: prescSummaryForExec(e, opDebts) };
-    }) : [];
-    const semIncidenteValueLabel = semIncidente.length ? fmtCur(semIncidenteExecs.reduce((s, e) => s + opDebts.filter(d => sameProc(d.processNumber, e.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0)) : '';
+    const semIncidente = sections.frentes ? semIncidenteExecs.flatMap(e => flattenProcRow(buildProcRow(e, 0))).map(e => ({
+      proc: e.proc, situacao: e.situacao, cdas: e.cdas, valorLabel: e.valorLabel, prescricao: e.prescricao,
+    })) : [];
+    const semIncidenteValueLabel = semIncidenteExecs.length ? fmtCur(semIncidenteExecs.reduce((s, e) => s + opDebts.filter(d => sameProc(d.processNumber, e.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0)) : '';
 
     // ── CDAs não ajuizadas ──
     const naoAjuizadasDebts = sections.frentes ? activeDebts.filter(d => !d.processNumber) : [];

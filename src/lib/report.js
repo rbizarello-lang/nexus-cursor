@@ -331,7 +331,8 @@ function renderAnexos(rd, pageLabel) {
   const s = rd.sections || {};
   let out = `<div class="a4-top"><span>${escHtml(rd.op.name)} · anexos</span><span>${escHtml(pageLabel)}</span></div>`;
   if (s.diario) out += `<h2>Diário completo (${(rd.diary || []).length})</h2>${renderDiaryTable(rd.diary)}`;
-  if (s.lembretes) out += `<h2>Lembretes (${(rd.reminders || []).length})</h2>${renderRemindersTable(rd.reminders)}${renderChecklists(rd.checklists)}`;
+  if (s.lembretes) out += `<h2>Lembretes (${(rd.reminders || []).length})</h2>${renderRemindersTable(rd.reminders)}`;
+  if (s.lembretes && rd.checklists && rd.checklists.length) out += `<h2>Checklists</h2>${renderChecklists(rd.checklists)}`;
   if (s.bens) out += `<h2>Bens (${(rd.assets || []).length})</h2>${renderAssetsTable(rd.assets)}`;
   if (s.partes) out += `<h2>Partes</h2>${renderPeopleTable('Alvos', rd.people && rd.people.alvos)}${renderPeopleTable('Relacionadas', rd.people && rd.people.relacionadas)}`;
   out += `<h2>Intimações abertas (${(rd.openIntimations || []).length})</h2>${renderOpenIntimationsTable(rd.openIntimations)}`;
