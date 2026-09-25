@@ -146,6 +146,23 @@ function cxNotes(intim) {
 const cxIsActive = (x) => !x.responseAction;
 const cxIsOpen = (x) => !x.responseAction && x.status !== 'analisado';
 function cxEprocUrl(num) { return 'https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_selecionar&num_processo=' + String(num || '').replace(/[.\-]/g, ''); }
+
+/* ─── Intimações por tribunal: mesmos números dos cartões do Clássico/Beta ───
+   (app.jsx, tela de intimações: conta intimações ativas — !intimIsClosed —,
+   abertas = com dateDeadline, fechadas = sem dateDeadline.) */
+const CX_TRIB_NAMES = { PR: 'TRF4 · Paraná', RS: 'TRF4 · Rio Grande do Sul', SC: 'TRF4 · Santa Catarina' };
+function cxTribCounts(items, opF) {
+  const by = {};
+  (items || []).forEach(x => {
+    if (intimIsClosed(x)) return;
+    if (opF && (opF === 'none' ? !!x.operationId : opF !== 'all' && x.operationId !== opF)) return;
+    const j = x.jurisdiction || '?';
+    if (!by[j]) by[j] = { total: 0, abertos: 0, fechados: 0 };
+    by[j].total++;
+    if (x.dateDeadline) by[j].abertos++; else by[j].fechados++;
+  });
+  return Object.entries(by).sort((a, b) => (jurisRank(a[0]) - jurisRank(b[0])) || a[0].localeCompare(b[0]));
+}
 function cxAttention(a, b) {
   const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
   const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
@@ -435,6 +452,7 @@ function EditionClaudeHoje(p) {
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
   const intims = data.intimations || [];
   const open = intims.filter(cxIsOpen);
+  const tribCounts = cxTribCounts(intims);
   const late = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d < 0; });
   const today = open.filter(x => daysUntil(x.dateDeadline) === 0);
   const next5 = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d >= 0 && d <= 5; });
@@ -516,12 +534,13 @@ function EditionClaudeHoje(p) {
     </p>
 
     <div className="cx-kpis">
-      <button type="button" className="cx-kpi" onClick={() => p.onNav('intimacoes')}>
+      <div className="cx-kpi" role="button" tabIndex={0} onClick={() => p.onNav('intimacoes')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNav('intimacoes'); } }}>
         <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
         <span className="cx-kpi-v">{open.length}</span>
         <span className={'cx-kpi-s' + (late.length ? ' red' : '')}>{cxPl(late.length, 'vencida', 'vencidas')} · {today.length} hoje</span>
+        {tribCounts.length ? <span className="cx-kpi-uf">{tribCounts.map(([j, v]) => <button key={j} type="button" className="cx-kpi-uf-i" onClick={e => { e.stopPropagation(); p.onOpenIntimUf(j); }}>{j} {v.total}</button>)}</span> : null}
         <span className="cx-spark" title="Intimações recebidas por dia útil (data de envio), últimos 14 dias úteis" aria-hidden="true">{intake.map((v, k) => <i key={k} className={k === intake.length - 1 ? 'last' : ''} style={{ height: Math.max(4, v / intakeMax * 100) + '%' }} />)}</span>
-      </button>
+      </div>
       <button type="button" className="cx-kpi" onClick={() => p.onNav('intimacoes')}>
         <span className="cx-kpi-l"><CxIcon n="clock" s={14} />Vencem em 5 dias</span>
         <span className="cx-kpi-v">{next5.length}</span>
@@ -638,7 +657,12 @@ function cxGroupIntims(items, by, opsById) {
   } else if (by === 'uf') {
     const ufs = [];
     open.forEach(x => { const k = x.jurisdiction || '?'; if (!ufs.includes(k)) ufs.push(k); });
-    groups = ufs.sort((a, b) => (jurisRank(a) - jurisRank(b)) || a.localeCompare(b)).map(u => ({ key: 'uf' + u, label: u === '?' ? 'Sem UF' : u, icon: <span className="cx-uf">{u}</span>, items: open.filter(x => (x.jurisdiction || '?') === u) }));
+    groups = ufs.sort((a, b) => (jurisRank(a) - jurisRank(b)) || a.localeCompare(b)).map(u => {
+      const items = open.filter(x => (x.jurisdiction || '?') === u);
+      const abertos = items.filter(x => x.dateDeadline).length;
+      const fechados = items.length - abertos;
+      return { key: 'uf' + u, label: u === '?' ? 'Sem UF' : u, sub: cxPl(abertos, 'aberto', 'abertos') + ' · ' + cxPl(fechados, 'fechado', 'fechados'), icon: <span className="cx-uf">{u}</span>, items };
+    });
   } else {
     const dd = (x) => daysUntil(x.dateDeadline);
     groups = [
@@ -709,7 +733,7 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
       const sorted = g.items.slice().sort(cxSortFn(sort));
       return <React.Fragment key={g.key}>
         <button type="button" className={'cx-grp' + (isClosed ? ' closed' : '')} aria-expanded={!isClosed} onClick={() => setClosed(c => ({ ...c, [g.key]: !isClosed }))}>
-          <span className="cx-caret"><CxIcon n="chevD" s={14} /></span>{g.icon}<span>{g.label}</span><span className="cx-n">{g.items.length}</span>
+          <span className="cx-caret"><CxIcon n="chevD" s={14} /></span>{g.icon}<span>{g.label}</span><span className="cx-n">{g.items.length}</span>{g.sub ? <span className="cx-grp-sub">· {g.sub}</span> : null}
         </button>
         {isClosed ? null : sorted.map(x => <CxIntimRow key={x.id} intim={x} op={opsById.get(x.operationId)} sel={selId === x.id} onOpen={onOpen} onOpenOp={onOpenOp} />)}
       </React.Fragment>;
@@ -739,11 +763,38 @@ function CxBoard({ items, sort, onOpen, onSetStatus, opsById }) {
     </div>;
   })}</div>;
 }
+function CxTribBar({ counts, active, onToggle }) {
+  if (!counts.length) return null;
+  return <div className="cx-trib" aria-label="Intimações ativas por tribunal">
+    <span className="cx-trib-k">Por tribunal</span>
+    {counts.map(([j, v]) => {
+      const pct = v.total > 0 ? Math.round(v.abertos / v.total * 100) : 0;
+      const on = active === j;
+      const name = CX_TRIB_NAMES[j] || j;
+      const aria = name + ': ' + cxPl(v.abertos, 'aberto', 'abertos') + ', ' + cxPl(v.fechados, 'fechado', 'fechados') + ', ' + cxPl(v.total, 'total ativa', 'total ativas') + '. ' + (on ? 'Clique para limpar o filtro.' : 'Clique para ver só ' + j + '.');
+      return <button key={j} type="button" className={'cx-tb' + (on ? ' on' : '')} aria-pressed={on} aria-label={aria} onClick={() => onToggle(j)}>
+        <span className="cx-uf">{j}</span>
+        <span className="cx-tb-n">{v.total}</span>
+        <span className="cx-tb-bar"><i style={{ width: pct + '%' }} /></span>
+        {on ? <span className="cx-tb-x" aria-hidden="true">✕</span> : null}
+        <span className="cx-tb-tip" role="tooltip">
+          <b>{name}</b>
+          <div className="cx-tb-tip-r"><span>Abertos (com prazo)</span><span>{v.abertos}</span></div>
+          <div className="cx-tb-tip-r"><span>Fechados (sem prazo)</span><span>{v.fechados}</span></div>
+          <div className="cx-tb-tip-r"><span>Total ativas</span><span>{v.total}</span></div>
+          <small>{on ? 'Clique para limpar o filtro' : 'Clique para ver só ' + j}</small>
+        </span>
+      </button>;
+    })}
+  </div>;
+}
 function EditionClaudeIntimacoes(p) {
   const { data, opsById, view, setView } = p;
   const [q, setQ] = React.useState('');
   const [opFRaw, setOpF] = React.useState('all');
   const [scope, setScope] = React.useState('ativas');
+  const [ufFilter, setUfFilter] = React.useState(() => p.initialUf || null);
+  React.useEffect(() => { if (p.initialUf && p.onInitialUfConsumed) p.onInitialUfConsumed(); }, []);
   const lsGet = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   const [groupBy, setGroupByS] = React.useState(() => lsGet('nexus_cx_group', 'prazo'));
   const [sort, setSortS] = React.useState(() => lsGet('nexus_cx_sort', 'atencao'));
@@ -757,6 +808,7 @@ function EditionClaudeIntimacoes(p) {
   const filtered = all.filter(x => {
     if (scope === 'ativas' ? !!x.responseAction : !x.responseAction) return false;
     if (opF === 'none' ? !!x.operationId : opF !== 'all' && x.operationId !== opF) return false;
+    if (ufFilter && (x.jurisdiction || '?') !== ufFilter) return false;
     if (!toks.length) return true;
     const hay = cxNorm([cxPartyName(x), x.parties, x.eventDescription, x.className, x.subject, x.object, x.processNumber, (opsById.get(x.operationId) || {}).name, cxNotes(x).join(' ')].join(' '));
     const dig = String(x.processNumber || '').replace(/\D/g, '');
@@ -766,9 +818,14 @@ function EditionClaudeIntimacoes(p) {
   const late = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d < 0; }).length;
   const resolvedCount = all.filter(x => !!x.responseAction).length;
   const groups = scope === 'ativas' ? cxGroupIntims(filtered, groupBy, opsById) : cxGroupResolved(filtered);
+  const tribCounts = cxTribCounts(all, opF);
+  const openInUf = ufFilter ? open.filter(x => (x.jurisdiction || '?') === ufFilter).length : null;
   return <div className="cx cx-page">
     <div className="cx-page-h">
-      <div><h1>Intimações</h1><p>{cxPl(open.length, 'aberta', 'abertas')}, {cxPl(late, 'vencida', 'vencidas')}. Ordem padrão: urgente, importância, complexidade e prazo.</p></div>
+      <div><h1>Intimações</h1>
+        <p>{ufFilter ? <>{openInUf} de {open.length} abertas · só {ufFilter}</> : <>{cxPl(open.length, 'aberta', 'abertas')}, {cxPl(late, 'vencida', 'vencidas')}</>}. Ordem padrão: urgente, importância, complexidade e prazo.</p>
+        <CxTribBar counts={tribCounts} active={ufFilter} onToggle={j => setUfFilter(f => f === j ? null : j)} />
+      </div>
       <div className="cx-acts">
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
