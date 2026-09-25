@@ -9044,7 +9044,8 @@ function App() {
       addResponsibility={addResponsibility} removeResponsibility={removeResponsibility}
       onSave={(e) => handleSave(entityType, e)} onCancel={requestCloseModal}
       onDirtyChange={(d) => { modalDirtyRef.current = !!d; }}
-      isDemo={isDemo}
+      isDemo={isDemo} isClaude={isClaude} upsert={upsert}
+      esteiraTemplate={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE}
       onDelete={isEdit ? (id) => handleDelete(entityType, id) : null} />;
   };
 
@@ -9204,6 +9205,11 @@ function App() {
       <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:6}}>Versão {RULE_VERSION}</div>
       <button type="button" className="settings-opt" style={{width:'100%'}} onClick={() => { setShowPrescRules(true); setShowSettings(false); }}>Abrir regras</button>
     </div>
+    {isClaude && <div className="settings-group cx">
+      <div className="settings-label">Esteira da peça</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas). Renomear ou reordenar vale para as próximas peças; as já iniciadas guardam as etapas que tinham.</div>
+      <CxEsteiraTemplateEditor template={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} onChange={next => updateSetting('esteiraTemplate', next)} />
+    </div>}
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
       <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
@@ -10342,6 +10348,7 @@ function App() {
   }).map(x => x.id) : [];
   const cxDetailActions = {
     data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
+    esteiraTemplate: appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE,
     onRespond: handleRespondIntim,
     onOpenIntim: (id) => setCxDrawerId(id),
     onOpenOp: (id) => { setCxDrawerId(null); cxOpenOp(id); },
@@ -13555,7 +13562,7 @@ function CheckList({ options, selected, onChange, emptyText, alwaysSearch }) {
   </div>);
 }
 
-function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo, showListIndicators = true }) {
+function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo, showListIndicators = true, isClaude, esteiraTemplate }) {
   // Migração one-shot: se esta entidade é intimação com obs1/obs2 legado e ainda não tem notesList,
   // converte ao abrir o formulário. Os campos antigos são removidos no save (ver `save` abaixo).
   const migratedInitial = (() => {
@@ -14587,6 +14594,10 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-group"><label>Link da Peça / Documento</label>
         <input value={form.docUrl||''} onChange={e=>set('docUrl',e.target.value)} placeholder="https://docs.google.com/..." />
       </div>
+      {isClaude && <div className="form-group cx">
+        <label>Esteira da peça</label>
+        <CxEsteiraSection esteira={form.esteira} onChange={nextEst => set('esteira', nextEst)} template={esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} />
+      </div>}
       {NotesList()}
       {Actions()}
     </>);

@@ -68,6 +68,7 @@ const CX_ST = {
   pendente_analise: { l: 'Pendente de análise', c: 'var(--cx-yellow)' },
   aguardando_subsidios: { l: 'Aguardando subsídios', c: 'var(--cx-ink-3)' },
   peca_edicao: { l: 'Peça em edição', c: 'var(--cx-blue)' },
+  peca_pronta: { l: 'Peça pronta', c: 'var(--cx-green)' },
   analisado: { l: 'Analisado', c: 'var(--cx-green)' },
 };
 const CX_IMP = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' };
@@ -194,6 +195,7 @@ function CxStatusIcon({ s }) {
   let inner;
   if (s === 'analisado') inner = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--cx-surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
   else if (s === 'peca_edicao') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+  else if (s === 'peca_pronta') inner = '<circle cx="7" cy="7" r="5.4" style="fill:' + c + '"/>';
   else if (s === 'aguardando_subsidios') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
   else inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
   return <span className="cx-st-ic" title={(CX_ST[s] || {}).l || s}><svg width="14" height="14" viewBox="0 0 14 14" dangerouslySetInnerHTML={{ __html: inner }} /></span>;
@@ -446,10 +448,33 @@ function cxBuildQueue(data, prazosByDebt, opsById) {
   });
   return q;
 }
+/* Intimações e tarefas abertas com uma esteira pela metade — cartão "Continuar de onde parou" (Hoje). */
+function cxContinueQueue(data) {
+  const out = [];
+  (data.intimations || []).forEach(x => {
+    if (!cxIsOpen(x)) return;
+    const info = esteiraResumeInfo(x.esteira);
+    if (!info) return;
+    out.push({ key: 'i' + x.id, intim: x, info, due: daysUntil(x.dateDeadline), iso: x.dateDeadline, title: cxPartyName(x), updatedAt: x.esteira.updatedAt });
+  });
+  (data.tasks || []).forEach(t => {
+    if (!cxTaskOpen(t)) return;
+    const info = esteiraResumeInfo(t.esteira);
+    if (!info) return;
+    out.push({ key: 't' + t.id, task: t, info, due: daysUntil(t.dueDate), iso: t.dueDate, title: (t.title || 'Tarefa') + ' · tarefa', updatedAt: t.esteira.updatedAt });
+  });
+  out.sort((a, b) => {
+    const da = a.due === null ? Infinity : a.due, db = b.due === null ? Infinity : b.due;
+    if (da !== db) return da - db;
+    return String(a.updatedAt || '').localeCompare(String(b.updatedAt || ''));
+  });
+  return out;
+}
 function EditionClaudeHoje(p) {
   const { data, prazosRadar, prazosByDebt, opsById } = p;
   const [tab, setTab] = React.useState('proximos');
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
+  const continueQueue = React.useMemo(() => cxContinueQueue(data), [data]);
   const intims = data.intimations || [];
   const open = intims.filter(cxIsOpen);
   const tribCounts = cxTribCounts(intims);
@@ -561,6 +586,16 @@ function EditionClaudeHoje(p) {
 
     <div className="cx-home-grid">
       <div className="cx-col">
+        {continueQueue.length ? <section className="cx-card" aria-labelledby="cx-h-cont">
+          <div className="cx-card-h"><h2 id="cx-h-cont">Continuar de onde parou</h2><div className="cx-aside"><span className="cx-muted cx-small">{cxPl(continueQueue.length, 'peça pela metade', 'peças pela metade')}</span></div></div>
+          {continueQueue.slice(0, 8).map(it => <div key={it.key} className="cx-cont-row">
+            <div className="cx-minw0">
+              <div className="cx-cont-p"><span className="cx-ell">{it.title}</span>{it.iso ? <span className="cx-muted cx-small cx-mono"> · final {cxDM(it.iso)}</span> : null}</div>
+              <div className="cx-cont-s"><CxEstProgress esteira={it.intim ? it.intim.esteira : it.task.esteira} size="sm" /><b>{it.info.etapa.label}</b><span className="cx-muted"> · {esteiraStoppedLabel(it.updatedAt)}</span>{it.info.etapa.note ? <><span className="cx-muted"> · </span><i className="cx-cont-note cx-ell">“{it.info.etapa.note}”</i></> : null}</div>
+            </div>
+            <button type="button" className="cx-btn sm" onClick={() => it.intim ? p.onOpenIntim(it.intim.id) : p.onOpenTask(it.task)}>Retomar</button>
+          </div>)}
+        </section> : null}
         <section className="cx-card" aria-labelledby="cx-h-fila">
           <div className="cx-card-h">
             <h2 id="cx-h-fila">Fila do dia</h2>
@@ -663,6 +698,20 @@ function cxGroupIntims(items, by, opsById) {
       const fechados = items.length - abertos;
       return { key: 'uf' + u, label: u === '?' ? 'Sem UF' : u, sub: cxPl(abertos, 'aberto', 'abertos') + ' · ' + cxPl(fechados, 'fechado', 'fechados'), icon: <span className="cx-uf">{u}</span>, items };
     });
+  } else if (by === 'etapa') {
+    const bucketOf = (x) => {
+      if (!esteiraHasStarted(x.esteira)) return { key: 'none', label: 'Sem esteira', rank: 2 };
+      const s = esteiraSummary(x.esteira);
+      if (s.isComplete) return { key: 'done', label: 'Esteira concluída', rank: 1 };
+      return { key: 'step:' + (s.current && s.current.id), label: (s.current && s.current.label) || 'Em andamento', rank: 0 };
+    };
+    const map = new Map();
+    open.forEach(x => {
+      const b = bucketOf(x);
+      if (!map.has(b.key)) map.set(b.key, { key: b.key, label: b.label, rank: b.rank, icon: dot(b.rank === 0 ? 'var(--cx-blue)' : b.rank === 1 ? 'var(--cx-green)' : 'var(--cx-line-strong)'), items: [] });
+      map.get(b.key).items.push(x);
+    });
+    groups = [...map.values()].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'pt-BR'));
   } else {
     const dd = (x) => daysUntil(x.dateDeadline);
     groups = [
@@ -711,6 +760,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
       <div className="cx-i-ev">{intim.eventDescription || intim.className || '—'}</div>
       {resolved ? <div className="cx-i-note"><CxIcon n="send" s={12} /><span className="cx-ell">{ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'}{ra.description ? ' · ' + ra.description : ''}</span></div>
         : notes[0] ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
+      <CxEstLine esteira={intim.esteira} />
       <div className="cx-i-sub"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><CxOpTag op={op} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
     </div>
     <div className="cx-c-proc"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><span className="cx-cls">{intim.className || '—'}</span></div>
@@ -837,13 +887,191 @@ function EditionClaudeIntimacoes(p) {
         <CxSelect id="cx-f-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
         {view === 'lista' ? <CxSeg label="Ativas ou resolvidas" value={scope} onChange={setScope} options={[['ativas', 'Ativas'], ['resolvidas', 'Resolvidas', null, resolvedCount]]} /> : null}
         <span className="cx-sp" />
-        {view === 'lista' && scope === 'ativas' ? <CxSelect id="cx-f-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['situacao', 'Situação'], ['operacao', 'Operação'], ['uf', 'UF']]} /> : null}
+        {view === 'lista' && scope === 'ativas' ? <CxSelect id="cx-f-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['situacao', 'Situação'], ['operacao', 'Operação'], ['uf', 'UF'], ['etapa', 'Etapa']]} /> : null}
         <CxSelect id="cx-f-s" pre="Ordenar" value={sort} onChange={setSort} options={[['atencao', 'Atenção'], ['prazo', 'Prazo final'], ['importancia', 'Importância'], ['complexidade', 'Complexidade']]} />
       </div>
       {view === 'quadro'
         ? <CxBoard items={filtered.filter(cxIsActive)} sort={sort} onOpen={p.onOpenIntim} opsById={opsById} onSetStatus={(id, s) => { const x = all.find(i => i.id === id); if (x && x.status !== s) { p.upsert('intimations', { ...x, status: s }); cxNotify('Situação: ' + CX_ST[s].l); } }} />
         : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Importe o XLS do eproc para começar.'} />}
     </>}
+  </div>;
+}
+
+/* ═════════════════════ Esteira da peça (UI) ═════════════════════
+   Modelo: src/lib/esteira.js (concatenado pelo build, funções puras).
+   intim.esteira / task.esteira = { etapas: [{id,label,tool,url,status,startedAt,doneAt,note}], updatedAt }.
+   ═════════════════════════════════════════════════════════════════ */
+function cxEstToolClass(tool) {
+  const s = String(tool || '');
+  if (/claude/i.test(s)) return 'cla';
+  if (/gemini/i.test(s)) return 'gem';
+  if (/pr[oó]pria/i.test(s)) return 'own';
+  return 'oth';
+}
+/* Barrinha de N casas: verde feita, azul em andamento, cinza a fazer. */
+function CxEstProgress({ esteira, size }) {
+  const st = esteiraProgress(esteira);
+  if (!st.length) return null;
+  return <span className={'cx-est-prog' + (size === 'sm' ? ' sm' : '')} aria-hidden="true">{st.map((s, i) => <i key={i} className={s === 'done' ? 'd' : s === 'doing' ? 'n' : ''} />)}</span>;
+}
+/* Linha compacta para lista, Mesa e Hoje. Nada se a esteira não foi iniciada. */
+function CxEstLine({ esteira }) {
+  if (!esteiraHasStarted(esteira)) return null;
+  const s = esteiraSummary(esteira);
+  const label = s.isComplete ? 'Esteira concluída' : (s.current ? s.current.label : '—');
+  const when = s.isComplete ? 'concluída ' + cxDM(esteira.updatedAt) : 'parou ' + esteiraStoppedLabel(esteira.updatedAt);
+  return <div className="cx-i-est"><CxEstProgress esteira={esteira} size="sm" /><b className="cx-ell">{label}</b><span className="cx-muted"> · {when}</span></div>;
+}
+
+/* ⚙ → Esteira da peça: template editável (nome, ferramenta, link padrão). */
+function CxEsteiraTemplateEditor({ template, onChange }) {
+  const list = esteiraSanitizeTemplate(template && template.length ? template : ESTEIRA_DEFAULT_TEMPLATE);
+  const upd = (id, patch) => onChange(esteiraTemplateUpdateStep(list, id, patch));
+  return <div className="cx-est-tpl">
+    {list.map((s, i) => <div key={s.id} className="cx-est-tpl-card">
+      <div className="cx-est-tpl-top">
+        <span className="cx-est-tpl-grip" aria-hidden="true">⠿</span>
+        <span className="cx-est-tpl-n">Etapa {i + 1}</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => onChange(esteiraTemplateMoveStep(list, s.id, -1))} disabled={i === 0} title="Mover para cima" aria-label="Mover etapa para cima"><CxIcon n="chevU" s={12} /></button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => onChange(esteiraTemplateMoveStep(list, s.id, 1))} disabled={i === list.length - 1} title="Mover para baixo" aria-label="Mover etapa para baixo"><CxIcon n="chevD" s={12} /></button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => onChange(esteiraTemplateRemoveStep(list, s.id))} title="Remover etapa" aria-label="Remover etapa"><CxIcon n="x" s={12} /></button>
+      </div>
+      <input className="cx-input" value={s.label} onChange={e => upd(s.id, { label: e.target.value })} placeholder="Nome da etapa" aria-label={'Nome da etapa ' + (i + 1)} />
+      <input className="cx-input" value={s.tool} onChange={e => upd(s.id, { tool: e.target.value })} placeholder="Ferramenta" aria-label={'Ferramenta da etapa ' + (i + 1)} />
+      <input className="cx-input" value={s.url} onChange={e => upd(s.id, { url: e.target.value })} placeholder="Link padrão (opcional)" aria-label={'Link padrão da etapa ' + (i + 1)} />
+    </div>)}
+    <button type="button" className="cx-btn sm" onClick={() => onChange(esteiraTemplateAddStep(list))}><CxIcon n="plus" s={12} />Etapa</button>
+    <div className="cx-muted cx-small" style={{ marginTop: 6 }}>Renomear ou reordenar vale para as próximas peças; as que já começaram guardam as etapas que tinham.</div>
+  </div>;
+}
+
+/* Corpo da esteira (passos, começar, concluir, desfazer, nota e link por etapa).
+   Usado na gaveta (bloco "Esteira da peça") e no formulário de tarefa (seção "Esteira da peça"). */
+function CxEsteiraBody({ esteira, onChange, template, onSuggestStatus }) {
+  const est = esteira;
+  const set = onChange;
+  if (!est || !est.etapas || !est.etapas.length) {
+    return <div className="cx-est-empty">
+      <span className="cx-muted cx-small">Esteira não iniciada.</span>
+      <button type="button" className="cx-btn sm" onClick={() => { set(esteiraBegin(template)); if (onSuggestStatus) onSuggestStatus('begin'); }}>Começar</button>
+    </div>;
+  }
+  const etapas = est.etapas;
+  return <div className="cx-est-steps">
+    {etapas.map((et, i) => {
+      const status = et.status || 'todo';
+      return <div key={et.id} className={'cx-est-row cx-est-' + status}>
+        <button type="button" className="cx-est-dot" onClick={() => status === 'todo' && set(esteiraStartStep(est, i))} disabled={status !== 'todo'}
+          aria-label={et.label + ' — ' + (status === 'done' ? 'feita' : status === 'doing' ? 'em andamento' : 'a fazer, clique para começar')}>{status === 'done' ? <CxIcon n="tick" s={10} /> : null}</button>
+        <div className="cx-est-main">
+          <div className="cx-est-l">{et.label} <span className={'cx-est-tool ' + cxEstToolClass(et.tool)}>{et.tool || '—'}</span></div>
+          <div className="cx-est-m">
+            {status === 'done' ? 'feita ' + cxDM(et.doneAt) : status === 'doing' ? 'em andamento desde ' + cxDM(et.startedAt) : 'a fazer'}
+            {et.url ? <> · <a className="cx-a cx-small" href={et.url} target="_blank" rel="noopener noreferrer">link<CxIcon n="arrowUR" s={10} /></a></> : null}
+          </div>
+          {status === 'doing' ? <div className="cx-est-editor">
+            <textarea className="cx-input" defaultValue={et.note || ''} placeholder="Onde parei…" rows={2} aria-label="Onde parei"
+              onBlur={e => { if (e.target.value !== (et.note || '')) set(esteiraSetNote(est, i, e.target.value)); }} />
+            <div className="cx-est-editor-row">
+              <input className="cx-input" defaultValue={et.url || ''} placeholder="Link (conversa ou arquivo)" aria-label="Link da etapa"
+                onBlur={e => { if (e.target.value !== (et.url || '')) set(esteiraSetLink(est, i, e.target.value)); }} />
+              <button type="button" className="cx-btn sm" onClick={() => { const wasLast = i === etapas.length - 1; set(esteiraCompleteStep(est, i)); if (wasLast && onSuggestStatus) onSuggestStatus('complete'); }}><CxIcon n="tick" s={12} />Concluir</button>
+            </div>
+          </div> : null}
+          {status !== 'todo' ? <button type="button" className="cx-link-btn cx-small" onClick={() => set(esteiraUndoStep(est, i))}>Desfazer</button> : null}
+        </div>
+        <span className="cx-est-r cx-mono">{status === 'done' ? cxDM(et.doneAt) : status === 'doing' ? 'agora' : '—'}</span>
+      </div>;
+    })}
+  </div>;
+}
+/* Envolve o corpo com a sugestão discreta de mudar a situação. Só quando o chamador passa
+   `statusValue`/`onApplyStatus` (gaveta da intimação); no formulário de tarefa não há sugestão.
+   `resetKey` limpa a sugestão ao trocar de registro (ex.: navegar J/K entre intimações). */
+function CxEsteiraSection({ esteira, onChange, template, statusValue, onApplyStatus, resetKey }) {
+  const [sug, setSug] = React.useState(null);
+  React.useEffect(() => { setSug(null); }, [resetKey]);
+  const onSuggestStatus = (kind) => {
+    if (!onApplyStatus) return;
+    if (kind === 'begin' && statusValue !== 'peca_edicao') setSug('begin');
+    else if (kind === 'complete') setSug('complete');
+  };
+  return <>
+    <CxEsteiraBody esteira={esteira} onChange={onChange} template={template} onSuggestStatus={onSuggestStatus} />
+    {sug ? <div className="cx-est-sug">
+      <span>{sug === 'begin' ? 'Mudar situação para Peça em edição?' : 'Marcar como Peça pronta?'}</span>
+      <button type="button" className="cx-btn sm" onClick={() => { onApplyStatus(sug === 'begin' ? 'peca_edicao' : 'peca_pronta'); setSug(null); }}>Mudar</button>
+      <button type="button" className="cx-icon-btn cx-sm" onClick={() => setSug(null)} aria-label="Dispensar sugestão"><CxIcon n="x" s={12} /></button>
+    </div> : null}
+  </>;
+}
+
+/* "Peças e links": minuta, links das etapas da esteira, documentos da operação com o mesmo
+   processo (ou ligados à intimação), a peça protocolada e links avulsos (intim.links). */
+function cxPecasList(intim, data) {
+  const out = [];
+  if (intim.minutaUrl) out.push({ key: 'minuta', label: 'Minuta', origin: 'minuta da intimação', url: intim.minutaUrl });
+  ((intim.esteira && intim.esteira.etapas) || []).forEach(et => {
+    if (et.url) out.push({ key: 'et-' + et.id, label: et.label, origin: 'esteira · ' + (et.status === 'done' ? 'feita' : et.status === 'doing' ? 'em andamento' : 'a fazer'), url: et.url });
+  });
+  (data.documents || []).forEach(d => {
+    const linked = d.sourceIntimationId === intim.id;
+    const sameOpProc = !!intim.operationId && d.operationId === intim.operationId && sameProc(d.processNumber, intim.processNumber);
+    if (linked || sameOpProc) out.push({ key: 'doc-' + d.id, label: d.title || d.type || 'Documento', origin: linked ? 'documento desta intimação' : 'arquivo da operação · mesmo processo', url: d.url });
+  });
+  const ra = intim.responseAction;
+  if (ra && (ra.peticionUrl || ra.docUrl)) out.push({ key: 'ra', label: ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : 'Atuação', origin: 'atuação registrada', url: ra.peticionUrl || ra.docUrl });
+  (intim.links || []).forEach((l, i) => out.push({ key: 'lnk-' + i, label: l.label || 'Link', origin: 'link adicionado', url: l.url, custom: true, idx: i }));
+  return out.filter(x => x.url);
+}
+function CxPecasBlock({ intim, data, a }) {
+  const items = cxPecasList(intim, data);
+  const [label, setLabel] = React.useState('');
+  const [url, setUrl] = React.useState('');
+  const add = (e) => {
+    e.preventDefault();
+    const u = url.trim();
+    if (!u) return;
+    const links = [...(intim.links || []), { label: label.trim() || 'Link', url: u, addedAt: new Date().toISOString() }];
+    a.upsert('intimations', { ...intim, links });
+    setLabel(''); setUrl('');
+  };
+  const remove = (idx) => { const links = (intim.links || []).filter((_, i) => i !== idx); a.upsert('intimations', { ...intim, links }); };
+  return <div className="cx-pl">
+    {items.length ? items.map(it => <div key={it.key} className="cx-pl-row">
+      <span className="cx-pl-ic">{(it.label || '?').trim().slice(0, 2).toUpperCase()}</span>
+      <div className="cx-minw0"><div className="cx-ell">{it.label}</div><div className="cx-muted cx-small">{it.origin}</div></div>
+      {it.custom ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => remove(it.idx)} title="Remover" aria-label="Remover link"><CxIcon n="x" s={12} /></button> : null}
+      <a className="cx-a cx-small" href={it.url} target="_blank" rel="noopener noreferrer">Abrir<CxIcon n="arrowUR" s={11} /></a>
+    </div>) : <div className="cx-muted cx-small">Nenhum link ainda.</div>}
+    <form className="cx-pl-add" onSubmit={add}>
+      <input className="cx-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="Rótulo (opcional)" aria-label="Rótulo do link" />
+      <input className="cx-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" aria-label="URL do link" />
+      <button type="submit" className="cx-btn sm" disabled={!url.trim()}><CxIcon n="plus" s={12} />link</button>
+    </form>
+  </div>;
+}
+
+/* Bloco recolhível genérico da gaveta em blocos. */
+const CX_BLK_DEFAULTS = { esteira: true, pecas: true, notas: true, gram: false, ctx: false, dados: false };
+function cxLoadDrawerBlocks() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('nexus_cx_drawer_blocks') || 'null');
+    if (raw && typeof raw === 'object') return { ...CX_BLK_DEFAULTS, ...raw };
+  } catch (e) { /* ignore */ }
+  return { ...CX_BLK_DEFAULTS };
+}
+function cxSaveDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
+function CxBlock({ title, summary, count, open, onToggle, children }) {
+  return <div className="cx-blk">
+    <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
+      <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+      <span className="cx-blk-t">{title}</span>
+      {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
+      {count != null ? <span className="cx-blk-n">{count}</span> : null}
+    </button>
+    {open ? <div className="cx-blk-b">{children}</div> : null}
   </div>;
 }
 
@@ -919,6 +1147,9 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const op = opsById.get(intim.operationId);
   const notes = cxNotes(intim);
   const [nt, setNt] = React.useState('');
+  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
+  const toggleBlock = (key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; });
+  const setAllBlocks = (open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; });
   const resolved = !!intim.responseAction;
   const set = (patch) => a.upsert('intimations', { ...intim, ...patch });
   const exec = (data.executions || []).find(e => sameProc(e.processNumber, intim.processNumber) && (!intim.operationId || e.operationId === intim.operationId))
@@ -927,7 +1158,19 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const siblings = (data.intimations || []).filter(x => x.id !== intim.id && sameProc(x.processNumber, intim.processNumber) && cxIsOpen(x)).sort(cxByDeadline);
   const impK = intimImpKey(intim), difK = intimDifKey(intim), urg = intimIsUrgent(intim);
   const ra = intim.responseAction;
+  const alarmCount = cdas.filter(d => { const row = prazosByDebt.get(d.id); return row && row.group === 1; }).length;
+  const showCtx = !!(exec || cdas.length || siblings.length);
+  const pecas = cxPecasList(intim, data);
+  const resume = esteiraResumeInfo(intim.esteira);
+  const estSummary = esteiraSummary(intim.esteira);
+  const template = a.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE;
+
   return <div>
+    <div className="cx-blk-toggle-all">
+      <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(true)}>Expandir tudo</button>
+      <span className="cx-muted">·</span>
+      <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(false)}>Recolher tudo</button>
+    </div>
     <div className="cx-d-chips">
       <CxOpTag op={op} onOpen={a.onOpenOp} />
       <span className="cx-chip"><CxStatusIcon s={resolved ? 'analisado' : intim.status} />{resolved ? 'Resolvida' : (CX_ST[intim.status] || {}).l || intim.status}</span>
@@ -938,45 +1181,55 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
     <p className="cx-d-ev">{intim.eventDescription || intim.className || '—'}</p>
     <CxRuler intim={intim} />
 
-    {resolved ? <>
-      <div className="cx-sec-t">Atuação</div>
-      <div className="cx-note cx-note-done">
+    {resume ? <div className="cx-resume">
+      <div className="cx-resume-k">Continuar · etapa {resume.index + 1} de {resume.total} · parou {esteiraStoppedLabel(resume.updatedAt, { withTime: true })}</div>
+      <div className="cx-resume-t">{resume.etapa.label} <span className={'cx-est-tool ' + cxEstToolClass(resume.etapa.tool)}>{resume.etapa.tool || '—'}</span></div>
+      {resume.etapa.note ? <div className="cx-resume-n">“{resume.etapa.note}”</div> : null}
+      <div className="cx-resume-a">
+        {resume.etapa.url ? <a className="cx-btn primary sm" href={resume.etapa.url} target="_blank" rel="noopener noreferrer"><CxIcon n="arrowUR" s={12} />Abrir {resume.etapa.tool || 'link'}</a> : null}
+        <button type="button" className="cx-btn sm" onClick={() => set({ esteira: esteiraCompleteStep(intim.esteira, resume.index) })}><CxIcon n="tick" s={12} />Concluir etapa</button>
+      </div>
+    </div> : null}
+
+    <CxBlock title="Esteira da peça" open={!!blocks.esteira} onToggle={() => toggleBlock('esteira')}
+      count={estSummary.total ? estSummary.doneCount + '/' + estSummary.total : null}
+      summary={estSummary.total ? <><CxEstProgress esteira={intim.esteira} size="sm" />{estSummary.isComplete ? 'Esteira concluída' : (estSummary.current && estSummary.current.label)}</> : 'Não iniciada'}>
+      <CxEsteiraSection esteira={intim.esteira} onChange={nextEst => set({ esteira: nextEst })} template={template}
+        statusValue={intim.status} onApplyStatus={status => set({ status })} resetKey={intim.id} />
+    </CxBlock>
+
+    <CxBlock title="Peças e links" open={!!blocks.pecas} onToggle={() => toggleBlock('pecas')} count={pecas.length}
+      summary={pecas.length ? pecas[0].label : 'Nada ainda'}>
+      <CxPecasBlock intim={intim} data={data} a={a} />
+    </CxBlock>
+
+    <CxBlock title="Notas" open={!!blocks.notas} onToggle={() => toggleBlock('notas')} count={notes.length}
+      summary={notes.length ? notes[notes.length - 1] : 'Sem notas ainda'}>
+      <div className="cx-notes">
+        {notes.map((n, k) => <div key={k} className="cx-note">{a.linkify ? a.linkify(n) : n}</div>)}
+        {notes.length === 0 ? <div className="cx-muted cx-small">Sem notas ainda.</div> : null}
+        <form className="cx-note-add" onSubmit={e => { e.preventDefault(); const v = nt.trim(); if (!v) return; set({ notesList: [...notes, v] }); setNt(''); cxNotify('Nota adicionada'); }}>
+          <textarea id={'cx-nt-' + intim.id} value={nt} onChange={e => setNt(e.target.value)} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} />
+          <button type="submit" className="cx-btn">Anotar</button>
+        </form>
+      </div>
+    </CxBlock>
+
+    <CxBlock title={resolved ? 'Atuação' : 'Gramática'} open={!!blocks.gram} onToggle={() => toggleBlock('gram')}
+      summary={resolved ? (ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida') + (ra.respondedAt ? ' · ' + cxDM(ra.respondedAt) : '') : (CX_IMP[impK] || impK) + ' · ' + (CX_DIF[difK] || difK)}>
+      {resolved ? <div className="cx-note cx-note-done">
         <b>{ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'}</b>{ra.respondedAt ? ' · ' + fmtDate(ra.respondedAt) : ''}
         {ra.description ? <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{ra.description}</div> : null}
         {(ra.peticionUrl || ra.docUrl) ? <div style={{ marginTop: 6 }}><a className="cx-a" href={ra.peticionUrl || ra.docUrl} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{String(ra.peticionUrl || ra.docUrl).includes('docs.google') ? 'Google Docs' : 'Abrir peça'}</a></div> : null}
-      </div>
-    </> : <>
-      <div className="cx-sec-t">Gramática</div>
-      <div className="cx-gram">
+      </div> : <div className="cx-gram">
         <div className="cx-gram-f"><span>Importância</span><CxSeg label="Importância" value={impK} onChange={v => set({ priority: v })} options={[['baixa', 'Baixa'], ['normal', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Complexidade</span><CxSeg label="Complexidade" value={difK} onChange={v => set({ difficulty: v })} options={[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Marcação</span><button type="button" className={'cx-urg-t' + (urg ? ' on' : '')} aria-pressed={urg} onClick={() => set(urg ? { urgent: false, priority: (intim.priority === 'urgente' || intim.priority === 'urgent') ? 'alta' : intim.priority } : { urgent: true })}><CxIcon n="flag" s={13} />Urgente</button></div>
-      </div>
-    </>}
+      </div>}
+    </CxBlock>
 
-    <div className="cx-sec-t">Notas <span className="cx-n">{notes.length}</span></div>
-    <div className="cx-notes">
-      {notes.map((n, k) => <div key={k} className="cx-note">{a.linkify ? a.linkify(n) : n}</div>)}
-      {notes.length === 0 ? <div className="cx-muted cx-small">Sem notas ainda.</div> : null}
-      <form className="cx-note-add" onSubmit={e => { e.preventDefault(); const v = nt.trim(); if (!v) return; set({ notesList: [...notes, v] }); setNt(''); cxNotify('Nota adicionada'); }}>
-        <textarea id={'cx-nt-' + intim.id} value={nt} onChange={e => setNt(e.target.value)} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} />
-        <button type="submit" className="cx-btn">Anotar</button>
-      </form>
-    </div>
-
-    <div className="cx-sec-t">Dados</div>
-    <dl className="cx-props">
-      <dt>Processo</dt><dd>{intim.processNumber ? <><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><button type="button" className="cx-copy" title="Copiar número" aria-label="Copiar número" onClick={() => cxCopy(intim.processNumber)}><CxIcon n="copy" s={13} /></button><a className="cx-a cx-small" href={cxEprocUrl(intim.processNumber)} target="_blank" rel="noopener noreferrer">eproc<CxIcon n="arrowUR" s={11} /></a></> : '—'}</dd>
-      <dt>Classe</dt><dd>{intim.className || '—'}</dd>
-      {intim.organ ? <><dt>Órgão</dt><dd>{intim.organ}</dd></> : null}
-      {intim.parties ? <><dt>Partes</dt><dd>{intim.parties}</dd></> : null}
-      {intim.subject ? <><dt>Assunto</dt><dd>{intim.subject}</dd></> : null}
-      <dt>Objeto</dt><dd>{intim.object || <span className="cx-muted">—</span>}</dd>
-      {intim.minutaUrl ? <><dt>Minuta</dt><dd><a className="cx-a" href={intim.minutaUrl} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{intim.minutaUrl.includes('docs.google') ? 'Google Docs' : 'Documento'}</a></dd></> : null}
-    </dl>
-
-    {(exec || cdas.length || siblings.length) ? <>
-      <div className="cx-sec-t">Contexto do processo</div>
+    {showCtx ? <CxBlock title="Contexto do processo" open={!!blocks.ctx} onToggle={() => toggleBlock('ctx')}
+      summary={<>{cxPl(cdas.length, 'CDA', 'CDAs')}{alarmCount ? <> · <span className="cx-tag red">{alarmCount} no alarme</span></> : ''}{siblings.length ? ' · ' + cxPl(siblings.length, 'outra intimação', 'outras intimações') : ''}</>}>
       <div className="cx-ctx">
         {exec ? <div className="cx-ctx-h"><span className="cx-ell" style={{ fontWeight: 500 }}>{exec.className || 'Processo'}</span><span className="cx-muted cx-small cx-ell">{exec.court || ''}</span>{EXEC_STATUSES[exec.status] ? <span className="cx-tag">{EXEC_STATUSES[exec.status].label}</span> : null}</div> : null}
         {cdas.slice(0, 8).map(d => {
@@ -995,7 +1248,20 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
           {siblings.slice(0, 4).map(s => <button key={s.id} type="button" className="cx-dl-item cx-dl-flat" onClick={() => a.onOpenIntim(s.id)}><CxStatusIcon s={s.status} /><span className="cx-t">{s.eventDescription || s.className}</span><CxDue iso={s.dateDeadline} /></button>)}
         </div> : null}
       </div>
-    </> : null}
+    </CxBlock> : null}
+
+    <CxBlock title="Dados" open={!!blocks.dados} onToggle={() => toggleBlock('dados')}
+      summary={[intim.className, intim.organ].filter(Boolean).join(' · ') || '—'}>
+      <dl className="cx-props">
+        <dt>Processo</dt><dd>{intim.processNumber ? <><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><button type="button" className="cx-copy" title="Copiar número" aria-label="Copiar número" onClick={() => cxCopy(intim.processNumber)}><CxIcon n="copy" s={13} /></button><a className="cx-a cx-small" href={cxEprocUrl(intim.processNumber)} target="_blank" rel="noopener noreferrer">eproc<CxIcon n="arrowUR" s={11} /></a></> : '—'}</dd>
+        <dt>Classe</dt><dd>{intim.className || '—'}</dd>
+        {intim.organ ? <><dt>Órgão</dt><dd>{intim.organ}</dd></> : null}
+        {intim.parties ? <><dt>Partes</dt><dd>{intim.parties}</dd></> : null}
+        {intim.subject ? <><dt>Assunto</dt><dd>{intim.subject}</dd></> : null}
+        <dt>Objeto</dt><dd>{intim.object || <span className="cx-muted">—</span>}</dd>
+        {intim.minutaUrl ? <><dt>Minuta</dt><dd><a className="cx-a" href={intim.minutaUrl} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{intim.minutaUrl.includes('docs.google') ? 'Google Docs' : 'Documento'}</a></dd></> : null}
+      </dl>
+    </CxBlock>
 
     {showRespond && !resolved ? <CxRespondForm intim={intim} onCancel={() => setShowRespond(false)} onSave={(action) => { a.onRespond(intim, action); setShowRespond(false); cxNotify('Atuação registrada. A intimação foi para Resolvidas.'); }} /> : null}
   </div>;
@@ -1851,6 +2117,7 @@ function CxTaskRow({ t, op, onOpen, onToggle, onOpenOp, deskOn, onDesk }) {
       </div>
       {t.description ? <div className="cx-i-ev" title={t.description}>{t.description}</div> : null}
       {notes.length ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
+      <CxEstLine esteira={t.esteira} />
       <div className="cx-i-sub"><CxOpTag op={op} /><CxPrio v={t.priority} />{t.processNumber ? <CxProc num={t.processNumber} /> : null}</div>
     </div>
     <div className="cx-c-proc">{op ? <CxOpTag op={op} onOpen={onOpenOp} /> : <span className="cx-op-tag cx-muted">Avulsa</span>}{t.processNumber ? <CxProc num={t.processNumber} /> : null}</div>
@@ -2223,6 +2490,7 @@ function EditionClaudeMesa(p) {
       </div>
       <button type="button" className="cx-dk-title" onClick={() => openItem(d.type, x)}>{it.urgent ? <span className="cx-urg">URGENTE</span> : null}<span>{it.title}</span></button>
       {it.sub ? <div className="cx-dk-sub">{it.sub}</div> : null}
+      <CxEstLine esteira={x.esteira} />
       <div className="cx-dk-meta">{x.processNumber ? <CxProc num={x.processNumber} /> : null}{op ? <CxOpTag op={op} onOpen={a.openOp} /> : null}</div>
       {it.notes.length ? <div className="cx-dk-notes">{it.notes.slice(-2).map((n, k) => <div key={k} className="cx-dk-note">{n}</div>)}{it.notes.length > 2 ? <span className="cx-muted cx-small">+{it.notes.length - 2} nota{it.notes.length - 2 === 1 ? '' : 's'}</span> : null}</div> : null}
       <div className="cx-dk-acts">

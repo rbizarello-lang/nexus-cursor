@@ -5089,6 +5089,92 @@ tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-
 .cx-pp-bulk { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; margin-top: 4px; background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-radius: 10px; box-shadow: var(--cx-shadow-lg); font-size: 12.5px; }
 .cx-pp-bulk-warn { flex-basis: 100%; font-size: 11px; color: var(--cx-ink-3); }
 @media (max-width: 720px) { .cx-pp-bulk { position: static; } .cx-pp-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Gaveta em blocos e esteira da peça (Nexus Prumo)
+   design/mockups/prumo-gaveta-blocos.html · design/mockups/prumo-esteira-da-peca.html
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Barrinha de progresso (lista, Mesa, Hoje, cabeçalho do bloco) ── */
+.cx-est-prog { display: inline-flex; gap: 2px; vertical-align: middle; flex: none; }
+.cx-est-prog i { width: 14px; height: 5px; border-radius: 2px; background: var(--cx-line); display: block; }
+.cx-est-prog.sm i { width: 11px; height: 4px; }
+.cx-est-prog i.d { background: var(--cx-green); }
+.cx-est-prog i.n { background: var(--cx-blue); }
+
+/* Linha compacta na lista / Mesa / cartões: barrinha + etapa atual + "parou …". */
+.cx-i-est { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cx-ink-2); margin-top: 2px; min-width: 0; }
+.cx-i-est b { font-weight: 500; color: var(--cx-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Continuar de onde parou (topo fixo da gaveta / Hoje) ── */
+.cx-resume { margin: 14px 0; border: 1px solid color-mix(in srgb, var(--cx-accent) 45%, var(--cx-line)); background: var(--cx-accent-soft); border-radius: 10px; padding: 11px 13px; }
+.cx-resume-k { font: 600 10.5px var(--cx-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--cx-accent); }
+.cx-resume-t { font-size: 14px; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.cx-resume-n { font-size: 12.5px; color: var(--cx-ink-2); margin-top: 4px; font-style: italic; }
+.cx-resume-a { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* ── Blocos recolhíveis da gaveta ── */
+.cx-blk-toggle-all { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; justify-content: flex-end; padding: 2px 0 8px; margin: -4px 0 0; background: var(--cx-surface); }
+.cx-blk { border-top: 1px solid var(--cx-line); }
+.cx-blk:first-of-type { border-top: 0; }
+.cx-blk-h { display: grid; grid-template-columns: 16px auto minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; padding: 12px 2px; cursor: pointer; text-align: left; }
+.cx-blk-h:hover { background: var(--cx-surface-2); }
+.cx-blk-chev { color: var(--cx-ink-3); display: flex; }
+.cx-blk-t { font-weight: 600; font-size: 13px; }
+.cx-blk-s { color: var(--cx-ink-3); font-size: 12px; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.cx-blk-n { font: 500 11px var(--cx-mono); color: var(--cx-ink-3); }
+.cx-blk-b { padding: 0 2px 16px 24px; }
+
+/* ── Esteira da peça: passos, editor "onde parei", sugestão de situação ── */
+.cx-est-empty { display: flex; align-items: center; gap: 10px; }
+.cx-est-steps { display: flex; flex-direction: column; }
+.cx-est-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; padding: 10px 0; border-top: 1px dotted var(--cx-line); align-items: start; }
+.cx-est-row:first-child { border-top: 0; }
+.cx-est-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--cx-line-strong); display: grid; place-items: center; margin-top: 1px; color: #fff; cursor: pointer; flex: none; }
+.cx-est-dot:disabled { cursor: default; }
+.cx-est-row.cx-est-done .cx-est-dot { background: var(--cx-green); border-color: var(--cx-green); }
+.cx-est-row.cx-est-doing .cx-est-dot { border-color: var(--cx-blue); background: radial-gradient(circle, var(--cx-blue) 0 4px, transparent 5px); }
+.cx-est-row.cx-est-todo .cx-est-dot:not(:disabled):hover { border-color: var(--cx-accent); }
+.cx-est-l { font-weight: 500; }
+.cx-est-row.cx-est-todo .cx-est-l { color: var(--cx-ink-3); font-weight: 400; }
+.cx-est-tool { font: 500 10.5px var(--cx-mono); padding: 1px 5px; border-radius: 4px; margin-left: 6px; }
+.cx-est-tool.own { background: var(--cx-panel); color: var(--cx-ink-2); }
+.cx-est-tool.gem { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.cx-est-tool.cla { background: #f6e9df; color: #a2542a; }
+.cx-est-tool.oth { background: var(--cx-panel); color: var(--cx-ink-2); }
+.cx-est-m { font-size: 11.5px; color: var(--cx-ink-3); margin-top: 2px; }
+.cx-est-r { font-size: 11px; color: var(--cx-ink-3); text-align: right; white-space: nowrap; }
+.cx-est-editor { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+.cx-est-editor-row { display: flex; gap: 6px; align-items: center; }
+.cx-est-editor-row .cx-input { flex: 1; }
+.cx-est-sug { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; background: var(--cx-surface-2); border: 1px dashed var(--cx-line-strong); border-radius: 8px; font-size: 12px; color: var(--cx-ink-2); }
+.cx-est-sug .cx-sp { flex: 1; }
+
+/* ⚙ → Esteira da peça (template) — pilha vertical: o painel de ajustes é estreito. */
+.cx-est-tpl-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--cx-line); border-radius: 8px; margin-bottom: 8px; }
+.cx-est-tpl-top { display: flex; align-items: center; gap: 4px; }
+.cx-est-tpl-grip { color: var(--cx-ink-3); }
+.cx-est-tpl-n { font: 600 11px var(--cx-mono); color: var(--cx-ink-3); }
+.cx-est-tpl .cx-input { height: 28px; font-size: 12px; }
+.cx-est-tpl button.cx-btn { margin-top: 2px; }
+
+/* Peças e links */
+.cx-pl-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px dotted var(--cx-line); }
+.cx-pl-row:first-child { border-top: 0; }
+.cx-pl-ic { width: 24px; height: 24px; border-radius: 6px; background: var(--cx-panel); color: var(--cx-ink-2); display: grid; place-items: center; font: 600 10px var(--cx-mono); flex: none; }
+.cx-pl-add { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.cx-pl-add .cx-input { flex: 1; min-width: 120px; }
+
+/* Hoje: "Continuar de onde parou" */
+.cx-cont-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--cx-line); align-items: center; }
+.cx-cont-row:first-of-type { border-top: 0; }
+.cx-cont-p { font-weight: 500; }
+.cx-cont-s { font-size: 12px; color: var(--cx-ink-2); margin-top: 3px; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.cx-cont-note { color: var(--cx-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+
+@media (max-width: 720px) {
+  .cx-pl-row { grid-template-columns: 26px minmax(0, 1fr) auto; }
+}
 </style>
 </head>
 <body>
