@@ -2746,11 +2746,17 @@ function EditionClaudeBriefing(p) {
     let lastIdx = -1;
     stageKeys.forEach((k, i) => { if (registeredKeys.has(k)) lastIdx = i; });
     const dismissed = new Set(Object.keys(recs).filter(k => isDismissedOnlyStageRec(recs[k])));
+    const hasRecursoRegistered = [...registeredKeys].some(k => STAGES[k] && STAGES[k].multiRecurso);
+    const suggestedLabels = new Set();
     const suggestions = [];
     for (let i = lastIdx + 1; i < stageKeys.length && suggestions.length < CX_STAGE_SUGGEST_MAX; i++) {
       const k = stageKeys[i];
       if (registeredKeys.has(k) || dismissed.has(k)) continue;
-      suggestions.push({ k, sd: STAGES[k] });
+      const sd = STAGES[k];
+      if (sd.multiRecurso && hasRecursoRegistered) continue;
+      if (suggestedLabels.has(sd.label)) continue;
+      suggestedLabels.add(sd.label);
+      suggestions.push({ k, sd });
     }
     const hearing = (data.hearings || []).find(h => h.operationId === opId && h.processNumber && sameProc(h.processNumber, front.processNumber) && h.status === 'agendada' && h.date && h.date >= today);
     const covered = coveredEFsFor(front).sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
