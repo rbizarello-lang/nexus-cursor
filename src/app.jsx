@@ -324,7 +324,7 @@ const generateDemoData = () => {
     { id:'in-28', operationId:'op-demo-4', processNumber:'5002220-99.2024.4.04.7000', jurisdiction:'PR', className:'Cumprimento de Sentença', partyName:'Holding Atlântico Participações S/A', eventDescription:'Manifestar sobre cálculo de garantia', dateStart: iso(-5), dateDeadline: iso(9), status:'peca_edicao', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-29', operationId:'op-demo-4', processNumber:'5002210-99.2020.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Atlântico Imóveis SPE LTDA', eventDescription:'Citação — SPE do grupo', dateSent: iso(-10), dateStart: iso(-9), dateDeadline: iso(16), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-30', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Clara Atlântico Costa', eventDescription:'Intimação Renajud — veículo penhorado', dateStart: iso(-1), dateDeadline: iso(12), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
-    { id:'in-10', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false },
+    { id:'in-10', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false, notesList:['Veículo e fazenda localizados. Conferir matrícula antes de pedir penhora.'], minutaUrl:'https://docs.google.com/document/d/exemplo-renajud-horizonte' },
     { id:'in-11', operationId:'op-demo-5', processNumber:'5006699-22.2025.4.04.7006', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Pedro Henrique Agro', eventDescription:'Manifestar sobre extensão da indisponibilidade', dateStart: iso(-1), dateDeadline: iso(9), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-31', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Vista à Fazenda — exceção (ITR)', dateStart: iso(-4), dateDeadline: iso(3), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:true, notesList:['Prazo curto — priorizar'] },
     { id:'in-32', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Helena Agro Horizonte', eventDescription:'Ofício — meeira / meação', dateDeadline: iso(20), status:'pendente_analise', priority:'baixa', difficulty:'media', urgent:false },
@@ -7554,6 +7554,7 @@ function App() {
           procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery}
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           people={getOpSlices(opId).people}
+          linkify={linkify}
         />;
       }
 

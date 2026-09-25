@@ -3155,7 +3155,7 @@ function EditionClaudeBriefing(p) {
   const dismissSuggestion = (front, sk) => setRec(front.front.id, sk, { _dismissed: true });
   const registerSuggestion = (front, sk) => addStage(front, sk);
 
-  return (<div className="cx cx-page cx-bf">
+  return (<div className="cx cx-page cx-page-wide cx-bf">
     {lastLog && newsTotal > 0 && (
       <div className="cx-bf-news">
         <span className="cx-bf-news-ic">{newsTotal}</span>
@@ -3497,7 +3497,7 @@ function cxSortCdasByPresc(cdas, prazosByDebt) {
 
 /* ═════════════ Ficha lateral (8a) — processo ou CDA avulsa ═════════════ */
 function EditionClaudeProcDrawer(p) {
-  const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck, onClose, onOpenExec, relatedOthers } = p;
+  const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck, onClose, onOpenExec, relatedOthers, linkify } = p;
   const [tab, setTab] = React.useState('resumo');
   const [openCda, setOpenCda] = React.useState(null);
   React.useEffect(() => { setTab('resumo'); setOpenCda(null); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
@@ -3619,7 +3619,10 @@ function EditionClaudeProcDrawer(p) {
         </div>}
         {tab === 'notas' && e && <div className="cx-pd-tabpane">
           {(e.notesList || (e.notes ? [e.notes] : [])).length === 0 && <div className="cx-empty-row">Sem notas.</div>}
-          {(e.notesList || (e.notes ? [e.notes] : [])).map((n, i) => <div key={i} className="cx-pd-note">{linkify(n)}</div>)}
+          {(e.notesList || (e.notes ? [e.notes] : [])).map((n, i) => {
+            const text = typeof n === 'string' ? n : ((n && (n.text || n.content || n.body)) || '');
+            return <div key={i} className="cx-pd-note">{linkify ? linkify(text) : text}</div>;
+          })}
         </div>}
         {tab === 'recursos' && e && <div className="cx-pd-tabpane">
           {(relatedOthers || []).length === 0 && <div className="cx-empty-row">Nenhum recurso, embargo ou outra ação vinculada.</div>}
@@ -3633,6 +3636,26 @@ function EditionClaudeProcDrawer(p) {
                 <span className="cx-muted cx-small">{(EXEC_STATUSES[og.exec.status] || {}).label || og.exec.status}</span>
               </button>
             );
+          })}
+        </div>}
+        {e && openIntims.length > 0 && <div className="cx-pd-intims">
+          <div className="cx-sec-t">Intimações em aberto</div>
+          {openIntims.slice().sort(cxByDeadline).map(intim => {
+            const notes = cxNotes(intim);
+            const links = [];
+            if (intim.minutaUrl) links.push({ url: intim.minutaUrl, label: String(intim.minutaUrl).includes('docs.google') ? 'Google Docs' : 'Documento' });
+            const ra = intim.responseAction;
+            if (ra && (ra.peticionUrl || ra.docUrl)) links.push({ url: ra.peticionUrl || ra.docUrl, label: String(ra.peticionUrl || ra.docUrl).includes('docs.google') ? 'Google Docs' : 'Peça' });
+            return <div key={intim.id} className="cx-pd-intim">
+              <div className="cx-pd-intim-h">{intim.eventDescription || intim.className || 'Intimação'}</div>
+              <div className="cx-pd-intim-m">{cxPartyName(intim)}{(CX_ST[intim.status] || {}).l ? ' · ' + (CX_ST[intim.status] || {}).l : ''}{intim.dateDeadline ? ' · prazo ' + fmtDate(intim.dateDeadline) : ''}</div>
+              {intim.object ? <div className="cx-pd-intim-obj">{intim.object}</div> : null}
+              {notes.map((n, i) => {
+                const text = typeof n === 'string' ? n : ((n && (n.text || n.content || n.body)) || '');
+                return <div key={i} className="cx-pd-note">{linkify ? linkify(text) : text}</div>;
+              })}
+              {links.length > 0 && <div className="cx-pd-intim-docs">{links.map(l => <a key={l.url} className="cx-a" href={l.url} target="_blank" rel="noopener noreferrer">{l.label}</a>)}</div>}
+            </div>;
           })}
         </div>}
       </div>
@@ -3731,7 +3754,7 @@ function cxHubStageInfo(exec, briefing) {
 function EditionClaudeProcessos(p) {
   const { opId, data, briefing, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
     selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck,
-    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people } = p;
+    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people, linkify } = p;
   const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates } = classified;
 
   const [sigActive, setSigActive] = React.useState(() => new Set());
@@ -3799,7 +3822,7 @@ function EditionClaudeProcessos(p) {
     return <React.Fragment key={g.exec.id}>
       <tr className={'cx-pt-row' + (drawerExecId === g.exec.id ? ' on' : '')} onClick={() => openDrawerFor(g.exec.id)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
-        <td className="cx-pt-num">{depth > 0 && <span className="cx-pt-nest">↳</span>}<span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+        <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>{depth > 1 && <span className="cx-pt-nest">↳</span>}<span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerExecId && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerExecId && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
@@ -3815,7 +3838,7 @@ function EditionClaudeProcessos(p) {
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
-  const GroupBlock = ({ groupKey, label, rows, extra }) => {
+  const GroupBlock = ({ groupKey, label, rows, extra, depth = 0 }) => {
     const sorted = [...rows].sort(cmp);
     const shown = showMore[groupKey] || 8;
     const visible = sorted.slice(0, shown);
@@ -3831,7 +3854,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
-      {visible.map(g => <ProcRow key={rowKey(g)} g={g} />)}
+      {visible.map(g => <ProcRow key={rowKey(g)} g={g} depth={depth} />)}
       {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
       {extra}
     </React.Fragment>;
@@ -3874,7 +3897,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-r cx-mono"><b>{fmtCur(totalVal)}</b></td>
         <CxPrescCell cdas={cdasFlat} prazosByDebt={prazosByDebt} />
       </tr>
-      {open && <GroupBlock groupKey={'inc-' + h.exec.id} label={null} rows={covered} />}
+      {open && <GroupBlock groupKey={'inc-' + h.exec.id} label={null} rows={covered} depth={1} />}
     </React.Fragment>;
   };
 
@@ -3976,7 +3999,7 @@ function EditionClaudeProcessos(p) {
         {/* Execuções sem vínculo */}
         <section className="cx-card cx-pcard" id="cx-pcard-semv">
           <div className="cx-card-h" onClick={() => toggleCard('semv')}>
-            <span className="cx-chev">{cardCollapsed('semv') ? '▸' : '▾'}</span><h5>Execuções sem vínculo</h5><span className="cx-count">{uncoveredEFs.length} · {unlinkedCdas.length} CDAs não ajuizadas</span>
+            <span className="cx-chev">{cardCollapsed('semv') ? '▸' : '▾'}</span><h5>Execuções sem vínculo</h5><span className="cx-count">{uncoveredEFs.length}</span>
             <span className="cx-muted cx-small">· fora de IDPJ, cautelar e central</span>
           </div>
           {!cardCollapsed('semv') && <>
@@ -3984,7 +4007,6 @@ function EditionClaudeProcessos(p) {
               {EF_BANDS.map(b => (
                 <button key={b.key} type="button" className={bandsOn[b.key] ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, [b.key]: !s[b.key] }))}>{b.label} <i>{(semVincBands[b.key] || []).length}</i></button>
               ))}
-              <button type="button" className={bandsOn.nao_ajuizada ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, nao_ajuizada: !s.nao_ajuizada }))}>Não ajuizadas <i>{unlinkedCdas.length} CDAs</i></button>
             </div>
             <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
               {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => bandsOn[k] && (semVincBands[k] || []).length).map(k => {
@@ -3992,30 +4014,39 @@ function EditionClaudeProcessos(p) {
                 return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} />;
               })}
               {bandsOn.extinta && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} />}
-              {bandsOn.nao_ajuizada && unlinkedVisible.length > 0 && (() => {
-                const shownN = showMore['na'] || 8;
-                const sortedNa = [...unlinkedVisible].sort((a, b) => sortBy === 'numero' ? String(a.cdaNumber || '').localeCompare(String(b.cdaNumber || '')) : (b.value || 0) - (a.value || 0));
-                const visN = sortedNa.slice(0, shownN); const restN = sortedNa.length - visN.length;
-                return <React.Fragment>
-                  <tr className="cx-pt-band"><td className="cx-pt-ck"></td><td colSpan={2}><b>Não ajuizadas</b> <span className="cx-muted cx-small">{unlinkedVisible.length} CDAs</span></td><td className="cx-pt-r">{unlinkedVisible.length}</td><td className="cx-pt-r cx-mono">{fmtCur(naValue)}</td><CxPrescCell cdas={unlinkedVisible} prazosByDebt={prazosByDebt} /></tr>
-                  {visN.map(d => {
-                    const isSel = selectedCDAs.has(d.id);
-                    return <tr key={d.id} className="cx-pt-row cx-pt-row-cda" onClick={() => openDrawerFor('cda:' + d.id)}>
-                      <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
-                      <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
-                      {!drawerExecId && <td className="cx-pt-sig"></td>}
-                      <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
-                      {!drawerExecId && <td className="cx-pt-r">—</td>}
-                      <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
-                      <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
-                    </tr>;
-                  })}
-                  {restN > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, na: shownN + 20 }))}>Mostrar mais {restN} CDAs</button></td></tr>}
-                </React.Fragment>;
-              })()}
               {!bandsOn.extinta && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setBandsOn(s => ({ ...s, extinta: true }))}>mostrar</button></td></tr>}
             </tbody></table></div>
           </>}
+        </section>
+
+        <section className="cx-card cx-pcard" id="cx-pcard-na">
+          <div className="cx-card-h" onClick={() => toggleCard('na')}>
+            <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
+            <span className="cx-muted cx-small">· sem processo</span>
+          </div>
+          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
+            {unlinkedVisible.length > 0 && (() => {
+              const shownN = showMore['na'] || 8;
+              const sortedNa = [...unlinkedVisible].sort((a, b) => sortBy === 'numero' ? String(a.cdaNumber || '').localeCompare(String(b.cdaNumber || '')) : (b.value || 0) - (a.value || 0));
+              const visN = sortedNa.slice(0, shownN); const restN = sortedNa.length - visN.length;
+              return <React.Fragment>
+                {visN.map(d => {
+                  const isSel = selectedCDAs.has(d.id);
+                  return <tr key={d.id} className="cx-pt-row cx-pt-row-cda" onClick={() => openDrawerFor('cda:' + d.id)}>
+                    <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
+                    <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
+                    {!drawerExecId && <td className="cx-pt-sig"></td>}
+                    <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
+                    {!drawerExecId && <td className="cx-pt-r">—</td>}
+                    <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
+                    <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
+                  </tr>;
+                })}
+                {restN > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, na: shownN + 20 }))}>Mostrar mais {restN} CDAs</button></td></tr>}
+              </React.Fragment>;
+            })()}
+          </tbody></table></div>}
         </section>
 
         {/* Recursos */}
@@ -4075,7 +4106,7 @@ function EditionClaudeProcessos(p) {
         return <EditionClaudeProcDrawer group={group} data={data} opId={opId} hubLabel={drawerCtx.hubLabel}
           apensoNums={drawerCtx.apensoNums} relatedOthers={drawerCtx.relatedOthers} prazosByDebt={prazosByDebt}
           selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
-          upsert={upsert} togglePrescCheck={togglePrescCheck} onClose={closeDrawer} onOpenExec={openDrawerFor} />;
+          upsert={upsert} togglePrescCheck={togglePrescCheck} onClose={closeDrawer} onOpenExec={openDrawerFor} linkify={p.linkify} />;
       })()}
     </div>
 
