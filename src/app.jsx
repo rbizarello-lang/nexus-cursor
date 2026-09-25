@@ -7541,6 +7541,21 @@ function App() {
         arr.push(t);
       }
 
+      // Nexus Prumo: aba "Processos e prescrição" tem componente próprio (src/edition-claude.jsx),
+      // cartões para dezenas de processos sobre os MESMOS `classified`/`prazosByDebt` do app.
+      // Clássico e Beta continuam com o renderizador abaixo, sem nenhuma mudança.
+      if (isClaude) {
+        return <EditionClaudeProcessos
+          opId={opId} data={data} classified={classified} execs={execs} allDebts={allDebts}
+          prazosByDebt={prazosByDebt} openIntimsByProc={openIntimsByProc} openTasksByProc={openTasksByProc}
+          selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
+          upsert={upsert} togglePrescCheck={togglePrescCheck}
+          procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery}
+          cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
+          people={getOpSlices(opId).people}
+        />;
+      }
+
       // ─── THE CARD RENDERER ───
       const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null, hideProcessNumber = false }) => {
         const isExec = group.type === 'exec';

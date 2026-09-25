@@ -3310,3 +3310,360 @@ function EditionClaudeProcDrawer(p) {
     </aside>
   </>;
 }
+/* ═════════════ Cartões para dezenas de processos (8b) ═════════════ */
+function cxEfMeta(group, prazosByDebt) {
+  const rm = prazosRiskMetaForCdas(group.cdas || [], prazosByDebt);
+  const total = (group.cdas || []).reduce((s, d) => s + (d.value || 0), 0);
+  const st = EXEC_STATUSES[group.exec && group.exec.status] || {};
+  return { total, st, label: rm.label, riskClass: rm.riskClass, minRiskDays: rm.minRiskDays };
+}
+function cxProcSortCmp(sortBy, prazosByDebt) {
+  const rank = (m) => m.riskClass === 'critical' ? 0 : m.riskClass === 'warning' ? 1 : 2;
+  return (ga, gb) => {
+    if (sortBy === 'numero') return String((ga.exec && ga.exec.processNumber) || '').localeCompare(String((gb.exec && gb.exec.processNumber) || ''));
+    const ma = cxEfMeta(ga, prazosByDebt), mb = cxEfMeta(gb, prazosByDebt);
+    if (sortBy === 'prescricao') {
+      const ra = rank(ma), rb = rank(mb);
+      if (ra !== rb) return ra - rb;
+      return (ma.minRiskDays == null ? 1e9 : ma.minRiskDays) - (mb.minRiskDays == null ? 1e9 : mb.minRiskDays);
+    }
+    return (mb.total || 0) - (ma.total || 0);
+  };
+}
+function cxAlarmCount(groups, prazosByDebt) {
+  return (groups || []).filter(g => cxEfMeta(g, prazosByDebt).riskClass === 'critical').length;
+}
+
+function EditionClaudeProcessos(p) {
+  const { opId, data, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
+    selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck,
+    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people } = p;
+  const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates } = classified;
+
+  const [sigActive, setSigActive] = React.useState(() => new Set());
+  const toggleSigFilter = (k) => setSigActive(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const [sortBy, setSortBy] = React.useState('valor');
+  const [drawerExecId, setDrawerExecId] = React.useState(null);
+  const [cardGroupSel, setCardGroupSel] = React.useState({ inc: 'all' });
+  const [bandsOn, setBandsOn] = React.useState(() => ({ ativa: true, suspensa: true, suspensa_parcelamento: true, arquivada: true, nao_ajuizada: true, extinta: false }));
+  const [showMore, setShowMore] = React.useState({});
+  const [collapsedCards, setCollapsedCards] = React.useState(() => new Set(['emb', 'out']));
+  const [peopleOpen, setPeopleOpen] = React.useState(false);
+
+  const passSig = (exec) => {
+    if (sigActive.size === 0) return true;
+    if (!exec) return false;
+    const f = cxSigFlags(exec, data);
+    for (const k of sigActive) if (!f[k]) return false;
+    return true;
+  };
+  const filterRows = (groups) => (groups || []).filter(g => g.type !== 'exec' || passSig(g.exec));
+
+  const allExecGroups = React.useMemo(() => {
+    const seen = new Set(); const out = [];
+    const add = (g) => { if (g && g.exec && !seen.has(g.exec.id)) { seen.add(g.exec.id); out.push(g); } };
+    hubs.forEach(add);
+    Object.values(coveredByHub).forEach(arr => (arr || []).forEach(add));
+    uncoveredEFs.forEach(add); extinct.forEach(add); others.forEach(add);
+    return out;
+  }, [classified]);
+  const sigCounts = React.useMemo(() => {
+    const c = { star: 0, pin: 0, watch: 0, copy: 0, lock: 0, task: 0, intim: 0 };
+    allExecGroups.forEach(g => { const f = cxSigFlags(g.exec, data); CX_SIG_DEFS.forEach(s => { if (f[s.k]) c[s.k]++; }); });
+    return c;
+  }, [allExecGroups, data]);
+
+  const cmp = cxProcSortCmp(sortBy, prazosByDebt);
+  const otherBuckets = splitOtherProcGroups(others);
+  const unlinkedCdas = (unlinked || []).flatMap(g => g.cdas || []);
+  const unlinkedVisible = sigActive.size === 0 ? unlinkedCdas : [];
+  const uncoveredVisible = filterRows(uncoveredEFs).sort(cmp);
+  const extinctVisible = filterRows(extinct).sort(cmp);
+  const incAlarms = cxAlarmCount([...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)), prazosByDebt);
+  const semVincAlarms = cxAlarmCount(uncoveredVisible, prazosByDebt);
+  const naRisk = prazosRiskMetaForCdas(unlinkedVisible, prazosByDebt);
+  const incValue = [...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
+  const semVincValue = uncoveredVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
+  const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
+  const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
+
+  const openDrawerFor = (execId) => setDrawerExecId(execId);
+  const closeDrawer = () => setDrawerExecId(null);
+  const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (collapsedCards.has(id)) setCollapsedCards(prev => { const n = new Set(prev); n.delete(id); return n; }); };
+
+  const toggleGroupSelect = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const all = cdas.every(d => n.has(d.id)); cdas.forEach(d => all ? n.delete(d.id) : n.add(d.id)); return n; });
+  const toggleCdaSel = (id) => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  const rowKey = (g) => g.type === 'exec' ? g.exec.id : 'unlinked';
+
+  /* Linha de um processo (EF, hub, recurso, embargo…), com apensos aninhados. */
+  const ProcRow = ({ g, depth = 0 }) => {
+    const meta = cxEfMeta(g, prazosByDebt);
+    const apensos = (apensosByParent && apensosByParent[g.exec.id]) || [];
+    const isSel = (g.cdas || []).length > 0 && g.cdas.every(d => selectedCDAs.has(d.id));
+    return <React.Fragment key={g.exec.id}>
+      <tr className={'cx-pt-row' + (drawerExecId === g.exec.id ? ' on' : '')} onClick={() => openDrawerFor(g.exec.id)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
+        <td className="cx-pt-num">{depth > 0 && <span className="cx-pt-nest">↳</span>}<span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+        {!drawerExecId && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
+        <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
+        {!drawerExecId && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
+        <td className="cx-pt-r cx-mono">{fmtCur(meta.total)}</td>
+        <td className={'cx-pt-presc risk-' + meta.riskClass}>{meta.label}</td>
+      </tr>
+      {apensos.map(ap => <ProcRow key={ap.exec.id} g={ap} depth={depth + 1} />)}
+    </React.Fragment>;
+  };
+
+  const ProcTableHead = () => (
+    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerExecId && <th className="cx-pt-sig">Sinais</th>}<th>Situação</th>{!drawerExecId && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  );
+
+  /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
+  const GroupBlock = ({ groupKey, label, rows, extra }) => {
+    const sorted = [...rows].sort(cmp);
+    const shown = showMore[groupKey] || 8;
+    const visible = sorted.slice(0, shown);
+    const rest = sorted.length - visible.length;
+    const totals = rows.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
+    const cdaCount = rows.reduce((s, g) => s + (g.cdas || []).length, 0);
+    const worstMeta = rows.map(g => cxEfMeta(g, prazosByDebt)).sort((a, b) => (a.riskClass === 'critical' ? 0 : a.riskClass === 'warning' ? 1 : 2) - (b.riskClass === 'critical' ? 0 : b.riskClass === 'warning' ? 1 : 2))[0];
+    const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
+    return <React.Fragment>
+      {label && <tr className="cx-pt-band">
+        <td className="cx-pt-ck"></td><td colSpan={drawerExecId ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
+        {!drawerExecId && <td className="cx-pt-r">{cdaCount}</td>}
+        <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
+        <td className={'cx-pt-presc risk-' + (worstMeta ? worstMeta.riskClass : '')}>{worstMeta ? worstMeta.label : 'nenhuma no alarme'}</td>
+      </tr>}
+      {visible.map(g => <ProcRow key={rowKey(g)} g={g} />)}
+      {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
+      {extra}
+    </React.Fragment>;
+  };
+
+  /* ── Cartão: Incidentes e execução de destaque ── */
+  const incGroups = hubs.map(h => ({ h, covered: filterRows(coveredByHub[h.exec.id] || []) }));
+  const incSel = cardGroupSel.inc || 'all';
+  const incVisibleHubs = incSel === 'all' ? incGroups : incGroups.filter(x => x.h.exec.id === incSel);
+
+  /* ── Cartão: Execuções sem vínculo ── */
+  const bandOf = (list) => {
+    const map = { ativa: [], suspensa: [], suspensa_parcelamento: [], arquivada: [] };
+    (list || []).forEach(g => { const k = efBandKey(g.exec); if (map[k]) map[k].push(g); else map.ativa.push(g); });
+    return map;
+  };
+  const semVincBands = bandOf(uncoveredVisible);
+
+  const cardCollapsed = (id) => collapsedCards.has(id);
+  const toggleCard = (id) => setCollapsedCards(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  /* ── Ficha lateral: monta o group/relacionados do exec aberto ── */
+  const drawerCtx = React.useMemo(() => {
+    if (!drawerExecId) return null;
+    let g = allExecGroups.find(x => x.exec.id === drawerExecId);
+    if (!g) {
+      // pode ser um apenso, não incluído em allExecGroups (que só tem topo)
+      const flatApensos = Object.values(apensosByParent || {}).flat();
+      g = flatApensos.find(x => x.exec.id === drawerExecId);
+    }
+    if (!g) return null;
+    let hubLabel = null;
+    const hubEntry = hubs.find(h => (coveredByHub[h.exec.id] || []).some(c => c.exec.id === drawerExecId));
+    if (hubEntry) hubLabel = cxProcKind(hubEntry.exec).label + ' ' + (hubEntry.exec.processNumber || '');
+    const apensoNums = (apensosByParent[g.exec.id] || []).map(x => x.exec.processNumber).filter(Boolean);
+    const relatedOthers = othersByParent[g.exec.id] || [];
+    return { group: g, hubLabel, apensoNums, relatedOthers };
+  }, [drawerExecId, classified]);
+
+  const totalSelValue = allDebts.filter(d => selectedCDAs.has(d.id)).reduce((s, d) => s + (d.value || 0), 0);
+  const selProcs = new Set(allDebts.filter(d => selectedCDAs.has(d.id)).map(d => normProc(d.processNumber)).filter(Boolean));
+  const selNaCount = allDebts.filter(d => selectedCDAs.has(d.id) && !normProc(d.processNumber)).length;
+  const bulkSetHandled = (val, type) => {
+    const ids = [...selectedCDAs];
+    const now = new Date().toISOString(); const today = now.slice(0, 10);
+    setData(prev => ({ ...prev, debts: prev.debts.map(d => ids.includes(d.id) ? { ...d, prescriptionHandled: val, prescriptionHandledAt: val ? today : d.prescriptionHandledAt, prescriptionHandledType: val ? (type || 'declarada') : d.prescriptionHandledType, updatedAt: now } : d) }));
+  };
+
+  return <div className="cx cx-pp">
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo ou CDA" />
+      <div className="cx-pp-person">
+        <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
+        {peopleOpen && <div className="cx-menu-pop cx-pp-people-pop">
+          <button type="button" onClick={() => { setCdaPersonFilter('all'); setPeopleOpen(false); }}>Todas</button>
+          {(people || []).map(pp => <button key={pp.id} type="button" onClick={() => { setCdaPersonFilter(pp.id); setPeopleOpen(false); }}>{pp.name}</button>)}
+        </div>}
+      </div>
+      <CxSigFilterBar counts={sigCounts} active={sigActive} onToggle={toggleSigFilter} />
+      <span className="cx-sp" />
+      <select className="cx-sel sm" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+        <option value="valor">Ordenar: valor</option>
+        <option value="prescricao">Ordenar: prescrição</option>
+        <option value="numero">Ordenar: número</option>
+      </select>
+      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
+    </div>
+
+    <div className="cx-pp-summary">
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('inc')}><small>Incidentes e destaque</small><b>{hubs.length}</b><em>{fmtCur(incValue)}</em>{incAlarms > 0 && <i className="al">{incAlarms} no alarme</i>}</button>
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('semv')}><small>Execuções sem vínculo</small><b>{uncoveredEFs.length}</b><em>{fmtCur(semVincValue)}</em>{semVincAlarms > 0 && <i className="al">{semVincAlarms} no alarme</i>}</button>
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('na')}><small>Não ajuizadas</small><b>{unlinkedCdas.length} CDAs</b><em>{fmtCur(naValue)}</em>{naRisk.riskClass === 'critical' && <i className="al">no alarme</i>}</button>
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('rec')}><small>Recursos</small><b>{otherBuckets.recursos.length}</b></button>
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('emb')}><small>Embargos</small><b>{otherBuckets.embargos.length}</b>{embargosOpenPrazo && <i className="al">prazo aberto</i>}</button>
+      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('out')}><small>Outros</small><b>{otherBuckets.outros.length}</b></button>
+    </div>
+
+    {duplicates && duplicates.length > 0 && (
+      <div className="cx-pp-dup">⚠ {duplicates.length} {duplicates.length === 1 ? 'duplicidade detectada' : 'duplicidades detectadas'} — mesmo número e espécie cadastrados mais de uma vez.</div>
+    )}
+
+    <div className="cx-pp-body">
+      <div className="cx-pp-cards">
+        {/* Incidentes e execução de destaque */}
+        <section className="cx-card cx-pcard" id="cx-pcard-inc">
+          <div className="cx-card-h" onClick={() => toggleCard('inc')}>
+            <span className="cx-chev">{cardCollapsed('inc') ? '▸' : '▾'}</span><h5>Incidentes e execução de destaque</h5><span className="cx-count">{hubs.length}</span>
+            <span className="cx-muted cx-small">· IDPJ, cautelar e central com as EFs cobertas</span>
+          </div>
+          {!cardCollapsed('inc') && hubs.length > 0 && <>
+            <div className="cx-pp-grpbar">
+              <button type="button" className={incSel === 'all' ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: 'all' }))}>Todos <i>{hubs.length}</i></button>
+              {incGroups.map(({ h, covered }) => (
+                <button key={h.exec.id} type="button" className={incSel === h.exec.id ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: h.exec.id }))}>
+                  <em className={'cx-pd-kind ' + cxProcKind(h.exec).cls}>{cxProcKind(h.exec).label}</em>{h.exec.processNumber} <i>{covered.length} EFs · {fmtCur(cxEfMeta(h, prazosByDebt).total + covered.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))}</i>
+                </button>
+              ))}
+            </div>
+            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+              {incVisibleHubs.map(({ h, covered }) => (
+                <GroupBlock key={h.exec.id} groupKey={'inc-' + h.exec.id} label={null} rows={[h, ...covered]} />
+              ))}
+            </tbody></table></div>
+          </>}
+          {!cardCollapsed('inc') && hubs.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF ou execução central levada ao panorama.</div>}
+        </section>
+
+        {/* Execuções sem vínculo */}
+        <section className="cx-card cx-pcard" id="cx-pcard-semv">
+          <div className="cx-card-h" onClick={() => toggleCard('semv')}>
+            <span className="cx-chev">{cardCollapsed('semv') ? '▸' : '▾'}</span><h5>Execuções sem vínculo</h5><span className="cx-count">{uncoveredEFs.length} · {unlinkedCdas.length} CDAs não ajuizadas</span>
+            <span className="cx-muted cx-small">· fora de IDPJ, cautelar e central</span>
+          </div>
+          {!cardCollapsed('semv') && <>
+            <div className="cx-pp-grpbar">
+              {EF_BANDS.map(b => (
+                <button key={b.key} type="button" className={bandsOn[b.key] ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, [b.key]: !s[b.key] }))}>{b.label} <i>{(semVincBands[b.key] || []).length}</i></button>
+              ))}
+              <button type="button" className={bandsOn.nao_ajuizada ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, nao_ajuizada: !s.nao_ajuizada }))}>Não ajuizadas <i>{unlinkedCdas.length} CDAs</i></button>
+            </div>
+            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+              {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => bandsOn[k] && (semVincBands[k] || []).length).map(k => {
+                const bd = EF_BANDS.find(b => b.key === k);
+                return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} />;
+              })}
+              {bandsOn.extinta && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} />}
+              {bandsOn.nao_ajuizada && unlinkedVisible.length > 0 && (() => {
+                const shownN = showMore['na'] || 8;
+                const sortedNa = [...unlinkedVisible].sort((a, b) => sortBy === 'numero' ? String(a.cdaNumber || '').localeCompare(String(b.cdaNumber || '')) : (b.value || 0) - (a.value || 0));
+                const visN = sortedNa.slice(0, shownN); const restN = sortedNa.length - visN.length;
+                const rm = prazosRiskMetaForCdas(unlinkedVisible, prazosByDebt);
+                return <React.Fragment>
+                  <tr className="cx-pt-band"><td className="cx-pt-ck"></td><td colSpan={2}><b>Não ajuizadas</b> <span className="cx-muted cx-small">{unlinkedVisible.length} CDAs</span></td><td className="cx-pt-r">{unlinkedVisible.length}</td><td className="cx-pt-r cx-mono">{fmtCur(naValue)}</td><td className={'cx-pt-presc risk-' + rm.riskClass}>{rm.label}</td></tr>
+                  {visN.map(d => {
+                    const isSel = selectedCDAs.has(d.id);
+                    const drm = prazosRiskMetaForCdas([d], prazosByDebt);
+                    return <tr key={d.id} className="cx-pt-row cx-pt-row-cda" onClick={() => openDrawerFor('cda:' + d.id)}>
+                      <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
+                      <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
+                      {!drawerExecId && <td className="cx-pt-sig"></td>}
+                      <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
+                      {!drawerExecId && <td className="cx-pt-r">—</td>}
+                      <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
+                      <td className={'cx-pt-presc risk-' + drm.riskClass}>{drm.label}</td>
+                    </tr>;
+                  })}
+                  {restN > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, na: shownN + 20 }))}>Mostrar mais {restN} CDAs</button></td></tr>}
+                </React.Fragment>;
+              })()}
+              {!bandsOn.extinta && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setBandsOn(s => ({ ...s, extinta: true }))}>mostrar</button></td></tr>}
+            </tbody></table></div>
+          </>}
+        </section>
+
+        {/* Recursos */}
+        <section className="cx-card cx-pcard" id="cx-pcard-rec">
+          <div className="cx-card-h" onClick={() => toggleCard('rec')}>
+            <span className="cx-chev">{cardCollapsed('rec') ? '▸' : '▾'}</span><h5>Recursos</h5><span className="cx-count">{otherBuckets.recursos.length}</span>
+            <span className="cx-muted cx-small">· agrupados pelo processo principal</span>
+          </div>
+          {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            {(() => {
+              const byParent = new Map();
+              filterRows(otherBuckets.recursos).forEach(g => { const pid = g.exec.parentExecutionId || '—'; if (!byParent.has(pid)) byParent.set(pid, []); byParent.get(pid).push(g); });
+              const parentExec = (id) => execs.find(e => e.id === id);
+              return [...byParent.entries()].map(([pid, list]) => {
+                const parent = parentExec(pid);
+                const label = parent ? `de ${cxProcKind(parent).label} ${parent.processNumber || ''}` : 'sem processo principal identificado';
+                return <GroupBlock key={pid} groupKey={'rec-' + pid} label={label} rows={list} />;
+              });
+            })()}
+            {otherBuckets.recursos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum recurso.</td></tr>}
+          </tbody></table></div>}
+        </section>
+
+        {/* Embargos */}
+        <section className="cx-card cx-pcard" id="cx-pcard-emb">
+          <div className="cx-card-h" onClick={() => toggleCard('emb')}>
+            <span className="cx-chev">{cardCollapsed('emb') ? '▸' : '▾'}</span><h5>Embargos</h5><span className="cx-count">{otherBuckets.embargos.length}</span>
+            <span className="cx-muted cx-small">· embargos à execução, à execução fiscal e de terceiro</span>
+            {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}
+          </div>
+          {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            <GroupBlock groupKey="emb-all" label={null} rows={filterRows(otherBuckets.embargos)} />
+            {otherBuckets.embargos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum embargo.</td></tr>}
+          </tbody></table></div>}
+        </section>
+
+        {/* Outros */}
+        <section className="cx-card cx-pcard" id="cx-pcard-out">
+          <div className="cx-card-h" onClick={() => toggleCard('out')}>
+            <span className="cx-chev">{cardCollapsed('out') ? '▸' : '▾'}</span><h5>Outros</h5><span className="cx-count">{otherBuckets.outros.length}</span>
+            <span className="cx-muted cx-small">· cumprimento, procedimento comum e demais</span>
+          </div>
+          {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            <GroupBlock groupKey="out-all" label={null} rows={filterRows(otherBuckets.outros)} />
+            {otherBuckets.outros.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum outro processo.</td></tr>}
+          </tbody></table></div>}
+        </section>
+      </div>
+
+      {drawerCtx && (() => {
+        let group = drawerCtx.group;
+        if (typeof drawerExecId === 'string' && drawerExecId.indexOf('cda:') === 0) {
+          const cdaId = drawerExecId.slice(4);
+          const d = allDebts.find(x => x.id === cdaId);
+          group = { type: 'unlinked', exec: null, cdas: d ? [d] : [] };
+        }
+        return <EditionClaudeProcDrawer group={group} data={data} opId={opId} hubLabel={drawerCtx.hubLabel}
+          apensoNums={drawerCtx.apensoNums} relatedOthers={drawerCtx.relatedOthers} prazosByDebt={prazosByDebt}
+          selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
+          upsert={upsert} togglePrescCheck={togglePrescCheck} onClose={closeDrawer} onOpenExec={openDrawerFor} />;
+      })()}
+    </div>
+
+    {selectedCDAs.size > 0 && (
+      <div className="cx-pp-bulk">
+        <b>{selectedCDAs.size} {selectedCDAs.size === 1 ? 'CDA selecionada' : 'CDAs selecionadas'}</b>
+        <span className="cx-muted cx-small">{selProcs.size > 0 ? `· ${selProcs.size} ${selProcs.size === 1 ? 'processo' : 'processos'}` : ''}{selNaCount > 0 ? ` + ${selNaCount} não ajuizada(s)` : ''} · {fmtCur(totalSelValue)}</span>
+        {selProcs.size > 1 && <span className="cx-pp-bulk-warn">Seleção multiprocesso — o evento em bloco grava um único registro (batchCdaIds) aplicado a todas.</span>}
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: [...selectedCDAs] } })}>+ Evento em lote</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkSetHandled(true, 'declarada')}>✓ Marcar como tratadas</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkSetHandled(true, 'aguardando_reconhecimento')}>⏳ Aguardando reconhecimento</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkSetHandled(false)}>↻ Reabrir</button>
+        <button type="button" className="cx-btn sm ghost" onClick={() => setSelectedCDAs(new Set())}>Limpar</button>
+      </div>
+    )}
+  </div>;
+}
