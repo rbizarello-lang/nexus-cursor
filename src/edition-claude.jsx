@@ -1081,6 +1081,11 @@ const CX_CERT_TIP = {
   estimado: 'Faixa provável. Confira nos autos antes de agir.',
   cadastro: 'Falta um dado na ficha para calcular.',
 };
+/* reviewStatus do app lança erro se op.reviewInterval tiver um valor desconhecido (ex.: dado importado);
+   no Prumo a tela não pode cair por isso. */
+function cxRS(op) {
+  try { return reviewStatus(op); } catch (e) { return { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' }; }
+}
 function cxReviewNext(op) {
   const it = REVIEW_INTERVALS[op.reviewInterval || 'mensal'];
   if (!it || !it.days || !op.lastReviewedAt) return null;
@@ -1088,7 +1093,7 @@ function cxReviewNext(op) {
   return localIso(d);
 }
 function cxReviewTag(op) {
-  const rs = reviewStatus(op);
+  const rs = cxRS(op);
   if (rs.daysLeft === null) return null;
   const tone = rs.overdue ? 'orange' : rs.daysLeft <= 3 ? 'yellow' : '';
   return <span className={'cx-tag ' + tone} title={'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase()}><CxIcon n="history" s={11} />{rs.label}</span>;
@@ -1154,7 +1159,7 @@ function EditionClaudeCarteira(p) {
     valor: (a, b) => money(b) - money(a),
     cobertura: (a, b) => cov(a) - cov(b) || money(b) - money(a),
     risco: (a, b) => idx(b.id).risk - idx(a.id).risk || money(b) - money(a),
-    revisao: (a, b) => ((reviewStatus(a).daysLeft ?? 99999) - (reviewStatus(b).daysLeft ?? 99999)),
+    revisao: (a, b) => ((cxRS(a).daysLeft ?? 99999) - (cxRS(b).daysLeft ?? 99999)),
     intimacoes: (a, b) => idx(b.id).open.length - idx(a.id).open.length || sortOpsByName(a, b),
   };
   list = list.slice().sort(sorters[sort] || sortOpsByName);
@@ -1510,7 +1515,7 @@ function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, se
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
   const [scale, setScale] = React.useState('meses');
-  const rs = reviewStatus(op);
+  const rs = cxRS(op);
   const cls = getOpClassifications(op);
   const open = (data.intimations || []).filter(i => i.operationId === op.id && cxIsOpen(i)).sort(cxAttention);
   const today = localIso(new Date());
@@ -1753,7 +1758,7 @@ const CX_TASK_ST_ORDER = ['pendente', 'em_andamento', 'concluida'];
 const CX_TASK_ST = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
 function cxLs(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
 function cxLsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
-function cxTaskNotes(t) { return t.notesList && t.notesList.length ? t.notesList : (t.notes ? [t.notes] : []); }
+function cxTaskNotes(t) { return Array.isArray(t.notesList) ? t.notesList : (t.notes ? [t.notes] : []); }
 /* Mesma regra da tela clássica: sem operação, global ou legado aparecem na lista geral; "interna" fica só na operação. */
 function cxTaskIsGlobal(t) { return !t.operationId || t.taskVisibility !== 'operation'; }
 const cxTaskOpen = (t) => t.status !== 'concluida' && t.status !== 'cancelada';
@@ -2207,7 +2212,7 @@ function EditionClaudeMesa(p) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
-  const rs = reviewStatus(op);
+  const rs = cxRS(op);
   const cls = getOpClassifications(op);
   const onPartes = activeTab === 'pessoas' || activeTab === 'bens';
   const sum = [];
@@ -2260,7 +2265,7 @@ const CX_WATCH = {
 };
 const CX_WATCH_STALE = 7; // dias sem verificar para pedir atenção
 function cxDaysSince(iso) { if (!iso) return null; const t = new Date(iso); if (isNaN(t)) return null; const d0 = new Date(); d0.setHours(0, 0, 0, 0); t.setHours(0, 0, 0, 0); return Math.round((d0 - t) / 86400000); }
-function cxWatchNotes(w) { return w.notesList && w.notesList.length ? w.notesList : (w.notes ? [w.notes] : []); }
+function cxWatchNotes(w) { return Array.isArray(w.notesList) ? w.notesList : (w.notes ? [w.notes] : []); }
 function cxWatchCheckAge(w) { const a = cxDaysSince(w.lastCheckedAt); return a !== null ? a : cxDaysSince(w.createdAt); }
 function CxWatchRow({ w, op, onOpen, onOpenOp, onCheck, onStatus }) {
   const st = CX_WATCH[w.status] || CX_WATCH.aguardando;
@@ -2274,6 +2279,7 @@ function CxWatchRow({ w, op, onOpen, onOpenOp, onCheck, onStatus }) {
     <span className="cx-dot cx-w-dot" style={{ background: st.c }} title={st.l} />
     <div className="cx-i-main">
       <div className="cx-t-title"><span className="cx-mono cx-w-proc">{w.processNumber ? <CxProc num={w.processNumber} /> : <span className="cx-muted">Sem nº</span>}</span>
+        {w.processNumber ? <button type="button" className="cx-copy" onClick={e => { e.stopPropagation(); cxCopy(w.processNumber); }} title="Copiar o número" aria-label="Copiar o número do processo"><CxIcon n="copy" s={12} /></button> : null}
         {w.processNumber ? <a className="cx-a" href={cxEprocUrl(w.processNumber)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Abrir no eproc">eproc<CxIcon n="arrowUR" s={11} /></a> : null}
       </div>
       {w.parties ? <div className="cx-i-ev">{w.parties}</div> : null}
@@ -2318,7 +2324,7 @@ function EditionClaudeAcompanhar(p) {
   const so = { aguardando: 0, movimentado: 1, encerrado: 2 };
   const sorters = {
     verificacao: (a, b) => (cxWatchCheckAge(b) ?? -1) - (cxWatchCheckAge(a) ?? -1),
-    situacao: (a, b) => (so[a.status || 'aguardando'] - so[b.status || 'aguardando']) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
+    situacao: (a, b) => ((so[a.status || 'aguardando'] ?? 0) - (so[b.status || 'aguardando'] ?? 0)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
     recentes: (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
   };
   list = list.slice().sort(sorters[sort] || sorters.verificacao);
@@ -2394,7 +2400,7 @@ function cxPanelSortFn(k) {
     tasks: (a, b) => b.openTasks - a.openTasks || b.totalValue - a.totalValue,
     cobertura_asc: (a, b) => cov(a) - cov(b),
     acesso_recente: (a, b) => (a.daysSinceAccess === null ? 99999 : a.daysSinceAccess) - (b.daysSinceAccess === null ? 99999 : b.daysSinceAccess),
-    revisao_atrasada: (a, b) => (reviewStatus(a.op).daysLeft ?? 99999) - (reviewStatus(b.op).daysLeft ?? 99999),
+    revisao_atrasada: (a, b) => (cxRS(a.op).daysLeft ?? 99999) - (cxRS(b.op).daysLeft ?? 99999),
     nome: (a, b) => (a.op.name || '').localeCompare(b.op.name || '', 'pt-BR'),
     idpj: (a, b) => (b.idpjCount + b.cautelarCount) - (a.idpjCount + a.cautelarCount) || b.totalValue - a.totalValue,
   };
@@ -2421,7 +2427,7 @@ function EditionClaudePainel(p) {
   const openIntims = (data.intimations || []).filter(x => intimIsOpenWork(x));
   const lateIntims = openIntims.filter(x => { const dd = daysUntil(x.dateDeadline); return dd !== null && dd < 0; }).length;
   const riskN = gN(1) + gN(2), riskV = gV(1) + gV(2);
-  const due = rows.map(o => ({ op: o.op, rs: reviewStatus(o.op) })).filter(o => o.rs.overdue).sort((a, b) => a.rs.daysLeft - b.rs.daysLeft);
+  const due = rows.map(o => ({ op: o.op, rs: cxRS(o.op) })).filter(o => o.rs.overdue).sort((a, b) => a.rs.daysLeft - b.rs.daysLeft);
   const maxV = Math.max(1, ...rows.map(o => o.totalValue));
   // Próximos 7 dias: o mesmo recorte da Agenda
   const today = localIso(new Date());
@@ -2442,7 +2448,7 @@ function EditionClaudePainel(p) {
       <div className="cx-kpi cx-kpi-static">
         <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
         <span className="cx-kpi-v">{cxMoneyShort(kpiCredito)}</span>
-        <span className="cx-kpi-s">{cxPl(liveDebts.length, 'CDA', 'CDAs')} · {cxPl(rows.length, 'operação ativa', 'operações ativas')} · {cxPl(nExecs, 'processo', 'processos')}</span>
+        <span className="cx-kpi-s">{cxPl(liveDebts.length, 'CDA', 'CDAs')} · {cxPl(rows.length, 'operação ativa', 'operações ativas')}{(data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : ''} · {cxPl(nExecs, 'processo', 'processos')}</span>
       </div>
       <div className="cx-kpi cx-kpi-static" title={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}>
         <span className="cx-kpi-l"><CxIcon n="check" s={14} />Garantido</span>
@@ -2493,7 +2499,7 @@ function EditionClaudePainel(p) {
           <tbody>{sorted.map((o, i) => {
             const pctW = o.totalValue / maxV * 100;
             const gPct = o.totalValue > 0 ? o.guaranteedValue / o.totalValue * 100 : 0;
-            const rs = reviewStatus(o.op);
+            const rs = cxRS(o.op);
             return <tr key={o.op.id} className="click" onClick={() => p.onOpenOp(o.op.id)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') p.onOpenOp(o.op.id); }}>
               <td><span className="cx-op-cell"><span className="cx-panel-rank">{i + 1}</span><span className="cx-op-sq" style={{ background: cxOpColor(o.op.id) }} /><span className="cx-ell" title={o.op.name}>{cxOpName(o.op)}</span>{cxOpPrioTag(o.op)}</span>
                 <span className="cx-panel-sub">{cxPl(o.debtsCount, 'CDA', 'CDAs')} · {o.execsCount} proc. · {cxPl(o.assetsCount, 'bem', 'bens')}</span></td>
