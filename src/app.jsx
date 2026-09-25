@@ -3110,7 +3110,9 @@ function App() {
   const [cxIntimView, setCxIntimView] = useState('lista');
   const [cxIntimInitialUf, setCxIntimInitialUf] = useState(null);
   const [cxSideOpen, setCxSideOpen] = useState(false);
-  const [cxTlScale, setCxTlScale] = useState('meses');
+  const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
+  const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
+  const [cxTlScale, setCxTlScale] = useState('anos');
   const [cxTlOp, setCxTlOp] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
@@ -3841,6 +3843,8 @@ function App() {
     (data.operations || []).forEach(o => m.set(o.id, o));
     return m;
   }, [data.operations]);
+  // Nexus Prumo: cxOpColor/CxOpSquare resolvem operação pelo id sem precisar de opsById em toda a árvore.
+  if (typeof cxSetOpsRegistry === 'function') cxSetOpsRegistry(opsById);
 
   // ─── PERF: termo final de prescrição por CDA (1 cálculo por debt ao mudar dados) ───
   const prescLookup = useMemo(
@@ -10370,9 +10374,10 @@ function App() {
   const cxLateIntims = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado' && daysUntil(x.dateDeadline) !== null && daysUntil(x.dateDeadline) < 0).length : 0;
 
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
       classFilter={opClassFilter} setClassFilter={setOpClassFilter}
+      collapsed={cxSideCollapsed} onToggleCollapsed={() => setCxSideCollapsed(!cxSideCollapsed)}
       counts={{ openIntims: openIntimsCount, lateIntims: cxLateIntims, openTasks: openTasksCount, desk: deskCount, watch: watchCount, hearings: hearingsAheadCount, models: (data.models || []).length, presc1: ((prazosRadar.totals || {})[1] || {}).n || 0 }}
       onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} onOpenOpTab={(id, tab) => cxOpenOp(id, tab)}
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
@@ -13712,6 +13717,26 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         <span style={{fontSize:9,color:'var(--text-muted)'}}>Cadência de revisão sistemática. Operações fora do prazo aparecem alertadas no Painel.</span>
       </div>
     </div>
+    {isClaude && (() => {
+      const OP_COLOR_SWATCHES = [
+        ['#c2323d', 'Vermelho · prioridade máxima'], ['#e0707a', 'Vermelho suave · prioridade alta'],
+        ['#c99a1a', 'Amarelo · prioridade média'], ['#21845a', 'Verde · prioridade baixa'],
+        ['#2d62d3', 'Azul · parcelamento'], ['#6a4fd4', 'Violeta'], ['#0f7888', 'Ciano'], ['#bf5f16', 'Laranja'],
+      ];
+      const cur = form.color || '';
+      return (<div className="form-group">
+        <label>Cor (Nexus Prumo)</label>
+        <div className="op-color-row">
+          <button type="button" className={'op-color-auto' + (!cur ? ' on' : '')} onClick={() => set('color', '')}>Automática (pela prioridade e situação)</button>
+        </div>
+        <div className="op-color-grid">
+          {OP_COLOR_SWATCHES.map(([c, label]) => (
+            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:c}} title={label} aria-label={label} onClick={() => set('color', c)} />
+          ))}
+        </div>
+        <span style={{fontSize:9,color:'var(--text-muted)'}}>Cor do quadradinho da operação no menu, no cabeçalho e nas listas do Nexus Prumo. Em automática, segue parcelamento/prioridade da operação.</span>
+      </div>);
+    })()}
     {NotesList()}
     {Actions()}
   </>);
