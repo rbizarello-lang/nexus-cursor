@@ -1216,7 +1216,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
     </CxBlock>
 
     <CxBlock title={resolved ? 'Atuação' : 'Gramática'} open={!!blocks.gram} onToggle={() => toggleBlock('gram')}
-      summary={resolved ? (ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida') + (ra.respondedAt ? ' · ' + cxDM(ra.respondedAt) : '') : (CX_IMP[impK] || impK) + ' · ' + (CX_DIF[difK] || difK)}>
+      summary={resolved ? (ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida') + (ra.respondedAt ? ' · ' + cxDM(ra.respondedAt) : '') : 'Importância ' + String(CX_IMP[impK] || impK).toLowerCase() + ' · complexidade ' + String(CX_DIF[difK] || difK).toLowerCase() + (urg ? ' · urgente' : '')}>
       {resolved ? <div className="cx-note cx-note-done">
         <b>{ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'}</b>{ra.respondedAt ? ' · ' + fmtDate(ra.respondedAt) : ''}
         {ra.description ? <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{ra.description}</div> : null}
