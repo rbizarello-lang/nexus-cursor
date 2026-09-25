@@ -3086,3 +3086,227 @@ function EditionClaudeBriefing(p) {
     </div>
   </div>);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 8 — Processos e prescrição no Prumo: passo 0 aparte (dedupe de sugestões,
+   já acima). 8a: sinais fixos + ficha lateral. 8b: EditionClaudeProcessos
+   (cartões para dezenas de processos). Lê os MESMOS `classified`/`prazosByDebt`
+   que o app já calcula (processTabModel); não toca parsers, prescrição ou sync.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Sinais (mesmos desenhos/cores/ordem do ProcRowSymbols — app.jsx) ─── */
+const CX_SIG_DEFS = [
+  { k: 'star', label: 'Relevante' },
+  { k: 'pin', label: 'Meu acervo' },
+  { k: 'watch', label: 'Acompanhar' },
+  { k: 'copy', label: 'Cópia na pasta' },
+  { k: 'lock', label: 'Constrição' },
+  { k: 'task', label: 'Tarefa aberta' },
+  { k: 'intim', label: 'Intimação aberta' },
+];
+const CX_SIG_FIELD = { star: 'isRelevant', pin: 'meuAcervo', watch: 'acompanhar', copy: 'copiaNaPasta' };
+function cxSigFlags(exec, data) {
+  if (!exec) return { star: false, pin: false, watch: false, copy: false, lock: false, task: false, intim: false };
+  return {
+    star: !!exec.isRelevant,
+    pin: !!exec.meuAcervo,
+    watch: !!exec.acompanhar,
+    copy: !!exec.copiaNaPasta,
+    lock: execShowsConstriction(exec, data),
+    task: execHasOpenTask(exec, data),
+    intim: execHasOpenIntim(exec, data),
+  };
+}
+function CxSigGlyph({ k }) {
+  switch (k) {
+    case 'star': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z" /></svg>;
+    case 'pin': return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 11.2 12 4.2l8.5 7" /><path d="M6 10.6V19.5h12V10.6" /><path d="M10 19.5v-5h4v5" /></svg>;
+    case 'watch': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z" /></svg>;
+    case 'copy': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z" /></svg>;
+    case 'lock': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z" /></svg>;
+    case 'task': return <span className="cx-sig-dot cx-sig-dot-task" aria-hidden="true" />;
+    case 'intim': return <span className="cx-sig-dot cx-sig-dot-intim" aria-hidden="true" />;
+    default: return null;
+  }
+}
+/* Barra de filtros pelos 7 sinais — contagem entre parênteses, combinam por AND. */
+function CxSigFilterBar({ counts, active, onToggle }) {
+  return (
+    <div className="cx-sigf">
+      {CX_SIG_DEFS.map(s => (
+        <button key={s.k} type="button" className={'cx-sigf-btn' + (active.has(s.k) ? ' on' : '')}
+          onClick={() => onToggle(s.k)} title={s.label}>
+          <CxSigGlyph k={s.k} /><span>{s.label}</span><b>{counts[s.k] || 0}</b>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* Espécie/rótulo curto do processo para a ficha e os grupos (IDPJ, MCF, Central, EF, Recurso…). */
+function cxProcKind(exec) {
+  if (!exec) return { label: 'CDA', cls: 'cda' };
+  if (exec.processTag === 'idpj') return { label: 'IDPJ', cls: 'idpj' };
+  if (exec.processTag === 'cautelar_fiscal') return { label: 'MCF', cls: 'idpj' };
+  if (exec.processTag === 'central') return { label: 'Central', cls: 'cen' };
+  if (isExecucaoFiscalClass(exec)) return { label: 'EF', cls: 'ef' };
+  const bucket = otherProcBucket(exec);
+  if (bucket === 'recursos') return { label: (otherSpecies(exec).code || 'Recurso'), cls: 'rec' };
+  if (bucket === 'embargos') return { label: 'Embargos', cls: 'emb' };
+  return { label: 'Outros', cls: 'out' };
+}
+/** Ordena por pior prescrição primeiro (crítica > alerta > ok), depois pelo prazo mais curto. */
+function cxCdaPrescRank(d, prazosByDebt) {
+  const rm = prazosRiskMetaForCdas([d], prazosByDebt);
+  const rank = rm.riskClass === 'critical' ? 0 : rm.riskClass === 'warning' ? 1 : 2;
+  return { rm, rank, days: rm.minRiskDays == null ? 1e9 : rm.minRiskDays };
+}
+function cxSortCdasByPresc(cdas, prazosByDebt) {
+  return [...(cdas || [])].sort((a, b) => {
+    if (!!a.prescriptionHandled !== !!b.prescriptionHandled) return a.prescriptionHandled ? 1 : -1;
+    const ra = cxCdaPrescRank(a, prazosByDebt), rb = cxCdaPrescRank(b, prazosByDebt);
+    if (ra.rank !== rb.rank) return ra.rank - rb.rank;
+    return ra.days - rb.days;
+  });
+}
+
+/* ═════════════ Ficha lateral (8a) — processo ou CDA avulsa ═════════════ */
+function EditionClaudeProcDrawer(p) {
+  const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck, onClose, onOpenExec, relatedOthers } = p;
+  const [tab, setTab] = React.useState('resumo');
+  const [openCda, setOpenCda] = React.useState(null);
+  React.useEffect(() => { setTab('resumo'); setOpenCda(null); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  if (!group) return null;
+  const isExec = group.type === 'exec';
+  const e = isExec ? group.exec : null;
+  const kind = cxProcKind(e);
+  const cdas = cxSortCdasByPresc(group.cdas || [], prazosByDebt);
+  const sig = cxSigFlags(e, data);
+  const toggleSig = (k) => { if (!e || !CX_SIG_FIELD[k]) return; const field = CX_SIG_FIELD[k]; upsert('executions', { ...e, [field]: !e[field] }); };
+  const openTasks = e ? (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada' && sameProc(t.processNumber, e.processNumber)) : [];
+  const openIntims = e ? (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction && intimIsOpenWork(x) && sameProc(x.processNumber, e.processNumber)) : [];
+  const linkedAssets = e ? (data.assets || []).filter(a => a.operationId === opId && a.processRef && sameProc(a.processRef, e.processNumber) && (a.status === 'indisponibilidade_ativa' || a.status === 'indisponibilidade_requerida')) : [];
+  const execDebtor = (() => {
+    const firstCda = cdas[0];
+    if (firstCda) {
+      const resp = (data.links?.cdaResponsibilities || []).find(r => r.cdaId === firstCda.id && r.role === 'originario');
+      if (resp) { const pp = data.people.find(x => x.id === resp.personId); if (pp) return pp.name; }
+      if (firstCda.devedor) return firstCda.devedor;
+    }
+    return null;
+  })();
+  const totalValue = cdas.reduce((s, d) => s + (d.value || 0), 0);
+  const worst = cdas.length ? cxCdaPrescRank(cdas[0], prazosByDebt) : null;
+  const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
+  const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
+  const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Processo">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
+          {e ? <Copyable value={e.processNumber || ''} className="cx-mono cx-pd-num">{e.processNumber || 'S/N'}</Copyable> : <b>CDAs sem processo</b>}
+          {e && e.processNumber ? <a href={cxEprocUrl(e.processNumber)} target="_blank" rel="noreferrer" className="cx-icon-btn" title="Abrir no eproc" aria-label="Abrir no eproc"><CxIcon n="arrowUR" s={14} /></a> : null}
+        </div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        {e && <div className="cx-pd-sigtog">
+          {['star', 'pin', 'watch', 'copy'].map(k => (
+            <button key={k} type="button" className={'cx-pd-sig' + (sig[k] ? ' on' : '')} onClick={() => toggleSig(k)}>
+              <CxSigGlyph k={k} /><span>{CX_SIG_DEFS.find(d => d.k === k).label}{k === 'copy' && sig.copy && e.copiaNaPastaDate ? ' · ' + fmtDate(e.copiaNaPastaDate) : ''}</span>
+            </button>
+          ))}
+        </div>}
+        {e && (sig.lock || openTasks.length > 0 || openIntims.length > 0) && <div className="cx-pd-sigauto">
+          {sig.lock && <span className="cx-pd-auto"><CxSigGlyph k="lock" />Constrição{linkedAssets.length ? `: ${linkedAssets.length} ${linkedAssets.length === 1 ? 'bem' : 'bens'} (${[...new Set(linkedAssets.map(a => a.source).filter(Boolean))].join(', ') || '—'})` : ''}</span>}
+          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
+          {openIntims.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'intimation', initial: openIntims[0] })}><CxSigGlyph k="intim" />{openIntims.length} {openIntims.length === 1 ? 'intimação' : 'intimações'}{openIntims[0].dateDeadline ? ' · prazo ' + fmtDate(openIntims[0].dateDeadline) : ''}</button>}
+        </div>}
+        {e && <dl className="cx-pd-facts">
+          <dt>Juízo</dt><dd>{e.court || '—'}{e.className ? ' · ' + e.className : ''}</dd>
+          {execDebtor && <><dt>Executado</dt><dd>{execDebtor}</dd></>}
+          {hubLabel && <><dt>Coberta por</dt><dd>{hubLabel}</dd></>}
+          {apensoNums && apensoNums.length > 0 && <><dt>Apensos</dt><dd className="cx-mono cx-small">{apensoNums.join(', ')}</dd></>}
+          <dt>Status</dt><dd>{(EXEC_STATUSES[e.status] || {}).label || e.status || '—'}</dd>
+        </dl>}
+        <div className="cx-itabs">
+          <button type="button" className={tab === 'resumo' ? 'on' : ''} onClick={() => setTab('resumo')}>Resumo</button>
+          <button type="button" className={tab === 'cdas' ? 'on' : ''} onClick={() => setTab('cdas')}>CDAs · {cdas.length}</button>
+          {e && <button type="button" className={tab === 'notas' ? 'on' : ''} onClick={() => setTab('notas')}>Notas · {(e.notesList || (e.notes ? [e.notes] : [])).length}</button>}
+          {e && <button type="button" className={tab === 'recursos' ? 'on' : ''} onClick={() => setTab('recursos')}>Recursos · {(relatedOthers || []).length}</button>}
+        </div>
+        {tab === 'resumo' && <div className="cx-pd-tabpane">
+          <div className="cx-pd-sum-row"><span>Valor total</span><b>{fmtCur(totalValue)}</b></div>
+          <div className="cx-pd-sum-row"><span>CDAs</span><b>{cdas.length}</b></div>
+          {worst && <div className="cx-pd-sum-row"><span>Pior prescrição</span><b className={'risk-' + worst.rm.riskClass}>{worst.rm.label}</b></div>}
+          {e && e.protocolDate && <div className="cx-pd-sum-row"><span>Protocolo</span><b>{fmtDate(e.protocolDate)}</b></div>}
+        </div>}
+        {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
+          {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}
+          {cdas.map(d => {
+            const isSel = selectedCDAs.has(d.id);
+            const isOpen = openCda === d.id;
+            const isHandled = !!d.prescriptionHandled;
+            const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
+            const st = DEBT_STATUSES[d.status] || {};
+            const rm = prazosRiskMetaForCdas([d], prazosByDebt);
+            const toggleSel = () => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(d.id)) n.delete(d.id); else n.add(d.id); return n; });
+            return (
+              <div key={d.id} className={'cx-pd-cda' + (isOpen ? ' open' : '') + (isHandled ? ' handled' : '')}>
+                <div className="cx-pd-cda-h" onClick={() => setOpenCda(isOpen ? null : d.id)}>
+                  <input type="checkbox" checked={isSel} onChange={ev => { ev.stopPropagation(); toggleSel(); }} onClick={ev => ev.stopPropagation()} />
+                  <span className="cx-mono">{d.cdaNumber || 'CDA'}</span>
+                  <span className="cx-muted cx-small">{cdaEspecie(d)}</span>
+                  <span className="cx-sp" />
+                  <span className="cx-mono cx-small">{fmtCur(d.value)}</span>
+                </div>
+                <div className="cx-pd-cda-s">{st.label || d.status} · {isAguardando ? <span className="risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-green-t">tratada</span> : <span className={'risk-' + rm.riskClass}>{rm.label}</span>}</div>
+                {isOpen && <div className="cx-pd-cda-b" onClick={ev => ev.stopPropagation()}>
+                  {(() => {
+                    const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
+                    return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />;
+                  })()}
+                  <div className="cx-pd-cda-acts">
+                    <button type="button" className="cx-btn sm" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: d.id, executionId: '', _focusDate: true } })}>+ Evento</button>
+                    <button type="button" className="cx-btn sm" onClick={() => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData)}>{isHandled ? '↻ Reabrir' : '✓ Tratada'}</button>
+                    {!isHandled && <button type="button" className="cx-btn sm" onClick={() => markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef: e ? (e.processNumber || '') : null, className: e ? e.className : '', court: e ? e.court : '' })}>⏳ Aguardando reconhecimento</button>}
+                    <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>Editar inscrição</button>
+                  </div>
+                </div>}
+              </div>
+            );
+          })}
+        </div>}
+        {tab === 'notas' && e && <div className="cx-pd-tabpane">
+          {(e.notesList || (e.notes ? [e.notes] : [])).length === 0 && <div className="cx-empty-row">Sem notas.</div>}
+          {(e.notesList || (e.notes ? [e.notes] : [])).map((n, i) => <div key={i} className="cx-pd-note">{linkify(n)}</div>)}
+        </div>}
+        {tab === 'recursos' && e && <div className="cx-pd-tabpane">
+          {(relatedOthers || []).length === 0 && <div className="cx-empty-row">Nenhum recurso, embargo ou outra ação vinculada.</div>}
+          {(relatedOthers || []).map(og => {
+            const k2 = cxProcKind(og.exec);
+            return (
+              <button key={og.exec.id} type="button" className="cx-pd-rel" onClick={() => onOpenExec && onOpenExec(og.exec.id)}>
+                <span className={'cx-pd-kind ' + k2.cls}>{k2.label}</span>
+                <span className="cx-mono cx-small">{og.exec.processNumber || 'S/N'}</span>
+                <span className="cx-sp" />
+                <span className="cx-muted cx-small">{(EXEC_STATUSES[og.exec.status] || {}).label || og.exec.status}</span>
+              </button>
+            );
+          })}
+        </div>}
+      </div>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn sm" onClick={batchEventOnGroup} disabled={!cdas.length}>+ Evento nas {cdas.length} CDAs</button>
+        <button type="button" className="cx-btn sm" onClick={genTask}>Gerar tarefa</button>
+        {e && <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: e })}>Dados do processo</button>}
+      </div>
+    </aside>
+  </>;
+}

@@ -902,8 +902,41 @@ function execHasOpenIntim(exec, data) {
   );
 }
 
-/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação). */
-function ProcRowSymbols({ exec, data }) {
+/** Alterna prescriptionHandled de uma CDA (ou das CDAs selecionadas, se `d` estiver entre elas). */
+function toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData) {
+  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
+  const newVal = !d.prescriptionHandled;
+  setData(prev => ({ ...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? { ...x, prescriptionHandled: newVal, prescriptionHandledAt: newVal ? new Date().toISOString().slice(0, 10) : x.prescriptionHandledAt, prescriptionHandledType: newVal ? (x.prescriptionHandledType || 'declarada') : x.prescriptionHandledType, updatedAt: new Date().toISOString() } : x) }));
+  if (targetIds.length > 1) setSelectedCDAs(new Set());
+}
+/** Marca uma CDA (ou as selecionadas) como prescrita, aguardando reconhecimento judicial; oferece criar tarefa. */
+function markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef, className, court }) {
+  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
+  const count = targetIds.length;
+  const msg = count > 1
+    ? `Marcar ${count} CDA(s) selecionadas como prescritas, aguardando reconhecimento judicial?`
+    : `Marcar CDA ${d.cdaNumber || ''} como prescrita, aguardando reconhecimento judicial?`;
+  if (!confirm(msg)) return;
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  setData(prev => ({ ...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? { ...x, prescriptionHandled: true, prescriptionHandledType: 'aguardando_reconhecimento', prescriptionHandledAt: today, updatedAt: now } : x) }));
+  if (targetIds.length > 1) setSelectedCDAs(new Set());
+  if (procRef != null && confirm(`Criar tarefa "Solicitar reconhecimento de prescrição" para o processo ${procRef}? (${count} CDA(s))`)) {
+    setModal({ type: 'create', entityType: 'task', initial: {
+      operationId: opId,
+      title: `Solicitar reconhecimento de prescrição — ${count > 1 ? count + ' CDAs' : (d.cdaNumber || '')}`,
+      description: `${count} CDA(s) identificada(s) como prescrita(s).\nProcesso: ${procRef}\nClasse: ${className || ''}\nVara: ${court || ''}\n\nProvidenciar petição requerendo o reconhecimento da prescrição e consequente extinção do(s) crédito(s).`,
+      processNumber: procRef,
+      priority: 'media',
+      status: 'pendente',
+      taskVisibility: 'operation'
+    } });
+  }
+}
+
+/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação).
+ *  `fixed`: apresentação do Prumo — cada sinal ocupa sempre a mesma casa (7 posições fixas), vazia quando ausente. */
+function ProcRowSymbols({ exec, data, fixed = false }) {
   if (!exec) return null;
   const showStar = !!exec.isRelevant;
   const showPin = !!exec.meuAcervo;
@@ -912,21 +945,22 @@ function ProcRowSymbols({ exec, data }) {
   const showLock = execShowsConstriction(exec, data);
   const showTask = execHasOpenTask(exec, data);
   const showIntim = execHasOpenIntim(exec, data);
-  if (!showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
+  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
   const copyTip = exec.copiaNaPastaDate
     ? `Cópia na pasta · ${fmtDate(exec.copiaNaPastaDate)}`
     : 'Cópia na pasta';
+  const empty = <i className="proc-row-sym-empty" aria-hidden="true" />;
   return (
-    <span className="proc-row-syms" onClick={ev => ev.stopPropagation()}>
-      {showStar && (
+    <span className={'proc-row-syms' + (fixed ? ' proc-row-syms-fixed' : '')} onClick={ev => ev.stopPropagation()}>
+      {showStar ? (
         <span className="proc-row-sym proc-row-sym-star has-tip" title="Relevante" aria-label="Relevante">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z"/>
           </svg>
           <span className="tip-content">Relevante</span>
         </span>
-      )}
-      {showPin && (
+      ) : (fixed ? empty : null)}
+      {showPin ? (
         <span className="proc-row-sym has-tip" title="Meu acervo" aria-label="Meu acervo">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3.5 11.2 12 4.2l8.5 7"/>
@@ -935,41 +969,41 @@ function ProcRowSymbols({ exec, data }) {
           </svg>
           <span className="tip-content">Meu acervo</span>
         </span>
-      )}
-      {showWatch && (
+      ) : (fixed ? empty : null)}
+      {showWatch ? (
         <span className="proc-row-sym has-tip" title="Acompanhar" aria-label="Acompanhar">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/>
           </svg>
           <span className="tip-content">Acompanhar</span>
         </span>
-      )}
-      {showCopy && (
+      ) : (fixed ? empty : null)}
+      {showCopy ? (
         <span className="proc-row-sym has-tip" title={copyTip} aria-label={copyTip}>
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/>
           </svg>
           <span className="tip-content">{copyTip}</span>
         </span>
-      )}
-      {showLock && (
+      ) : (fixed ? empty : null)}
+      {showLock ? (
         <span className="proc-row-sym has-tip" title="Constrição" aria-label="Constrição">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/>
           </svg>
           <span className="tip-content">Constrição</span>
         </span>
-      )}
-      {showTask && (
+      ) : (fixed ? empty : null)}
+      {showTask ? (
         <span className="proc-row-dot proc-row-dot-task has-tip" title="Tarefa" aria-label="Tarefa">
           <span className="tip-content">Tarefa</span>
         </span>
-      )}
-      {showIntim && (
+      ) : (fixed ? empty : null)}
+      {showIntim ? (
         <span className="proc-row-dot proc-row-dot-intim has-tip" title="Intimação aberta" aria-label="Intimação aberta">
           <span className="tip-content">Intimação aberta</span>
         </span>
-      )}
+      ) : (fixed ? empty : null)}
     </span>
   );
 }
@@ -7586,36 +7620,12 @@ function App() {
                 const isHandled = !!d.prescriptionHandled;
                 const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
                 const isExpanded = expandedCdas.has(d.id);
-                const toggleHandled = () => {
-                  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
-                  const newVal = !d.prescriptionHandled;
-                  setData(prev => ({...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? {...x, prescriptionHandled: newVal, prescriptionHandledAt: newVal ? new Date().toISOString().slice(0,10) : x.prescriptionHandledAt, prescriptionHandledType: newVal ? (x.prescriptionHandledType || 'declarada') : x.prescriptionHandledType, updatedAt: new Date().toISOString()} : x)}));
-                  if (targetIds.length > 1) setSelectedCDAs(new Set());
-                };
-                const markAsAguardando = () => {
-                  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
-                  const count = targetIds.length;
-                  const procRef = isExec ? (e.processNumber || '') : '';
-                  const msg = count > 1
-                    ? `Marcar ${count} CDA(s) selecionadas como prescritas, aguardando reconhecimento judicial?`
-                    : `Marcar CDA ${d.cdaNumber || ''} como prescrita, aguardando reconhecimento judicial?`;
-                  if (!confirm(msg)) return;
-                  const now = new Date().toISOString();
-                  const today = now.slice(0,10);
-                  setData(prev => ({...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? {...x, prescriptionHandled: true, prescriptionHandledType: 'aguardando_reconhecimento', prescriptionHandledAt: today, updatedAt: now} : x)}));
-                  if (targetIds.length > 1) setSelectedCDAs(new Set());
-                  if (isExec && confirm(`Criar tarefa "Solicitar reconhecimento de prescrição" para o processo ${procRef}? (${count} CDA(s))`)) {
-                    setModal({type:'create',entityType:'task',initial:{
-                      operationId: opId,
-                      title: `Solicitar reconhecimento de prescrição — ${count > 1 ? count + ' CDAs' : (d.cdaNumber || '')}`,
-                      description: `${count} CDA(s) identificada(s) como prescrita(s).\nProcesso: ${procRef}\nClasse: ${e.className || ''}\nVara: ${e.court || ''}\n\nProvidenciar petição requerendo o reconhecimento da prescrição e consequente extinção do(s) crédito(s).`,
-                      processNumber: procRef,
-                      priority: 'media',
-                      status: 'pendente',
-                      taskVisibility: 'operation'
-                    }});
-                  }
-                };
+                const toggleHandled = () => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData);
+                const markAsAguardando = () => markCdaAguardando(d, {
+                  selectedCDAs, setSelectedCDAs, setData, setModal, opId,
+                  procRef: isExec ? (e.processNumber || '') : null,
+                  className: isExec ? e.className : '', court: isExec ? e.court : '',
+                });
                 return (<React.Fragment key={d.id}>
                   <div className={`cda-row${isExpanded ? ' open' : ''}`} data-cda-id={d.id} title="Clique ao lado do nº para expandir · nº copia ao clicar"
                     onClick={(ev) => {
@@ -8200,7 +8210,7 @@ function App() {
                       </span>
                     )}
                   </td>
-                  {!isClaude && <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} /> : null}</td>}
+                  <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} fixed={isClaude} /> : null}</td>
                   <td className="proc-status-col">{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
                   {isOthers ? (
                     <>
@@ -8257,7 +8267,7 @@ function App() {
                 <thead>
                   <tr>
                     <th className="proc-num-col">Processo</th>
-                    {!isClaude && <th className="proc-syms-col" aria-label="Indicadores"></th>}
+                    <th className="proc-syms-col" aria-label="Indicadores"></th>
                     <th className="proc-status-col">Status</th>
                     {isOthers ? <><th>Relacionado</th><th>Espécie</th></> : <><th className="proc-valor-col">Valor</th><th className="proc-presc-col">Prescrição</th></>}
                     <th></th>

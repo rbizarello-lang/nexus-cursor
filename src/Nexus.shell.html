@@ -4926,6 +4926,67 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 .cx-bf-task:hover { background: var(--cx-hover); }
 .cx-bf-task .p { width: 6px; height: 6px; border-radius: 50%; background: var(--cx-orange); }
 .cx-bf-task .p.late { background: var(--cx-red); }
+
+/* ═══ Fase 8 · Processos Prumo (aba "Processos e prescrição" no Nexus Prumo) ═══
+   Sinais (coluna de posição fixa), ficha lateral e cartões agrupados para
+   dezenas de processos — src/edition-claude.jsx: EditionClaudeProcDrawer,
+   EditionClaudeProcessos. */
+
+/* Sinais: coluna de posição fixa (7 casas), mesmos desenhos/cores/ordem da Beta. */
+.app-layout.edition-claude .proc-row-syms-fixed { display: inline-flex; align-items: center; gap: 6px; min-width: 108px; }
+.app-layout.edition-claude .proc-row-sym-empty { display: inline-block; width: 14px; height: 14px; flex-shrink: 0; }
+.app-layout.edition-claude .proc-row-sym { color: var(--cx-ink-3); opacity: 0.9; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.app-layout.edition-claude .proc-row-sym svg { display: block; width: 14px; height: 14px; }
+.app-layout.edition-claude .proc-row-sym.proc-row-sym-star { color: var(--cx-accent); opacity: 1; }
+.app-layout.edition-claude .proc-row-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.app-layout.edition-claude .proc-row-dot-task { background: var(--cx-yellow); }
+.app-layout.edition-claude .proc-row-dot-intim { background: var(--cx-blue); }
+.cx-sig-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cx-sig-dot-task { background: var(--cx-yellow); }
+.cx-sig-dot-intim { background: var(--cx-blue); }
+
+/* Kind badge (IDPJ/MCF/Central/EF/Recurso…) */
+.cx-pd-kind { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; background: var(--cx-surface-2); color: var(--cx-ink-2); flex: none; }
+.cx-pd-kind.idpj { background: color-mix(in srgb, var(--pgfn, #7a1f35) 14%, transparent); color: var(--pgfn, #7a1f35); }
+.cx-pd-kind.cen { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.cx-pd-kind.ef { background: var(--cx-cyan-soft); color: var(--cx-cyan); }
+.cx-pd-kind.rec { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.cx-pd-kind.emb { background: var(--cx-orange-soft); color: var(--cx-orange); }
+
+/* ── Ficha lateral (drawer) ── */
+.cx-drawer.cx-pd .cx-crumb { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.cx-pd-num { font-size: 13px; font-weight: 600; }
+.cx-pd-sigtog { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; }
+.cx-pd-sig { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--cx-line); background: var(--cx-surface); color: var(--cx-ink-3); font-size: 11.5px; cursor: pointer; }
+.cx-pd-sig:hover { background: var(--cx-hover); }
+.cx-pd-sig.on { background: var(--cx-accent-soft); color: var(--cx-accent); border-color: color-mix(in srgb, var(--cx-accent) 35%, transparent); }
+.cx-pd-sigauto { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 16px 0; font-size: 11.5px; color: var(--cx-ink-2); }
+.cx-pd-auto { display: inline-flex; align-items: center; gap: 5px; }
+.cx-pd-auto-btn { border: none; background: transparent; color: var(--cx-blue); cursor: pointer; padding: 0; font: inherit; }
+.cx-pd-auto-btn:hover { text-decoration: underline; }
+.cx-pd-facts { padding: 10px 16px; display: grid; grid-template-columns: 84px 1fr; gap: 4px 10px; font-size: 12px; margin: 0; }
+.cx-pd-facts dt { color: var(--cx-ink-3); }
+.cx-pd-facts dd { margin: 0; color: var(--cx-ink); }
+.cx-itabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--cx-line); }
+.cx-itabs button { border: none; background: transparent; padding: 8px 10px; font-size: 12px; color: var(--cx-ink-3); cursor: pointer; border-bottom: 2px solid transparent; }
+.cx-itabs button.on { color: var(--cx-ink); border-color: var(--cx-ink); font-weight: 600; }
+.cx-pd-tabpane { padding: 12px 16px; }
+.cx-pd-sum-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; border-bottom: 1px dotted var(--cx-line); }
+.cx-pd-sum-row:last-child { border-bottom: 0; }
+.cx-pd-cdas { padding: 8px 10px; display: grid; gap: 6px; }
+.cx-pd-cda { border: 1px solid var(--cx-line); border-radius: 8px; overflow: hidden; }
+.cx-pd-cda.handled { opacity: 0.75; }
+.cx-pd-cda-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; font-size: 12px; }
+.cx-pd-cda-h:hover { background: var(--cx-hover); }
+.cx-pd-cda-s { padding: 0 10px 8px 30px; font-size: 11px; color: var(--cx-ink-3); }
+.cx-pd-cda.open .cx-pd-cda-s { padding-bottom: 4px; }
+.cx-pd-cda-b { padding: 0 10px 10px; border-top: 1px solid var(--cx-line); }
+.cx-pd-cda-acts { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+.cx-pd-note { padding: 8px 0; border-top: 1px dotted var(--cx-line); font-size: 12.5px; line-height: 1.5; }
+.cx-pd-note:first-child { border-top: 0; }
+.cx-pd-rel { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 6px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--cx-ink); }
+.cx-pd-rel:hover { background: var(--cx-hover); }
+
 </style>
 </head>
 <body>
