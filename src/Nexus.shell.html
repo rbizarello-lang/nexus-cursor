@@ -4948,7 +4948,8 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 /* Barra de filtros pelos 7 sinais */
 .cx-sigf { display: inline-flex; align-items: center; gap: 3px; flex-wrap: wrap; }
 .cx-sigf-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--cx-ink-3); font-size: 11.5px; cursor: pointer; }
-.cx-sigf-btn span { display: none; }
+.cx-sigf-btn .cx-sigf-lbl { display: none; }
+.cx-sigf-btn .cx-sig-dot { width: 8px; height: 8px; }
 .cx-sigf-btn:hover { background: var(--cx-hover); color: var(--cx-ink-2); }
 .cx-sigf-btn.on { background: var(--cx-accent-soft); color: var(--cx-accent); border-color: color-mix(in srgb, var(--cx-accent) 35%, transparent); }
 .cx-sigf-btn b { font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -4989,6 +4990,9 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 .cx-pd-cda-s { padding: 0 10px 8px 30px; font-size: 11px; color: var(--cx-ink-3); }
 .cx-pd-cda.open .cx-pd-cda-s { padding-bottom: 4px; }
 .cx-pd-cda-b { padding: 0 10px 10px; border-top: 1px solid var(--cx-line); }
+.cx-pd-cda-stack { display: flex; flex-direction: column; gap: 10px; }
+.cx-pd-cda-stack .cda-presc-cols { margin-top: 10px; }
+.cx-pd-cda-stack .cda-presc-col:first-child { border-color: var(--cx-line-strong); }
 .cx-pd-cda-acts { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
 .cx-pd-note { padding: 8px 0; border-top: 1px dotted var(--cx-line); font-size: 12.5px; line-height: 1.5; }
 .cx-pd-note:first-child { border-top: 0; }
@@ -5041,6 +5045,19 @@ tr.cx-pt-band td { background: var(--cx-surface-2); font-size: 11.5px; padding-t
 tr.cx-pt-more td { padding: 6px 10px; }
 tr.cx-pt-more.dim td { color: var(--cx-ink-3); font-size: 11.5px; }
 .cx-pt-more .cx-link-btn { font-size: 11.5px; }
+
+/* Linha de grupo do hub (IDPJ/MCF/Central) — recolhível, com fase atual e subtotal. */
+tr.cx-pt-hubrow { cursor: pointer; }
+tr.cx-pt-hubrow td { background: var(--cx-surface-2); font-weight: 600; }
+tr.cx-pt-hubrow:hover td { background: var(--cx-hover); }
+tr.cx-pt-hubrow.on td { background: var(--cx-accent-soft); }
+tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: normal; }
+.cx-chev.sm { border: none; background: transparent; padding: 0; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--cx-ink-3); cursor: pointer; font-size: 11px; flex: none; }
+.cx-pt-hub-s { flex-basis: 100%; font-weight: 400; font-size: 11px; color: var(--cx-ink-3); margin-left: 22px; }
+
+/* Barra de horizonte da prescrição — quanto falta até o termo, escala de 5 anos. */
+.cx-hb { display: inline-block; width: 34px; height: 6px; border-radius: 3px; background: var(--cx-line); overflow: hidden; vertical-align: middle; margin-right: 6px; }
+.cx-hb i { display: block; height: 100%; border-radius: 3px 0 0 3px; }
 
 .cx-pp-bulk { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; margin-top: 4px; background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-radius: 10px; box-shadow: var(--cx-shadow-lg); font-size: 12.5px; }
 .cx-pp-bulk-warn { flex-basis: 100%; font-size: 11px; color: var(--cx-ink-3); }

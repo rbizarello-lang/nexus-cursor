@@ -3135,8 +3135,8 @@ function CxSigFilterBar({ counts, active, onToggle }) {
     <div className="cx-sigf">
       {CX_SIG_DEFS.map(s => (
         <button key={s.k} type="button" className={'cx-sigf-btn' + (active.has(s.k) ? ' on' : '')}
-          onClick={() => onToggle(s.k)} title={s.label}>
-          <CxSigGlyph k={s.k} /><span>{s.label}</span><b>{counts[s.k] || 0}</b>
+          onClick={() => onToggle(s.k)} title={s.label} aria-label={s.label} aria-pressed={active.has(s.k)}>
+          <CxSigGlyph k={s.k} /><span className="cx-sigf-lbl">{s.label}</span><b>{counts[s.k] || 0}</b>
         </button>
       ))}
     </div>
@@ -3201,7 +3201,7 @@ function EditionClaudeProcDrawer(p) {
     return null;
   })();
   const totalValue = cdas.reduce((s, d) => s + (d.value || 0), 0);
-  const worst = cdas.length ? cxCdaPrescRank(cdas[0], prazosByDebt) : null;
+  const worst = cdas.length ? cxPrescDisplay(cdas, prazosByDebt) : null;
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
@@ -3244,7 +3244,7 @@ function EditionClaudeProcDrawer(p) {
         {tab === 'resumo' && <div className="cx-pd-tabpane">
           <div className="cx-pd-sum-row"><span>Valor total</span><b>{fmtCur(totalValue)}</b></div>
           <div className="cx-pd-sum-row"><span>CDAs</span><b>{cdas.length}</b></div>
-          {worst && <div className="cx-pd-sum-row"><span>Pior prescrição</span><b className={'risk-' + worst.rm.riskClass}>{worst.rm.label}</b></div>}
+          {worst && <div className="cx-pd-sum-row"><span>Pior prescrição</span><b className={'risk-' + worst.riskClass}>{worst.bar}{worst.text}</b></div>}
           {e && e.protocolDate && <div className="cx-pd-sum-row"><span>Protocolo</span><b>{fmtDate(e.protocolDate)}</b></div>}
         </div>}
         {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
@@ -3255,7 +3255,7 @@ function EditionClaudeProcDrawer(p) {
             const isHandled = !!d.prescriptionHandled;
             const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
             const st = DEBT_STATUSES[d.status] || {};
-            const rm = prazosRiskMetaForCdas([d], prazosByDebt);
+            const pd = cxPrescDisplay([d], prazosByDebt);
             const toggleSel = () => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(d.id)) n.delete(d.id); else n.add(d.id); return n; });
             return (
               <div key={d.id} className={'cx-pd-cda' + (isOpen ? ' open' : '') + (isHandled ? ' handled' : '')}>
@@ -3266,11 +3266,20 @@ function EditionClaudeProcDrawer(p) {
                   <span className="cx-sp" />
                   <span className="cx-mono cx-small">{fmtCur(d.value)}</span>
                 </div>
-                <div className="cx-pd-cda-s">{st.label || d.status} · {isAguardando ? <span className="risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-green-t">tratada</span> : <span className={'risk-' + rm.riskClass}>{rm.label}</span>}</div>
+                <div className="cx-pd-cda-s">{st.label || d.status} · {isAguardando ? <span className="risk-critical">aguardando reconhecimento</span> : isHandled ? <span className="cx-green-t">tratada</span> : <span className={'risk-' + pd.riskClass}>{pd.bar}{pd.text}</span>}</div>
                 {isOpen && <div className="cx-pd-cda-b" onClick={ev => ev.stopPropagation()}>
                   {(() => {
                     const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-                    return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />;
+                    // Três contagens empilhadas, a de selo mais grave primeiro (tl.worst, já calculado
+                    // pelo motor de prescrição) — CdaPrescColumns chamado uma vez por segmento, sem
+                    // alterar o componente usado pelo Clássico/Beta.
+                    const segKeys = ['decadencia', 'ordinaria', 'intercorrente'].filter(k => tl[k]);
+                    const ordered = tl.worst && tl.worst.key && segKeys.includes(tl.worst.key)
+                      ? [tl.worst.key, ...segKeys.filter(k => k !== tl.worst.key)]
+                      : segKeys;
+                    return <div className="cx-pd-cda-stack">
+                      {ordered.map(k => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />)}
+                    </div>;
                   })()}
                   <div className="cx-pd-cda-acts">
                     <button type="button" className="cx-btn sm" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: d.id, executionId: '', _focusDate: true } })}>+ Evento</button>
@@ -3333,9 +3342,69 @@ function cxProcSortCmp(sortBy, prazosByDebt) {
 function cxAlarmCount(groups, prazosByDebt) {
   return (groups || []).filter(g => cxEfMeta(g, prazosByDebt).riskClass === 'critical').length;
 }
+/** Reúne uma lista de grupos (EF/hub) com os apensos aninhados (mesmo apensosByParent). */
+function cxFlattenWithApensos(list, apensosByParent) {
+  const out = [];
+  (list || []).forEach(g => {
+    out.push(g);
+    const aps = (apensosByParent && g.exec && apensosByParent[g.exec.id]) || [];
+    if (aps.length) out.push(...cxFlattenWithApensos(aps, apensosByParent));
+  });
+  return out;
+}
+/** A CDA (entre as não tratadas) com o prazo mais curto/grupo mais grave, para a barra e o "N dias · dd/mm". */
+function cxWorstPrescRow(cdas, prazosByDebt) {
+  let best = null;
+  (cdas || []).forEach(d => {
+    if (!d || d.prescriptionHandled) return;
+    const row = prazosByDebt.get(d.id);
+    if (!row) return;
+    const g = row.group || 9;
+    if (!best || g < best.group || (g === best.group && (row.prescDays ?? 1e9) < (best.prescDays ?? 1e9))) best = row;
+  });
+  return best;
+}
+/** Barra de horizonte: quanto falta até o termo, numa escala de 5 anos (1825 dias). Só quando há termo. */
+function CxHorizonBar({ days, group }) {
+  const pct = Math.max(2, Math.min(100, Math.round((Math.max(days, 0) / 1825) * 100)));
+  const color = group <= 2 ? 'var(--cx-red)' : 'var(--cx-orange)';
+  return <span className="cx-hb" aria-hidden="true"><i style={{ width: pct + '%', background: color }} /></span>;
+}
+/** Mesmo rótulo da coluna Prescrição do clássico/Beta (efRiskMeta/prazosRiskMetaForCdas);
+ *  quando há dias contados (grupos 1–4), mostra "N dias · dd/mm" e a barra de horizonte. */
+function cxPrescDisplay(cdas, prazosByDebt) {
+  const rm = prazosRiskMetaForCdas(cdas, prazosByDebt);
+  const worst = cxWorstPrescRow(cdas, prazosByDebt);
+  const hasTerm = !!(worst && worst.group >= 1 && worst.group <= 4 && worst.prescDays != null);
+  let text = rm.label;
+  if (hasTerm) {
+    const d = worst.prescDays;
+    const target = addCalendarDays(localIso(new Date()), d);
+    text = (d <= 0 ? Math.abs(d) + 'd vencido' : d + ' dias') + ' · ' + cxDM(target);
+  }
+  return { riskClass: rm.riskClass, text, bar: hasTerm ? <CxHorizonBar days={worst.prescDays} group={worst.group} /> : null };
+}
+function CxPrescCell({ cdas, prazosByDebt }) {
+  const { riskClass, text, bar } = cxPrescDisplay(cdas, prazosByDebt);
+  return <td className={'cx-pt-presc risk-' + riskClass}>{bar}{text}</td>;
+}
+/** Fase atual do processStageV2 (mesma régua do Briefing), para a linha de grupo do hub. */
+function cxHubStageInfo(exec, briefing) {
+  if (!exec) return '';
+  const STAGES = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
+  const stageKeys = Object.keys(STAGES);
+  const recs = getStageRecords(briefing, exec.id);
+  const metas = stageMeta(STAGES, stageKeys, recs).filter(m => m.has && !isDismissedOnlyStageRec(m.rec));
+  if (!metas.length) return '';
+  const focused = [...metas].sort(compareStagesByDate).pop();
+  if (!focused) return '';
+  const dateStr = focused.rec && focused.rec.date ? fmtDate(focused.rec.date) : '';
+  const label = focused.sd.label + (focused.outcomeLabel ? ' · ' + focused.outcomeLabel : '');
+  return dateStr ? label + ' ' + dateStr : label;
+}
 
 function EditionClaudeProcessos(p) {
-  const { opId, data, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
+  const { opId, data, briefing, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
     selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck,
     procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people } = p;
   const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates } = classified;
@@ -3349,6 +3418,7 @@ function EditionClaudeProcessos(p) {
   const [showMore, setShowMore] = React.useState({});
   const [collapsedCards, setCollapsedCards] = React.useState(() => new Set(['emb', 'out']));
   const [peopleOpen, setPeopleOpen] = React.useState(false);
+  const [hubOpenOverride, setHubOpenOverride] = React.useState({});
 
   const passSig = (exec) => {
     if (sigActive.size === 0) return true;
@@ -3409,7 +3479,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerExecId && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(meta.total)}</td>
-        <td className={'cx-pt-presc risk-' + meta.riskClass}>{meta.label}</td>
+        <CxPrescCell cdas={g.cdas} prazosByDebt={prazosByDebt} />
       </tr>
       {apensos.map(ap => <ProcRow key={ap.exec.id} g={ap} depth={depth + 1} />)}
     </React.Fragment>;
@@ -3427,14 +3497,14 @@ function EditionClaudeProcessos(p) {
     const rest = sorted.length - visible.length;
     const totals = rows.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     const cdaCount = rows.reduce((s, g) => s + (g.cdas || []).length, 0);
-    const worstMeta = rows.map(g => cxEfMeta(g, prazosByDebt)).sort((a, b) => (a.riskClass === 'critical' ? 0 : a.riskClass === 'warning' ? 1 : 2) - (b.riskClass === 'critical' ? 0 : b.riskClass === 'warning' ? 1 : 2))[0];
+    const groupCdas = rows.flatMap(g => g.cdas || []);
     const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     return <React.Fragment>
       {label && <tr className="cx-pt-band">
         <td className="cx-pt-ck"></td><td colSpan={drawerExecId ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
         {!drawerExecId && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
-        <td className={'cx-pt-presc risk-' + (worstMeta ? worstMeta.riskClass : '')}>{worstMeta ? worstMeta.label : 'nenhuma no alarme'}</td>
+        <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
       {visible.map(g => <ProcRow key={rowKey(g)} g={g} />)}
       {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
@@ -3446,6 +3516,42 @@ function EditionClaudeProcessos(p) {
   const incGroups = hubs.map(h => ({ h, covered: filterRows(coveredByHub[h.exec.id] || []) }));
   const incSel = cardGroupSel.inc || 'all';
   const incVisibleHubs = incSel === 'all' ? incGroups : incGroups.filter(x => x.h.exec.id === incSel);
+  const isHubOpen = (id) => hubOpenOverride.hasOwnProperty(id)
+    ? hubOpenOverride[id]
+    : (incVisibleHubs.length === 1 || id === (hubs[0] && hubs[0].exec.id));
+  const toggleHubOpen = (id) => setHubOpenOverride(prev => ({ ...prev, [id]: !isHubOpen(id) }));
+  /* Linha de grupo do hub (IDPJ/MCF/Central): fase atual, "cobre N EFs/apensos", sinais, subtotal e
+     pior prescrição do próprio hub + tudo o que ele cobre (incl. apensos aninhados). Recolhível. */
+  const HubGroupRow = ({ h, covered }) => {
+    const open = isHubOpen(h.exec.id);
+    const bm = badgeFor(h.exec);
+    const kind = cxProcKind(h.exec);
+    const coveredFlat = cxFlattenWithApensos(covered, apensosByParent);
+    const allForHub = [h, ...coveredFlat];
+    const cdaCount = allForHub.reduce((s, g) => s + (g.cdas || []).length, 0);
+    const cdasFlat = allForHub.flatMap(g => g.cdas || []);
+    const totalVal = allForHub.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
+    const hMeta = cxEfMeta(h, prazosByDebt);
+    const phase = cxHubStageInfo(h.exec, briefing);
+    const unitLabel = covered.length + ' ' + bm.unit + (covered.length === 1 ? '' : 's');
+    return <React.Fragment key={h.exec.id}>
+      <tr className={'cx-pt-hubrow' + (drawerExecId === h.exec.id ? ' on' : '')} onClick={() => openDrawerFor(h.exec.id)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}></td>
+        <td className="cx-pt-num">
+          <button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button>
+          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
+          <span className="cx-mono">{h.exec.processNumber || 'S/N'}</span>
+          <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
+        </td>
+        {!drawerExecId && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
+        <td className="cx-pt-st"><span className={'badge ' + (hMeta.st.badge || 'badge-muted')}>{hMeta.st.label || h.exec.status || '—'}</span></td>
+        {!drawerExecId && <td className="cx-pt-r">{cdaCount}</td>}
+        <td className="cx-pt-r cx-mono"><b>{fmtCur(totalVal)}</b></td>
+        <CxPrescCell cdas={cdasFlat} prazosByDebt={prazosByDebt} />
+      </tr>
+      {open && <GroupBlock groupKey={'inc-' + h.exec.id} label={null} rows={covered} />}
+    </React.Fragment>;
+  };
 
   /* ── Cartão: Execuções sem vínculo ── */
   const bandOf = (list) => {
@@ -3485,7 +3591,7 @@ function EditionClaudeProcessos(p) {
     setData(prev => ({ ...prev, debts: prev.debts.map(d => ids.includes(d.id) ? { ...d, prescriptionHandled: val, prescriptionHandledAt: val ? today : d.prescriptionHandledAt, prescriptionHandledType: val ? (type || 'declarada') : d.prescriptionHandledType, updatedAt: now } : d) }));
   };
 
-  return <div className="cx cx-pp">
+  return <div className="cx cx-page cx-page-wide cx-pp">
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo ou CDA" />
       <div className="cx-pp-person">
@@ -3536,9 +3642,7 @@ function EditionClaudeProcessos(p) {
               ))}
             </div>
             <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
-              {incVisibleHubs.map(({ h, covered }) => (
-                <GroupBlock key={h.exec.id} groupKey={'inc-' + h.exec.id} label={null} rows={[h, ...covered]} />
-              ))}
+              {incVisibleHubs.map(({ h, covered }) => <HubGroupRow key={h.exec.id} h={h} covered={covered} />)}
             </tbody></table></div>
           </>}
           {!cardCollapsed('inc') && hubs.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF ou execução central levada ao panorama.</div>}
@@ -3567,12 +3671,10 @@ function EditionClaudeProcessos(p) {
                 const shownN = showMore['na'] || 8;
                 const sortedNa = [...unlinkedVisible].sort((a, b) => sortBy === 'numero' ? String(a.cdaNumber || '').localeCompare(String(b.cdaNumber || '')) : (b.value || 0) - (a.value || 0));
                 const visN = sortedNa.slice(0, shownN); const restN = sortedNa.length - visN.length;
-                const rm = prazosRiskMetaForCdas(unlinkedVisible, prazosByDebt);
                 return <React.Fragment>
-                  <tr className="cx-pt-band"><td className="cx-pt-ck"></td><td colSpan={2}><b>Não ajuizadas</b> <span className="cx-muted cx-small">{unlinkedVisible.length} CDAs</span></td><td className="cx-pt-r">{unlinkedVisible.length}</td><td className="cx-pt-r cx-mono">{fmtCur(naValue)}</td><td className={'cx-pt-presc risk-' + rm.riskClass}>{rm.label}</td></tr>
+                  <tr className="cx-pt-band"><td className="cx-pt-ck"></td><td colSpan={2}><b>Não ajuizadas</b> <span className="cx-muted cx-small">{unlinkedVisible.length} CDAs</span></td><td className="cx-pt-r">{unlinkedVisible.length}</td><td className="cx-pt-r cx-mono">{fmtCur(naValue)}</td><CxPrescCell cdas={unlinkedVisible} prazosByDebt={prazosByDebt} /></tr>
                   {visN.map(d => {
                     const isSel = selectedCDAs.has(d.id);
-                    const drm = prazosRiskMetaForCdas([d], prazosByDebt);
                     return <tr key={d.id} className="cx-pt-row cx-pt-row-cda" onClick={() => openDrawerFor('cda:' + d.id)}>
                       <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
                       <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
@@ -3580,7 +3682,7 @@ function EditionClaudeProcessos(p) {
                       <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
                       {!drawerExecId && <td className="cx-pt-r">—</td>}
                       <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
-                      <td className={'cx-pt-presc risk-' + drm.riskClass}>{drm.label}</td>
+                      <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
                     </tr>;
                   })}
                   {restN > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, na: shownN + 20 }))}>Mostrar mais {restN} CDAs</button></td></tr>}

@@ -7546,7 +7546,7 @@ function App() {
       // Clássico e Beta continuam com o renderizador abaixo, sem nenhuma mudança.
       if (isClaude) {
         return <EditionClaudeProcessos
-          opId={opId} data={data} classified={classified} execs={execs} allDebts={allDebts}
+          opId={opId} data={data} briefing={activeOp.briefing || {}} classified={classified} execs={execs} allDebts={allDebts}
           prazosByDebt={prazosByDebt} openIntimsByProc={openIntimsByProc} openTasksByProc={openTasksByProc}
           selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
           upsert={upsert} togglePrescCheck={togglePrescCheck}
