@@ -6668,6 +6668,13 @@ function App() {
 
 
     if (activeTab === 'tarefas') {
+      if (isClaude) {
+        return <EditionClaudeOpTarefas opId={opId} data={data} opsById={opsById} upsert={upsert}
+          isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+          onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, taskVisibility: 'operation' } })}
+          onCreate={(f) => handleSave('task', { id: uid(), status: 'pendente', taskVisibility: 'operation', operationId: opId, ...f })} />;
+      }
       const opTasks = (data.tasks || []).filter(t => t.operationId === (activeOp?.id || ''));
       const open = opTasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
       const done = opTasks.filter(t => t.status === 'concluida');
@@ -6735,6 +6742,19 @@ function App() {
     }
 
     if (activeTab === 'importar') {
+      if (isClaude) {
+        return <EditionClaudeImportar opId={opId} data={data} setData={setData}
+          importMode={importMode} setImportMode={setImportMode}
+          xlsInputRef={xlsInputRef} eprocInputRef={eprocInputRef} pgfnPdfInputRef={pgfnPdfInputRef}
+          handleXLSImport={handleXLSImport} handleEprocImport={handleEprocImport} handlePGFNPDFImport={handlePGFNPDFImport}
+          textoImportKind={textoImportKind} setTextoImportKind={setTextoImportKind}
+          aiText={aiText} setAiText={setAiText} setPrescImport={setPrescImport}
+          assetText={assetText} setAssetText={setAssetText}
+          handleAIImport={handleAIImport} handleAssetBulkImport={handleAssetBulkImport}
+          collapsedGroups={collapsedGroups} toggleGroup={toggleGroup}
+          importResult={importResult} setImportResult={setImportResult}
+          activeOpId={activeOpId} />;
+      }
       // Build per-type summary of last import for this operation
       const allLogs = (data.importLogs || []).filter(l => !l.operationId || l.operationId === opId);
       const IMPORT_TYPE_LABELS = {
@@ -9008,6 +9028,10 @@ function App() {
 
 
     if (activeTab === 'docs') {
+      if (isClaude) {
+        return <EditionClaudeArquivos opId={opId} data={data} setModal={setModal}
+          onOpenIntim={(id) => setCxDrawerId(id)} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const docs = (data.documents || []).filter(d => d.operationId === opId);
       return (<div className="entity-area">
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>

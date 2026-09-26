@@ -5206,6 +5206,31 @@ tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-
 .cx-pp-bulk-warn { flex-basis: 100%; font-size: 11px; color: var(--cx-ink-3); }
 @media (max-width: 720px) { .cx-pp-bulk { position: static; } .cx-pp-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; } }
 
+/* ── Fase 13: Tarefas / Arquivos / Importar (abas da operação) ── */
+/* Importar: duas colunas (o que fazer · estado), cada cartão com o mesmo cx-card das outras abas. */
+.cx-imp-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+.cx-imp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cx-imp-card { padding: 14px 16px; }
+.cx-imp-drops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cx-imp-drop-lbl { font-size: 11px; font-weight: 600; color: var(--cx-ink-2); margin-bottom: 6px; }
+.cx-drop { border: 1.5px dashed var(--cx-line-strong); border-radius: 10px; padding: 18px; text-align: center; color: var(--cx-ink-2); background: var(--cx-surface-2); cursor: pointer; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.cx-drop:hover, .cx-drop.over { border-color: var(--cx-accent); background: var(--cx-accent-soft); }
+.cx-drop b { color: var(--cx-ink); font-weight: 600; font-size: 12.5px; }
+.cx-imp-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; font-size: 11px; color: var(--cx-ink-2); line-height: 1.6; }
+.cx-imp-log-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cx-imp-log-h b { font-size: 12.5px; font-weight: 600; }
+.cx-log { font: 400 11.5px var(--cx-mono); line-height: 1.8; color: var(--cx-ink-2); }
+.cx-log .ok { color: var(--cx-green); } .cx-log .wa { color: var(--cx-orange); } .cx-log .err { color: var(--cx-red); }
+.cx-srcr { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 7px 0; border-top: 1px dotted var(--cx-line); font-size: 12px; }
+.cx-srcr:first-child { border-top: 0; }
+.cx-imp-hist { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.cx-imp-hist ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 900px) { .cx-imp-wrap { grid-template-columns: 1fr; } .cx-imp-drops { grid-template-columns: 1fr; } }
+
+/* Tarefas da operação: mesma lista/cartão da tela Tarefas (cx-list, cx-t-row, cx-quick), com a
+   linha de números e a busca no padrão das demais abas. */
+.cx-pp .cx-quick { margin-top: 12px; }
+
 /* Rótulo de risco (crítico/alerta/ok) reutilizado fora da tabela — ficha da CDA e aba CDAs
    da ficha do processo, mesmas cores da coluna Prescrição. */
 .cx-risk-critical { color: var(--cx-red); font-weight: 600; }
