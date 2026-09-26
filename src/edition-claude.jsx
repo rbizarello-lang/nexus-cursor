@@ -247,6 +247,9 @@ function cxCopy(text) {
   copyText(text);
   cxNotify('Copiado: ' + text);
 }
+function CxNumCopy({ value, children }) {
+  return <button type="button" className="cx-proc-copy" title="Copiar número" onClick={e => { e.stopPropagation(); if (value) cxCopy(value); }}>{children}</button>;
+}
 
 /* ─── Peças visuais ─── */
 function CxStatusIcon({ s }) {
@@ -836,7 +839,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
       <CxEstLine esteira={intim.esteira} />
       <div className="cx-i-sub"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><CxOpTag op={op} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
     </div>
-    <div className="cx-c-proc"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><span className="cx-cls">{intim.className || '—'}</span></div>
+    <div className="cx-c-proc"><button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={intim.processNumber} uf={intim.jurisdiction} /></button><span className="cx-cls">{intim.className || '—'}</span></div>
     <div className="cx-c-op"><CxOpTag op={op} onOpen={onOpenOp} /></div>
     <div className="cx-c-opdoc">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</div>
     <div className="cx-c-imp"><CxImp intim={intim} /></div>
@@ -3181,18 +3184,16 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
         const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
         const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0, 10)) : '');
         return (<div key={en.id} className="cx-bf-ent">
-          <div className="cx-bf-ent-d">{dt || '—'}</div>
-          <div className="cx-bf-ent-b">
-            <div className="cx-bf-ent-hd">
-              <span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span>
-              {en.pinned && <span className="cx-bf-pin" title="Fixada">📌</span>}
-              <span className="cx-sp" />
+          <div className="cx-bf-ent-top">
+            <span className="cx-bf-ent-d">{dt || '—'}</span>
+            <span className="cx-bf-type">{t.label}{en.pinned ? <span className="cx-bf-pin" title="Fixada"> 📌</span> : null}</span>
+            <span className="cx-bf-ent-acts">
               <button type="button" className="cx-bf-ic" title={en.pinned ? 'Desafixar' : 'Fixar'} onClick={() => togglePin(en)}>📌</button>
               <button type="button" className="cx-bf-ic" title="Editar" onClick={() => openEdit(en)}>✎</button>
               <button type="button" className="cx-bf-ic" title="Excluir" onClick={() => removeEntry(en)}>✕</button>
-            </div>
-            <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: en.html || '' }} />
+            </span>
           </div>
+          <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: en.html || '' }} />
         </div>);
       })}
     </div>
@@ -4230,7 +4231,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-          <span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
@@ -4241,8 +4242,8 @@ function EditionClaudeProcessos(p) {
     </React.Fragment>;
   };
 
-  const ProcTableHead = () => (
-    <thead><tr><th className="cx-pt-ck"></th><th>Processo</th>{!drawerOpen && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerOpen && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  const ProcTableHead = ({ first = 'Processo', sig = true, counts = true }) => (
+    <thead><tr><th className="cx-pt-ck"></th><th>{first}</th>{!drawerOpen && sig && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerOpen && counts && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
@@ -4295,7 +4296,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button></td>
         <td className="cx-pt-num">
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
-          <span className="cx-mono">{h.exec.processNumber || 'S/N'}</span>
+          <CxNumCopy value={h.exec.processNumber}><span className="cx-mono">{h.exec.processNumber || 'S/N'}</span></CxNumCopy>
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
         </td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
@@ -4431,7 +4432,7 @@ function EditionClaudeProcessos(p) {
             <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
             <span className="cx-muted cx-small">· sem processo</span>
           </div>
-          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead first="Inscrição" sig={false} counts={false} /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
             {unlinkedVisible.length > 0 && (() => {
               const shownN = showMore['na'] || 8;
@@ -4443,10 +4444,8 @@ function EditionClaudeProcessos(p) {
                   const isOpen = !!drawerCda && drawerCda.id === d.id;
                   return <tr key={d.id} className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => openCdaDrawer(d.id)}>
                     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
-                    <td className="cx-pt-num"><span className="cx-mono">{d.cdaNumber || 'CDA'}</span> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
-                    {!drawerOpen && <td className="cx-pt-sig"></td>}
+                    <td className="cx-pt-num"><CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
                     <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
-                    {!drawerOpen && <td className="cx-pt-r">—</td>}
                     <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
                     <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
                   </tr>;
@@ -4630,7 +4629,7 @@ function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, d
     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={onToggleSel} aria-label={'Selecionar CDA ' + (d.cdaNumber || '')} /></td>
     <td className={'cx-pt-num' + (depth ? ' nest' + Math.min(depth, 2) : '')}>
       <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-      <span className="cx-mono">{d.cdaNumber || 'CDA'}</span>
+      <CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy>
       <span className="cx-muted cx-small"> · {cdaEspecie(d)}</span>
       {notes.length > 0 && <span className="cx-copy" title={notes.join('\n')} aria-label={notes.length + ' nota(s)'}><CxIcon n="note" s={11} /></span>}
     </td>
@@ -4740,7 +4739,7 @@ function EditionClaudeInscricoes(p) {
     return <React.Fragment key={sg.subExec.id}>
       {!isSameAsUmbrella && <tr className={'cx-pt-band' + cxTreeRowClass(1)}>
         <td className="cx-pt-ck"></td>
-        <td colSpan={3} className="cx-pt-num nest1"><CxTreeMark level={1} isLast={isLast} /><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
+        <td colSpan={3} className="cx-pt-num nest1"><CxTreeMark level={1} isLast={isLast} /><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxNumCopy value={sg.subExec.processNumber}><span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span></CxNumCopy><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(subTotal)}</td>
         <CxPrescCell cdas={sg.cdas} prazosByDebt={prazosByDebt} />
       </tr>}
@@ -4761,8 +4760,8 @@ function EditionClaudeInscricoes(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.allCdas.map(d => d.id))} aria-label={'Selecionar grupo ' + (g.umbrella.processNumber || '')} /></td>
         <td colSpan={3}>
           <span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>
-          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{g.umbrella.processNumber || 'S/N'}</span>
-          {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <span className="cx-mono">{combinedEf.subExec.processNumber || 'S/N'}</span></> : null}
+          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxNumCopy value={g.umbrella.processNumber}><span className="cx-mono">{g.umbrella.processNumber || 'S/N'}</span></CxNumCopy>
+          {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <CxNumCopy value={combinedEf.subExec.processNumber}><span className="cx-mono">{combinedEf.subExec.processNumber || 'S/N'}</span></CxNumCopy></> : null}
           <span className="cx-muted cx-small"> · {cxPl(g.allCdas.length, 'CDA', 'CDAs')}</span>
           <span className="cx-pp-grpacts">
             <button type="button" className="cx-btn sm ghost" onClick={ev => { ev.stopPropagation(); copyProcMemoria(g.umbrella, g.allCdas); }}>📋 Presc.</button>
