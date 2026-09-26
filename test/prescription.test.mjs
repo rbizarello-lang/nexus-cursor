@@ -140,33 +140,29 @@ describe('computePrescription — decisões fechadas', () => {
     assert.equal(r.status, 'prescrito');
   });
 
-  it('9. IDPJ com constrição: suspende desde o pedido; cessação retoma sem zerar', () => {
-    const eventsOpen = [
+  it('9. IDPJ com constrição: vale como interrupção desde o pedido; aviso no card aos 5 anos', () => {
+    const events = [
       { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2020-01-01' },
       { id: 'i', executionId: 'e1', type: IDPJ_CONSTRICTION_TYPE, requestDate: '2022-01-10', date: '2022-03-01', _inheritedFromIDPJ: 'idpj1' }
     ];
-    const open = computePrescription({ debt: cda(), executions: [ef()], events: eventsOpen, asOf: ASOF });
-    assert.equal(open.phase, 'suspenso');
-    assert.notEqual(open.status, 'seguro');
-
+    const r = computePrescription({ debt: cda(), executions: [ef()], events, asOf: ASOF });
+    assert.equal(r.phase, 'interrompido');
+    assert.equal(r.interruptAt, '2022-01-10');
+    assert.equal(r.interruptVia, IDPJ_CONSTRICTION_TYPE);
+    assert.equal(r.band, null);
+    assert.equal(r.idpjNotice.limitDate, '2027-03-01');
+    assert.equal(r.idpjNotice.active, false);
+    // Cessada a constrição, a interrupção permanece.
     const closed = computePrescription({
       debt: cda(),
       executions: [ef()],
-      events: [{ ...eventsOpen[0] }, { ...eventsOpen[1], endDate: '2023-01-10' }],
+      events: [events[0], { ...events[1], endDate: '2023-01-10' }],
       asOf: ASOF
     });
-    assert.notEqual(closed.phase, 'interrompido');
-    assert.ok(closed.diesAdQuem);
-    const baseline = computePrescription({
-      debt: cda(),
-      executions: [ef()],
-      events: [eventsOpen[0]],
-      asOf: ASOF
-    });
-    assert.ok(closed.diesAdQuem > baseline.diesAdQuem);
+    assert.equal(closed.phase, 'interrompido');
   });
 
-  it('10. MCF com indisponibilidade: mesma suspensão', () => {
+  it('10. MCF com indisponibilidade: mesma interrupção; aviso ativo depois de 5 anos', () => {
     const r = computePrescription({
       debt: cda(),
       executions: [ef()],
@@ -176,7 +172,9 @@ describe('computePrescription — decisões fechadas', () => {
       ],
       asOf: ASOF
     });
-    assert.equal(r.phase, 'suspenso');
+    assert.equal(r.phase, 'interrompido');
+    assert.equal(r.idpjNotice.limitDate, '2026-06-01');
+    assert.equal(r.idpjNotice.active, true);
   });
 
   it('11. evento só em cdaId entra no cômputo do processo', () => {
@@ -670,7 +668,7 @@ describe('createPrescLookup — índice de eventos', () => {
     assert.equal(collected.events[0].type, IDPJ_CONSTRICTION_TYPE);
     assert.equal(collected.events[0]._inheritedFromIDPJ, 'idpj1');
     const r = computePrescription({ debt, executions, events, asOf: ASOF });
-    assert.ok(r.activeSuspensions.length);
+    assert.ok(r.timeline.some(e => e._inheritedFromIDPJ === 'idpj1'));
   });
 });
 
@@ -838,7 +836,7 @@ describe('Fase 1 — C1 a C7', () => {
     assert.ok((r.checks || []).some(c => /não tem constrição lançada/i.test(c)));
   });
 
-  it('C4: cautelar fiscal sempre mostra o cenário sem a pausa', () => {
+  it('C4: constrição na cautelar fiscal interrompe e o card pede esclarecimento aos 5 anos', () => {
     const debt = cda();
     const executions = [
       ef({ protocolDate: '2015-01-01' }),
@@ -849,8 +847,11 @@ describe('Fase 1 — C1 a C7', () => {
       { id: 'c', executionId: 'mcf1', type: 'susp_idpj_mcf_constricao', date: '2019-06-01', requestDate: '2019-06-01' }
     ];
     const r = computePrescription({ debt, executions, events, asOf: ASOF });
-    assert.ok(r.altWithoutIncident);
-    assert.ok((r.checks || []).some(c => /cautelar fiscal/i.test(c)));
+    assert.equal(r.phase, 'interrompido');
+    assert.equal(r.interruptSource, 'mcf1');
+    assert.equal(r.idpjNotice.active, true);
+    assert.match(r.idpjNotice.text, /Cautelar fiscal nº 50066666620234047000/);
+    assert.match(r.summary, /constrição no incidente/);
   });
 
   it('suspensão da execução por IDPJ, sem constrição: pausa e não interrompe', () => {
@@ -1027,7 +1028,7 @@ describe('Regras R1–R12', () => {
     assert.ok(r.rulesApplied.includes('R6'));
   });
 
-  it('R7 constrição no incidente pausa e mostra o outro cenário', () => {
+  it('R7 constrição no incidente interrompe como penhora e avisa no card', () => {
     // legalBasis: tese fazendária IDPJ/MCF
     // validatedAt: 2026-09-08
     const r = computePrescription({
@@ -1042,7 +1043,8 @@ describe('Regras R1–R12', () => {
       ],
       asOf: ASOF
     });
-    assert.ok(r.altWithoutIncident);
+    assert.equal(r.phase, 'interrompido');
+    assert.ok(r.idpjNotice);
     assert.ok(r.rulesApplied.includes('R7'));
   });
 

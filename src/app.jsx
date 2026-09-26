@@ -2265,34 +2265,48 @@ const STAMP_DEBT_STATUSES = new Set(['garantida', 'extinta']);
  * Beta: régua do quinquênio. Só desenha datas que a linha do tempo já calculou
  * (diesAQuo → diesAdQuem + ocorrências); não faz cálculo de prescrição próprio.
  */
-function PrescRuler({ seg, seal }) {
-  if (!seg || !seg.diesAQuo || !seg.diesAdQuem) return null;
-  if (seg.phase === 'interrompido' || seg.phase === 'nao_iniciado') return null;
+/**
+ * Régua do tempo de um relógio: fatos (traços), pausas (faixas claras), faixa cedo–tarde
+ * (hachurada) e hoje. `mini` desenha só a trilha, para a linha da Mesa.
+ */
+function PrescBandRuler({ seg, mini, asOf }) {
+  const m = buildPrescRulerModel(seg, asOf);
+  if (!m) return null;
   const t = (iso) => new Date(String(iso).slice(0, 10) + 'T00:00:00').getTime();
-  const start = t(seg.diesAQuo), end = t(seg.diesAdQuem);
-  if (!(end > start)) return null;
-  const now = new Date(); now.setHours(0, 0, 0, 0);
-  const pos = (ms) => Math.max(0, Math.min(100, ((ms - start) / (end - start)) * 100));
-  const nowPct = pos(now.getTime());
-  const daysLeft = Math.round((end - now.getTime()) / 86400000);
-  const tone = daysLeft <= 180 ? 'red' : daysLeft <= 540 ? 'yellow' : 'neutral';
-  const marks = (seg.occurrences || [])
-    .filter(o => o.date && t(o.date) > start && t(o.date) < end)
-    .map((o, i) => ({ key: i, pct: pos(t(o.date)), title: fmtDate(o.date) + ' · ' + betaSafeUiText(o.fact || '') }));
-  const estimated = seal === 'estimado';
+  const a = t(m.start);
+  const span = Math.max(1, t(m.end) - a);
+  const pct = (iso) => Math.max(0, Math.min(100, ((t(iso) - a) / span) * 100));
+  const summary = m.cedo
+    ? ('Data cedo ' + fmtDate(m.cedo) + (m.tarde ? ' · data tarde ' + fmtDate(m.tarde) : ' · data tarde sem termo'))
+    : (m.termo ? 'Termo ' + fmtDate(m.termo) : 'Sem termo calculado');
   return (
-    <div className={`presc-ruler tone-${tone}${estimated ? ' estimated' : ''}`}>
-      <div className="presc-ruler-track">
-        <div className="presc-ruler-fill" style={{ width: nowPct + '%' }} />
-        {marks.map(m => <span key={m.key} className="presc-ruler-mark" style={{ left: m.pct + '%' }} title={m.title} />)}
-        <span className="presc-ruler-now" style={{ left: nowPct + '%' }} title={'Hoje · ' + fmtDate(localIso(now))} />
+    <div className={'pbr' + (mini ? ' pbr-mini' : '')} title={mini ? summary : undefined}>
+      <div className="pbr-track">
+        {m.pauses.map((p, i) => (
+          <span key={'p' + i} className={'pbr-pause' + (p.open ? ' open' : '')}
+            style={{ left: pct(p.from) + '%', width: Math.max(0.6, pct(p.to) - pct(p.from)) + '%' }}
+            title={betaSafeUiText(p.label) + ': ' + fmtDate(p.from) + ' a ' + (p.open ? 'hoje (sem fim lançado)' : fmtDate(p.to))} />
+        ))}
+        {m.cedo && m.tarde && (
+          <span className={'pbr-band ' + m.bandKind}
+            style={{ left: pct(m.cedo) + '%', width: Math.max(0.8, pct(m.tarde) - pct(m.cedo)) + '%' }}
+            title={'Faixa: cedo ' + fmtDate(m.cedo) + ' · tarde ' + fmtDate(m.tarde)} />
+        )}
+        {m.cedo && <span className="pbr-term cedo" style={{ left: pct(m.cedo) + '%' }} title={'Data cedo ' + fmtDate(m.cedo)} />}
+        {m.tarde && <span className="pbr-term" style={{ left: pct(m.tarde) + '%' }} title={'Data tarde ' + fmtDate(m.tarde)} />}
+        {!m.cedo && m.termo && <span className="pbr-term" style={{ left: pct(m.termo) + '%' }} title={'Termo ' + fmtDate(m.termo)} />}
+        {!mini && m.facts.map((f, i) => (
+          <span key={'f' + i} className="pbr-fact" style={{ left: pct(f.date) + '%' }} title={fmtDate(f.date) + ' · ' + betaSafeUiText(f.label)} />
+        ))}
+        <span className="pbr-today" style={{ left: pct(m.today) + '%' }} title={'Hoje · ' + fmtDate(m.today)} />
       </div>
-      <div className="presc-ruler-ends">
-        <span>{fmtDate(seg.diesAQuo)}</span>
-        <span>{daysLeft < 0 ? 'termo passou' : daysLeft === 0 ? 'termo hoje' : `faltam ${daysLeft}d`}</span>
-        <span>{fmtDate(seg.diesAdQuem)}</span>
-      </div>
-      {estimated && <div className="presc-ruler-note">Datas estimadas: confira nos autos.</div>}
+      {!mini && (
+        <div className="pbr-ends">
+          <span>{fmtDate(m.start)}</span>
+          <span className="pbr-sum">{summary}</span>
+          <span>{fmtDate(m.end)}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -3040,6 +3054,7 @@ function App() {
   const betaNavRef = useRef(null);
   const [mesaOverCapOpen, setMesaOverCapOpen] = useState(false);
   const [mesaRestoOpen, setMesaRestoOpen] = useState(false);
+  const [mesaPenhoraOpen, setMesaPenhoraOpen] = useState(false);
   const [mesaSilencedOpen, setMesaSilencedOpen] = useState(false);
   const [mesaSnoozeId, setMesaSnoozeId] = useState(null);
   const [mesaSnoozeReason, setMesaSnoozeReason] = useState('aguardando_certidao');
@@ -3377,7 +3392,26 @@ function App() {
           if (rec.parcelamentos && rec.parcelamentos.length > 0) {
             const existingEvents = (data.prescriptionEvents || []).filter(pe => pe.cdaId === existing.id || (pe.batchCdaIds && pe.batchCdaIds.includes(existing.id)));
             for (const parc of rec.parcelamentos) {
-              if (isSIDA && !shouldEmitSidaParcelamentoEvents(parc)) continue;
+              if (isSIDA && !shouldEmitSidaParcelamentoEvents(parc)) {
+                // Pedido aguardando ou indeferido: interrompe na data do pedido, sem pausa.
+                if (sidaPedidoSemDeferimento(parc) && !existingEvents.some(pe => pe.type === 'int_pedido_parcelamento' && pe.date === parc.adesao)) {
+                  upsert('prescriptionEvents', {
+                    id: uid(),
+                    cdaId: existing.id,
+                    type: 'int_pedido_parcelamento',
+                    date: parc.adesao,
+                    legalBasis: 'Art. 174, p.ú., IV CTN; Súmula 653/STJ (extraído do SIDA)',
+                    processRef: parc.tipo || '',
+                    notes: `Pedido sem deferimento · ${parc.situacao || ''} · ${parc.modalidade || parc.tipo || 'Parcelamento'}`,
+                    source: 'sida',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  });
+                  eventsCreated++;
+                  logs.push(`  📅 Pedido de parcelamento sem deferimento CDA ${rec.cdaNumber}: ${fmtDate(parc.adesao)} (${parc.situacao || 'aguardando'}) — interrompe, sem pausa`);
+                }
+                continue;
+              }
               // Need at least adesao or encerramento date
               if (!parc.adesao && !parc.encerramento) continue;
 
@@ -3389,6 +3423,13 @@ function App() {
                   if (parc.encerramento && !dup.endDate) {
                     upsert('prescriptionEvents', { ...dup, endDate: parc.encerramento, notes: (dup.notes || '') + ` · RESCISÃO em ${fmtDate(parc.encerramento)} (${parc.situacao})`, updatedAt: new Date().toISOString() });
                     logs.push(`  📅 Atualizado parc. CDA ${rec.cdaNumber}: rescisão ${fmtDate(parc.encerramento)} adicionada ao evento existente`);
+                  } else if (!parc.encerramento && !dup.endDate) {
+                    // Reimportação com o parcelamento ainda ativo conta como conferência.
+                    const today = new Date().toISOString().slice(0, 10);
+                    if (dup.verifiedAt !== today) {
+                      upsert('prescriptionEvents', { ...dup, verifiedAt: today, updatedAt: new Date().toISOString() });
+                      logs.push(`  ✔ Parc. CDA ${rec.cdaNumber}: segue vigente no relatório — conferido em ${fmtDate(today)}`);
+                    }
                   }
                   continue;
                 }
@@ -3399,6 +3440,7 @@ function App() {
                   type: 'susp_parcelamento',
                   date: parc.adesao,
                   endDate: parc.encerramento || '',
+                  ...(parc.encerramento ? {} : { verifiedAt: new Date().toISOString().slice(0, 10) }),
                   legalBasis: 'Art. 174, p.ú., IV CTN + Art. 151, VI CTN (extraído do ' + (isSIDA ? 'SIDA' : 'Debcad') + ')',
                   processRef: parc.tipo || '',
                   notes: `${parc.modalidade || 'Parcelamento'}${parc.deferimento ? ` · Deferido: ${fmtDate(parc.deferimento)}` : ''} · ${rescInfo}${parc.obs ? ' · ' + parc.obs : ''}`,
@@ -3571,14 +3613,15 @@ function App() {
 
           if (rec.dataFalencia) {
             const existingEvents = (data.prescriptionEvents || []).filter(pe => pe.cdaId === existing.id);
-            const dupFal = existingEvents.find(pe => pe.type === 'susp_falencia' && pe.date === rec.dataFalencia);
+            // Evento antigo “Falência / Recuperação” com a mesma data não é duplicado: vale como recuperação até ser reclassificado.
+            const dupFal = existingEvents.find(pe => (pe.type === 'susp_falencia' || pe.type === 'susp_falencia_decretada') && pe.date === rec.dataFalencia);
             if (!dupFal) {
               upsert('prescriptionEvents', {
                 id: uid(),
                 cdaId: existing.id,
-                type: 'susp_falencia',
+                type: 'susp_falencia_decretada',
                 date: rec.dataFalencia,
-                legalBasis: 'Art. 151, CTN — Falência / recuperação (extraído do SIDA, Data de Falência)',
+                legalBasis: 'Falência decretada (extraído do SIDA, Data de Falência). Pausa só na data tarde.',
                 notes: `Data de Falência no relatório SIDA: ${fmtDate(rec.dataFalencia)}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -4485,6 +4528,16 @@ function App() {
     let propagateToLinkedEFs = true;
     if (type === 'prescriptionEvent') {
       Object.assign(cleanEntity, fillRequestDate(cleanEntity));
+      const evMeta = PRESC_EVENT_TYPES[cleanEntity.type];
+      // Ciência eletrônica sem abertura: vale o 10º dia da disponibilização.
+      if (evMeta && evMeta.category === 'marco' && cleanEntity.availableDate && !cleanEntity.date) {
+        cleanEntity.date = addCalendarDays(cleanEntity.availableDate, 10);
+      }
+      // Pausa lançada sem fim conta como conferida no dia do lançamento.
+      if (evMeta && evMeta.category === 'suspensiva' && cleanEntity.type !== 'susp_art40' && cleanEntity.type !== 'susp_idpj_mcf_constricao'
+        && !cleanEntity.endDate && !cleanEntity.verifiedAt) {
+        cleanEntity.verifiedAt = new Date().toISOString().slice(0, 10);
+      }
       noApensoPropagation = !!cleanEntity._noApensoPropagation;
       propagateToLinkedEFs = cleanEntity._propagateToLinkedEFs !== false;
       delete cleanEntity._noApensoPropagation;
@@ -4577,20 +4630,15 @@ function App() {
           : cleanEntity.cdaId ? [cleanEntity.cdaId] : [];
         if (targetIds.length > 0) {
           // Map event type → CDA status
+          // Nenhuma constrição marca “Garantida” automaticamente: a garantia se marca à mão.
           const statusMap = {
             susp_parcelamento: 'parcelada',
+            susp_transacao: 'parcelada',
             susp_embargos: 'suspensa_judicial',
             susp_decisao_judicial: 'suspensa_judicial',
             susp_deposito: 'suspensa_judicial',
-            susp_falencia: 'suspensa_judicial',
+            susp_falencia_decretada: 'suspensa_judicial',
             susp_admin: 'suspensa_admin',
-            int_penhora: 'garantida',
-            int_arresto: 'garantida',
-            ...(isDemo ? {} : {
-              int_sisbajud: 'garantida',
-              int_cnib: 'garantida',
-              susp_idpj_mcf_constricao: 'garantida',
-            }),
           };
           const newStatus = statusMap[cleanEntity.type];
           if (newStatus) {
@@ -6802,7 +6850,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {procStatusAlert.label} — processo <ProcNum value={procStatusAlert.processNumber} />. Verifique pendência de baixa.
                 </div>}
               </div>
-              {expandedCdas.has(d.id) && <div className="process-detail cda-expand-detail" onClick={ev=>ev.stopPropagation()}><CdaLegalDetail d={d} data={data} setModal={setModal} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} /></div>}
+              {expandedCdas.has(d.id) && <div className="process-detail cda-expand-detail" onClick={ev=>ev.stopPropagation()}><CdaLegalDetail d={d} data={data} setModal={setModal} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} onConfirmPause={confirmPauseEvent} isDemo={isDemo} /></div>}
               </div>
             </div>);
           };
@@ -6999,7 +7047,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             )}
             {(() => {
               const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
-              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} isDemo={isDemo} />;
+              return <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={togglePrescCheck} onOpenRules={() => setShowPrescRules(true)} onConfirmPause={confirmPauseEvent} isDemo={isDemo} />;
             })()}
             <div className="cda-inline-fields">
               {field('Status', st.label || d.status)}
@@ -7321,6 +7369,30 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       {e.prescriptionForecast && <span><span className="lbl">Prev. presc.</span> <strong style={{color:prescForecastDays!==null&&prescForecastDays<=365?prescForecastDays<=180?'var(--red)':'var(--yellow)':'inherit'}}>{fmtDate(e.prescriptionForecast)}{prescForecastDays!==null&&prescForecastDays<=365?` (${prescForecastDays}d)`:''}</strong></span>}
                     </div>
                   )}
+                  {!isIdpjOrMcf && e.processTag !== 'central' && (() => {
+                    const live = group.cdas.filter(d => d.status !== 'extinta');
+                    const lead = live[0] || group.cdas[0];
+                    const r = lead ? prescLookup(lead) : null;
+                    const notice = live.map(d => prescLookup(d).idpjNotice).find(n => n && n.active);
+                    const cdaIds = new Set(group.cdas.map(d => d.id));
+                    const evs = (data.prescriptionEvents || []).filter(ev => ev.executionId === e.id || cdaIds.has(ev.cdaId) || (ev.batchCdaIds || []).some(id => cdaIds.has(id)));
+                    const redir = redirecionamentoInfo({ exec: e, events: evs });
+                    return (<>
+                      {r && r.segment === 'intercorrente' && (
+                        <div className="proc-expand-fact proc-expand-ruler">
+                          <span className="lbl">Intercorrente</span>
+                          <PrescBandRuler seg={r} />
+                        </div>
+                      )}
+                      {notice && <div className="proc-expand-fact proc-idpj-notice">{betaSafeUiText(notice.text)}</div>}
+                      {redir && (
+                        <div className="proc-expand-fact" title={redir.basis}>
+                          <span className="lbl">Redirecionamento</span>
+                          <span className="val">{redir.text}</span>
+                        </div>
+                      )}
+                    </>);
+                  })()}
                 </div>
               </>
             ) : <span className="proc-expand-unlinked">⚠ CDAs Não Ajuizadas</span>}
@@ -8884,6 +8956,17 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       } : x)
     }));
   };
+  /** “Ainda vale”: grava hoje como última conferência de uma pausa sem fim. */
+  const confirmPauseEvent = (eventId) => {
+    if (!eventId) return;
+    const today = localIso(new Date());
+    const now = new Date().toISOString();
+    setData(prev => ({
+      ...prev,
+      prescriptionEvents: (prev.prescriptionEvents || []).map(ev => ev.id === eventId ? { ...ev, verifiedAt: today, updatedAt: now } : ev)
+    }));
+    showToast('Pausa conferida hoje');
+  };
   const togglePrescCheck = (debtId, item) => {
     if (!debtId || !item || !item.id) return;
     const today = localIso(new Date());
@@ -8945,11 +9028,50 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       }
     });
   };
+  const confirmPauseStillValid = (r) => {
+    const today = localIso(new Date());
+    const now = new Date().toISOString();
+    const ids = new Set((r.action && r.action.eventIds) || []);
+    if (!ids.size) {
+      const debt = (data.debts || []).find(d => d.id === r.id);
+      const cdaEvents = debt ? collectEventsForCda(debt, data.executions || [], data.prescriptionEvents || []).events : [];
+      openPauseEvents(cdaEvents, today).forEach(p => { if (!p.inherited) ids.add(p.id); });
+    }
+    if (!ids.size) { openCdaInscricoes(r, { scrollCols: true }); return; }
+    setData(prev => ({
+      ...prev,
+      prescriptionEvents: (prev.prescriptionEvents || []).map(ev => ids.has(ev.id) ? { ...ev, verifiedAt: today, updatedAt: now } : ev)
+    }));
+    showToast('Pausa conferida hoje');
+  };
+  const markPenhoraAnalisada = (r) => {
+    const nota = window.prompt('Penhora antiga analisada. Registre a conclusão (opcional):', '');
+    if (nota === null) return;
+    const today = localIso(new Date());
+    const now = new Date().toISOString();
+    setData(prev => ({
+      ...prev,
+      debts: (prev.debts || []).map(d => d.id === r.id ? { ...d, penhoraAnalise: { at: today, nota: String(nota || '').trim() }, updatedAt: now } : d)
+    }));
+    showToast('Marcada como analisada. Volta à lista com fato novo ou em 1 ano.');
+  };
   const applyMesaAction = (r) => {
     if (!r || !r.action) return;
     const t = r.action.type;
     if (t === 'criar_evento') {
       openPrescEventForRow(r, { type: r.action.eventType });
+      return;
+    }
+    if (t === 'confirmar_vigencia') {
+      confirmPauseStillValid(r);
+      return;
+    }
+    if (t === 'analisar_penhora') {
+      markPenhoraAnalisada(r);
+      return;
+    }
+    if (t === 'lancar_ciencia') {
+      openPrescEventForRow(r, { type: 'marco_sem_bens' });
       return;
     }
     if (t === 'vincular_ef' || t === 'corrigir_ficha') {
@@ -8959,7 +9081,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       setModal({
         type: 'edit',
         entityType: 'debt',
-        initial: { ...debt, _focusField: t === 'vincular_ef' ? 'processNumber' : 'prescriptionDate' }
+        initial: { ...debt, _focusField: t === 'vincular_ef' ? 'processNumber' : (r.action.field === 'constituicao' ? 'dueDate' : 'prescriptionDate') }
       });
       return;
     }
@@ -9034,7 +9156,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const setPrazosDeskMode = (mode) => updateSetting('prazosDeskMode', mode === 'lista' ? 'lista' : 'mesa');
   const renderPrazosMesaToggle = () => (
     <div className="prazos-toggle mesa-mode-toggle">
-      <button type="button" className={prazosDeskMode === 'mesa' ? 'active' : ''} onClick={() => setPrazosDeskMode('mesa')}>Mesa</button>
+      <button type="button" className={prazosDeskMode === 'mesa' ? 'active' : ''} onClick={() => setPrazosDeskMode('mesa')}>Mesa de prazos</button>
       <button type="button" className={prazosDeskMode === 'lista' ? 'active' : ''} onClick={() => setPrazosDeskMode('lista')}>Lista</button>
     </div>
   );
@@ -9081,9 +9203,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             ? <Ficha k="Cálculo" tone={'cert-' + cert}>{cert}</Ficha>
             : <span className={`mesa-cert ${cert}`}>{cert}</span>}
           {expired && <span className="mesa-expired">expirou o silêncio</span>}
-          <span className="mesa-why">{betaSafeUiText(r.why || r.prescLabel || '')}</span>
+          <span className="mesa-why" title={r.basis || undefined}>{betaSafeUiText(r.why || r.prescLabel || '')}</span>
+          {r.keyLabel && <span className="mesa-date" title={r.basis || undefined}>{r.keyLabel}</span>}
           <span className="mesa-val">{fmtCur(r.value || 0)}</span>
         </div>
+        {debt && <PrescBandRuler seg={prescLookup(debt)} mini />}
         {isParc && (
           <div className="mesa-inline-parc">
             <input type="date" value={mesaParcDraft[r.id] || ''}
@@ -9108,7 +9232,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </span>
           {r.action && r.action.type && r.action.type !== 'nenhuma' && r.action.type !== 'conferir_autos' && !isParc && (
             <button type="button" className="btn-primary btn-xs" onClick={() => applyMesaAction(r)}>
-              {r.action.type === 'criar_evento' ? 'Lançar fato' : r.action.type === 'vincular_ef' ? 'Vincular EF' : r.action.type === 'corrigir_ficha' ? 'Corrigir ficha' : r.action.type === 'lancar_ciencia' ? 'Lançar ciência' : 'Agir'}
+              {r.action.type === 'criar_evento' ? 'Lançar fato' : r.action.type === 'vincular_ef' ? 'Vincular EF' : r.action.type === 'corrigir_ficha' ? (r.action.field === 'constituicao' ? 'Informar datas' : 'Corrigir ficha') : r.action.type === 'lancar_ciencia' ? 'Lançar ciência' : r.action.type === 'confirmar_vigencia' ? 'Ainda vale' : r.action.type === 'analisar_penhora' ? 'Marcar analisada' : 'Agir'}
             </button>
           )}
         </div>
@@ -9116,6 +9240,20 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       </div>
     );
   };
+  const renderMesaGroups = (list, notesByProc) => groupMesaRows(list).map(g => {
+    const notes = g.type === 'execucao' ? (notesByProc.get(normProc(g.processNumber)) || []) : [];
+    if (g.type !== 'execucao' || (g.rows.length < 2 && !notes.length)) return g.rows.map(renderMesaRow);
+    return (
+      <div key={g.key} className="mesa-exec-group">
+        <div className="mesa-exec-hd">
+          <span className="mesa-proc">{g.processNumber ? <ProcNum value={g.processNumber} /> : 'sem processo'}</span>
+          <span className="mesa-exec-meta">{g.rows.length} CDA{g.rows.length === 1 ? '' : 's'} · {fmtCur(g.value)}</span>
+          {notes.map((n, i) => <div key={i} className={'mesa-exec-note ' + (n.kind || 'idpj')}>{betaSafeUiText(n.text)}</div>)}
+        </div>
+        {g.rows.map(renderMesaRow)}
+      </div>
+    );
+  });
   const renderPrazosMesa = () => {
     const pf = prazosFilters;
     const today = localIso(new Date());
@@ -9139,6 +9277,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       );
     }
     const split = splitMesaRows(rows, today);
+    const notesByProc = new Map();
+    (prazosRadar.processNotes || []).forEach(n => {
+      const k = normProc(n.processNumber);
+      if (!k) return;
+      if (!notesByProc.has(k)) notesByProc.set(k, []);
+      notesByProc.get(k).push(n);
+    });
     const drawer = mesaDrawerItems({ rows, silenced: prazosRadar.silenced || [], hideG5: true });
     const dueWeek = countSnoozeDueThisWeek(prazosRadar.silenced || [], today);
     const restCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -9162,7 +9307,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         <section className="mesa-block mesa-needs">
           <h2>PRECISA DE VOCÊ</h2>
           {split.needsYou.length === 0 && split.overCap.length === 0 && <p className="mesa-empty">Nada exige decisão agora. O restante está abaixo, sem alarme.</p>}
-          {split.needsYou.map(renderMesaRow)}
+          {renderMesaGroups(split.needsYou, notesByProc)}
           {split.overCap.length > 0 && (
             <button type="button" className="mesa-overcap" onClick={() => setMesaOverCapOpen(v => !v)}>
               +{split.overCap.length} acima do orçamento
@@ -9170,6 +9315,16 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           )}
           {mesaOverCapOpen && split.overCap.map(renderMesaRow)}
         </section>
+        {split.penhoraAntiga.length > 0 && (
+          <section className="mesa-block mesa-penhora">
+            <button type="button" className="mesa-rest-line" onClick={() => setMesaPenhoraOpen(v => !v)}>
+              <strong>PENHORA ANTIGA — ANALISAR</strong>
+              <span>{split.penhoraAntiga.length} CDA{split.penhoraAntiga.length === 1 ? '' : 's'} com penhora ou bloqueio há mais de 6 anos, sem outro fato lançado</span>
+              <span className="mesa-rest-chev">{mesaPenhoraOpen ? '▾' : '▸'}</span>
+            </button>
+            {mesaPenhoraOpen && <div className="mesa-rest-body">{renderMesaGroups(split.penhoraAntiga, notesByProc)}</div>}
+          </section>
+        )}
         <section className="mesa-block mesa-rest">
           <button type="button" className="mesa-rest-line" onClick={() => setMesaRestoOpen(v => !v)}>
             <strong>O RESTO</strong>
@@ -9182,7 +9337,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               {restByGroup.map(block => (
                 <div key={block.g} className="mesa-rest-group">
                   <div className="mesa-rest-hd">Grupo {block.g} · {PRAZOS_GROUP_LABELS[block.g]} · {block.rows.length}</div>
-                  {block.rows.map(renderMesaRow)}
+                  {renderMesaGroups(block.rows, notesByProc)}
                 </div>
               ))}
             </div>
@@ -9201,7 +9356,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             {drawer.length === 0 && <p className="mesa-empty">Nada silenciado.</p>}
             {drawer.map(item => {
               const d = debtById.get(item.debtId);
-              const reasonLabel = PRESC_SNOOZE_REASONS[item.reason] || (item.reason === 'aguardando_reconhecimento' ? 'Aguardando decisão' : item.reason === 'ainda_impossivel' ? 'Ainda impossível' : item.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : item.label);
+              const reasonLabel = PRESC_SNOOZE_REASONS[item.reason] || (item.reason === 'aguardando_reconhecimento' ? 'Aguardando decisão' : item.reason === 'ainda_impossivel' ? 'Ainda impossível' : item.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : item.reason === 'parcelada_ficha' ? 'Parcelada na ficha' : item.label);
               return (
                 <div key={item.id} className="mesa-drawer-row">
                   <span className="mesa-cda">{(d && d.cdaNumber) || item.debtId}</span>
@@ -9333,7 +9488,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <span className="prazos-cda-m">{[r.tribute, fmtCur(r.value || 0)].filter(Boolean).join(' · ')}</span>
           </span>
           <span className="prazos-sum">{isDemo ? betaSafeUiText(r.summary || r.prescLabel || r.why || '') : (r.summary || r.prescLabel || '—')}</span>
-          <span className="prazos-key">{r.keyLabel || '—'}{r.prescDecision ? <span className="prazos-seal">decisão</span> : null}</span>
+          <span className="prazos-key" title={r.basis || undefined}>{r.keyLabel || '—'}{r.decisionNote ? <span className="prazos-seal" title={r.decisionNote}>análise diverge</span> : null}</span>
           <span className="prazos-check">{open[0] ? ((isDemo ? betaSafeUiText(open[0].text) : open[0].text) + extra) : '—'}</span>
           <span className="prazos-inc">
             <span className={`prazos-dot ${r.incidentDot || 'none'}`}></span>
@@ -9352,9 +9507,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           {counterBtn(4, 'Acompanhamento')}
           {counterBtn(5, 'Ainda impossível')}
           {counterBtn(6, 'Consumada')}
+          {!!(t[7] && t[7].n) && counterBtn(7, 'Penhora antiga')}
         </div>
         {!!prazosRadar.divergencias && (
-          <div className="prazos-div">{prazosRadar.divergencias} divergência(s) — o cálculo do app é mais grave que a análise; a decisão importada foi mantida.</div>
+          <div className="prazos-div">{prazosRadar.divergencias} divergência(s) entre a análise importada e o cálculo do app. O cálculo prevalece; lance o fato que justifica a análise.</div>
         )}
         <div className="prazos-toolbar prazos-toolbar-roomy">
           {renderPrazosMesaToggle()}
@@ -9464,6 +9620,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {listGroup !== 'operacao' && <span>◎ {g.opName}</span>}
                   {listGroup === 'processo' && seal(g.incident) && <span className="prazos-seal">{seal(g.incident)}</span>}
                   <span>{g.rows.length} CDA(s) · {fmtCur(g.value)}</span>
+                  {listGroup === 'processo' && (prazosRadar.processNotes || []).filter(n => g.processNumber && sameProc(n.processNumber, g.processNumber)).map((n, i) => (
+                    <div key={i} className={'mesa-exec-note ' + (n.kind || 'idpj')}>{betaSafeUiText(n.text)}</div>
+                  ))}
                 </div>
                 {g.rows.map(renderCdaRow)}
               </div>
@@ -9485,7 +9644,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       : hojeFilter === 'tarefas' ? 'Nenhuma tarefa urgente nesta fila.'
       : hojeFilter === 'mesa' ? 'Nenhum prazo da Mesa exige atuação urgente nesta fila.'
       : hojeFilter === 'prescricao' ? 'Nenhuma prescrição com prazo de 30 dias ou menos.'
-      : 'Nada urgente nos próximos 7 dias (e nenhuma prescrição ≤180d). Use Operações ou Intimações e Tarefas para navegar o acervo.';
+      : 'Nada urgente nos próximos 7 dias (e nenhuma prescrição vencida ou iminente). Use Operações ou Intimações e Tarefas para navegar o acervo.';
     return (
       <div className="demo-hoje">
         <div className="demo-hoje-hero">
@@ -9856,7 +10015,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     { id: 'prazos', label: 'Prescrição', active: viewMode === 'prazos', go: () => startTabSwitch(() => setViewMode('prazos')) },
     { id: 'operacoes', label: 'Operações', active: viewMode === 'operacoes', go: () => startTabSwitch(() => setViewMode('operacoes')) },
     { id: 'intimacoes', label: 'Intimações e Tarefas', extra: (openIntimsCount + openTasksCount) || 0, active: viewMode === 'intimacoes' || viewMode === 'tarefas_global', go: () => startTabSwitch(() => setViewMode(viewMode === 'tarefas_global' ? 'tarefas_global' : 'intimacoes')) },
-    { id: 'mesa', label: 'Mesa', extra: deskCount, active: viewMode === 'mesa', go: () => startTabSwitch(() => setViewMode('mesa')) },
+    { id: 'mesa', label: 'Mesa de intimações', extra: deskCount, active: viewMode === 'mesa', go: () => startTabSwitch(() => setViewMode('mesa')) },
     { id: 'acompanhar', label: 'Acompanhar', extra: watchCount, active: viewMode === 'acompanhar', go: () => startTabSwitch(() => setViewMode('acompanhar')) },
     { id: 'audiencias', label: 'Agenda', extra: hearingsAheadCount, active: viewMode === 'audiencias', go: () => startTabSwitch(() => setViewMode('audiencias')) },
     { id: 'modelos', label: 'Modelos', extra: (data.models || []).length, active: viewMode === 'modelos', go: () => startTabSwitch(() => setViewMode('modelos')) },
@@ -9919,7 +10078,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     onWatch: (intim) => setModal({ type: 'create', entityType: 'watch', initial: { processNumber: intim.processNumber, parties: intim.parties, operationId: intim.operationId, reason: `Origem: ${intim.eventDescription || 'intimação'}`, createdAt: new Date().toISOString() } }),
   };
   const cxCrumbs = (() => {
-    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
+    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
     if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, activeTab === 'pessoas' ? 'Partes' : activeTab === 'bens' ? 'Bens' : tabLabels[activeTab]].filter(Boolean);
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
@@ -10139,7 +10298,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
           </button>
           <button type="button" className={`top-nav-btn ${viewMode==='mesa'?'active':''}`}
             onClick={() => { setViewMode('mesa'); }}>
-            Mesa
+            Mesa de intimações
             {(() => { const n = (data.desk||[]).length; return n > 0 ? <span style={{marginLeft:4,fontSize:10,color:'var(--text-muted)'}}>({n})</span> : null; })()}
           </button>
           <button className={`top-nav-btn ${viewMode==='acompanhar'?'active':''}`} onClick={() => startTabSwitch(() => setViewMode('acompanhar'))}>
@@ -10210,7 +10369,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
-        a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento }}
+        a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}
         onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
@@ -10269,7 +10428,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
               const v1 = (t[1] && t[1].value) || 0;
               const v2 = (t[2] && t[2].value) || 0;
               const prescRiskN = n1 + n2;
-              const prescRiskVal = v1 + v2;
+              // O valor do cartão soma só o grupo 1 (vencido ou iminente).
+              const prescRiskVal = v1;
               return (<>
                 <div className="dashboard-kpis">
                   <div className="kpi-widget kpi-pgfn">
@@ -10295,9 +10455,9 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                     </div>
                   ) : (
                   <div className="kpi-widget kpi-green" style={{cursor:'pointer'}} onClick={() => openPrazos(0)}>
-                    <div className="kpi-label has-tip">Risco prescricional<span className="tip-content">Mesmos números da aba Prazos extintivos: grupos vencido/iminente e a conferir.</span></div>
+                    <div className="kpi-label has-tip">Risco prescricional<span className="tip-content">Mesmos números da aba Prazos extintivos: grupos vencido/iminente e a conferir. O valor soma só o vencido/iminente.</span></div>
                     <div className="kpi-value" style={{color: prescRiskN > 0 ? 'var(--red)' : 'inherit'}}>{prescRiskN}</div>
-                    <div className="kpi-sub">{prescRiskN > 0 ? fmtCur(prescRiskVal)+' em risco' : 'Situação controlada'}</div>
+                    <div className="kpi-sub">{prescRiskN > 0 ? (prescRiskVal > 0 ? fmtCur(prescRiskVal)+' urgente' : n2 + ' a conferir') : 'Situação controlada'}</div>
                   </div>
                   )}
                 </div>
@@ -11272,7 +11432,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         return (<div className="entity-area">
           <div className="mesa-header">
             <div>
-              <span className="mesa-title">Mesa de trabalho</span>
+              <span className="mesa-title">Mesa de intimações</span>
               <span className="muted" style={{ marginLeft: 10, fontSize: 11 }}>{items.length} item(ns) em foco</span>
             </div>
             <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}>
@@ -12301,14 +12461,16 @@ function SidaHistoryBlock({ debt }) {
           <tbody>
             {parcs.map((p, i) => {
               const hit = shouldEmitSidaParcelamentoEvents(p);
+              const pedido = !hit && sidaPedidoSemDeferimento(p);
               return (
-                <tr key={i} className={hit ? 'debcad-prot-hit' : undefined}>
+                <tr key={i} className={hit || pedido ? 'debcad-prot-hit' : undefined}>
                   <td className="mono">{fmtDate(p.adesao)}</td>
                   <td className="mono">{p.deferimento ? fmtDate(p.deferimento) : '—'}</td>
                   <td className="mono">{p.encerramento ? fmtDate(p.encerramento) : '—'}</td>
                   <td>
                     {p.situacao || '—'}
                     {hit && p.adesao ? <span className="debcad-prot-flag"> → evento de prescrição em {fmtDate(p.adesao)}</span> : null}
+                    {pedido ? <span className="debcad-prot-flag"> → pedido sem deferimento: interrompe em {fmtDate(p.adesao)}, sem pausa</span> : null}
                   </td>
                   <td>{p.tipo || p.modalidade || '—'}</td>
                 </tr>
@@ -12388,15 +12550,29 @@ function SidaHistoryBlock({ debt }) {
   );
 }
 
-function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo }) {
+function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, onConfirmPause, isDemo }) {
   if (!timeline) return null;
+  const clockEvents = ((timeline.intercorrente || timeline.ordinaria || {}).timeline) || [];
+  const openPauses = openPauseEvents(clockEvents);
   const keys = [
     { key: 'decadencia', title: 'Decadência' },
     { key: 'ordinaria', title: 'Prescrição ordinária' },
     { key: 'intercorrente', title: 'Prescrição intercorrente' }
   ];
   const safe = (s) => betaSafeUiText(s);
-  return (
+  return (<>
+    {openPauses.length > 0 && (
+      <div className="cda-open-pauses">
+        <span className="cda-presc-k">Pausas sem data de fim</span>
+        {openPauses.map(p => (
+          <div key={p.id} className="cda-open-pause">
+            <span>{safe(p.label)} desde {fmtDate(p.start)} · última conferência: {p.lastCheck ? fmtDate(p.lastCheck) : 'nenhuma'}</span>
+            {onConfirmPause && !p.inherited && <button type="button" className="btn-secondary btn-xs" onClick={() => onConfirmPause(p.id)}>Ainda vale</button>}
+          </div>
+        ))}
+        <span className="cda-open-pause-hint">A data cedo presume que a pausa acabou na última conferência. Se acabou, edite o evento e informe a cessação.</span>
+      </div>
+    )}
     <div className="cda-presc-cols">
       {keys.map(({ key, title }) => {
         if (!timeline[key]) return null;
@@ -12413,10 +12589,10 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo })
               <span className="cda-presc-title">{title}</span>
               <span className={'cda-presc-seal ' + sealClass}>{safe(col.seal)}</span>
             </div>
-            {isDemo && key !== 'decadencia' && <PrescRuler seg={timeline[key]} seal={col.seal} />}
+            <PrescBandRuler seg={timeline[key]} />
             <div className="cda-presc-block">
               <div className="cda-presc-k">Situação</div>
-              <div className="cda-presc-sum">
+              <div className="cda-presc-sum" title={col.basis || undefined}>
                 {key === 'intercorrente' && timeline.exec && timeline.exec.prescDecision
                   ? ('Decisão de ' + fmtDate(timeline.exec.prescDecision.analysisDate) + ' (análise NotebookLM): ' + (decisionLabel(timeline.exec.prescDecision.situation) || timeline.exec.prescDecision.situation) + '. ')
                   : ''}
@@ -12426,6 +12602,12 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo })
             <div className="cda-presc-block">
               <div className="cda-presc-k">Datas</div>
               <div className="cda-presc-dates">{safe(datesLine)}</div>
+              {col.band && (
+                <div className={'cda-presc-band ' + (col.band.open ? col.band.kind : 'incerto')} title={col.band.motivos.join(' ')}>
+                  <div className="cda-presc-band-line">{safe(col.band.line)}</div>
+                  {col.band.motivos.map((t, i) => <div key={i} className="cda-presc-band-why">{safe(t)}</div>)}
+                </div>
+              )}
             </div>
             <div className="cda-presc-block">
               <div className="cda-presc-k">Ocorrências</div>
@@ -12468,10 +12650,10 @@ function CdaPrescColumns({ timeline, debt, onToggleCheck, onOpenRules, isDemo })
         );
       })}
     </div>
-  );
+  </>);
 }
 
-function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo }) {
+function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, onConfirmPause, isDemo }) {
   const tl = useMemo(() => computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }), [d, data.executions, data.prescriptionEvents]);
   const [scope, setScope] = useState('completo');
   const [copied, setCopied] = useState(false);
@@ -12526,7 +12708,7 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
           <button type="button" className="btn-secondary btn-xs" onClick={() => setModal({type:'edit',entityType:'debt',initial:d})}>Editar</button>
         </div>
       )}
-      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} isDemo={isDemo} />
+      <CdaPrescColumns timeline={tl} debt={d} onToggleCheck={onToggleCheck} onOpenRules={onOpenRules} onConfirmPause={onConfirmPause} isDemo={isDemo} />
       <div className="cda-inline-fields">
         {field('Devedor', personName)}
         {field('CPF/CNPJ', d.cnpj)}
@@ -12539,7 +12721,11 @@ function CdaLegalDetail({ d, data, setModal, onToggleCheck, onOpenRules, isDemo 
         {field('Forma de constituição', d.formaConstituicao || d.docOrigem)}
         {field('Modalidade de lançamento', LAUNCH_MODES[d.launchMode]?.label)}
         {field('Fim do período de apuração', d.taxPeriodEnd ? fmtDate(d.taxPeriodEnd) : null)}
-        {field('Constituição definitiva', d.constitutionDate ? fmtDate(d.constitutionDate) : null)}
+        {field('Vencimento', d.dueDate ? fmtDate(d.dueDate) : null)}
+        {field('Entrega da declaração', d.declarationDate ? fmtDate(d.declarationDate) : null)}
+        {field('Notificação do lançamento', d.assessmentNoticeDate ? fmtDate(d.assessmentNoticeDate) : null)}
+        {field('Constituição definitiva', d.constitutionDate ? fmtDate(d.constitutionDate)
+          : (constituicaoDefinitiva(d).date ? fmtDate(constituicaoDefinitiva(d).date) + ' (calculada)' : null))}
         {field('Inscrição', d.inscriptionDate ? fmtDate(d.inscriptionDate) : null)}
         {field('Processo', d.processNumber ? `${d.processNumber}${tl.exec?.court ? ` · ${tl.exec.court}` : ''}` : null)}
         {field('Protocolo', tl.exec?.protocolDate ? fmtDate(tl.exec.protocolDate) : null)}
@@ -13333,10 +13519,43 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <div className="form-group"><label>{form.launchMode==='vicio_formal'?'Decisão anulatória definitiva':'Fim do período de apuração'}</label>
             <input type="date" value={form.taxPeriodEnd||''} onChange={e=>set('taxPeriodEnd',e.target.value)} />
           </div>
-          <div className="form-group"><label>Constituição definitiva</label>
+          <div className="form-group"><label>Constituição definitiva (se conhecida)</label>
             <input type="date" value={form.constitutionDate||''} onChange={e=>set('constitutionDate',e.target.value)} />
           </div>
         </div>
+        <div className="form-row-3" style={{marginBottom:0}}>
+          <div className="form-group"><label>Vencimento</label>
+            <input type="date" value={form.dueDate||''} onChange={e=>set('dueDate',e.target.value)} />
+          </div>
+          {form.launchMode === 'declarado' ? (
+            <div className="form-group"><label>Entrega da declaração</label>
+              <input type="date" value={form.declarationDate||''} onChange={e=>set('declarationDate',e.target.value)} />
+            </div>
+          ) : (
+            <div className="form-group"><label>Notificação do lançamento</label>
+              <input type="date" value={form.assessmentNoticeDate||''} onChange={e=>set('assessmentNoticeDate',e.target.value)} />
+            </div>
+          )}
+          {form.launchMode === 'declarado' ? <div className="form-group" /> : (
+            <div className="form-group"><label>Decisão administrativa definitiva</label>
+              <input type="date" value={form.finalDecisionDate||''} onChange={e=>set('finalDecisionDate',e.target.value)} />
+            </div>
+          )}
+        </div>
+        {form.launchMode && form.launchMode !== 'declarado' && (
+          <div className="form-row-3" style={{marginBottom:0}}>
+            <div className="form-group"><label>Prazo para pagamento (dias)</label>
+              <input type="number" min="1" value={form.paymentTermDays||''} placeholder={String(PRAZO_PAGAMENTO_PADRAO)} onChange={e=>set('paymentTermDays', e.target.value ? parseInt(e.target.value, 10) || '' : '')} />
+            </div>
+          </div>
+        )}
+        {(() => {
+          const cd = constituicaoDefinitiva(form);
+          if (form.constitutionDate) return null;
+          if (cd.date) return <span style={{fontSize:10,color:'var(--text-secondary)',display:'block',marginTop:4}}>Constituição calculada: <strong>{fmtDate(cd.date)}</strong> ({cd.how}).</span>;
+          if (cd.lowerBound) return <span style={{fontSize:10,color:'var(--text-muted)',display:'block',marginTop:4}}>Sem constituição: a data cedo conta de {fmtDate(cd.lowerBound)} (vencimento ou período); a tarde, da inscrição.</span>;
+          return null;
+        })()}
         {form.launchMode && LAUNCH_MODES[form.launchMode] && <span style={{fontSize:9,color:'var(--text-muted)',display:'block',marginTop:4}}>{LAUNCH_MODES[form.launchMode].desc}</span>}
       </div>
 
@@ -13949,7 +14168,16 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <div className="form-group"><label>Data do pedido</label><input type="date" value={form.requestDate||''} onChange={e=>set('requestDate',e.target.value)} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Protocolo da petição que requereu a constrição. O efeito retroage a esta data. Se vazio, grava igual à efetivação.</span></div>
         )}
-        <div className="form-group"><label>{needsRequestDate ? (isDemo && destIsIncident ? 'Constrição efetiva' : 'Constrição efetiva') : 'Data do Evento'}</label><input type="date" data-focus="date" value={form.date||''} onChange={e=>set('date',e.target.value)} />
+        {selectedType?.category === 'marco' && (
+          <div className="form-group"><label>Disponibilização da intimação</label><input type="date" value={form.availableDate||''} onChange={e => {
+              const v = e.target.value;
+              const prevAuto = form.availableDate ? addCalendarDays(form.availableDate, 10) : '';
+              set('availableDate', v);
+              if (v && (!form.date || form.date === prevAuto)) set('date', addCalendarDays(v, 10));
+            }} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Data cedo. Sem abertura, a ciência é o 10º dia ({form.availableDate ? fmtDate(addCalendarDays(form.availableDate, 10)) : 'disponibilização + 10'}).</span></div>
+        )}
+        <div className="form-group"><label>{needsRequestDate ? (isDemo && destIsIncident ? 'Constrição efetiva' : 'Constrição efetiva') : (selectedType?.category === 'marco' ? 'Abertura da intimação (ou 10º dia)' : 'Data do Evento')}</label><input type="date" data-focus="date" value={form.date||''} onChange={e=>set('date',e.target.value)} />
           {needsRequestDate && <span style={{fontSize:9,color:'var(--text-muted)'}}>Data em que a constrição se concretizou. Sem ela o efeito não se aplica.</span>}
           {needsRequestDate && form.requestDate && form.date && form.requestDate > form.date && (
             <span style={{display:'block',fontSize:9,color:'var(--red)',marginTop:2}}>O pedido não pode ser posterior à efetivação.</span>
@@ -13961,9 +14189,25 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <span style={{fontSize:9,color:'var(--text-muted)'}}>{isDemo ? 'Informação. Quem lança o bloqueio decide se houve constrição — o valor não altera o cálculo.' : 'Informação. Quem lança o bloqueio decide se houve resultado útil — o valor não altera o cálculo.'}</span>
           </div>
         )}
+        {form.type === 'int_rescisao_parcelamento' && (
+          <div className="form-group"><label>Inadimplemento (1ª parcela não paga)</label><input type="date" value={form.defaultDate||''} onChange={e=>set('defaultDate',e.target.value)} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Data cedo. Sem ela, a rescisão vale nas duas datas.</span></div>
+        )}
+        {form.type === 'susp_art40' && (
+          <div className="form-group"><label>Pedido de suspensão da Fazenda (se houver)</label><input type="date" value={form.requestDate||''} onChange={e=>set('requestDate',e.target.value)} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Data cedo da ciência. Sem pedido, vale o último ato conhecido antes da decisão.</span></div>
+        )}
         {selectedType?.category === 'suspensiva' && (
           <div className="form-group"><label>Data de Cessação (se encerrada)</label><input type="date" value={form.endDate||''} onChange={e=>set('endDate',e.target.value)} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Deixe vazio se ainda vigente</span></div>
+        )}
+        {selectedType?.category === 'suspensiva' && form.type !== 'susp_art40' && form.type !== 'susp_idpj_mcf_constricao' && !form.endDate && (
+          <div className="form-group"><label>Última conferência (ainda vale)</label>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <input type="date" value={form.verifiedAt||''} onChange={e=>set('verifiedAt',e.target.value)} />
+              <button type="button" className="btn-secondary btn-xs" onClick={() => set('verifiedAt', new Date().toISOString().slice(0,10))}>Ainda vale hoje</button>
+            </div>
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>A data cedo presume que a pausa acabou na última conferência. Salvar sem fim conta como conferida hoje.</span></div>
         )}
       </div>
       <div className="form-group"><label>Fundamentação Legal</label>

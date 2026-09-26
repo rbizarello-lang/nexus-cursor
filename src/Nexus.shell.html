@@ -1322,6 +1322,32 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .cda-presc-seal.calculado { color: var(--green); border-color: var(--green); }
 .cda-presc-seal.estimado { color: var(--orange); border-color: var(--orange); }
 .cda-presc-seal.sem { color: var(--text-muted); }
+.cda-presc-seal.faixa { color: var(--yellow); border-color: var(--yellow); }
+.cda-presc-band { margin-top: 6px; padding: 5px 7px; border-left: 3px solid var(--yellow); background: var(--yellow-dim); border-radius: 3px; font-size: 11px; }
+.cda-presc-band.dado { border-left-color: var(--orange); }
+.cda-presc-band.incerto { border-left-color: var(--border); background: var(--bg-elevated); }
+.cda-presc-band-line { font-weight: 600; }
+.cda-presc-band-why { color: var(--text-secondary); margin-top: 2px; }
+/* Régua do tempo: fatos, pausas e faixa cedo–tarde (todas as edições) */
+.pbr { margin: 4px 0 10px; }
+.pbr-track { position: relative; height: 16px; }
+.pbr-track::before { content: ''; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--border); border-radius: 1px; }
+.pbr-pause { position: absolute; top: 4px; height: 8px; background: var(--blue); opacity: .35; border-radius: 2px; }
+.pbr-pause.open { background: repeating-linear-gradient(90deg, var(--blue) 0 4px, transparent 4px 7px); opacity: .5; }
+.pbr-band { position: absolute; top: 2px; height: 12px; border-radius: 2px; background: repeating-linear-gradient(135deg, var(--yellow) 0 3px, transparent 3px 6px); border: 1px solid var(--yellow); box-sizing: border-box; }
+.pbr-band.dado { background: repeating-linear-gradient(135deg, var(--orange) 0 3px, transparent 3px 6px); border-color: var(--orange); }
+.pbr-term { position: absolute; top: 0; width: 2px; height: 16px; margin-left: -1px; background: var(--text-primary, var(--text-secondary)); }
+.pbr-term.cedo { background: var(--red); }
+.pbr-fact { position: absolute; top: 3px; width: 2px; height: 10px; margin-left: -1px; background: var(--text-secondary); cursor: help; }
+.pbr-today { position: absolute; top: -2px; width: 0; height: 20px; margin-left: -1px; border-left: 2px dotted var(--accent, var(--blue)); }
+.pbr-ends { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.pbr-sum { color: var(--text-secondary); text-align: center; }
+.pbr-mini { margin: 2px 0 0; width: 100%; max-width: 220px; }
+.pbr-mini .pbr-track { height: 8px; }
+.pbr-mini .pbr-track::before { top: 3px; }
+.pbr-mini .pbr-pause { top: 1px; height: 6px; }
+.pbr-mini .pbr-band { top: 0; height: 8px; }
+.pbr-mini .pbr-term, .pbr-mini .pbr-today { top: -1px; height: 10px; }
 .cda-presc-block { margin-top: 8px; }
 .cda-presc-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 3px; }
 .cda-presc-sum { font-size: 11px; line-height: 1.45; color: var(--text-primary); font-weight: 600; overflow-wrap: break-word; word-break: normal; }
@@ -3770,33 +3796,6 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .edition-demo .ef-status-badge.stamp.stamp-green { color: var(--green); }
 .edition-demo .demo-proc-table-row .ef-status-badge.stamp { margin: 2px 4px; }
 
-/* ─── Beta: régua do quinquênio (detalhe da CDA) ─── */
-.edition-demo .presc-ruler { margin: 0 0 10px; padding: 4px 0 2px; }
-.edition-demo .presc-ruler-track { position: relative; height: 18px; }
-.edition-demo .presc-ruler-track::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 2px;
-  background: var(--bg-elevated); border: 1px solid var(--border); box-sizing: border-box;
-}
-.edition-demo .presc-ruler-fill { position: absolute; left: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--text-secondary); }
-.edition-demo .presc-ruler.tone-yellow .presc-ruler-fill { background: var(--yellow); }
-.edition-demo .presc-ruler.tone-red .presc-ruler-fill { background: var(--red); }
-.edition-demo .presc-ruler.estimated .presc-ruler-fill {
-  background: repeating-linear-gradient(90deg, var(--text-muted) 0 6px, transparent 6px 10px);
-}
-.edition-demo .presc-ruler-mark { position: absolute; top: 1px; width: 2px; height: 16px; margin-left: -1px; background: var(--blue); cursor: help; }
-.edition-demo .presc-ruler-now {
-  position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
-  background: var(--text-primary); border: 2px solid var(--bg-card); box-sizing: border-box;
-}
-.edition-demo .presc-ruler.tone-yellow .presc-ruler-now { background: var(--yellow); }
-.edition-demo .presc-ruler.tone-red .presc-ruler-now { background: var(--red); }
-.edition-demo .presc-ruler-ends {
-  display: flex; justify-content: space-between; gap: 8px; margin-top: 3px;
-  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
-}
-.edition-demo .presc-ruler.tone-red .presc-ruler-ends span:nth-child(2) { color: var(--red); font-weight: 700; }
-.edition-demo .presc-ruler-note { font-size: 10px; color: var(--orange); margin-top: 2px; }
-
 /* ─── Mesa de prazos (clássico + Beta) ─── */
 /* height:0 + flex-grow: o painel herda a altura do main-content e o
    corpo rola; o rodapé SILENCIADOS fica no fluxo (não sobrepõe as linhas). */
@@ -3845,6 +3844,18 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .mesa-expired { font-size: 9px; font-weight: 700; color: var(--red); background: var(--red-dim); padding: 1px 6px; border-radius: 3px; }
 .mesa-why { flex: 1; min-width: 160px; font-size: 12px; color: var(--text-primary); line-height: 1.35; }
 .mesa-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+.mesa-date { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); cursor: help; }
+.proc-expand-ruler { display: block; }
+.cda-open-pauses { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; padding: 6px 8px; border-left: 3px solid var(--blue); background: var(--bg-elevated); border-radius: 3px; font-size: 11px; }
+.cda-open-pause { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.cda-open-pause-hint { font-size: 10px; color: var(--text-muted); }
+.proc-expand-ruler .pbr { margin-bottom: 4px; }
+.proc-idpj-notice { font-size: 11px; color: var(--text-secondary); padding: 4px 8px; border-left: 2px solid var(--yellow); background: var(--yellow-dim); border-radius: 2px; }
+.mesa-exec-group { border-left: 2px solid var(--border); padding-left: 8px; margin: 6px 0 10px; }
+.mesa-exec-hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.mesa-exec-meta { font-family: var(--font-mono); }
+.mesa-exec-note { flex-basis: 100%; font-size: 11px; color: var(--text-secondary); padding: 3px 6px; background: var(--bg-elevated); border-left: 2px solid var(--orange); border-radius: 2px; }
+.mesa-exec-note.idpj_constricao { border-left-color: var(--yellow); }
 .mesa-row-actions { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .mesa-inline-parc { display: flex; align-items: center; gap: 8px; }
 .mesa-inline-parc input { width: auto; }
@@ -4413,6 +4424,13 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-cert.calculado { color: var(--cx-blue); background: var(--cx-blue-soft); border: 1px solid transparent; }
 .cx-cert.estimado { color: var(--cx-yellow); background: var(--cx-yellow-soft); border: 1px dashed color-mix(in srgb, var(--cx-yellow) 55%, transparent); }
 .cx-cert.cadastro { color: var(--cx-ink-3); background: var(--cx-surface-2); border: 1px dotted var(--cx-line-strong); }
+.cx-cert.faixa { color: var(--cx-orange); background: var(--cx-yellow-soft); border: 1px solid color-mix(in srgb, var(--cx-orange) 45%, transparent); }
+.cx-cert.dado { color: var(--cx-yellow); background: var(--cx-yellow-soft); border: 1px dotted color-mix(in srgb, var(--cx-yellow) 55%, transparent); }
+.cx-cert.analisar { color: var(--cx-violet); background: var(--cx-violet-soft); border: 1px solid transparent; }
+.cx-mesa-exec { border-left: 2px solid var(--cx-line-strong); padding-left: 10px; margin: 8px 0 12px; }
+.cx-mesa-exec-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.cx-mesa-exec-note { flex-basis: 100%; font-size: 12px; color: var(--cx-ink-2, var(--cx-ink)); padding: 4px 8px; background: var(--cx-surface-2); border-left: 2px solid var(--cx-orange); border-radius: 3px; }
+.cx-mesa-exec-note.idpj_constricao { border-left-color: var(--cx-yellow); }
 .cx-mesa-why { font-size: 13px; color: var(--cx-ink); line-height: 1.4; }
 .cx-mesa-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; min-width: 0; }
 .cx-mesa-meta .cx-op-tag { max-width: 240px; }

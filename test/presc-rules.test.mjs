@@ -8,11 +8,11 @@ import { RULE_VERSION } from '../src/lib/prescription.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const md = fs.readFileSync(path.join(root, 'MOTOR_PRESCRICAO.md'), 'utf8');
 
-describe('documento de regras 2026.09', () => {
-  it('tem versão alinhada ao motor e as doze regras', () => {
-    assert.equal(RULE_VERSION, '2026.09');
-    assert.match(md, /ruleVersion:\s*2026\.09/);
-    for (let i = 1; i <= 12; i++) {
+describe('documento de regras 2026.10', () => {
+  it('tem versão alinhada ao motor e as quinze regras', () => {
+    assert.equal(RULE_VERSION, '2026.10');
+    assert.match(md, /ruleVersion:\s*2026\.10/);
+    for (let i = 1; i <= 15; i++) {
       assert.match(md, new RegExp('## R' + i + '\\b'));
     }
     assert.match(md, /\*\*Frase\.\*\*/);
@@ -27,5 +27,6 @@ describe('documento de regras 2026.09', () => {
     assert.doesNotMatch(md, /IRRISORIO|irrisório não encerra/i);
     assert.match(md, /O que a tela da inscrição não mostra/);
     assert.match(md, /Histórico das regras/);
+    assert.match(md, /Duas datas: cedo e tarde/);
   });
 });

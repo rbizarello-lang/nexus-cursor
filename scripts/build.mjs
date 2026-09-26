@@ -154,8 +154,8 @@ if (!fs.existsSync(rulesMdPath)) {
   process.exit(1);
 }
 const rulesHtml = mdToHtml(fs.readFileSync(rulesMdPath, 'utf8'));
-if (!/R1/.test(rulesHtml) || !/R12/.test(rulesHtml) || !/2026\.09/.test(rulesHtml)) {
-  console.error('ERRO: MOTOR_PRESCRICAO.md precisa da versão 2026.09 e das regras R1–R12');
+if (!/R1/.test(rulesHtml) || !/R15/.test(rulesHtml) || !/2026\.10/.test(rulesHtml)) {
+  console.error('ERRO: MOTOR_PRESCRICAO.md precisa da versão 2026.10 e das regras R1–R15');
   process.exit(1);
 }
 shell = shell.replace(RULES_MARKER, () => rulesHtml);

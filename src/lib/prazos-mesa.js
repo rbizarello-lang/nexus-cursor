@@ -5,11 +5,15 @@
 import { addCalendarDays, fmtDate } from './dates.js';
 import { PRESC_SNOOZE_REASONS, snoozeLimitDays } from './prescription.js';
 
-export const MESA_CAP = 12;
-export const MESA_ONE_CLICK = new Set(['criar_evento', 'corrigir_ficha', 'vincular_ef']);
+/** Sem teto: tudo o que precisa de você aparece (resposta F2). */
+export const MESA_CAP = Infinity;
+export const MESA_ONE_CLICK = new Set(['criar_evento', 'corrigir_ficha', 'vincular_ef', 'confirmar_vigencia', 'lancar_ciencia']);
 
 export function mesaCertainty(row) {
   const k = row && (row.prescKind || row.kind);
+  if (row && row.bandHit) return row.bandHit.kind === 'tese' ? 'faixa' : 'dado';
+  if (k === 'pedido_dado') return 'dado';
+  if (k === 'penhora_antiga') return 'analisar';
   if (k === 'vencido' || k === 'iminente' || k === 'vigiar_interrompido' || k === 'correndo') return 'calculado';
   if (k === 'vencido_estimado' || k === 'residual_alta' || k === 'residual_media' || k === 'acompanhar_piso') return 'estimado';
   if (k === 'inconsistencia' || (row && row.group === 3)) return 'cadastro';
@@ -26,7 +30,9 @@ export function isG1Vencido(row) {
 
 export function mesaNeedsYou(row, todayIso) {
   if (!row) return false;
+  if (row.group === 7) return false;
   if (row.group === 1) return true;
+  if (row.prescKind === 'pedido_dado') return true;
   if (row.group === 2 && row.prescDays != null && row.prescDays <= 0) return true;
   const act = row.action && row.action.type;
   if (row.group === 3 && MESA_ONE_CLICK.has(act)) return true;
@@ -34,22 +40,76 @@ export function mesaNeedsYou(row, todayIso) {
   return false;
 }
 
+/** Ordem da fila: data cedo (a data de alarme da linha), depois o maior valor. */
+export function compareMesaRows(a, b) {
+  const da = (a && (a.prescDate || a.keyDate)) || '9999-12-31';
+  const db = (b && (b.prescDate || b.keyDate)) || '9999-12-31';
+  if (da !== db) return da < db ? -1 : 1;
+  return (Number(b && b.value) || 0) - (Number(a && a.value) || 0);
+}
+
 export function splitMesaRows(rows, todayIso, cap = MESA_CAP) {
   const needs = [];
   const rest = [];
+  const penhoraAntiga = [];
   (rows || []).forEach(r => {
-    if (mesaNeedsYou(r, todayIso)) needs.push(r);
+    if (r && r.group === 7) penhoraAntiga.push(r);
+    else if (mesaNeedsYou(r, todayIso)) needs.push(r);
     else rest.push(r);
   });
-  needs.sort((a, b) => (a.group || 9) - (b.group || 9) || (a.prescDays ?? 9999) - (b.prescDays ?? 9999));
+  needs.sort(compareMesaRows);
+  penhoraAntiga.sort(compareMesaRows);
   const hiddenG5 = rest.filter(r => r.group === 5);
   const restVisible = rest.filter(r => r.group !== 5);
+  const limit = Number.isFinite(cap) ? cap : needs.length;
   return {
-    needsYou: needs.slice(0, cap),
-    overCap: needs.slice(cap),
+    needsYou: needs.slice(0, limit),
+    overCap: needs.slice(limit),
     rest: restVisible,
-    hiddenG5
+    hiddenG5,
+    penhoraAntiga
   };
+}
+
+/**
+ * Linhas da Mesa agrupadas: intercorrente por execução (as CDAs do mesmo processo andam juntas);
+ * ordinária, uma linha por CDA. Grupos na ordem da data cedo e do valor.
+ */
+export function groupMesaRows(rows) {
+  const map = new Map();
+  (rows || []).forEach(r => {
+    if (!r) return;
+    const inter = r.prescSegment === 'intercorrente' && (r.executionId || r.processNumber);
+    const key = inter
+      ? 'ex:' + (r.operationId || '') + '|' + (r.executionId || String(r.processNumber || '').replace(/\D/g, ''))
+      : 'cda:' + r.id;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        type: inter ? 'execucao' : 'cda',
+        processNumber: r.processNumber || '',
+        executionId: r.executionId || '',
+        operationId: r.operationId || '',
+        opName: r.opName || '',
+        court: r.court || '',
+        rows: []
+      });
+    }
+    map.get(key).rows.push(r);
+  });
+  const groups = [...map.values()];
+  groups.forEach(g => {
+    g.rows.sort(compareMesaRows);
+    g.lead = g.rows[0];
+    g.worstGroup = Math.min(...g.rows.map(r => r.group || 9));
+    g.value = g.rows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    g.date = (g.lead && (g.lead.prescDate || g.lead.keyDate)) || '';
+  });
+  groups.sort((a, b) => compareMesaRows(
+    { prescDate: a.date, value: a.value },
+    { prescDate: b.date, value: b.value }
+  ));
+  return groups;
 }
 
 export function formatPrescHorizon(days) {
@@ -104,16 +164,17 @@ const BETA_INTERRUPT_BY = {
   int_cnib: 'indisponibilidade',
   int_citacao: 'citação',
   int_reconhecimento: 'reconhecimento da dívida',
-  int_outra: 'resultado útil'
+  int_outra: 'resultado útil',
+  susp_idpj_mcf_constricao: 'constrição no incidente'
 };
 
 const BETA_SUSP_BY = {
   susp_parcelamento: 'parcelamento',
+  susp_transacao: 'transação',
   susp_embargos: 'embargos',
   susp_decisao_judicial: 'decisão judicial',
   susp_deposito: 'depósito',
-  susp_falencia: 'falência / recuperação',
-  susp_idpj_mcf_constricao: 'constrição no incidente',
+  susp_falencia_decretada: 'falência',
   susp_idpj_mcf: 'incidente',
   susp_outra: 'causa suspensiva'
 };
@@ -234,6 +295,8 @@ export function betaCdaClosedLine(d, row, silenced, statusLabel, prescResult) {
         ? ('prescrição intercorrente suspensa por ' + cause)
         : 'prescrição intercorrente suspensa';
       if (!(r && r.diesAdQuem) && !(row && row.prescDate)) showDate = false;
+    } else if (kind === 'pedido_dado') {
+      situation = 'falta dado — ' + String(row.prescLabel || 'completar').toLowerCase();
     } else if (phase === 'consumado' || kind === 'vencido' || kind === 'vencido_estimado') {
       situation = kind === 'vencido_estimado'
         ? 'prescrição intercorrente consumada (estimada)'
@@ -351,7 +414,7 @@ export function betaSafeUiText(text) {
 export function betaEventFamilyLabel(family, destIsIncident) {
   if (!family) return '';
   if (destIsIncident && family.id === 'resultado_util') {
-    return 'Constrição no incidente (pausa as EFs)';
+    return 'Constrição no incidente (interrompe as EFs)';
   }
   if (family.id === 'marco') return 'Ciência do art. 40';
   return betaSafeUiText(family.label || '');
@@ -360,7 +423,7 @@ export function betaEventFamilyLabel(family, destIsIncident) {
 export function betaEventFamilyDesc(family, destIsIncident) {
   if (!family) return '';
   if (destIsIncident && family.id === 'resultado_util') {
-    return 'Constrição no incidente pausa as execuções abrangidas desde o pedido. Não encerra o ciclo da execução.';
+    return 'Constrição no incidente vale como interrupção das execuções abrangidas, desde o pedido. Aos 5 anos, o card do processo pede esclarecimento.';
   }
   let desc = betaSafeUiText(family.desc || '');
   if (destIsIncident) desc = desc.replace(/resultado útil/gi, 'constrição').replace(/Penhora\s*\/\s*constrição/gi, 'Constrição');
