@@ -4008,10 +4008,40 @@ function EditionClaudeCdaDrawer(p) {
         <button type="button" className="cx-btn sm" onClick={() => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { cdaId: d.id, executionId: exec ? exec.id : '', _focusDate: true } })}>+ Evento</button>
         <button type="button" className="cx-btn sm" onClick={() => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData)}>{isHandled ? '↻ Reabrir' : '✓ Tratada'}</button>
         {!isHandled ? <button type="button" className="cx-btn sm" onClick={() => markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef: exec ? (exec.processNumber || '') : null, className: exec ? exec.className : '', court: exec ? exec.court : '' })}>⏳ Aguardando reconhecimento</button> : null}
+        <button type="button" className="cx-btn sm" onClick={() => cxCopyCdaMemoria(d, exec, data)}>Memória técnica</button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => cxDownloadCdaMemoria(d, exec, data)} title="Baixar memória técnica (HTML)" aria-label="Baixar memória técnica (HTML)"><CxIcon n="file" s={13} /></button>
         <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'debt', initial: d })}>✎ Editar inscrição</button>
       </div>
     </aside>
   </>;
+}
+/** Memória técnica da CDA — mesmo texto/HTML que CdaLegalDetail (clássico) copia/baixa; reusado
+ *  aqui e pela aba Inscrições do Prumo, sem duplicar o motor de prescrição. */
+function cxCdaMemoriaText(d, exec, data) {
+  const tl = computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] });
+  const person = (data.people || []).find(p => p.id === d.personId);
+  const personName = (person && person.name) || d.devedor || '';
+  return buildPrescricaoReport({ debt: d, timeline: tl, personName, exec: exec || tl.exec });
+}
+function cxCopyCdaMemoria(d, exec, data) {
+  cxCopy(cxCdaMemoriaText(d, exec, data));
+  cxNotify('Memória técnica copiada.');
+}
+function cxDownloadCdaMemoria(d, exec, data) {
+  const escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const report = cxCdaMemoriaText(d, exec, data);
+  const title = `Memória técnica — CDA ${d.cdaNumber || 's/nº'}`;
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body><h1>${escapeHtml(title)}</h1><pre style="white-space:pre-wrap;font-family:'Consolas',monospace;font-size:13px">${escapeHtml(report)}</pre></body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeCda = String(d.cdaNumber || 'sem_numero').replace(/[^a-z0-9_.-]+/gi, '_');
+  a.href = url;
+  a.download = `memoria_prescricao_${safeCda}_${localIso(new Date())}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /* ═════════════ Cartões para dezenas de processos (8b) ═════════════ */
@@ -4481,3 +4511,365 @@ function EditionClaudeProcessos(p) {
     )}
   </div>;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 9 — Inscrições, Partes e bens no Prumo: mesmo padrão da Fase 8 (números
+   da aba, barra de ferramentas, tabela agrupada com subtotal, ficha lateral,
+   lote no pé). Lê os MESMOS dados/estados do app (getOpSlices, prazosByDebt,
+   cdaPersonFilter, procCdaQuery, cdaSort, selectedDebts/selectedAssets…); não
+   toca parsers, prescrição ou sync. Em src/app.jsx (renderTab), quando
+   isClaude, estes componentes substituem o conteúdo das abas 'dividas',
+   'pessoas' e 'bens' — Clássico e Beta não mudam.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Inscrições: mesma estrutura "por processo" da aba clássica (guarda-chuva
+   IDPJ/Cautelar/Central/EF-raiz → subgrupos por execução vinculada → CDAs;
+   CDAs sem processo em "unajuizadas"). Leitura pura, nenhum cálculo novo. ─── */
+function cxCdaGroupsByProcess(items, opExecs) {
+  const execsById = Object.fromEntries((opExecs || []).map(e => [e.id, e]));
+  const execsByProcNum = {};
+  (opExecs || []).forEach(e => { if (e.processNumber) execsByProcNum[e.processNumber] = e; });
+  const execToIdpj = {};
+  (opExecs || []).filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(idpj => {
+    (idpj.linkedExecutionIds || []).forEach(execId => { if (!execToIdpj[execId]) execToIdpj[execId] = idpj; });
+  });
+  const rootOf = (execId) => {
+    let cur = execsById[execId];
+    const seen = new Set();
+    while (cur && cur.parentExecutionId && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      const parent = execsById[cur.parentExecutionId];
+      if (!parent) break;
+      cur = parent;
+    }
+    return cur;
+  };
+  const umbrellaMap = {};
+  const unajuizadas = [];
+  (items || []).forEach(d => {
+    if (!d.processNumber) { unajuizadas.push(d); return; }
+    const directExec = execsByProcNum[d.processNumber];
+    if (!directExec) { unajuizadas.push(d); return; }
+    const rootExec = rootOf(directExec.id) || directExec;
+    const umbrella = execToIdpj[directExec.id] || execToIdpj[rootExec.id] || rootExec;
+    const uk = umbrella.id;
+    if (!umbrellaMap[uk]) umbrellaMap[uk] = { umbrella, subGroups: {}, allCdas: [] };
+    umbrellaMap[uk].allCdas.push(d);
+    const subKey = directExec.id;
+    if (!umbrellaMap[uk].subGroups[subKey]) umbrellaMap[uk].subGroups[subKey] = { subExec: directExec, cdas: [] };
+    umbrellaMap[uk].subGroups[subKey].cdas.push(d);
+  });
+  const groups = Object.values(umbrellaMap);
+  groups.forEach(g => {
+    g.subGroupArr = Object.values(g.subGroups).sort((a, b) => (b.cdas.reduce((s, d) => s + (d.value || 0), 0)) - (a.cdas.reduce((s, d) => s + (d.value || 0), 0)));
+  });
+  groups.sort((a, b) => {
+    const rank = (u) => u.processTag === 'idpj' ? 0 : u.processTag === 'cautelar_fiscal' ? 1 : u.processTag === 'central' ? 2 : 3;
+    const ra = rank(a.umbrella), rb = rank(b.umbrella);
+    if (ra !== rb) return ra - rb;
+    return (b.allCdas.reduce((s, d) => s + (d.value || 0), 0)) - (a.allCdas.reduce((s, d) => s + (d.value || 0), 0));
+  });
+  return { groups, unajuizadas };
+}
+
+/* Contagem de CDAs por pessoa (todos os papéis de responsabilidade) — mesmo cálculo do
+   PersonSubtabs clássico (mode 'cda'), para o seletor "Pessoa" da barra de Inscrições. */
+function cxPersonCdaCounts(data, opId) {
+  const opPeople = (data.people || []).filter(p => p.operationId === opId);
+  const opDebts = (data.debts || []).filter(d => d.operationId === opId);
+  const links = (data.links && data.links.cdaResponsibilities) || [];
+  return opPeople.map(p => ({ person: p, count: links.filter(l => l.personId === p.id && opDebts.some(d => d.id === l.cdaId)).length }))
+    .filter(x => x.count > 0).sort((a, b) => b.count - a.count);
+}
+
+/* Célula de Prescrição de uma CDA: mostra tratada/aguardando quando houver, senão a barra e o
+   texto de horizonte da Fase 8 (mesmo cxPrescDisplay/CxHorizonBar — nenhum cálculo novo). */
+function CxIncPrescCell({ d, prazosByDebt }) {
+  const isHandled = !!d.prescriptionHandled;
+  const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
+  if (isAguardando) return <td className="cx-pt-presc risk-critical">⏳ aguardando reconhecimento</td>;
+  if (isHandled) return <td className="cx-pt-presc risk-ok">✓ tratada</td>;
+  return <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />;
+}
+
+/* Linha de uma CDA na tabela de Inscrições — mesmos dados do cartão clássico (status,
+   decadência, ajuizada, alerta de processo extinto/arquivado, tratada/aguardando, notas). */
+function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, depth }) {
+  const st = DEBT_STATUSES[d.status] || {};
+  const deca = (d.launchMode || d.taxPeriodEnd) ? computeDecadencia(d) : null;
+  const sysAlerts = d.systemAlerts || [];
+  const procStatusAlert = sysAlerts.find(a => a.type === 'process_status');
+  const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(Boolean);
+  return <tr className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => onOpen(d.id)}>
+    <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={onToggleSel} aria-label={'Selecionar CDA ' + (d.cdaNumber || '')} /></td>
+    <td className={'cx-pt-num' + (depth ? ' nest' + Math.min(depth, 2) : '')}>
+      <span className="cx-mono">{d.cdaNumber || 'CDA'}</span>
+      <span className="cx-muted cx-small"> · {cdaEspecie(d)}</span>
+      {notes.length > 0 && <span className="cx-copy" title={notes.join('\n')} aria-label={notes.length + ' nota(s)'}><CxIcon n="note" s={11} /></span>}
+    </td>
+    <td className="cx-inc-resp"><ResponsibilityChips cdaId={d.id} data={data} onClickPerson={() => { }} /></td>
+    <td className="cx-pt-st">
+      <span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || d.status || '—'}</span>
+      {deca && (deca.status === 'consumada' || deca.status === 'risco') ? <span className={'cx-tag ' + (deca.status === 'consumada' ? 'red' : 'orange')} title={deca.detail}>Decad.</span> : null}
+      {procStatusAlert ? <span className="cx-tag orange" title={procStatusAlert.label}>⚠ Proc. {procStatusAlert.processStatus === 'extinta' ? 'extinto' : 'arquivado'}</span> : null}
+    </td>
+    <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
+    <CxIncPrescCell d={d} prazosByDebt={prazosByDebt} />
+  </tr>;
+}
+
+function EditionClaudeInscricoes(p) {
+  const { opId, data, allDebts, opExecs, prazosByDebt, selectedDebts, setSelectedDebts,
+    cdaPersonFilter, setCdaPersonFilter, procCdaQuery, setProcCdaQuery, cdaSort, setCdaSort,
+    setModal, setData, togglePrescCheck, bulkDelete, linkify, collapsedGroups, toggleGroup } = p;
+
+  const allLinks = (data.links && data.links.cdaResponsibilities) || [];
+  let items = cdaPersonFilter === 'all' ? allDebts : allDebts.filter(d => allLinks.some(l => l.cdaId === d.id && l.personId === cdaPersonFilter));
+  if (procCdaQuery) {
+    const qRaw = String(procCdaQuery).trim().toLowerCase();
+    const qDigits = qRaw.replace(/\D/g, '');
+    items = items.filter(d => {
+      const num = String(d.cdaNumber || d.number || '').toLowerCase();
+      const proc = String(d.processNumber || '');
+      return num.includes(qRaw) || proc.toLowerCase().includes(qRaw) || (qDigits && (num.replace(/\D/g, '') + proc.replace(/\D/g, '')).includes(qDigits));
+    });
+  }
+
+  const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null
+  const [peopleOpen, setPeopleOpen] = React.useState(false);
+  const [showMore, setShowMore] = React.useState({});
+
+  const GROUP_MODES = ['por_processo', 'status', 'devedor', 'tribute', 'ajuizada'];
+  const SORT_MODES = ['value_desc', 'value_asc', 'prescription'];
+
+  const totalAtivo = items.filter(d => d.status !== 'extinta');
+  const ajuizadas = items.filter(d => d.processNumber);
+  const naoAjuizadas = items.filter(d => !d.processNumber);
+  const noAlarme = items.filter(d => !d.prescriptionHandled && cxPrescDisplay([d], prazosByDebt).riskClass === 'critical');
+  const tratadas = items.filter(d => d.prescriptionHandled && d.prescriptionHandledType !== 'aguardando_reconhecimento');
+  const aguardando = items.filter(d => d.prescriptionHandled && d.prescriptionHandledType === 'aguardando_reconhecimento');
+
+  const toggleSel = (id) => setSelectedDebts(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleGroupSel = (ids) => setSelectedDebts(prev => { const n = new Set(prev); const all = ids.every(id => n.has(id)); ids.forEach(id => all ? n.delete(id) : n.add(id)); return n; });
+  const openDrawer = (id, execId) => setDrawerCda({ id, execId: execId || null });
+  const closeDrawer = () => setDrawerCda(null);
+
+  const personCounts = React.useMemo(() => cxPersonCdaCounts(data, opId), [data, opId]);
+
+  let sorted = [...items];
+  if (cdaSort === 'value_desc') sorted.sort((a, b) => (b.value || 0) - (a.value || 0));
+  else if (cdaSort === 'value_asc') sorted.sort((a, b) => (a.value || 0) - (b.value || 0));
+  else if (cdaSort === 'prescription') sorted = cxSortCdasByPresc(sorted, prazosByDebt);
+
+  const groupKey = (d) => {
+    const person = data.people.find(x => x.id === d.personId);
+    const st = DEBT_STATUSES[d.status] || {};
+    if (cdaSort === 'status') return st.label || d.status || 'Sem status';
+    if (cdaSort === 'devedor') return (person && person.name) || 'Sem devedor';
+    if (cdaSort === 'tribute') return d.tribute || 'Sem tributo';
+    if (cdaSort === 'ajuizada') return d.processNumber ? 'Ajuizadas' : 'Não ajuizadas';
+    return null;
+  };
+  const genericGroups = GROUP_MODES.includes(cdaSort) && cdaSort !== 'por_processo' ? (() => {
+    const map = {};
+    sorted.forEach(d => { const gk = groupKey(d); if (!map[gk]) map[gk] = []; map[gk].push(d); });
+    return Object.entries(map).map(([label, list]) => ({ label, items: list }));
+  })() : null;
+
+  const { groups, unajuizadas } = React.useMemo(() => cxCdaGroupsByProcess(sorted, opExecs), [sorted, opExecs]);
+
+  const totalSelValue = allDebts.filter(d => selectedDebts.has(d.id)).reduce((s, d) => s + (d.value || 0), 0);
+
+  const bulkMemoria = () => {
+    const selected = allDebts.filter(d => selectedDebts.has(d.id));
+    const memGroups = new Map();
+    selected.forEach(d => {
+      const entry = { debt: d, timeline: computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }), personName: (data.people || []).find(pp => pp.id === d.personId)?.name || d.devedor || '' };
+      const key = d.processNumber || ('__cda_' + d.id);
+      if (!memGroups.has(key)) memGroups.set(key, { processNumber: d.processNumber || '', entries: [] });
+      memGroups.get(key).entries.push(entry);
+    });
+    const reports = [];
+    memGroups.forEach(group => {
+      const exec = group.processNumber ? (data.executions || []).find(e => sameProc(e.processNumber, group.processNumber)) : null;
+      if (exec) reports.push(buildProcessPrescricaoReport({ exec, entries: group.entries }));
+      else group.entries.forEach(entry => reports.push(buildPrescricaoReport({ debt: entry.debt, timeline: entry.timeline, personName: entry.personName, exec: entry.timeline.exec })));
+    });
+    cxCopy(reports.join('\n\n\n'));
+    cxNotify(`Memória técnica copiada — ${selected.length} CDA(s).`);
+  };
+  const copyProcMemoria = (umbrella, cdas) => {
+    const entries = cdas.map(d => ({ debt: d, timeline: computeCdaLegalTimeline({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }), personName: (data.people || []).find(pp => pp.id === d.personId)?.name || d.devedor || '' }));
+    cxCopy(buildProcessPrescricaoReport({ exec: umbrella, entries }));
+    cxNotify(`Memória técnica copiada — ${entries.length} CDA(s).`);
+  };
+
+  const IncTableHead = () => <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>;
+
+  const SubGroupBlock = ({ g, sg }) => {
+    const isSameAsUmbrella = sg.subExec.id === g.umbrella.id;
+    const subTotal = sg.cdas.reduce((s, d) => s + (d.value || 0), 0);
+    const kind = cxProcKind(sg.subExec);
+    return <React.Fragment key={sg.subExec.id}>
+      {!isSameAsUmbrella && <tr className="cx-pt-band">
+        <td className="cx-pt-ck"></td>
+        <td colSpan={3} className="cx-pt-num nest1"><span className="cx-pt-nest">↳</span><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
+        <td className="cx-pt-r cx-mono">{fmtCur(subTotal)}</td>
+        <CxPrescCell cdas={sg.cdas} prazosByDebt={prazosByDebt} />
+      </tr>}
+      {sg.cdas.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, sg.subExec.id)} depth={isSameAsUmbrella ? 0 : 1} />)}
+    </React.Fragment>;
+  };
+
+  const GroupHeaderRow = ({ g }) => {
+    const key = 'pp-u-' + g.umbrella.id;
+    const isCollapsed = collapsedGroups.has(key);
+    const total = g.allCdas.reduce((s, d) => s + (d.value || 0), 0);
+    const isSel = g.allCdas.length > 0 && g.allCdas.every(d => selectedDebts.has(d.id));
+    const kind = cxProcKind(g.umbrella);
+    const single = g.subGroupArr.length === 1 ? g.subGroupArr[0] : null;
+    const combinedEf = single && single.subExec.id !== g.umbrella.id ? single : null;
+    return <React.Fragment key={g.umbrella.id}>
+      <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.allCdas.map(d => d.id))} aria-label={'Selecionar grupo ' + (g.umbrella.processNumber || '')} /></td>
+        <td colSpan={3}>
+          <span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>
+          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{g.umbrella.processNumber || 'S/N'}</span>
+          {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <span className="cx-mono">{combinedEf.subExec.processNumber || 'S/N'}</span></> : null}
+          <span className="cx-muted cx-small"> · {cxPl(g.allCdas.length, 'CDA', 'CDAs')}</span>
+          <span className="cx-pp-grpacts">
+            <button type="button" className="cx-btn sm ghost" onClick={ev => { ev.stopPropagation(); copyProcMemoria(g.umbrella, g.allCdas); }}>📋 Presc.</button>
+            <button type="button" className="cx-btn sm ghost" onClick={ev => { ev.stopPropagation(); setModal({ type: 'edit', entityType: 'execution', initial: g.umbrella }); }}>✎ Proc</button>
+          </span>
+        </td>
+        <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
+        <CxPrescCell cdas={g.allCdas} prazosByDebt={prazosByDebt} />
+      </tr>
+      {!isCollapsed && (combinedEf
+        ? combinedEf.cdas.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, combinedEf.subExec.id)} depth={1} />)
+        : g.subGroupArr.map(sg => <SubGroupBlock key={sg.subExec.id} g={g} sg={sg} />))}
+    </React.Fragment>;
+  };
+
+  const NaGroupRow = () => {
+    const key = 'pp-na';
+    const isCollapsed = collapsedGroups.has(key);
+    const total = unajuizadas.reduce((s, d) => s + (d.value || 0), 0);
+    const isSel = unajuizadas.length > 0 && unajuizadas.every(d => selectedDebts.has(d.id));
+    return <React.Fragment>
+      <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(unajuizadas.map(d => d.id))} aria-label="Selecionar não ajuizadas" /></td>
+        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>Não ajuizadas<span className="cx-muted cx-small"> · {cxPl(unajuizadas.length, 'CDA', 'CDAs')}</span></td>
+        <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
+        <CxPrescCell cdas={unajuizadas} prazosByDebt={prazosByDebt} />
+      </tr>
+      {!isCollapsed && unajuizadas.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, null)} depth={0} />)}
+    </React.Fragment>;
+  };
+
+  const GenericGroupBlock = ({ g }) => {
+    const key = 'cda-' + g.label;
+    const isCollapsed = collapsedGroups.has(key);
+    const total = g.items.reduce((s, d) => s + (d.value || 0), 0);
+    const isSel = g.items.every(d => selectedDebts.has(d.id));
+    const shown = showMore[key] || 8;
+    const visible = g.items.slice(0, shown);
+    const rest = g.items.length - visible.length;
+    return <React.Fragment>
+      <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.items.map(d => d.id))} aria-label={'Selecionar grupo ' + g.label} /></td>
+        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'CDA', 'CDAs')}</span></td>
+        <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
+        <CxPrescCell cdas={g.items} prazosByDebt={prazosByDebt} />
+      </tr>
+      {!isCollapsed && visible.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, null)} depth={0} />)}
+      {!isCollapsed && rest > 0 && <tr className="cx-pt-more"><td colSpan={6}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, [key]: shown + 20 }))}>Mostrar mais {rest}</button></td></tr>}
+    </React.Fragment>;
+  };
+
+  return <div className="cx cx-page cx-page-wide cx-pp">
+    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}>
+      <div className="cx-pp-sum-cell"><small>Total ativo</small><b>{fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))}</b><em>{cxPl(totalAtivo.length, 'CDA', 'CDAs')}</em></div>
+      <div className="cx-pp-sum-cell"><small>Ajuizadas</small><b>{ajuizadas.length}</b><em>{fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
+      <div className="cx-pp-sum-cell"><small>Não ajuizadas</small><b>{naoAjuizadas.length}</b><em>{fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
+      <div className="cx-pp-sum-cell"><small>No alarme</small><b style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{noAlarme.length}</b><em style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
+      <div className="cx-pp-sum-cell"><small>Tratadas</small><b>{tratadas.length}</b><em>aguardando reconhecimento: {aguardando.length}</em></div>
+    </div>
+
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar CDA ou processo" />
+      <div className="cx-pp-person">
+        <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((data.people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
+        {peopleOpen && <div className="cx-menu-pop cx-pp-people-pop">
+          <button type="button" onClick={() => { setCdaPersonFilter('all'); setPeopleOpen(false); }}>Todas · {allDebts.length}</button>
+          {personCounts.map(({ person, count }) => <button key={person.id} type="button" onClick={() => { setCdaPersonFilter(person.id); setPeopleOpen(false); }}>{person.name} · {count}</button>)}
+        </div>}
+      </div>
+      <select className="cx-sel sm" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
+        <option value="" disabled>Agrupar…</option>
+        <option value="por_processo">Agrupar: Processo</option>
+        <option value="status">Agrupar: Situação</option>
+        <option value="devedor">Agrupar: Devedor</option>
+        <option value="tribute">Agrupar: Tributo</option>
+        <option value="ajuizada">Agrupar: Ajuizada / não</option>
+      </select>
+      <select className="cx-sel sm" value={SORT_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
+        <option value="">Ordenar…</option>
+        <option value="value_desc">Ordenar: valor ↓</option>
+        <option value="value_asc">Ordenar: valor ↑</option>
+        <option value="prescription">Ordenar: prescrição</option>
+      </select>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'debt', initial: {} })}>+ Inscrição</button>
+    </div>
+
+    <div className="cx-pp-body">
+      <div className="cx-pp-cards">
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><IncTableHead />
+          <tbody>
+            {cdaSort === 'por_processo' ? <>
+              {groups.map(g => <GroupHeaderRow key={g.umbrella.id} g={g} />)}
+              {unajuizadas.length > 0 && <NaGroupRow />}
+              {groups.length === 0 && unajuizadas.length === 0 && <tr><td colSpan={6} className="cx-empty-row">Nenhuma CDA.</td></tr>}
+            </> : genericGroups ? <>
+              {genericGroups.map(g => <GenericGroupBlock key={g.label} g={g} />)}
+              {genericGroups.length === 0 && <tr><td colSpan={6} className="cx-empty-row">Nenhuma CDA.</td></tr>}
+            </> : (() => {
+              const key = 'cda-flat';
+              const shown = showMore[key] || 8;
+              const visible = sorted.slice(0, shown);
+              const rest = sorted.length - visible.length;
+              return <>
+                {visible.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, null)} depth={0} />)}
+                {rest > 0 && <tr className="cx-pt-more"><td colSpan={6}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, [key]: shown + 20 }))}>Mostrar mais {rest}</button></td></tr>}
+                {sorted.length === 0 && <tr><td colSpan={6} className="cx-empty-row">Nenhuma CDA.</td></tr>}
+              </>;
+            })()}
+          </tbody>
+        </table></div>
+      </div>
+      {drawerCda && (() => {
+        const d = allDebts.find(x => x.id === drawerCda.id);
+        if (!d) return null;
+        const exec = drawerCda.execId ? opExecs.find(x => x.id === drawerCda.execId) : (data.executions || []).find(x => x.processNumber && sameProc(x.processNumber, d.processNumber));
+        return <EditionClaudeCdaDrawer debt={d} exec={exec} data={data} opId={opId} prazosByDebt={prazosByDebt}
+          selectedCDAs={selectedDebts} setSelectedCDAs={setSelectedDebts} setModal={setModal} setData={setData}
+          togglePrescCheck={togglePrescCheck} onClose={closeDrawer}
+          onOpenExec={execId => setModal({ type: 'edit', entityType: 'execution', initial: opExecs.find(x => x.id === execId) })}
+          linkify={linkify} />;
+      })()}
+    </div>
+
+    {selectedDebts.size > 0 && (
+      <div className="cx-pp-bulk">
+        <b>{cxPl(selectedDebts.size, 'CDA selecionada', 'CDAs selecionadas')}</b>
+        <span className="cx-muted cx-small">· {fmtCur(totalSelValue)}</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm primary" onClick={bulkMemoria}>📋 Memória presc.</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkDelete('debts', selectedDebts)}>Excluir</button>
+        <button type="button" className="cx-btn sm ghost" onClick={() => setSelectedDebts(new Set())}>Limpar</button>
+      </div>
+    )}
+  </div>;
+}
+

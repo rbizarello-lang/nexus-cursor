@@ -5023,7 +5023,7 @@ function App() {
   const [prescImport, setPrescImport] = useState(null);
   const [assetText, setAssetText] = useState('');
   const [importMode, setImportMode] = useState('planilhas'); // planilhas | pdfs | texto — seletor do card unificado de importação
-  const [cdaSort, setCdaSort] = useState('status');
+  const [cdaSort, setCdaSort] = useState(() => appSettings.uiEdition === 'claude' ? 'por_processo' : 'status');
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [procPersonFilterOpen, setProcPersonFilterOpen] = useState(false);
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
@@ -7041,6 +7041,14 @@ function App() {
     }
 
     if (activeTab === 'dividas') {
+      if (isClaude) {
+        return <EditionClaudeInscricoes opId={opId} data={data} allDebts={getOpSlices(opId).debts} opExecs={getOpSlices(opId).executions}
+          prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
+          cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
+          procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery} cdaSort={cdaSort} setCdaSort={setCdaSort}
+          setModal={setModal} setData={setData} togglePrescCheck={togglePrescCheck} bulkDelete={bulkDelete}
+          linkify={linkify} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const allItems = getOpSlices(opId).debts;
       const allLinks = data.links?.cdaResponsibilities || [];
       // Apply person filter — show CDAs where the selected person has ANY responsibility role
