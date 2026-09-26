@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Briefing, Processos e Relatório</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Tokens Ardósia — iguais aos de .app-layout.edition-claude em src/Nexus.shell.html */
+:root {
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+  --line: #dcdfe4; --line-strong: #c7cbd2;
+  --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e;
+  --accent: #8a6722; --accent-soft: #f4ecdb; --btn: #1b1e24;
+  --red: #c2323d; --red-soft: #fbe8e9; --orange: #bf5f16; --orange-soft: #fcefe3;
+  --yellow: #946b00; --yellow-soft: #f8efd2; --blue: #2d62d3; --blue-soft: #e7eefc;
+  --green: #21845a; --green-soft: #e2f3eb; --violet: #6a4fd4; --violet-soft: #eeeafc;
+  --cyan: #0f7888; --cyan-soft: #e0f3f5; --wine: #7a1f35; --wine-soft: #f6e9ed;
+  --op: #b3386b;
+  --shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-3); }
+.small { font-size: 11.5px; }
+
+/* ─── Documento ─── */
+.doc { max-width: 1320px; margin: 0 auto; padding: 36px 28px 96px; }
+.doc-h { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.doc-h h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 15px; color: var(--ink-2); max-width: 820px; margin-top: 10px; line-height: 1.55; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.toc a { font-size: 12.5px; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); background: var(--surface); padding: 5px 10px; border-radius: 999px; }
+.toc a:hover { border-color: var(--line-strong); color: var(--ink); }
+.stamp { font: 500 11px var(--mono); color: var(--ink-3); text-align: right; line-height: 1.7; }
+section.part { margin-top: 56px; scroll-margin-top: 16px; }
+.part-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+.part-n { font: 600 12px var(--mono); color: var(--accent); }
+.part-h h2 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.part-lede { color: var(--ink-2); font-size: 14px; max-width: 900px; margin-bottom: 22px; line-height: 1.55; }
+h3.sub { font-size: 14px; font-weight: 600; margin: 28px 0 10px; }
+
+/* Papéis */
+.roles { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; }
+.role { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; }
+.role.focus { border-color: var(--ink); box-shadow: inset 0 3px 0 var(--ink); }
+.role.out { background: transparent; border-style: dashed; }
+.role h4 { font-size: 13.5px; font-weight: 600; }
+.role .q { font-size: 12.5px; color: var(--ink-2); margin: 6px 0 10px; line-height: 1.45; min-height: 54px; }
+.role ul { list-style: none; font-size: 11.5px; color: var(--ink-3); display: grid; gap: 3px; }
+.role ul li::before { content: '· '; }
+.role .who { margin-top: 10px; font: 500 10.5px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Diagnóstico e anotações */
+.two { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.box h4 { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+.box ol, .box ul { padding-left: 18px; display: grid; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+.box li b { color: var(--ink); font-weight: 600; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.gray { background: var(--panel); color: var(--ink-2); }
+.pill.blue { background: var(--blue-soft); color: var(--blue); }
+.pill.yellow { background: var(--yellow-soft); color: var(--yellow); }
+.pill.violet { background: var(--violet-soft); color: var(--violet); }
+.pill.wine { background: var(--wine-soft); color: var(--wine); }
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.note { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 12.5px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; }
+.note b { color: var(--ink); font-weight: 600; }
+.mk { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font: 600 11px/20px var(--mono); text-align: center; flex: none; }
+.anchor { position: relative; }
+.anchor > .mk { position: absolute; top: -9px; left: -9px; z-index: 3; box-shadow: 0 0 0 3px var(--ground); }
+
+/* ─── Moldura do app ─── */
+.frame { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); overflow-x: auto; }
+.frame-top { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); background: var(--ground); }
+.frame-top b { color: var(--ink); font-weight: 500; }
+.frame-top .sp { flex: 1; }
+.fake-search { width: 220px; height: 26px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); display: flex; align-items: center; padding: 0 9px; color: var(--ink-3); font-size: 12px; }
+.oph { padding: 16px 22px 0; background: var(--ground); }
+.oph-name { display: flex; align-items: center; gap: 9px; }
+.sq { width: 13px; height: 13px; border-radius: 3px; background: var(--op); }
+.oph-name h1 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.tag { font-size: 11px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-2); background: var(--surface); }
+.tag.g { color: var(--green); border-color: #bfe0cf; background: var(--green-soft); }
+.tag.b { color: var(--blue); border-color: #c9d7f6; background: var(--blue-soft); }
+.tag.y { color: var(--yellow); border-color: #ecdcae; background: var(--yellow-soft); }
+.tag.late { color: var(--orange); border: 0; background: none; }
+.oph-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.oph-sum { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12.5px; color: var(--ink-2); }
+.oph-sum b { color: var(--ink); }
+.oph-sum .v { color: var(--violet); }
+.oph-act { display: flex; gap: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.btn.pri { background: var(--btn); color: #fff; border-color: var(--btn); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.sm { height: 24px; font-size: 11.5px; padding: 0 8px; }
+.tabs { display: flex; gap: 2px; margin-top: 12px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 8px 11px; font-size: 13px; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs span.on { color: var(--ink); font-weight: 500; border-bottom-color: var(--ink); }
+.canvas { padding: 18px 22px 24px; }
+
+/* Cartões Prumo */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.card-h { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.card-h h5 { font-size: 13px; font-weight: 600; }
+.card-h .sp { flex: 1; }
+.card-b { padding: 12px 14px; }
+.count { font: 500 11px var(--mono); color: var(--ink-3); }
+.lnk { font-size: 12px; color: var(--ink-3); }
+
+/* ─── BRIEFING ─── */
+.news { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid #c9d7f6; background: var(--blue-soft); border-radius: 9px; font-size: 12.5px; margin-bottom: 14px; }
+.news b { color: var(--blue); font-weight: 600; }
+.news .sp { flex: 1; }
+.bf { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 16px; align-items: start; }
+.bf-main { display: grid; gap: 16px; min-width: 0; }
+.bf-rail { display: grid; gap: 12px; position: sticky; top: 0; }
+.lead { padding: 16px 18px 14px; }
+.lead-k { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-3); font-weight: 500; }
+.lead-t { font-size: 17px; line-height: 1.5; letter-spacing: -.005em; margin-top: 8px; max-width: 760px; }
+.lead-t mark { background: #f6e7b8; padding: 0 2px; border-radius: 2px; }
+.lead-f { display: flex; gap: 14px; margin-top: 12px; font-size: 11.5px; color: var(--ink-3); }
+.lanes { display: grid; }
+.lane { border-top: 1px solid var(--line); }
+.lane:first-child { border-top: 0; }
+.lane-h { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 14px 4px; }
+.kind { font: 600 10.5px var(--mono); letter-spacing: .03em; padding: 3px 0; border-radius: 5px; text-align: center; }
+.kind.mcf { background: var(--yellow-soft); color: var(--yellow); }
+.kind.idpj { background: var(--red-soft); color: var(--red); }
+.kind.cen { background: var(--panel); color: var(--ink-2); }
+.kind.ef { background: var(--cyan-soft); color: var(--cyan); }
+.lane-t { font-size: 13.5px; font-weight: 600; }
+.lane-s { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.lane-m { display: flex; gap: 18px; text-align: right; }
+.lane-m small { display: block; font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.lane-m strong { font: 600 13px var(--mono); }
+.ruler { position: relative; display: flex; padding: 14px 14px 12px 84px; }
+.ruler::before { content: ''; position: absolute; left: 90px; right: 30px; top: 21px; height: 2px; background: var(--line); }
+.stp { position: relative; flex: 1; min-width: 0; padding-right: 8px; }
+.stp .d { width: 13px; height: 13px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line-strong); position: relative; z-index: 1; }
+.stp.done .d { background: var(--blue); border-color: var(--blue); }
+.stp.fav .d { background: var(--green); border-color: var(--green); }
+.stp.now .d { box-shadow: 0 0 0 4px var(--green-soft); }
+.stp.ghost .d { border-style: dashed; }
+.stp .l { font-size: 12px; font-weight: 500; margin-top: 7px; }
+.stp.ghost .l { color: var(--ink-3); font-weight: 400; }
+.stp .w { font: 400 10.5px var(--mono); color: var(--ink-3); margin-top: 1px; }
+.stp.fav .l { color: var(--green); }
+.stp.add .d { border: 1px dashed var(--line-strong); background: var(--surface-2); }
+.lane-work { margin: 0 14px 14px 84px; display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap: 12px; }
+.work { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.work .k { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; font-weight: 500; margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+.work p { font-size: 12.5px; }
+.covered { display: grid; gap: 4px; }
+.cov { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center; font-size: 11.5px; }
+.cov .mono { font-size: 11px; }
+.lane.quiet .lane-h { padding-bottom: 12px; }
+.feed-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.seg { display: inline-flex; background: var(--panel); border-radius: 7px; padding: 2px; gap: 2px; }
+.seg span { font-size: 11.5px; padding: 3px 8px; border-radius: 5px; color: var(--ink-2); white-space: nowrap; }
+.seg span.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 500; }
+.seg span i { font-style: normal; font: 500 10.5px var(--mono); color: var(--ink-3); margin-left: 3px; }
+.compose { margin: 12px 14px 4px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 9px 12px; color: var(--ink-3); font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
+.feed { padding: 6px 14px 12px; }
+.ent { display: grid; grid-template-columns: 70px minmax(0,1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.ent:first-child { border-top: 0; }
+.ent-d { font: 500 11px var(--mono); color: var(--ink-3); padding-top: 2px; }
+.ent-b p { font-size: 13px; margin-top: 4px; }
+.ent-k { display: flex; gap: 6px; align-items: center; }
+.rail-card .card-b { display: grid; gap: 7px; }
+.src { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.src .ic { width: 22px; height: 22px; border-radius: 5px; background: var(--panel); display: grid; place-items: center; font: 600 10px var(--mono); color: var(--ink-2); flex: none; }
+.src .h { color: var(--ink-3); font-size: 11px; margin-left: auto; }
+.rem { border-left: 3px solid var(--red); padding: 5px 0 5px 9px; font-size: 12.5px; }
+.rem.blue { border-left-color: var(--blue); }
+.rem small { display: block; font: 400 10.5px var(--mono); color: var(--ink-3); margin-top: 2px; }
+.chk-row { display: grid; grid-template-columns: minmax(0,1fr) 36px; gap: 8px; align-items: center; font-size: 12.5px; }
+.bar { height: 5px; border-radius: 99px; background: var(--panel); overflow: hidden; grid-column: 1 / -1; }
+.bar i { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.tk { display: grid; grid-template-columns: 8px minmax(0,1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.tk .p { width: 7px; height: 7px; border-radius: 50%; }
+.tk .due { font: 500 11px var(--mono); }
+.late { color: var(--red); }
+.soon { color: var(--orange); }
+
+/* ─── PROCESSOS ─── */
+.pr-bar { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 14px; margin-bottom: 14px; }
+.stack { padding: 12px 14px; }
+.stack-k { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+.stack-k b { color: var(--ink); font: 600 12px var(--mono); }
+.sbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.sbar span { display: flex; align-items: center; padding: 0 7px; font-size: 10.5px; font-weight: 500; white-space: nowrap; overflow: hidden; color: #fff; }
+.sleg { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 11.5px; color: var(--ink-2); }
+.sleg i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.toolbar .sp { flex: 1; }
+.input { height: 28px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 9px; display: flex; align-items: center; font-size: 12px; color: var(--ink-3); }
+.pr { display: grid; grid-template-columns: minmax(0,1fr) 420px; gap: 14px; align-items: start; }
+table.tree { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tree th { text-align: left; font-size: 11px; font-weight: 500; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.tree td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tree tr.grp td { background: var(--surface-2); padding-top: 10px; padding-bottom: 10px; }
+.tree tr.grp .gt { display: flex; align-items: center; gap: 8px; }
+.tree tr.grp .gt b { font-weight: 600; }
+.tree tr.sel td { background: #f3eee2; }
+.tree tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--ink); }
+.tree tr.dim td { color: var(--ink-3); }
+.tree .num { font: 500 12px var(--mono); }
+.tree .ind1 { padding-left: 26px; }
+.tree .ind2 { padding-left: 46px; }
+.tree .r { text-align: right; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.chev { display: inline-block; width: 12px; color: var(--ink-3); }
+.st { font-size: 11px; font-weight: 500; padding: 1px 7px; border-radius: 5px; background: var(--green-soft); color: var(--green); }
+.st.nj { background: var(--panel); color: var(--ink-2); }
+.pz { display: grid; grid-template-columns: 52px auto; gap: 8px; align-items: center; }
+.pz .hb { height: 5px; border-radius: 99px; background: var(--panel); overflow: hidden; }
+.pz .hb i { display: block; height: 100%; border-radius: 99px; }
+.pz span { font-size: 11.5px; white-space: nowrap; }
+.pend { display: flex; gap: 4px; }
+.pend span { white-space: nowrap; font: 500 10.5px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--panel); color: var(--ink-2); }
+.pend span.hot { background: var(--red-soft); color: var(--red); }
+.rel { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--blue-soft); color: var(--blue); margin-left: 6px; }
+.ck { width: 13px; height: 13px; border: 1.5px solid var(--line-strong); border-radius: 3px; display: inline-block; vertical-align: -2px; background: var(--surface); }
+.ck.on { background: var(--ink); border-color: var(--ink); position: relative; }
+.ck.on::after { content: ''; position: absolute; left: 3px; top: 0px; width: 4px; height: 7px; border: solid #fff; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.insp { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.insp.anchor { overflow: visible; }
+.insp-h { padding: 14px 16px 0; }
+.insp-top { display: flex; align-items: center; gap: 8px; }
+.insp-top .num { font: 600 14px var(--mono); }
+.insp-top .sp { flex: 1; }
+.x { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); }
+.facts { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 4px 10px; font-size: 12px; margin-top: 10px; }
+.facts dt { color: var(--ink-3); }
+.itabs { display: flex; gap: 2px; margin-top: 12px; border-bottom: 1px solid var(--line); }
+.itabs span { padding: 7px 10px; font-size: 12.5px; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.itabs span.on { color: var(--ink); font-weight: 500; border-bottom-color: var(--ink); }
+.insp-b { padding: 12px 16px; display: grid; gap: 10px; }
+.cda { border: 1px solid var(--line); border-radius: 9px; }
+.cda-h { display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 9px 11px; }
+.cda-h .n { font: 600 12px var(--mono); }
+.cda-h .v { font: 500 12px var(--mono); }
+.cda-s { font-size: 11.5px; color: var(--ink-3); grid-column: 2 / -1; margin-top: -4px; }
+.cda.open { border-color: var(--line-strong); }
+.pc { border-top: 1px solid var(--line); padding: 10px 11px; display: grid; gap: 8px; }
+.pc-row { display: grid; grid-template-columns: 94px minmax(0,1fr); gap: 10px; align-items: start; }
+.pc-row .t { font-size: 11.5px; font-weight: 600; }
+.seal { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 4px; border: 1px solid; margin-top: 3px; }
+.seal.calc { color: var(--green); border-color: #bfe0cf; }
+.seal.est { color: var(--orange); border-color: #f0cfb2; }
+.seal.sem { color: var(--ink-3); border-color: var(--line-strong); }
+.pc-row p { font-size: 12px; color: var(--ink-2); }
+.pc-row p b { color: var(--ink); font-weight: 600; }
+.occ { display: grid; grid-template-columns: 72px 1fr; gap: 2px 8px; font-size: 11px; color: var(--ink-3); margin-top: 5px; }
+.occ .mono { font-size: 10.5px; }
+.conf { display: flex; gap: 7px; font-size: 11.5px; color: var(--ink-2); padding: 7px 9px; border-radius: 7px; background: var(--yellow-soft); }
+.insp-f { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px 14px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.bulk { margin-top: 12px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--btn); color: #fff; font-size: 12.5px; }
+.bulk .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.28); }
+.bulk .btn.w { background: #fff; color: var(--ink); border-color: #fff; }
+.bulk .sp { flex: 1; }
+.alt { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; margin-top: 16px; }
+
+/* ─── RELATÓRIO ─── */
+.rep-wrap { background: #d9dce1; border-radius: 12px; padding: 26px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start; }
+.a4 { background: #fff; border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,.15); padding: 34px 36px 30px; font-size: 11.5px; color: #1b1d22; min-height: 900px; }
+.a4-top { display: flex; justify-content: space-between; font: 500 9.5px var(--mono); color: #7c828e; text-transform: uppercase; letter-spacing: .05em; padding-bottom: 10px; border-bottom: 1px solid #e3e5e9; }
+.a4 h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin-top: 16px; display: flex; align-items: center; gap: 8px; }
+.a4 .desc { color: #4d535e; margin-top: 4px; font-size: 12px; }
+.a4 .meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.a4 .meta span { font-size: 10px; padding: 1px 6px; border: 1px solid #dcdfe4; border-radius: 4px; color: #4d535e; }
+.a4 .meta span.late { color: var(--orange); border-color: #f0cfb2; }
+.a4 h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #7c828e; margin: 20px 0 8px; display: flex; gap: 8px; align-items: center; }
+.a4 h2::after { content: ''; flex: 1; height: 1px; background: #e3e5e9; }
+.a4-lead { font-size: 14px; line-height: 1.5; border-left: 3px solid #1b1d22; padding: 2px 0 2px 12px; }
+.a4-lead small { display: block; font-size: 10px; color: #7c828e; margin-top: 4px; }
+.nums { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #e3e5e9; border-radius: 6px; }
+.nums div { padding: 8px 10px; border-left: 1px solid #e3e5e9; }
+.nums div:first-child { border-left: 0; }
+.nums small { display: block; font-size: 9.5px; color: #7c828e; text-transform: uppercase; letter-spacing: .04em; }
+.nums b { font: 600 13px var(--mono); }
+.nums em { display: block; font-style: normal; font-size: 10px; color: #4d535e; }
+.agenda { display: grid; }
+.ag { display: grid; grid-template-columns: 58px 72px minmax(0,1fr); gap: 8px; padding: 5px 0; border-bottom: 1px dotted #dcdfe4; align-items: baseline; }
+.ag .d { font: 600 10.5px var(--mono); }
+.ag .k { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #7c828e; }
+.ag .k.aud { color: var(--violet); }
+.ag .k.prz { color: var(--red); }
+.ag .k.tar { color: var(--blue); }
+.ag .t b { font-weight: 600; }
+.ag .t .mono { font-size: 10px; color: #7c828e; }
+.alert-box { border: 1px solid #f2c9cc; background: #fdf3f4; border-radius: 6px; padding: 8px 10px; }
+.alert-box .row { display: grid; grid-template-columns: 110px 72px minmax(0,1fr) 70px; gap: 8px; font-size: 10.5px; padding: 3px 0; }
+.srcs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 10.5px; }
+.srcs span { color: #7c828e; }
+.a4 table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.a4 th { text-align: left; font-weight: 500; color: #7c828e; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid #dcdfe4; padding: 4px 6px 4px 0; }
+.a4 td { padding: 4px 6px 4px 0; border-bottom: 1px dotted #e3e5e9; vertical-align: top; }
+.front { border: 1px solid #e3e5e9; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+.front-h { display: flex; gap: 8px; align-items: center; }
+.front-h b { font: 600 11.5px var(--mono); }
+.front-h .sp { flex: 1; }
+.fr-rule { display: flex; flex-wrap: wrap; gap: 4px 0; margin: 8px 0 6px; font-size: 10.5px; }
+.fr-rule span { padding-right: 16px; position: relative; }
+.fr-rule span::after { content: '→'; position: absolute; right: 4px; color: #b5bac3; }
+.fr-rule span:last-child::after { content: ''; }
+.fr-rule .done { font-weight: 600; }
+.fr-rule .fav { color: var(--green); font-weight: 600; }
+.fr-rule .nx { color: #9aa0aa; }
+.fr-txt { font-size: 10.5px; color: #4d535e; }
+.a4 .foot { margin-top: 18px; padding-top: 8px; border-top: 1px solid #e3e5e9; font: 400 9.5px var(--mono); color: #9aa0aa; display: flex; justify-content: space-between; }
+.dlg { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 24px 64px rgba(20,24,32,0.22); width: 460px; overflow: hidden; }
+.dlg-h { padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.dlg-b { padding: 14px 18px; display: grid; gap: 12px; }
+.opt { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.opt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.radio { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--line-strong); margin-top: 2px; }
+.opt.on .radio { border: 5px solid var(--ink); }
+.opt b { font-weight: 600; font-size: 13px; }
+.opt p { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.lbl { font-size: 11.5px; color: var(--ink-3); font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { font-size: 12px; padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 999px; display: inline-flex; gap: 6px; align-items: center; }
+.chips span.off { color: var(--ink-3); border-style: dashed; }
+.dlg-f { padding: 12px 18px; border-top: 1px solid var(--line); background: var(--surface-2); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ─── Plano ─── */
+table.plan { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 12.5px; }
+.plan th { text-align: left; font-size: 11px; font-weight: 500; color: var(--ink-3); background: var(--surface-2); padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.plan td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+.plan td:first-child { font: 600 12px var(--mono); color: var(--accent); white-space: nowrap; }
+.plan td b { color: var(--ink); font-weight: 600; }
+.plan tr:last-child td { border-bottom: 0; }
+.qs { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.qq { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; color: var(--ink-2); }
+.qq b { display: block; color: var(--ink); font-size: 13px; margin-bottom: 4px; font-weight: 600; }
+.qq .rec { display: block; margin-top: 6px; font-size: 11.5px; color: var(--green); }
+
+/* Processos: cartões, sumário e sinais */
+.sumario { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; }
+.sumario a { padding: 9px 12px; border-left: 1px solid var(--line); display: grid; gap: 1px; cursor: pointer; }
+.sumario a:first-of-type { border-left: 0; }
+.sumario a.on { box-shadow: inset 0 -2px 0 var(--ink); }
+.sumario small { font-size: 10.5px; color: var(--ink-3); }
+.sumario b { font: 600 15px var(--mono); }
+.sumario em { font-style: normal; font-size: 11px; color: var(--ink-2); }
+.sumario i.al { font-style: normal; font-size: 10.5px; color: var(--red); font-weight: 500; }
+.sg { width: 14px; height: 14px; color: var(--ink-2); flex: none; }
+.sg.star { color: #b08618; }
+.dt { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.dt.task { background: var(--yellow); }
+.dt.intim { background: var(--blue); }
+.sigs { display: inline-grid; grid-template-columns: repeat(7, 16px); align-items: center; justify-items: center; }
+.sigs i:not(.dt) { width: 16px; }
+.sigc { width: 124px; }
+.sigf { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.sigf span { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); font: 500 11px var(--mono); color: var(--ink-2); }
+.sigf span.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.sigf span.on .sg { color: #fff; }
+.pcard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: visible; position: relative; }
+.pcard-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.pcard.collapsed .pcard-h { border-bottom: 0; }
+.pcard-h b { font-weight: 600; }
+.pcard-h .sp { flex: 1; }
+.grpbar { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.grpbar span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); font-family: var(--mono); font-size: 11.5px; }
+.grpbar span i { font-style: normal; color: var(--ink-3); font-family: var(--font); font-size: 11px; }
+.grpbar span em { font-style: normal; font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; }
+.grpbar span.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.grpbar span.off { border-style: dashed; color: var(--ink-3); }
+table.tree.dense td { padding-top: 6px; padding-bottom: 6px; }
+.tree tr.hub td { background: var(--surface-2); }
+.tree tr.band td { background: var(--surface-2); }
+.hub-s { font-size: 11px; color: var(--ink-3); margin: 1px 0 0 18px; }
+.tree tr.more td { color: var(--ink-3); font-size: 11.5px; padding-top: 5px; padding-bottom: 5px; }
+.apc { font: 500 10px var(--mono); color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+.st.sus { background: var(--yellow-soft); color: var(--yellow); }
+.st.arq { background: var(--panel); color: var(--ink-2); }
+.sigtog { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.sigtog span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 3px 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-3); }
+.sigtog span.on { border-style: solid; border-color: var(--ink); color: var(--ink); }
+.sigauto { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 7px; font-size: 11.5px; color: var(--ink-2); }
+.sigauto span { display: inline-flex; align-items: center; gap: 5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; color: var(--ink-2); }
+.legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.legend .sigs { background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 3px 2px; }
+.stp.free .d { background: var(--violet); border-color: var(--violet); }
+.stp.free .l { color: var(--violet); }
+.stp.ghost .x2 { font-size: 10px; color: var(--ink-3); margin-left: 4px; }
+.log { display: grid; }
+.log-d { font: 600 10px var(--mono); color: #7c828e; text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 4px; }
+.log-r { display: grid; grid-template-columns: 44px 92px minmax(0,1fr); gap: 8px; padding: 4px 0; border-bottom: 1px dotted #e3e5e9; font-size: 10.5px; align-items: baseline; }
+.log-r .k { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #7c828e; }
+.log-r .mono { font-size: 10px; color: #7c828e; }
+.tally { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid #e3e5e9; border-radius: 6px; margin-top: 8px; }
+.tally div { padding: 7px 9px; border-left: 1px solid #e3e5e9; }
+.tally div:first-child { border-left: 0; }
+.tally b { display: block; font: 600 14px var(--mono); }
+.tally small { font-size: 9.5px; color: #7c828e; }
+
+@media (max-width: 1100px) {
+  .sumario { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .frame > .canvas, .frame > .oph, .frame > .frame-top { min-width: 900px; }
+  .rep-wrap { overflow-x: auto; }
+  .roles { grid-template-columns: 1fr 1fr; }
+  .bf, .pr, .two, .alt, .rep-wrap, .pr-bar, .notes, .qs { grid-template-columns: 1fr; }
+  .bf-rail { position: static; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="s-star" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z"/></symbol>
+  <symbol id="s-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.2 12 4.2l8.5 7"/><path d="M6 10.6V19.5h12V10.6"/><path d="M10 19.5v-5h4v5"/></g></symbol>
+  <symbol id="s-eye" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></symbol>
+  <symbol id="s-doc" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></symbol>
+  <symbol id="s-lock" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6z"/></symbol>
+</svg>
+<div class="doc">
+
+<header class="doc-h">
+  <div>
+    <div class="eyebrow">Nexus Prumo · proposta de layout</div>
+    <h1>Briefing, Processos e prescrição, e Relatório</h1>
+    <p class="lede">Proposta para reorganizar duas abas da página da operação e o relatório de passagem de serviço, partindo do que cada peça precisa responder. Dados das maquetes: operação demo <b>Agro Horizonte</b> em 25/09/2026. Os prazos extintivos (Mesa) ficam para outro momento. Onde a demo não tem conteúdo (a entrada de risco do diário, os links em Fontes, a segunda frase da tese), o texto é ilustrativo.</p>
+    <p class="lede" style="font-size:13.5px;margin-top:8px"><b>Revisão 3 (25/09):</b> incorpora as suas respostas. A régua volta a sugerir as próximas fases, sem engessar a tramitação; a lista de processos mantém os cartões do clássico e ganha sumário, filtros pelos sinais da Beta, grupos com subtotais e ficha lateral; o relatório vale também para o Clássico, inclui lembretes por padrão e ganha a Prestação de contas detalhada.</p>
+    <nav class="toc">
+      <a href="#papeis">0 · Para que serve cada coisa</a>
+      <a href="#briefing">1 · Briefing</a>
+      <a href="#processos">2 · Processos e prescrição</a>
+      <a href="#relatorio">3 · Relatório</a>
+      <a href="#plano">4 · Plano por fases</a>
+      <a href="#decisoes">5 · Decisões</a>
+    </nav>
+  </div>
+  <div class="stamp">design/mockups/<br>prumo-briefing-processos-relatorio.html<br>maquete estática · não implementada</div>
+</header>
+
+<!-- ═══════════════ 0 ═══════════════ -->
+<section class="part" id="papeis">
+  <div class="part-h"><span class="part-n">00</span><h2>Para que serve cada coisa</h2></div>
+  <p class="part-lede">Hoje o Briefing, os Processos e a Visão geral repetem números e listas entre si. A proposta dá a cada peça uma pergunta só. O que não responde à pergunta sai dali, ou vira um atalho para a tela que responde.</p>
+  <div class="roles">
+    <div class="role">
+      <h4>Visão geral</h4>
+      <div class="q">“Como está a operação agora?”</div>
+      <ul><li>indicadores calculados</li><li>linha do tempo</li><li>intimações, prazos, agenda</li></ul>
+      <div class="who">o que o sistema calcula</div>
+    </div>
+    <div class="role focus">
+      <h4>Briefing</h4>
+      <div class="q">“Qual a tese, em que pé estão as frentes e o que eu decidi?”</div>
+      <ul><li>leitura da operação</li><li>frentes processuais e suas fases</li><li>diário, lembretes, checklists, fontes</li></ul>
+      <div class="who">o que só você sabe</div>
+    </div>
+    <div class="role focus">
+      <h4>Processos e prescrição</h4>
+      <div class="q">“Onde está cada CDA e em que ponto está a prescrição dela?”</div>
+      <ul><li>cartões por tipo de processo</li><li>sinais: acervo, constrição, pendências</li><li>prescrição por CDA e lote</li></ul>
+      <div class="who">o mapa da cobrança</div>
+    </div>
+    <div class="role focus">
+      <h4>Relatório</h4>
+      <div class="q">“O que alguém precisa saber para assumir amanhã?”</div>
+      <ul><li>leitura e próximos 15 dias</li><li>alertas e frentes</li><li>anexos para consulta</li></ul>
+      <div class="who">a operação contada a outra pessoa</div>
+    </div>
+    <div class="role out">
+      <h4>Mesa de prazos</h4>
+      <div class="q">“Qual CDA da carteira exige decisão?”</div>
+      <ul><li>triagem entre operações</li></ul>
+      <div class="who">fora deste escopo</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 1 BRIEFING ═══════════════ -->
+<section class="part" id="briefing">
+  <div class="part-h"><span class="part-n">01</span><h2>Briefing → dossiê da operação</h2></div>
+  <p class="part-lede">O Briefing é a memória estratégica da operação: o que você concluiu, em que fase está cada frente e o que falta. Hoje ele é uma pilha de blocos em ordem de chegada. A proposta separa uma coluna de leitura (tese, frentes, diário) de uma coluna de apoio (fontes, lembretes, checklists).</p>
+
+  <div class="two">
+    <div class="box">
+      <h4><span class="pill red">Hoje</span> O que atrapalha</h4>
+      <ol>
+        <li><b>Nada responde “qual é a tese”.</b> A entrada mais importante do diário fica no meio da lista. O “fixar” só sobe a entrada para o topo, sem destacá-la.</li>
+        <li><b>O panorama mostra uma frente por vez.</b> Os chips só dizem a última fase. Para comparar IDPJ, MCF e Central é preciso abrir e fechar um cartão de cada vez.</li>
+        <li><b>A régua de fases é vertical e fica espremida</b> na coluna “Contexto”. O texto da fase aparece do outro lado, num painel cinza que na maior parte do tempo fica vazio.</li>
+        <li><b>Os links ficam soltos no topo</b> (um “+” isolado quando não há nenhum), mesmo sendo o que se procura primeiro: NotebookLM, a pasta, a minuta.</li>
+        <li><b>Checklists e Tarefas começam fechados no fim da página</b>, e Tarefas repete a aba Tarefas.</li>
+        <li><b>Lembretes ocupam uma coluna redimensionável</b> que, com um ou dois post-its, sobra vazia.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h4><span class="pill green">Proposta</span> O que muda</h4>
+      <ol>
+        <li><b>Leitura da operação</b> no topo, com uma entrada só em destaque: a Estratégia fixada mais recente; se não houver, a fixada mais recente de qualquer tipo. As outras fixadas ficam em “Ver as outras”. Sem campo novo: usa o <span class="mono">pinned</span> que já existe.</li>
+        <li><b>Frentes processuais em trilhas horizontais</b>: todas as frentes visíveis ao mesmo tempo. A régua traz as fases registradas, os eventos livres que você incluiu e, tracejadas, as próximas fases típicas como sugestão, sem ordem obrigatória.</li>
+        <li><b>Trabalho da fase logo abaixo da régua</b>: texto da fase, notas do processo e EFs cobertas numa faixa só, aberta na frente selecionada, com botão “Editar fase” visível (sem depender de duplo clique).</li>
+        <li><b>Diário</b> com a data na margem e filtro por tipo com contagem. O editor rico continua o mesmo.</li>
+        <li><b>Coluna de apoio fixa</b>: Fontes (com nome), Lembretes, Checklists com barra de progresso e as 3 próximas tarefas, com atalho para a aba.</li>
+        <li><b>Novidades do import</b> numa linha, com “Ver” abrindo o detalhe, em vez do painel grande.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="sub">Maquete: aba Briefing no Prumo</h3>
+  <div class="frame">
+    <div class="frame-top">NEXUS / Carteira / Operação Agro Horizonte / <b>Briefing</b><span class="sp"></span><span class="fake-search">Buscar processo, CDA…</span></div>
+    <div class="oph">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div>
+          <div class="oph-name"><span class="sq"></span><h1>Operação Agro Horizonte</h1><span class="tag y">Alta</span></div>
+          <div class="oph-tags"><span class="tag g">Em andamento</span><span class="tag g">Constrições ativas</span><span class="tag g">Bens suficientes</span><span class="tag b">Novas</span><span class="tag late">⟲ Revisão atrasada há 4d</span></div>
+          <div class="oph-sum"><span><b>R$ 1,3 mi</b> em dívida</span><span>0% garantido</span><span>6 CDAs</span><span>4 processos</span><span>5 intimações abertas</span><span class="v">2 CDAs no alarme de prescrição</span></div>
+        </div>
+        <div class="oph-act"><span class="btn pri">✓ Revisada</span><span class="btn">Editar</span><span class="btn ghost">Diagnóstico</span><span class="btn ghost">Relatório</span></div>
+      </div>
+      <div class="tabs"><span>Visão geral</span><span class="on">Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span>Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span>Importar</span></div>
+    </div>
+    <div class="canvas">
+      <div class="news anchor"><span class="mk">6</span><b>Novidades do último import</b><span>25/09 10:14 · 1 CDA nova · 1 bem com situação alterada</span><span class="sp"></span><span class="btn sm">Ver</span><span class="btn sm ghost">Marcar como visto</span></div>
+      <div class="bf">
+        <div class="bf-main">
+          <div class="card lead anchor"><span class="mk">1</span>
+            <div class="lead-k"><span class="pill green">Estratégia</span><span>fixada · 18/09/2026</span><span style="margin-left:auto">✎</span></div>
+            <div class="lead-t">Consolidar a CNIB da fazenda, <mark>estender a indisponibilidade às máquinas</mark> e fazer diligência in loco. A MCF sustenta a cobrança da EF principal; o risco está nas CDAs de ITR/IRPF ainda sem processo.</div>
+            <div class="lead-f"><span>Estratégia fixada mais recente · mais 1 fixada (Risco)</span><span>Ver as outras ▾</span></div>
+          </div>
+
+          <div class="card anchor"><span class="mk">2</span>
+            <div class="card-h"><h5>Frentes processuais</h5><span class="count">2</span><span class="sp"></span><span class="lnk">Processos e prescrição →</span></div>
+            <div class="lanes">
+              <div class="lane">
+                <div class="lane-h">
+                  <span class="kind mcf">MCF</span>
+                  <div><div class="lane-t">Medida cautelar fiscal <span class="mono muted" style="font-weight:400;font-size:12px">· 5006699-22.2025.4.04.7006</span></div><div class="lane-s">Vara Federal de Ponta Grossa · ativa · audiência de instrução 06/10, 09:30</div></div>
+                  <div class="lane-m"><div><small>Cobre</small><strong>1 EF</strong></div><div><small>Valor</small><strong>R$ 920 mil</strong></div></div>
+                </div>
+                <div class="ruler anchor"><span class="mk" style="left:60px;top:6px">3</span>
+                  <div class="stp done"><div class="d"></div><div class="l">Ajuizamento</div><div class="w">31/08 · ev. 1</div></div>
+                  <div class="stp fav now"><div class="d"></div><div class="l">Liminar · favorável</div><div class="w">07/09 · ev. 6</div></div>
+                  <div class="stp free"><div class="d"></div><div class="l">Pedido de extensão a máquinas</div><div class="w">15/09 · ev. 11 · livre</div></div>
+                  <div class="stp ghost"><div class="d"></div><div class="l">Contestação<span class="x2">✕</span></div><div class="w">sugerida</div></div>
+                  <div class="stp ghost"><div class="d"></div><div class="l">Audiência</div><div class="w">06/10 (agendada)</div></div>
+                  <div class="stp ghost"><div class="d"></div><div class="l">Decisão final<span class="x2">✕</span></div><div class="w">sugerida</div></div>
+                  <div class="stp add"><div class="d"></div><div class="l muted">+ Evento</div><div class="w">fase, recurso ou livre</div></div>
+                </div>
+                <div class="lane-work">
+                  <div class="work">
+                    <div class="k">Liminar · favorável <span class="btn sm" style="margin-left:auto;text-transform:none;letter-spacing:0">Editar fase</span></div>
+                    <p>Indisponibilidade parcial deferida (matrícula 12.340). Falta estender às máquinas: Renajud da colheitadeira ainda sem resultado útil.</p>
+                    <div class="k" style="margin-top:10px">Notas do processo <span style="margin-left:auto">+</span></div>
+                    <p class="muted">Nenhuma nota.</p>
+                  </div>
+                  <div class="work">
+                    <div class="k">EFs cobertas</div>
+                    <div class="covered">
+                      <div class="cov"><span class="mono">5006600-22.2020.4.04.7006</span><span class="mono">R$ 920 mil</span><span class="st">Ativa</span></div>
+                      <div class="cov muted"><span class="mono">↳ 5006620-22.2025 · EPE</span><span></span><span class="pill red">urgente</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="lane quiet">
+                <div class="lane-h">
+                  <span class="kind ef">EF</span>
+                  <div><div class="lane-t">Sem incidente</div><div class="lane-s">5006610-22.2022.4.04.7006 · ativa · ofício à meeira pendente</div></div>
+                  <div class="lane-m"><div><small>EFs</small><strong>1</strong></div><div><small>Valor</small><strong>R$ 125 mil</strong></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card anchor"><span class="mk">4</span>
+            <div class="feed-top"><h5 style="font-size:13px;font-weight:600">Diário</h5><span class="seg"><span class="on">Todos<i>3</i></span><span>Risco<i>1</i></span><span>Estratégia<i>1</i></span><span>Decisão<i>0</i></span><span>Providência<i>0</i></span><span>Observação<i>1</i></span></span></div>
+            <div class="compose">✎ Registrar risco, estratégia, decisão, providência…<span style="margin-left:auto" class="mono small">N</span></div>
+            <div class="feed">
+              <div class="ent"><div class="ent-d">22/09/26</div><div class="ent-b"><div class="ent-k"><span class="pill red">Risco</span><span class="small muted">fixada</span></div><p>CDAs 884 (ITR) e 881 (IRPF) sem processo; termos em dez/26 e mar/27. Ajuizar ou juntar à EF principal antes de novembro.</p></div></div>
+              <div class="ent"><div class="ent-d">18/09/26</div><div class="ent-b"><div class="ent-k"><span class="pill green">Estratégia</span><span class="small muted">fixada</span></div><p>Consolidar CNIB da fazenda; estender indisponibilidade a máquinas; diligência in loco.</p></div></div>
+              <div class="ent"><div class="ent-d">12/09/26</div><div class="ent-b"><div class="ent-k"><span class="pill gray">Observação</span></div><p>Agropecuária Horizonte + Pedro Henrique Agro + cônjuge (meeira) sob análise.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="bf-rail anchor"><span class="mk">5</span>
+          <div class="card rail-card"><div class="card-h"><h5>Fontes</h5><span class="sp"></span><span class="lnk">+ link</span></div>
+            <div class="card-b">
+              <div class="src"><span class="ic">NB</span>NotebookLM — Agro<span class="h">notebooklm</span></div>
+              <div class="src"><span class="ic">DC</span>Resumos e anotações<span class="h">docs</span></div>
+              <div class="src"><span class="ic">EP</span>eproc — MCF<span class="h">eproc</span></div>
+            </div>
+          </div>
+          <div class="card rail-card"><div class="card-h"><h5>Lembretes</h5><span class="count">2</span><span class="sp"></span><span class="lnk">+</span></div>
+            <div class="card-b">
+              <div class="rem">CDA 000882 — prazo prescricional apertado (45d). Priorizar.<small>25/09</small></div>
+              <div class="rem blue">Diligência fazenda: confirmar benfeitorias e máquinas.<small>22/09</small></div>
+            </div>
+          </div>
+          <div class="card rail-card"><div class="card-h"><h5>Checklists</h5><span class="count">2/9</span></div>
+            <div class="card-b">
+              <div class="chk-row"><span>1ª vista da operação</span><span class="mono small muted">2/4</span><div class="bar"><i style="width:50%"></i></div></div>
+              <div class="chk-row"><span>Decisão final do IDPJ</span><span class="mono small muted">0/5</span><div class="bar"><i style="width:0"></i></div></div>
+            </div>
+          </div>
+          <div class="card rail-card"><div class="card-h"><h5>Próximas tarefas</h5><span class="count">4</span><span class="sp"></span><span class="lnk">Tarefas →</span></div>
+            <div class="card-b">
+              <div class="tk"><span class="p" style="background:var(--red)"></span><span>Impugnar exceção de pré-executividade (ITR)</span><span class="due soon">Seg 28/09</span></div>
+              <div class="tk"><span class="p" style="background:var(--orange)"></span><span>Estender Renajud a colheitadeira</span><span class="due soon">Ter 29/09</span></div>
+              <div class="tk"><span class="p" style="background:var(--orange)"></span><span>Agendar diligência na fazenda</span><span class="due soon">Qua 30/09</span></div>
+            </div>
+          </div>
+          </aside>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="mk">1</span><div><b>Leitura da operação.</b> Uma entrada em destaque: a Estratégia fixada mais recente; na falta dela, a fixada mais recente. Sem nenhuma fixada, aparece um convite: “Fixe a entrada que resume a operação”. É o primeiro texto do Relatório, com a mesma regra.</div></div>
+    <div class="note"><span class="mk">2</span><div><b>Uma trilha por frente</b> (IDPJ, MCF, Central, EF levada ao panorama), na ordem de hoje. “Sem incidente” fica como trilha discreta, sem régua. “Retirar” e “Dados” vão para o menu da trilha.</div></div>
+    <div class="note"><span class="mk">3</span><div><b>Régua flexível.</b> Cheias: fases registradas. Violeta: eventos livres, que entram em qualquer ponto, na ordem da data. Tracejadas: até 3 próximas fases típicas do tipo (<span class="mono">PROCESS_STAGES</span>/<span class="mono">CENTRAL_STAGES</span>) ou uma audiência agendada, só como sugestão. Clicar numa tracejada registra a fase; o ✕ tira a sugestão daquela frente. Recursos aparecem com a contagem de julgamentos. Se passar da largura, a régua rola.</div></div>
+    <div class="note"><span class="mk">4</span><div><b>Diário</b> = o <span class="mono">BriefingStrategyPanel</span> com outra apresentação: data na margem, filtro por tipo sempre visível e com contagem, editor aberto no lugar da entrada.</div></div>
+    <div class="note"><span class="mk">5</span><div><b>Coluna de apoio fixa</b>, de 300 px, sem barra de arrastar: Fontes, Lembretes, Checklists e as 3 próximas tarefas. Abaixo de 1100 px ela desce para depois do diário. Os checklists abrem os itens no próprio cartão.</div></div>
+    <div class="note"><span class="mk">6</span><div><b>Novidades do import</b> numa linha. “Ver” abre o detalhe atual (CDAs, processos, bens e pessoas novos ou alterados).</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 2 PROCESSOS ═══════════════ -->
+<section class="part" id="processos">
+  <div class="part-h"><span class="part-n">02</span><h2>Processos e prescrição → cartões do clássico, feitos para dezenas de processos</h2></div>
+  <p class="part-lede">A aba serve para localizar cada processo e cada CDA na estrutura da cobrança e ver o estado da prescrição. A separação em cartões do clássico continua, porque cada cartão responde a uma pergunta diferente: “o que está sob incidente”, “o que corre solto”, “o que é recurso, embargo ou outra ação”. A proposta muda o que existe dentro e em volta dos cartões para quem trabalha com dezenas de processos: um sumário que leva a cada cartão, filtros pelos sinais da Beta, tabelas agrupadas com subtotais e o detalhe numa ficha lateral.</p>
+
+  <div class="two">
+    <div class="box">
+      <h4><span class="pill red">Hoje</span> O que atrapalha com muitos processos</h4>
+      <ol>
+        <li><b>O trilho mostra um grupo por vez.</b> No cartão de incidentes, só um IDPJ aparece aberto; no de execuções sem vínculo, só uma situação. Com 40 ou 50 processos, comparar exige clicar no trilho várias vezes.</li>
+        <li><b>Não há como filtrar pelo que importa no dia:</b> meu acervo, com constrição, com intimação aberta, relevantes. Os sinais da Beta existem, mas só servem para olhar, e no Prumo nem aparecem.</li>
+        <li><b>Não há subtotais nem ordenação.</b> Valor e prescrição só aparecem linha a linha; não dá para ordenar por valor nem trazer as piores para cima.</li>
+        <li><b>Os cartões não têm índice.</b> Para achar Embargos numa operação grande, é preciso rolar a página e abrir cartão por cartão.</li>
+        <li><b>Até seis níveis para chegar à prescrição de uma CDA</b>, com as três contagens espremidas dentro de uma célula de tabela.</li>
+        <li><b>Extintas e arquivadas ocupam o mesmo peso</b> que as ativas, dentro das listas.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h4><span class="pill green">Proposta</span> O que muda</h4>
+      <ol>
+        <li><b>Sumário da operação no topo</b>, fixo ao rolar: uma célula por cartão, com contagem, valor e alarmes. Clicar leva ao cartão.</li>
+        <li><b>Filtros pelos sinais</b> (relevante, meu acervo, acompanhar, cópia na pasta, constrição, tarefa, intimação), com a contagem de cada um. Os filtros valem em todos os cartões ao mesmo tempo.</li>
+        <li><b>O trilho vira uma barra de grupos</b> no alto de cada cartão (um botão por incidente ou por situação, com contagem e valor). Ela filtra a tabela, e “Todos” mostra tudo agrupado. Assim sobra largura para a ficha lateral.</li>
+        <li><b>Tabelas agrupadas</b>, com linha de subtotal por grupo (quantidade, valor, pior prescrição), ordenação por valor, prescrição ou número, “mostrar mais” depois de 8 linhas e extintas ocultas por padrão.</li>
+        <li><b>Sinais numa coluna própria</b>, sempre na mesma posição (a mesma ordem da Beta), para que a leitura desça pela coluna. Na ficha, os sinais manuais se ligam e desligam com um clique.</li>
+        <li><b>Ficha lateral</b> com o detalhe do processo ou da CDA e as três contagens da prescrição empilhadas. A seleção em lote fica no pé da tela.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="sub">Maquete: operação ilustrativa com 55 processos, ficha de uma EF aberta</h3>
+  <div class="frame">
+    <div class="frame-top">NEXUS / Carteira / Operação Sucessão Empresarial Sul / <b>Processos e prescrição</b><span class="sp"></span><span class="fake-search">Buscar processo, CDA…</span></div>
+    <div class="oph" style="padding-bottom:0">
+      <div class="oph-name"><span class="sq" style="background:var(--blue)"></span><h1>Operação Sucessão Empresarial Sul</h1><span class="tag y">Alta</span></div>
+      <div class="oph-sum"><span><b>R$ 23,4 mi</b> em dívida</span><span>18% garantido</span><span>128 CDAs</span><span>55 processos</span><span>6 intimações abertas</span><span class="v">7 CDAs no alarme de prescrição</span></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span class="on">Processos e prescrição</span><span>Inscrições</span><span>Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span>Importar</span></div>
+    </div>
+    <div class="canvas">
+      <div class="sumario anchor"><span class="mk">1</span>
+        <a class="on"><small>Incidentes e destaque</small><b>3</b><em>22 EFs · R$ 14,2 mi</em><i class="al">2 no alarme</i></a>
+        <a><small>Execuções sem vínculo</small><b>17</b><em>R$ 6,8 mi</em><i class="al">1 no alarme</i></a>
+        <a><small>Não ajuizadas</small><b>9 CDAs</b><em>R$ 1,1 mi</em><i class="al">4 no alarme</i></a>
+        <a><small>Recursos</small><b>6</b><em>3 aguardando julgamento</em></a>
+        <a><small>Embargos</small><b>4</b><em>1 com prazo aberto</em></a>
+        <a><small>Outros</small><b>3</b><em>cumprimento, comum</em></a>
+      </div>
+      <div class="toolbar anchor" style="flex-wrap:wrap"><span class="mk">2</span>
+        <span class="input" style="width:210px">Filtrar processo ou CDA</span>
+        <span class="input">Pessoa: todas ▾</span>
+        <span class="sigf">
+          <span><svg class="sg star"><use href="#s-star"/></svg>5</span>
+          <span class="on"><svg class="sg"><use href="#s-home"/></svg>Meu acervo 21</span>
+          <span><svg class="sg"><use href="#s-eye"/></svg>3</span>
+          <span><svg class="sg"><use href="#s-doc"/></svg>8</span>
+          <span><svg class="sg"><use href="#s-lock"/></svg>11</span>
+          <span><i class="dt task"></i>4</span>
+          <span><i class="dt intim"></i>6</span>
+        </span>
+        <span class="sp"></span>
+        <span class="input">Ordenar: valor ▾</span>
+        <span class="btn">+ Processo</span>
+      </div>
+      <div class="pr">
+        <div style="display:grid;gap:12px;min-width:0">
+
+          <div class="pcard anchor"><span class="mk">3</span>
+            <div class="pcard-h"><span class="chev">▾</span><b>Incidentes e execução de destaque</b><span class="count">3</span><span class="muted small">· IDPJ, cautelar e central com as EFs cobertas</span><span class="sp"></span><span class="lnk">Recolher</span></div>
+            <div class="grpbar"><span class="on">Todos <i>3</i></span><span><em class="kind idpj">IDPJ</em>5010321-40.2021 <i>12 EFs · R$ 8,9 mi</i></span><span><em class="kind idpj">IDPJ</em>5019874-12.2023 <i>6 EFs · R$ 3,6 mi</i></span><span><em class="kind cen">Central</em>5003310-77.2019 <i>4 ap. · R$ 1,7 mi</i></span></div>
+            <table class="tree dense">
+              <thead><tr><th style="width:22px"></th><th>Processo</th><th class="sigc">Sinais</th><th>Situação</th><th class="r">CDAs</th><th class="r">Valor ▾</th><th>Prescrição</th></tr></thead>
+              <tbody>
+                <tr class="hub"><td><span class="ck"></span></td><td><span class="chev">▾</span><span class="kind idpj" style="padding:1px 5px">IDPJ</span> <span class="num">5010321-40.2021.4.04.7100</span><div class="hub-s">liminar deferida 14/03 · cobre 12 EFs</div></td><td class="sigc"><span class="sigs"><svg class="sg star"><use href="#s-star"/></svg><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><svg class="sg"><use href="#s-lock"/></svg><i></i><i class="dt intim"></i></span></td><td><span class="st">Ativa</span></td><td class="r">41</td><td class="r"><b>8.940.000</b></td><td><span class="late">2 no alarme</span></td></tr>
+                <tr class="sel"><td><span class="ck on"></span></td><td class="ind1"><span class="num">5007712-03.2017.4.04.7100</span> <span class="apc">2 ap.</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><svg class="sg"><use href="#s-doc"/></svg><svg class="sg"><use href="#s-lock"/></svg><i class="dt task"></i><i class="dt intim"></i></span></td><td><span class="st">Ativa</span></td><td class="r">9</td><td class="r">2.310.000</td><td><span class="late">70 dias</span></td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5004410-88.2016.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><svg class="sg"><use href="#s-lock"/></svg><i></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">6</td><td class="r">1.880.000</td><td class="muted small">interrompida</td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5012005-61.2018.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="st sus">Suspensa</span></td><td class="r">5</td><td class="r">1.205.000</td><td><span class="soon">1 ano e 2 meses</span></td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5000872-19.2015.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">4</td><td class="r">990.000</td><td class="muted small">interrompida</td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5021150-07.2019.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><i></i><svg class="sg"><use href="#s-eye"/></svg><i></i><i></i><i></i><i></i></span></td><td><span class="st arq">Art. 40</span></td><td class="r">3</td><td class="r">640.000</td><td><span class="late">intercorrente · 4 meses</span></td></tr>
+                <tr class="more"><td></td><td colspan="6" class="ind1">Mostrar mais 7 EFs · R$ 1.915.000 · nenhuma no alarme <span class="muted">· 2 extintas ocultas</span></td></tr>
+                <tr class="hub"><td><span class="ck"></span></td><td><span class="chev">▸</span><span class="kind idpj" style="padding:1px 5px">IDPJ</span> <span class="num">5019874-12.2023.4.04.7100</span><div class="hub-s">citação 02/08 · cobre 6 EFs</div></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><i></i><i class="dt task"></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">22</td><td class="r"><b>3.600.000</b></td><td class="muted small">nenhuma no alarme</td></tr>
+                <tr class="hub"><td><span class="ck"></span></td><td><span class="chev">▸</span><span class="kind cen" style="padding:1px 5px">Central</span> <span class="num">5003310-77.2019.4.04.7100</span><div class="hub-s">garantia / penhora 20/05 · 4 apensos</div></td><td class="sigc"><span class="sigs"><svg class="sg star"><use href="#s-star"/></svg><svg class="sg"><use href="#s-home"/></svg><i></i><svg class="sg"><use href="#s-doc"/></svg><svg class="sg"><use href="#s-lock"/></svg><i></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">14</td><td class="r"><b>1.700.000</b></td><td class="muted small">nenhuma no alarme</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pcard anchor"><span class="mk">4</span>
+            <div class="pcard-h"><span class="chev">▾</span><b>Execuções sem vínculo</b><span class="count">17 · 9 CDAs não ajuizadas</span><span class="muted small">· fora de IDPJ, cautelar e central</span><span class="sp"></span><span class="lnk">Recolher</span></div>
+            <div class="grpbar"><span class="on">Ativas <i>7 · R$ 4,1 mi</i></span><span class="on">Suspensas <i>3</i></span><span class="on">Parcelamento <i>2</i></span><span class="on">Art. 40 <i>3</i></span><span class="on">Não ajuizadas <i>9 CDAs</i></span><span class="off">Extintas <i>2</i></span></div>
+            <table class="tree dense">
+              <thead><tr><th style="width:22px"></th><th>Processo</th><th class="sigc">Sinais</th><th>Situação</th><th class="r">CDAs</th><th class="r">Valor ▾</th><th>Prescrição</th></tr></thead>
+              <tbody>
+                <tr class="band"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><b>Ativas</b> <span class="muted small">7 EFs</span></td><td class="r">31</td><td class="r"><b>4.120.000</b></td><td class="muted small">nenhuma no alarme</td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5030117-45.2020.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><svg class="sg"><use href="#s-lock"/></svg><i></i><i class="dt intim"></i></span></td><td><span class="st">Ativa</span></td><td class="r">8</td><td class="r">1.450.000</td><td class="muted small">interrompida</td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5028864-02.2021.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><svg class="sg"><use href="#s-doc"/></svg><i></i><i></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">6</td><td class="r">980.000</td><td class="muted small">interrompida</td></tr>
+                <tr><td><span class="ck"></span></td><td class="ind1"><span class="num">5011209-33.2022.4.04.7100</span></td><td class="sigc"><span class="sigs"><i></i><i></i><i></i><i></i><i></i><i class="dt task"></i><i></i></span></td><td><span class="st">Ativa</span></td><td class="r">5</td><td class="r">640.000</td><td class="muted small">interrompida</td></tr>
+                <tr class="more"><td></td><td colspan="6" class="ind1">Mostrar mais 4 EFs · R$ 1.050.000</td></tr>
+                <tr class="band"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▸</span><b>Suspensas</b> <span class="muted small">3 EFs</span></td><td class="r">9</td><td class="r"><b>1.020.000</b></td><td class="muted small">nenhuma no alarme</td></tr>
+                <tr class="band"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▸</span><b>Suspensão por parcelamento</b> <span class="muted small">2 EFs</span></td><td class="r">4</td><td class="r"><b>410.000</b></td><td class="muted small">suspensa</td></tr>
+                <tr class="band"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▸</span><b>Arquivadas art. 40</b> <span class="muted small">3 EFs</span></td><td class="r">7</td><td class="r"><b>1.250.000</b></td><td><span class="late">1 no alarme</span></td></tr>
+                <tr class="band"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><b>Não ajuizadas</b> <span class="muted small">9 CDAs</span></td><td class="r">9</td><td class="r"><b>1.130.000</b></td><td><span class="late">4 no alarme</span></td></tr>
+                <tr><td><span class="ck on"></span></td><td class="ind1"><span class="num">80.6.21.114870-02</span> <span class="muted small">IRPJ</span></td><td class="sigc"></td><td><span class="st nj">Ativa</span></td><td class="r"></td><td class="r">310.000</td><td><div class="pz"><div class="hb"><i style="width:3%;background:var(--red)"></i></div><span class="late">52 dias · 16/11</span></div></td></tr>
+                <tr><td><span class="ck on"></span></td><td class="ind1"><span class="num">80.2.21.009913-55</span> <span class="muted small">IRRF</span></td><td class="sigc"></td><td><span class="st nj">Ativa</span></td><td class="r"></td><td class="r">96.000</td><td><div class="pz"><div class="hb"><i style="width:5%;background:var(--red)"></i></div><span class="late">88 dias · 22/12</span></div></td></tr>
+                <tr class="more"><td></td><td colspan="6" class="ind1">Mostrar mais 7 CDAs · R$ 724.000 · 2 no alarme</td></tr>
+                <tr class="more dim"><td></td><td colspan="6">2 extintas ocultas · R$ 380.000 <span class="lnk">mostrar</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pcard anchor"><span class="mk">5</span>
+            <div class="pcard-h"><span class="chev">▾</span><b>Recursos</b><span class="count">6</span><span class="muted small">· agrupados pelo processo principal</span><span class="sp"></span><span class="lnk">Recolher</span></div>
+            <table class="tree dense">
+              <thead><tr><th style="width:22px"></th><th>Processo</th><th class="sigc">Sinais</th><th>Espécie</th><th>Situação</th><th colspan="2">Relacionado</th></tr></thead>
+              <tbody>
+                <tr class="band"><td></td><td colspan="6"><span class="chev">▾</span>de <span class="num">IDPJ 5010321-40.2021</span> <span class="muted small">· 3</span></td></tr>
+                <tr><td></td><td class="ind1"><span class="num">5044120-18.2024.4.04.0000</span></td><td class="sigc"><span class="sigs"><svg class="sg star"><use href="#s-star"/></svg><svg class="sg"><use href="#s-home"/></svg><svg class="sg"><use href="#s-eye"/></svg><i></i><i></i><i></i><i class="dt intim"></i></span></td><td><span class="rel">AI</span> Agravo de instrumento</td><td><span class="st">Ativa</span></td><td colspan="2" class="muted small">liminar do IDPJ · contrarrazões até 02/10</td></tr>
+                <tr><td></td><td class="ind1"><span class="num">5044987-71.2024.4.04.0000</span></td><td class="sigc"><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="rel">AI</span> Agravo de instrumento</td><td><span class="st sus">Aguard. julgamento</span></td><td colspan="2" class="muted small">parte adversa</td></tr>
+                <tr class="more"><td></td><td colspan="6" class="ind1">Mostrar mais 1</td></tr>
+                <tr class="band"><td></td><td colspan="6"><span class="chev">▸</span>de <span class="num">EF 5007712-03.2017</span> <span class="muted small">· 2</span> &nbsp; <span class="chev">▸</span>de <span class="num">Central 5003310-77.2019</span> <span class="muted small">· 1</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pcard collapsed"><div class="pcard-h"><span class="chev">▸</span><b>Embargos</b><span class="count">4</span><span class="muted small">· embargos à execução, à execução fiscal e de terceiro</span><span class="sp"></span><span class="pill red">1 prazo aberto</span></div></div>
+          <div class="pcard collapsed"><div class="pcard-h"><span class="chev">▸</span><b>Outros</b><span class="count">3</span><span class="muted small">· cumprimento, procedimento comum e demais</span></div></div>
+        </div>
+
+        <aside class="insp anchor"><span class="mk">6</span>
+          <div class="insp-h">
+            <div class="insp-top"><span class="kind ef" style="padding:1px 6px">EF</span><span class="num">5007712-03.2017.4.04.7100</span><span class="muted">⧉ eproc↗</span><span class="sp"></span><span class="x">✕</span></div>
+            <div class="sigtog">
+              <span><svg class="sg star"><use href="#s-star"/></svg>Relevante</span>
+              <span class="on"><svg class="sg"><use href="#s-home"/></svg>Meu acervo</span>
+              <span><svg class="sg"><use href="#s-eye"/></svg>Acompanhar</span>
+              <span class="on"><svg class="sg"><use href="#s-doc"/></svg>Cópia na pasta · 12/08</span>
+            </div>
+            <div class="sigauto"><span><svg class="sg"><use href="#s-lock"/></svg>Constrição: 2 bens (CNIB, Sisbajud)</span><span><i class="dt task"></i>1 tarefa</span><span><i class="dt intim"></i>1 intimação · prazo 01/10</span></div>
+            <dl class="facts">
+              <dt>Juízo</dt><dd>14ª Vara Federal de Porto Alegre · Execução Fiscal</dd>
+              <dt>Executado</dt><dd>Sucessão Sul Comércio LTDA <span class="mono muted small">12.345.678/0001-90</span></dd>
+              <dt>Coberta por</dt><dd><span class="kind idpj" style="padding:0 5px;font-size:10px">IDPJ</span> <span class="mono small">5010321-40.2021</span> · liminar deferida</dd>
+              <dt>Apensos</dt><dd><span class="mono small">5007790-11.2017</span>, <span class="mono small">5008002-54.2018</span></dd>
+            </dl>
+            <div class="itabs"><span>Resumo</span><span class="on">CDAs · 9</span><span>Notas · 3</span><span>Recursos · 2</span></div>
+          </div>
+          <div class="insp-b">
+            <div class="cda open">
+              <div class="cda-h"><span class="ck on"></span><span class="n">80.6.17.004512-90 <span class="muted" style="font-weight:400">· IRPJ</span></span><span class="v">R$ 610.000</span><div class="cda-s">Ativa ajuizada · no alarme · 70 dias</div></div>
+              <div class="pc">
+                <div class="pc-row"><div><div class="t">Intercorrente</div><span class="seal est">estimado</span></div><div><p><b>Em curso desde a ciência da não localização de bens</b> (03/2020). Termo estimado em <b>04/12/2026</b>.</p><div class="occ"><span class="mono">11/03/2020</span><span>Ciência · não localização</span><span class="mono">11/03/2021</span><span>Fim da suspensão de 1 ano</span></div></div></div>
+                <div class="pc-row"><div><div class="t">Ordinária</div><span class="seal calc">calculado</span></div><div><p><b>Interrompida</b> pelo despacho de citação em 2017.</p></div></div>
+                <div class="pc-row"><div><div class="t">Decadência</div><span class="seal calc">calculado</span></div><div><p>Constituída no prazo.</p></div></div>
+                <div class="conf"><span class="ck"></span><span>Conferir nos autos: houve indisponibilidade pelo IDPJ depois de 2021? Se sim, lançar com a data do pedido.</span></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="btn sm">+ Evento</span><span class="btn sm">✓ Tratada</span><span class="btn sm">⏳ Aguardando reconhecimento</span></div>
+              </div>
+            </div>
+            <div class="cda"><div class="cda-h"><span class="ck"></span><span class="n">80.6.17.004513-71 <span class="muted" style="font-weight:400">· CSLL</span></span><span class="v">R$ 402.000</span><div class="cda-s">Ativa ajuizada · no alarme · 70 dias</div></div></div>
+            <div class="cda"><div class="cda-h"><span class="ck"></span><span class="n">80.2.17.001188-03 <span class="muted" style="font-weight:400">· IRRF</span></span><span class="v">R$ 288.000</span><div class="cda-s">Ativa ajuizada · interrompida</div></div></div>
+            <div class="muted small" style="padding-left:4px">+ 6 CDAs · ordenadas pela pior prescrição</div>
+          </div>
+          <div class="insp-f"><span class="btn sm">+ Evento nas 9 CDAs</span><span class="btn sm">Gerar tarefa</span><span class="btn sm">Dados do processo</span></div>
+        </aside>
+      </div>
+      <div class="bulk"><b>3 CDAs selecionadas</b><span style="opacity:.7">· 1 processo + 2 não ajuizadas · R$ 1.016.000</span><span class="sp"></span><span class="btn w sm">+ Evento em lote</span><span class="btn sm">✓ Marcar como tratadas</span><span class="btn sm">⏳ Aguardando reconhecimento</span><span class="btn sm">↻ Reabrir</span><span class="btn sm">Limpar</span></div>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="mk">1</span><div><b>Sumário da operação.</b> Uma célula por cartão, fixa no alto ao rolar. Clicar leva ao cartão e o abre. Os alarmes vêm do <span class="mono">prazosByDebt</span> que o app já calcula.</div></div>
+    <div class="note"><span class="mk">2</span><div><b>Filtros pelos sinais</b>, os mesmos do <span class="mono">ProcRowSymbols</span> da Beta, com contagem. Ligar “Meu acervo” reduz todos os cartões aos processos do acervo, e os subtotais acompanham. Combinam com a busca e com o filtro por pessoa.</div></div>
+    <div class="note"><span class="mk">3</span><div><b>Cartão de incidentes.</b> A barra de grupos substitui o trilho: “Todos” mostra cada incidente com as suas EFs e uma linha de subtotal; clicar num incidente mostra só ele. Cada grupo mostra até 8 linhas; o resto fica em “Mostrar mais”, já com o valor.</div></div>
+    <div class="note"><span class="mk">4</span><div><b>Cartão de execuções sem vínculo.</b> A barra liga e desliga as situações (extintas desligadas por padrão). As não ajuizadas continuam no fim deste cartão, como no clássico, com a barra de horizonte porque há termo a contar.</div></div>
+    <div class="note"><span class="mk">5</span><div><b>Recursos, Embargos e Outros</b> continuam em cartões próprios, fechados por padrão, com um aviso no cabeçalho quando há prazo aberto. Dentro, agrupados pelo processo principal. Da linha da EF, o selo do recurso leva ao cartão, como hoje.</div></div>
+    <div class="note"><span class="mk">6</span><div><b>Ficha lateral.</b> No topo, os sinais manuais viram botões (<span class="mono">isRelevant</span>, <span class="mono">meuAcervo</span>, <span class="mono">acompanhar</span>, <span class="mono">copiaNaPasta</span>, gravados por <span class="mono">upsert</span>). Constrição, tarefa e intimação são calculados e levam ao item. Com a ficha aberta, a tabela esconde a coluna CDAs.</div></div>
+  </div>
+  <div class="box" style="margin-top:14px">
+    <h4>Coluna de sinais: posição fixa</h4>
+    <div class="legend">
+      <span><span class="sigs"><svg class="sg star"><use href="#s-star"/></svg><i></i><i></i><i></i><i></i><i></i><i></i></span>Relevante</span>
+      <span><span class="sigs"><i></i><svg class="sg"><use href="#s-home"/></svg><i></i><i></i><i></i><i></i><i></i></span>Meu acervo</span>
+      <span><span class="sigs"><i></i><i></i><svg class="sg"><use href="#s-eye"/></svg><i></i><i></i><i></i><i></i></span>Acompanhar</span>
+      <span><span class="sigs"><i></i><i></i><i></i><svg class="sg"><use href="#s-doc"/></svg><i></i><i></i><i></i></span>Cópia na pasta</span>
+      <span><span class="sigs"><i></i><i></i><i></i><i></i><svg class="sg"><use href="#s-lock"/></svg><i></i><i></i></span>Constrição</span>
+      <span><span class="sigs"><i></i><i></i><i></i><i></i><i></i><i class="dt task"></i><i></i></span>Tarefa aberta</span>
+      <span><span class="sigs"><i></i><i></i><i></i><i></i><i></i><i></i><i class="dt intim"></i></span>Intimação aberta</span>
+    </div>
+    <p class="small muted" style="margin-top:8px">Mesmos desenhos, cores e ordem da Beta. Cada sinal ocupa sempre a mesma casa, mesmo quando as outras estão vazias; assim a leitura desce pela coluna (“quais estão no meu acervo?”) sem procurar ícone por ícone. Os sinais também aparecem na ficha, na trilha das frentes do Briefing e, no relatório, numa coluna curta das tabelas de processos (ex.: “acervo · constrição”).</p>
+  </div>
+</section>
+
+<!-- ═══════════════ 3 RELATÓRIO ═══════════════ -->
+<section class="part" id="relatorio">
+  <div class="part-h"><span class="part-n">03</span><h2>Relatório → passagem de serviço em camadas</h2></div>
+  <p class="part-lede">O relatório existe para outra pessoa (substituto, férias, chefia) assumir a operação sem precisar abrir o app. Hoje ele é uma sequência de tabelas na ordem em que os dados existem. A proposta ordena pelo que quem assume precisa saber primeiro: a leitura, os próximos 15 dias e os alertas, na página 1. As frentes vêm na página 2 e o resto fica nos anexos. O mecanismo continua o mesmo (HTML baixado, imprimível) e é gerado com os mesmos dados.</p>
+
+  <div class="two">
+    <div class="box">
+      <h4><span class="pill red">Hoje</span> O que atrapalha</h4>
+      <ol>
+        <li><b>Não há ordem de prioridade.</b> Intimações, tarefas e prescrição vêm em tabelas separadas; quem assume precisa montar sozinho a sequência dos próximos dias.</li>
+        <li><b>Faltam coisas decisivas:</b> <b>audiências</b> (a Agro tem duas nos próximos 11 dias), <b>fontes</b> (NotebookLM, minutas, pasta), lembretes, checklists, partes relacionadas (a meeira, a cooperativa) e bens com indisponibilidade só requerida.</li>
+        <li><b>Revisão atrasada e classificações não aparecem</b>, nem a data da última revisão.</li>
+        <li><b>As fases viram etiquetas coloridas</b> dentro do bloco do incidente; na impressão em preto e branco elas se perdem.</li>
+        <li><b>A tabela de bens tem 10 colunas</b> e quebra a página. Na impressão, a de processos repete o que o bloco do incidente já disse.</li>
+        <li><b>Um só formato.</b> Não serve para um resumo de uma página nem para prestação de contas de um período.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h4><span class="pill green">Proposta</span> O que muda</h4>
+      <ol>
+        <li><b>Página 1, a capa:</b> identificação, situação da revisão, leitura da operação (entradas fixadas), <b>próximos 15 dias</b> (prazos, audiências, tarefas e termos de prescrição numa lista só, em ordem de data), alertas, 4 números e fontes.</li>
+        <li><b>Página 2, as frentes:</b> cada incidente com a régua em texto (“Ajuizamento → Liminar favorável → …”), o texto da fase e as EFs cobertas; depois as EFs sem incidente e as CDAs não ajuizadas.</li>
+        <li><b>Anexos:</b> diário completo, lembretes e checklists, bens (5 colunas), partes (alvos e relacionadas) e intimações abertas.</li>
+        <li><b>Janela de geração</b> com três modelos: Passagem de serviço, Resumo de uma página e Prestação de contas (tudo o que foi feito num período, ou desde o início da operação), e seções que você liga e desliga.</li>
+        <li><b>Nas três edições:</b> Clássico, Beta e Prumo usam o mesmo relatório.</li>
+        <li><b>Visual Prumo impresso:</b> Geist, cinzas, cor só onde há alerta. Funciona em preto e branco e tem rodapé com página e data.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="sub">Maquete: páginas 1 e 2 (A4)</h3>
+  <div class="rep-wrap">
+    <div class="a4">
+      <div class="a4-top"><span>Nexus · Passagem de serviço</span><span>25/09/2026 · página 1 de 4</span></div>
+      <h1><span class="sq"></span>Operação Agro Horizonte</h1>
+      <div class="desc">Produtor rural e agropecuária; Renajud/CNIB, MCF e risco prescricional em ITR/IRPF.</div>
+      <div class="meta"><span>Prioridade alta</span><span>Em andamento</span><span>Constrições ativas</span><span>Bens suficientes</span><span class="late">Revisão quinzenal · última em 07/09 · atrasada 4 dias</span></div>
+
+      <h2>Leitura da operação</h2>
+      <div class="a4-lead">Consolidar a CNIB da fazenda, estender a indisponibilidade às máquinas e fazer diligência in loco. A MCF sustenta a cobrança da EF principal; o risco está nas CDAs de ITR/IRPF ainda sem processo.<small>Estratégia · fixada em 18/09/2026</small></div>
+
+      <h2>Próximos 15 dias</h2>
+      <div class="agenda">
+        <div class="ag"><span class="d">Dom 27/09</span><span class="k aud">Audiência</span><span class="t"><b>Una, 16:00, virtual</b> — defesa da higidez da CDA de ITR <span class="mono">5006620-22.2025</span></span></div>
+        <div class="ag"><span class="d">Seg 28/09</span><span class="k prz">Prazo</span><span class="t"><b>Vista à Fazenda — exceção (ITR)</b> · peça em edição · urgente <span class="mono">5006620-22.2025</span></span></div>
+        <div class="ag"><span class="d">Seg 28/09</span><span class="k tar">Tarefa</span><span class="t">Impugnar exceção de pré-executividade (ITR) · minuta no Drive</span></div>
+        <div class="ag"><span class="d">Ter 29/09</span><span class="k prz">Prazo</span><span class="t"><b>Intimação Renajud</b> — resultado positivo <span class="mono">5006600-22.2020</span></span></div>
+        <div class="ag"><span class="d">Ter 29/09</span><span class="k tar">Tarefa</span><span class="t">Estender Renajud a colheitadeira</span></div>
+        <div class="ag"><span class="d">Qua 30/09</span><span class="k tar">Tarefa</span><span class="t">Agendar diligência na fazenda</span></div>
+        <div class="ag"><span class="d">Dom 04/10</span><span class="k prz">Prazo</span><span class="t">Manifestar sobre extensão da indisponibilidade <span class="mono">MCF 5006699-22.2025</span></span></div>
+        <div class="ag"><span class="d">Seg 05/10</span><span class="k tar">Tarefa</span><span class="t">Oficiar cooperativa — retenção de créditos</span></div>
+        <div class="ag"><span class="d">Ter 06/10</span><span class="k aud">Audiência</span><span class="t"><b>Instrução, 09:30, presencial</b> — extensão a máquinas e créditos de soja <span class="mono">MCF</span></span></div>
+        <div class="ag"><span class="d">Ter 06/10</span><span class="k prz">Prazo</span><span class="t">Ofício — retenção de créditos de soja · aguardando subsídios</span></div>
+        <div class="ag" style="border:0"><span class="d muted">depois</span><span class="k">+1</span><span class="t muted">Ofício à meeira, 15/10</span></div>
+      </div>
+
+      <h2>Alertas</h2>
+      <div class="alert-box">
+        <div class="row" style="font-weight:600;color:#7c828e;font-size:9.5px;text-transform:uppercase">
+          <span>CDA</span><span>Termo</span><span>Situação</span><span style="text-align:right">Valor</span></div>
+        <div class="row"><span class="mono">90.6.23.000884-40</span><span class="mono" style="color:var(--red);font-weight:600">04/12/2026</span><span>ordinária · sem processo — ajuizar</span><span class="mono" style="text-align:right">48.000</span></div>
+        <div class="row"><span class="mono">90.6.20.000881-40</span><span class="mono" style="color:var(--orange);font-weight:600">04/03/2027</span><span>ordinária · sem processo — ajuizar</span><span class="mono" style="text-align:right">95.000</span></div>
+      </div>
+
+      <h2>Números</h2>
+      <div class="nums">
+        <div><small>Crédito</small><b>R$ 1,29 mi</b><em>6 CDAs · 0% garantido</em></div>
+        <div><small>Indisponível</small><b>R$ 2,01 mi</b><em>+ R$ 1,21 mi requerido</em></div>
+        <div><small>Cobertura</small><b>71%</b><em>pela MCF</em></div>
+        <div><small>Abertos</small><b>5 · 4</b><em>intimações · tarefas</em></div>
+      </div>
+
+      <h2>Onde estão as coisas</h2>
+      <div class="srcs">
+        <div>NotebookLM — Agro <span>notebooklm.google.com/…</span></div>
+        <div>Minuta — Impugnação à exceção (ITR) <span>docs.google.com/…</span></div>
+        <div>Resumos e anotações <span>docs.google.com/…</span></div>
+        <div>Requerimento — Extensão CNIB/Renajud <span>docs.google.com/…</span></div>
+      </div>
+      <div class="foot"><span>Gerado pelo Nexus em 25/09/2026, 10:20</span><span>1/4</span></div>
+    </div>
+
+    <div class="a4">
+      <div class="a4-top"><span>Operação Agro Horizonte · frentes processuais</span><span>página 2 de 4</span></div>
+      <h2 style="margin-top:14px">Frentes processuais</h2>
+      <div class="front">
+        <div class="front-h"><span class="kind mcf" style="padding:0 6px;font-size:9.5px">MCF</span><b>5006699-22.2025.4.04.7006</b><span class="sp"></span><span class="mono">R$ 920.000 · cobre 1 EF</span></div>
+        <div class="fr-txt">Medida cautelar fiscal · Vara Federal de Ponta Grossa · ativa</div>
+        <div class="fr-rule"><span class="done">Ajuizamento 31/08</span><span class="fav">Liminar favorável 07/09</span><span class="nx">Audiência 06/10</span><span class="nx">Decisão final</span></div>
+        <div class="fr-txt"><b>Fase atual:</b> indisponibilidade parcial deferida (matrícula 12.340). Falta estender às máquinas.</div>
+        <table style="margin-top:6px"><tr><th>EF coberta</th><th>Situação</th><th>CDAs</th><th>Valor</th><th>Prescrição</th></tr>
+          <tr><td class="mono">5006600-22.2020.4.04.7006</td><td>Ativa</td><td>2</td><td class="mono">920.000</td><td>interrompida · intercorrente não iniciada</td></tr>
+          <tr><td class="mono">↳ 5006620-22.2025 · EPE</td><td>Ativa</td><td>—</td><td></td><td>audiência 27/09 · prazo 28/09</td></tr>
+        </table>
+      </div>
+      <div class="front">
+        <div class="front-h"><span class="kind ef" style="padding:0 6px;font-size:9.5px">EF</span><b>Sem incidente</b><span class="sp"></span><span class="mono">R$ 125.000</span></div>
+        <table style="margin-top:6px"><tr><th>Processo</th><th>Situação</th><th>CDAs</th><th>Valor</th><th>Prescrição</th></tr>
+          <tr><td class="mono">5006610-22.2022.4.04.7006</td><td>Ativa</td><td>1</td><td class="mono">125.000</td><td>interrompida pela citação</td></tr>
+        </table>
+      </div>
+      <div class="front">
+        <div class="front-h"><span class="kind cen" style="padding:0 6px;font-size:9.5px">CDA</span><b>Não ajuizadas</b><span class="sp"></span><span class="mono">R$ 243.000</span></div>
+        <table style="margin-top:6px"><tr><th>CDA</th><th>Tributo</th><th>Valor</th><th>Prescrição</th></tr>
+          <tr><td class="mono">90.6.23.000884-40</td><td>ITR</td><td class="mono">48.000</td><td style="color:var(--red)">termo 04/12/2026</td></tr>
+          <tr><td class="mono">90.6.20.000881-40</td><td>IRPF</td><td class="mono">95.000</td><td style="color:var(--orange)">termo 04/03/2027</td></tr>
+          <tr><td class="mono">90.8.21.000200-02</td><td>FGTS</td><td class="mono">100.000</td><td>sem dados suficientes</td></tr>
+        </table>
+      </div>
+
+      <h2>Diário (3) · lembretes (2)</h2>
+      <table>
+        <tr><td class="mono" style="width:62px">22/09</td><td style="width:78px"><b>Risco</b></td><td>CDAs 884 (ITR) e 881 (IRPF) sem processo; termos em dez/26 e mar/27. Ajuizar ou juntar à EF principal antes de novembro.</td></tr>
+        <tr><td class="mono">18/09</td><td><b>Estratégia</b></td><td>Consolidar CNIB da fazenda; estender indisponibilidade a máquinas; diligência in loco.</td></tr>
+        <tr><td class="mono">12/09</td><td><b>Observação</b></td><td>Agropecuária Horizonte + Pedro Henrique Agro + cônjuge (meeira) sob análise.</td></tr>
+        <tr><td class="mono">25/09</td><td><b>Lembrete</b></td><td>CDA 000882 — prazo prescricional apertado (45d). Priorizar.</td></tr>
+        <tr><td class="mono">22/09</td><td><b>Lembrete</b></td><td>Diligência fazenda: confirmar benfeitorias e máquinas.</td></tr>
+      </table>
+
+      <h2>Anexos nas páginas 3 e 4</h2>
+      <div class="fr-txt" style="line-height:1.7">A · Bens (5): descrição, titular, situação, origem, valor — fazenda R$ 1,8 mi, conta cooperativa R$ 210 mil (ativas); trator e colheitadeira (requeridas); quota do silo (controvertida)<br>B · Partes (4): 2 alvos e 2 relacionadas (meeira, cooperativa)<br>C · Intimações abertas (5), com status e evento<br>D · Checklists: 1ª vista 2/4, decisão final do IDPJ 0/5</div>
+      <div class="foot"><span>Operação Agro Horizonte</span><span>2/4</span></div>
+    </div>
+  </div>
+
+  <h3 class="sub">Janela de geração (botão Relatório no cabeçalho) · fase 9b</h3>
+  <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start">
+    <div class="dlg">
+      <div class="dlg-h">Gerar relatório da operação</div>
+      <div class="dlg-b">
+        <div class="opt on"><span class="radio"></span><div><b>Passagem de serviço</b><p>Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.</p></div></div>
+        <div class="opt"><span class="radio"></span><div><b>Resumo de uma página</b><p>Só a página 1. Para a chefia ou uma reunião.</p></div></div>
+        <div class="opt"><span class="radio"></span><div><b>Prestação de contas</b><p>Tudo o que foi feito, num período ou desde o início da operação: intimações tratadas, peças, fases, eventos, constrições, tarefas e diário.</p></div></div>
+        <div><div class="lbl" style="margin-bottom:6px">Seções</div>
+          <div class="chips"><span>✓ Leitura</span><span>✓ Próximos 15 dias</span><span>✓ Alertas</span><span>✓ Frentes</span><span>✓ Diário</span><span>✓ Lembretes</span><span>✓ Bens</span><span>✓ Partes</span><span>✓ Fontes</span></div>
+        </div>
+      </div>
+      <div class="dlg-f"><span class="btn ghost">Cancelar</span><span class="btn">Baixar HTML</span><span class="btn pri">Abrir para imprimir</span></div>
+    </div>
+    <div class="box">
+      <h4>Como cada modelo usa os dados que já existem</h4>
+      <ul>
+        <li><b>Próximos 15 dias</b> junta <span class="mono">intimations</span> (prazo final), <span class="mono">hearings</span>, <span class="mono">tasks</span> e os termos dos grupos 1 a 4 (<span class="mono">prazosRadar</span>). A regra hoje fica em <span class="mono">cxAgendaByDay</span>, no arquivo do Prumo, que o build monta depois de <span class="mono">src/lib</span>; por isso ela passa para <span class="mono">src/lib/agenda.js</span>, e a Agenda e o relatório usam a mesma função.</li>
+        <li><b>Coleta nova, dado existente:</b> audiências, checklists, fontes e partes relacionadas não entram no relatório de hoje. O dado já existe; o código de coleta é novo.</li>
+        <li><b>Frentes</b> usa <span class="mono">getStageRecords</span> e o texto da fase, os mesmos dados do Briefing.</li>
+        <li><b>Prestação de contas</b> reconstrói o que foi feito a partir do que já fica gravado (veja a maquete abaixo).</li>
+        <li><b>Lembretes</b> entram por padrão; dá para desligar na janela quando o relatório sair da equipe.</li>
+        <li>“Abrir para imprimir” abre o HTML numa aba e chama a impressão (salvar como PDF). “Baixar HTML” faz o que o botão faz hoje.</li>
+      </ul>
+    </div>
+  </div>
+  <h3 class="sub">Maquete: Prestação de contas (período ou operação inteira)</h3>
+  <div class="rep-wrap">
+    <div class="a4" style="min-height:0">
+      <div class="a4-top"><span>Nexus · Prestação de contas</span><span>01/08/2026 a 25/09/2026 · página 1 de 3</span></div>
+      <h1><span class="sq"></span>Operação Agro Horizonte</h1>
+      <div class="desc">O que foi feito na operação no período, em ordem de data, com a fonte de cada registro.</div>
+      <div class="tally">
+        <div><b>6</b><small>intimações tratadas</small></div>
+        <div><b>4</b><small>peças e documentos</small></div>
+        <div><b>3</b><small>fases e eventos</small></div>
+        <div><b>2</b><small>constrições obtidas</small></div>
+        <div><b>5</b><small>tarefas concluídas</small></div>
+      </div>
+      <div class="log">
+        <div class="log-d">Setembro de 2026</div>
+        <div class="log-r"><span class="mono">25/09</span><span class="k">Peça</span><span>Minuta — Impugnação à exceção (ITR), em edição <span class="mono">5006620-22.2025</span></span></div>
+        <div class="log-r"><span class="mono">22/09</span><span class="k">Diário</span><span>Risco: CDAs 884 e 881 sem processo; ajuizar antes de novembro</span></div>
+        <div class="log-r"><span class="mono">18/09</span><span class="k">Intimação</span><span>Peticionamento (manifestação) — extensão da indisponibilidade <span class="mono">MCF 5006699-22.2025</span></span></div>
+        <div class="log-r"><span class="mono">15/09</span><span class="k">Fase</span><span>Evento livre: pedido de extensão a máquinas (ev. 11) <span class="mono">MCF</span></span></div>
+        <div class="log-r"><span class="mono">12/09</span><span class="k">Tarefa</span><span>Concluída: juntar matrícula atualizada da fazenda</span></div>
+        <div class="log-r"><span class="mono">07/09</span><span class="k">Fase</span><span>Liminar favorável: indisponibilidade parcial deferida (matrícula 12.340) <span class="mono">MCF</span></span></div>
+        <div class="log-r"><span class="mono">31/08</span><span class="k">Fase</span><span>Ajuizamento da MCF, vinculada à EF da fazenda (ev. 1)</span></div>
+        <div class="log-r"><span class="mono">31/08</span><span class="k">Peça</span><span>Petição inicial — Medida cautelar fiscal</span></div>
+        <div class="log-d">Agosto de 2026</div>
+        <div class="log-r"><span class="mono">16/08</span><span class="k">Prescrição</span><span>Evento lançado: indisponibilidade CNIB/CCS · CDA 90.6.20.000880-40</span></div>
+        <div class="log-r"><span class="mono">16/08</span><span class="k">Bem</span><span>Fazenda Horizonte (matr. 12.340) → indisponibilidade ativa · CNIB</span></div>
+        <div class="log-r"><span class="mono">05/08</span><span class="k">Intimação</span><span>Ciência — despacho de citação por edital <span class="mono">5006610-22.2022</span></span></div>
+        <div class="log-r" style="border:0"><span class="mono">…</span><span></span><span class="muted">mais 9 registros nas páginas 2 e 3</span></div>
+      </div>
+      <div class="foot"><span>Gerado pelo Nexus em 25/09/2026, 10:20 · conteúdo ilustrativo</span><span>1/3</span></div>
+    </div>
+    <div class="box" style="align-self:start">
+      <h4>De onde vem cada linha</h4>
+      <ul>
+        <li><b>Intimações tratadas:</b> <span class="mono">intimations.responseAction</span> (tipo, descrição, peça e <span class="mono">respondedAt</span>). Guardado para sempre.</li>
+        <li><b>Peças e documentos:</b> <span class="mono">documents</span> da operação, pela data de criação.</li>
+        <li><b>Fases e eventos livres:</b> <span class="mono">briefing.processStageV2</span>, pela data da fase.</li>
+        <li><b>Prescrição:</b> <span class="mono">prescriptionEvents</span> lançados e CDAs marcadas como tratadas (<span class="mono">prescriptionHandledAt</span>).</li>
+        <li><b>Diário e lembretes:</b> entradas pela data do fato (ou de criação).</li>
+        <li><b>Audiências realizadas:</b> <span class="mono">hearings</span> com situação “realizada”.</li>
+        <li><b>Tarefas concluídas e mudanças de situação</b> (bens, processos, CDAs): <span class="mono">changeLog</span>.</li>
+      </ul>
+      <p class="small" style="margin-top:10px;color:var(--orange)"><b>Limite de hoje:</b> o <span class="mono">changeLog</span> guarda só os últimos 500 registros de todo o app, e a revisão da operação guarda só a data mais recente. Para “recuperar tudo” nessas duas fontes seria preciso guardar mais histórico, o que muda o armazenamento e fica como decisão separada. As demais fontes já estão completas.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 4 PLANO ═══════════════ -->
+<section class="part" id="plano">
+  <div class="part-h"><span class="part-n">04</span><h2>Plano por fases</h2></div>
+  <p class="part-lede">Uma fase por vez: build, validação, próxima. Todas valem só para o Nexus Prumo. O clássico e a Beta continuam com as telas de hoje, e nenhuma fase muda o modelo de dados, os parsers, o sync do Drive, os formulários ou a calculadora de prescrição.</p>
+  <table class="plan">
+    <thead><tr><th>Fase</th><th>Entrega</th><th>Como</th><th>Risco</th></tr></thead>
+    <tbody>
+      <tr><td>7a</td><td><b>Briefing: esqueleto do dossiê.</b> Leitura da operação (regra da decisão 1), diário com a nova apresentação, coluna de apoio (fontes, lembretes, checklists, 3 próximas tarefas), novidades do import numa linha.</td><td>Novo <span class="mono">EditionClaudeBriefing</span> em <span class="mono">src/edition-claude.jsx</span>, ligado quando <span class="mono">isClaude &amp;&amp; activeTab === 'notas'</span>. Grava pelas mesmas funções (<span class="mono">upsert</span>, <span class="mono">updateBriefing</span>). O diário reaproveita <span class="mono">RichNoteEditor</span>, <span class="mono">sanitizeNoteHtml</span> e <span class="mono">getBriefingEntries</span>.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>7b</td><td><b>Briefing: frentes processuais em trilhas.</b> Régua horizontal com fases registradas, eventos livres na ordem da data e até 3 próximas fases típicas tracejadas (sugestão que se aceita com um clique ou se dispensa); recursos com contagem; trabalho da fase com “Editar fase”; EFs cobertas com os sinais; Retirar.</td><td>Subir para o topo do arquivo só as funções que não gravam (<span class="mono">stageMeta</span>, <span class="mono">badgeFor</span>, <span class="mono">stageCompactMeta</span>). A sugestão dispensada fica gravada na própria frente, no mesmo <span class="mono">processStageV2</span> (uma marca por fase, como <span class="mono">_present</span> já faz), sem estrutura nova. <span class="mono">setRec</span>/<span class="mono">delRec</span> chegam por props, a partir de <span class="mono">updateBriefing</span>. O render do Clássico não é tocado nesta fase. O <span class="mono">StagePopup</span> continua o mesmo.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>8a</td><td><b>Processos: sinais e ficha lateral sobre os cartões de hoje.</b> A coluna de sinais da Beta passa a aparecer no Prumo (hoje ela é escondida). Clicar num processo ou numa CDA abre a ficha: sinais manuais como botões, sinais calculados como atalhos, fatos, CDAs com as três contagens empilhadas, conferir nos autos, tratada e aguardando reconhecimento. Os cartões e trilhos continuam como estão.</td><td>Tirar a condição <span class="mono">!isClaude</span> da coluna do <span class="mono">ProcRowSymbols</span>. Ficha no padrão da gaveta do Prumo (<span class="mono">cx-drawer</span>), renderizador só de leitura sobre <span class="mono">computeCdaLegalTimeline</span> + <span class="mono">buildCdaColumnView</span>. <span class="mono">toggleHandled</span> e <span class="mono">markAsAguardando</span> viram funções do app com o mesmo comportamento.</td><td><span class="pill yellow">médio</span></td></tr>
+      <tr><td>8b</td><td><b>Processos: cartões para dezenas de processos.</b> Sumário fixo, filtros pelos sinais, barra de grupos no lugar do trilho, tabelas agrupadas com subtotal, ordenação, “mostrar mais” depois de 8 linhas, extintas ocultas por padrão, Recursos agrupados pelo principal, lote no pé. A separação em cartões do clássico continua igual.</td><td>Novo <span class="mono">EditionClaudeProcessos</span> que recebe <span class="mono">classified</span> já calculado pelo app (<span class="mono">hubs</span>, <span class="mono">coveredByHub</span>, faixas, <span class="mono">splitOtherProcGroups</span>) e a busca e o filtro por pessoa de hoje. É a fase que reescreve a tela: o bloco atual tem cerca de 1.450 linhas e muito estado local. Validar com uma operação real grande antes de fechar.</td><td><span class="pill red">alto</span></td></tr>
+      <tr><td>9a</td><td><b>Relatório: modelo de passagem de serviço</b> (capa com leitura, próximos 15 dias, alertas, números e fontes; frentes; anexos), com seções fixas. O botão continua baixando o HTML, como hoje.</td><td>Novo <span class="mono">src/lib/report.js</span> (HTML puro, testável com <span class="mono">node --test</span> em <span class="mono">test/</span>). A regra dos próximos 15 dias sai de <span class="mono">cxAgendaByDay</span> para <span class="mono">src/lib/agenda.js</span> e passa a ser usada pela Agenda e pelo relatório. Coleta nova de audiências, checklists, fontes, lembretes e partes relacionadas. O Clássico mantém o <span class="mono">generateHandoverReport</span> de hoje até a validação.</td><td><span class="pill green">baixo</span></td></tr>
+      <tr><td>9b</td><td><b>Relatório: janela de geração e Prestação de contas.</b> Seções que se ligam e desligam, “Abrir para imprimir”, Resumo de uma página e Prestação de contas (período ou operação inteira). O botão Relatório do Clássico e da Beta passa a abrir a mesma janela.</td><td>Mesma biblioteca, com filtro de datas. Prestação de contas lê <span class="mono">responseAction</span>, <span class="mono">documents</span>, <span class="mono">processStageV2</span>, <span class="mono">prescriptionEvents</span>, <span class="mono">hearings</span>, diário e <span class="mono">changeLog</span> (limitado a 500 registros; ver a nota da maquete).</td><td><span class="pill green">baixo</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small muted" style="margin-top:10px">Ordem sugerida: 9a e 9b primeiro, porque são isolados, de baixo risco e já ensinam o que a capa precisa mostrar. Depois 7a → 7b. Em Processos, 8a (ficha lateral) entrega o ganho de leitura da prescrição com risco médio, e só depois vem 8b, a árvore, que reescreve a tela. Cada fase entra em <span class="mono">docs/MELHORIAS.md</span> e, se precisar de estilo novo, num bloco próprio do CSS do Prumo em <span class="mono">src/Nexus.shell.html</span>.</p>
+</section>
+
+<!-- ═══════════════ 5 DECISÕES ═══════════════ -->
+<section class="part" id="decisoes">
+  <div class="part-h"><span class="part-n">05</span><h2>Decisões</h2></div>
+  <div class="qs">
+    <div class="qq"><b>1. Leitura da operação <span class="pill green">fechada</span></b>Entradas fixadas do diário, uma em destaque: a Estratégia fixada mais recente; na falta dela, a fixada mais recente.</div>
+    <div class="qq"><b>2. Tarefas no Briefing <span class="pill green">fechada</span></b>Continuam, com as 3 próximas na coluna de apoio e atalho para a aba Tarefas.</div>
+    <div class="qq"><b>3. Próximas fases na régua <span class="pill green">fechada</span></b>Sim, como sugestão e sem tramitação rígida: até 3 fases típicas tracejadas, que se aceitam com um clique ou se dispensam; eventos livres entram em qualquer ponto.</div>
+    <div class="qq"><b>4. Ficha lateral e lista <span class="pill green">fechada</span></b>Ficha lateral. A lista mantém os cartões do clássico (incidentes, sem vínculo, recursos, embargos, outros) e ganha sumário, filtros por sinal, grupos com subtotal e ordenação.</div>
+    <div class="qq"><b>5. Relatório no Clássico <span class="pill green">fechada</span></b>Sim, nas três edições, com a Prestação de contas.</div>
+    <div class="qq"><b>6. Lembretes no relatório <span class="pill green">fechada</span></b>Entram por padrão; podem ser desligados na janela.</div>
+    <div class="qq"><b>7. Sinais da Beta <span class="pill green">mantidos</span></b>Mesmos desenhos, cores e ordem, numa coluna de posição fixa na lista, como botões na ficha e em texto no relatório.</div>
+    <div class="qq"><b>8. Histórico mais longo <span class="pill yellow">para depois</span></b>A Prestação de contas completa depende do <span class="mono">changeLog</span> (últimos 500 registros do app) para tarefas concluídas e mudanças de situação. Guardar mais histórico muda o armazenamento: decidir numa fase própria.</div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

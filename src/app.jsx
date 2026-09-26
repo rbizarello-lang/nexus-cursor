@@ -324,7 +324,7 @@ const generateDemoData = () => {
     { id:'in-28', operationId:'op-demo-4', processNumber:'5002220-99.2024.4.04.7000', jurisdiction:'PR', className:'Cumprimento de Sentença', partyName:'Holding Atlântico Participações S/A', eventDescription:'Manifestar sobre cálculo de garantia', dateStart: iso(-5), dateDeadline: iso(9), status:'peca_edicao', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-29', operationId:'op-demo-4', processNumber:'5002210-99.2020.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Atlântico Imóveis SPE LTDA', eventDescription:'Citação — SPE do grupo', dateSent: iso(-10), dateStart: iso(-9), dateDeadline: iso(16), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-30', operationId:'op-demo-4', processNumber:'5002200-99.2018.4.04.7000', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Clara Atlântico Costa', eventDescription:'Intimação Renajud — veículo penhorado', dateStart: iso(-1), dateDeadline: iso(12), status:'pendente_analise', priority:'baixa', difficulty:'baixa', urgent:false },
-    { id:'in-10', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false },
+    { id:'in-10', operationId:'op-demo-5', processNumber:'5006600-22.2020.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Intimação Renajud — resultado positivo', dateStart: iso(-2), dateDeadline: iso(4), status:'pendente_analise', priority:'alta', difficulty:'baixa', urgent:false, notesList:['Veículo e fazenda localizados. Conferir matrícula antes de pedir penhora.'], minutaUrl:'https://docs.google.com/document/d/exemplo-renajud-horizonte' },
     { id:'in-11', operationId:'op-demo-5', processNumber:'5006699-22.2025.4.04.7006', jurisdiction:'PR', className:'Medida Cautelar Fiscal', partyName:'Pedro Henrique Agro', eventDescription:'Manifestar sobre extensão da indisponibilidade', dateStart: iso(-1), dateDeadline: iso(9), status:'pendente_analise', priority:'normal', difficulty:'media', urgent:false },
     { id:'in-31', operationId:'op-demo-5', processNumber:'5006620-22.2025.4.04.7006', jurisdiction:'PR', className:'Exceção de Pré-Executividade', partyName:'Agropecuária Horizonte LTDA', eventDescription:'Vista à Fazenda — exceção (ITR)', dateStart: iso(-4), dateDeadline: iso(3), status:'peca_edicao', priority:'alta', difficulty:'alta', urgent:true, notesList:['Prazo curto — priorizar'] },
     { id:'in-32', operationId:'op-demo-5', processNumber:'5006610-22.2022.4.04.7006', jurisdiction:'PR', className:'Execução Fiscal', partyName:'Helena Agro Horizonte', eventDescription:'Ofício — meeira / meação', dateDeadline: iso(20), status:'pendente_analise', priority:'baixa', difficulty:'media', urgent:false },
@@ -902,8 +902,41 @@ function execHasOpenIntim(exec, data) {
   );
 }
 
-/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação). */
-function ProcRowSymbols({ exec, data }) {
+/** Alterna prescriptionHandled de uma CDA (ou das CDAs selecionadas, se `d` estiver entre elas). */
+function toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData) {
+  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
+  const newVal = !d.prescriptionHandled;
+  setData(prev => ({ ...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? { ...x, prescriptionHandled: newVal, prescriptionHandledAt: newVal ? new Date().toISOString().slice(0, 10) : x.prescriptionHandledAt, prescriptionHandledType: newVal ? (x.prescriptionHandledType || 'declarada') : x.prescriptionHandledType, updatedAt: new Date().toISOString() } : x) }));
+  if (targetIds.length > 1) setSelectedCDAs(new Set());
+}
+/** Marca uma CDA (ou as selecionadas) como prescrita, aguardando reconhecimento judicial; oferece criar tarefa. */
+function markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal, opId, procRef, className, court }) {
+  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
+  const count = targetIds.length;
+  const msg = count > 1
+    ? `Marcar ${count} CDA(s) selecionadas como prescritas, aguardando reconhecimento judicial?`
+    : `Marcar CDA ${d.cdaNumber || ''} como prescrita, aguardando reconhecimento judicial?`;
+  if (!confirm(msg)) return;
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  setData(prev => ({ ...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? { ...x, prescriptionHandled: true, prescriptionHandledType: 'aguardando_reconhecimento', prescriptionHandledAt: today, updatedAt: now } : x) }));
+  if (targetIds.length > 1) setSelectedCDAs(new Set());
+  if (procRef != null && confirm(`Criar tarefa "Solicitar reconhecimento de prescrição" para o processo ${procRef}? (${count} CDA(s))`)) {
+    setModal({ type: 'create', entityType: 'task', initial: {
+      operationId: opId,
+      title: `Solicitar reconhecimento de prescrição — ${count > 1 ? count + ' CDAs' : (d.cdaNumber || '')}`,
+      description: `${count} CDA(s) identificada(s) como prescrita(s).\nProcesso: ${procRef}\nClasse: ${className || ''}\nVara: ${court || ''}\n\nProvidenciar petição requerendo o reconhecimento da prescrição e consequente extinção do(s) crédito(s).`,
+      processNumber: procRef,
+      priority: 'media',
+      status: 'pendente',
+      taskVisibility: 'operation'
+    } });
+  }
+}
+
+/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação).
+ *  `fixed`: apresentação do Prumo — cada sinal ocupa sempre a mesma casa (7 posições fixas), vazia quando ausente. */
+function ProcRowSymbols({ exec, data, fixed = false }) {
   if (!exec) return null;
   const showStar = !!exec.isRelevant;
   const showPin = !!exec.meuAcervo;
@@ -912,21 +945,22 @@ function ProcRowSymbols({ exec, data }) {
   const showLock = execShowsConstriction(exec, data);
   const showTask = execHasOpenTask(exec, data);
   const showIntim = execHasOpenIntim(exec, data);
-  if (!showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
+  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
   const copyTip = exec.copiaNaPastaDate
     ? `Cópia na pasta · ${fmtDate(exec.copiaNaPastaDate)}`
     : 'Cópia na pasta';
+  const empty = <i className="proc-row-sym-empty" aria-hidden="true" />;
   return (
-    <span className="proc-row-syms" onClick={ev => ev.stopPropagation()}>
-      {showStar && (
+    <span className={'proc-row-syms' + (fixed ? ' proc-row-syms-fixed' : '')} onClick={ev => ev.stopPropagation()}>
+      {showStar ? (
         <span className="proc-row-sym proc-row-sym-star has-tip" title="Relevante" aria-label="Relevante">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z"/>
           </svg>
           <span className="tip-content">Relevante</span>
         </span>
-      )}
-      {showPin && (
+      ) : (fixed ? empty : null)}
+      {showPin ? (
         <span className="proc-row-sym has-tip" title="Meu acervo" aria-label="Meu acervo">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3.5 11.2 12 4.2l8.5 7"/>
@@ -935,41 +969,41 @@ function ProcRowSymbols({ exec, data }) {
           </svg>
           <span className="tip-content">Meu acervo</span>
         </span>
-      )}
-      {showWatch && (
+      ) : (fixed ? empty : null)}
+      {showWatch ? (
         <span className="proc-row-sym has-tip" title="Acompanhar" aria-label="Acompanhar">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/>
           </svg>
           <span className="tip-content">Acompanhar</span>
         </span>
-      )}
-      {showCopy && (
+      ) : (fixed ? empty : null)}
+      {showCopy ? (
         <span className="proc-row-sym has-tip" title={copyTip} aria-label={copyTip}>
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/>
           </svg>
           <span className="tip-content">{copyTip}</span>
         </span>
-      )}
-      {showLock && (
+      ) : (fixed ? empty : null)}
+      {showLock ? (
         <span className="proc-row-sym has-tip" title="Constrição" aria-label="Constrição">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/>
           </svg>
           <span className="tip-content">Constrição</span>
         </span>
-      )}
-      {showTask && (
+      ) : (fixed ? empty : null)}
+      {showTask ? (
         <span className="proc-row-dot proc-row-dot-task has-tip" title="Tarefa" aria-label="Tarefa">
           <span className="tip-content">Tarefa</span>
         </span>
-      )}
-      {showIntim && (
+      ) : (fixed ? empty : null)}
+      {showIntim ? (
         <span className="proc-row-dot proc-row-dot-intim has-tip" title="Intimação aberta" aria-label="Intimação aberta">
           <span className="tip-content">Intimação aberta</span>
         </span>
-      )}
+      ) : (fixed ? empty : null)}
     </span>
   );
 }
@@ -1416,13 +1450,71 @@ const getStageRecords = (briefing, execId) => {
   if (raw && typeof raw === 'object' && !('stage' in raw)) return raw;
   return deriveStageRecords(((briefing || {}).processTags || {})[execId], ((briefing || {}).processStages || {})[execId]);
 };
+// Um registro de fase gravado só para dispensar uma sugestão do Nexus Prumo
+// (`{ _dismissed: true }`, sem mais nenhum campo) não conta como fase registrada
+// em lugar nenhum: nem no stageMeta/has do painel, nem no relatório, nem na
+// linha do tempo, nem na Visão geral. Usar sempre junto de uma checagem de
+// presença (ex.: `rec && !isDismissedOnlyStageRec(rec)`).
+const isDismissedOnlyStageRec = (rec) => !!(rec && rec._dismissed && !rec._present && !rec.date && !rec.evento
+  && !rec.outcome && !rec._custom && !(Array.isArray(rec.recursos) && rec.recursos.length)
+  && !(rec.texto && String(rec.texto).trim()) && !(rec.label && String(rec.label).trim()));
+// Metadados de cada fase/evento de uma régua (Panorama clássico e Briefing do
+// Nexus Prumo usam a mesma função). STAGE_KEYS é a lista de chaves fixas do
+// tipo (PROCESS_STAGES/CENTRAL_STAGES); recs vem de getStageRecords().
+const stageMeta = (STAGES, STAGE_KEYS, recs) => {
+  const extraKeys = Object.keys(recs || {}).filter(k => !STAGES[k]);
+  return [...STAGE_KEYS, ...extraKeys].map((k, i) => {
+    const rec = recs[k];
+    const sd = resolveStageDef(STAGES, k, rec);
+    const recursos = sd.multiRecurso ? getRecursos(rec) : null;
+    const has = sd.multiRecurso
+      ? (recursos.length > 0 || !!(rec && rec._present))
+      : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || rec._custom || (rec.texto && String(rec.texto).trim()) || (rec.label && String(rec.label).trim())));
+    const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
+    let info = '';
+    if (sd.multiRecurso) {
+      info = '';
+    } else if (sd.textOnly) {
+      info = (rec?.texto && String(rec.texto).trim()) || '';
+    } else if (has) {
+      const parts = [];
+      if (rec.date) parts.push(fmtDate(rec.date));
+      if (rec.evento) parts.push('Ev. ' + rec.evento);
+      if (rec.texto && String(rec.texto).trim()) parts.push(String(rec.texto).trim());
+      info = parts.join(' · ');
+    }
+    const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
+    const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
+    return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
+  });
+};
+// Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
+const badgeFor = (ip) => {
+  const tag = ip?.processTag;
+  if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
+  if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
+  if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+  return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
+};
+// Meta compacta de uma fase (info curta ao lado da bolinha na régua)
+const stageCompactMeta = (m) => {
+  if (m.sd.multiRecurso) {
+    const n = (m.recursos || []).length;
+    return n ? (n + ' julgamento' + (n !== 1 ? 's' : '')) : '';
+  }
+  if (m.sd.textOnly) return '';
+  const parts = [];
+  if (m.rec?.date) parts.push(fmtDate(m.rec.date));
+  if (m.rec?.evento) parts.push('Ev. ' + m.rec.evento);
+  return parts.join(' · ');
+};
 // Estágio processual em HTML para a Passagem de Serviço (usa o modelo V2 — antes o
 // relatório ainda lia as tags legadas e ignorava tudo que era preenchido na régua).
 const renderStageHtmlV2 = (briefing, exec, esc) => {
   const recs = getStageRecords(briefing, exec.id);
   const STG = isEfStylePanoramaCard(exec) ? CENTRAL_STAGES : PROCESS_STAGES;
   const keys = [...Object.keys(STG), ...Object.keys(recs).filter(k => !STG[k])];
-  const dated = keys.filter(k => recs[k]).map((k, i) => {
+  const dated = keys.filter(k => recs[k] && !isDismissedOnlyStageRec(recs[k])).map((k, i) => {
     const rec = recs[k] || {};
     const sd = resolveStageDef(STG, k, rec);
     return { k, i, rec, sd, recursos: sd.multiRecurso ? getRecursos(rec) : null, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
@@ -1506,11 +1598,14 @@ const briefingEntryHasText = (en) => {
 };
 const normalizeBriefingEntry = (en) => {
   if (!en) return en;
-  if (en.html && en.type) return en;
+  // Entradas do formato antigo por-campo ({title, body, updatedAt}, sem createdAt)
+  // não têm data de criação própria — sem isso, tanto o Diário quanto o
+  // relatório (Diário/Anexos) mostram a entrada sem data.
+  if (en.html && en.type) return en.createdAt ? en : { ...en, createdAt: en.updatedAt || '' };
   const title = String(en.title || '').trim().toLowerCase();
   const type = en.type || BRIEFING_TITLE_TO_TYPE[title] || 'observacao';
   const html = en.html || (en.body ? escapeHtmlText(en.body) : '');
-  return { ...en, type, html };
+  return { ...en, type, html, createdAt: en.createdAt || en.updatedAt || '' };
 };
 const getBriefingEntries = (briefing) => {
   const b = briefing || {};
@@ -2921,7 +3016,13 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
   const [showPrescRules, setShowPrescRules] = useState(false);
+  const [showEsteiraEditor, setShowEsteiraEditor] = useState(false);
   const [showExportPicker, setShowExportPicker] = useState(false);
+  const [reportModalOp, setReportModalOp] = useState(null);
+  const [reportModel, setReportModel] = useState('passagem');
+  const [reportSections, setReportSectionsS] = useState(() => defaultReportSections());
+  const setReportSections = (patch) => setReportSectionsS(prev => ({ ...prev, ...patch }));
+  const [reportPeriod, setReportPeriod] = useState({ from: '', to: '', wholeOp: true });
   const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
   const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
@@ -3008,8 +3109,11 @@ function App() {
   // Estado de interface da edição Claude (gaveta da intimação, visão da lista, menu no celular)
   const [cxDrawerId, setCxDrawerId] = useState(null);
   const [cxIntimView, setCxIntimView] = useState('lista');
+  const [cxIntimInitialUf, setCxIntimInitialUf] = useState(null);
   const [cxSideOpen, setCxSideOpen] = useState(false);
-  const [cxTlScale, setCxTlScale] = useState('meses');
+  const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
+  const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
+  const [cxTlScale, setCxTlScale] = useState('anos');
   const [cxTlOp, setCxTlOp] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
@@ -3740,6 +3844,8 @@ function App() {
     (data.operations || []).forEach(o => m.set(o.id, o));
     return m;
   }, [data.operations]);
+  // Nexus Prumo: cxOpColor/CxOpSquare resolvem operação pelo id sem precisar de opsById em toda a árvore.
+  if (typeof cxSetOpsRegistry === 'function') cxSetOpsRegistry(opsById);
 
   // ─── PERF: termo final de prescrição por CDA (1 cálculo por debt ao mudar dados) ───
   const prescLookup = useMemo(
@@ -4917,7 +5023,7 @@ function App() {
   const [prescImport, setPrescImport] = useState(null);
   const [assetText, setAssetText] = useState('');
   const [importMode, setImportMode] = useState('planilhas'); // planilhas | pdfs | texto — seletor do card unificado de importação
-  const [cdaSort, setCdaSort] = useState('status');
+  const [cdaSort, setCdaSort] = useState(() => appSettings.uiEdition === 'claude' ? 'por_processo' : 'status');
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [procPersonFilterOpen, setProcPersonFilterOpen] = useState(false);
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
@@ -5203,100 +5309,476 @@ function App() {
     setAssetText('');
   };
 
-  // ─── RELATÓRIO DE PASSAGEM DE SERVIÇO ───
-  // Gera um HTML standalone (imprimível) com o estado completo da operação:
-  // briefing, processos ativos, prazos abertos, bens constritos, pessoas.
-  const generateHandoverReport = (op) => {
-    const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ─── RELATÓRIO DA OPERAÇÃO (Passagem de serviço / Resumo / Prestação de contas) ───
+  // Monta os dados já filtrados/calculados e delega a montagem do HTML para
+  // src/lib/report.js (função pura, testada em test/report.test.mjs). A janela
+  // de geração (modelo, seções, período) mora em renderReportModal(), abaixo.
+  const HEARING_STATUS_OPEN_ON_AGENDA = (h) => h && h.date && h.status !== 'cancelada' && h.status !== 'realizada';
+  const signalsTextFor = (exec) => {
+    const parts = [];
+    if (exec.isRelevant) parts.push('relevante');
+    if (exec.meuAcervo) parts.push('acervo');
+    if (exec.acompanhar) parts.push('acompanhar');
+    if (exec.copiaNaPasta) parts.push('cópia');
+    if (execShowsConstriction(exec, data)) parts.push('constrição');
+    if (execHasOpenTask(exec, data)) parts.push('tarefa');
+    if (execHasOpenIntim(exec, data)) parts.push('intimação');
+    return parts.join(' · ');
+  };
+  const prescSummaryForExec = (exec, opDebts) => {
+    const cdas = opDebts.filter(d => sameProc(d.processNumber, exec.processNumber));
+    for (const d of cdas) {
+      const row = prazosByDebt.get(d.id);
+      if (row && (row.summary || row.why)) return betaSafeUiText(row.summary || row.why);
+    }
+    return cdas.length ? 'sem dados suficientes' : '—';
+  };
+  const buildFrontRule = (execRec, execObj) => {
+    const STG = isEfStylePanoramaCard(execObj) ? CENTRAL_STAGES : PROCESS_STAGES;
+    const keys = [...Object.keys(STG), ...Object.keys(execRec).filter(k => !STG[k])];
+    const dated = keys.filter(k => execRec[k] && !isDismissedOnlyStageRec(execRec[k])).map((k, i) => {
+      const rec = execRec[k] || {};
+      const sd = resolveStageDef(STG, k, rec);
+      return { k, i, rec, sd, alwaysShow: k === 'ajuizamento' || k === 'ajuizamento_ef' };
+    }).sort(compareStagesByDate);
+    const steps = dated.map(({ rec, sd }) => ({
+      label: sd.label,
+      dateLabel: rec.date ? fmtDate(rec.date) : '',
+      favoravel: rec.outcome === 'favoravel' || rec.outcome === 'provido',
+    }));
+    let currentPhaseText = '';
+    if (dated.length) {
+      const last = dated[dated.length - 1];
+      const rec = last.rec, sd = last.sd;
+      const outcomeTxt = rec.outcome && sd.outcomes[rec.outcome] ? sd.outcomes[rec.outcome] : '';
+      currentPhaseText = [sd.label, outcomeTxt, rec.texto].filter(Boolean).join(' — ');
+    }
+    return { steps, currentPhaseText };
+  };
+  const buildOperationReportData = (op, model, sections, period) => {
     const opId = op.id;
     const briefing = op.briefing || {};
-    const opDebts = getOpSlices(opId).debts;
-    const opExecs = getOpSlices(opId).executions;
-    const opAssets = getOpSlices(opId).assets;
-    const opPeople = getOpSlices(opId).people;
-    const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
-    const opIntims = (data.intimations || []).filter(x => x.operationId === opId && intimIsOpenWork(x));
+    const slices = getOpSlices(opId);
+    const opDebts = slices.debts;
+    const opExecs = slices.executions;
+    const opAssets = slices.assets;
+    const opPeople = slices.people;
+    const opTasksAll = (data.tasks || []).filter(t => t.operationId === opId);
+    const opTasksOpen = opTasksAll.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
+    const opIntimsAll = (data.intimations || []).filter(x => x.operationId === opId);
+    const opIntimsOpen = opIntimsAll.filter(intimIsOpenWork);
+    const opHearings = (data.hearings || []).filter(h => h.operationId === opId);
+    const opDocuments = (data.documents || []).filter(d => d.operationId === opId);
+    const opReminders = (data.stickyNotes || []).filter(n => n.operationId === opId);
+    const opChangeLog = (data.changeLog || []).filter(l => l.operationId === opId);
     const activeDebts = opDebts.filter(d => d.status !== 'extinta');
-    const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
-    const constricted = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
-    const constrVal = constricted.reduce((s,a) => s + (a.value||0), 0);
-    const idpjs = opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal');
-    const activeExecs = opExecs.filter(e => e.status !== 'extinta' && e.status !== 'arquivada');
-    const prescRisk = activeDebts.map(d => {
+    const now = new Date();
+    const todayIso = localIso(now);
+    const generatedAtLabel = now.toLocaleString('pt-BR');
+    const generatedDateLabel = now.toLocaleDateString('pt-BR');
+
+    // ── Identificação ──
+    const prio = normalizeOpPriority(op.priority);
+    const rs = reviewStatus(op);
+    const statusLabel = op.status === 'encerrada' ? 'Encerrada' : 'Em andamento';
+    const priorityLabel = 'Prioridade ' + ((OP_PRIORITIES[prio] || {}).label || '');
+    // Cabeçalho: etiquetas repetidas (ex. "Em andamento" e "Em Andamento") saem
+    // duplicadas — deduplicar sem diferenciar maiúsculas de minúsculas.
+    const seenLabels = new Set([statusLabel.toLowerCase(), priorityLabel.toLowerCase()]);
+    const tagsExtra = [];
+    getOpClassifications(op).map(k => (OP_CLASSIFICATIONS[k] || {}).label).filter(Boolean).forEach(label => {
+      const key = label.toLowerCase();
+      if (seenLabels.has(key)) return;
+      seenLabels.add(key);
+      tagsExtra.push(label);
+    });
+    const reportOp = {
+      name: op.name || 'Operação',
+      description: op.description || '',
+      priorityLabel,
+      statusLabel,
+      tagsExtra,
+      reviewLabel: rs.label,
+      reviewLate: rs.overdue,
+      docTitle: model === 'resumo' ? 'Nexus · Resumo' : 'Nexus · Passagem de serviço',
+    };
+
+    if (model === 'prestacao') {
+      const wholeOp = !!period.wholeOp;
+      const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
+      const toIso = wholeOp ? todayIso : (period.to || todayIso);
+      const inPeriod = (iso) => { const k = toDayKey(iso); return !!k && k >= fromIso && k <= toIso; };
+      const events = [];
+      opIntimsAll.forEach(x => {
+        const respAt = x.responseAction && x.responseAction.respondedAt;
+        const d = respAt ? toDayKey(respAt) : '';
+        if (!d || !inPeriod(d)) return;
+        const a = x.responseAction || {};
+        const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
+      });
+      opDocuments.forEach(doc => {
+        const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Peça', text: doc.title || doc.type || 'Documento', mono: doc.processNumber || '' });
+      });
+      opExecs.forEach(ex => {
+        const recs = getStageRecords(briefing, ex.id);
+        Object.keys(recs).forEach(k => {
+          const rec = recs[k];
+          if (!rec || !rec.date) return;
+          const d = toDayKey(rec.date);
+          if (!d || !inPeriod(d)) return;
+          const STG = isEfStylePanoramaCard(ex) ? CENTRAL_STAGES : PROCESS_STAGES;
+          const sd = resolveStageDef(STG, k, rec);
+          const isFree = !STG[k];
+          events.push({ date: d, dateLabel: fmtDate(d), kind: isFree ? 'Fase' : 'Fase', text: `${isFree ? 'Evento livre: ' : ''}${sd.label}${rec.texto ? ' — ' + rec.texto : ''}`, mono: ex.processNumber || '' });
+        });
+      });
+      (data.prescriptionEvents || []).forEach(pe => {
+        if (!pe || pe.operationId !== opId) return;
+        const d = pe.date ? toDayKey(pe.date) : '';
+        if (!d || !inPeriod(d)) return;
+        const debt = opDebts.find(x => x.id === pe.debtId);
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Evento lançado: ${pe.type || 'evento'}${debt ? ' · CDA ' + (debt.cdaNumber || debt.id) : ''}` });
+      });
+      opDebts.forEach(dbt => {
+        if (!dbt.prescriptionHandledAt) return;
+        const d = toDayKey(dbt.prescriptionHandledAt);
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Prescrição tratada — CDA ${dbt.cdaNumber || dbt.id}` });
+      });
+      getBriefingEntries(briefing).forEach(en => {
+        const d = en.eventDate ? toDayKey(en.eventDate) : (en.createdAt ? toDayKey(en.createdAt) : '');
+        if (!d || !inPeriod(d)) return;
+        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
+        const plain = String(en.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Diário', text: `${t.label}: ${truncate(plain, 140)}` });
+      });
+      opReminders.forEach(rm => {
+        const d = toDayKey(rm.createdAt || rm.updatedAt);
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Lembrete', text: truncate(rm.content || '', 140) });
+      });
+      opHearings.forEach(h => {
+        if (h.status !== 'realizada') return;
+        const d = h.date ? toDayKey(h.date) : '';
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Audiência', text: `Realizada — ${CX_HEARING[h.hearingType] || 'Audiência'}${h.parties ? ': ' + h.parties : ''}`, mono: h.processNumber || '' });
+      });
+      const taskLabelByCol = { status: 'Status', dueDate: 'Vencimento' };
+      opChangeLog.forEach(le => {
+        const d = le.date ? toDayKey(le.date) : '';
+        if (!d || !inPeriod(d)) return;
+        if (le.col === 'tasks' && le.field === 'status' && le.to === 'concluida') {
+          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Tarefa', text: `Concluída: ${le.ref || ''}` });
+        } else if (le.col === 'assets' && le.field === 'status') {
+          const toLabel = (ASSET_STATUSES[le.to] || {}).label || le.to;
+          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Constrição', text: `${le.ref || 'Bem'} → ${toLabel}` });
+        } else if ((le.col === 'executions' || le.col === 'debts') && le.field === 'status') {
+          const map = le.col === 'executions' ? EXEC_STATUSES : DEBT_STATUSES;
+          const toLabel = (map[le.to] || {}).label || le.to;
+          events.push({ date: d, dateLabel: fmtDate(d), kind: le.col === 'executions' ? 'Fase' : 'Prescrição', text: `${le.ref || ''} → ${toLabel}` });
+        }
+      });
+      const periodLabel = wholeOp ? `desde o início da operação até ${fmtDate(todayIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
+      return {
+        model, op: reportOp, sections, generatedAtLabel, periodLabel,
+        accountingEvents: events,
+        accountingNote: 'o histórico de alterações (changeLog) guarda só os últimos 500 registros de todo o app, e a revisão da operação guarda só a data mais recente. As demais fontes já estão completas.',
+      };
+    }
+
+    // ── Leitura da operação ──
+    const entries = getBriefingEntries(briefing);
+    const highlightRaw = sections.leitura ? pickHighlightEntry(entries) : null;
+    const highlight = highlightRaw ? {
+      typeLabel: (BRIEFING_ENTRY_TYPES[highlightRaw.type] || BRIEFING_ENTRY_TYPES.observacao).label,
+      html: highlightRaw.html || '',
+      dateLabel: highlightRaw.eventDate ? fmtDate(highlightRaw.eventDate) : (highlightRaw.createdAt ? fmtDate(highlightRaw.createdAt.slice(0, 10)) : ''),
+    } : null;
+
+    // ── Próximos 15 dias ──
+    const next15Items = [];
+    if (sections.proximos) {
+      opIntimsOpen.forEach(x => {
+        if (!x.dateDeadline) return;
+        const title = `${cxPartyName(x)}${x.eventDescription ? ' — ' + x.eventDescription : ''}`;
+        next15Items.push({ date: toDayKey(x.dateDeadline), kind: 'prazo', dateLabel: fmtDate(x.dateDeadline), kindLabel: 'Prazo', title, mono: x.processNumber || '' });
+      });
+      opHearings.forEach(h => {
+        if (!HEARING_STATUS_OPEN_ON_AGENDA(h)) return;
+        const label = CX_HEARING[h.hearingType] || 'Audiência';
+        const title = `${label}${h.time ? ', ' + h.time : ''}${h.modality ? ', ' + (h.modality === 'virtual' ? 'virtual' : 'presencial') : ''}${h.parties ? ' — ' + h.parties : ''}`;
+        next15Items.push({ date: toDayKey(h.date), kind: 'aud', dateLabel: fmtDate(h.date), kindLabel: 'Audiência', title, mono: h.processNumber || '' });
+      });
+      opTasksOpen.forEach(t => {
+        if (!t.dueDate) return;
+        next15Items.push({ date: toDayKey(t.dueDate), kind: 'tarefa', dateLabel: fmtDate(t.dueDate), kindLabel: 'Tarefa', title: t.title || 'Tarefa' });
+      });
+      (prazosRadar.rows || []).forEach(r => {
+        if (r.operationId !== opId || !r.keyDate || r.group > 4 || r.silenceReason) return;
+        const why = betaSafeUiText(r.why || r.summary || '');
+        next15Items.push({ date: toDayKey(r.keyDate), kind: 'presc', dateLabel: fmtDate(r.keyDate), kindLabel: 'Prescrição', title: `CDA ${r.cdaNumber || 'S/N'}${why ? ' — ' + why : ''}` });
+      });
+    }
+    const next15 = buildNext15Days(next15Items, { fromIso: todayIso, days: 15 });
+
+    // ── Alertas: CDAs no alarme (grupos 1 e 2) ──
+    const alerts = [];
+    if (sections.alertas) {
+      activeDebts.forEach(d => {
+        const row = prazosByDebt.get(d.id);
+        if (!row || (row.group !== 1 && row.group !== 2)) return;
+        const termIso = row.keyDate || row.prescDate;
+        const summaryTxt = betaSafeUiText(row.summary || row.why || '');
+        alerts.push({
+          cda: d.cdaNumber || d.id,
+          termLabel: termIso ? fmtDate(termIso) : '—',
+          late: row.group === 1,
+          situacao: summaryTxt || (d.processNumber ? 'em acompanhamento' : 'sem processo — ajuizar'),
+          valorLabel: fmtCur(d.value),
+          _days: row.prescDays ?? 9999,
+        });
+      });
+      alerts.sort((a, b) => a._days - b._days);
+      alerts.forEach(a => { delete a._days; });
+    }
+
+    // ── Números ──
+    const constrictedActive = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
+    const constrictedReq = opAssets.filter(a => a.status === 'indisponibilidade_requerida');
+    const constrValActive = constrictedActive.reduce((s, a) => s + (a.value || 0), 0);
+    const constrValReq = constrictedReq.reduce((s, a) => s + (a.value || 0), 0);
+    const totalVal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
+    const guarVal = opDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
+    const guarPct = totalVal > 0 ? Math.round((guarVal / totalVal) * 100) : 0;
+    const coverage = computeIncidentCoverage(opExecs, opDebts);
+    const numbers = [
+      { label: 'Crédito', value: fmtCur(totalVal), sub: `${activeDebts.length} CDAs · ${guarPct}% garantido` },
+      { label: 'Indisponível', value: fmtCur(constrValActive), sub: constrValReq > 0 ? `+ ${fmtCur(constrValReq)} requerido` : `${constrictedActive.length} bem(ns)` },
+      { label: 'Cobertura', value: coverage.grand > 0 ? `${coverage.pct}%` : '—', sub: coverage.grand > 0 ? `${fmtCur(coverage.coveredTotal)}` : 'sem EFs ativas' },
+      { label: 'Abertos', value: `${opIntimsOpen.length} · ${opTasksOpen.length}`, sub: 'intimações · tarefas' },
+    ];
+
+    // ── Onde estão as coisas (fontes) ──
+    const sources = [];
+    if (sections.fontes) {
+      const links = briefing.externalLinks || [];
+      const migrated = [...links];
+      if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migrated.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+      if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migrated.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+      migrated.forEach(l => sources.push({ label: l.label || 'Link', url: l.url, urlLabel: '' }));
+      opDocuments.forEach(doc => { if (doc.url) sources.push({ label: doc.title || doc.type || 'Documento', url: doc.url, urlLabel: '' }); });
+    }
+
+    // ── Frentes processuais ──
+    // Mesma classificação de apensos/vinculados que a aba Processos usa, para que
+    // um processo filho (parentExecutionId → EF) apareça aninhado sob a EF-mãe,
+    // dentro da frente em que a mãe está, e não como linha própria em "Sem incidente".
+    const cdaGroupsForReport = buildCdaGroups(opExecs, opDebts);
+    const classifiedForReport = classifyProcGroups(cdaGroupsForReport, opExecs);
+    const childrenOf = (execId) => {
+      const a = (classifiedForReport.apensosByParent && classifiedForReport.apensosByParent[execId]) || [];
+      const o = (classifiedForReport.othersByParent && classifiedForReport.othersByParent[execId]) || [];
+      return [...a, ...o].filter(g => g && g.exec);
+    };
+    const nestedExecIds = new Set();
+    Object.values(classifiedForReport.apensosByParent || {}).forEach(arr => (arr || []).forEach(g => g && g.exec && nestedExecIds.add(g.exec.id)));
+    Object.values(classifiedForReport.othersByParent || {}).forEach(arr => (arr || []).forEach(g => g && g.exec && nestedExecIds.add(g.exec.id)));
+    const buildProcRow = (ef, depth) => {
+      const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber));
+      const efVal = efCdas.reduce((s, d) => s + (d.value || 0), 0);
+      const stLabel = (EXEC_STATUSES[ef.status] || {}).label || ef.status || '';
+      const children = childrenOf(ef.id).map(g => buildProcRow(g.exec, depth + 1));
+      return {
+        proc: (depth > 0 ? '↳ ' : '') + (ef.processNumber || '—'),
+        situacao: stLabel, cdas: String(efCdas.length), valorLabel: fmtCur(efVal),
+        prescricao: prescSummaryForExec(ef, opDebts), signals: signalsTextFor(ef),
+        children,
+      };
+    };
+    const flattenProcRow = (row) => [row, ...(row.children || []).flatMap(flattenProcRow)];
+
+    const idpjExecs = opExecs.filter(isIncidentOnPanorama);
+    const centralExecs = opExecs.filter(e => isCentralProcess(e) && !isIncidentProcess(e));
+    const coveredIds = new Set();
+    idpjExecs.forEach(ip => (ip.linkedExecutionIds || []).forEach(id => coveredIds.add(id)));
+    centralExecs.forEach(e => coveredIds.add(e.id));
+
+    const fronts = sections.frentes ? [...idpjExecs, ...centralExecs].map(ex => {
+      const isIdpj = ex.processTag === 'idpj';
+      const isMcf = ex.processTag === 'cautelar_fiscal';
+      const kindLabel = isIdpj ? 'IDPJ' : isMcf ? 'MCF' : 'Central';
+      const recs = getStageRecords(briefing, ex.id);
+      const { steps, currentPhaseText } = buildFrontRule(recs, ex);
+      const linkedEFIds = ex.linkedExecutionIds || [];
+      const linkedEFExecs = isIdpj || isMcf ? opExecs.filter(e => linkedEFIds.includes(e.id)) : [ex];
+      const covered = linkedEFExecs.flatMap(ef => flattenProcRow(buildProcRow(ef, 0)));
+      const hubTotal = linkedEFExecs.reduce((s, ef) => s + opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0);
+      return {
+        kindLabel, title: ex.processNumber || '—', valueLabel: hubTotal > 0 ? fmtCur(hubTotal) : '', statusLine: `${ex.className || kindLabel} · ${ex.court || 'juízo não informado'}${ex.status ? ' · ' + ((EXEC_STATUSES[ex.status] || {}).label || ex.status) : ''}`,
+        steps, currentPhaseText, covered, centralLabel: isIdpj || isMcf ? 'EF coberta' : 'Processo',
+      };
+    }) : [];
+
+    // ── EFs sem incidente ──
+    const kindOf = (e) => {
+      const cn = (e.className || '').toLowerCase();
+      if (e.processTag === 'idpj') return 'idpj';
+      if (e.processTag === 'cautelar_fiscal') return 'mcf';
+      if (isCentralProcess(e)) return 'central';
+      if (/embargo/.test(cn)) return 'embargo';
+      if (/agravo|apela[çc][ãa]o|recurso|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recurso';
+      return 'ef';
+    };
+    const semIncidenteExecs = opExecs.filter(e => {
+      if (e.status === 'extinta') return false;
+      const k = kindOf(e);
+      if (k === 'idpj' || k === 'mcf' || k === 'central') return false;
+      if (coveredIds.has(e.id)) return false;
+      if (nestedExecIds.has(e.id)) return false;
+      if (k === 'ef') return true;
+      return false;
+    });
+    const semIncidente = sections.frentes ? semIncidenteExecs.flatMap(e => flattenProcRow(buildProcRow(e, 0))).map(e => ({
+      proc: e.proc, situacao: e.situacao, cdas: e.cdas, valorLabel: e.valorLabel, prescricao: e.prescricao,
+    })) : [];
+    const semIncidenteValueLabel = semIncidenteExecs.length ? fmtCur(semIncidenteExecs.reduce((s, e) => s + opDebts.filter(d => sameProc(d.processNumber, e.processNumber)).reduce((s2, d) => s2 + (d.value || 0), 0), 0)) : '';
+
+    // ── CDAs não ajuizadas ──
+    const naoAjuizadasDebts = sections.frentes ? activeDebts.filter(d => !d.processNumber) : [];
+    const naoAjuizadas = naoAjuizadasDebts.map(d => {
       const row = prazosByDebt.get(d.id);
-      if (!row || (row.group !== 1 && row.group !== 2)) return null;
-      return { d, pd: row.keyDate || row.prescDate, days: row.prescDays, summary: row.summary || '' };
-    }).filter(Boolean).sort((a,b) => (a.days ?? 9999) - (b.days ?? 9999));
-    const alvos = opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo');
-    const row = (cells) => `<tr>${cells.map(x => `<td>${x}</td>`).join('')}</tr>`;
-    const section = (title, body) => `<h2>${title}</h2>${body}`;
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Passagem de Serviço — ${esc(op.name)}</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1a1a2e; max-width: 900px; margin: 24px auto; padding: 0 16px; }
-  h1 { font-size: 19px; border-bottom: 3px solid #9b2848; padding-bottom: 6px; }
-  h2 { font-size: 14px; color: #9b2848; margin-top: 22px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  th, td { border: 1px solid #ccc; padding: 4px 7px; text-align: left; font-size: 11px; vertical-align: top; }
-  th { background: #f0ecf2; font-weight: 700; }
-  .kpis { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
-  .kpi { border: 1px solid #ddd; border-radius: 6px; padding: 8px 14px; min-width: 130px; }
-  .kpi b { display: block; font-size: 15px; }
-  .alert { color: #b3122e; font-weight: 700; }
-  .muted { color: #777; }
-  .mono { font-family: 'Consolas', monospace; font-size: 10.5px; }
-  .free { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; border-radius: 5px; padding: 8px 10px; }
-  .entry { border: 1px solid #e2e2e8; border-left: 3px solid #9b2848; border-radius: 5px; padding: 7px 10px; margin-bottom: 6px; }
-  .entry-hd { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
-  .entry-type { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #9b2848; }
-  .entry-pin { font-size: 9px; color: #987020; font-weight: 700; }
-  .entry-dt { font-size: 9.5px; color: #777; font-family: 'Consolas', monospace; margin-left: auto; }
-  .entry-body { font-size: 11px; line-height: 1.55; }
-  .entry-body ul, .entry-body ol { margin: 2px 0 2px 18px; }
-  .idpj-block { border: 1px solid #d8cdd4; border-left: 4px solid #9b2848; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; background: #fbf7f9; }
-  .idpj-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
-  .idpj-tag { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; background: #9b2848; color: #fff; letter-spacing: 0.4px; }
-  .idpj-tag.mcf { background: #a06020; }
-  .idpj-proc { font-family: 'Consolas', monospace; font-size: 12px; font-weight: 700; }
-  .idpj-st { font-size: 9.5px; padding: 1px 7px; border-radius: 3px; background: #ececf0; color: #444; font-weight: 600; }
-  .idpj-meta { font-size: 10.5px; color: #555; margin-bottom: 4px; }
-  .idpj-stage, .idpj-val { font-size: 11px; margin-bottom: 5px; }
-  .idpj-val b { color: #9b2848; font-size: 13px; }
-  .stage-tag { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 3px; margin: 0 4px 2px 0; border: 1px solid; }
-  .subtable { width: 100%; border-collapse: collapse; margin-top: 4px; }
-  .subtable th, .subtable td { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; text-align: left; vertical-align: top; }
-  .subtable th { background: #f4eef1; font-weight: 700; }
-  .idpj-notes { font-size: 10px; color: #333; margin-top: 6px; background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 6px 8px; }
-  .idpj-notes ul { margin: 2px 0 0 16px; padding: 0; }
-  .proc-notes { background: #fbf9f5; font-size: 10px; color: #333; padding: 5px 10px 5px 22px; border-left: 3px solid #c9a84a; }
-  .proc-notes ul { margin: 2px 0 0 16px; padding: 0; }
-  .proc-notes strong { color: #8b6d20; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px; }
-  @media print { body { margin: 8px; } h2 { page-break-after: avoid; } tr { page-break-inside: avoid; } }
-</style></head><body>
-<h1>Relatório de Passagem de Serviço — ${esc(op.name)}</h1>
-<p class="muted">Gerado em ${new Date().toLocaleString('pt-BR')} · NEXUS — Painel de Operações Fiscais · ${esc(op.description || '')}</p>
-<div class="kpis">
-  <div class="kpi"><b>${fmtCur(totalVal)}</b>Crédito ativo (${activeDebts.length} CDAs)</div>
-  <div class="kpi"><b>${activeExecs.length}</b>Processos ativos (${idpjs.length} IDPJ/MCF)</div>
-  <div class="kpi"><b>${fmtCur(constrVal)}</b>Bens constritos (${constricted.length})</div>
-  <div class="kpi"><b class="${opIntims.length>0?'alert':''}">${opIntims.length}</b>Intimações abertas</div>
-  <div class="kpi"><b class="${opTasks.length>0?'alert':''}">${opTasks.length}</b>Tarefas pendentes</div>
-  <div class="kpi"><b class="${prescRisk.length>0?'alert':''}">${prescRisk.length}</b>CDAs c/ risco prescricional</div>
-</div>
-${(() => { const ents = getBriefingEntries(briefing); if (!ents.length) return ''; const sk = (en) => en.eventDate || (en.createdAt || '').slice(0,10); const sorted = [...ents].sort((a,b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sk(b).localeCompare(sk(a)); }); return section(`Estratégia e notas (${sorted.length})`, sorted.map(en => { const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao; const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0,10)) : ''); return `<div class="entry"><div class="entry-hd"><span class="entry-type">${esc(t.label)}</span>${en.pinned ? '<span class="entry-pin">📌 fixada</span>' : ''}${dt ? `<span class="entry-dt">${dt}</span>` : ''}</div><div class="entry-body">${en.html || ''}</div></div>`; }).join('')); })()}
-${opIntims.length > 0 ? section(`Intimações abertas (${opIntims.length})`, `<table><tr><th>Processo</th><th>Prazo final</th><th>Status</th><th>Evento</th></tr>${opIntims.map(x => row([`<span class="mono">${esc(x.processNumber||'—')}</span>`, x.dateDeadline ? `<span class="${(daysUntil(x.dateDeadline)??99) <= 5 ? 'alert' : ''}">${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)</span>` : '<span class="muted">sem prazo</span>', esc(intimStatusMeta(x.status).label), esc(truncate(x.eventDescription || x.parties || '', 80))])).join('')}</table>`) : ''}
-${opTasks.length > 0 ? section(`Tarefas pendentes (${opTasks.length})`, `<table><tr><th>Tarefa</th><th>Vencimento</th><th>Prioridade</th></tr>${opTasks.map(t => row([esc(t.title||''), t.dueDate ? `${fmtDate(t.dueDate)} (${daysUntil(t.dueDate)}d)` : '<span class="muted">—</span>', esc(t.priority||'normal')])).join('')}</table>`) : ''}
-${prescRisk.length > 0 ? section(`Risco prescricional — vencido/iminente e a conferir (${prescRisk.length} CDAs)`, `<table><tr><th>Prazo</th><th>CDA</th><th>Processo</th><th>Situação</th><th>Valor</th></tr>${prescRisk.map(x => row([`<span class="alert">${x.days == null ? '—' : x.days + 'd'} (${fmtDate(x.pd)})</span>`, `<span class="mono">${esc(x.d.cdaNumber||'S/N')}</span>`, `<span class="mono">${esc(x.d.processNumber||'—')}</span>`, esc(truncate(x.summary || '', 80)), fmtCur(x.d.value)])).join('')}</table>`) : ''}
-${idpjs.length > 0 ? section(`IDPJ / Cautelares Fiscais (${idpjs.length})`, idpjs.map(ep => { const isIdpj = ep.processTag === 'idpj'; const st = EXEC_STATUSES[ep.status] || {}; const linkedEFIds = ep.linkedExecutionIds || []; const linkedEFExecs = opExecs.filter(e => linkedEFIds.includes(e.id)); const linkedEFProcNums = new Set(linkedEFExecs.map(e => normProc(e.processNumber)).filter(Boolean)); const hubCdas = opDebts.filter(d => d.processNumber && linkedEFProcNums.has(normProc(d.processNumber))); const hubTotalValue = hubCdas.reduce((s,d) => s + (d.value||0), 0); const directCdas = opDebts.filter(d => sameProc(d.processNumber, ep.processNumber)); const directVal = directCdas.reduce((s,d)=>s+(d.value||0),0); const stageHtml = renderStageHtmlV2(briefing, ep, esc); const efTable = linkedEFExecs.length > 0 ? `<table class="subtable"><tr><th>EF abrangida</th><th>Status</th><th>Juízo</th><th>CDAs</th><th>Valor</th></tr>${linkedEFExecs.map(ef => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, ef.processNumber)); const efVal = efCdas.reduce((s,d)=>s+(d.value||0),0); const efSt = EXEC_STATUSES[ef.status] || {}; return `<tr><td class="mono">${esc(ef.processNumber||'—')}</td><td>${esc(efSt.label||ef.status||'')}</td><td>${esc(ef.court||'')}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; }).join('')}</table>` : '<div class="muted" style="font-size:10px;margin-top:4px">Nenhuma execução fiscal vinculada a este incidente.</div>'; const relRecursos = opExecs.filter(r => r.parentExecutionId === ep.id && r.status !== 'extinta'); const recursosTable = relRecursos.length > 0 ? `<table class="subtable"><tr><th>Recurso/incidente vinculado</th><th>Classe</th><th>Status</th><th>Juízo</th></tr>${relRecursos.map(r => { const rSt = EXEC_STATUSES[r.status] || {}; return `<tr><td class="mono">${esc(r.processNumber||'—')}</td><td>${esc(r.className||'')}</td><td>${esc(rSt.label||r.status||'')}</td><td>${esc(r.court||'')}</td></tr>`; }).join('')}</table>` : ''; const notes = ep.notesList || (ep.notes ? [ep.notes] : []); const notesHtml = notes.length > 0 ? `<div class="idpj-notes"><strong>Notas:</strong><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''; return `<div class="idpj-block">` + `<div class="idpj-head"><span class="idpj-tag ${isIdpj?'':'mcf'}">${isIdpj?'IDPJ':'Cautelar Fiscal'}</span><span class="idpj-proc">${esc(ep.processNumber||'—')}</span><span class="idpj-st">${esc(st.label||ep.status||'')}</span>${ep.hasGuarantee?'<span class="idpj-st" style="background:#dff0e6;color:#207848">Garantida</span>':''}</div>` + `<div class="idpj-meta">${esc(ep.court||'Juízo não informado')}${ep.className?' · '+esc(ep.className):''}</div>` + `<div class="idpj-stage"><strong>Estágio processual:</strong> ${stageHtml}</div>` + `<div class="idpj-val"><strong>Valor da causa (EFs abrangidas):</strong> <b>${fmtCur(hubTotalValue)}</b> <span class="muted">(${linkedEFExecs.length} EF${linkedEFExecs.length===1?'':'s'} · ${hubCdas.length} CDAs)</span>${directVal>0?` · CDAs diretas no incidente: <b>${fmtCur(directVal)}</b>`:''}</div>` + efTable + recursosTable + notesHtml + `</div>`; }).join('')) : ''}
-${(() => { const byId = Object.fromEntries(opExecs.map(e => [e.id, e])); const idpjByLinkedEF = {}; opExecs.filter(e => e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal').forEach(ip => { (ip.linkedExecutionIds || []).forEach(efId => { if (!idpjByLinkedEF[efId]) idpjByLinkedEF[efId] = ip; }); }); const kindOf = (e) => { const cn = (e.className||'').toLowerCase(); if (e.processTag === 'idpj') return 'idpj'; if (e.processTag === 'cautelar_fiscal') return 'mcf'; if (e.processTag === 'central') return 'central'; if (/embargo/.test(cn)) return 'embargo'; if (/agravo|apela[çc][ãa]o|recurso|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn)) return 'recurso'; return 'ef'; }; const reportExecs = opExecs.filter(e => { if (e.status === 'extinta') return false; const k = kindOf(e); if (k === 'idpj' || k === 'mcf') return false; if (k === 'ef' || k === 'central') return true; const p = byId[e.parentExecutionId]; return !!(p && (kindOf(p) === 'ef' || kindOf(p) === 'central')); }); if (reportExecs.length === 0) return ''; const relOf = (e) => { const parts = []; const k = kindOf(e); if (k === 'central') parts.push('◆ Central'); if (e.parentExecutionId && byId[e.parentExecutionId]) { const p = byId[e.parentExecutionId]; const rel = k === 'embargo' ? 'Embargos de' : k === 'recurso' ? 'Recurso de' : 'Apenso a'; parts.push(`${rel} <span class="mono">${esc(p.processNumber||'—')}</span>`); } if (idpjByLinkedEF[e.id]) { const ip = idpjByLinkedEF[e.id]; const lbl = ip.processTag === 'idpj' ? 'IDPJ' : 'Cautelar'; parts.push(`Abrangida por ${lbl} <span class="mono">${esc(ip.processNumber||'—')}</span>`); } return parts.length ? parts.join('<br>') : '<span class="muted">—</span>'; }; const stOrder = { ativa: 0, suspensa: 1, arquivada: 2 }; const kindOrder = { ef: 0, central: 0, embargo: 1, recurso: 1 }; const sortedExecs = [...reportExecs].sort((a,b) => { const ka = kindOrder[kindOf(a)] ?? 2, kb = kindOrder[kindOf(b)] ?? 2; if (ka !== kb) return ka - kb; return (stOrder[a.status] ?? 3) - (stOrder[b.status] ?? 3); }); const rowsHtml = sortedExecs.map(e => { const efCdas = opDebts.filter(d => sameProc(d.processNumber, e.processNumber)); const efVal = efCdas.reduce((s,d) => s + (d.value||0), 0); const stLabel = EXEC_STATUSES[e.status]?.label || e.status || ''; const stColor = e.status === 'arquivada' || e.status === 'extinta' ? '#999' : e.status === 'suspensa' ? '#a06020' : '#207848'; const dim = (e.status === 'arquivada') ? ' style="opacity:0.6"' : ''; const eNotes = e.notesList || (e.notes ? [e.notes] : []); const mainRow = `<tr${dim}><td class="mono">${esc(e.processNumber||'—')}</td><td>${esc(e.className||'')}</td><td>${esc(e.court||'')}</td><td style="color:${stColor};font-weight:600">${esc(stLabel)}</td><td style="font-size:10px">${relOf(e)}</td><td>${efCdas.length}</td><td>${fmtCur(efVal)}</td></tr>`; const notesRow = eNotes.length > 0 ? `<tr${dim}><td colspan="7" class="proc-notes"><strong>📝 Notas:</strong><ul>${eNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></td></tr>` : ''; return mainRow + notesRow; }).join(''); return section(`Processos — execuções fiscais e recursos vinculados (${reportExecs.length})`, `<table><tr><th>Processo</th><th>Classe</th><th>Juízo</th><th>Status</th><th>Relacionamento</th><th>CDAs</th><th>Valor</th></tr>${rowsHtml}</table>`); })()}
-${constricted.length > 0 ? section(`Bens com indisponibilidade ativa (${constricted.length} — ${fmtCur(constrVal)})`, `<table><tr><th>Descrição</th><th>Tipo</th><th>Registro/Matrícula</th><th>Titular</th><th>Status</th><th>Analytics</th><th>Origem</th><th>Processo</th><th>Valor</th><th>Notas</th></tr>${constricted.map(a => { const holder = a.holderId ? data.people.find(p => p.id === a.holderId) : null; const holderTxt = holder ? (holder.name + (holder.cpfCnpj ? ' ('+holder.cpfCnpj+')' : '')) : (a.holderDoc || '—'); const aSt = ASSET_STATUSES[a.status]?.label || a.status || '—'; const aNotes = a.notesList || (a.notes ? [a.notes] : []); const notesTxt = aNotes.length > 0 ? aNotes.map(n => esc(n)).join('<br>') : '<span class="muted">—</span>'; return row([esc(truncate(a.description||'', 70)), esc(ASSET_SUBTYPES[a.subtype]||a.subtype||''), `<span class="mono">${esc(a.registry||'—')}</span>`, esc(truncate(holderTxt, 45)), esc(aSt), a.analyticsRegistered ? '✅' : '❌', esc(a.source||'—'), `<span class="mono">${esc(a.processRef||'—')}</span>`, fmtCur(a.value), `<span style="font-size:10px">${notesTxt}</span>`]); }).join('')}</table>`) : ''}
-${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><tr><th>Nome</th><th>CPF/CNPJ</th><th>Tipo</th></tr>${alvos.map(p => row([esc(p.name||''), `<span class="mono">${esc(p.cpfCnpj||'—')}</span>`, esc(p.subtype||'')])).join('')}</table>`) : ''}
-<p class="muted" style="margin-top:24px">— Fim do relatório. Para imprimir: Ctrl+P. Documento gerado automaticamente pelo NEXUS.</p>
-</body></html>`;
+      const termIso = row && (row.keyDate || row.prescDate);
+      return { cda: d.cdaNumber || d.id, tributo: d.tribute || d.system || '—', valorLabel: fmtCur(d.value), prescricao: termIso ? `termo ${fmtDate(termIso)}` : 'sem dados suficientes' };
+    });
+    const naoAjuizadasValueLabel = naoAjuizadas.length ? fmtCur(naoAjuizadasDebts.reduce((s, d) => s + (d.value || 0), 0)) : '';
+
+    // ── Diário destacado na página 2 (fixadas + risco recente) ──
+    const diaryAll = entries.map(en => ({
+      dateLabel: en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0, 10)) : ''),
+      _key: en.eventDate || (en.createdAt || '').slice(0, 10) || '',
+      typeLabel: (BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao).label,
+      html: en.html || '',
+      pinned: !!en.pinned,
+    })).sort((a, b) => (b.pinned - a.pinned) || b._key.localeCompare(a._key));
+    const diaryDestaque = diaryAll.slice(0, 5);
+    const remindersAll = opReminders.map(r => ({ dateLabel: fmtDate((r.createdAt || '').slice(0, 10)), _key: r.createdAt || '', text: r.content || '' })).sort((a, b) => b._key.localeCompare(a._key));
+    const remindersDestaque = remindersAll.slice(0, 3);
+
+    // ── Anexos ──
+    const diary = sections.diario ? diaryAll : [];
+    const reminders = sections.lembretes ? remindersAll : [];
+    const chk = briefing.checklists || {};
+    const idpjItems = ['idpj_efs', 'idpj_requeridos', 'idpj_preclusao', 'idpj_formulario', 'idpj_saj'];
+    const vistaItems = ['vista_triar', 'vista_formulario', 'vista_bens', 'vista_analisar'];
+    const checklists = sections.lembretes ? [
+      { label: 'Decisão final do IDPJ', done: idpjItems.filter(k => chk[k]).length, total: idpjItems.length },
+      { label: '1ª vista da operação', done: vistaItems.filter(k => chk[k]).length, total: vistaItems.length },
+    ] : [];
+    const assets = sections.bens ? opAssets.map(a => {
+      const holder = a.holderId ? data.people.find(p => p.id === a.holderId) : null;
+      return { descricao: truncate(a.description || assetSpeciesLabel(a), 60), titular: holder ? holder.name : (a.holderDoc || '—'), situacao: (ASSET_STATUSES[a.status] || {}).label || a.status || '—', origem: a.source || '—', valorLabel: fmtCur(a.value) };
+    }) : [];
+    const people = sections.partes ? {
+      alvos: opPeople.filter(p => (p.operationRole || 'alvo') === 'alvo').map(p => ({ nome: p.name || '', doc: p.cpfCnpj || '—', tipo: p.role || p.subtype || '' })),
+      relacionadas: opPeople.filter(p => p.operationRole === 'relacionada').map(p => ({ nome: p.name || '', doc: p.cpfCnpj || '—', tipo: p.role || p.subtype || '' })),
+    } : { alvos: [], relacionadas: [] };
+    const openIntimations = opIntimsOpen.map(x => ({
+      proc: x.processNumber || '—',
+      prazoLabel: x.dateDeadline ? `${fmtDate(x.dateDeadline)} (${daysUntil(x.dateDeadline)}d)` : 'sem prazo',
+      late: x.dateDeadline ? (daysUntil(x.dateDeadline) ?? 99) <= 5 : false,
+      status: intimStatusMeta(x.status).label,
+      evento: truncate(x.eventDescription || x.parties || '', 80),
+    }));
+
+    const hasAnexos = model === 'passagem';
+    return {
+      model, op: reportOp, sections, generatedAtLabel, generatedDateLabel, pageFooter: '', pageFooter2: '',
+      highlight, next15, alerts, numbers, sources, fronts, semIncidente, semIncidenteValueLabel,
+      naoAjuizadas, naoAjuizadasValueLabel, diarioDestaque: sections.diario ? diaryDestaque : [], lembretesDestaque: sections.lembretes ? remindersDestaque : [],
+      anexosNote: hasAnexos ? `Anexos na página seguinte: bens (${assets.length || opAssets.length}), partes (${(people.alvos.length || 0) + (people.relacionadas.length || 0)}), intimações abertas (${openIntimations.length}), diário completo e checklists.` : '',
+      diary, reminders, checklists, assets, people, openIntimations, hasAnexos,
+    };
+  };
+
+  const downloadReport = (op, model, sections, period) => {
+    const rd = buildOperationReportData(op, model, sections, period);
+    const html = renderReportDocument(rd);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    const safeName = (op.name || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
-    a.download = `passagem_servico_${safeName}_${new Date().toISOString().slice(0, 10)}.html`; a.click();
+    a.download = reportFileName(model, op.name, new Date().toISOString().slice(0, 10));
+    a.click();
     if (isDemo) showToast('Relatório gerado');
+  };
+  const openReportForPrint = (op, model, sections, period) => {
+    const rd = buildOperationReportData(op, model, sections, period);
+    const html = renderReportDocument(rd);
+    const w = window.open('', '_blank');
+    if (!w) { alert('O navegador bloqueou a nova aba. Permita pop-ups para imprimir.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 300);
+  };
+  const renderReportModal = () => {
+    if (!reportModalOp) return null;
+    const op = reportModalOp;
+    const models = [
+      { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.' },
+      { id: 'resumo', label: 'Resumo de uma página', hint: 'Só a página 1. Para a chefia ou uma reunião.' },
+      { id: 'prestacao', label: 'Prestação de contas', hint: 'Tudo o que foi feito, num período ou desde o início da operação.' },
+    ];
+    const sectionChips = [
+      ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
+      ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
+    ];
+    return (
+      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação">
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{op.name}</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {models.map(m => (
+              <label key={m.id} style={{ display: 'grid', gridTemplateColumns: '18px 1fr', gap: 10, padding: '10px 12px', border: `1px solid ${reportModel === m.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 9, cursor: 'pointer' }}>
+                <input type="radio" name="report-model" checked={reportModel === m.id} onChange={() => setReportModel(m.id)} style={{ marginTop: 2 }} />
+                <span>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{m.label}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{m.hint}</div>
+                </span>
+              </label>
+            ))}
+          </div>
+          {reportModel === 'prestacao' ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <input type="checkbox" checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
+                Desde o início da operação
+              </label>
+              {!reportPeriod.wholeOp && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>De <input type="date" value={reportPeriod.from} onChange={e => setReportPeriod({ ...reportPeriod, from: e.target.value })} /></label>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Até <input type="date" value={reportPeriod.to} onChange={e => setReportPeriod({ ...reportPeriod, to: e.target.value })} /></label>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>Seções</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {sectionChips.map(([key, label]) => {
+                  const on = !!reportSections[key];
+                  return <span key={key} onClick={() => setReportSections({ [key]: !on })} style={{ cursor: 'pointer', fontSize: 12, padding: '3px 9px', border: `1px solid ${on ? 'var(--text-primary)' : 'var(--border)'}`, borderRadius: 999, color: on ? 'var(--text-primary)' : 'var(--text-muted)', borderStyle: on ? 'solid' : 'dashed' }}>{on ? '✓ ' : ''}{label}</span>;
+                })}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
+            <button type="button" className="btn-secondary" onClick={() => downloadReport(op, reportModel, reportSections, reportPeriod)}>Baixar HTML</button>
+            <button type="button" className="btn-primary" onClick={() => openReportForPrint(op, reportModel, reportSections, reportPeriod)}>Abrir para imprimir</button>
+          </div>
+        </div>
+      </Modal>
+    );
   };
 
   // Backup / Restore
@@ -5497,6 +5979,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       const opAssets = getOpSlices(opId).assets;
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction);
+
+      // Nexus Prumo: aba "Briefing" tem componente próprio (src/edition-claude.jsx).
+      // Clássico e Beta continuam com o painel abaixo, sem nenhuma mudança.
+      if (isClaude) {
+        return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
+          opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
+          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab} />;
+      }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
       const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
@@ -5753,54 +6243,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                   {ef.hasGuarantee && <span className="badge badge-green" style={{fontSize:8}}>GAR</span>}
                 </div>);
               };
-              const stageMeta = (STAGES, STAGE_KEYS, recs) => {
-                const extraKeys = Object.keys(recs || {}).filter(k => !STAGES[k]);
-                return [...STAGE_KEYS, ...extraKeys].map((k, i) => {
-                const rec = recs[k];
-                const sd = resolveStageDef(STAGES, k, rec);
-                const recursos = sd.multiRecurso ? getRecursos(rec) : null;
-                const has = sd.multiRecurso
-                  ? (recursos.length > 0 || !!(rec && rec._present))
-                  : !!(rec && (rec._present || rec.date || rec.evento || rec.outcome || rec._custom || (rec.texto && String(rec.texto).trim()) || (rec.label && String(rec.label).trim())));
-                const c = sd.multiRecurso ? recursoColor(recursos) : stageRecColor(rec);
-                let info = '';
-                if (sd.multiRecurso) {
-                  info = '';
-                } else if (sd.textOnly) {
-                  info = (rec?.texto && String(rec.texto).trim()) || '';
-                } else if (has) {
-                  const parts = [];
-                  if (rec.date) parts.push(fmtDate(rec.date));
-                  if (rec.evento) parts.push('Ev. ' + rec.evento);
-                  if (rec.texto && String(rec.texto).trim()) parts.push(String(rec.texto).trim());
-                  info = parts.join(' · ');
-                }
-                const outcomeLabel = (!sd.multiRecurso && rec?.outcome && sd.outcomes[rec.outcome]) ? sd.outcomes[rec.outcome] : '';
-                const alwaysShow = k === 'ajuizamento' || k === 'ajuizamento_ef';
-                return { k, i, sd, rec, recursos, has, c, info, outcomeLabel, alwaysShow };
-              });
-              };
-              // Badge / título por tipo de processo-mãe (IDPJ/MCF/Central/EF no panorama)
-              const badgeFor = (ip) => {
-                const tag = ip?.processTag;
-                if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
-                if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
-                if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
-                return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
-              };
-              const stageCompactMeta = (m) => {
-                if (m.sd.multiRecurso) {
-                  const n = (m.recursos || []).length;
-                  return n ? (n + ' julgamento' + (n !== 1 ? 's' : '')) : '';
-                }
-                // textOnly: texto vai no painel de trabalho — sem placeholder "com texto"
-                if (m.sd.textOnly) return '';
-                // Desfecho fica só no nome (ex.: "Liminar · favorável") — meta traz data/evento
-                const parts = [];
-                if (m.rec?.date) parts.push(fmtDate(m.rec.date));
-                if (m.rec?.evento) parts.push('Ev. ' + m.rec.evento);
-                return parts.join(' · ');
-              };
+              // stageMeta / badgeFor / stageCompactMeta: funções puras extraídas para o
+              // topo do arquivo (reaproveitadas pelo Briefing do Nexus Prumo).
               const renderSplitCard = (ip, STAGES, STAGE_KEYS, recs, myEFs, bm) => {
                 const metas = stageMeta(STAGES, STAGE_KEYS, recs);
                 const visible = metas.filter(m => m.has || m.alwaysShow).sort(compareStagesByDate);
@@ -6224,6 +6668,13 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
 
     if (activeTab === 'tarefas') {
+      if (isClaude) {
+        return <EditionClaudeOpTarefas opId={opId} data={data} opsById={opsById} upsert={upsert}
+          isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+          onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, taskVisibility: 'operation' } })}
+          onCreate={(f) => handleSave('task', { id: uid(), status: 'pendente', taskVisibility: 'operation', operationId: opId, ...f })} />;
+      }
       const opTasks = (data.tasks || []).filter(t => t.operationId === (activeOp?.id || ''));
       const open = opTasks.filter(t => t.status !== 'concluida' && t.status !== 'cancelada');
       const done = opTasks.filter(t => t.status === 'concluida');
@@ -6291,6 +6742,19 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'importar') {
+      if (isClaude) {
+        return <EditionClaudeImportar opId={opId} data={data} setData={setData}
+          importMode={importMode} setImportMode={setImportMode}
+          xlsInputRef={xlsInputRef} eprocInputRef={eprocInputRef} pgfnPdfInputRef={pgfnPdfInputRef}
+          handleXLSImport={handleXLSImport} handleEprocImport={handleEprocImport} handlePGFNPDFImport={handlePGFNPDFImport}
+          textoImportKind={textoImportKind} setTextoImportKind={setTextoImportKind}
+          aiText={aiText} setAiText={setAiText} setPrescImport={setPrescImport}
+          assetText={assetText} setAssetText={setAssetText}
+          handleAIImport={handleAIImport} handleAssetBulkImport={handleAssetBulkImport}
+          collapsedGroups={collapsedGroups} toggleGroup={toggleGroup}
+          importResult={importResult} setImportResult={setImportResult}
+          activeOpId={activeOpId} />;
+      }
       // Build per-type summary of last import for this operation
       const allLogs = (data.importLogs || []).filter(l => !l.operationId || l.operationId === opId);
       const IMPORT_TYPE_LABELS = {
@@ -6513,6 +6977,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'pessoas') {
+      if (isClaude) {
+        return <EditionClaudePartes opId={opId} data={data} prazosByDebt={prazosByDebt} setModal={setModal}
+          setData={setData} upsert={upsert} togglePrescCheck={togglePrescCheck} linkify={linkify} />;
+      }
       const items = getOpSlices(opId).people;
       const opDebts = getOpSlices(opId).debts;
       const opAssets = getOpSlices(opId).assets;
@@ -6597,6 +7065,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'dividas') {
+      if (isClaude) {
+        return <EditionClaudeInscricoes opId={opId} data={data} allDebts={getOpSlices(opId).debts} opExecs={getOpSlices(opId).executions}
+          prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
+          cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
+          procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery} cdaSort={cdaSort} setCdaSort={setCdaSort}
+          setModal={setModal} setData={setData} togglePrescCheck={togglePrescCheck} bulkDelete={bulkDelete}
+          linkify={linkify} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const allItems = getOpSlices(opId).debts;
       const allLinks = data.links?.cdaResponsibilities || [];
       // Apply person filter — show CDAs where the selected person has ANY responsibility role
@@ -7103,6 +7579,22 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         arr.push(t);
       }
 
+      // Nexus Prumo: aba "Processos e prescrição" tem componente próprio (src/edition-claude.jsx),
+      // cartões para dezenas de processos sobre os MESMOS `classified`/`prazosByDebt` do app.
+      // Clássico e Beta continuam com o renderizador abaixo, sem nenhuma mudança.
+      if (isClaude) {
+        return <EditionClaudeProcessos
+          opId={opId} data={data} briefing={activeOp.briefing || {}} classified={classified} execs={execs} allDebts={allDebts}
+          prazosByDebt={prazosByDebt} openIntimsByProc={openIntimsByProc} openTasksByProc={openTasksByProc}
+          selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
+          upsert={upsert} togglePrescCheck={togglePrescCheck}
+          procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery}
+          cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
+          people={getOpSlices(opId).people}
+          linkify={linkify}
+        />;
+      }
+
       // ─── THE CARD RENDERER ───
       const ProcPrescCard = ({ group, isApenso = false, cardVariant = 'normal', hubCoveredBlock = null, hideProcessNumber = false }) => {
         const isExec = group.type === 'exec';
@@ -7182,36 +7674,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 const isHandled = !!d.prescriptionHandled;
                 const isAguardando = isHandled && d.prescriptionHandledType === 'aguardando_reconhecimento';
                 const isExpanded = expandedCdas.has(d.id);
-                const toggleHandled = () => {
-                  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
-                  const newVal = !d.prescriptionHandled;
-                  setData(prev => ({...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? {...x, prescriptionHandled: newVal, prescriptionHandledAt: newVal ? new Date().toISOString().slice(0,10) : x.prescriptionHandledAt, prescriptionHandledType: newVal ? (x.prescriptionHandledType || 'declarada') : x.prescriptionHandledType, updatedAt: new Date().toISOString()} : x)}));
-                  if (targetIds.length > 1) setSelectedCDAs(new Set());
-                };
-                const markAsAguardando = () => {
-                  const targetIds = selectedCDAs.has(d.id) && selectedCDAs.size > 1 ? [...selectedCDAs] : [d.id];
-                  const count = targetIds.length;
-                  const procRef = isExec ? (e.processNumber || '') : '';
-                  const msg = count > 1
-                    ? `Marcar ${count} CDA(s) selecionadas como prescritas, aguardando reconhecimento judicial?`
-                    : `Marcar CDA ${d.cdaNumber || ''} como prescrita, aguardando reconhecimento judicial?`;
-                  if (!confirm(msg)) return;
-                  const now = new Date().toISOString();
-                  const today = now.slice(0,10);
-                  setData(prev => ({...prev, debts: prev.debts.map(x => targetIds.includes(x.id) ? {...x, prescriptionHandled: true, prescriptionHandledType: 'aguardando_reconhecimento', prescriptionHandledAt: today, updatedAt: now} : x)}));
-                  if (targetIds.length > 1) setSelectedCDAs(new Set());
-                  if (isExec && confirm(`Criar tarefa "Solicitar reconhecimento de prescrição" para o processo ${procRef}? (${count} CDA(s))`)) {
-                    setModal({type:'create',entityType:'task',initial:{
-                      operationId: opId,
-                      title: `Solicitar reconhecimento de prescrição — ${count > 1 ? count + ' CDAs' : (d.cdaNumber || '')}`,
-                      description: `${count} CDA(s) identificada(s) como prescrita(s).\nProcesso: ${procRef}\nClasse: ${e.className || ''}\nVara: ${e.court || ''}\n\nProvidenciar petição requerendo o reconhecimento da prescrição e consequente extinção do(s) crédito(s).`,
-                      processNumber: procRef,
-                      priority: 'media',
-                      status: 'pendente',
-                      taskVisibility: 'operation'
-                    }});
-                  }
-                };
+                const toggleHandled = () => toggleCdaHandled(d, selectedCDAs, setSelectedCDAs, setData);
+                const markAsAguardando = () => markCdaAguardando(d, {
+                  selectedCDAs, setSelectedCDAs, setData, setModal, opId,
+                  procRef: isExec ? (e.processNumber || '') : null,
+                  className: isExec ? e.className : '', court: isExec ? e.court : '',
+                });
                 return (<React.Fragment key={d.id}>
                   <div className={`cda-row${isExpanded ? ' open' : ''}`} data-cda-id={d.id} title="Clique ao lado do nº para expandir · nº copia ao clicar"
                     onClick={(ev) => {
@@ -7796,7 +8264,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                       </span>
                     )}
                   </td>
-                  {!isClaude && <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} /> : null}</td>}
+                  <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} fixed={isClaude} /> : null}</td>
                   <td className="proc-status-col">{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
                   {isOthers ? (
                     <>
@@ -7853,7 +8321,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
                 <thead>
                   <tr>
                     <th className="proc-num-col">Processo</th>
-                    {!isClaude && <th className="proc-syms-col" aria-label="Indicadores"></th>}
+                    <th className="proc-syms-col" aria-label="Indicadores"></th>
                     <th className="proc-status-col">Status</th>
                     {isOthers ? <><th>Relacionado</th><th>Espécie</th></> : <><th className="proc-valor-col">Valor</th><th className="proc-presc-col">Prescrição</th></>}
                     <th></th>
@@ -8395,6 +8863,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     }
 
     if (activeTab === 'bens') {
+      if (isClaude) {
+        return <EditionClaudeBens opId={opId} data={data} allAssets={getOpSlices(opId).assets}
+          selectedAssets={selectedAssets} setSelectedAssets={setSelectedAssets} assetSort={assetSort} setAssetSort={setAssetSort}
+          setModal={setModal} setData={setData} bulkDelete={bulkDelete} bulkUpdateAssets={bulkUpdateAssets}
+          collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const items = getOpSlices(opId).assets;
       const statusOrder = ['indisponibilidade_ativa','indisponibilidade_requerida','controvertido','liberado'];
       
@@ -8554,6 +9028,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
 
 
     if (activeTab === 'docs') {
+      if (isClaude) {
+        return <EditionClaudeArquivos opId={opId} data={data} setModal={setModal}
+          onOpenIntim={(id) => setCxDrawerId(id)} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const docs = (data.documents || []).filter(d => d.operationId === opId);
       return (<div className="entity-area">
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
@@ -8614,7 +9092,8 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       addResponsibility={addResponsibility} removeResponsibility={removeResponsibility}
       onSave={(e) => handleSave(entityType, e)} onCancel={requestCloseModal}
       onDirtyChange={(d) => { modalDirtyRef.current = !!d; }}
-      isDemo={isDemo}
+      isDemo={isDemo} isClaude={isClaude} upsert={upsert}
+      esteiraTemplate={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE}
       onDelete={isEdit ? (id) => handleDelete(entityType, id) : null} />;
   };
 
@@ -8703,12 +9182,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
     <div className="settings-group">
       <div className="settings-label">Edição da interface</div>
-      <div className="settings-options">
+      <div className="settings-options cx-edition-opts">
         <button className={`settings-opt ${!isDemo && !isClaude ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
-        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Nova versão (beta)</button>
+        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Beta</button>
         <button className={`settings-opt ${isClaude ? 'active' : ''}`} onClick={() => switchEdition('claude')} title="Nexus Prumo: menu lateral e telas novas, tema Ardósia">Nexus Prumo</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada. O Nexus Prumo tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>O Beta usa a mesma navegação do clássico, com Hoje e Agenda unificada. O Nexus Prumo tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
       {isShareDemo && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>Nexus.demo.html</strong> — Demo para compartilhar (interface clássica).</div>}
       {isDemoStandalone && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>demo_experimental.html</strong> — Demo Experimental (testes da nova versão).</div>}
     </div>
@@ -8722,13 +9201,12 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </div>
     <div className="settings-group">
       <div className="settings-label">Fonte</div>
-      <div className="settings-options">
+      <div className="settings-options cx-font-opts">
         <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Altera a tipografia de toda a interface. Números de processo e campos técnicos permanecem em mono.</div>
     </div>
     {!isClaude && <div className="settings-group">
       <div className="settings-label">{isDemo ? 'Aparência' : 'Tema'}</div>
@@ -8774,6 +9252,14 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:6}}>Versão {RULE_VERSION}</div>
       <button type="button" className="settings-opt" style={{width:'100%'}} onClick={() => { setShowPrescRules(true); setShowSettings(false); }}>Abrir regras</button>
     </div>
+    {isClaude && <div className="settings-group cx">
+      <div className="settings-label">Esteira da peça</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas).</div>
+      <button type="button" className="settings-opt" style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center'}} onClick={() => setShowEsteiraEditor(true)}>
+        <span>Editar etapas da esteira</span>
+        <span style={{color:'var(--text-muted)',fontWeight:400}}>{esteiraSanitizeTemplate(appSettings.esteiraTemplate && appSettings.esteiraTemplate.length ? appSettings.esteiraTemplate : ESTEIRA_DEFAULT_TEMPLATE).length} etapas</span>
+      </button>
+    </div>}
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
       <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
@@ -9912,6 +10398,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   }).map(x => x.id) : [];
   const cxDetailActions = {
     data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
+    esteiraTemplate: appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE,
     onRespond: handleRespondIntim,
     onOpenIntim: (id) => setCxDrawerId(id),
     onOpenOp: (id) => { setCxDrawerId(null); cxOpenOp(id); },
@@ -9932,9 +10419,10 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
   const cxLateIntims = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado' && daysUntil(x.dateDeadline) !== null && daysUntil(x.dateDeadline) < 0).length : 0;
 
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
       classFilter={opClassFilter} setClassFilter={setOpClassFilter}
+      collapsed={cxSideCollapsed} onToggleCollapsed={() => setCxSideCollapsed(!cxSideCollapsed)}
       counts={{ openIntims: openIntimsCount, lateIntims: cxLateIntims, openTasks: openTasksCount, desk: deskCount, watch: watchCount, hearings: hearingsAheadCount, models: (data.models || []).length, presc1: ((prazosRadar.totals || {})[1] || {}).n || 0 }}
       onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} onOpenOpTab={(id, tab) => cxOpenOp(id, tab)}
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
@@ -10204,9 +10692,11 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
       {viewMode === 'hoje' && !isClaude && renderHojeView()}
       {viewMode === 'hoje' && isClaude && <div className="cx-scroll"><EditionClaudeHoje data={data} prazosRadar={prazosRadar} prazosByDebt={prazosByDebt} opsById={opsById}
         onOpenIntim={(id) => setCxDrawerId(id)} onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} openPrazos={openPrazos}
-        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }} /></div>}
+        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }}
+        onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }} /></div>}
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
+        initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
         detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
@@ -11529,20 +12019,21 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
         onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
         onDiag={() => openDiagnostico(activeOp.id)}
-        onReport={() => generateHandoverReport(activeOp)}
+        onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
         onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
-        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab}
+        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
           onTab={(t) => startTabSwitch(() => setActiveTab(t))}
           onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
           onDiag={() => openDiagnostico(activeOp.id)}
-          onReport={() => generateHandoverReport(activeOp)}
+          onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
           onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
-          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }} />}
+          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+          onOpenIntim={(id) => setCxDrawerId(id)} />}
         {!isClaude && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
@@ -11602,7 +12093,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <div style={{display:'grid',gridTemplateColumns:'auto auto',gap:6,justifyContent:'end'}}>
               <button type="button" className="btn-secondary btn-sm" onClick={() => openDiagnostico(activeOp.id)}>Diagnóstico</button>
               <button type="button" className="btn-secondary btn-sm" onClick={() => setModal({type:'edit',entityType:'operation',initial:activeOp})}>Editar</button>
-              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => generateHandoverReport(activeOp)}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
+              <button type="button" className="btn-secondary btn-sm has-tip" onClick={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}>📄 Relatório<span className="tip-content">Gerar relatório de passagem de serviço (HTML imprimível): briefing, processos ativos, prazos abertos, bens constritos e alvos. Útil para férias, substituição ou prestação de contas.</span></button>
               <button type="button" className="btn-secondary btn-sm" onClick={() => upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() })}>✓ Revisada</button>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
@@ -11691,6 +12182,7 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
     </Modal>
 
     {renderExportPicker()}
+    {renderReportModal()}
 
     {prescImport && (
       <div className="global-search-overlay" onClick={() => setPrescImport(null)}>
@@ -11786,6 +12278,24 @@ ${alvos.length > 0 ? section(`Alvos da operação (${alvos.length})`, `<table><t
             <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowPrescRules(false)}>✕</span>
           </div>
           <div className="presc-rules-body" dangerouslySetInnerHTML={{ __html: (document.getElementById('presc-rules-doc') || {}).innerHTML || '<p>Regras indisponíveis neste arquivo.</p>' }} />
+        </div>
+      </div>
+    )}
+
+    {isClaude && showEsteiraEditor && (
+      <div className="global-search-overlay cx" onClick={() => setShowEsteiraEditor(false)}>
+        <div className="global-search-box presc-rules-box esteira-editor-box" onClick={e => e.stopPropagation()}>
+          <div className="presc-rules-hd">
+            <strong>Etapas da esteira da peça</strong>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowEsteiraEditor(false)}>✕</span>
+          </div>
+          <div className="presc-rules-body">
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas). As peças já iniciadas guardam as etapas que tinham; mudanças valem para as próximas.</div>
+            <CxEsteiraTemplateEditor template={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} onChange={next => updateSetting('esteiraTemplate', next)} />
+          </div>
+          <div style={{display:'flex',justifyContent:'flex-end',padding:'10px 16px',borderTop:'1px solid var(--border)'}}>
+            <button type="button" className="btn-primary btn-sm" onClick={() => setShowEsteiraEditor(false)}>Salvar e fechar</button>
+          </div>
         </div>
       </div>
     )}
@@ -13122,7 +13632,7 @@ function CheckList({ options, selected, onChange, emptyText, alwaysSearch }) {
   </div>);
 }
 
-function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo, showListIndicators = true }) {
+function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCancel, onDelete, addResponsibility, removeResponsibility, onDirtyChange, isDemo, showListIndicators = true, isClaude, esteiraTemplate }) {
   // Migração one-shot: se esta entidade é intimação com obs1/obs2 legado e ainda não tem notesList,
   // converte ao abrir o formulário. Os campos antigos são removidos no save (ver `save` abaixo).
   const migratedInitial = (() => {
@@ -13271,6 +13781,26 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         <span style={{fontSize:9,color:'var(--text-muted)'}}>Cadência de revisão sistemática. Operações fora do prazo aparecem alertadas no Painel.</span>
       </div>
     </div>
+    {isClaude && (() => {
+      const OP_COLOR_SWATCHES = [
+        ['#c2323d', 'Vermelho · prioridade máxima'], ['#e0707a', 'Vermelho suave · prioridade alta'],
+        ['#c99a1a', 'Amarelo · prioridade média'], ['#21845a', 'Verde · prioridade baixa'],
+        ['#2d62d3', 'Azul · parcelamento'],
+      ];
+      const cur = form.color || '';
+      return (<div className="form-group">
+        <label>Cor (Nexus Prumo)</label>
+        <div className="op-color-row">
+          <button type="button" className={'op-color-auto' + (!cur ? ' on' : '')} onClick={() => set('color', '')}>Automática (pela prioridade e situação)</button>
+        </div>
+        <div className="op-color-grid">
+          {OP_COLOR_SWATCHES.map(([c, label]) => (
+            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:c}} title={label} aria-label={label} onClick={() => set('color', c)} />
+          ))}
+        </div>
+        <span style={{fontSize:9,color:'var(--text-muted)'}}>Cor do quadradinho da operação no menu, no cabeçalho e nas listas do Nexus Prumo. Em automática, segue parcelamento/prioridade da operação.</span>
+      </div>);
+    })()}
     {NotesList()}
     {Actions()}
   </>);
@@ -14154,6 +14684,10 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-group"><label>Link da Peça / Documento</label>
         <input value={form.docUrl||''} onChange={e=>set('docUrl',e.target.value)} placeholder="https://docs.google.com/..." />
       </div>
+      {isClaude && <div className="form-group cx">
+        <label>Esteira da peça</label>
+        <CxEsteiraSection esteira={form.esteira} onChange={nextEst => set('esteira', nextEst)} template={esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} />
+      </div>}
       {NotesList()}
       {Actions()}
     </>);
