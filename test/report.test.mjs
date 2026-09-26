@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   escHtml,
+  safeUrl,
+  sanitizeReportHtml,
   pickHighlightEntry,
   buildNext15Days,
   groupAccountingByMonth,
@@ -237,5 +239,22 @@ describe('buildAgendaByDay (src/lib/agenda.js)', () => {
   it('fora do intervalo de datas não entra', () => {
     const by = buildAgendaByDay(data, prazosRadar, '2026-10-01', '2026-10-10', 'op1', {});
     assert.deepEqual(by, {});
+  });
+});
+
+describe('relatório: HTML seguro', () => {
+  it('sanitizeReportHtml remove scripts, atributos e tags fora da lista', () => {
+    const dirty = '<p onclick="x()">Oi <b>bold</b><script>alert(1)</script><img src=x onerror=alert(2)><a href="javascript:alert(3)">link</a><!-- c --><span style="background-color: rgb(255, 240, 0)">mt</span><svg><script>1</script></svg> 1 < 2 &amp; ok</p>';
+    const clean = sanitizeReportHtml(dirty);
+    assert.equal(clean, '<p>Oi <b>bold</b>link<span style="background-color:rgb(255, 240, 0);border-radius:2px;padding:0 2px">mt</span> 1 &lt; 2 &amp; ok</p>');
+    assert.equal(sanitizeReportHtml('<span style="background-color:red;x:url(javascript:1)">a</span>'), '<span style="background-color:red;border-radius:2px;padding:0 2px">a</span>');
+    assert.equal(sanitizeReportHtml('<span style="background-image:url(x)">a</span>'), '<span>a</span>');
+  });
+  
+  it('safeUrl e escHtml: só http(s)/mailto e aspas escapadas', () => {
+    assert.equal(safeUrl('javascript:alert(1)'), '');
+    assert.equal(safeUrl(' data:text/html,x'), '');
+    assert.equal(safeUrl('https://drive.google.com/x'), 'https://drive.google.com/x');
+    assert.equal(escHtml('a"b\'c<'), 'a&quot;b&#39;c&lt;');
   });
 });

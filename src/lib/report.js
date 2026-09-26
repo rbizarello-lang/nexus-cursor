@@ -23,7 +23,47 @@ export function defaultReportSections() {
 }
 
 export function escHtml(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/** URL segura para href: só http(s) e mailto; qualquer outro esquema (javascript:, data:…) vira vazio. */
+export function safeUrl(u) {
+  const s = String(u == null ? '' : u).trim();
+  return /^(https?:|mailto:)/i.test(s) ? s : '';
+}
+
+const RICH_TAGS = new Set(['b', 'strong', 'i', 'em', 'u', 'br', 'ul', 'ol', 'li', 'div', 'p', 'span', 's', 'strike']);
+/**
+ * Sanitização pura (sem DOM) do HTML rico persistido (diário/briefing) antes de
+ * entrar no relatório: descarta script/style/iframe com o conteúdo, comentários,
+ * tags fora da lista e todos os atributos. O texto fora das tags tem '<' e '>'
+ * soltos escapados; entidades (&amp; etc.) são mantidas.
+ */
+export function sanitizeReportHtml(html) {
+  let s = String(html == null ? '' : html);
+  s = s.replace(/<!--[\s\S]*?(-->|$)/g, '');
+  s = s.replace(/<(script|style|iframe|object|embed|template|noscript|textarea|title|svg|math)\b[\s\S]*?(<\/\1\s*>|$)/gi, '');
+  let out = '';
+  let last = 0;
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
+  let m;
+  const text = t => t.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  while ((m = tagRe.exec(s))) {
+    out += text(s.slice(last, m.index));
+    const name = m[1].toLowerCase();
+    if (RICH_TAGS.has(name)) {
+      if (m[0][1] === '/') out += `</${name}>`;
+      else if (name === 'br') out += '<br>';
+      else {
+        // Marca-texto: só background-color com valor simples, como no editor.
+        const bg = name === 'span' ? /background-color\s*:\s*(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})\s*(;|["']|$)/i.exec(m[0]) : null;
+        out += bg ? `<span style="background-color:${bg[1]};border-radius:2px;padding:0 2px">` : `<${name}>`;
+      }
+    }
+    last = tagRe.lastIndex;
+  }
+  out += text(s.slice(last));
+  return out;
 }
 
 // ───────────────────── Leitura da operação ─────────────────────
@@ -190,6 +230,7 @@ body{font-family:'Geist','Segoe UI',system-ui,-apple-system,sans-serif;font-size
 
 function htmlShell(title, bodyHtml) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: https:">
 <title>${escHtml(title)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>${REPORT_CSS}</style></head><body><div class="doc">${bodyHtml}</div></body></html>`;
@@ -200,7 +241,7 @@ function renderAgendaList(next15) {
   const items = (next15 && next15.items) || [];
   if (!items.length && !(next15 && next15.overflowCount)) return '<div class="fr-txt">Nada nos próximos dias.</div>';
   const kindCls = { aud: 'aud', prazo: 'prz', tarefa: 'tar', presc: 'prc' };
-  const rows = items.map(it => `<div class="ag"><span class="d">${escHtml(it.dateLabel)}</span><span class="k ${kindCls[it.kind] || ''}">${escHtml(it.kindLabel)}</span><span class="t">${it.titleHtml || escHtml(it.title || '')}${it.mono ? ` <span class="mono">${escHtml(it.mono)}</span>` : ''}</span></div>`).join('');
+  const rows = items.map(it => `<div class="ag"><span class="d">${escHtml(it.dateLabel)}</span><span class="k ${kindCls[it.kind] || ''}">${escHtml(it.kindLabel)}</span><span class="t">${it.titleHtml ? sanitizeReportHtml(it.titleHtml) : escHtml(it.title || '')}${it.mono ? ` <span class="mono">${escHtml(it.mono)}</span>` : ''}</span></div>`).join('');
   const overflow = (next15 && next15.overflowCount) ? `<div class="ag muted" style="border:0"><span class="d">depois</span><span class="k">+${next15.overflowCount}</span><span class="t">${next15.overflowFirst ? escHtml(next15.overflowFirst.title || '') + (next15.overflowFirst.dateLabel ? ', ' + escHtml(next15.overflowFirst.dateLabel) : '') : ''}</span></div>` : '';
   return `<div class="agenda">${rows}${overflow}</div>`;
 }
@@ -218,7 +259,7 @@ function renderNumbers(numbers) {
 
 function renderSources(sources) {
   if (!sources || !sources.length) return '<div class="fr-txt">Nenhuma fonte cadastrada.</div>';
-  return `<div class="srcs">${sources.map(s => `<div>${s.url ? `<a href="${escHtml(s.url)}">${escHtml(s.label)}</a>` : escHtml(s.label)}${s.urlLabel ? ` <span>${escHtml(s.urlLabel)}</span>` : ''}</div>`).join('')}</div>`;
+  return `<div class="srcs">${sources.map(s => `<div>${s.url ? (safeUrl(s.url) ? `<a href="${escHtml(safeUrl(s.url))}">${escHtml(s.label)}</a>` : escHtml(s.label)) : escHtml(s.label)}${s.urlLabel ? ` <span>${escHtml(s.urlLabel)}</span>` : ''}</div>`).join('')}</div>`;
 }
 
 function renderFronts(fronts) {
@@ -242,7 +283,7 @@ function renderTableBlock(kindLabel, title, valueLabel, rows, cols) {
 
 function renderDiaryTable(entries) {
   if (!entries || !entries.length) return '<div class="fr-txt">Sem entradas no diário.</div>';
-  return `<table><tr><th>Data</th><th>Tipo</th><th>Anotação</th></tr>${entries.map(e => `<tr><td class="mono" style="width:62px">${escHtml(e.dateLabel)}</td><td style="width:78px"><b>${escHtml(e.typeLabel)}</b></td><td>${e.html || ''}</td></tr>`).join('')}</table>`;
+  return `<table><tr><th>Data</th><th>Tipo</th><th>Anotação</th></tr>${entries.map(e => `<tr><td class="mono" style="width:62px">${escHtml(e.dateLabel)}</td><td style="width:78px"><b>${escHtml(e.typeLabel)}</b></td><td>${sanitizeReportHtml(e.html)}</td></tr>`).join('')}</table>`;
 }
 
 function renderRemindersTable(reminders) {
@@ -283,7 +324,7 @@ function renderCapa(rd, pageLabel) {
   const s = rd.sections || {};
   let out = pageHeader(rd.op, pageLabel);
   if (s.leitura && rd.highlight) {
-    out += `<h2>Leitura da operação</h2><div class="a4-lead">${rd.highlight.html || ''}<small>${escHtml(rd.highlight.typeLabel)}${rd.highlight.dateLabel ? ' · fixada em ' + escHtml(rd.highlight.dateLabel) : ''}</small></div>`;
+    out += `<h2>Leitura da operação</h2><div class="a4-lead">${sanitizeReportHtml(rd.highlight.html)}<small>${escHtml(rd.highlight.typeLabel)}${rd.highlight.dateLabel ? ' · fixada em ' + escHtml(rd.highlight.dateLabel) : ''}</small></div>`;
   }
   if (s.proximos) {
     out += `<h2>Próximos 15 dias</h2>${renderAgendaList(rd.next15)}`;
@@ -317,7 +358,7 @@ function renderFrentes(rd, pageLabel) {
     const nDiario = (rd.diarioDestaque || []).length;
     const nLemb = (rd.lembretesDestaque || []).length;
     out += `<h2>Diário (${nDiario}) · lembretes (${nLemb})</h2><table>`;
-    (rd.diarioDestaque || []).forEach(e => { out += `<tr><td class="mono" style="width:62px">${escHtml(e.dateLabel)}</td><td style="width:78px"><b>${escHtml(e.typeLabel)}</b></td><td>${e.html || ''}</td></tr>`; });
+    (rd.diarioDestaque || []).forEach(e => { out += `<tr><td class="mono" style="width:62px">${escHtml(e.dateLabel)}</td><td style="width:78px"><b>${escHtml(e.typeLabel)}</b></td><td>${sanitizeReportHtml(e.html)}</td></tr>`; });
     (rd.lembretesDestaque || []).forEach(r => { out += `<tr><td class="mono" style="width:62px">${escHtml(r.dateLabel)}</td><td style="width:78px"><b>Lembrete</b></td><td>${escHtml(r.text)}</td></tr>`; });
     out += '</table>';
   }
