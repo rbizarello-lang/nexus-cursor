@@ -3927,7 +3927,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 /* Seletores "Edição da interface" (3) e "Fonte" (4) do painel ⚙: uma linha, colunas iguais, sem quebra. */
 .app-layout.edition-claude .cx-edition-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .app-layout.edition-claude .cx-font-opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.app-layout.edition-claude .cx-edition-opts .settings-opt, .app-layout.edition-claude .cx-font-opts .settings-opt { font-size: 11.5px; white-space: nowrap; text-align: center; padding: 4px 4px; overflow: hidden; text-overflow: ellipsis; }
+.app-layout.edition-claude .settings-panel { min-width: 320px; }
+.app-layout.edition-claude .cx-edition-opts .settings-opt, .app-layout.edition-claude .cx-font-opts .settings-opt { font-size: 11px; letter-spacing: -0.1px; white-space: nowrap; text-align: center; padding: 4px 2px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Reset de baixa especificidade (só dentro dos componentes cx) ─── */
 :where(.cx) button { font: inherit; color: inherit; padding: 0; border: 0; border-radius: 0; background: none; transition: none; font-weight: inherit; letter-spacing: inherit; text-align: inherit; }
