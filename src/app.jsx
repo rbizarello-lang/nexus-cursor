@@ -6957,6 +6957,10 @@ function App() {
     }
 
     if (activeTab === 'pessoas') {
+      if (isClaude) {
+        return <EditionClaudePartes opId={opId} data={data} prazosByDebt={prazosByDebt} setModal={setModal}
+          setData={setData} upsert={upsert} togglePrescCheck={togglePrescCheck} linkify={linkify} />;
+      }
       const items = getOpSlices(opId).people;
       const opDebts = getOpSlices(opId).debts;
       const opAssets = getOpSlices(opId).assets;
@@ -8839,6 +8843,12 @@ function App() {
     }
 
     if (activeTab === 'bens') {
+      if (isClaude) {
+        return <EditionClaudeBens opId={opId} data={data} allAssets={getOpSlices(opId).assets}
+          selectedAssets={selectedAssets} setSelectedAssets={setSelectedAssets} assetSort={assetSort} setAssetSort={setAssetSort}
+          setModal={setModal} setData={setData} bulkDelete={bulkDelete} bulkUpdateAssets={bulkUpdateAssets}
+          collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+      }
       const items = getOpSlices(opId).assets;
       const statusOrder = ['indisponibilidade_ativa','indisponibilidade_requerida','controvertido','liberado'];
       

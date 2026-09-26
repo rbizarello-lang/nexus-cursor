@@ -4873,3 +4873,389 @@ function EditionClaudeInscricoes(p) {
   </div>;
 }
 
+/* ─── Partes: mesmo cálculo de exposição por pessoa da aba clássica (CDAs como
+   originária vs corresponsável por papel, valor exposto, bens pelo CPF/CNPJ do
+   titular, risco de prescrição) — só troca isPrazosRisco (closure do app) por
+   cxPrescDisplay/prazosByDebt, já disponíveis aqui. ─── */
+function cxPersonStats(data, opId, prazosByDebt) {
+  const items = (data.people || []).filter(p => p.operationId === opId);
+  const opDebts = (data.debts || []).filter(d => d.operationId === opId);
+  const opAssets = (data.assets || []).filter(a => a.operationId === opId);
+  const allLinks = (data.links && data.links.cdaResponsibilities) || [];
+  return items.map(p => {
+    const myLinks = allLinks.filter(l => l.personId === p.id && opDebts.some(d => d.id === l.cdaId));
+    const linksByCda = {};
+    myLinks.forEach(l => { const existing = linksByCda[l.cdaId]; if (!existing || (l.role === 'originario' && existing.role !== 'originario')) linksByCda[l.cdaId] = l; });
+    const dedupedLinks = Object.values(linksByCda);
+    const cdasOriginario = dedupedLinks.filter(l => l.role === 'originario').map(l => opDebts.find(d => d.id === l.cdaId)).filter(Boolean);
+    const cdasCorresp = dedupedLinks.filter(l => l.role !== 'originario');
+    const cdasCorrespByRole = {};
+    cdasCorresp.forEach(l => { if (!cdasCorrespByRole[l.role]) cdasCorrespByRole[l.role] = []; const d = opDebts.find(dd => dd.id === l.cdaId); if (d) cdasCorrespByRole[l.role].push({ debt: d, link: l }); });
+    const valOriginario = cdasOriginario.reduce((s, d) => s + (d.value || 0), 0);
+    const valCorresp = cdasCorresp.reduce((s, l) => { const d = opDebts.find(dd => dd.id === l.cdaId); return s + (d ? (d.value || 0) : 0); }, 0);
+    const myAssets = opAssets.filter(a => a.titularCpfCnpj === p.cpfCnpj);
+    const valAssets = myAssets.reduce((s, a) => s + (a.value || 0), 0);
+    const prescRisk = cdasOriginario.filter(d => !d.prescriptionHandled && cxPrescDisplay([d], prazosByDebt).riskClass === 'critical').length;
+    return { person: p, cdasOriginario, cdasCorresp, cdasCorrespByRole, valOriginario, valCorresp, valTotal: valOriginario + valCorresp, myAssets, valAssets, prescRisk, totalCdas: cdasOriginario.length + cdasCorresp.length };
+  });
+}
+
+/* Ficha lateral da pessoa (Partes) — mesmo padrão das demais (blocos recolhíveis); CDAs
+   originária/corresponsável clicáveis abrem a ficha da CDA (onOpenCda, gerido pelo pai). */
+function EditionClaudePersonDrawer({ s, data, onClose, setModal, onOpenCda }) {
+  const [blocks, setBlocks] = React.useState({ resp: true, bens: false, notas: false });
+  const toggle = (k) => setBlocks(prev => ({ ...prev, [k]: !prev[k] }));
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const p2 = s.person;
+  const notes = (p2.notesList || (p2.notes ? [p2.notes] : [])).filter(Boolean);
+  const copyQualif = () => { cxCopy(buildPersonQualification(p2, data)); cxNotify('Qualificação copiada.'); };
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Pessoa">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className={'cx-pd-kind ' + (p2.subtype === 'PJ' ? 'pj' : 'pf')}>{p2.subtype || 'PF'}</span><b className="cx-pd-num" style={{ fontFamily: 'var(--cx-font)' }}>{p2.name}</b></div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        <dl className="cx-pd-facts">
+          <dt>CPF/CNPJ</dt><dd className="cx-mono">{p2.cpfCnpj || '—'}</dd>
+          <dt>Papel</dt><dd>{p2.role || '—'}</dd>
+          <dt>Posição</dt><dd>{(PERSON_OPERATION_ROLES[p2.operationRole || 'alvo'] || {}).label || '—'}</dd>
+        </dl>
+        <CxBlock title="Responde por" open={!!blocks.resp} onToggle={() => toggle('resp')}>
+          <div className="cx-pd-sum-row"><span>Originária</span><b>{s.cdasOriginario.length ? cxPl(s.cdasOriginario.length, 'CDA', 'CDAs') + ' · ' + fmtCur(s.valOriginario) : '—'}</b></div>
+          <div className="cx-pd-sum-row"><span>Corresponsável</span><b>{s.cdasCorresp.length ? cxPl(s.cdasCorresp.length, 'CDA', 'CDAs') + ' · ' + fmtCur(s.valCorresp) : '—'}</b></div>
+          {s.cdasOriginario.length > 0 && <div style={{ marginTop: 6 }}>
+            {s.cdasOriginario.map(d => <button key={d.id} type="button" className="cx-pd-rel" onClick={() => onOpenCda(d.id)}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span><span className="cx-sp" /><span className="cx-mono cx-small">{fmtCur(d.value)}</span></button>)}
+          </div>}
+          {Object.entries(s.cdasCorrespByRole).map(([role, arr]) => <div key={role} className="cx-small" style={{ marginTop: 8 }}>
+            <div className="cx-muted">{(RESPONSIBILITY_ROLES[role] || {}).label || role}</div>
+            {arr.map(x => <button key={x.debt.id} type="button" className="cx-pd-rel" onClick={() => onOpenCda(x.debt.id)}><span className="cx-mono">{x.debt.cdaNumber || 'CDA'}</span><span className="cx-sp" /><span className="cx-mono cx-small">{fmtCur(x.debt.value)}</span></button>)}
+          </div>)}
+        </CxBlock>
+        <CxBlock title="Patrimônio identificado" count={s.myAssets.length} open={!!blocks.bens} onToggle={() => toggle('bens')}>
+          {s.myAssets.length === 0 ? <div className="cx-empty-row">Nenhum bem identificado.</div> : <>
+            {s.myAssets.slice(0, 5).map(a => <div key={a.id} className="cx-pd-sum-row"><span className="cx-ell">{a.description || ASSET_SUBTYPES[a.subtype] || 'Bem'}</span><b className="cx-mono">{fmtCur(a.value)}</b></div>)}
+            {s.myAssets.length > 5 && <div className="cx-muted cx-small">+{s.myAssets.length - 5}</div>}
+          </>}
+        </CxBlock>
+        <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggle('notas')}>
+          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
+        </CxBlock>
+      </div>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn sm primary" onClick={copyQualif}>Copiar qualificação</button>
+        <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'person', initial: p2 })}>✎ Editar</button>
+      </div>
+    </aside>
+  </>;
+}
+
+function EditionClaudePartes(p) {
+  const { opId, data, prazosByDebt, setModal, upsert, onOpenAsset } = p;
+  const [q, setQ] = React.useState('');
+  const [typeFilter, setTypeFilter] = React.useState('all'); // all | PF | PJ
+  const [drawerPersonId, setDrawerPersonId] = React.useState(null);
+  const [drawerCda, setDrawerCda] = React.useState(null);
+
+  const opDebts = (data.debts || []).filter(d => d.operationId === opId);
+  const stats = React.useMemo(() => cxPersonStats(data, opId, prazosByDebt), [data, opId, prazosByDebt]);
+  let filtered = stats;
+  if (typeFilter !== 'all') filtered = filtered.filter(s => (s.person.subtype || 'PF') === typeFilter);
+  if (q.trim()) {
+    const qn = q.trim().toLowerCase();
+    const qDigits = qn.replace(/\D/g, '');
+    filtered = filtered.filter(s => s.person.name.toLowerCase().includes(qn) || (qDigits && String(s.person.cpfCnpj || '').replace(/\D/g, '').includes(qDigits)));
+  }
+  const alvos = filtered.filter(s => (s.person.operationRole || 'alvo') === 'alvo');
+  const relacionadas = filtered.filter(s => s.person.operationRole === 'relacionada');
+
+  const cdasInOp = new Set(opDebts.filter(d => d.status !== 'extinta').map(d => d.id));
+  const grandTotalUnique = opDebts.filter(d => cdasInOp.has(d.id)).reduce((s, d) => s + (d.value || 0), 0);
+  const sumOfExposures = stats.reduce((s, x) => s + x.valTotal, 0);
+  const allAssetsIdentified = stats.reduce((s, x) => s + x.myAssets.length, 0);
+  const allAssetsValue = stats.reduce((s, x) => s + x.valAssets, 0);
+
+  const closeAll = () => { setDrawerPersonId(null); setDrawerCda(null); };
+  const openCda = (id) => { setDrawerCda({ id }); setDrawerPersonId(null); };
+
+  const PersonRow = ({ s }) => {
+    const p2 = s.person;
+    const isOpen = drawerPersonId === p2.id;
+    return <tr className={'cx-pt-row' + (isOpen ? ' on' : '')} onClick={() => { setDrawerPersonId(p2.id); setDrawerCda(null); }}>
+      <td className="cx-pt-num">
+        <span className={'cx-pd-kind ' + (p2.subtype === 'PJ' ? 'pj' : 'pf')}>{p2.subtype || 'PF'}</span> {p2.name} <span className="cx-mono cx-small cx-muted">{p2.cpfCnpj}</span>
+      </td>
+      <td className="cx-small">{p2.role || '—'}</td>
+      <td className="cx-pt-r">{s.cdasOriginario.length > 0 ? <span className="cx-tag blue">{s.cdasOriginario.length} orig.</span> : <span className="cx-muted">—</span>}{s.cdasCorresp.length > 0 ? <span className="cx-tag" style={{ marginLeft: 4 }}>{s.cdasCorresp.length} corr.</span> : null}</td>
+      <td className="cx-pt-r cx-mono">{s.valTotal > 0 ? fmtCur(s.valTotal) : <span className="cx-muted">—</span>}</td>
+      <td className="cx-pt-r cx-small">{s.myAssets.length > 0 ? <>{s.myAssets.length} · <span className="cx-mono">{fmtCur(s.valAssets)}</span></> : <span className="cx-muted">—</span>}</td>
+      <td className="cx-small">{s.prescRisk > 0 ? <span className="cx-risk-critical">{cxPl(s.prescRisk, 'CDA no alarme', 'CDAs no alarme')}</span> : <span className="cx-muted">nenhuma no alarme</span>}</td>
+    </tr>;
+  };
+
+  const PersonTableHead = () => <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>;
+
+  return <div className="cx cx-page cx-page-wide cx-pp">
+    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
+      <div className="cx-pp-sum-cell"><small>Crédito da operação</small><b>{fmtCur(grandTotalUnique)}</b><em>{cxPl(cdasInOp.size, 'CDA ativa', 'CDAs ativas')} · total único</em></div>
+      <div className="cx-pp-sum-cell"><small>Alvos</small><b>{alvos.length}</b><em>{cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PJ').length, 'PJ', 'PJ')} · {cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PF').length, 'PF', 'PF')}</em></div>
+      <div className="cx-pp-sum-cell"><small>Relacionadas</small><b>{relacionadas.length}</b><em>subsídio analítico</em></div>
+      <div className="cx-pp-sum-cell"><small>Patrimônio identificado</small><b>{fmtCur(allAssetsValue)}</b><em>{cxPl(allAssetsIdentified, 'bem', 'bens')}</em></div>
+    </div>
+    {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
+
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar nome ou CPF/CNPJ" />
+      <select className="cx-sel sm" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+        <option value="all">Tipo: todos</option>
+        <option value="PJ">Tipo: PJ</option>
+        <option value="PF">Tipo: PF</option>
+      </select>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'person', initial: {} })}>+ Pessoa</button>
+    </div>
+
+    <div className="cx-pp-body">
+      <div className="cx-pp-cards">
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><PersonTableHead />
+          <tbody>
+            {alvos.length > 0 && <tr className="cx-pt-band"><td colSpan={6}>Alvos diretos <span className="cx-muted cx-small">· {alvos.length}</span></td></tr>}
+            {alvos.map(s => <PersonRow key={s.person.id} s={s} />)}
+            {relacionadas.length > 0 && <tr className="cx-pt-band"><td colSpan={6}>Pessoas relacionadas <span className="cx-muted cx-small">· {relacionadas.length}</span></td></tr>}
+            {relacionadas.map(s => <PersonRow key={s.person.id} s={s} />)}
+            {filtered.length === 0 && <tr><td colSpan={6} className="cx-empty-row">Nenhuma pessoa.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      {drawerCda ? (() => {
+        const d = opDebts.find(x => x.id === drawerCda.id);
+        if (!d) return null;
+        const exec = (data.executions || []).find(x => x.processNumber && sameProc(x.processNumber, d.processNumber));
+        return <EditionClaudeCdaDrawer debt={d} exec={exec} data={data} opId={opId} prazosByDebt={prazosByDebt}
+          selectedCDAs={new Set()} setSelectedCDAs={() => { }} setModal={setModal} setData={p.setData}
+          togglePrescCheck={p.togglePrescCheck} onClose={closeAll}
+          onOpenExec={execId => setModal({ type: 'edit', entityType: 'execution', initial: (data.executions || []).find(x => x.id === execId) })}
+          linkify={p.linkify} />;
+      })() : drawerPersonId && (() => {
+        const s = stats.find(x => x.person.id === drawerPersonId);
+        if (!s) return null;
+        return <EditionClaudePersonDrawer s={s} data={data} onClose={closeAll} setModal={setModal} onOpenCda={openCda} />;
+      })()}
+    </div>
+  </div>;
+}
+
+/* ─── Bens: mesma lógica clássica (agrupamento por situação/titular/processo/tipo,
+   Sisbajud com valor em destaque, Analytics, lote). ─── */
+function cxAssetGroupKey(a, data, mode) {
+  if (mode === 'titular') { const h = (data.people || []).find(pp => pp.id === a.holderId); return h ? h.id : '_sem'; }
+  if (mode === 'processo') return a.processRef || '_sem';
+  if (mode === 'tipo') return a.subtype || 'outro';
+  return a.status || 'liberado';
+}
+function cxAssetGroupLabel(key, mode, data) {
+  if (mode === 'titular') { if (key === '_sem') return 'Sem titular'; const h = (data.people || []).find(pp => pp.id === key); return h ? h.name : 'Sem titular'; }
+  if (mode === 'processo') return key === '_sem' ? 'Sem processo vinculado' : key;
+  if (mode === 'tipo') return ASSET_SUBTYPES[key] || key;
+  return (ASSET_STATUSES[key] || {}).label || key;
+}
+
+/* Ficha lateral do bem — descrição, identificação, titular (atalho para a pessoa), processo
+   (atalho para a execução), origem e notas; mesmo padrão das demais fichas. */
+function EditionClaudeAssetDrawer({ asset: a, data, opId, onClose, setModal }) {
+  const [blocks, setBlocks] = React.useState({ desc: true, notas: false });
+  const toggle = (k) => setBlocks(prev => ({ ...prev, [k]: !prev[k] }));
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  if (!a) return null;
+  const holder = (data.people || []).find(pp => pp.id === a.holderId);
+  const isSis = isSisbajudAsset(a);
+  const idLine = !isSis ? assetIdentifier(a, data.people) : '';
+  const st = ASSET_STATUSES[a.status] || {};
+  const linkedExec = a.processRef ? (data.executions || []).find(e => e.operationId === opId && sameProc(e.processNumber, a.processRef)) : null;
+  const notes = (a.notesList || (a.notes ? [a.notes] : [])).filter(Boolean);
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Bem">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className="cx-pd-kind">{isSis ? 'SISBAJUD' : (ASSET_SUBTYPES[a.subtype] || 'BEM')}</span><b className="cx-pd-num" style={{ fontFamily: 'var(--cx-font)' }}>{isSis ? (a.value ? fmtCur(a.value) : 'sem valor') : (idLine || (a.description || 'Bem').slice(0, 44))}</b></div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        <dl className="cx-pd-facts">
+          <dt>Valor</dt><dd className="cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</dd>
+          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></dd>
+          <dt>Titular</dt><dd>{holder ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'person', initial: holder })}>{holder.name}{holder.cpfCnpj ? ' · ' + holder.cpfCnpj : ''}<CxIcon n="chevR" s={12} /></button> : (a.holderDoc || '—')}</dd>
+          <dt>Processo</dt><dd>{a.processRef ? (linkedExec ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: linkedExec })}>{a.processRef}<CxIcon n="chevR" s={12} /></button> : <span className="cx-mono cx-small">{a.processRef}</span>) : <span className="cx-muted">Sem processo vinculado</span>}</dd>
+          <dt>Origem</dt><dd>{a.source || '—'}</dd>
+          <dt>Analytics</dt><dd>{a.analyticsRegistered ? <span className="cx-tag green">Registrado</span> : <span className="cx-tag orange">Pendente</span>}</dd>
+        </dl>
+        <CxBlock title="Descrição" open={!!blocks.desc} onToggle={() => toggle('desc')}>
+          {a.description ? <p className="cx-bf-work-txt">{a.description}</p> : <div className="cx-empty-row">Sem descrição.</div>}
+        </CxBlock>
+        <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggle('notas')}>
+          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
+        </CxBlock>
+      </div>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'asset', initial: a })}>✎ Editar</button>
+      </div>
+    </aside>
+  </>;
+}
+
+function EditionClaudeBens(p) {
+  const { opId, data, allAssets, selectedAssets, setSelectedAssets, assetSort, setAssetSort,
+    setModal, bulkDelete, bulkUpdateAssets, collapsedGroups, toggleGroup } = p;
+
+  const [q, setQ] = React.useState('');
+  const [numFilter, setNumFilter] = React.useState('all');
+  const [drawerAssetId, setDrawerAssetId] = React.useState(null);
+  const [showMore, setShowMore] = React.useState({});
+
+  let items = allAssets;
+  if (numFilter === 'ativa') items = items.filter(a => a.status === 'indisponibilidade_ativa');
+  else if (numFilter === 'requerida') items = items.filter(a => a.status === 'indisponibilidade_requerida');
+  else if (numFilter === 'semAnalytics') items = items.filter(a => !a.analyticsRegistered);
+  if (q.trim()) {
+    const qn = q.trim().toLowerCase();
+    items = items.filter(a => [a.description, a.registry, a.processRef, a.source, assetIdentifier(a, data.people)].filter(Boolean).some(v => String(v).toLowerCase().includes(qn)));
+  }
+
+  const GROUP_MODES = ['status', 'titular', 'processo', 'tipo'];
+  const SORT_MODES = ['valor_desc', 'valor_asc'];
+  const mode = GROUP_MODES.includes(assetSort) ? assetSort : 'status';
+
+  let groupEntries;
+  if (SORT_MODES.includes(assetSort)) {
+    const sorted = [...items].sort((a, b) => assetSort === 'valor_desc' ? (b.value || 0) - (a.value || 0) : (a.value || 0) - (b.value || 0));
+    groupEntries = [{ key: 'all', label: 'Todos os bens', items: sorted }];
+  } else {
+    const map = {};
+    items.forEach(a => { const k = cxAssetGroupKey(a, data, mode); if (!map[k]) map[k] = []; map[k].push(a); });
+    groupEntries = Object.entries(map).map(([key, list]) => ({ key, label: cxAssetGroupLabel(key, mode, data), items: list }));
+    if (mode === 'status') {
+      const order = ['indisponibilidade_ativa', 'indisponibilidade_requerida', 'controvertido', 'liberado'];
+      groupEntries.sort((a, b) => { const ia = order.indexOf(a.key), ib = order.indexOf(b.key); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    } else {
+      groupEntries.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+  }
+
+  const totalVal = allAssets.reduce((s, a) => s + (a.value || 0), 0);
+  const ativaList = allAssets.filter(a => a.status === 'indisponibilidade_ativa');
+  const reqList = allAssets.filter(a => a.status === 'indisponibilidade_requerida');
+  const semAnalytics = allAssets.filter(a => !a.analyticsRegistered);
+
+  const toggleSel = (id) => setSelectedAssets(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleGroupSel = (ids) => setSelectedAssets(prev => { const n = new Set(prev); const all = ids.every(id => n.has(id)); ids.forEach(id => all ? n.delete(id) : n.add(id)); return n; });
+
+  const AssetRow = ({ a }) => {
+    const holder = (data.people || []).find(pp => pp.id === a.holderId);
+    const isSis = isSisbajudAsset(a);
+    const idLine = !isSis ? assetIdentifier(a, data.people) : '';
+    const st = ASSET_STATUSES[a.status] || {};
+    const isSel = selectedAssets.has(a.id);
+    const isOpen = drawerAssetId === a.id;
+    return <tr className={'cx-pt-row' + (isOpen ? ' on' : '')} onClick={() => setDrawerAssetId(a.id)}>
+      <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleSel(a.id)} aria-label="Selecionar bem" /></td>
+      <td className="cx-pt-num">
+        <span>{isSis ? 'SISBAJUD' : (ASSET_SUBTYPES[a.subtype] || 'Bem')}</span>
+        {isSis ? <b className="cx-mono" style={{ marginLeft: 6 }}>{a.value ? fmtCur(a.value) : 'sem valor'}</b>
+          : idLine ? <span className="cx-mono cx-small" style={{ marginLeft: 6 }}>{idLine}</span>
+            : a.description ? <span className="cx-muted cx-small" style={{ marginLeft: 6 }}>{a.description.slice(0, 40)}</span> : null}
+      </td>
+      <td>{holder ? <>{holder.name} <span className="cx-mono cx-small cx-muted">{holder.cpfCnpj}</span></> : (a.holderDoc ? <span className="cx-muted cx-small">{a.holderDoc}</span> : <span className="cx-muted">—</span>)}</td>
+      <td>{a.processRef ? <><span className="cx-mono cx-small">{a.processRef}</span>{a.source ? <span className="cx-tag" style={{ marginLeft: 6 }}>{a.source}</span> : null}</> : <span className="cx-muted cx-small">sem processo{a.source ? ' · ' + a.source : ''}</span>}</td>
+      <td className="cx-pt-r cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</td>
+      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></td>
+      <td><span className={'cx-tag' + (a.analyticsRegistered ? ' green' : ' orange')}>{a.analyticsRegistered ? 'A' : '!A'}</span></td>
+    </tr>;
+  };
+
+  const GroupBlock = ({ g }) => {
+    const key = 'asset-' + g.key;
+    const isCollapsed = collapsedGroups.has(key);
+    const total = g.items.reduce((s, a) => s + (a.value || 0), 0);
+    const isSel = g.items.length > 0 && g.items.every(a => selectedAssets.has(a.id));
+    const shown = showMore[key] || 8;
+    const visible = g.items.slice(0, shown);
+    const rest = g.items.length - visible.length;
+    return <React.Fragment>
+      <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.items.map(a => a.id))} aria-label={'Selecionar grupo ' + g.label} /></td>
+        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'bem', 'bens')}</span></td>
+        <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
+        <td colSpan={2}></td>
+      </tr>
+      {!isCollapsed && visible.map(a => <AssetRow key={a.id} a={a} />)}
+      {!isCollapsed && rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, [key]: shown + 20 }))}>Mostrar mais {rest}</button></td></tr>}
+    </React.Fragment>;
+  };
+
+  return <div className="cx cx-page cx-page-wide cx-pp">
+    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
+      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'all' ? ' on' : '')} onClick={() => setNumFilter('all')}><small>Total</small><b>{fmtCur(totalVal)}</b><em>{cxPl(allAssets.length, 'bem', 'bens')}</em></button>
+      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'ativa' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'ativa' ? 'all' : 'ativa')}><small>Indisponibilidade ativa</small><b style={{ color: 'var(--cx-green)' }}>{fmtCur(ativaList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(ativaList.length, 'bem', 'bens')}</em></button>
+      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'requerida' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'requerida' ? 'all' : 'requerida')}><small>Requerida</small><b>{fmtCur(reqList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(reqList.length, 'bem', 'bens')}</em></button>
+      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'semAnalytics' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'semAnalytics' ? 'all' : 'semAnalytics')}><small>Sem Analytics</small><b style={semAnalytics.length ? { color: 'var(--cx-orange)' } : undefined}>{semAnalytics.length}</b><em>registrar</em></button>
+    </div>
+
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar descrição, matrícula, placa" />
+      <select className="cx-sel sm" value={mode} onChange={e => setAssetSort(e.target.value)}>
+        <option value="status">Agrupar: Situação</option>
+        <option value="titular">Agrupar: Titular</option>
+        <option value="processo">Agrupar: Processo</option>
+        <option value="tipo">Agrupar: Tipo</option>
+      </select>
+      <select className="cx-sel sm" value={SORT_MODES.includes(assetSort) ? assetSort : ''} onChange={e => { if (e.target.value) setAssetSort(e.target.value); }}>
+        <option value="">Ordenar…</option>
+        <option value="valor_desc">Ordenar: valor ↓</option>
+        <option value="valor_asc">Ordenar: valor ↑</option>
+      </select>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'asset', initial: {} })}>+ Bem</button>
+    </div>
+
+    <div className="cx-pp-body">
+      <div className="cx-pp-cards">
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt">
+          <thead><tr><th className="cx-pt-ck"></th><th>Bem</th><th>Titular</th><th>Processo · origem</th><th className="cx-pt-r">Valor</th><th>Situação</th><th>Analytics</th></tr></thead>
+          <tbody>
+            {groupEntries.map(g => <GroupBlock key={g.key} g={g} />)}
+            {groupEntries.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum bem.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      {drawerAssetId && (() => {
+        const a = allAssets.find(x => x.id === drawerAssetId);
+        if (!a) return null;
+        return <EditionClaudeAssetDrawer asset={a} data={data} opId={opId} setModal={setModal} onClose={() => setDrawerAssetId(null)} />;
+      })()}
+    </div>
+
+    {selectedAssets.size > 0 && (
+      <div className="cx-pp-bulk">
+        <b>{cxPl(selectedAssets.size, 'bem selecionado', 'bens selecionados')}</b>
+        <span className="cx-sp" />
+        <select className="cx-sel sm" onChange={e => { if (e.target.value) { bulkUpdateAssets('status', e.target.value); e.target.value = ''; } }} defaultValue="">
+          <option value="" disabled>Alterar situação…</option>
+          {Object.entries(ASSET_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', true)}>✓ Marcar Analytics</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', false)}>✗ Desmarcar</button>
+        <button type="button" className="cx-btn sm" onClick={() => bulkDelete('assets', selectedAssets)}>Excluir</button>
+        <button type="button" className="cx-btn sm ghost" onClick={() => setSelectedAssets(new Set())}>Limpar</button>
+      </div>
+    )}
+  </div>;
+}
