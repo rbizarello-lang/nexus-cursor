@@ -4113,6 +4113,28 @@ function CxPrescCell({ cdas, prazosByDebt }) {
   const { riskClass, text, bar } = cxPrescDisplay(cdas, prazosByDebt);
   return <td className={'cx-pt-presc risk-' + riskClass}>{bar}{text}</td>;
 }
+
+/* ═══ Vínculo entre processos: árvore com curva de derivação (opção A escolhida em
+   design/mockups/prumo-vinculo-processos.html) ═══
+   Uma linha fina desce do condutor (hub/guarda-chuva) e faz uma curva até cada linha
+   abrangida; a última do nível termina em curva, as anteriores seguem retas para a
+   próxima. O nível 2 (apenso de um abrangido, ou CDA de uma execução vinculada) ganha
+   uma segunda curva, com a linha do nível 1 passando reto por trás quando o abrangido
+   pai ainda tem irmãos depois dele. Usado em EditionClaudeProcessos (EF/apenso sob hub)
+   e EditionClaudeInscricoes (CDA sob execução vinculada sob guarda-chuva). Só
+   apresentação — em cima de coveredByHub/apensosByParent/cxCdaGroupsByProcess, sem
+   mexer na classificação. */
+function cxTreeRowClass(level) {
+  return level ? ' cx-tree-child' + (level > 1 ? ' cx-tree-l2' : '') : '';
+}
+function CxTreeMark({ level, isLast, parentHasMore }) {
+  if (!level) return null;
+  return <React.Fragment>
+    {level > 1 && parentHasMore && <span className="cx-tree-anc" aria-hidden="true" />}
+    <span className={'cx-tree-elbow' + (level > 1 ? ' lv2' : '')} aria-hidden="true" />
+    {!isLast && <span className={'cx-tree-trunk' + (level > 1 ? ' lv2' : '')} aria-hidden="true" />}
+  </React.Fragment>;
+}
 /** Fase atual do processStageV2 (mesma régua do Briefing), para a linha de grupo do hub. */
 function cxHubStageInfo(exec, briefing) {
   if (!exec) return '';
@@ -4196,22 +4218,26 @@ function EditionClaudeProcessos(p) {
 
   const rowKey = (g) => g.type === 'exec' ? g.exec.id : 'unlinked';
 
-  /* Linha de um processo (EF, hub, recurso, embargo…), com apensos aninhados. */
-  const ProcRow = ({ g, depth = 0 }) => {
+  /* Linha de um processo (EF, hub, recurso, embargo…), com apensos aninhados.
+     depth 0 = condutor/sem vínculo (sem traço); depth 1 = abrangido do hub; depth 2 =
+     apenso de um abrangido. isLast/parentHasMore alimentam a árvore (CxTreeMark). */
+  const ProcRow = ({ g, depth = 0, isLast = true, parentHasMore = false }) => {
     const meta = cxEfMeta(g, prazosByDebt);
     const apensos = (apensosByParent && apensosByParent[g.exec.id]) || [];
     const isSel = (g.cdas || []).length > 0 && g.cdas.every(d => selectedCDAs.has(d.id));
     return <React.Fragment key={g.exec.id}>
-      <tr className={'cx-pt-row' + (drawerExecId === g.exec.id ? ' on' : '')} onClick={() => openDrawerFor(g.exec.id)}>
+      <tr className={'cx-pt-row' + cxTreeRowClass(depth) + (drawerExecId === g.exec.id ? ' on' : '')} onClick={() => openDrawerFor(g.exec.id)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
-        <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>{depth > 1 && <span className="cx-pt-nest">↳</span>}<span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+        <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
+          <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
+          <span className="cx-mono">{g.exec.processNumber || 'S/N'}</span>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(meta.total)}</td>
         <CxPrescCell cdas={g.cdas} prazosByDebt={prazosByDebt} />
       </tr>
-      {apensos.map(ap => <ProcRow key={ap.exec.id} g={ap} depth={depth + 1} />)}
+      {apensos.map((ap, i) => <ProcRow key={ap.exec.id} g={ap} depth={depth + 1} isLast={i === apensos.length - 1} parentHasMore={!isLast} />)}
     </React.Fragment>;
   };
 
@@ -4236,7 +4262,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
-      {visible.map(g => <ProcRow key={rowKey(g)} g={g} depth={depth} />)}
+      {visible.map((g, i) => <ProcRow key={rowKey(g)} g={g} depth={depth} isLast={i === visible.length - 1 && rest === 0} />)}
       {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
       {extra}
     </React.Fragment>;
@@ -4594,15 +4620,16 @@ function CxIncPrescCell({ d, prazosByDebt }) {
 
 /* Linha de uma CDA na tabela de Inscrições — mesmos dados do cartão clássico (status,
    decadência, ajuizada, alerta de processo extinto/arquivado, tratada/aguardando, notas). */
-function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, depth }) {
+function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, depth, isLast = true, parentHasMore = false }) {
   const st = DEBT_STATUSES[d.status] || {};
   const deca = (d.launchMode || d.taxPeriodEnd) ? computeDecadencia(d) : null;
   const sysAlerts = d.systemAlerts || [];
   const procStatusAlert = sysAlerts.find(a => a.type === 'process_status');
   const notes = (d.notesList || (d.notes ? [d.notes] : [])).filter(Boolean);
-  return <tr className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => onOpen(d.id)}>
+  return <tr className={'cx-pt-row cx-pt-row-cda' + cxTreeRowClass(depth) + (isOpen ? ' on' : '')} onClick={() => onOpen(d.id)}>
     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={onToggleSel} aria-label={'Selecionar CDA ' + (d.cdaNumber || '')} /></td>
     <td className={'cx-pt-num' + (depth ? ' nest' + Math.min(depth, 2) : '')}>
+      <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
       <span className="cx-mono">{d.cdaNumber || 'CDA'}</span>
       <span className="cx-muted cx-small"> · {cdaEspecie(d)}</span>
       {notes.length > 0 && <span className="cx-copy" title={notes.join('\n')} aria-label={notes.length + ' nota(s)'}><CxIcon n="note" s={11} /></span>}
@@ -4706,18 +4733,18 @@ function EditionClaudeInscricoes(p) {
 
   const IncTableHead = () => <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>;
 
-  const SubGroupBlock = ({ g, sg }) => {
+  const SubGroupBlock = ({ g, sg, isLast = true }) => {
     const isSameAsUmbrella = sg.subExec.id === g.umbrella.id;
     const subTotal = sg.cdas.reduce((s, d) => s + (d.value || 0), 0);
     const kind = cxProcKind(sg.subExec);
     return <React.Fragment key={sg.subExec.id}>
-      {!isSameAsUmbrella && <tr className="cx-pt-band">
+      {!isSameAsUmbrella && <tr className={'cx-pt-band' + cxTreeRowClass(1)}>
         <td className="cx-pt-ck"></td>
-        <td colSpan={3} className="cx-pt-num nest1"><span className="cx-pt-nest">↳</span><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
+        <td colSpan={3} className="cx-pt-num nest1"><CxTreeMark level={1} isLast={isLast} /><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(subTotal)}</td>
         <CxPrescCell cdas={sg.cdas} prazosByDebt={prazosByDebt} />
       </tr>}
-      {sg.cdas.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, sg.subExec.id)} depth={isSameAsUmbrella ? 0 : 1} />)}
+      {sg.cdas.map((d, i) => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, sg.subExec.id)} depth={isSameAsUmbrella ? 0 : 2} isLast={i === sg.cdas.length - 1} parentHasMore={!isLast} />)}
     </React.Fragment>;
   };
 
@@ -4746,8 +4773,8 @@ function EditionClaudeInscricoes(p) {
         <CxPrescCell cdas={g.allCdas} prazosByDebt={prazosByDebt} />
       </tr>
       {!isCollapsed && (combinedEf
-        ? combinedEf.cdas.map(d => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, combinedEf.subExec.id)} depth={1} />)
-        : g.subGroupArr.map(sg => <SubGroupBlock key={sg.subExec.id} g={g} sg={sg} />))}
+        ? combinedEf.cdas.map((d, i) => <CxIncRow key={d.id} d={d} data={data} prazosByDebt={prazosByDebt} isSel={selectedDebts.has(d.id)} onToggleSel={() => toggleSel(d.id)} isOpen={!!(drawerCda && drawerCda.id === d.id)} onOpen={id => openDrawer(id, combinedEf.subExec.id)} depth={1} isLast={i === combinedEf.cdas.length - 1} />)
+        : g.subGroupArr.map((sg, i) => <SubGroupBlock key={sg.subExec.id} g={g} sg={sg} isLast={i === g.subGroupArr.length - 1} />))}
     </React.Fragment>;
   };
 

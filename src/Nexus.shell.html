@@ -5173,7 +5173,6 @@ table.cx-pt { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cx-pt-r { text-align: right; white-space: nowrap; }
 .cx-pt th.cx-pt-r { text-align: right; }
 .cx-pt-num { white-space: nowrap; }
-.cx-pt-nest { color: var(--cx-ink-3); margin-right: 4px; }
 .cx-pt-apc { margin-left: 6px; font-size: 10.5px; color: var(--cx-ink-3); }
 .cx-pt-presc { white-space: nowrap; font-size: 11.5px; }
 .cx-pt-presc.risk-critical { color: var(--cx-red); font-weight: 600; }
@@ -5195,8 +5194,30 @@ tr.cx-pt-hubrow.on td { background: var(--cx-accent-soft); }
 tr.cx-pt-hubrow .cx-pt-num { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: normal; }
 .cx-chev.sm { border: none; background: transparent; padding: 0; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--cx-ink-3); cursor: pointer; font-size: 11px; flex: none; }
 .cx-pt-hub-s { flex-basis: 100%; font-weight: 400; font-size: 11px; color: var(--cx-ink-3); margin-left: 0; }
+
+/* ── Vínculo entre processos: árvore com curva de derivação — opção A escolhida em
+   design/mockups/prumo-vinculo-processos.html. Uma linha fina desce do condutor (hub/
+   guarda-chuva) e faz uma curva até cada linha abrangida (nest1 — EF sob IDPJ/MCF/central,
+   ou execução vinculada sob o guarda-chuva de CDAs); a última do nível termina só na curva,
+   as anteriores continuam retas (.cx-tree-trunk) até a próxima. nest2 é um segundo nível
+   (apenso de um abrangido, ou CDA de uma execução vinculada): ganha sua própria curva, mais
+   à direita, com a linha do nível 1 passando reto por trás (.cx-tree-anc) sempre que o
+   abrangido-pai ainda tiver irmãos depois dele. A curva é feita com border-left +
+   border-bottom + border-bottom-left-radius (o "cotovelo"); linha condutora nunca recua —
+   só a leva abrangida. Colunas de situação/valor/prescrição/marcadores continuam alinhadas:
+   só o td.cx-pt-num ganha recuo e as marcas, os demais td não mudam. */
 .cx-pt td.cx-pt-num.nest1 { padding-left: 34px; }
-.cx-pt td.cx-pt-num.nest2 { padding-left: 52px; }
+.cx-pt td.cx-pt-num.nest2 { padding-left: 60px; }
+.cx-pt td.cx-pt-num.nest1, .cx-pt td.cx-pt-num.nest2 { position: relative; }
+tr.cx-tree-child td { background: color-mix(in srgb, var(--cx-accent) 5%, var(--cx-surface)); }
+tr.cx-tree-child.cx-tree-l2 td { background: color-mix(in srgb, var(--cx-accent) 8%, var(--cx-surface)); }
+tr.cx-tree-child:hover td { background: var(--cx-hover); }
+tr.cx-tree-child.on td { background: var(--cx-accent-soft); }
+.cx-tree-elbow, .cx-tree-trunk, .cx-tree-anc { position: absolute; left: 14px; width: 0; pointer-events: none; }
+.cx-tree-elbow { top: -1px; width: 11px; height: 17px; border-left: 1.5px solid var(--cx-line-strong); border-bottom: 1.5px solid var(--cx-line-strong); border-bottom-left-radius: 8px; }
+.cx-tree-trunk { top: 15px; bottom: -1px; border-left: 1.5px solid var(--cx-line-strong); }
+.cx-tree-anc { top: -1px; bottom: -1px; border-left: 1.5px solid var(--cx-line-strong); }
+.cx-tree-elbow.lv2, .cx-tree-trunk.lv2 { left: 40px; }
 
 /* Barra de horizonte da prescrição — quanto falta até o termo, escala de 5 anos. */
 .cx-hb { display: inline-block; width: 34px; height: 6px; border-radius: 3px; background: var(--cx-line); overflow: hidden; vertical-align: middle; margin-right: 6px; }
