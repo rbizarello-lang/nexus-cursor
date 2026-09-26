@@ -3016,6 +3016,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
   const [showSettings, setShowSettings] = useState(false);
   const [showPrescRules, setShowPrescRules] = useState(false);
+  const [showEsteiraEditor, setShowEsteiraEditor] = useState(false);
   const [showExportPicker, setShowExportPicker] = useState(false);
   const [reportModalOp, setReportModalOp] = useState(null);
   const [reportModel, setReportModel] = useState('passagem');
@@ -9139,12 +9140,12 @@ function App() {
     </div>
     <div className="settings-group">
       <div className="settings-label">Edição da interface</div>
-      <div className="settings-options">
+      <div className="settings-options cx-edition-opts">
         <button className={`settings-opt ${!isDemo && !isClaude ? 'active' : ''}`} onClick={() => switchEdition('classic')}>Clássico</button>
-        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Nova versão (beta)</button>
+        <button className={`settings-opt ${isDemo ? 'active' : ''}`} onClick={() => switchEdition('demo')}>Beta</button>
         <button className={`settings-opt ${isClaude ? 'active' : ''}`} onClick={() => switchEdition('claude')} title="Nexus Prumo: menu lateral e telas novas, tema Ardósia">Nexus Prumo</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>A nova versão (beta) usa a mesma navegação do clássico, com Hoje e Agenda unificada. O Nexus Prumo tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
+      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>O Beta usa a mesma navegação do clássico, com Hoje e Agenda unificada. O Nexus Prumo tem menu e telas próprias. Dados e funcionalidades permanecem os mesmos.</div>
       {isShareDemo && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>Nexus.demo.html</strong> — Demo para compartilhar (interface clássica).</div>}
       {isDemoStandalone && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Arquivo <strong>demo_experimental.html</strong> — Demo Experimental (testes da nova versão).</div>}
     </div>
@@ -9158,13 +9159,12 @@ function App() {
     </div>
     <div className="settings-group">
       <div className="settings-label">Fonte</div>
-      <div className="settings-options">
+      <div className="settings-options cx-font-opts">
         <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
       </div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>Altera a tipografia de toda a interface. Números de processo e campos técnicos permanecem em mono.</div>
     </div>
     {!isClaude && <div className="settings-group">
       <div className="settings-label">{isDemo ? 'Aparência' : 'Tema'}</div>
@@ -9212,8 +9212,11 @@ function App() {
     </div>
     {isClaude && <div className="settings-group cx">
       <div className="settings-label">Esteira da peça</div>
-      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas). Renomear ou reordenar vale para as próximas peças; as já iniciadas guardam as etapas que tinham.</div>
-      <CxEsteiraTemplateEditor template={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} onChange={next => updateSetting('esteiraTemplate', next)} />
+      <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas).</div>
+      <button type="button" className="settings-opt" style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center'}} onClick={() => setShowEsteiraEditor(true)}>
+        <span>Editar etapas da esteira</span>
+        <span style={{color:'var(--text-muted)',fontWeight:400}}>{esteiraSanitizeTemplate(appSettings.esteiraTemplate && appSettings.esteiraTemplate.length ? appSettings.esteiraTemplate : ESTEIRA_DEFAULT_TEMPLATE).length} etapas</span>
+      </button>
     </div>}
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
@@ -11981,13 +11984,14 @@ function App() {
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
-        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab}
+        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
           onTab={(t) => startTabSwitch(() => setActiveTab(t))}
           onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
           onDiag={() => openDiagnostico(activeOp.id)}
           onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
           onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
-          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }} />}
+          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+          onOpenIntim={(id) => setCxDrawerId(id)} />}
         {!isClaude && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
@@ -12232,6 +12236,24 @@ function App() {
             <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowPrescRules(false)}>✕</span>
           </div>
           <div className="presc-rules-body" dangerouslySetInnerHTML={{ __html: (document.getElementById('presc-rules-doc') || {}).innerHTML || '<p>Regras indisponíveis neste arquivo.</p>' }} />
+        </div>
+      </div>
+    )}
+
+    {isClaude && showEsteiraEditor && (
+      <div className="global-search-overlay cx" onClick={() => setShowEsteiraEditor(false)}>
+        <div className="global-search-box presc-rules-box esteira-editor-box" onClick={e => e.stopPropagation()}>
+          <div className="presc-rules-hd">
+            <strong>Etapas da esteira da peça</strong>
+            <span style={{cursor:'pointer',color:'var(--text-muted)',fontSize:18}} onClick={() => setShowEsteiraEditor(false)}>✕</span>
+          </div>
+          <div className="presc-rules-body">
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10,lineHeight:1.4}}>Etapas do fluxo de produção de uma peça (Intimações e Tarefas). As peças já iniciadas guardam as etapas que tinham; mudanças valem para as próximas.</div>
+            <CxEsteiraTemplateEditor template={appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE} onChange={next => updateSetting('esteiraTemplate', next)} />
+          </div>
+          <div style={{display:'flex',justifyContent:'flex-end',padding:'10px 16px',borderTop:'1px solid var(--border)'}}>
+            <button type="button" className="btn-primary btn-sm" onClick={() => setShowEsteiraEditor(false)}>Salvar e fechar</button>
+          </div>
         </div>
       </div>
     )}
@@ -13721,7 +13743,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const OP_COLOR_SWATCHES = [
         ['#c2323d', 'Vermelho · prioridade máxima'], ['#e0707a', 'Vermelho suave · prioridade alta'],
         ['#c99a1a', 'Amarelo · prioridade média'], ['#21845a', 'Verde · prioridade baixa'],
-        ['#2d62d3', 'Azul · parcelamento'], ['#6a4fd4', 'Violeta'], ['#0f7888', 'Ciano'], ['#bf5f16', 'Laranja'],
+        ['#2d62d3', 'Azul · parcelamento'],
       ];
       const cur = form.color || '';
       return (<div className="form-group">

@@ -837,7 +837,8 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
       <div className="cx-i-sub"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><CxOpTag op={op} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
     </div>
     <div className="cx-c-proc"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><span className="cx-cls">{intim.className || '—'}</span></div>
-    <div className="cx-c-op"><CxOpTag op={op} onOpen={onOpenOp} />{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} /> : null}</div>
+    <div className="cx-c-op"><CxOpTag op={op} onOpen={onOpenOp} /></div>
+    <div className="cx-c-opdoc">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</div>
     <div className="cx-c-imp"><CxImp intim={intim} /></div>
     <div className="cx-c-dif"><CxDif intim={intim} /></div>
     <div className="cx-c-due">
@@ -850,7 +851,7 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
   const [closed, setClosed] = React.useState({});
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
   return <div className="cx-list">
-    <div className="cx-list-h"><span /><span>Parte · evento · notas</span><span>Processo</span><span className="cx-h-op">Operação</span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span className="r">Prazo</span></div>
+    <div className="cx-list-h"><span /><span>Parte · evento · notas</span><span>Processo</span><span className="cx-h-op">Operação</span><span /><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span className="r">Prazo</span></div>
     {groups.map(g => {
       const isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
       const sorted = g.items.slice().sort(cxSortFn(sort));
@@ -876,7 +877,7 @@ function CxBoard({ items, sort, onOpen, onSetStatus, opsById }) {
         const notes = cxNotes(x);
         const done = x.status === 'analisado';
         return <button key={x.id} type="button" className="cx-b-card" draggable onDragStart={e => e.dataTransfer.setData('text/plain', x.id)} onClick={() => onOpen(x.id)}>
-          <span className="cx-b-row"><CxOpTag op={opsById.get(x.operationId)} />{x.minutaUrl ? <CxDocIcon url={x.minutaUrl} size={16} /> : null}<CxDue iso={x.dateDeadline} /></span>
+          <span className="cx-b-row"><CxOpTag op={opsById.get(x.operationId)} />{x.minutaUrl ? <CxDocIcon url={x.minutaUrl} size={14} /> : null}<CxDue iso={x.dateDeadline} /></span>
           <span className="cx-b-row" style={{ fontWeight: 500 }}>{intimIsUrgent(x) && !done ? <span className="cx-urg">URGENTE</span> : null}<span className="cx-ell">{cxPartyName(x)}</span></span>
           <span className="cx-b-ev"><CxObj intim={x} /></span>
           {notes.length ? <span className="cx-b-nt">{notes[notes.length - 1]}</span> : null}
@@ -1874,7 +1875,7 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
   const left = (r, k) => {
     const pad = { paddingLeft: 12 + (r.depth || 0) * 14 };
     if (r.kind === 'ms') return <div key={k} className="cx-tl-rl ms"><CxIcon n="flag" s={13} />Marcos da operação<span className="cx-count" style={{ marginLeft: 'auto' }}>{tl.ms.length}</span></div>;
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl divider">{r.label}</div>;
+    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl ms">{r.label}</div>;
     if (r.kind === 'proc') { const e = r.x.e; return <div key={k} className="cx-tl-rl" style={pad} title={(e.className || '') + ' · ' + (e.processNumber || '')}><span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span><span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{e.className || 'Processo'}</span><span className="cx-ell cx-mono cx-tl-who">{e.processNumber || '—'}</span></span></div>; }
     if (r.kind === 'cdah') return <div key={k} className="cx-tl-rl ms"><CxIcon n="file" s={13} /><span className="cx-ell" title="CDAs desta operação sem processo, com o prazo de 5 anos para ajuizar perto do fim">CDAs sem processo · ajuizar</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{r.n}</span></div>;
     if (r.kind === 'cda') { const c = r.c; return <div key={k} className={'cx-tl-rl sub' + (onOpenCda ? ' click' : '')} style={{ paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-mono" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-muted">{c.r.status === 'prescrito' ? 'venceu em ' + fmtDate(c.end) : 'até ' + fmtDate(c.end)}</span></div>; }
@@ -1883,7 +1884,7 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
   };
   const right = (r, k) => {
     const inner = [];
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rr divider" />;
+    if (r.kind === 'divider') return <div key={k} className="cx-tl-rr ms" />;
     if (r.kind === 'cdah') return <div key={k} className="cx-tl-rr ms" />;
     if (r.kind === 'cda') {
       const c = r.c, b = clampIso(c.start, c.end), o = daysUntil(c.end);
@@ -2685,16 +2686,20 @@ function EditionClaudeOpHeader(p) {
   const rs = cxRS(op);
   const cls = getOpClassifications(op);
   const onPartes = activeTab === 'pessoas' || activeTab === 'bens';
+  const [intimDrawer, setIntimDrawer] = React.useState(false);
+  const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
   const sum = [];
   if (s) {
     sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
     sum.push(<span key="g">{s.total ? Math.round(s.guar / s.total * 100) : 0}% garantido</span>);
     sum.push(<span key="c">{cxPl(s.debts, 'CDA', 'CDAs')}</span>);
     sum.push(<span key="e">{cxPl(s.execs, 'processo', 'processos')}</span>);
-    sum.push(<span key="i" className={s.overdueIntims ? 'cx-red-t' : ''}>{cxPl(s.openIntims, 'intimação aberta', 'intimações abertas')}{s.overdueIntims ? ' · ' + cxPl(s.overdueIntims, 'vencida', 'vencidas') : ''}</span>);
+    sum.push(<button key="i" type="button" className={'cx-oph-link' + (s.overdueIntims ? ' cx-red-t' : '')} onClick={() => setIntimDrawer(true)}>{cxPl(s.openIntims, 'intimação aberta', 'intimações abertas')}{s.overdueIntims ? ' · ' + cxPl(s.overdueIntims, 'vencida', 'vencidas') : ''}</button>);
     if (s.prescA) sum.push(<button key="p" type="button" className="cx-violet-t cx-oph-link" onClick={p.onOpenPrazos}>{cxPl(s.prescA, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição')}</button>);
   }
   return <div className="cx cx-oph">
+    {intimDrawer && <EditionClaudeOpIntimDrawer op={op} items={opOpenIntims} onClose={() => setIntimDrawer(false)}
+      onOpenIntim={id => { setIntimDrawer(false); p.onOpenIntim && p.onOpenIntim(id); }} />}
     <div className="cx-oph-top">
       <div className="cx-minw0 cx-oph-main">
         <div className="cx-oph-name">
@@ -2722,6 +2727,52 @@ function EditionClaudeOpHeader(p) {
       <span className="cx-muted cx-small">{activeTab === 'pessoas' ? 'Alvos e pessoas relacionadas, com a exposição de cada uma.' : 'Bens por situação, com titular, origem e processo.'}</span>
     </div> : null}
   </div>;
+}
+
+/* Gaveta "Intimações abertas" a partir do cabeçalho da operação (item 8): mesmo padrão visual
+   (cx-drawer / cx-scrim) das demais gavetas Prumo, com um card resumido por intimação. Clicar
+   no card abre a gaveta completa (EditionClaudeDrawer) por cima, via onOpenIntim. */
+function EditionClaudeOpIntimDrawer({ op, items, onClose, onOpenIntim }) {
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const sorted = [...(items || [])].sort((a, b) => {
+    const da = daysUntil(a.dateDeadline), db = daysUntil(b.dateDeadline);
+    const oa = da != null && da < 0, ob = db != null && db < 0;
+    if (oa !== ob) return oa ? -1 : 1;
+    return (a.dateDeadline || '9999-99-99').localeCompare(b.dateDeadline || '9999-99-99');
+  });
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-opid-drawer" role="dialog" aria-modal="true" aria-label="Intimações abertas">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><b>Intimações abertas</b><span className="cx-muted cx-small">· {op.name}</span></div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        {sorted.length === 0 && <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
+        {sorted.map(x => {
+          const dd = daysUntil(x.dateDeadline);
+          const overdue = dd != null && dd < 0;
+          return <button key={x.id} type="button" className={'cx-opid-card' + (overdue ? ' late' : '')} onClick={() => onOpenIntim(x.id)}>
+            <div className="cx-opid-top">
+              <CxProc num={x.processNumber} uf={x.jurisdiction} />
+              <span className="cx-sp" />
+              {x.minutaUrl ? <CxDocIcon url={x.minutaUrl} size={14} /> : null}
+            </div>
+            <div className="cx-opid-obj cx-ell"><CxObj intim={x} /></div>
+            <div className="cx-opid-meta">
+              <CxDue iso={x.dateDeadline} />
+              <CxImp intim={x} /><CxDif intim={x} />
+            </div>
+            <CxEstLine esteira={x.esteira} />
+          </button>;
+        })}
+      </div>
+    </aside>
+  </>;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3165,7 +3216,7 @@ function EditionClaudeBriefing(p) {
   const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
   const briefing = op.briefing || {};
   const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
-  const isLaneOpen = (frontId) => laneOpenMap[frontId] !== false;
+  const isLaneOpen = (frontId) => laneOpenMap[frontId] === true;
   const toggleLane = (frontId) => setLaneOpenMap(prev => { const next = { ...prev, [frontId]: !isLaneOpen(frontId) }; cxSaveBfLanes(next); return next; });
   const [bfCards, setBfCards] = React.useState(cxLoadBfCards);
   const toggleBfCard = (key) => setBfCards(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveBfCards(next); return next; });
@@ -3358,6 +3409,7 @@ function EditionClaudeBriefing(p) {
                     <div className="cx-bf-lane-title">{fr.bm.title || front.className || fr.bm.label} <span className="cx-mono cx-muted cx-small">{front.processNumber}</span></div>
                     <div className="cx-bf-lane-sub cx-muted cx-small">{front.court || 'juízo não informado'}{front.status ? ' · ' + ((EXEC_STATUSES[front.status] || {}).label || front.status) : ''}</div>
                   </div>
+                  {!laneOpen && fr.focused && <div className="cx-bf-lane-m"><small>Fase</small><strong>{fr.focused.sd.label}{fr.focused.outcomeLabel ? ' · ' + fr.focused.outcomeLabel : ''}</strong></div>}
                   <div className="cx-bf-lane-m"><small>Cobre</small><strong>{fr.covered.length} {fr.bm.unit}{fr.covered.length !== 1 ? 's' : ''}</strong></div>
                   <div className="cx-bf-lane-m"><small>Valor</small><strong>{fr.coveredVal > 0 ? fmtCur(fr.coveredVal) : '—'}</strong></div>
                   <div className="cx-bf-lane-menu" onClick={e => e.stopPropagation()}>
@@ -3409,14 +3461,13 @@ function EditionClaudeBriefing(p) {
                   const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
                   return (
                     <div className="cx-bf-work">
-                      <CxBlock title="Texto do evento" open={!!bfCards.evento} onToggle={() => toggleBfCard('evento')}
-                        summary={phaseTitle + (meta ? ' · ' + meta : '')}>
-                        <div className="cx-bf-work-k">
-                          <span style={{ color: m.c }}>{phaseTitle}</span>
-                          <span className="cx-sp" />
-                          <button type="button" className="cx-btn sm" onClick={() => setPopup({ execId: front.id, sk: m.k })}>Editar fase</button>
-                        </div>
-                        {meta ? <div className="cx-muted cx-small">{meta}</div> : null}
+                      <div className="cx-bf-editphase-wrap">
+                        <CxBlock title="Texto do evento" open={!!bfCards.evento} onToggle={() => toggleBfCard('evento')}
+                          summary={phaseTitle + (meta ? ' · ' + meta : '')}>
+                          <div className="cx-bf-work-k">
+                            <span style={{ color: m.c }}>{phaseTitle}</span>
+                          </div>
+                          {meta ? <div className="cx-muted cx-small">{meta}</div> : null}
                         {m.sd.multiRecurso ? (
                           (m.recursos || []).length ? <ol className="cx-bf-work-list">{(m.recursos || []).map((r, ri) => {
                             const bits = [];
@@ -3428,7 +3479,12 @@ function EditionClaudeBriefing(p) {
                         ) : (
                           <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
                         )}
-                      </CxBlock>
+                        </CxBlock>
+                        <button type="button" className="cx-bf-editphase" title="Editar fase" aria-label="Editar fase"
+                          onClick={e => { e.stopPropagation(); setPopup({ execId: front.id, sk: m.k }); }}>
+                          <CxIcon n="edit" s={13} />
+                        </button>
+                      </div>
                       <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
                         summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
                         <div className="cx-bf-work-k">

@@ -3924,6 +3924,10 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .app-layout.edition-claude .global-search-box { border: 1px solid var(--cx-line-strong); border-radius: 12px; box-shadow: var(--cx-shadow-lg); overflow: hidden; }
 .app-layout.edition-claude .gs-input-wrap input { font-family: var(--cx-font); font-size: 14.5px; background: transparent; }
 .app-layout.edition-claude .settings-panel { box-shadow: var(--cx-shadow-lg); border-color: var(--cx-line-strong); }
+/* Seletores "Edição da interface" (3) e "Fonte" (4) do painel ⚙: uma linha, colunas iguais, sem quebra. */
+.app-layout.edition-claude .cx-edition-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.app-layout.edition-claude .cx-font-opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.app-layout.edition-claude .cx-edition-opts .settings-opt, .app-layout.edition-claude .cx-font-opts .settings-opt { font-size: 11.5px; white-space: nowrap; text-align: center; padding: 4px 4px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Reset de baixa especificidade (só dentro dos componentes cx) ─── */
 :where(.cx) button { font: inherit; color: inherit; padding: 0; border: 0; border-radius: 0; background: none; transition: none; font-weight: inherit; letter-spacing: inherit; text-align: inherit; }
@@ -4039,6 +4043,9 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-btn.primary { background: var(--cx-btn); border-color: transparent; color: var(--cx-btn-ink); }
 .cx-btn.primary:hover { background: var(--cx-btn-hover); }
 .cx-btn.primary .cx-kbd { background: transparent; color: inherit; border-color: currentColor; opacity: 0.55; }
+/* "Nova intimação" na barra superior: branco, não preto (só este botão). */
+.cx-top .cx-btn.primary { background: var(--cx-surface); border-color: var(--cx-line-strong); color: var(--cx-ink); }
+.cx-top .cx-btn.primary:hover { background: var(--cx-hover); }
 .cx-btn.ghost { border-color: transparent; background: transparent; color: var(--cx-ink-2); }
 .cx-btn.ghost:hover { background: var(--cx-hover); color: var(--cx-ink); }
 .cx-btn.sm { height: 26px; padding: 0 9px; font-size: 12px; }
@@ -4178,7 +4185,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 /* ─── Intimações ─── */
 .cx-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .cx-list { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; }
-.cx-list-h, .cx-i-row { display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 34px 44px 96px; column-gap: 14px; }
+.cx-list-h, .cx-i-row { display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 24px 34px 44px 96px; column-gap: 14px; }
 .cx-list-h { padding: 8px 14px; font-size: 11px; color: var(--cx-ink-3); border-bottom: 1px solid var(--cx-line); }
 .cx-list-h .r { text-align: right; }
 .cx-grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); text-align: left; color: var(--cx-ink); font-weight: 500; cursor: pointer; }
@@ -4226,8 +4233,11 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-i-sub { display: none; }
 .cx-c-proc { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cx-cls { font-size: 11px; color: var(--cx-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cx-c-op { min-width: 0; display: flex; align-items: center; gap: 4px; }
+.cx-c-op { min-width: 0; display: flex; align-items: center; }
 .cx-c-op .cx-op-tag { min-width: 0; }
+/* Coluna própria (24px) para o ícone da peça, entre Operação e Imp — sempre reservada, ícone
+   centralizado nela, para ficar equidistante do fim do nome e do início de Imp. (item 8). */
+.cx-c-opdoc { display: flex; align-items: center; justify-content: center; }
 .cx-doc-ic { flex: none; display: inline-flex; border-radius: 3px; }
 .cx-doc-ic:hover { opacity: 0.85; }
 /* Objeto da intimação: subtítulo indefinido (item 1) */
@@ -4674,7 +4684,15 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-oph-sum { display: flex; flex-wrap: wrap; gap: 3px 14px; margin-top: 6px; font-size: 12.5px; color: var(--cx-ink-2); }
 .cx-oph-sum b { color: var(--cx-ink); font-weight: 600; }
 .cx-oph-link { cursor: pointer; font-size: 12.5px; }
-.cx-oph-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.cx-oph-link:hover { text-decoration: underline dotted; text-underline-offset: 2px; }
+/* Gaveta "Intimações abertas" a partir do cabeçalho da operação (cx-oph) */
+.cx-opid-card { display: block; width: 100%; text-align: left; padding: 10px 0; border-top: 1px dotted var(--cx-line); cursor: pointer; }
+.cx-opid-card:first-child { border-top: 0; }
+.cx-opid-card:hover { background: var(--cx-surface-2); }
+.cx-opid-card.late .cx-due { color: var(--cx-red); }
+.cx-opid-top { display: flex; align-items: center; gap: 6px; }
+.cx-opid-obj { font-size: 12px; color: var(--cx-ink-2); margin-top: 3px; }
+.cx-opid-meta { display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 12px; color: var(--cx-ink-3); }
 .cx-oph .cx-optabs.cx-oph-tabs { margin: 10px 0 0; border-bottom: 0; }
 .cx-oph-sub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0 10px; border-top: 1px solid var(--cx-line); }
 
@@ -4875,7 +4893,7 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 @media (max-width: 1180px) {
   .cx-home-grid, .cx-focus { grid-template-columns: minmax(0, 1fr); }
   .cx-list-h, .cx-i-row { grid-template-columns: 18px minmax(0, 2.4fr) minmax(0, 1.4fr) 34px 44px 96px; }
-  .cx-c-op, .cx-list-h .cx-h-op { display: none; }
+  .cx-c-op, .cx-c-opdoc, .cx-list-h .cx-h-op { display: none; }
 }
 @media (max-width: 900px) {
   .app-layout.edition-claude, .app-layout.edition-claude.sidebar-collapsed, .app-layout.edition-claude.cx-side-collapsed { grid-template-columns: minmax(0, 1fr); }
@@ -4977,9 +4995,20 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 .cx-bf-stp.add button { border: 1px dashed var(--cx-line-strong); border-radius: 999px; padding: 3px 11px; font-size: 11px; color: var(--cx-ink-3); background: transparent; cursor: pointer; }
 .cx-bf-stp.add button:hover { color: var(--cx-ink); border-color: var(--cx-ink-3); }
 .cx-bf-work { margin-top: 12px; padding: 12px 14px; background: var(--cx-surface-2); border-radius: 8px; border: 1px solid var(--cx-line); }
-.cx-bf-work-k { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--cx-ink-2); }
-.cx-bf-work-txt { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; }
+.cx-bf-work-k { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--cx-ink-2); }
+.cx-bf-work-txt { margin: 6px 0 0; font-size: 12px; line-height: 1.5; }
 .cx-bf-work-list { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; }
+/* Cartões "Texto do evento" / "Notas" / "EFs cobertas" da frente processual: cabeçalho mais
+   compacto que o padrão da gaveta (só aqui — .cx-bf-work não é usado fora do Briefing). */
+.cx-bf-work .cx-blk-h { padding: 6px 2px; grid-template-columns: 13px auto minmax(0, 1fr) auto; }
+.cx-bf-work .cx-blk-t { font-size: 12px; font-weight: 600; }
+.cx-bf-work .cx-blk-s { font-size: 11px; }
+.cx-bf-work .cx-blk-chev svg { width: 11px; height: 11px; }
+.cx-bf-work .cx-blk-b { padding-bottom: 12px; }
+/* Botão "Editar fase": ícone discreto no canto superior direito do cartão "Texto do evento". */
+.cx-bf-editphase-wrap { position: relative; }
+.cx-bf-editphase { position: absolute; top: 4px; right: 2px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; color: var(--cx-ink-3); background: transparent; border: 1px solid transparent; cursor: pointer; z-index: 1; }
+.cx-bf-editphase:hover { border-color: var(--cx-line); background: var(--cx-hover); color: var(--cx-ink); }
 .cx-bf-note { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; font-size: 12px; }
 .cx-bf-note span { flex: 1; word-break: break-word; }
 .cx-bf-cov { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; width: 100%; padding: 5px 6px; border: none; background: transparent; border-radius: 6px; cursor: pointer; text-align: left; font-size: 11.5px; }
