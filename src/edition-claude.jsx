@@ -478,7 +478,7 @@ function EditionClaudeTopbar(p) {
     <div className="cx-top-r">
       {s.isGAS ? <button type="button" className="cx-sync" onClick={s.onPush} title={(s.msg ? s.msg + ' · ' : '') + 'Clique para salvar na Planilha agora'}><span className="cx-dot" style={{ background: syncColor }} />{syncTxt}</button> : null}
       <button type="button" className="cx-search" onClick={p.onSearch} aria-label="Buscar"><CxIcon n="search" s={14} /><span className="cx-t">Buscar processo, CDA…</span><kbd className="cx-kbd">Ctrl K</kbd></button>
-      <button type="button" className="cx-btn primary" onClick={p.onNewIntim} title="Nova intimação"><CxIcon n="plus" s={14} /><span className="cx-lbl">Nova intimação</span></button>
+      {p.lastOp ? <button type="button" className="cx-last-op" onClick={p.onOpenLastOp} title={'Voltar para ' + p.lastOp.name}>{p.lastOp.name}</button> : null}
       <div className="cx-settings-anchor">
         <button type="button" className="cx-icon-btn" onClick={p.onToggleSettings} title="Ajustes" aria-label="Ajustes"><CxIcon n="settings" /></button>
         {p.settingsPanel}

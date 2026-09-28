@@ -3152,6 +3152,7 @@ function App() {
   const [cxIntimView, setCxIntimView] = useState('lista');
   const [cxIntimInitialUf, setCxIntimInitialUf] = useState(null);
   const [cxSideOpen, setCxSideOpen] = useState(false);
+  const [cxReturnOpId, setCxReturnOpId] = useState(null);
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const [cxTlScale, setCxTlScale] = useState('anos');
@@ -10587,16 +10588,29 @@ function App() {
   const cxOpenOp = (opId, tab) => {
     setCxSideOpen(false);
     setCxTlOp(null);
+    if (opId) setCxReturnOpId(opId);
     startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(tab || 'visao'); });
     setTimeout(() => touchOperationAccess(opId), 800);
   };
+  const cxReturnOp = (() => {
+    const ops = data.operations || [];
+    if (cxReturnOpId) {
+      const hit = ops.find(o => o.id === cxReturnOpId);
+      if (hit) return hit;
+    }
+    let best = null, bestT = '';
+    ops.forEach(o => {
+      const t = o.lastAccessed ? String(o.lastAccessed) : '';
+      if (t && t >= bestT) { bestT = t; best = o; }
+    });
+    return best;
+  })();
   const cxOpenTask = (t) => {
     if (t.operationId) { setActiveOpId(t.operationId); setViewMode('operation'); setActiveTab('tarefas'); }
     else setViewMode('tarefas_global');
     setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
   };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
-  const cxNewIntim = () => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } });
   const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
     const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
     const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
@@ -10861,7 +10875,8 @@ function App() {
       )}
 
       {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)}
-        onSearch={() => { setGlobalSearch(true); setGsQuery(''); }} onNewIntim={cxNewIntim}
+        onSearch={() => { setGlobalSearch(true); setGsQuery(''); }}
+        lastOp={cxReturnOp} onOpenLastOp={() => { if (cxReturnOp && !(viewMode === 'operation' && activeOpId === cxReturnOp.id)) cxOpenOp(cxReturnOp.id); }}
         sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}
         onToggleSettings={() => setShowSettings(!showSettings)} settingsPanel={renderSettingsPanel()} />}
 
