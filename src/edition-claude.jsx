@@ -3758,6 +3758,19 @@ function EditionClaudeProcDrawer(p) {
   })();
   const totalValue = cdas.reduce((s, d) => s + (d.value || 0), 0);
   const worst = cdas.length ? cxPrescDisplay(cdas, prazosByDebt) : null;
+  // Intercorrente do processo: régua, aviso da constrição no incidente (5 anos) e prazo informativo de redirecionamento.
+  const procPresc = (() => {
+    if (!e || e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal' || e.processTag === 'central') return null;
+    const live = cdas.filter(d => d.status !== 'extinta');
+    const lead = live[0] || cdas[0];
+    if (!lead) return null;
+    const results = live.map(d => computePrescription({ debt: d, executions: data.executions, events: data.prescriptionEvents || [] }));
+    const r = results[0] || computePrescription({ debt: lead, executions: data.executions, events: data.prescriptionEvents || [] });
+    const notice = results.map(x => x.idpjNotice).find(n => n && n.active) || null;
+    const cdaIds = new Set(cdas.map(d => d.id));
+    const evs = (data.prescriptionEvents || []).filter(ev => ev.executionId === e.id || cdaIds.has(ev.cdaId) || (ev.batchCdaIds || []).some(id => cdaIds.has(id)));
+    return { r, notice, redir: redirecionamentoInfo({ exec: e, events: evs }) };
+  })();
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
@@ -3801,6 +3814,9 @@ function EditionClaudeProcDrawer(p) {
           <div className="cx-pd-sum-row"><span>CDAs</span><b>{cdas.length}</b></div>
           {worst && <div className="cx-pd-sum-row"><span>Pior prescrição</span><b className={'risk-' + worst.riskClass}>{worst.bar}{worst.text}</b></div>}
           {e && e.protocolDate && <div className="cx-pd-sum-row"><span>Protocolo</span><b>{fmtDate(e.protocolDate)}</b></div>}
+          {procPresc && procPresc.r && procPresc.r.segment === 'intercorrente' && <div className="cx-pd-ruler"><span className="cx-muted cx-small">Intercorrente</span><PrescBandRuler seg={procPresc.r} /></div>}
+          {procPresc && procPresc.notice && <div className="cx-pd-notice">{betaSafeUiText(procPresc.notice.text)}</div>}
+          {procPresc && procPresc.redir && <div className="cx-pd-sum-row cx-pd-redir" title={procPresc.redir.basis}><span>Redirecionamento</span><b className="cx-small">{procPresc.redir.text}</b></div>}
         </div>}
         {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
           {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}
@@ -3884,20 +3900,27 @@ function EditionClaudeProcDrawer(p) {
 
 /** Três contagens empilhadas (decadência/ordinária/intercorrente), a mais grave primeiro —
  *  mesmo cálculo que a aba CDAs da ficha do processo já fazia inline; extraído para reuso. */
-function CxCdaPrescStack({ debt, data, togglePrescCheck }) {
+function CxCdaPrescStack({ debt, data, togglePrescCheck, setData }) {
   const tl = computeCdaLegalTimeline({ debt, executions: data.executions, events: data.prescriptionEvents || [] });
+  // “Ainda vale”: grava hoje como última conferência da pausa sem fim (mesma gravação do clássico).
+  const confirmPause = setData ? (eventId) => {
+    const today = localIso(new Date());
+    const now = new Date().toISOString();
+    setData(prev => ({ ...prev, prescriptionEvents: (prev.prescriptionEvents || []).map(ev => ev.id === eventId ? { ...ev, verifiedAt: today, updatedAt: now } : ev) }));
+    cxNotify('Pausa conferida hoje');
+  } : undefined;
   const segKeys = ['decadencia', 'ordinaria', 'intercorrente'].filter(k => tl[k]);
   const ordered = tl.worst && tl.worst.key && segKeys.includes(tl.worst.key)
     ? [tl.worst.key, ...segKeys.filter(k => k !== tl.worst.key)]
     : segKeys;
   return <div className="cx-pd-cda-stack">
-    {ordered.map(k => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={debt} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} isDemo={false} />)}
+    {ordered.map((k, i) => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={debt} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} onConfirmPause={i === 0 ? confirmPause : undefined} isDemo={false} />)}
   </div>;
 }
 
 /** Bloco "Prazos extintivos": situação na Mesa (prazosByDebt), o mesmo rótulo e barra de
  *  horizonte usados na coluna Prescrição da aba, e as três contagens empilhadas. */
-function CxCdaPrazosBlock({ debt, prazosByDebt, data, togglePrescCheck }) {
+function CxCdaPrazosBlock({ debt, prazosByDebt, data, togglePrescCheck, setData }) {
   const row = prazosByDebt.get(debt.id);
   const pd = cxPrescDisplay([debt], prazosByDebt);
   const isHandled = !!debt.prescriptionHandled;
@@ -3910,11 +3933,11 @@ function CxCdaPrazosBlock({ debt, prazosByDebt, data, togglePrescCheck }) {
     {row ? <div className="cx-cd-prazos-row">
       <span className="cx-gnum" style={{ '--c': CX_GROUP_C[row.group] }} title={'Grupo ' + row.group}>{row.group}</span>
       <span>{PRAZOS_GROUP_LABELS[row.group] || ''}</span>
-      {row.keyDate ? <span className="cx-muted">termo {fmtDate(row.keyDate)}</span> : null}
+      {row.keyDate ? <span className="cx-muted" title={row.basis || undefined}>{row.bandHit ? row.keyLabel : 'termo ' + fmtDate(row.keyDate)}</span> : null}
       {row.prescDays != null ? <span className="cx-muted">{formatPrescHorizon(row.prescDays)}</span> : null}
     </div> : null}
     {row && (row.why || row.summary) ? <div className="cx-cd-prazos-why">{betaSafeUiText(row.why || row.summary)}</div> : null}
-    <CxCdaPrescStack debt={debt} data={data} togglePrescCheck={togglePrescCheck} />
+    <CxCdaPrescStack debt={debt} data={data} togglePrescCheck={togglePrescCheck} setData={setData} />
   </div>;
 }
 
@@ -4014,7 +4037,7 @@ function EditionClaudeCdaDrawer(p) {
         </dl>
 
         <CxBlock title="Prazos extintivos" open={!!blocks.prazos} onToggle={() => toggleBlock('prazos')}>
-          <CxCdaPrazosBlock debt={d} prazosByDebt={prazosByDebt} data={data} togglePrescCheck={togglePrescCheck} />
+          <CxCdaPrazosBlock debt={d} prazosByDebt={prazosByDebt} data={data} togglePrescCheck={togglePrescCheck} setData={setData} />
         </CxBlock>
 
         <CxBlock title="Responsáveis" count={respCount} open={!!blocks.resp} onToggle={() => toggleBlock('resp')}>

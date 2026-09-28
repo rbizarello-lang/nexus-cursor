@@ -285,7 +285,8 @@ function buildBand(tarde, cedo, motivos) {
   if (!codes.length || !tarde || !cedo) return null;
   const same = (tarde.diesAdQuem || '') === (cedo.diesAdQuem || '') && tarde.phase === cedo.phase;
   const incerto = codes.some(c => BAND_MOTIVOS[c].incerto);
-  if (same && !incerto) return null;
+  // Mesma data nas duas leituras: só vale a pena mostrar a faixa “incerta” quando há uma data a confirmar.
+  if (same && (!incerto || !tarde.diesAdQuem)) return null;
   const list = codes.map(c => ({ code: c, ...BAND_MOTIVOS[c] }));
   return {
     cedo: bandPoint(cedo),
@@ -406,7 +407,7 @@ export function redirecionamentoInfo({ exec, events = [], asOf } = {}) {
   const limitDate = addCalendarYears(start, 5);
   const daysLeft = daysUntil(limitDate, asOfIso);
   let status = daysLeft != null && daysLeft <= 0 ? 'vencido' : 'em_curso';
-  let text = `Redirecionamento: 5 anos da ${startHow} (${fmtDate(start)}) → ${fmtDate(limitDate)}.`;
+  let text = `5 anos da ${startHow} (${fmtDate(start)}) → ${fmtDate(limitDate)}.`;
   if (pedido) {
     status = pedido >= start && pedido <= limitDate ? 'pedido_no_prazo' : (pedido < start ? 'pedido_anterior' : 'pedido_fora');
     text += status === 'pedido_no_prazo'
