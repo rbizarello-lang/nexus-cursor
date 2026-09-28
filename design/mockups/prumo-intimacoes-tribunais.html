@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Intimações por tribunal</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+  --line: #dcdfe4; --line-strong: #c7cbd2; --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e;
+  --accent: #8a6722; --btn: #1b1e24; --yellow: #946b00; --blue: #2d62d3; --red: #c2323d; --green: #21845a; --cyan: #0f7888; --cyan-soft: #e0f3f5;
+  --font: 'Geist', 'Segoe UI', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
+.doc { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.doc > h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--ink-2); max-width: 860px; margin-top: 8px; line-height: 1.55; }
+h3 { font-size: 14px; font-weight: 600; margin: 30px 0 10px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-3); }
+
+.frame { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 1px 2px rgba(20,24,32,.05), 0 6px 20px rgba(20,24,32,.07); overflow: hidden; }
+.page { padding: 22px 24px 18px; }
+.page-h { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.page-h h2 { font-size: 22px; font-weight: 600; letter-spacing: -.015em; }
+.page-h p { color: var(--ink-2); margin-top: 3px; font-size: 13px; }
+.acts { display: flex; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+.seg { display: inline-flex; background: var(--panel); border-radius: 8px; padding: 2px; gap: 2px; }
+.seg span { font-size: 12.5px; padding: 4px 10px; border-radius: 6px; color: var(--ink-3); }
+.seg span.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 500; }
+
+/* ── A proposta: régua de tribunais ── */
+.trib { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 2px; margin-top: 10px; }
+.trib .k { font-size: 11.5px; color: var(--ink-3); margin-right: 6px; }
+.tb { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 9px 0 5px; border-radius: 7px; border: 1px solid transparent; color: var(--ink-2); cursor: pointer; }
+.tb:hover, .tb.hov { background: var(--surface); border-color: var(--line); }
+.tb.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tb .uf { font: 600 10.5px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--cyan-soft); color: var(--cyan); }
+.tb.on .uf { background: rgba(255,255,255,.16); color: #fff; }
+.tb .n { font: 600 12.5px var(--mono); }
+.tb .mb { display: inline-flex; width: 34px; height: 5px; border-radius: 99px; overflow: hidden; background: var(--line); }
+.tb .mb i { display: block; height: 100%; background: var(--ink-2); }
+.tb.on .mb { background: rgba(255,255,255,.25); }
+.tb.on .mb i { background: #fff; }
+.tb .x { font-size: 11px; opacity: .7; margin-left: 1px; }
+.sep { width: 1px; height: 14px; background: var(--line); margin: 0 4px; }
+.tip { position: absolute; top: 31px; left: 0; z-index: 5; width: 212px; background: var(--btn); color: #fff; border-radius: 8px; padding: 9px 11px; font-size: 12px; box-shadow: 0 10px 28px rgba(20,24,32,.25); }
+.tip b { font-weight: 600; }
+.tip .r { display: flex; justify-content: space-between; margin-top: 4px; color: rgba(255,255,255,.8); }
+.tip .r span:last-child { font-family: var(--mono); color: #fff; }
+.tip small { display: block; margin-top: 7px; color: rgba(255,255,255,.55); font-size: 11px; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+.field { height: 32px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); display: flex; align-items: center; padding: 0 10px; font-size: 12.5px; color: var(--ink-3); }
+.sp { flex: 1; }
+table { width: 100%; border-collapse: collapse; margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 12.5px; }
+th { text-align: left; font-size: 11px; font-weight: 500; color: var(--ink-3); padding: 9px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr.g td { background: var(--surface-2); font-weight: 500; }
+.party { font-weight: 500; }
+.ev { color: var(--ink-2); }
+.uf2 { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--cyan-soft); color: var(--cyan); margin-right: 6px; }
+.due { text-align: right; font: 500 12px var(--mono); color: var(--yellow); white-space: nowrap; }
+.due small { display: block; color: var(--ink-3); font-weight: 400; }
+.none { color: var(--ink-3); }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px; font-size: 12.5px; color: var(--ink-2); }
+.note b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 3px; }
+.alt { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.card h4 { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+@media (max-width: 900px) { .notes, .alt { grid-template-columns: 1fr; } .page-h { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · Intimações</div>
+  <h1>Quantidade por tribunal, em forma discreta</h1>
+  <p class="lede">No Clássico e na Beta, cada UF/tribunal tem um cartão com <b>abertos</b> (com prazo final), <b>fechados</b> (sem prazo final) e <b>total</b>, contando as intimações ativas. No Prumo, a proposta é uma linha de tribunais logo abaixo do resumo do topo: cada tribunal com a sigla, o total e uma barrinha que mostra a proporção de abertos. O detalhe aparece ao passar o mouse. Clicar filtra a lista por aquele tribunal.</p>
+
+  <h3>1 · Estado normal</h3>
+  <div class="frame"><div class="page">
+    <div class="page-h">
+      <div>
+        <h2>Intimações</h2>
+        <p>43 abertas, 0 vencidas. Ordem padrão: urgente, importância, complexidade e prazo.</p>
+        <div class="trib" aria-label="Intimações ativas por tribunal">
+          <span class="k">Por tribunal</span>
+          <span class="tb" title="PR · 14 abertos · 7 fechados · 21 no total"><span class="uf">PR</span><span class="n">21</span><span class="mb"><i style="width:67%"></i></span></span>
+          <span class="tb"><span class="uf">RS</span><span class="n">12</span><span class="mb"><i style="width:75%"></i></span></span>
+          <span class="tb"><span class="uf">SC</span><span class="n">8</span><span class="mb"><i style="width:62%"></i></span></span>
+          <span class="tb"><span class="uf">TJ</span><span class="n">2</span><span class="mb"><i style="width:50%"></i></span></span>
+        </div>
+      </div>
+      <div class="acts"><span class="btn">⇪ Importar eproc</span><span class="seg"><span class="on">☰ Lista</span><span>Quadro</span><span>Foco</span></span></div>
+    </div>
+    <div class="toolbar"><span class="field" style="width:280px">Parte, processo, evento ou nota</span><span class="field">Operação&nbsp;&nbsp;<span style="color:var(--ink)">Todas</span></span><span class="seg"><span class="on">Ativas</span><span>Resolvidas 224</span></span><span class="sp"></span><span class="field">Agrupar&nbsp;&nbsp;<span style="color:var(--ink)">Prazo</span></span><span class="field">Ordenar&nbsp;&nbsp;<span style="color:var(--ink)">Prazo final</span></span></div>
+  </div></div>
+
+  <h3>2 · Passando o mouse em PR</h3>
+  <div class="frame"><div class="page" style="padding-bottom:120px">
+    <div class="page-h">
+      <div>
+        <h2>Intimações</h2>
+        <p>43 abertas, 0 vencidas. Ordem padrão: urgente, importância, complexidade e prazo.</p>
+        <div class="trib">
+          <span class="k">Por tribunal</span>
+          <span class="tb hov"><span class="uf">PR</span><span class="n">21</span><span class="mb"><i style="width:67%"></i></span>
+            <span class="tip"><b>TRF4 · Paraná</b><div class="r"><span>Abertos (com prazo)</span><span>14</span></div><div class="r"><span>Fechados (sem prazo)</span><span>7</span></div><div class="r"><span>Total ativas</span><span>21</span></div><small>Clique para ver só PR</small></span></span>
+          <span class="tb"><span class="uf">RS</span><span class="n">12</span><span class="mb"><i style="width:75%"></i></span></span>
+          <span class="tb"><span class="uf">SC</span><span class="n">8</span><span class="mb"><i style="width:62%"></i></span></span>
+          <span class="tb"><span class="uf">TJ</span><span class="n">2</span><span class="mb"><i style="width:50%"></i></span></span>
+        </div>
+      </div>
+      <div class="acts"><span class="btn">⇪ Importar eproc</span><span class="seg"><span class="on">☰ Lista</span><span>Quadro</span><span>Foco</span></span></div>
+    </div>
+  </div></div>
+
+  <h3>3 · Filtrado por PR (clique)</h3>
+  <div class="frame"><div class="page">
+    <div class="page-h">
+      <div>
+        <h2>Intimações</h2>
+        <p>21 de 43 abertas · só PR. Ordem padrão: urgente, importância, complexidade e prazo.</p>
+        <div class="trib">
+          <span class="k">Por tribunal</span>
+          <span class="tb on"><span class="uf">PR</span><span class="n">21</span><span class="mb"><i style="width:67%"></i></span><span class="x">✕</span></span>
+          <span class="tb"><span class="uf">RS</span><span class="n">12</span><span class="mb"><i style="width:75%"></i></span></span>
+          <span class="tb"><span class="uf">SC</span><span class="n">8</span><span class="mb"><i style="width:62%"></i></span></span>
+          <span class="tb"><span class="uf">TJ</span><span class="n">2</span><span class="mb"><i style="width:50%"></i></span></span>
+        </div>
+      </div>
+      <div class="acts"><span class="btn">⇪ Importar eproc</span><span class="seg"><span class="on">☰ Lista</span><span>Quadro</span><span>Foco</span></span></div>
+    </div>
+    <div class="toolbar"><span class="field" style="width:280px">Parte, processo, evento ou nota</span><span class="field">Operação&nbsp;&nbsp;<span style="color:var(--ink)">Todas</span></span><span class="seg"><span class="on">Ativas</span><span>Resolvidas 224</span></span><span class="sp"></span><span class="field">Agrupar&nbsp;&nbsp;<span style="color:var(--ink)">Prazo</span></span><span class="field">Ordenar&nbsp;&nbsp;<span style="color:var(--ink)">Prazo final</span></span></div>
+    <table>
+      <thead><tr><th>Parte · evento · notas</th><th>Processo</th><th>Operação</th><th style="text-align:right">Prazo</th></tr></thead>
+      <tbody>
+        <tr class="g"><td colspan="4">Próximos 5 dias <span class="muted">2</span></td></tr>
+        <tr><td><div class="party">COMERCIAL DESTRO LTDA</div><div class="ev">Expedida/certificada a intimação eletrônica - Despacho/Decisão 15 dias</div></td><td><span class="uf2">PR</span><span class="mono">5055308-30.2023.4.04.7000</span><div class="muted" style="font-size:11.5px">EMBARGOS À EXECUÇÃO FISCAL</div></td><td class="none">Sem operação</td><td class="due">Qua 30/09<small>final 30/09</small></td></tr>
+        <tr><td><div class="party">LEANDRO VIANA TOSTI</div><div class="ev">Expedida/certificada a intimação eletrônica 15 dias</div></td><td><span class="uf2">PR</span><span class="mono">5003502-82.2016.4.04.7005</span><div class="muted" style="font-size:11.5px">EXECUÇÃO FISCAL</div></td><td>LEANDRO VIANA TOSTI</td><td class="due">Qua 30/09<small>final 30/09</small></td></tr>
+        <tr class="g"><td colspan="4">Mais adiante <span class="muted">12</span> · Sem prazo <span class="muted">7</span></td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="notes">
+    <div class="note"><b>Mesmos números do Clássico</b>Abertos = intimação ativa com prazo final; fechados = ativa sem prazo final; total = a soma. As siglas saem de <span class="mono">jurisdiction</span> e seguem a mesma ordem (<span class="mono">jurisRank</span>). Nenhum dado novo.</div>
+    <div class="note"><b>Discreta por padrão</b>Uma linha de texto sob o resumo, sem cartões nem cor forte. A sigla usa o mesmo selo das linhas da lista. A barrinha mostra a parte de abertos sem precisar de mais um número.</div>
+    <div class="note"><b>Útil ao clicar</b>Clicar filtra a lista (e o Quadro) por tribunal; o resumo passa a “21 de 43 · só PR” e o ✕ limpa. Os números respeitam o filtro de Operação, mas não a busca, para não piscarem enquanto você digita.</div>
+  </div>
+
+  <h3>Onde mais aparece</h3>
+  <div class="alt">
+    <div class="card"><h4>Agrupar por UF (já existe)</h4><p class="muted">Quando a lista estiver agrupada por UF, o cabeçalho de cada grupo ganha o mesmo detalhe: “PR · 21 · 14 abertos · 7 fechados”.</p></div>
+    <div class="card"><h4>Hoje</h4><p class="muted">O cartão “Intimações abertas” da tela Hoje ganha uma linha miúda: “PR 21 · RS 12 · SC 8 · TJ 2”, cada sigla levando à lista já filtrada.</p></div>
+  </div>
+</div>
+</body>
+</html>

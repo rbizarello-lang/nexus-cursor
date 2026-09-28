@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Abas da operação</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+  --line: #dcdfe4; --line-strong: #c7cbd2; --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e;
+  --accent: #8a6722; --btn: #1b1e24; --red: #c2323d; --red-soft: #fbe8e9; --orange: #bf5f16; --orange-soft: #fcefe3;
+  --yellow: #946b00; --yellow-soft: #f8efd2; --blue: #2d62d3; --blue-soft: #e7eefc; --green: #21845a; --green-soft: #e2f3eb;
+  --violet: #6a4fd4; --violet-soft: #eeeafc; --cyan: #0f7888; --cyan-soft: #e0f3f5; --op: #b3386b;
+  --font: 'Geist', 'Segoe UI', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
+.doc { max-width: 1320px; margin: 0 auto; padding: 32px 24px 80px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.doc > h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--ink-2); max-width: 940px; margin-top: 8px; line-height: 1.55; }
+h2.s { font-size: 18px; font-weight: 600; margin: 44px 0 4px; display: flex; gap: 10px; align-items: baseline; }
+h2.s span { font: 600 12px var(--mono); color: var(--accent); }
+p.sl { color: var(--ink-2); font-size: 13.5px; max-width: 940px; margin-bottom: 12px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-3); }
+.small { font-size: 11.5px; }
+.r { text-align: right; }
+
+/* Padrão */
+.pat { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+.pat div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; font-size: 12.5px; color: var(--ink-2); }
+.pat b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 3px; }
+.pat i { font-style: normal; font: 600 11px var(--mono); color: var(--accent); display: block; margin-bottom: 4px; }
+
+.frame { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 1px 2px rgba(20,24,32,.05), 0 6px 20px rgba(20,24,32,.07); overflow: hidden; }
+.oph { padding: 14px 28px 0; border-bottom: 1px solid var(--line); }
+.oph-n { display: flex; align-items: center; gap: 8px; }
+.sq { width: 12px; height: 12px; border-radius: 3px; background: var(--op); }
+.oph-n h3 { font-size: 17px; font-weight: 600; }
+.oph-s { display: flex; gap: 14px; margin-top: 5px; font-size: 12px; color: var(--ink-2); }
+.oph-s b { color: var(--ink); }
+.tabs { display: flex; gap: 2px; margin-top: 10px; }
+.tabs span { padding: 7px 10px; font-size: 12.5px; color: var(--ink-3); border-bottom: 2px solid transparent; }
+.tabs span.on { color: var(--ink); font-weight: 500; border-bottom-color: var(--ink); }
+.sub { display: flex; gap: 12px; align-items: center; padding: 8px 0 9px; border-top: 1px solid var(--line); margin-top: -1px; }
+.canvas { padding: 16px 28px 22px; }
+.wrap { display: grid; grid-template-columns: minmax(0,1fr) 390px; gap: 14px; align-items: start; }
+
+.sum { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+.sum > div { background: var(--surface); padding: 9px 12px; }
+.sum small { display: block; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.sum b { font: 600 15px var(--mono); }
+.sum em { font-style: normal; display: block; font-size: 11px; color: var(--ink-2); }
+.sum em.al { color: var(--red); }
+.tb { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.tb .sp { flex: 1; }
+.in { height: 28px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 9px; display: inline-flex; align-items: center; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.in b { color: var(--ink); font-weight: 500; margin-left: 5px; }
+.btn { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.btn.pri { background: var(--btn); color: #fff; border-color: var(--btn); }
+.btn.sm { height: 24px; font-size: 11.5px; padding: 0 8px; }
+.btn.gh { border-color: transparent; background: transparent; color: var(--ink-2); }
+.seg { display: inline-flex; background: var(--panel); border-radius: 7px; padding: 2px; gap: 2px; }
+.seg span { font-size: 12px; padding: 3px 9px; border-radius: 5px; color: var(--ink-2); }
+.seg span.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 500; }
+.seg span i { font-style: normal; font: 500 10.5px var(--mono); color: var(--ink-3); margin-left: 3px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; font-size: 11px; font-weight: 500; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr.g td { background: var(--surface-2); font-weight: 500; }
+tr.g .gs { font-weight: 400; color: var(--ink-3); font-size: 11.5px; }
+tr.sel td { background: #f3eee2; }
+tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--ink); }
+tr.more td { color: var(--ink-3); font-size: 11.5px; }
+.i1 { padding-left: 28px; }
+.num { font: 500 12px var(--mono); }
+.chev { color: var(--ink-3); display: inline-block; width: 12px; }
+.ck { width: 13px; height: 13px; border: 1.5px solid var(--line-strong); border-radius: 3px; display: inline-block; vertical-align: -2px; background: var(--surface); }
+.ck.on { background: var(--ink); border-color: var(--ink); }
+.st { font-size: 11px; font-weight: 500; padding: 1px 7px; border-radius: 5px; white-space: nowrap; }
+.st.g { background: var(--green-soft); color: var(--green); }
+.st.y { background: var(--yellow-soft); color: var(--yellow); }
+.st.b { background: var(--blue-soft); color: var(--blue); }
+.st.n { background: var(--panel); color: var(--ink-2); }
+.st.r { background: var(--red-soft); color: var(--red); }
+.st.o { background: var(--orange-soft); color: var(--orange); }
+.kind { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; }
+.kind.mcf { background: var(--yellow-soft); color: var(--yellow); }
+.kind.ef { background: var(--cyan-soft); color: var(--cyan); }
+.kind.pj { background: var(--blue-soft); color: var(--blue); }
+.kind.pf { background: var(--violet-soft); color: var(--violet); }
+.chip { font-size: 10.5px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.chip.orig { border-color: #c9d7f6; color: var(--blue); }
+.chip.cor { border-color: #d8cff7; color: var(--violet); }
+.pz { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hb { width: 40px; height: 5px; border-radius: 99px; background: var(--panel); overflow: hidden; display: inline-block; }
+.hb i { display: block; height: 100%; }
+.late { color: var(--red); }
+.soon { color: var(--orange); }
+.link { color: var(--blue); }
+.ga { display: inline-flex; gap: 4px; margin-left: 8px; }
+.ga span { font-size: 11px; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-2); font-weight: 400; background: var(--surface); }
+
+.drawer { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 18px 48px rgba(20,24,32,.14); overflow: hidden; }
+.dh { padding: 12px 15px 10px; border-bottom: 1px solid var(--line); }
+.dh .t { display: flex; align-items: center; gap: 8px; }
+.dh .t b { font: 600 13.5px var(--mono); }
+.dh .t .sp { flex: 1; }
+.dh .s { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.blk { border-top: 1px solid var(--line); }
+.blk:first-of-type { border-top: 0; }
+.bh { display: grid; grid-template-columns: 12px auto minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 9px 15px; }
+.bh b { font-weight: 600; font-size: 12.5px; }
+.bh .x { color: var(--ink-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bb { padding: 0 15px 12px 35px; font-size: 12px; color: var(--ink-2); }
+.pc { display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 8px; padding: 5px 0; border-top: 1px dotted var(--line); }
+.pc:first-child { border-top: 0; }
+.seal { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 4px; border: 1px solid; margin-top: 2px; }
+.seal.c { color: var(--green); border-color: #bfe0cf; } .seal.e { color: var(--orange); border-color: #f0cfb2; } .seal.s { color: var(--ink-3); border-color: var(--line-strong); }
+dl.f { display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 3px 10px; }
+dl.f dt { color: var(--ink-3); }
+.df { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 15px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.bulk { margin-top: 10px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: var(--btn); color: #fff; font-size: 12.5px; }
+.bulk .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.28); }
+.bulk .btn.w { background: #fff; color: var(--ink); border-color: #fff; }
+.bulk .sp { flex: 1; }
+.dt { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.prog { display: inline-flex; gap: 2px; }
+.prog i { width: 11px; height: 5px; border-radius: 2px; background: var(--line); }
+.prog i.d { background: var(--green); } .prog i.n { background: var(--blue); }
+.circ { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: inline-block; vertical-align: -3px; }
+.circ.on { background: var(--green); border-color: var(--green); }
+.drop { border: 1.5px dashed var(--line-strong); border-radius: 10px; padding: 18px; text-align: center; color: var(--ink-2); background: var(--surface-2); }
+.drop b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 3px; }
+.drop .mono { font-size: 11px; color: var(--ink-3); }
+.srcr { display: grid; grid-template-columns: 10px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px dotted var(--line); font-size: 12.5px; }
+.srcr:first-child { border-top: 0; }
+.log { font: 400 11.5px var(--mono); line-height: 1.7; color: var(--ink-2); }
+.log .ok { color: var(--green); } .log .wa { color: var(--orange); }
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.nt { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; font-size: 12.5px; color: var(--ink-2); }
+.nt b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 2px; }
+@media (max-width: 1100px) { .wrap, .notes, .pat { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · página da operação</div>
+  <h1>Inscrições, Partes e bens, Tarefas, Arquivos e Importar</h1>
+  <p class="lede">Hoje essas cinco abas são as telas do Clássico com o visual Prumo aplicado por cima: cada uma tem um arranjo diferente (cartões, colunas, blocos soltos). A proposta aplica a elas o mesmo padrão de Processos e prescrição, sem tirar nenhuma função: linha de números, barra de ferramentas, tabela agrupada com subtotais, ficha lateral para o detalhe e seleção em lote no pé. Dados: operação demo Agro Horizonte.</p>
+
+  <div class="pat">
+    <div><i>1</i><b>Números da aba</b>Uma linha de 3 a 5 números no topo. Clicar num deles filtra a lista.</div>
+    <div><i>2</i><b>Barra de ferramentas</b>Busca, filtros e “Agrupar” no mesmo lugar e no mesmo formato; o botão “+ Novo” sempre à direita.</div>
+    <div><i>3</i><b>Tabela agrupada</b>Linhas compactas, grupos que recolhem, linha de subtotal por grupo e “mostrar mais” depois de 8 linhas.</div>
+    <div><i>4</i><b>Ficha lateral</b>O detalhe abre à direita, em blocos que recolhem, como na gaveta das intimações. Nada expande no meio da lista.</div>
+    <div><i>5</i><b>Lote no pé</b>Ao marcar itens, a barra de ações aparece no pé, com as mesmas ações de hoje.</div>
+  </div>
+
+  <!-- ═════════ INSCRIÇÕES ═════════ -->
+  <h2 class="s"><span>01</span>Inscrições</h2>
+  <p class="sl">A aba tem hoje cartões grandes por CDA, e o detalhe abre no meio da lista. Proposta: uma tabela por processo (IDPJ/MCF → EF → CDAs), com o selo da prescrição em cada linha e o detalhe completo na ficha.</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div><div class="oph-s"><span><b>R$ 1,3 mi</b> em dívida</span><span>6 CDAs</span><span>4 processos</span></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span class="on">Inscrições</span><span>Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span>Importar</span></div></div>
+    <div class="canvas">
+      <div class="sum" style="grid-template-columns:repeat(5,1fr)">
+        <div><small>Total ativo</small><b>R$ 1.288.000</b><em>6 CDAs</em></div>
+        <div><small>Ajuizadas</small><b>3</b><em>R$ 1.045.000</em></div>
+        <div><small>Não ajuizadas</small><b>3</b><em>R$ 243.000</em></div>
+        <div><small>No alarme</small><b style="color:var(--red)">2</b><em class="al">R$ 143.000</em></div>
+        <div><small>Tratadas</small><b>0</b><em>aguardando reconhecimento: 0</em></div>
+      </div>
+      <div class="tb"><span class="in" style="width:220px">Buscar CDA ou processo</span><span class="in">Pessoa<b>Todas</b> ▾</span><span class="in">Agrupar<b>Processo</b> ▾</span><span class="in">Ordenar<b>Valor</b> ▾</span><span class="sp"></span><span class="btn pri">+ Inscrição</span></div>
+      <div class="wrap">
+        <div class="card">
+          <table>
+            <thead><tr><th style="width:22px"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th class="r">Valor</th><th>Prescrição</th></tr></thead>
+            <tbody>
+              <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><span class="kind mcf">MCF</span> <span class="num">5006699-22.2025</span> › <span class="kind ef">EF</span> <span class="num">5006600-22.2020</span> <span class="gs">· 2 CDAs</span><span class="ga"><span>Memória presc.</span><span>✎ Processo</span></span></td><td class="r num">920.000</td><td class="gs">nenhuma no alarme</td></tr>
+              <tr class="sel"><td><span class="ck on"></span></td><td class="i1"><span class="num">90.6.20.000880-40</span> <span class="muted small">ITR · SIDA</span></td><td>Agropecuária Horizonte <span class="chip orig">originária</span></td><td><span class="st g">Ativa ajuizada</span></td><td class="r num">540.000</td><td><span class="seal c">calculado</span> <span class="small muted">interrompida</span></td></tr>
+              <tr><td><span class="ck"></span></td><td class="i1"><span class="num">90.6.20.000882-40</span> <span class="muted small">IRPJ · SIDA</span></td><td>Agropecuária Horizonte <span class="chip orig">originária</span></td><td><span class="st g">Ativa ajuizada</span></td><td class="r num">380.000</td><td><span class="seal c">calculado</span> <span class="small muted">interrompida</span></td></tr>
+              <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><span class="kind ef">EF</span> <span class="num">5006610-22.2022</span> <span class="gs">· 1 CDA</span><span class="ga"><span>Memória presc.</span><span>✎ Processo</span></span></td><td class="r num">125.000</td><td class="gs">nenhuma no alarme</td></tr>
+              <tr><td><span class="ck"></span></td><td class="i1"><span class="num">90.6.22.000883-40</span> <span class="muted small">CSLL · SIDA</span></td><td>Agropecuária Horizonte <span class="chip orig">originária</span></td><td><span class="st g">Ativa ajuizada</span></td><td class="r num">125.000</td><td><span class="small muted">interrompida pela citação</span></td></tr>
+              <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span>Não ajuizadas <span class="gs">· 3 CDAs</span></td><td class="r num">243.000</td><td class="late small">2 no alarme</td></tr>
+              <tr><td><span class="ck"></span></td><td class="i1"><span class="num">90.6.23.000884-40</span> <span class="muted small">ITR · SIDA</span></td><td>Pedro Henrique Agro <span class="chip orig">originário</span></td><td><span class="st n">Ativa</span></td><td class="r num">48.000</td><td><span class="pz"><span class="hb"><i style="width:4%;background:var(--red)"></i></span><span class="late small">70 dias · 04/12</span></span></td></tr>
+              <tr><td><span class="ck"></span></td><td class="i1"><span class="num">90.6.20.000881-40</span> <span class="muted small">IRPF · SIDA</span></td><td>Pedro Henrique Agro <span class="chip orig">originário</span></td><td><span class="st n">Ativa</span></td><td class="r num">95.000</td><td><span class="pz"><span class="hb"><i style="width:9%;background:var(--orange)"></i></span><span class="soon small">160 dias · 04/03/27</span></span></td></tr>
+              <tr><td><span class="ck"></span></td><td class="i1"><span class="num">90.8.21.000200-02</span> <span class="muted small">FGTS</span></td><td>Agropecuária Horizonte <span class="chip orig">originária</span></td><td><span class="st n">Ativa</span></td><td class="r num">100.000</td><td><span class="seal s">sem dados</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="drawer">
+          <div class="dh"><div class="t"><span class="kind ef">CDA</span><b>90.6.20.000880-40</b><span class="muted small">⧉</span><span class="sp"></span><span class="muted">✕</span></div><div class="s">ITR · SIDA · R$ 540.000 · inscrita em 13/06/2023 · EF 5006600-22.2020</div></div>
+          <div class="blk"><div class="bh"><span class="chev">▾</span><b>Prescrição e decadência</b><span class="x"></span><span class="small muted">3</span></div>
+            <div class="bb">
+              <div class="pc"><div><b style="font-weight:600;color:var(--ink)">Ordinária</b><br><span class="seal c">calculado</span></div><div>Interrompida pelo ajuizamento em 21/09/2023, dentro dos 5 anos da inscrição.</div></div>
+              <div class="pc"><div><b style="font-weight:600;color:var(--ink)">Intercorrente</b><br><span class="seal e">estimado</span></div><div>Ainda não iniciada. Não pode ter prescrito antes de 16/08/2032.</div></div>
+              <div class="pc"><div><b style="font-weight:600;color:var(--ink)">Decadência</b><br><span class="seal s">sem dados</span></div><div>Faltam período de apuração e modalidade de lançamento.</div></div>
+            </div></div>
+          <div class="blk"><div class="bh"><span class="chev">▾</span><b>Responsáveis</b><span class="x"></span><span class="small muted">1</span></div><div class="bb">Agropecuária Horizonte LTDA <span class="chip orig">originária</span> <span class="mono small">88.999.000/0001-44</span></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▸</span><b>Dados da inscrição</b><span class="x">Ativa ajuizada · ITR · prescrição informada 13/01/2027</span><span></span></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▸</span><b>Eventos</b><span class="x">Citação 30/12/2023 · CNIB 16/08/2026</span><span class="small muted">2</span></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▸</span><b>Histórico SIDA / Debcad</b><span class="x">última atualização 12/09</span><span></span></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▸</span><b>Notas</b><span class="x">Nenhuma</span><span class="small muted">0</span></div></div>
+          <div class="df"><span class="btn pri sm">+ Evento</span><span class="btn sm">✓ Tratada</span><span class="btn sm">⏳ Aguardando</span><span class="btn sm">Memória técnica</span><span class="btn sm gh">✎ Editar</span></div>
+        </div>
+      </div>
+      <div class="bulk"><b>1 CDA selecionada</b><span style="opacity:.7">· R$ 540.000</span><span class="sp"></span><span class="btn w sm">Memória de prescrição</span><span class="btn sm">Excluir</span><span class="btn sm">Limpar</span></div>
+      <div class="notes">
+        <div class="nt"><b>Agrupar</b>Processo (padrão, com incidente › EF › apenso), Situação, Devedor, Tributo, Ajuizada. Ordenar: valor ou prescrição. É o mesmo menu de hoje, só que em dois controles.</div>
+        <div class="nt"><b>Pessoa</b>O filtro por pessoa (hoje em pílulas) vira um seletor com a contagem de cada uma e continua considerando todos os papéis de responsabilidade.</div>
+        <div class="nt"><b>Ficha da CDA</b>Tudo o que o detalhe expandido mostra hoje: as três contagens, os campos, os responsáveis, os eventos, o histórico SIDA/Debcad e as notas, com copiar e baixar a memória técnica, editar e + Evento.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ PARTES ═════════ -->
+  <h2 class="s"><span>02</span>Partes e bens · Partes</h2>
+  <p class="sl">Hoje são cartões que expandem no meio da lista. Proposta: uma tabela com alvos e relacionadas em grupos, o quanto cada um responde e o patrimônio na mesma linha, e o perfil completo na ficha.</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span class="on">Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span>Importar</span></div>
+      <div class="sub"><span class="seg"><span class="on">Partes<i>4</i></span><span>Bens<i>5</i></span></span><span class="muted small">Alvos e pessoas relacionadas, com a exposição de cada uma.</span></div></div>
+    <div class="canvas">
+      <div class="sum" style="grid-template-columns:repeat(4,1fr)">
+        <div><small>Crédito da operação</small><b>R$ 1.288.000</b><em>total único das CDAs ativas</em></div>
+        <div><small>Alvos</small><b>2</b><em>1 PJ · 1 PF</em></div>
+        <div><small>Relacionadas</small><b>2</b><em>meeira, cooperativa</em></div>
+        <div><small>Patrimônio identificado</small><b>R$ 3,6 mi</b><em>5 bens</em></div>
+      </div>
+      <div class="tb"><span class="in" style="width:220px">Buscar nome ou CPF/CNPJ</span><span class="in">Tipo<b>Todos</b> ▾</span><span class="sp"></span><span class="btn pri">+ Pessoa</span></div>
+      <div class="wrap">
+        <div class="card"><table>
+          <thead><tr><th>Pessoa</th><th>Papel</th><th class="r">CDAs</th><th class="r">Responde por</th><th class="r">Bens</th><th>Prescrição</th></tr></thead>
+          <tbody>
+            <tr class="g"><td colspan="6"><span class="chev">▾</span>Alvos diretos <span class="gs">· 2</span></td></tr>
+            <tr class="sel"><td class="i1"><span class="kind pj">PJ</span> Agropecuária Horizonte LTDA <span class="mono small muted">88.999.000/0001-44</span></td><td class="small">Devedora originária</td><td class="r"><span class="chip orig">4 orig.</span></td><td class="r num">1.145.000</td><td class="r small">4 · <span class="num">R$ 3,3 mi</span></td><td class="small muted">nenhuma no alarme</td></tr>
+            <tr><td class="i1"><span class="kind pf">PF</span> Pedro Henrique Agro <span class="mono small muted">555.666.777-88</span></td><td class="small">Produtor rural / sócio</td><td class="r"><span class="chip orig">2 orig.</span></td><td class="r num">143.000</td><td class="r small">1 · <span class="num">R$ 320 mil</span></td><td class="late small">2 no alarme</td></tr>
+            <tr class="g"><td colspan="6"><span class="chev">▾</span>Pessoas relacionadas <span class="gs">· 2</span></td></tr>
+            <tr><td class="i1"><span class="kind pf">PF</span> Helena Agro Horizonte <span class="mono small muted">556.667.778-99</span></td><td class="small">Cônjuge — meeira</td><td class="r muted">—</td><td class="r muted">—</td><td class="r muted">—</td><td></td></tr>
+            <tr><td class="i1"><span class="kind pj">PJ</span> Cooperativa Grãos do Planalto <span class="mono small muted">89.000.111/0001-55</span></td><td class="small">Terceira / armazém</td><td class="r muted">—</td><td class="r muted">—</td><td class="r small">1 · <span class="num">R$ 400 mil</span></td><td></td></tr>
+          </tbody></table></div>
+        <div class="drawer">
+          <div class="dh"><div class="t"><span class="kind pj">PJ</span><b style="font-family:var(--font)">Agropecuária Horizonte LTDA</b><span class="sp"></span><span class="muted">✕</span></div><div class="s"><span class="mono">88.999.000/0001-44</span> · Devedora originária · alvo</div></div>
+          <div class="blk"><div class="bh"><span class="chev">▾</span><b>Responde por</b><span class="x"></span><span class="small muted">4</span></div><div class="bb">
+            <dl class="f"><dt>Originária</dt><dd>4 CDAs · <span class="num">R$ 1.145.000</span></dd><dt>Corresponsável</dt><dd>—</dd></dl>
+            <div class="small muted" style="margin-top:6px">90.6.20.000880-40 · 90.6.20.000882-40 · 90.6.22.000883-40 · 90.8.21.000200-02</div></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▾</span><b>Patrimônio identificado</b><span class="x"></span><span class="small muted">4</span></div><div class="bb">Fazenda Horizonte — matr. 12.340 · <span class="num">1,8 mi</span><br>Colheitadeira Case · <span class="num">890 mil</span><br>Conta cooperativa · <span class="num">210 mil</span><br><span class="muted">+1</span></div></div>
+          <div class="blk"><div class="bh"><span class="chev">▸</span><b>Notas</b><span class="x">Nenhuma</span><span class="small muted">0</span></div></div>
+          <div class="df"><span class="btn pri sm">Copiar qualificação</span><span class="btn sm gh">✎ Editar</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ BENS ═════════ -->
+  <h2 class="s"><span>03</span>Partes e bens · Bens</h2>
+  <p class="sl">Hoje há quatro colunas soltas por cartão. Proposta: uma tabela com tipo, titular, processo, origem, valor, situação e Analytics na mesma linha, agrupada por situação (ou titular, processo, tipo), com o lote no pé.</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span class="on">Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span>Importar</span></div>
+      <div class="sub"><span class="seg"><span>Partes<i>4</i></span><span class="on">Bens<i>5</i></span></span><span class="muted small">Bens por situação, com titular, origem e processo.</span></div></div>
+    <div class="canvas">
+      <div class="sum" style="grid-template-columns:repeat(4,1fr)">
+        <div><small>Total</small><b>R$ 3.620.000</b><em>5 bens</em></div>
+        <div><small>Indisponibilidade ativa</small><b style="color:var(--green)">R$ 2.010.000</b><em>2 bens</em></div>
+        <div><small>Requerida</small><b>R$ 1.210.000</b><em>2 bens</em></div>
+        <div><small>Sem Analytics</small><b style="color:var(--orange)">4</b><em>registrar</em></div>
+      </div>
+      <div class="tb"><span class="in" style="width:220px">Buscar descrição, matrícula, placa</span><span class="in">Agrupar<b>Situação</b> ▾</span><span class="in">Ordenar<b>Valor</b> ▾</span><span class="sp"></span><span class="btn pri">+ Bem</span></div>
+      <div class="card"><table>
+        <thead><tr><th style="width:22px"></th><th>Bem</th><th>Titular</th><th>Processo · origem</th><th class="r">Valor</th><th>Analytics</th></tr></thead>
+        <tbody>
+          <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><span class="st g">Indisponibilidade ativa</span> <span class="gs">· 2</span></td><td class="r num">2.010.000</td><td></td></tr>
+          <tr><td><span class="ck on"></span></td><td class="i1">Fazenda Horizonte — matr. 12.340 CRI PG <span class="muted small">· imóvel</span></td><td>Agropecuária Horizonte <span class="mono small muted">88.999…</span></td><td><span class="num small">5006600-22.2020</span> <span class="chip">CNIB</span></td><td class="r num">1.800.000</td><td><span class="st g">registrado</span></td></tr>
+          <tr><td><span class="ck on"></span></td><td class="i1">Conta cooperativa — créditos de soja <span class="muted small">· conta</span></td><td>Agropecuária Horizonte</td><td><span class="num small">5006699-22.2025</span> <span class="chip">Sisbajud</span></td><td class="r num">210.000</td><td><span class="st o">pendente</span></td></tr>
+          <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▾</span><span class="st y">Indisponibilidade requerida</span> <span class="gs">· 2</span></td><td class="r num">1.210.000</td><td></td></tr>
+          <tr><td><span class="ck"></span></td><td class="i1">Colheitadeira Case <span class="muted small">· veículo</span></td><td>Agropecuária Horizonte</td><td><span class="muted small">sem processo</span> <span class="chip">Renajud</span></td><td class="r num">890.000</td><td><span class="st o">pendente</span></td></tr>
+          <tr><td><span class="ck"></span></td><td class="i1">Trator John Deere <span class="muted small">· veículo</span></td><td>Pedro Henrique Agro</td><td><span class="muted small">sem processo</span> <span class="chip">Renajud</span></td><td class="r num">320.000</td><td><span class="st o">pendente</span></td></tr>
+          <tr class="g"><td><span class="ck"></span></td><td colspan="3"><span class="chev">▸</span><span class="st r">Controvertido</span> <span class="gs">· 1 · Silo / armazém — quota cooperativa</span></td><td class="r num">400.000</td><td></td></tr>
+        </tbody></table></div>
+      <div class="bulk"><b>2 bens selecionados</b><span style="opacity:.7">· R$ 2.010.000</span><span class="sp"></span><span class="btn w sm">Alterar situação ▾</span><span class="btn sm">✓ Marcar Analytics</span><span class="btn sm">✗ Desmarcar</span><span class="btn sm">Excluir</span><span class="btn sm">Limpar</span></div>
+      <div class="notes">
+        <div class="nt"><b>Clique na linha</b>Abre a ficha do bem (descrição, identificação, titular com atalho para a pessoa, processo com atalho para a execução, origem, notas) com “✎ Editar”.</div>
+        <div class="nt"><b>Mesmos agrupamentos</b>Situação, titular, processo e tipo; valor (maior ou menor) vira “Ordenar”. O “selecionar grupo” fica no checkbox do cabeçalho do grupo.</div>
+        <div class="nt"><b>SISBAJUD</b>Bens bloqueados via Sisbajud continuam mostrando o valor em destaque na coluna Bem, como hoje.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ TAREFAS ═════════ -->
+  <h2 class="s"><span>04</span>Tarefas</h2>
+  <p class="sl">Hoje a aba tem cartões em 5 colunas, diferentes da tela Tarefas do Prumo. Proposta: usar a mesma lista da tela Tarefas, já filtrada pela operação (conclusão no círculo, prioridade, prazo, 🌐 global, notas, documento e a esteira da peça).</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span>Partes e bens</span><span class="on">Tarefas</span><span>Arquivos</span><span>Importar</span></div></div>
+    <div class="canvas">
+      <div class="tb"><span class="in" style="width:220px">Buscar tarefa</span><span class="seg"><span class="on">Abertas<i>4</i></span><span>Concluídas<i>3</i></span></span><span class="in">Agrupar<b>Prazo</b> ▾</span><span class="muted small">🌐 = aparece também na tela Tarefas</span><span class="sp"></span><span class="in" style="width:260px">Nova tarefa + Enter</span><span class="btn pri">+ Tarefa</span></div>
+      <div class="card"><table>
+        <tbody>
+          <tr class="g"><td colspan="5"><span class="chev">▾</span>Próximos 5 dias <span class="gs">· 3</span></td></tr>
+          <tr><td style="width:30px"><span class="circ"></span></td><td><b style="font-weight:500">Impugnar exceção de pré-executividade (ITR)</b> <span class="st r">urgente</span> <span class="small">🌐</span><div class="small muted">Prazo curto — minuta em edição. · <span class="link">📝 Documento</span></div><div class="small" style="margin-top:2px"><span class="prog"><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i></span> Leitura e ajustes · hoje 09:12</div></td><td class="small">5006620-22.2025</td><td><span class="st b">Em andamento</span></td><td class="r soon num">Seg 28/09</td></tr>
+          <tr><td><span class="circ"></span></td><td><b style="font-weight:500">Estender Renajud a colheitadeira</b> <span class="st o">alta</span><div class="small muted">Pedido ainda sem resultado útil.</div></td><td class="small muted">—</td><td><span class="st n">Pendente</span></td><td class="r soon num">Ter 29/09</td></tr>
+          <tr><td><span class="circ"></span></td><td><b style="font-weight:500">Agendar diligência na fazenda</b> <span class="st o">alta</span> <span class="small">🌐</span><div class="small muted">Coordenar com oficial de justiça / CNIB.</div></td><td class="small">5006600-22.2020</td><td><span class="st n">Pendente</span></td><td class="r soon num">Qua 30/09</td></tr>
+          <tr class="g"><td colspan="5"><span class="chev">▾</span>Mais adiante <span class="gs">· 1</span></td></tr>
+          <tr><td><span class="circ"></span></td><td><b style="font-weight:500">Oficiar cooperativa — retenção de créditos</b> <span class="st n">média</span><div class="small muted">Garantir bloqueio de valores a pagar.</div></td><td class="small muted">—</td><td><span class="st n">Pendente</span></td><td class="r num">05/10</td></tr>
+        </tbody></table></div>
+      <div class="notes">
+        <div class="nt"><b>Mesma lista da tela Tarefas</b>O componente é o mesmo da tela Tarefas do Prumo, com a operação fixa. Uma melhoria feita lá passa a valer aqui também.</div>
+        <div class="nt"><b>Criação rápida</b>“Nova tarefa + Enter” já cria a tarefa nesta operação, como interna (🔒). O formulário completo continua em “+ Tarefa”.</div>
+        <div class="nt"><b>Concluídas</b>Ficam na outra aba do seletor, com o círculo para reabrir, como hoje na seção “Concluídas”.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ ARQUIVOS ═════════ -->
+  <h2 class="s"><span>05</span>Arquivos</h2>
+  <p class="sl">Hoje é uma lista simples de links. Proposta: uma tabela agrupada por tipo (ou processo), que mostra a origem de cada peça (registrada numa intimação ou incluída à mão) e permite filtrar.</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span>Partes e bens</span><span>Tarefas</span><span class="on">Arquivos</span><span>Importar</span></div></div>
+    <div class="canvas">
+      <div class="tb"><span class="in" style="width:220px">Buscar título ou processo</span><span class="seg"><span class="on">Todos<i>4</i></span><span>De intimações<i>2</i></span><span>Incluídos<i>2</i></span></span><span class="in">Agrupar<b>Tipo</b> ▾</span><span class="sp"></span><span class="btn pri">+ Documento</span></div>
+      <div class="card"><table>
+        <thead><tr><th>Documento</th><th>Processo</th><th>Origem</th><th>Data da atuação</th><th></th></tr></thead>
+        <tbody>
+          <tr class="g"><td colspan="5"><span class="chev">▾</span>Manifestação <span class="gs">· 2</span></td></tr>
+          <tr><td class="i1"><span class="link">Minuta — Impugnação à exceção (ITR) ↗</span></td><td class="num small">5006620-22.2025</td><td><span class="st g">📬 intimação</span> <span class="small muted">Vista à Fazenda — prazo 28/09</span></td><td class="num small">25/09/2026</td><td class="r"><span class="btn sm gh">✎</span></td></tr>
+          <tr><td class="i1"><span class="link">Ciência — despacho de citação por edital ↗</span></td><td class="num small">5006610-22.2022</td><td><span class="st g">📬 intimação</span></td><td class="num small">05/08/2026</td><td class="r"><span class="btn sm gh">✎</span></td></tr>
+          <tr class="g"><td colspan="5"><span class="chev">▾</span>Petição inicial <span class="gs">· 2</span></td></tr>
+          <tr><td class="i1"><span class="link">Requerimento — Extensão CNIB/Renajud Agro ↗</span></td><td class="num small">5006699-22.2025</td><td><span class="st n">incluído</span></td><td class="num small">23/09/2026</td><td class="r"><span class="btn sm gh">✎</span></td></tr>
+          <tr><td class="i1"><span class="link">Inicial — Medida cautelar fiscal ↗</span></td><td class="num small">5006699-22.2025</td><td><span class="st n">incluído</span></td><td class="num small">31/08/2026</td><td class="r"><span class="btn sm gh">✎</span></td></tr>
+        </tbody></table></div>
+      <div class="notes">
+        <div class="nt"><b>Mesmos dados</b>Tipo, título (abre o link), processo, origem na intimação (com o evento e o prazo) e a data da atuação, com a mesma explicação de onde ela vem.</div>
+        <div class="nt"><b>Agrupar</b>Tipo ou processo. Com a busca, uma operação com dezenas de peças fica navegável.</div>
+        <div class="nt"><b>Ligação com a gaveta</b>São as mesmas peças que aparecem no bloco “Peças e links” da gaveta da intimação.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ IMPORTAR ═════════ -->
+  <h2 class="s"><span>06</span>Importar</h2>
+  <p class="sl">Hoje são blocos empilhados (resumo, modos, histórico, resultado). Proposta: duas colunas. À esquerda o que fazer (escolher a fonte, soltar os arquivos e ver o resultado logo abaixo); à direita o estado (atualização por fonte e histórico SIDA/Debcad).</p>
+  <div class="frame">
+    <div class="oph"><div class="oph-n"><span class="sq"></span><h3>Operação Agro Horizonte</h3></div>
+      <div class="tabs"><span>Visão geral</span><span>Briefing</span><span>Processos e prescrição</span><span>Inscrições</span><span>Partes e bens</span><span>Tarefas</span><span>Arquivos</span><span class="on">Importar</span></div></div>
+    <div class="canvas">
+      <div class="wrap" style="grid-template-columns:minmax(0,1fr) 340px">
+        <div style="display:grid;gap:12px">
+          <div class="card" style="padding:14px">
+            <div class="tb" style="margin-bottom:12px"><span class="seg"><span class="on">Planilhas (.xls)</span><span>PDFs SIDA/Debcad</span><span>Texto</span></span><span class="sp"></span><span class="muted small">O tipo é detectado pelo nome ou pelo conteúdo</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="drop"><b>XLS da Procuradoria</b>Inscrições, processos judiciais ou bens<div class="mono" style="margin-top:6px">RelatorioAbaInscricoes*.xls · RelatorioAbaProcessosJudiciais*.xls</div></div>
+              <div class="drop"><b>Intimações eproc (TRF4)</b>Prazo em aberto e pendentes<div class="mono" style="margin-top:6px">citacaoIntimacao*.xls</div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:12px 14px">
+            <div class="tb" style="margin-bottom:6px"><b style="font-weight:600">Resultado da última importação</b><span class="sp"></span><span class="btn sm gh">Fechar</span></div>
+            <div class="log"><span class="ok">✅</span> 3 CDA(s) atualizadas · <span class="ok">✅</span> 1 processo novo: 5006620-22.2025<br><span class="wa">⚠️</span> 1 bem sem titular identificado (placa ABC1D23)<br>ℹ️ 2 pessoas já existiam</div>
+          </div>
+          <div class="card" style="padding:12px 14px;background:var(--surface-2)">
+            <div class="small muted" style="margin-bottom:6px">Modo Texto (outra aba do seletor):</div>
+            <span class="seg"><span class="on">Prescrição</span><span>Pessoas</span><span>Bens em lote</span></span>
+            <div class="small muted" style="margin-top:6px">Mesmos formatos e botões de hoje: Prévia (prescrição, sempre antes de gravar), Processar e importar (pessoas), Importar bens (lote), Limpar.</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:12px">
+          <div class="card" style="padding:12px 14px">
+            <div class="tb" style="margin-bottom:4px"><b style="font-weight:600">Atualização por fonte</b><span class="sp"></span><span class="btn sm gh">Limpar histórico</span></div>
+            <div class="srcr"><span class="dt" style="background:var(--green)"></span><div>XLS Procuradoria<div class="small muted">3 CDAs atualizadas</div></div><span class="small muted">há 2 dias</span></div>
+            <div class="srcr"><span class="dt" style="background:var(--green)"></span><div>Intimações eproc<div class="small muted">5 abertas</div></div><span class="small muted">hoje</span></div>
+            <div class="srcr"><span class="dt" style="background:var(--yellow)"></span><div>PDF SIDA<div class="small muted">histórico e parcelamentos</div></div><span class="small muted">há 12 dias</span></div>
+            <div class="srcr"><span class="dt" style="background:var(--red)"></span><div>Bens em lote<div class="small muted">5 bens</div></div><span class="small muted">há 2 meses</span></div>
+          </div>
+          <div class="card" style="padding:12px 14px">
+            <b style="font-weight:600">Histórico SIDA / Debcad</b>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" class="small"><div><span class="muted">SIDA</span><br>12/09/2026<br>03/07/2026</div><div><span class="muted">Debcad</span><br>—</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="nt"><b>Nada sai</b>Os três modos (Planilhas, PDFs, Texto) e os três tipos de texto (Prescrição, Pessoas, Bens em lote), arrastar e soltar, a confirmação de devedores do PDF e a prévia da prescrição continuam como estão.</div>
+        <div class="nt"><b>Cor por idade</b>Verde abaixo de 7 dias, amarelo abaixo de 30 dias e vermelho acima disso, como hoje, agora com o que a importação trouxe.</div>
+        <div class="nt"><b>Resultado no lugar certo</b>O log aparece logo abaixo de onde você soltou o arquivo, não no fim da página.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

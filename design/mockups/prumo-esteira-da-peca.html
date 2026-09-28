@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Esteira da peça</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+  --line: #dcdfe4; --line-strong: #c7cbd2; --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e;
+  --accent: #8a6722; --btn: #1b1e24; --yellow: #946b00; --yellow-soft: #f8efd2; --blue: #2d62d3; --blue-soft: #e7eefc;
+  --green: #21845a; --green-soft: #e2f3eb; --violet: #6a4fd4; --violet-soft: #eeeafc; --cyan: #0f7888; --cyan-soft: #e0f3f5; --red: #c2323d;
+  --font: 'Geist', 'Segoe UI', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
+.doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.doc > h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--ink-2); max-width: 900px; margin-top: 8px; line-height: 1.55; }
+h3 { font-size: 14px; font-weight: 600; margin: 30px 0 10px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-3); }
+.small { font-size: 11.5px; }
+.grid2 { display: grid; grid-template-columns: minmax(0,1fr) 440px; gap: 18px; align-items: start; }
+.frame { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 1px 2px rgba(20,24,32,.05), 0 6px 20px rgba(20,24,32,.07); overflow: hidden; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.btn.pri { background: var(--btn); color: #fff; border-color: var(--btn); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.sm { height: 24px; font-size: 11.5px; padding: 0 8px; }
+.tag { font-size: 11px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-2); background: var(--surface); }
+.uf { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--cyan-soft); color: var(--cyan); margin-right: 6px; }
+
+/* Gaveta */
+.drawer { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 24px 64px rgba(20,24,32,.18); }
+.dr-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+.dr-b { padding: 14px 16px 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); }
+.dr-b h2 { font-size: 17px; font-weight: 600; margin-top: 10px; }
+.ev { color: var(--ink-2); margin-top: 2px; }
+.sec { font-size: 11px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; }
+.sec .sp { flex: 1; }
+.resume { border: 1px solid #d9cdb0; background: #fbf7ee; border-radius: 10px; padding: 11px 13px; }
+.resume .k { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.resume .t { font-size: 14px; font-weight: 600; margin-top: 3px; }
+.resume .n { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; font-style: italic; }
+.resume .a { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.steps { display: grid; gap: 0; margin-top: 10px; }
+.st { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: start; }
+.st:first-child { border-top: 0; }
+.dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; margin-top: 1px; font-size: 10px; color: #fff; }
+.st.done .dot { background: var(--green); border-color: var(--green); }
+.st.now .dot { border-color: var(--blue); background: radial-gradient(circle, var(--blue) 0 4px, transparent 5px); }
+.st .l { font-weight: 500; }
+.st.todo .l { color: var(--ink-3); font-weight: 400; }
+.st .tool { font: 500 10.5px var(--mono); padding: 0 5px; border-radius: 4px; margin-left: 6px; }
+.tool.own { background: var(--panel); color: var(--ink-2); }
+.tool.gem { background: var(--blue-soft); color: var(--blue); }
+.tool.cla { background: #f6e9df; color: #a2542a; }
+.st .m { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.st .note { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.st .lnk { font-size: 11.5px; color: var(--blue); }
+.st .r { font: 500 11px var(--mono); color: var(--ink-3); text-align: right; white-space: nowrap; }
+.editor { margin-top: 6px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; background: var(--surface); }
+.editor .ph { color: var(--ink-2); font-size: 12.5px; }
+.editor .row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.editor .inp { flex: 1; height: 26px; border: 1px solid var(--line); border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 11.5px; color: var(--ink-3); }
+.hint { font-size: 11.5px; color: var(--ink-3); margin-top: 10px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; }
+
+/* Lista */
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lh { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) 150px 96px; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--ink-3); }
+.lr { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) 150px 96px; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); align-items: start; }
+.lr.sel { background: #f3eee2; box-shadow: inset 3px 0 0 var(--ink); }
+.lg { padding: 9px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-weight: 500; }
+.party { font-weight: 500; }
+.lr .e { color: var(--ink-2); font-size: 12.5px; }
+.prog { display: inline-flex; gap: 2px; vertical-align: middle; }
+.prog i { width: 14px; height: 5px; border-radius: 2px; background: var(--line); }
+.prog i.d { background: var(--green); }
+.prog i.n { background: var(--blue); }
+.pl { font-size: 11.5px; color: var(--ink-2); display: block; margin-top: 3px; }
+.pl b { font-weight: 500; color: var(--ink); }
+.due { text-align: right; font: 500 12px var(--mono); color: var(--yellow); }
+.due small { display: block; color: var(--ink-3); font-weight: 400; }
+
+/* Hoje */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.card-h { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.card-h h4 { font-size: 13px; font-weight: 600; }
+.card-h .sp { flex: 1; }
+.cr { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: center; }
+.cr:first-of-type { border-top: 0; }
+.cr .p { font-weight: 500; }
+.cr .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.cr .s i { font-style: italic; color: var(--ink-3); }
+
+/* Config */
+.cfg { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.cfg-r { display: grid; grid-template-columns: 18px minmax(0,1fr) 150px minmax(0,1fr) 20px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dotted var(--line); font-size: 12.5px; }
+.cfg-r:first-of-type { border-top: 0; }
+.fld { height: 26px; border: 1px solid var(--line); border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 12px; }
+.fld.dim { color: var(--ink-3); }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.nt { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px; font-size: 12.5px; color: var(--ink-2); }
+.nt b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 3px; }
+@media (max-width: 1000px) { .grid2, .notes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · Intimações e Tarefas</div>
+  <h1>Esteira da peça: onde parei e de onde continuo</h1>
+  <p class="lede">Cada intimação (e cada tarefa) ganha uma esteira com as etapas do seu fluxo: <b>anonimização</b> (ferramenta própria), <b>extração do relatório e triagem</b> (Gemini), <b>redação fina</b> (Claude) e <b>leitura e ajustes</b> (Claude). Cada etapa marca quando foi feita e guarda uma frase de “onde parei”, com o link da conversa ou do arquivo. Ao voltar no dia seguinte, o topo da gaveta diz de onde continuar, a lista mostra o avanço de cada peça e a tela Hoje reúne o que está pela metade.</p>
+
+  <h3>1 · Gaveta da intimação, com a peça pela metade</h3>
+  <div class="grid2">
+    <div>
+      <div class="list">
+        <div class="lh"><span>Parte · evento · esteira</span><span>Processo</span><span>Operação</span><span style="text-align:right">Prazo</span></div>
+        <div class="lg">Próximos 5 dias <span class="muted">3</span></div>
+        <div class="lr sel"><div><div class="party">COMERCIAL DESTRO LTDA</div><div class="e">Despacho/Decisão 15 dias</div><span class="pl"><span class="prog"><i class="d"></i><i class="d"></i><i class="n"></i><i></i></span>&nbsp; <b>Redação fina</b> · parou ontem</span></div><div><span class="uf">PR</span><span class="mono">5055308-30.2023</span><div class="muted small">EMBARGOS À EXECUÇÃO FISCAL</div></div><div class="muted">Sem operação</div><div class="due">Qua 30/09<small>final 30/09</small></div></div>
+        <div class="lr"><div><div class="party">LEANDRO VIANA TOSTI</div><div class="e">Intimação eletrônica 15 dias</div><span class="pl"><span class="prog"><i class="d"></i><i class="n"></i><i></i><i></i></span>&nbsp; <b>Extração e triagem</b> · parou há 3 dias</span></div><div><span class="uf">PR</span><span class="mono">5003502-82.2016</span><div class="muted small">EXECUÇÃO FISCAL</div></div><div>LEANDRO VIANA TOSTI</div><div class="due">Qua 30/09<small>final 30/09</small></div></div>
+        <div class="lr"><div><div class="party">ECOTIRES CATARINENSE LTDA</div><div class="e">Intimação eletrônica 30 dias</div><span class="pl muted">Esteira não iniciada · <span style="color:var(--blue)">Começar</span></span></div><div><span class="uf">RS</span><span class="mono">5006765-73.2026</span><div class="muted small">CAUTELAR FISCAL</div></div><div>ECOTIRES</div><div class="due" style="color:var(--ink-2)">01/10<small>final 01/10</small></div></div>
+      </div>
+      <div class="notes" style="grid-template-columns:1fr">
+        <div class="nt"><b>Na lista</b>Uma barrinha de 4 casas mostra o avanço (verde feita, azul em andamento) e o nome da etapa atual, com “parou ontem / há 3 dias”. Ela fica na linha de notas, sem coluna nova. Também dá para agrupar e filtrar por etapa.</div>
+      </div>
+    </div>
+
+    <div class="drawer">
+      <div class="dr-h"><span>Intimação 1 de 43</span><span style="flex:1"></span><span>↑ ↓</span><span>✕</span></div>
+      <div class="dr-b">
+        <div class="chips"><span class="chip">Sem operação</span><span class="chip">◐ Peça em edição</span></div>
+        <h2>COMERCIAL DESTRO LTDA</h2>
+        <div class="ev">Expedida/certificada a intimação eletrônica — Despacho/Decisão 15 dias · final Qua 30/09</div>
+
+        <div class="sec">Continuar de onde parou</div>
+        <div class="resume">
+          <div class="k">Etapa 3 de 4 · parou ontem, 18:40</div>
+          <div class="t">Redação fina <span class="tool cla" style="font:500 10.5px var(--mono);padding:0 5px;border-radius:4px">Claude</span></div>
+          <div class="n">“Falta o tópico da prescrição intercorrente e conferir os valores da CDA 90.6.20.000880-40.”</div>
+          <div class="a"><span class="btn pri sm">↗ Abrir conversa no Claude</span><span class="btn sm">✓ Concluir etapa</span><span class="btn sm ghost">Atualizar onde parei</span></div>
+        </div>
+
+        <div class="sec">Esteira da peça <span class="sp"></span><span class="muted" style="text-transform:none;letter-spacing:0">2 de 4 feitas</span></div>
+        <div class="steps">
+          <div class="st done"><span class="dot">✓</span><div><div class="l">Anonimização <span class="tool own">própria</span></div><div class="m">feita 23/09 · <span class="lnk">arquivo anonimizado ↗</span></div></div><span class="r">23/09</span></div>
+          <div class="st done"><span class="dot">✓</span><div><div class="l">Extração do relatório e triagem <span class="tool gem">Gemini</span></div><div class="m">feita 24/09 · <span class="lnk">conversa ↗</span></div><div class="note">Tese: prescrição intercorrente e excesso de execução; embargos tempestivos.</div></div><span class="r">24/09</span></div>
+          <div class="st now"><span class="dot"></span><div><div class="l">Redação fina <span class="tool cla">Claude</span></div><div class="m">em andamento desde 24/09 · <span class="lnk">conversa ↗</span></div>
+            <div class="editor"><div class="ph">Falta o tópico da prescrição intercorrente e conferir os valores da CDA 90.6.20.000880-40.</div><div class="row"><span class="inp">https://claude.ai/chat/…</span><span class="btn sm">Salvar</span></div></div></div><span class="r">agora</span></div>
+          <div class="st todo"><span class="dot"></span><div><div class="l">Leitura e ajustes <span class="tool cla">Claude</span></div><div class="m">a fazer</div></div><span class="r">—</span></div>
+        </div>
+        <div class="hint">Ao concluir a última etapa, o app sugere mudar a situação para <b>Peça pronta</b>. Ao começar a primeira, sugere <b>Peça em edição</b>. Nada muda sozinho.</div>
+
+        <div class="sec">Notas <span class="muted">1</span></div>
+        <div class="muted small">PROPOSTA DE HONORÁRIOS JÁ JUNTADA. 145 MIL. PRAZOS DOS EMBARGOS…</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>2 · Hoje: “Continuar de onde parou”</h3>
+  <div class="grid2" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+    <div class="card">
+      <div class="card-h"><h4>Continuar de onde parou</h4><span class="muted small">3 peças pela metade</span><span class="sp"></span><span class="muted small">Intimações →</span></div>
+      <div class="cr"><div><div class="p">COMERCIAL DESTRO LTDA <span class="muted small mono">· final 30/09</span></div><div class="s"><span class="prog"><i class="d"></i><i class="d"></i><i class="n"></i><i></i></span>&nbsp; Redação fina · ontem · <i>“Falta o tópico da prescrição intercorrente…”</i></div></div><span class="btn sm">Retomar</span></div>
+      <div class="cr"><div><div class="p">LEANDRO VIANA TOSTI <span class="muted small mono">· final 30/09</span></div><div class="s"><span class="prog"><i class="d"></i><i class="n"></i><i></i><i></i></span>&nbsp; Extração e triagem · há 3 dias · <i>“Gemini travou no evento 87; reenviar em partes.”</i></div></div><span class="btn sm">Retomar</span></div>
+      <div class="cr"><div><div class="p">Impugnar exceção (ITR) <span class="muted small">· tarefa · Agro Horizonte</span></div><div class="s"><span class="prog"><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i></span>&nbsp; Leitura e ajustes · hoje 09:12</div></div><span class="btn sm">Retomar</span></div>
+    </div>
+    <div class="notes" style="grid-template-columns:1fr;margin-top:0">
+      <div class="nt"><b>Ordem</b>Primeiro o prazo mais próximo; entre prazos iguais, a que ficou parada há mais tempo. “Retomar” abre a gaveta já na etapa atual.</div>
+      <div class="nt"><b>Mesa de trabalho</b>Os cartões da Mesa mostram a mesma barrinha e a etapa atual, para você ver o avanço sem abrir cada peça.</div>
+      <div class="nt"><b>Tarefas</b>A mesma esteira existe na tarefa (atuações que não vêm de intimação). Ao registrar a atuação da intimação, a esteira fica guardada junto, como histórico da peça.</div>
+    </div>
+  </div>
+
+  <h3>3 · As etapas são suas (⚙ → Esteira da peça)</h3>
+  <div class="cfg" style="max-width:760px">
+    <div class="cfg-r"><span class="muted">⋮⋮</span><span class="fld">Anonimização</span><span class="fld">Ferramenta própria</span><span class="fld dim">link padrão (opcional)</span><span class="muted">✕</span></div>
+    <div class="cfg-r"><span class="muted">⋮⋮</span><span class="fld">Extração do relatório e triagem</span><span class="fld">Gemini</span><span class="fld dim">https://gemini.google.com/…</span><span class="muted">✕</span></div>
+    <div class="cfg-r"><span class="muted">⋮⋮</span><span class="fld">Redação fina</span><span class="fld">Claude</span><span class="fld dim">https://claude.ai/project/…</span><span class="muted">✕</span></div>
+    <div class="cfg-r"><span class="muted">⋮⋮</span><span class="fld">Leitura e ajustes</span><span class="fld">Claude</span><span class="fld dim">https://claude.ai/project/…</span><span class="muted">✕</span></div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><span class="btn sm">+ Etapa</span><span class="muted small">Renomear ou reordenar vale para as próximas peças; as que já começaram guardam as etapas que tinham.</span></div>
+  </div>
+
+  <div class="notes">
+    <div class="nt"><b>O que é gravado</b>Um campo novo e opcional na intimação e na tarefa: a lista de etapas com situação, data e hora, a frase de onde parei e o link. Registros antigos continuam iguais, e o campo sincroniza com o Drive como o resto da intimação.</div>
+    <div class="nt"><b>O que não muda</b>A situação da intimação (pendente, peça em edição, peça pronta), os prazos e o registro da atuação continuam como estão. A esteira só sugere mudar a situação; quem decide é você.</div>
+    <div class="nt"><b>Onde aparece</b>Primeiro no Prumo: gaveta, lista, Quadro, Mesa, Hoje e tarefas. No Clássico e na Beta, uma linha curta no card (“Etapa 3/4 · Redação fina”) pode vir numa segunda fase.</div>
+  </div>
+</div>
+</body>
+</html>

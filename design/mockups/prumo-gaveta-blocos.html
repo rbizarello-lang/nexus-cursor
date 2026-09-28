@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Gaveta em blocos</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #f2f3f5; --panel: #ebedf0; --surface: #ffffff; --surface-2: #f6f7f9; --line: #dcdfe4; --line-strong: #c7cbd2;
+  --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e; --accent: #8a6722; --btn: #1b1e24;
+  --yellow: #946b00; --yellow-soft: #f8efd2; --blue: #2d62d3; --blue-soft: #e7eefc; --green: #21845a; --green-soft: #e2f3eb; --red: #c2323d; --red-soft: #fbe8e9; --cyan: #0f7888; --cyan-soft: #e0f3f5;
+  --font: 'Geist', 'Segoe UI', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--ground); -webkit-font-smoothing: antialiased; }
+.doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 60px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.doc > h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--ink-2); max-width: 900px; margin-top: 8px; line-height: 1.55; }
+.cols { display: grid; grid-template-columns: repeat(2, 460px); gap: 28px; margin-top: 24px; justify-content: start; }
+.cap { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.cap span { font-weight: 400; color: var(--ink-3); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-3); }
+.small { font-size: 11.5px; }
+
+.dr { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 24px 64px rgba(20,24,32,.16); overflow: hidden; }
+.dr-top { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+.dr-top .sp { flex: 1; }
+.link { color: var(--ink-2); font-size: 11.5px; }
+.head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); }
+.head h2 { font-size: 17px; font-weight: 600; margin-top: 9px; }
+.ev { color: var(--ink-2); margin-top: 2px; }
+.ruler { margin-top: 10px; display: flex; align-items: center; gap: 8px; font: 500 11.5px var(--mono); color: var(--ink-3); }
+.ruler .bar { flex: 1; height: 6px; background: var(--panel); border-radius: 99px; position: relative; overflow: hidden; }
+.ruler .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 72%; background: var(--yellow); border-radius: 99px; }
+.ruler b { color: var(--yellow); }
+.resume { margin: 12px 16px 4px; border: 1px solid #d9cdb0; background: #fbf7ee; border-radius: 10px; padding: 10px 12px; }
+.resume .k { font-size: 10.5px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.resume .t { font-weight: 600; margin-top: 2px; }
+.resume .n { font-size: 12px; color: var(--ink-2); margin-top: 3px; font-style: italic; }
+.resume .a { display: flex; gap: 6px; margin-top: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+.btn.pri { background: var(--btn); color: #fff; border-color: var(--btn); }
+
+.blk { border-top: 1px solid var(--line); }
+.blk:first-of-type { border-top: 0; }
+.bh { display: grid; grid-template-columns: 14px auto minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 10px 16px; cursor: pointer; }
+.bh:hover { background: var(--surface-2); }
+.chev { color: var(--ink-3); font-size: 11px; }
+.bt { font-weight: 600; font-size: 12.5px; }
+.bs { color: var(--ink-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn { font: 500 11px var(--mono); color: var(--ink-3); }
+.bb { padding: 0 16px 14px 38px; }
+.prog { display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 6px; }
+.prog i { width: 12px; height: 5px; border-radius: 2px; background: var(--line); }
+.prog i.d { background: var(--green); } .prog i.n { background: var(--blue); }
+.st { display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: 8px; padding: 6px 0; border-top: 1px dotted var(--line); align-items: start; font-size: 12.5px; }
+.st:first-child { border-top: 0; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); margin-top: 2px; }
+.st.d .dot { background: var(--green); border-color: var(--green); }
+.st.n .dot { border-color: var(--blue); background: radial-gradient(circle, var(--blue) 0 3px, transparent 4px); }
+.st.t { color: var(--ink-3); }
+.st .m { font-size: 11px; color: var(--ink-3); }
+.st .r { font: 500 10.5px var(--mono); color: var(--ink-3); }
+.tool { font: 500 10px var(--mono); padding: 0 4px; border-radius: 4px; margin-left: 4px; }
+.tool.own { background: var(--panel); color: var(--ink-2); } .tool.gem { background: var(--blue-soft); color: var(--blue); } .tool.cla { background: #f6e9df; color: #a2542a; }
+.lnk { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dotted var(--line); font-size: 12.5px; }
+.lnk:first-child { border-top: 0; }
+.lnk .ic { width: 22px; height: 22px; border-radius: 5px; background: var(--panel); display: grid; place-items: center; font: 600 9.5px var(--mono); color: var(--ink-2); }
+.lnk .o { font-size: 11px; color: var(--ink-3); }
+.lnk .u { color: var(--blue); font-size: 11.5px; }
+.add { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+.note { font-size: 12.5px; color: var(--ink-2); padding: 6px 0; border-top: 1px dotted var(--line); }
+.note:first-child { border-top: 0; }
+.note small { display: block; font: 400 10.5px var(--mono); color: var(--ink-3); margin-top: 2px; }
+.ta { margin-top: 6px; height: 30px; border: 1px solid var(--line-strong); border-radius: 7px; display: flex; align-items: center; padding: 0 9px; color: var(--ink-3); font-size: 12px; }
+.foot { display: flex; gap: 6px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.foot .sp { flex: 1; }
+.ib { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); border: 1px solid var(--line); background: var(--surface); font-size: 12px; }
+.pill { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px; }
+.pill.red { background: var(--red-soft); color: var(--red); } .pill.y { background: var(--yellow-soft); color: var(--yellow); }
+.uf { font: 600 10px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--cyan-soft); color: var(--cyan); margin-right: 5px; }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 26px; }
+.nt { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px; font-size: 12.5px; color: var(--ink-2); }
+.nt b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 3px; }
+@media (max-width: 1000px) { .cols, .notes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · gaveta da intimação</div>
+  <h1>Gaveta em blocos que recolhem e expandem</h1>
+  <p class="lede">O topo da gaveta fica sempre visível: parte, evento, régua do prazo e, se a peça estiver pela metade, “Continuar de onde parou”. Abaixo, cada assunto vira um bloco. Recolhido, o bloco mostra um resumo de uma linha, para você saber o que tem dentro sem abrir. A gaveta lembra quais blocos você deixa abertos e aplica o mesmo arranjo nas próximas intimações.</p>
+
+  <div class="cols">
+    <div>
+      <div class="cap">1 · Arranjo de trabalho <span>(esteira e notas abertas)</span></div>
+      <div class="dr">
+        <div class="dr-top"><span>Intimação 1 de 43</span><span class="sp"></span><span class="link">Expandir tudo · Recolher tudo</span><span>↑ ↓ ✕</span></div>
+        <div class="head">
+          <div class="chips"><span class="chip">Sem operação</span><span class="chip">◐ Peça em edição</span></div>
+          <h2>COMERCIAL DESTRO LTDA</h2>
+          <div class="ev">Despacho/Decisão 15 dias · <span class="uf">PR</span><span class="mono small">5055308-30.2023.4.04.7000</span></div>
+          <div class="ruler"><span>09/09</span><span class="bar"><i></i></span><b>final Qua 30/09 · 5 dias</b></div>
+        </div>
+        <div class="resume">
+          <div class="k">Continuar · etapa 3 de 4 · parou ontem, 18:40</div>
+          <div class="t">Redação fina <span class="tool cla">Claude</span></div>
+          <div class="n">“Falta o tópico da prescrição intercorrente e conferir os valores da CDA.”</div>
+          <div class="a"><span class="btn pri">↗ Abrir conversa</span><span class="btn">✓ Concluir etapa</span></div>
+        </div>
+
+        <div class="blk">
+          <div class="bh"><span class="chev">▾</span><span class="bt">Esteira da peça</span><span class="bs"></span><span class="bn">2/4</span></div>
+          <div class="bb">
+            <div class="st d"><span class="dot"></span><div>Anonimização <span class="tool own">própria</span><div class="m">arquivo anonimizado ↗</div></div><span class="r">23/09</span></div>
+            <div class="st d"><span class="dot"></span><div>Extração e triagem <span class="tool gem">Gemini</span><div class="m">conversa ↗</div></div><span class="r">24/09</span></div>
+            <div class="st n"><span class="dot"></span><div><b style="font-weight:500">Redação fina</b> <span class="tool cla">Claude</span><div class="m">em andamento · conversa ↗</div></div><span class="r">ontem</span></div>
+            <div class="st t"><span class="dot"></span><div>Leitura e ajustes <span class="tool cla">Claude</span></div><span class="r">—</span></div>
+          </div>
+        </div>
+        <div class="blk">
+          <div class="bh"><span class="chev">▾</span><span class="bt">Peças e links</span><span class="bs"></span><span class="bn">3</span></div>
+          <div class="bb">
+            <div class="lnk"><span class="ic">MI</span><div>Minuta — Embargos, impugnação<div class="o">minuta da intimação</div></div><span class="u">Docs ↗</span></div>
+            <div class="lnk"><span class="ic">AN</span><div>Autos anonimizados<div class="o">esteira · anonimização</div></div><span class="u">Drive ↗</span></div>
+            <div class="lnk"><span class="ic">DC</span><div>Proposta de honorários (junt.)<div class="o">arquivo da operação · mesmo processo</div></div><span class="u">Drive ↗</span></div>
+            <div class="add">+ link</div>
+          </div>
+        </div>
+        <div class="blk">
+          <div class="bh"><span class="chev">▾</span><span class="bt">Notas</span><span class="bs"></span><span class="bn">2</span></div>
+          <div class="bb">
+            <div class="note">PROPOSTA DE HONORÁRIOS JÁ JUNTADA. 145 MIL. PRAZOS DOS EMBARGOS CORRENDO.<small>22/09</small></div>
+            <div class="note">Conferir se o juízo já intimou o exequente sobre a proposta.<small>24/09</small></div>
+            <div class="ta">Adicionar nota…</div>
+          </div>
+        </div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Gramática</span><span class="bs">Importância alta · complexidade média</span><span class="bn"></span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Contexto do processo</span><span class="bs">2 CDAs · 1 no alarme · 1 outra intimação</span><span class="bn"><span class="pill red">alarme</span></span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Dados</span><span class="bs">Embargos à execução fiscal · 1ª VF Curitiba</span><span class="bn"></span></div></div>
+        <div class="foot"><span class="btn pri">➤ Registrar atuação</span><span class="btn">Peça em edição</span><span class="sp"></span><span class="ib">▦</span><span class="ib">◉</span><span class="ib">✎</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cap">2 · Tudo recolhido <span>(só os resumos)</span></div>
+      <div class="dr">
+        <div class="dr-top"><span>Intimação 2 de 43</span><span class="sp"></span><span class="link">Expandir tudo · Recolher tudo</span><span>↑ ↓ ✕</span></div>
+        <div class="head">
+          <div class="chips"><span class="chip">LEANDRO VIANA TOSTI</span><span class="chip">○ Pendente de análise</span></div>
+          <h2>LEANDRO VIANA TOSTI</h2>
+          <div class="ev">Intimação eletrônica 15 dias · <span class="uf">PR</span><span class="mono small">5003502-82.2016.4.04.7005</span></div>
+          <div class="ruler"><span>15/09</span><span class="bar"><i style="width:66%"></i></span><b>final Qua 30/09 · 5 dias</b></div>
+        </div>
+        <div class="resume">
+          <div class="k">Continuar · etapa 2 de 4 · parou há 3 dias</div>
+          <div class="t">Extração e triagem <span class="tool gem">Gemini</span></div>
+          <div class="n">“Gemini travou no evento 87; reenviar em partes.”</div>
+          <div class="a"><span class="btn pri">↗ Abrir conversa</span><span class="btn">✓ Concluir etapa</span></div>
+        </div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Esteira da peça</span><span class="bs"><span class="prog"><i class="d"></i><i class="n"></i><i></i><i></i></span>Extração e triagem</span><span class="bn">1/4</span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Peças e links</span><span class="bs">Autos anonimizados · minuta ainda não criada</span><span class="bn">1</span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Notas</span><span class="bs">Imóvel Mat. 33.757 (Itapema/SC) — juízo postergou a análise…</span><span class="bn">3</span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Gramática</span><span class="bs">Importância média · complexidade média</span><span class="bn"></span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Contexto do processo</span><span class="bs">1 CDA · sem alarme</span><span class="bn"></span></div></div>
+        <div class="blk"><div class="bh"><span class="chev">▸</span><span class="bt">Dados</span><span class="bs">Execução fiscal · 2ª VF Umuarama</span><span class="bn"></span></div></div>
+        <div class="foot"><span class="btn pri">➤ Registrar atuação</span><span class="btn">Peça em edição</span><span class="sp"></span><span class="ib">▦</span><span class="ib">◉</span><span class="ib">✎</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="nt"><b>Fixo no topo</b>Parte, evento, número, régua do prazo e “Continuar de onde parou” (só quando há etapa em andamento). Os botões de ação ficam no pé, sempre visíveis.</div>
+    <div class="nt"><b>Resumo quando recolhido</b>Esteira: barrinha e etapa atual. Peças e links: quantos e qual o principal. Notas: a mais recente. Contexto: CDAs e alarmes, com o selo vermelho se houver. Dados: classe e vara.</div>
+    <div class="nt"><b>Lembra o arranjo</b>Abrir ou fechar um bloco vale para as próximas intimações (fica salvo no navegador). “Expandir tudo / Recolher tudo” no alto. Na intimação resolvida, o bloco Atuação ocupa o lugar da Gramática.</div>
+    <div class="nt"><b>Peças e links</b>Um lugar só para o que hoje está espalhado: a minuta da intimação, os links das etapas da esteira, os arquivos da operação no mesmo processo e a peça protocolada (quando a atuação é registrada). “+ link” acrescenta outro.</div>
+    <div class="nt"><b>Mesma gaveta em todo lugar</b>Vale para a gaveta aberta na lista, no Quadro, na Mesa e no modo Foco.</div>
+    <div class="nt"><b>Ordem dos blocos</b>Esteira, Peças e links, Notas, Gramática, Contexto do processo, Dados. Os três primeiros abrem por padrão; os demais começam recolhidos.</div>
+  </div>
+</div>
+</body>
+</html>

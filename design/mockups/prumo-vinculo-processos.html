@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Vínculo entre processos</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root { --ground:#f2f3f5; --panel:#ebedf0; --surface:#fff; --surface-2:#f6f7f9; --line:#dcdfe4; --line-strong:#c7cbd2; --ink:#14161a; --ink-2:#4d535e; --ink-3:#7c828e; --accent:#8a6722; --red:#c2323d; --red-soft:#fbe8e9; --yellow:#946b00; --yellow-soft:#f8efd2; --green:#21845a; --green-soft:#e2f3eb; --cyan:#0f7888; --cyan-soft:#e0f3f5; --blue:#2d62d3; --blue-soft:#e7eefc; --font:'Geist','Segoe UI',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,Consolas,monospace; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);background:var(--ground);-webkit-font-smoothing:antialiased}
+.doc{max-width:1180px;margin:0 auto;padding:30px 24px 60px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:6px}
+.lede{color:var(--ink-2);font-size:14px;max-width:900px;margin-top:6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+.opt h2{font-size:14px;font-weight:600;margin-bottom:2px}
+.opt h2 span{font:600 12px var(--mono);color:var(--accent);margin-right:6px}
+.opt p{font-size:12.5px;color:var(--ink-2);margin-bottom:8px;min-height:36px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.th{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;gap:8px;padding:7px 14px;font-size:11px;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;gap:8px;align-items:center;padding:0 14px;min-height:40px;border-bottom:1px solid var(--line);position:relative}
+.row:last-child{border-bottom:0}
+.num{font:500 12px var(--mono)}
+.kind{font:600 10px var(--mono);padding:1px 5px;border-radius:4px;margin-right:6px}
+.kind.mcf{background:var(--yellow-soft);color:var(--yellow)} .kind.idpj{background:var(--red-soft);color:var(--red)} .kind.ef{background:var(--cyan-soft);color:var(--cyan)} .kind.epe{background:var(--blue-soft);color:var(--blue)}
+.st{font-size:11px;font-weight:500;padding:1px 7px;border-radius:5px;background:var(--green-soft);color:var(--green)}
+.v{font:500 12px var(--mono);text-align:right}
+.sub{font-size:11px;color:var(--ink-3);margin-left:6px}
+.hub{font-weight:600}
+
+/* A · árvore com curva de derivação */
+.a .row.c1 .cell{padding-left:30px;position:relative}
+.a .row.c2 .cell{padding-left:58px;position:relative}
+.a .tree{position:absolute;top:0;bottom:0;left:0;width:60px;pointer-events:none}
+.a .tree svg{position:absolute;inset:0;overflow:visible}
+.a .row.c1,.a .row.c2{background:linear-gradient(90deg, #fbfaf7, #fff 40%)}
+
+/* B · subtabela encaixada */
+.b .nest{margin:0 10px 10px 30px;border:1px solid var(--line);border-top:0;border-radius:0 0 9px 9px;background:var(--surface-2)}
+.b .nest .row{border-bottom:1px solid var(--line);min-height:36px;background:transparent}
+.b .nest .row:last-child{border-bottom:0}
+.b .row.h{border-bottom:0}
+.b .hubwrap{border-bottom:1px solid var(--line);padding-bottom:0}
+.b .conn{position:absolute;left:-18px;top:-8px;width:16px;height:26px;border-left:1.5px solid var(--line-strong);border-bottom:1.5px solid var(--line-strong);border-bottom-left-radius:8px}
+.b .nest .row .cell{position:relative}
+
+/* C · trilho da família */
+.c .fam{position:relative;border-bottom:1px solid var(--line)}
+.c .fam::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--yellow)}
+.c .fam.idpj::before{background:var(--red)}
+.c .fam .row{border-bottom:0}
+.c .fam .row.h{background:#fdf9ee}
+.c .fam.idpj .row.h{background:#fdf3f4}
+.c .fam .row.k{min-height:34px;background:#fffdf8;padding-left:34px}
+.c .fam.idpj .row.k{background:#fffafa}
+.c .fam .row.k .cell::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--yellow);margin-right:10px;vertical-align:1px}
+.c .fam.idpj .row.k .cell::before{background:var(--red)}
+.c .fam .row.k2{padding-left:56px}
+.c .fam .row.k2 .cell::before{background:transparent;border:1.5px solid var(--yellow);width:5px;height:5px}
+
+/* D · recuo real com linha de ligação e cartão */
+.d .row.h{background:var(--surface)}
+.d .kids{position:relative;margin-left:26px;padding-left:18px;border-left:2px solid var(--line-strong);margin-bottom:8px}
+.d .kids .row{border:1px solid var(--line);border-radius:8px;margin:6px 10px 0 0;min-height:36px;background:var(--surface-2)}
+.d .kids .row::before{content:'';position:absolute;left:-19px;top:50%;width:17px;height:2px;background:var(--line-strong)}
+.d .kids .kids{margin-left:22px;margin-bottom:0}
+.d .fr{border-bottom:1px solid var(--line);padding-bottom:4px}
+
+.rec{margin-top:24px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--ink-2)}
+.rec b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · Processos e prescrição</div>
+  <h1>Como mostrar que um processo é abrangido pelo condutor</h1>
+  <p class="lede">Quatro formas de deixar claro, à primeira vista, que as linhas de baixo dependem do processo condutor. Em todas, a linha inteira do abrangido muda, não só a posição do número. Dados: MCF 5006699 → EF 5006600 → EPE 5006620, e um IDPJ com três EFs.</p>
+
+  <div class="grid">
+    <!-- A -->
+    <div class="opt a">
+      <h2><span>A</span>Árvore com curva de derivação</h2>
+      <p>Uma linha fina desce do condutor e faz uma curva até cada abrangido; o último termina em curva. A linha do abrangido começa depois da curva, com um fundo levemente tingido.</p>
+      <div class="card">
+        <div class="th"><span>Processo</span><span>Situação</span><span style="text-align:right">Valor</span></div>
+        <div class="row hub"><div class="cell"><span class="kind mcf">MCF</span><span class="num">5006699-22.2025.4.04.7006</span><span class="sub">liminar favorável</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+        <div class="row c1"><div class="tree"><svg width="60" height="40"><path d="M16 0 V14 Q16 20 22 20 H30" fill="none" stroke="#b5bac3" stroke-width="1.5"/><path d="M16 20 V40" fill="none" stroke="#b5bac3" stroke-width="1.5"/></svg></div><div class="cell"><span class="kind ef">EF</span><span class="num">5006600-22.2020.4.04.7006</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+        <div class="row c2"><div class="tree"><svg width="60" height="40"><path d="M16 0 V40" fill="none" stroke="#b5bac3" stroke-width="1.5"/><path d="M44 0 V14 Q44 20 50 20 H58" fill="none" stroke="#b5bac3" stroke-width="1.5"/></svg></div><div class="cell"><span class="kind epe">EPE</span><span class="num">5006620-22.2025.4.04.7006</span><span class="sub">apenso</span></div><span class="st">Ativa</span><span class="v">—</span></div>
+        <div class="row c1"><div class="tree"><svg width="60" height="40"><path d="M16 0 V14 Q16 20 22 20 H30" fill="none" stroke="#b5bac3" stroke-width="1.5"/></svg></div><div class="cell"><span class="kind ef">EF</span><span class="num">5006610-22.2022.4.04.7006</span></div><span class="st">Ativa</span><span class="v">125.000,00</span></div>
+      </div>
+    </div>
+
+    <!-- B -->
+    <div class="opt b">
+      <h2><span>B</span>Subtabela encaixada</h2>
+      <p>Os abrangidos ficam num bloco próprio, encaixado sob o condutor, com fundo cinza e cantos arredondados, como uma gaveta aberta. Um cotovelo liga o bloco ao condutor.</p>
+      <div class="card">
+        <div class="th"><span>Processo</span><span>Situação</span><span style="text-align:right">Valor</span></div>
+        <div class="hubwrap">
+          <div class="row hub h"><div class="cell"><span class="kind idpj">IDPJ</span><span class="num">5009876-11.2024.4.04.7001</span><span class="sub">decisão final · cobre 3 EFs</span></div><span class="st">Ativa</span><span class="v">2.132.000,00</span></div>
+          <div class="nest">
+            <div class="row"><div class="cell"><span class="conn"></span><span class="kind ef">EF</span><span class="num">5001234-56.2023.4.04.7001</span></div><span class="st">Ativa</span><span class="v">1.822.000,00</span></div>
+            <div class="row"><div class="cell"><span class="kind ef">EF</span><span class="num">5001235-56.2023.4.04.7001</span></div><span class="st">Ativa</span><span class="v">310.000,00</span></div>
+            <div class="row"><div class="cell"><span class="kind ef">EF</span><span class="num">5001236-56.2023.4.04.7001</span></div><span class="st" style="background:var(--panel);color:var(--ink-2)">Suspensa</span><span class="v">—</span></div>
+          </div>
+        </div>
+        <div class="row hub"><div class="cell"><span class="kind mcf">MCF</span><span class="num">5006699-22.2025.4.04.7006</span><span class="sub">liminar favorável · cobre 1 EF</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+      </div>
+    </div>
+
+    <!-- C -->
+    <div class="opt c">
+      <h2><span>C</span>Trilho da família</h2>
+      <p>Uma faixa vertical na cor do condutor (vermelho para IDPJ, amarelo para MCF) une o condutor e todos os seus abrangidos. Os abrangidos são mais baixos, levemente tingidos e marcados com um ponto da mesma cor; o apenso leva um círculo vazado.</p>
+      <div class="card">
+        <div class="th"><span>Processo</span><span>Situação</span><span style="text-align:right">Valor</span></div>
+        <div class="fam">
+          <div class="row hub h"><div class="cell"><span class="kind mcf">MCF</span><span class="num">5006699-22.2025.4.04.7006</span><span class="sub">liminar favorável</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+          <div class="row k"><div class="cell"><span class="num">5006600-22.2020.4.04.7006</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+          <div class="row k k2"><div class="cell"><span class="num">5006620-22.2025.4.04.7006</span><span class="sub">apenso · EPE</span></div><span class="st">Ativa</span><span class="v">—</span></div>
+        </div>
+        <div class="fam idpj">
+          <div class="row hub h"><div class="cell"><span class="kind idpj">IDPJ</span><span class="num">5009876-11.2024.4.04.7001</span><span class="sub">decisão final</span></div><span class="st">Ativa</span><span class="v">2.132.000,00</span></div>
+          <div class="row k"><div class="cell"><span class="num">5001234-56.2023.4.04.7001</span></div><span class="st">Ativa</span><span class="v">1.822.000,00</span></div>
+          <div class="row k"><div class="cell"><span class="num">5001235-56.2023.4.04.7001</span></div><span class="st">Ativa</span><span class="v">310.000,00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- D -->
+    <div class="opt d">
+      <h2><span>D</span>Recuo real com fio de ligação</h2>
+      <p>A linha inteira do abrangido recua, vira um pequeno cartão e se liga por um fio horizontal a um trilho vertical que desce do condutor. Os níveis se aninham (EF › apenso).</p>
+      <div class="card">
+        <div class="th"><span>Processo</span><span>Situação</span><span style="text-align:right">Valor</span></div>
+        <div class="fr">
+          <div class="row hub h" style="border-bottom:0"><div class="cell"><span class="kind mcf">MCF</span><span class="num">5006699-22.2025.4.04.7006</span><span class="sub">liminar favorável</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+          <div class="kids">
+            <div class="row"><div class="cell"><span class="kind ef">EF</span><span class="num">5006600-22.2020.4.04.7006</span></div><span class="st">Ativa</span><span class="v">920.000,00</span></div>
+            <div class="kids">
+              <div class="row"><div class="cell"><span class="kind epe">EPE</span><span class="num">5006620-22.2025</span><span class="sub">apenso</span></div><span class="st">Ativa</span><span class="v">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec"><b>Minha sugestão: A, a árvore com curva.</b> É a que melhor diz "deriva deste" sem gastar espaço: as colunas continuam alinhadas (valor, situação e prescrição na mesma posição para todos), aguenta dezenas de EFs sob um IDPJ e mostra também o apenso de uma EF. A C é a alternativa mais leve, se preferir cor a traço; a B e a D ocupam mais altura por linha.</div>
+</div>
+</body>
+</html>
