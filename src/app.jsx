@@ -625,7 +625,12 @@ const loadData = () => {
     if (!r) return defaultData();
     // Payload comprimido (ver saveData). Se a lib não carregou (offline), retorna vazio —
     // no GAS o app puxa a nuvem na abertura, então nada se perde.
-    if (r.slice(0, 5) === 'LZS1|') {
+    if (r.slice(0, 5) === DFL_PREFIX) {
+      if (typeof pako === 'undefined' || !pako.inflate) return defaultData();
+      r = pako.inflate(binaryStringToBytes(r.slice(5)), { to: 'string' }) || '';
+      if (!r) return defaultData();
+    } else if (r.slice(0, 5) === 'LZS1|') {
+      // Payload antigo (lz-string). Continua legível; o próximo save regrava em deflate.
       if (typeof LZString === 'undefined' || !LZString.decompressFromUTF16) return defaultData();
       r = LZString.decompressFromUTF16(r.slice(5)) || '';
       if (!r) return defaultData();
@@ -635,7 +640,29 @@ const loadData = () => {
   } catch { return defaultData(); }
 };
 let _quotaWarned = false;
-const LZ_PREFIX = 'LZS1|'; // marca payload comprimido no localStorage (JSON cru começa com '{')
+const LZ_PREFIX = 'LZS1|'; // payload lz-string (legado — só leitura)
+const DFL_PREFIX = 'DFL1|'; // payload deflate (pako), guardado como string binária
+// Deflate do pako: ~10x mais rápido que o lz-string no navegador (7 MB: ~0,2 s contra 2–3 s).
+// Com o histórico SIDA/Debcad na ficha, o banco passa de vários MB e a compressão
+// lz-string a cada edição travava a tela por segundos.
+const bytesToBinaryString = (u8) => {
+  let s = '';
+  const CH = 0x8000;
+  for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+  return s;
+};
+const binaryStringToBytes = (s) => {
+  const u8 = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+  return u8;
+};
+const compressForStorage = (json) => {
+  if (typeof pako !== 'undefined' && pako.deflate) {
+    try { return DFL_PREFIX + bytesToBinaryString(pako.deflate(json, { level: 6 })); } catch (e) { /* cai no lz-string */ }
+  }
+  if (typeof LZString !== 'undefined' && LZString.compressToUTF16) return LZ_PREFIX + LZString.compressToUTF16(json);
+  return json;
+};
 const saveData = (d) => {
   // Snapshots de prescrição NÃO rodam no save local — o motor já corre no render
   // (prescLookup). Recalcular todas as CDAs aqui congelava a UI 800ms após cada edição.
@@ -646,9 +673,7 @@ const saveData = (d) => {
     // Compressão UTF-16 (~5x menor): datasets grandes estouravam a cota de ~5MB do
     // localStorage e o save local falhava SEMPRE — o cache congelava numa versão velha
     // que, recarregada, podia sobrescrever a nuvem. Fallback: JSON cru se a lib faltar.
-    const payload = (typeof LZString !== 'undefined' && LZString.compressToUTF16)
-      ? LZ_PREFIX + LZString.compressToUTF16(json)
-      : json;
+    const payload = compressForStorage(json);
     localStorage.setItem(STORAGE_KEY, payload);
     _quotaWarned = false;
   } catch (e) {
@@ -3221,7 +3246,7 @@ function App() {
   const pgfnPdfInputRef = useRef(null);
 
   const hydratedRef = useRef(false);
-  // ─── PERFORMANCE: save do localStorage com debounce (800ms) ───
+  // ─── PERFORMANCE: save do localStorage com debounce (1500ms) ───
   // Antes, cada setData disparava JSON.stringify do banco inteiro + escrita síncrona
   // no localStorage A CADA tecla — causa do congelamento ao digitar.
   const saveTimerRef = useRef(null);
@@ -3259,7 +3284,7 @@ function App() {
     }
     dirtyRef.current = true; lastEditRef.current = Date.now();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => { saveTimerRef.current = null; persistLocal(latestDataRef.current); }, 800);
+    saveTimerRef.current = setTimeout(() => { saveTimerRef.current = null; persistLocal(latestDataRef.current); }, 1500);
   }, [data]);
   // Flush do save pendente ao fechar/ocultar a aba — nada se perde
   useEffect(() => {
