@@ -49,7 +49,8 @@ export const PRESC_EVENT_TYPES = {
   info_decisao_prescricao: { label: 'Decisão sobre prescrição', category: 'info', color: 'var(--text-muted)', desc: 'Decisão judicial relacionada à prescrição intercorrente.' },
   info_dissolucao_irregular: { label: 'Dissolução irregular (indício)', category: 'info', color: 'var(--text-muted)', desc: 'Certidão ou ato que indica dissolução irregular da empresa. Usado no prazo informativo de redirecionamento (Tema 444/STJ).' },
   info_pedido_redirecionamento: { label: 'Pedido de redirecionamento', category: 'info', color: 'var(--text-muted)', desc: 'Pedido de redirecionamento ao sócio ou responsável. Informativo.' },
-  info_outro: { label: 'Outro evento', category: 'info', color: 'var(--text-muted)', desc: 'Registro informativo sem efeito no cômputo.' }
+  info_outro: { label: 'Outro evento', category: 'info', color: 'var(--text-muted)', desc: 'Registro informativo sem efeito no cômputo.' },
+  info_bloqueio_negociacao: { label: 'Bloqueio para negociação (registro)', category: 'info', color: 'var(--text-muted)', desc: 'Ocorrência SIDA “BLOQUEIO NEGOCIACAO” (consolidação da Lei 11.941 e reaberturas). Não é adesão: registro sem pausa nem interrupção. Eventos antigos importados como parcelamento a partir dela valem como este até você confirmar que houve adesão.' }
 };
 
 /**
@@ -148,7 +149,7 @@ export function familyOfPrescEvent(type) {
 
 export const PARC_RESTART_ONE_PLUS_FIVE = '1+5';
 export const PARC_RESTART_FIVE_ONLY = '5';
-export const RULE_VERSION = '2026.10';
+export const RULE_VERSION = '2026.10a';
 
 /** Constrição na própria EF: interrompe a intercorrente. */
 export const EF_CONSTRICTION_TYPES = new Set(['int_penhora', 'int_arresto', 'int_sisbajud', 'int_cnib']);
@@ -209,6 +210,37 @@ export function protestoExtrajudicialInterrompe(iso) {
 export function isAdesaoType(type) {
   const t = normalizePrescEventType(type);
   return t === 'susp_parcelamento' || t === 'susp_transacao';
+}
+
+/**
+ * O importador SIDA anterior a 19/09/2026 gravava a ocorrência “BLOQUEIO NEGOCIACAO …”
+ * (consolidação da Lei 11.941 e reaberturas 12.865 e 12.996) como adesão a parcelamento.
+ * Bloqueio para negociação não é adesão: o motor lê esses eventos como mero registro,
+ * sem pausa nem interrupção, e pede conferência. `adesaoConfirmada` desfaz a leitura.
+ */
+export const BLOQUEIO_NEGOCIACAO_TYPE = 'info_bloqueio_negociacao';
+const BLOQUEIO_NEGOCIACAO_RE = /BLOQUEIO\s*(?:DE\s*|PARA\s*)?NEGOCIA/i;
+
+export function isBloqueioNegociacaoEvent(ev) {
+  if (!ev) return false;
+  if (ev._bloqueioNegociacao || ev.type === BLOQUEIO_NEGOCIACAO_TYPE) return true;
+  if (ev.adesaoConfirmada) return false;
+  const t = normalizePrescEventType(ev.type);
+  if (!isAdesaoType(t) && t !== 'int_rescisao_parcelamento') return false;
+  return BLOQUEIO_NEGOCIACAO_RE.test(String(ev.notes || ''));
+}
+
+/** Cópia do evento de bloqueio como registro. `_bloqueioNegociacao` guarda o tipo gravado. */
+function asRegistroSeBloqueio(ev) {
+  if (!ev || ev._bloqueioNegociacao || !isBloqueioNegociacaoEvent(ev)) return ev;
+  return { ...ev, type: BLOQUEIO_NEGOCIACAO_TYPE, _bloqueioNegociacao: normalizePrescEventType(ev.type) };
+}
+
+/** Evento como gravado (o formulário edita o tipo original, não o registro derivado). */
+export function prescEventAsStored(ev) {
+  if (!ev || !ev._bloqueioNegociacao) return ev;
+  const { _bloqueioNegociacao: type, ...rest } = ev;
+  return typeof type === 'string' ? { ...rest, type } : rest;
 }
 
 /** Atos que você declara como interruptivos: valem também na intercorrente (reinicia 5 anos). */
@@ -367,7 +399,7 @@ export function openPauseEvents(cdaEvents, asOf) {
     const t = normalizePrescEventType(e.type);
     const meta = PRESC_EVENT_TYPES[t];
     if (!meta || meta.category !== 'suspensiva') continue;
-    if (t === 'susp_art40' || t === IDPJ_CONSTRICTION_TYPE) continue;
+    if (t === 'susp_art40' || t === IDPJ_CONSTRICTION_TYPE || isBloqueioNegociacaoEvent(e)) continue;
     if (asIso(e.endDate) || (isAdesaoType(t) && inferred.has(e.id))) continue;
     out.push({
       id: e.id,
@@ -610,7 +642,7 @@ export function collectEventsForCda(debt, executions, events, collectIndex) {
   for (const e of [...direct, ...inherited]) {
     if (!e || seen.has(e.id)) continue;
     seen.add(e.id);
-    merged.push(e);
+    merged.push(asRegistroSeBloqueio(e));
   }
   merged.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   return { exec, events: merged, incidentOnly, incidents: listIncidents(matchingExecs, execs, evts, collectIndex) };
@@ -695,10 +727,10 @@ function pausedAt(iso, pauses) {
  */
 export function inferParcelamentoEnds(cdaEvents) {
   const parcs = (cdaEvents || [])
-    .filter(e => isAdesaoType(e.type) && asIso(e.date))
+    .filter(e => isAdesaoType(e.type) && asIso(e.date) && !isBloqueioNegociacaoEvent(e))
     .sort((a, b) => asIso(a.date).localeCompare(asIso(b.date)) || String(a.id || '').localeCompare(String(b.id || '')));
   const rescisoes = (cdaEvents || [])
-    .filter(e => normalizePrescEventType(e.type) === 'int_rescisao_parcelamento' && asIso(e.date))
+    .filter(e => normalizePrescEventType(e.type) === 'int_rescisao_parcelamento' && asIso(e.date) && !isBloqueioNegociacaoEvent(e))
     .map(e => asIso(e.date))
     .sort();
   const inferred = new Map();
@@ -1347,7 +1379,8 @@ const CASE_FACT = {
   info_decisao_prescricao: 'Decisão sobre prescrição',
   info_dissolucao_irregular: 'Dissolução irregular (indício)',
   info_pedido_redirecionamento: 'Pedido de redirecionamento',
-  info_outro: 'Outro registro'
+  info_outro: 'Outro registro',
+  info_bloqueio_negociacao: 'Bloqueio para negociação'
 };
 
 function occurrenceSource(ev, incidents) {
@@ -1381,6 +1414,7 @@ function occurrenceEffect(type, ev, r) {
   if (t === 'int_pedido_parcelamento') return 'interrompe na data do pedido, sem pausa';
   if (DECLARED_INTERRUPT_TYPES.has(t)) return 'interrompe; o prazo de 5 anos recomeça';
   if (t === 'susp_falencia') return 'registro; a recuperação judicial não pausa o prazo';
+  if (t === BLOQUEIO_NEGOCIACAO_TYPE) return 'registro; bloqueio para negociação não é adesão — sem pausa';
   if (t === 'susp_falencia_decretada') return 'pausa só na data tarde; a data cedo ignora a pausa';
   if (t === 'info_dissolucao_irregular' || t === 'info_pedido_redirecionamento') return 'registro para o prazo de redirecionamento';
   if (t === 'int_protesto_extrajudicial') {
@@ -1634,7 +1668,25 @@ function buildCadastroChecks(r, ctx) {
       checks.push('ciência anterior ao ajuizamento — conferir data');
     }
   }
+  checks.push(...bloqueioNegociacaoChecks(ctx.cdaEvents));
   return checks;
+}
+
+/** Conferência dos eventos importados como parcelamento a partir de BLOQUEIO NEGOCIACAO. */
+function bloqueioNegociacaoChecks(cdaEvents) {
+  const events = cdaEvents || [];
+  const out = [];
+  for (const ev of events) {
+    if (!ev || !ev._bloqueioNegociacao || ev._bloqueioNegociacao === 'int_rescisao_parcelamento') continue;
+    const d = asIso(ev.date);
+    const implicita = !!d && events.some(x => x && !x._bloqueioNegociacao
+      && normalizePrescEventType(x.type) === 'int_rescisao_parcelamento'
+      && asIso(x.date) === d && /impl[ií]cit/i.test(String(x.notes || '')));
+    out.push(`Evento importado como parcelamento a partir de BLOQUEIO NEGOCIACAO${d ? ` (${fmtDate(d)})` : ''} — confira. O cálculo o trata como registro, sem pausa.`
+      + (implicita ? ' A rescisão do parcelamento anterior nessa data também foi deduzida do bloqueio.' : '')
+      + ' Se houve adesão de fato, edite o evento e marque “houve adesão”.');
+  }
+  return out;
 }
 
 function buildIncidentChecks(r, ctx) {
@@ -2988,7 +3040,7 @@ function eventsTouchingDebt(debt, execs, events, collectIndex) {
       const key = ev.id || ev;
       if (seen.has(key)) return;
       seen.add(key);
-      out.push(ev);
+      out.push(asRegistroSeBloqueio(ev));
     };
     for (const ev of collectIndex.byCda.get(debt && debt.id) || []) add(ev);
     for (const e of execs || []) {
@@ -3000,7 +3052,7 @@ function eventsTouchingDebt(debt, execs, events, collectIndex) {
     return out;
   }
   const execIds = new Set((execs || []).map(e => e.id));
-  return (events || []).filter(ev => eventTouchesDebt(ev, debt, execIds));
+  return (events || []).filter(ev => eventTouchesDebt(ev, debt, execIds)).map(asRegistroSeBloqueio);
 }
 
 function hasDatedPrescEvent(debt, execs, events, collectIndex) {

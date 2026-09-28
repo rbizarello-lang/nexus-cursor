@@ -1,6 +1,6 @@
 # Regras de prazos
 
-**Versão** `2026.10` · 26 set 2026 · `ruleVersion: 2026.10`
+**Versão** `2026.10a` · 28 set 2026 · `ruleVersion: 2026.10a`
 
 Este texto diz **como o Nexus conta**. A tela da inscrição fala o caso; as bases legais ficam aqui e aparecem, discretas, ao passar o mouse. Na dúvida, o app **prefere alarmar** a deixar o prazo vencer em silêncio, sem encher a fila de avisos.
 
@@ -78,7 +78,9 @@ Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4)
 
 **Exemplo.** Última parcela paga em 20/03/2021, exclusão em 15/06/2021: data cedo 20/03/2026; data tarde 15/06/2027.
 
-**Na tela.** Ocorrência de adesão e de rescisão. O formulário da rescisão pede o inadimplemento. A memória técnica traz a base legal; a coluna não fala “política”.
+**Bloqueio para negociação não é adesão.** A ocorrência SIDA “BLOQUEIO NEGOCIACAO” (consolidação da Lei 11.941 e reaberturas das Leis 12.865 e 12.996) só registra o bloqueio. O importador anterior a 19/09/2026 a gravava como parcelamento em vigor e encerrava o parcelamento anterior na mesma data. O motor lê esses eventos como registro, sem pausa nem interrupção, e a inscrição pede conferência. Se houve adesão de fato, marque “houve adesão” no evento. Exemplo: adesão à Lei 11.941 em 03/12/2009, rescindida em 02/07/2011, com bloqueio na mesma data: intercorrente consumada em 02/07/2017 (cedo 02/07/2016), e não pausada até hoje.
+
+**Na tela.** Ocorrência de adesão e de rescisão. O formulário da rescisão pede o inadimplemento. A memória técnica traz a base legal; a coluna não fala “política”. O bloqueio aparece como “Bloqueio para negociação”, com o aviso em “Conferir nos autos”.
 
 ---
 
@@ -230,6 +232,7 @@ O vermelho é da faixa do grupo, não de um ícone no texto.
 
 ## Histórico das regras
 
+- **2026.10a** (28 set 2026) — Bloqueio para negociação (SIDA) deixa de valer como adesão: eventos importados como parcelamento a partir de “BLOQUEIO NEGOCIACAO” viram registro, sem pausa, com aviso de conferência; “houve adesão” no evento desfaz a leitura. Salvar esse evento não marca a CDA como parcelada.
 - **2026.10** (26 set 2026) — Duas datas por prazo (cedo e tarde), com o alarme pela cedo. Rescisão pelo inadimplemento na data cedo; pedido de parcelamento sem deferimento e transação; reconhecimento declarado interrompe a intercorrente. Recuperação judicial não pausa; falência só na data tarde. Pausa sem fim e parcelamento vigente presumem o fim na última conferência (“ainda vale”). Ciência eletrônica pela disponibilização; suspensão do art. 40 e arquivamento com data cedo. Constrição no incidente vale como interrupção, com aviso no card aos 5 anos. Penhora antiga em lista própria. Constituição pela modalidade; decadência em faixa; regra anterior à LC 118. Janela de 90 dias, sem teto na Mesa, fila agrupada por execução. Cálculo prevalece sobre a análise importada. Ordinária de CDA ajuizada só na coluna. Garantida só à mão. Régua do tempo nas telas. Redirecionamento informativo.
 - **2026.09** (8 set 2026) — Doze regras numeradas. Parcelamento vigente sai da fila (sem estimar data de fim). Sem exceção de Sisbajud por valor. Aba Prazos extintivos. Três colunas em linguagem do caso. Ordinária ajuizada ignora fatos posteriores ao protocolo. Inscrição sem processo só alerta se a ordinária está vencida ou iminente. Suspensão da execução por IDPJ/cautelar, mesmo sem constrição.
 - **2026.09a** (18 set 2026) — Contagem: pausas sobrepostas são fundidas antes de descontar; a primeira ciência inicia o ciclo (ciência posterior não reinicia); evento com data depois de hoje não entra no cômputo; 29/02 aniversaria no último dia de fevereiro; ordinária ajuizada deixa de usar o status “seguro”. Na tela: artigo pela/pelo conforme o fato; R10 mostra a data da suspensão do art. 40; pedido sem resultado com termo já passado deixa de dizer “em curso”.

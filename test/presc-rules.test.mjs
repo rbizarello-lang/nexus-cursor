@@ -10,8 +10,8 @@ const md = fs.readFileSync(path.join(root, 'MOTOR_PRESCRICAO.md'), 'utf8');
 
 describe('documento de regras 2026.10', () => {
   it('tem versão alinhada ao motor e as quinze regras', () => {
-    assert.equal(RULE_VERSION, '2026.10');
-    assert.match(md, /ruleVersion:\s*2026\.10/);
+    assert.equal(RULE_VERSION, '2026.10a');
+    assert.match(md, /ruleVersion:\s*2026\.10a/);
     for (let i = 1; i <= 15; i++) {
       assert.match(md, new RegExp('## R' + i + '\\b'));
     }
