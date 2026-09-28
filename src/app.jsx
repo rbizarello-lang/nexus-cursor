@@ -642,7 +642,7 @@ const loadData = () => {
 let _quotaWarned = false;
 const LZ_PREFIX = 'LZS1|'; // payload lz-string (legado — só leitura)
 const DFL_PREFIX = 'DFL1|'; // payload deflate (pako), guardado como string binária
-// Deflate nativo do pako: ~20x mais rápido que o lz-string (7 MB: 0,1 s contra 3 s).
+// Deflate do pako: ~10x mais rápido que o lz-string no navegador (7 MB: ~0,2 s contra 2–3 s).
 // Com o histórico SIDA/Debcad na ficha, o banco passa de vários MB e a compressão
 // lz-string a cada edição travava a tela por segundos.
 const bytesToBinaryString = (u8) => {
