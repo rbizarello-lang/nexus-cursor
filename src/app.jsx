@@ -3548,7 +3548,7 @@ function App() {
 
               // Case 1: Normal parcelamento with adesão (and possibly rescisão)
               if (parc.adesao) {
-                const dup = existingEvents.find(pe => pe.type === 'susp_parcelamento' && pe.date === parc.adesao);
+                const dup = existingEvents.find(pe => pe.type === 'susp_parcelamento' && pe.date === parc.adesao && !isBloqueioNegociacaoEvent(pe));
                 if (dup) {
                   // If existing event has no endDate but we now have rescisão, update it
                   if (parc.encerramento && !dup.endDate) {
@@ -3585,7 +3585,7 @@ function App() {
               // Case 2: Rescisão-only (found rescisão in SIDA without matching adesão)
               // Try to update an existing open parcelamento event for this CDA, or create one
               else if (parc.encerramento) {
-                const openParc = existingEvents.find(pe => pe.type === 'susp_parcelamento' && !pe.endDate);
+                const openParc = existingEvents.find(pe => pe.type === 'susp_parcelamento' && !pe.endDate && !isBloqueioNegociacaoEvent(pe));
                 if (openParc) {
                   upsert('prescriptionEvents', { ...openParc, endDate: parc.encerramento, notes: (openParc.notes || '') + ` · RESCISÃO em ${fmtDate(parc.encerramento)} (${parc.situacao}) — ${parc.obs || parc.modalidade}`, updatedAt: new Date().toISOString() });
                   eventsCreated++;
@@ -4678,6 +4678,7 @@ function App() {
       delete cleanEntity._familyId;
       delete cleanEntity._focusDate;
       delete cleanEntity._focusField;
+      delete cleanEntity._bloqueioNegociacao;
     }
     if (type === 'debt') delete cleanEntity._focusField;
     // ─── ETAPA 5: Propagação de status de processo → CDAs vinculadas ───
@@ -4773,7 +4774,8 @@ function App() {
             susp_falencia_decretada: 'suspensa_judicial',
             susp_admin: 'suspensa_admin',
           };
-          const newStatus = statusMap[cleanEntity.type];
+          // Bloqueio para negociação não é adesão: não marca a CDA como parcelada.
+          const newStatus = isBloqueioNegociacaoEvent(cleanEntity) ? '' : statusMap[cleanEntity.type];
           if (newStatus) {
             setData(prev => ({
               ...prev,
@@ -13884,6 +13886,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     if (entityType === 'intimation' && isDemo && !next.id && !next.operationId && operationId) {
       next = { ...next, operationId };
     }
+    // Bloqueio para negociação lido como registro: o formulário edita o evento como gravado.
+    if (entityType === 'prescriptionEvent') next = prescEventAsStored(next);
     return next;
   })();
   const [form, setForm] = useState(migratedInitial);
@@ -14778,7 +14782,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <div className="form-group"><label>Data de Cessação (se encerrada)</label><input type="date" value={form.endDate||''} onChange={e=>set('endDate',e.target.value)} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Deixe vazio se ainda vigente</span></div>
         )}
-        {selectedType?.category === 'suspensiva' && form.type !== 'susp_art40' && form.type !== 'susp_idpj_mcf_constricao' && !form.endDate && (
+        {selectedType?.category === 'suspensiva' && form.type !== 'susp_art40' && form.type !== 'susp_idpj_mcf_constricao' && !form.endDate && !isBloqueioNegociacaoEvent(form) && (
           <div className="form-group"><label>Última conferência (ainda vale)</label>
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
               <input type="date" value={form.verifiedAt||''} onChange={e=>set('verifiedAt',e.target.value)} />
@@ -14787,6 +14791,14 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <span style={{fontSize:9,color:'var(--text-muted)'}}>A data cedo presume que a pausa acabou na última conferência. Salvar sem fim conta como conferida hoje.</span></div>
         )}
       </div>
+      {isAdesaoType(form.type) && isBloqueioNegociacaoEvent({ ...form, adesaoConfirmada: false }) && (
+        <div className="form-group"><label>Veio de “BLOQUEIO NEGOCIACAO” (SIDA)</label>
+          <label style={{display:'flex',gap:8,alignItems:'center',textTransform:'none',letterSpacing:0,fontSize:12,color:'var(--text-primary)',cursor:'pointer'}}>
+            <input type="checkbox" style={{width:'auto',margin:0}} checked={!!form.adesaoConfirmada} onChange={e=>set('adesaoConfirmada', e.target.checked)} />
+            Houve adesão de fato — contar como parcelamento
+          </label>
+          <span style={{fontSize:9,color:'var(--text-muted)'}}>Desmarcado, o cálculo trata o evento como registro, sem pausa: bloqueio para negociação (consolidação da Lei 11.941 e reaberturas) não é adesão.</span></div>
+      )}
       <div className="form-group"><label>Fundamentação Legal</label>
         <input value={form.legalBasis||''} onChange={e=>set('legalBasis',e.target.value)} placeholder="Ex: Art. 174, p.ú., I, CTN — Art. 40, §1º, LEF" />
       </div>
