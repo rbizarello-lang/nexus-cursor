@@ -20,6 +20,7 @@ O build **não** gera mais os aliases `Nexus_demo.html` e `Nexus_demo_experiment
 ## Deploy (Apps Script)
 
 O `npm run push` agora:
+0. Confere se a cópia local tem o `master` mais recente do GitHub; se não tiver, cancela e mostra os comandos (`git stash` · `git pull origin master` · `npm run push`)
 1. Compila `src/app.jsx` → `Nexus.html`
 2. Copia só os 4 arquivos necessários para `gas/`
 3. Roda `clasp push` com `rootDir: gas` (evita varrer `node_modules` e demos)
