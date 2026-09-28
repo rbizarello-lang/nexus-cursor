@@ -44,7 +44,8 @@ const ASSET_SUB = {
   investimento: 'Investimento', participacao: 'Participação Societária', outro: 'Outro',
 };
 const INTIM_ST = {
-  pendente_analise: 'Pendente de Análise', aguardando_subsidios: 'Aguardando Subsídios',
+  pendente_analise: 'Pendente de Análise', em_analise: 'Em Análise', analise_concluida: 'Análise Concluída',
+  aguardando_subsidios: 'Aguardando Subsídios',
   aguardar: 'Aguardar', peca_edicao: 'Peça em Edição',
   ciencia_renuncia: 'Ciência com Renúncia', analisado: 'Analisado',
 };
