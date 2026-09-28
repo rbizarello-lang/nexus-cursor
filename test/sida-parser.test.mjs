@@ -7,6 +7,7 @@ import {
   parseSIDALines,
   parseSidaMoneyNumber,
   shouldEmitSidaParcelamentoEvents,
+  sidaPedidoSemDeferimento,
   classifySidaOccurrence,
   isSidaProtestoLine,
   isSidaCondensedNote,
@@ -181,6 +182,12 @@ describe('helpers de mapeamento SIDA', () => {
     assert.equal(shouldEmitSidaParcelamentoEvents({ adesao: '2020-08-25', encerramento: '2021-06-11', situacao: 'ENCERRADA POR RESCISAO' }), true);
   });
 
+  it('pedido aguardando ou indeferido vira pedido sem deferimento (interrompe, sem pausa)', () => {
+    assert.equal(sidaPedidoSemDeferimento({ adesao: '2026-09-17', situacao: 'AGUARDANDO' }), true);
+    assert.equal(sidaPedidoSemDeferimento({ adesao: '2025-07-17', encerramento: '2025-08-09', situacao: 'ENCERRADA POR INDEFERIMENTO', grupo: 'indeferido' }), true);
+    assert.equal(sidaPedidoSemDeferimento({ adesao: '2020-08-25', deferimento: '2020-09-01', situacao: 'ENCERRADA POR RESCISAO' }), false);
+  });
+
   it('buildSidaDebtPayload e nota condensada [SIDA]', () => {
     const payload = buildSidaDebtPayload(rec, '2026-09-19T12:00:00.000Z');
     assert.equal(payload.source, 'sida');
@@ -197,7 +204,8 @@ describe('helpers de mapeamento SIDA', () => {
     const drafts = draftSidaPrescriptionEvents(rec);
     assert.ok(drafts.some((e) => e.type === 'susp_parcelamento' && e.date === '2020-08-25'));
     assert.ok(drafts.some((e) => e.type === 'int_rescisao_parcelamento' && e.date === '2021-06-11'));
-    assert.ok(!drafts.some((e) => e.date === '2026-09-17'));
+    assert.ok(drafts.some((e) => e.type === 'int_pedido_parcelamento' && e.date === '2026-09-17'));
+    assert.ok(!drafts.some((e) => e.type === 'susp_parcelamento' && e.date === '2026-09-17'));
     assert.ok(!drafts.some((e) => e.type === 'int_protesto_extrajudicial'));
     const keys = drafts.map((e) => `${e.type}|${e.date}`);
     assert.equal(keys.length, new Set(keys).size);

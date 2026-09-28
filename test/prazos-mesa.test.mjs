@@ -6,6 +6,7 @@ import {
   mesaCertainty,
   mesaNeedsYou,
   splitMesaRows,
+  groupMesaRows,
   formatPrescHorizon,
   betaCdaPrescText,
   betaCdaClosedLine,
@@ -27,12 +28,36 @@ describe('Mesa — seleção PRECISA DE VOCÊ', () => {
     assert.equal(mesaNeedsYou({ group: 4, reviewAt: '2026-12-01' }, '2026-09-18'), false);
   });
 
-  it('corta no orçamento de 12 e devolve o excedente', () => {
-    const rows = Array.from({ length: 15 }, (_, i) => ({ id: 'd' + i, group: 1, prescDays: -i }));
+  it('sem teto: mostra todas; ordem pela data cedo e, no empate, pelo maior valor', () => {
+    const rows = Array.from({ length: 15 }, (_, i) => ({ id: 'd' + i, group: 1, prescDays: -i, prescDate: '2026-09-' + String(15 - (i % 5)).padStart(2, '0'), value: i }));
     const split = splitMesaRows(rows, '2026-09-18');
-    assert.equal(split.needsYou.length, MESA_CAP);
-    assert.equal(split.overCap.length, 3);
-    assert.equal(split.rest.length, 0);
+    assert.equal(MESA_CAP, Infinity);
+    assert.equal(split.needsYou.length, 15);
+    assert.equal(split.overCap.length, 0);
+    assert.equal(split.needsYou[0].prescDate, '2026-09-11');
+    assert.equal(split.needsYou[0].id, 'd14');
+    assert.equal(split.needsYou[1].id, 'd9');
+  });
+
+  it('penhora antiga fica na lista própria; pedido de dado precisa de você', () => {
+    const split = splitMesaRows([
+      { id: 'p', group: 7, prescKind: 'penhora_antiga' },
+      { id: 'q', group: 3, prescKind: 'pedido_dado', action: { type: 'conferir_autos' }, prescDate: '2026-11-01' }
+    ], '2026-09-18');
+    assert.deepEqual(split.penhoraAntiga.map(r => r.id), ['p']);
+    assert.deepEqual(split.needsYou.map(r => r.id), ['q']);
+  });
+
+  it('agrupa a intercorrente por execução e a ordinária por CDA', () => {
+    const groups = groupMesaRows([
+      { id: 'a', prescSegment: 'intercorrente', executionId: 'e1', operationId: 'op', prescDate: '2026-10-01', value: 10, group: 1 },
+      { id: 'b', prescSegment: 'intercorrente', executionId: 'e1', operationId: 'op', prescDate: '2026-10-01', value: 30, group: 1 },
+      { id: 'c', prescSegment: 'ordinaria', operationId: 'op', prescDate: '2026-09-20', value: 5, group: 1 },
+      { id: 'd', prescSegment: 'ordinaria', operationId: 'op', prescDate: '2026-12-20', value: 5, group: 3 }
+    ]);
+    assert.deepEqual(groups.map(g => g.type), ['cda', 'execucao', 'cda']);
+    assert.deepEqual(groups[1].rows.map(r => r.id), ['b', 'a']);
+    assert.equal(groups[1].value, 40);
   });
 
   it('G5 some do resto (vai para a gaveta)', () => {
@@ -110,7 +135,7 @@ describe('Mesa — selos e frases', () => {
     const raw = 'Tema 566/568 e Súmula 314: o piso e o teto do dies / marco CENÁRIO política';
     const out = betaSafeUiText(raw);
     assert.equal(UI_FORBIDDEN.test(out), false);
-    assert.equal(betaEventFamilyLabel({ id: 'resultado_util', label: 'Resultado útil — interrompe' }, true), 'Constrição no incidente (pausa as EFs)');
+    assert.equal(betaEventFamilyLabel({ id: 'resultado_util', label: 'Resultado útil — interrompe' }, true), 'Constrição no incidente (interrompe as EFs)');
     assert.equal(betaEventFamilyLabel({ id: 'marco', label: 'Marco do art. 40 — ciência' }, false), 'Ciência do art. 40');
     assert.equal(UI_FORBIDDEN.test(betaEventFamilyLabel({ id: 'marco', label: 'Marco do art. 40 — ciência' }, false)), false);
   });

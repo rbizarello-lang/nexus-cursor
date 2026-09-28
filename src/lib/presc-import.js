@@ -395,6 +395,10 @@ export function groupFromPrescDecision(decision, engineGroup) {
   return null;
 }
 
+/**
+ * Divergência entre a análise importada e o cálculo do app. O cálculo prevalece;
+ * a análise vira nota e pede o fato que a justifica.
+ */
 export function engineMoreGraveThanDecision(engine, decision) {
   if (!engine || !decision || !decision.situation) return '';
   const analysis = decision.analysisDate || '';
@@ -402,13 +406,16 @@ export function engineMoreGraveThanDecision(engine, decision) {
   const consumed = engine.phase === 'consumado' || engine.status === 'prescrito' || engine.status === 'consumada'
     || (engine.daysLeft != null && engine.daysLeft <= 0 && !!engineTerm);
   const sit = decision.situation;
+  if (sit === 'DECLARADA') return '';
   const softer = sit === 'CICLO-ENCERRADO' || sit === 'PAUSADO' || sit === 'SEM-MARCO' || sit === 'CICLO-EM-CURSO';
-  if (softer && consumed) {
-    return `Cálculo do app mais grave que a análise de ${fmtDate(analysis)}: termo calculado ${fmtDate(engineTerm)}. Decisão mantida.`;
-  }
   const decTerm = parseAnyDate(decision.term);
-  if (decTerm && engineTerm && engineTerm < decTerm) {
-    return `Cálculo do app mais grave que a análise de ${fmtDate(analysis)}: termo calculado ${fmtDate(engineTerm)}. Decisão mantida.`;
+  const tail = ' O cálculo prevalece; lance o fato que justifica a análise.';
+  const quando = analysis ? ' de ' + fmtDate(analysis) : '';
+  if ((softer && consumed) || (decTerm && engineTerm && engineTerm < decTerm)) {
+    return `Análise${quando} (${decisionLabel(sit).toLowerCase()}) diverge do cálculo: termo calculado ${fmtDate(engineTerm)}.${tail}`;
+  }
+  if (sit === 'PROVAVEL-CONSUMACAO' && !consumed && decTerm && (!engineTerm || decTerm < engineTerm)) {
+    return `Análise${quando} aponta termo em ${fmtDate(decTerm)}${engineTerm ? ', antes do cálculo (' + fmtDate(engineTerm) + ')' : ''}.${tail}`;
   }
   return '';
 }

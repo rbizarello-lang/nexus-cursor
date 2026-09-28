@@ -204,7 +204,7 @@ describe('buildPainelPrescAlerts', () => {
     assert.equal(a.faixa, 'alta');
   });
 
-  it('pausa por IDPJ cujo cenário sem pausa está vencido vai a vencido_estimado', () => {
+  it('constrição no incidente encerra o ciclo e não alarma na fila', () => {
     const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
     const executions = [
       ef({ id: 'e1', protocolDate: '2015-01-01' }),
@@ -215,9 +215,8 @@ describe('buildPainelPrescAlerts', () => {
       { id: 'c', executionId: 'idpj1', type: 'susp_idpj_mcf_constricao', date: '2020-01-01', requestDate: '2020-01-01' }
     ];
     const a = classifyPainelPrescAlert(debt, executions, events, ASOF);
-    assert.equal(a.kind, 'vencido_estimado');
-    assert.ok((a.checks || []).some(c => /pausa/i.test(c)));
-    assert.equal(groupOfKind(a.kind, a), 2);
+    assert.equal(a.kind, 'vigiar_interrompido');
+    assert.equal(groupOfKind(a.kind, a), 4);
   });
 });
 
@@ -249,7 +248,7 @@ describe('groupOfKind — cinco grupos do radar', () => {
     assert.equal(groupOfKind(a.kind, a), 2);
   });
 
-  it('pausa por IDPJ com cenário sem pausa vencido fica no grupo 2, com check', () => {
+  it('constrição no incidente fica no grupo 4 (o aviso vai ao card do processo)', () => {
     const debt = cda({ processNumber: '50012345620234047001', inscriptionDate: '2010-01-15' });
     const executions = [
       ef({ id: 'e1', protocolDate: '2015-01-01' }),
@@ -260,9 +259,8 @@ describe('groupOfKind — cinco grupos do radar', () => {
       { id: 'c', executionId: 'idpj1', type: 'susp_idpj_mcf_constricao', date: '2020-01-01', requestDate: '2020-01-01' }
     ];
     const a = classifyPainelPrescAlert(debt, executions, events, ASOF);
-    assert.equal(a.kind, 'vencido_estimado');
-    assert.equal(groupOfKind(a.kind, a), 2);
-    assert.ok((a.checks || []).some(c => /pausa/i.test(c)));
+    assert.equal(a.kind, 'vigiar_interrompido');
+    assert.equal(groupOfKind(a.kind, a), 4);
   });
 });
 
@@ -348,8 +346,8 @@ describe('buildPrazosRadar — cobertura da fila', () => {
     assert.equal(d09.group, 6);
     assert.equal(d09.consumada, 'old');
     const d14 = radar.rows.find(r => r.id === 'd14');
-    assert.ok(d14.group === 2 || d14.group === 6, 'd14 permanece a conferir ou vai a Consumada se >6m');
-    assert.ok((d14.checks || []).some(c => /pausa/i.test(c)));
+    assert.equal(d14.group, 4, 'constrição no incidente encerra o ciclo, sem alerta');
+    assert.equal(d14.prescKind, 'vigiar_interrompido');
     const d07 = radar.rows.find(r => r.id === 'd07');
     assert.equal(d07.group, 3);
     const opTot = radar.byOp.op1;

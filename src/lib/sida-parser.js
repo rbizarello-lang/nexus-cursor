@@ -448,6 +448,13 @@ export function classifySidaOccurrence(desc) {
   return 'info';
 }
 
+/** Pedido aguardando análise ou indeferido (sem deferimento): vira “pedido de parcelamento sem deferimento”. */
+export function sidaPedidoSemDeferimento(parc) {
+  if (!parc || !parc.adesao || parc.deferimento) return false;
+  const sit = sidaFoldKey(parc.situacao || '');
+  return /AGUARDANDO/.test(sit) || /INDEFER/.test(sit) || parc.grupo === 'indeferido';
+}
+
 export function shouldEmitSidaParcelamentoEvents(parc) {
   if (!parc) return false;
   const sit = sidaFoldKey(parc.situacao || '');
@@ -705,7 +712,7 @@ export function isSidaCondensedNote(n) {
 
 /**
  * Eventos de prescrição que o import criaria a partir deste registro.
- * Dedup por (type, date). Parcelamentos AGUARDANDO/indeferidos não entram.
+ * Dedup por (type, date). Pedido AGUARDANDO/indeferido entra como pedido sem deferimento (só interrompe).
  */
 export function draftSidaPrescriptionEvents(rec) {
   const out = [];
@@ -718,7 +725,12 @@ export function draftSidaPrescriptionEvents(rec) {
     out.push({ type, date, source, line });
   };
   for (const parc of rec.parcelamentos || []) {
-    if (!shouldEmitSidaParcelamentoEvents(parc)) continue;
+    if (!shouldEmitSidaParcelamentoEvents(parc)) {
+      if (sidaPedidoSemDeferimento(parc)) {
+        push('int_pedido_parcelamento', parc.adesao, 'parcelamento', `Pedido sem deferimento ${parc.adesao} · ${parc.tipo || parc.modalidade || ''} · ${parc.situacao || ''}`);
+      }
+      continue;
+    }
     if (parc.adesao) {
       push('susp_parcelamento', parc.adesao, 'parcelamento', `Adesão ${parc.adesao} · ${parc.tipo || parc.modalidade || ''} · ${parc.situacao || ''}`);
     }
@@ -745,7 +757,7 @@ export function draftSidaPrescriptionEvents(rec) {
     }
   }
   if (rec.dataFalencia) {
-    push('susp_falencia', rec.dataFalencia, 'dados_gerais', 'Data de Falência');
+    push('susp_falencia_decretada', rec.dataFalencia, 'dados_gerais', 'Data de Falência');
   }
   return out;
 }

@@ -145,15 +145,23 @@ describe('plan e commit', () => {
   });
 });
 
-describe('decisão importada governa o grupo', () => {
-  it('CICLO-ENCERRADO fica no grupo 4 mesmo com cálculo consumado', () => {
-    assert.equal(groupOfKind('vencido', { prescDecision: { situation: 'CICLO-ENCERRADO' } }), 4);
+describe('análise importada vira nota; o cálculo prevalece', () => {
+  it('CICLO-ENCERRADO não tira o vencido do grupo 1; a nota pede o fato', () => {
+    assert.equal(groupOfKind('vencido', { prescDecision: { situation: 'CICLO-ENCERRADO' } }), 1);
     const note = engineMoreGraveThanDecision(
       { phase: 'consumado', diesAdQuem: '2020-01-01', daysLeft: -100, status: 'prescrito' },
       { situation: 'CICLO-ENCERRADO', analysisDate: '2026-09-08' }
     );
-    assert.match(note, /mais grave/);
-    assert.match(note, /Decisão mantida/);
+    assert.match(note, /diverge do cálculo/);
+    assert.match(note, /O cálculo prevalece; lance o fato/);
+  });
+
+  it('análise mais grave que o cálculo também vira nota', () => {
+    const note = engineMoreGraveThanDecision(
+      { phase: 'correndo', diesAdQuem: '2028-01-01', daysLeft: 400, status: 'correndo' },
+      { situation: 'PROVAVEL-CONSUMACAO', term: '2026-01-01', analysisDate: '2026-09-08' }
+    );
+    assert.match(note, /aponta termo em 01\/01\/2026/);
   });
 
   it('DECLARADA sai da fila', () => {
@@ -179,7 +187,7 @@ describe('decisão importada governa o grupo', () => {
     assert.ok(r.checks.some(c => /revalidar/i.test(c)));
   });
 
-  it('radar conta divergência e não move o grupo da decisão', () => {
+  it('radar conta divergência e mantém o grupo do cálculo', () => {
     const data = {
       operations: [{ id: 'op1', name: 'Op', status: 'ativa' }],
       people: [],
@@ -195,8 +203,9 @@ describe('decisão importada governa o grupo', () => {
     const radar = buildPrazosRadar(data, ASOF);
     const row = radar.rows.find(x => x.id === 'd1');
     assert.ok(row);
-    assert.equal(row.group, 4);
-    assert.match(row.decisionNote || '', /mais grave|Decisão mantida/);
+    assert.equal(row.prescKind, 'vencido');
+    assert.notEqual(row.group, 4);
+    assert.match(row.decisionNote || '', /O cálculo prevalece/);
     assert.equal(radar.divergencias, 1);
   });
 });

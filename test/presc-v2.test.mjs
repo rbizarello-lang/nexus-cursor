@@ -262,7 +262,7 @@ describe('2.B — v1 permanece o comportamento clássico', () => {
 });
 
 describe('2.B — FN-PARCELADA-STATUS-SEM-EVENTO', () => {
-  it('v2: status parcelada sem adesão vira inconsistência com ação de criar evento', () => {
+  it('v2: status parcelada sem adesão é tratada como parcelada e sai do alarme', () => {
     const d = cda({ status: 'parcelada', inscriptionDate: '2014-01-01' });
     const e = [ef({ protocolDate: '2015-01-01' })];
     const ev = [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2016-01-01' }];
@@ -270,10 +270,12 @@ describe('2.B — FN-PARCELADA-STATUS-SEM-EVENTO', () => {
     assert.equal(r.phase, 'consumado');
     assert.equal(isCdaParcelada(d, e, ev, ASOF), true);
     const a = classifyPainelPrescAlert(d, e, ev, ASOF, r, { policy: 'v2' });
-    assert.equal(a.kind, 'inconsistencia');
-    assert.equal(a.action.type, 'criar_evento');
-    assert.equal(a.action.eventType, 'susp_parcelamento');
-    assert.equal(groupOfKind(a.kind, a, { policy: 'v2' }), 3);
+    assert.equal(a, null);
+    const radar = buildPrazosRadar({
+      operations: [op], executions: e, prescriptionEvents: ev, debts: [d], people: []
+    }, ASOF, { policy: 'v2' });
+    assert.ok(!radar.rows.some(row => row.id === d.id));
+    assert.ok(radar.silenced.some(x => x.debtId === d.id && x.reason === 'parcelada_ficha'));
   });
 });
 
@@ -308,13 +310,15 @@ describe('2.B — FN-HANDLED-AGUARDANDO', () => {
 });
 
 describe('2.B — ORD-CONSUMADA-AJUIZADA', () => {
-  it('v2: ordinária consumada em CDA ajuizada vai ao grupo 1', () => {
+  it('v2: ordinária consumada em CDA ajuizada fica só na coluna, sem alarme', () => {
     const d = cda({ inscriptionDate: '2010-01-01' });
     const e = [ef({ protocolDate: '2016-06-01' })];
     const a = classifyPainelPrescAlert(d, e, [], ASOF, undefined, { policy: 'v2' });
-    assert.equal(a.kind, 'vencido');
-    assert.equal(a.clock, 'ordinaria');
-    assert.equal(groupOfKind(a.kind, { ...a, clock: 'ordinaria' }, { policy: 'v2' }), 1);
+    assert.notEqual(a && a.clock, 'ordinaria');
+    assert.notEqual(a && a.kind, 'vencido');
+    const ord = computeOrdinaria({ debt: d, executions: e, asOf: ASOF });
+    assert.equal(ord.phase, 'consumado');
+    assert.match(ord.summary, /Consumada antes do ajuizamento/);
   });
 });
 
@@ -358,8 +362,8 @@ describe('2.B — GROUP5-ROUBADO-POR-CADASTRO e dedupe', () => {
 });
 
 describe('2.B — decisão importada não rebaixa G1', () => {
-  it('v2: CICLO-ENCERRADO não tira vencido do grupo 1', () => {
-    assert.equal(groupOfKind('vencido', { prescDecision: { situation: 'CICLO-ENCERRADO' } }), 4);
+  it('CICLO-ENCERRADO não tira vencido do grupo 1', () => {
+    assert.equal(groupOfKind('vencido', { prescDecision: { situation: 'CICLO-ENCERRADO' } }), 1);
     assert.equal(groupOfKind('vencido', { prescDecision: { situation: 'CICLO-ENCERRADO' } }, { policy: 'v2' }), 1);
   });
 });
@@ -386,15 +390,33 @@ describe('2.B — reviewAt, why, action, silenced, snooze', () => {
     if (row.group > 2) assert.ok(row.reviewAt);
   });
 
-  it('parcelamento vigente por evento vai para silenced em v2', () => {
+  it('parcelamento vigente por evento fica em silenced até 90 dias antes da data cedo', () => {
     const d = cda({ id: 'd-parc', inscriptionDate: '2014-01-01' });
     const e = [ef({ operationId: 'op1' })];
-    const ev = [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-01' }];
+    const ev = [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-01', verifiedAt: '2026-06-01' }];
     const radar = buildPrazosRadar({
       operations: [op], executions: e, prescriptionEvents: ev, debts: [d], people: []
     }, ASOF, { policy: 'v2' });
     assert.ok(!radar.rows.some(r => r.id === 'd-parc'));
-    assert.ok((radar.silenced || []).some(s => s.debtId === 'd-parc' && s.reason === 'parcelamento_vigente'));
+    const s = (radar.silenced || []).find(x => x.debtId === 'd-parc' && x.reason === 'parcelamento_vigente');
+    assert.ok(s);
+    assert.equal(s.until, '2031-03-03');
+  });
+
+  it('parcelamento vigente sem conferência há mais de 5 anos volta à fila', () => {
+    const d = cda({ id: 'd-parc', inscriptionDate: '2014-01-01' });
+    const e = [ef({ operationId: 'op1' })];
+    const near = [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2021-02-01', createdAt: '2021-10-20T10:00:00.000Z' }];
+    const r1 = buildPrazosRadar({ operations: [op], executions: e, prescriptionEvents: near, debts: [d], people: [] }, ASOF, { policy: 'v2' });
+    const row1 = r1.rows.find(r => r.id === 'd-parc');
+    assert.equal(row1.prescKind, 'pedido_dado');
+    assert.equal(row1.group, 3);
+    assert.equal(row1.action.type, 'confirmar_vigencia');
+    assert.deepEqual(row1.action.eventIds, ['p']);
+    const old = [{ id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2020-01-01' }];
+    const r2 = buildPrazosRadar({ operations: [op], executions: e, prescriptionEvents: old, debts: [d], people: [] }, ASOF, { policy: 'v2' });
+    const row2 = r2.rows.find(r => r.id === 'd-parc');
+    assert.equal(row2.group, 2);
   });
 
   it('snooze rebaixa até until e fura se o grupo piorou ou o prazo passou', () => {

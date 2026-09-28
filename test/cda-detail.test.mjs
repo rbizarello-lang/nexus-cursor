@@ -49,9 +49,12 @@ describe('detalhe da inscrição — três colunas', () => {
     assert.ok(ord.occurrences.some(o => o.date === '2009-05-18' && o.fact === 'Inscrição' && /constituição não informada/i.test(o.effect)));
     assert.ok(ord.occurrences.some(o => o.date === '2009-11-10' && o.fact === 'Ajuizamento' && o.effect === 'interrompe'));
     assert.ok(!ord.occurrences.some(o => /Penhora|Parcelamento/.test(o.fact)));
-    assert.ok(ord.checks.some(c => c.text === 'Data de constituição definitiva não informada; o início usado é a inscrição.'));
+    assert.ok(ord.checks.some(c => /^Data de constituição definitiva não informada; o início usado é a inscrição\./.test(c.text)));
 
-    assert.equal(inter.seal, 'calculado');
+    // Parcelamento sem conferência desde a adesão: a data cedo presume o fim na adesão (A6).
+    assert.equal(inter.seal, 'faixa');
+    assert.equal(inter.band.cedo, '2023-01-28');
+    assert.match(inter.band.line, /Data cedo 28\/01\/2023 · data tarde pausado, sem termo/);
     assert.equal(inter.summary, 'Prazo pausado. Parcelamento vigente.');
     assert.match(inter.datesLine, /Início: sem ciência lançada/);
     assert.match(inter.datesLine, /Fim: —|sem termo/);
