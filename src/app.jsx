@@ -1645,6 +1645,8 @@ const getBriefingEntries = (briefing) => {
 // Catalogo e calculadora: src/lib/prescription.js (concatenado no build).
 const INTIM_STATUSES = {
   pendente_analise: { label: 'Pendente de Análise', badge: 'badge-yellow' },
+  em_analise: { label: 'Em Análise', badge: 'badge-blue' },
+  analise_concluida: { label: 'Análise Concluída', badge: 'badge-green' },
   aguardando_subsidios: { label: 'Aguardando Subsídios', badge: 'badge-muted' },
   aguardar: { label: 'Aguardar', badge: 'badge-muted' },
   peca_edicao: { label: 'Peça em Edição', badge: 'badge-green-strong' },
@@ -5128,6 +5130,8 @@ function App() {
   }, [activeOpId]);
   const [expandedCdas, setExpandedCdas] = useState(() => new Set()); // detalhe inline da CDA (Processos)
   const cdaFocusRef = useRef(null);
+  // Nexus Prumo: a aba Inscrições abre a CDA na ficha lateral (estado próprio), não em expandedCdas.
+  const [cdaFocus, setCdaFocus] = useState(null); // { id, n } | null
   const toggleCdaExpand = (id) => {
     setExpandedCdas(prev => {
       const n = new Set(prev);
@@ -7144,7 +7148,8 @@ function App() {
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery} cdaSort={cdaSort} setCdaSort={setCdaSort}
           setModal={setModal} setData={setData} togglePrescCheck={togglePrescCheck} bulkDelete={bulkDelete}
-          linkify={linkify} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />;
+          linkify={linkify} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup}
+          focusCda={cdaFocus} onFocusCdaDone={() => setCdaFocus(null)} />;
       }
       const allItems = getOpSlices(opId).debts;
       const allLinks = data.links?.cdaResponsibilities || [];
@@ -9212,8 +9217,11 @@ function App() {
     cdaFocusRef.current = d.id;
     cdaScrollColsRef.current = !!(opts && opts.scrollCols) || isDemo;
     setCdaPersonFilter('all');
+    setProcCdaQuery('');
     setCdaSort('status');
+    setCollapsedGroups(new Set());
     setExpandedCdas(new Set([d.id]));
+    setCdaFocus({ id: d.id, n: Date.now() });
     setActiveOpId(opId);
     setViewMode('operation');
     startTabSwitch(() => setActiveTab('dividas'));
@@ -9963,6 +9971,8 @@ function App() {
       return (
         <button type="button" key={g}
           className={`prazos-counter g${g}${pf.group === g ? ' active' : ''}`}
+          aria-pressed={pf.group === g}
+          title={pf.group === g ? 'Filtro ativo. Clique de novo para mostrar todos os grupos.' : 'Mostrar só este grupo'}
           onClick={() => setPrazosFilters({ group: pf.group === g ? 0 : g })}>
           <span className="prazos-counter-n">{n}</span>
           <span className="prazos-counter-l">{short}</span>
@@ -9988,6 +9998,13 @@ function App() {
         )}
       </span>
     );
+    // Coluna de data: diz o que a data é (termo, consumação), não só a data solta.
+    const keyText = (r) => {
+      if (!r.keyLabel || r.keyLabel === '—' || r.bandHit || !r.keyDate) return r.keyLabel || '—';
+      if (r.consumada) return 'consumada em ' + fmtDate(r.keyDate) + (/^estimado/.test(r.keyLabel) ? ' (estimado)' : '');
+      if (r.prescKind === 'vencido' || r.prescKind === 'iminente' || r.prescKind === 'correndo') return 'termo em ' + r.keyLabel;
+      return r.keyLabel;
+    };
     const renderCdaRow = (r) => {
       const open = openChecks(r.checks, r.prescChecks);
       const extra = open.length > 1 ? ' +' + (open.length - 1) : '';
@@ -9999,7 +10016,7 @@ function App() {
             <span className="prazos-cda-m">{[r.tribute, fmtCur(r.value || 0)].filter(Boolean).join(' · ')}</span>
           </span>
           <span className="prazos-sum">{isDemo ? betaSafeUiText(r.summary || r.prescLabel || r.why || '') : (r.summary || r.prescLabel || '—')}</span>
-          <span className="prazos-key" title={r.basis || undefined}>{r.keyLabel || '—'}{r.decisionNote ? <span className="prazos-seal" title={r.decisionNote}>análise diverge</span> : null}</span>
+          <span className="prazos-key" title={r.basis || undefined}>{keyText(r)}{r.decisionNote ? <span className="prazos-seal" title={r.decisionNote}>análise diverge</span> : null}</span>
           <span className="prazos-check">{open[0] ? ((isDemo ? betaSafeUiText(open[0].text) : open[0].text) + extra) : '—'}</span>
           <span className="prazos-inc">
             <span className={`prazos-dot ${r.incidentDot || 'none'}`}></span>
@@ -10019,6 +10036,11 @@ function App() {
           {counterBtn(5, 'Ainda impossível')}
           {counterBtn(6, 'Consumada')}
           {!!(t[7] && t[7].n) && counterBtn(7, 'Penhora antiga')}
+        </div>
+        <div className="prazos-showing">
+          {pf.group
+            ? <>Mostrando só: <strong>{({ 1: 'Urgentes', 2: 'A conferir', 3: 'A completar', 4: 'Acompanhamento', 5: 'Ainda impossível', 6: 'Consumada', 7: 'Penhora antiga' })[pf.group] || pf.group}</strong> · {rows.length} inscrição(ões){pf.group === 6 ? ' (inclui as consumadas há menos de 6 meses, que continuam em Urgentes)' : ''} <button type="button" className="btn-secondary btn-xs" onClick={() => setPrazosFilters({ group: 0 })}>Mostrar todos</button></>
+            : <>Mostrando todos os grupos, exceto Consumada · {rows.length} inscrição(ões). Clique num contador para filtrar.</>}
         </div>
         {!!prazosRadar.divergencias && (
           <div className="prazos-div">{prazosRadar.divergencias} divergência(s) entre a análise importada e o cálculo do app. O cálculo prevalece; lance o fato que justifica a análise.</div>
@@ -11376,7 +11398,7 @@ function App() {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('dragover')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); const id = e.dataTransfer.getData('text/plain'); if (id) handleDrop(id, statusKey); }}>
-                  <div className="kanban-col-header" style={{borderBottom:`2px solid ${statusKey==='pendente_analise'?'var(--yellow)':statusKey==='ciencia_renuncia'?'var(--green)':statusKey==='aguardar'?'var(--text-muted)':'#4ade80'}`}}>
+                  <div className="kanban-col-header" style={{borderBottom:`2px solid ${statusKey==='pendente_analise'?'var(--yellow)':statusKey==='em_analise'?'var(--blue)':statusKey==='ciencia_renuncia'?'var(--green)':statusKey==='aguardar'?'var(--text-muted)':'#4ade80'}`}}>
                     <span>{statusDef.label}</span>
                     <span className={`badge ${statusDef.badge}`}>{colItems.length}</span>
                   </div>
