@@ -1435,12 +1435,14 @@ const getRecursos = (rec) => {
     : [];
   return raw.map(r => ({ parte: 'nossa', ...r }));
 };
-// Cor da fase de recurso: pendente = amarelo; algum não provido = vermelho; todos providos = verde.
-// "Provido" vale tanto para o nosso recurso quanto para o da parte adversa.
+// Cor da fase de recurso: pendente = amarelo.
+// Nosso recurso provido = verde; não provido = vermelho.
+// Recurso da parte adversa provido = vermelho (desfavorável à Fazenda).
 const recursoColor = (recs) => {
   if (!recs.length) return 'var(--text-muted)';
   if (recs.some(r => r.outcome === 'pendente' || !r.outcome)) return 'var(--yellow)';
   if (recs.some(r => r.outcome === 'nao_provido')) return 'var(--red)';
+  if (recs.some(r => r.outcome === 'provido' && isRecursoAdverso(r))) return 'var(--red)';
   return 'var(--green)';
 };
 const stageRecColor = (rec) => !rec ? 'var(--text-muted)' : outcomeColor(rec.outcome);
@@ -1548,7 +1550,7 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
     const isMulti = !!sd.multiRecurso;
     const rs = isMulti ? getRecursos(rec) : [];
     const col = isMulti
-      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido') ? '#c03040' : '#207848')
+      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido' || (r.outcome === 'provido' && isRecursoAdverso(r))) ? '#c03040' : '#207848')
       : (rec.outcome === 'favoravel' || rec.outcome === 'provido') ? '#207848' : (rec.outcome === 'desfavoravel' || rec.outcome === 'nao_provido') ? '#c03040' : '#2860b0';
     let det;
     if (isMulti) {
@@ -13518,7 +13520,7 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
   const parteBtn = (r, ri, pk, pl) => {
     const on = (r.parte || 'nossa') === pk;
-    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — provido também fica verde' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
+    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — se provido, o sinal fica vermelho' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
   };
   const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome || isCustom));
   const field = { width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box' };

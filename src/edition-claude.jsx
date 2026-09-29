@@ -1753,7 +1753,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) evs.push({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage' }); });
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) evs.push({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: (r.outcome === 'provido' && isRecursoAdverso(r)) ? 'var(--cx-red)' : cxOutcomeColor(r.outcome), k: 'stage' }); });
       else { const d = toDayKey(rec.date); if (d) evs.push({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', decisive: !!rec.outcome }); }
     });
     const seen = new Set();
@@ -2768,7 +2768,7 @@ function EditionClaudeOpHeader(p) {
     </div>
     <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
       <button type="button" onClick={() => p.onTab('visao')}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
+      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}</button>)}
     </nav>
   </div>;
 }
@@ -4298,6 +4298,7 @@ function EditionClaudeProcessos(p) {
   const incValue = [...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const semVincValue = uncoveredVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
+  const naHeaderValue = unlinkedCdas.reduce((s, d) => s + (d.value || 0), 0);
   const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
 
   // Só uma ficha por vez: abrir a do processo fecha a da CDA e vice-versa.
@@ -4525,6 +4526,7 @@ function EditionClaudeProcessos(p) {
           <div className="cx-card-h" onClick={() => toggleCard('na')}>
             <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
             <span className="cx-muted cx-small">· sem processo</span>
+            <span className="cx-sp" /><span className="cx-mono cx-pt-r">{fmtCur(naHeaderValue)}</span>
           </div>
           {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead first="Inscrição" sig={false} counts={false} /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
