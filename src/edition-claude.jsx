@@ -4256,8 +4256,17 @@ function EditionClaudeProcessos(p) {
   const [sortBy, setSortBy] = React.useState('valor');
   const [drawerExecId, setDrawerExecId] = React.useState(null);
   const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null — exclusivo com drawerExecId
-  const [cardGroupSel, setCardGroupSel] = React.useState({ inc: 'all' });
-  const [bandsOn, setBandsOn] = React.useState(() => ({ ativa: true, suspensa: true, suspensa_parcelamento: true, arquivada: true, nao_ajuizada: true, extinta: false }));
+  const [showExtinct, setShowExtinct] = React.useState(false);
+  /* Faixas de situação recolhidas (linha de grupo clicável); lembrado entre sessões. */
+  const [bandsClosed, setBandsClosed] = React.useState(() => {
+    try { const v = JSON.parse(localStorage.getItem('nexus_cx_bands_closed') || 'null'); if (v && typeof v === 'object') return v; } catch (e) {}
+    return { suspensa: true, arquivada: true };
+  });
+  const toggleBand = (k) => setBandsClosed(prev => {
+    const n = { ...prev, [k]: !prev[k] };
+    try { localStorage.setItem('nexus_cx_bands_closed', JSON.stringify(n)); } catch (e) {}
+    return n;
+  });
   const [showMore, setShowMore] = React.useState({});
   const [collapsedCards, setCollapsedCards] = React.useState(() => new Set(['emb', 'out']));
   const [peopleOpen, setPeopleOpen] = React.useState(false);
@@ -4341,7 +4350,7 @@ function EditionClaudeProcessos(p) {
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
-  const GroupBlock = ({ groupKey, label, rows, extra, depth = 0 }) => {
+  const GroupBlock = ({ groupKey, label, rows, extra, depth = 0, collapsed = false, onToggle = null }) => {
     const sorted = [...rows].sort(cmp);
     const shown = showMore[groupKey] || 8;
     const visible = sorted.slice(0, shown);
@@ -4351,26 +4360,27 @@ function EditionClaudeProcessos(p) {
     const groupCdas = rows.flatMap(g => g.cdas || []);
     const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     return <React.Fragment>
-      {label && <tr className="cx-pt-band">
-        <td className="cx-pt-ck"></td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
+      {label && <tr className={'cx-pt-band' + (onToggle ? ' tgl' : '')} onClick={onToggle || undefined}>
+        <td className="cx-pt-ck">{onToggle && <span className="cx-chev sm" aria-hidden="true">{collapsed ? '▸' : '▾'}</span>}</td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
-      {visible.map((g, i) => <ProcRow key={rowKey(g)} g={g} depth={depth} isLast={i === visible.length - 1 && rest === 0} />)}
-      {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
+      {!collapsed && visible.map((g, i) => <ProcRow key={rowKey(g)} g={g} depth={depth} isLast={i === visible.length - 1 && rest === 0} />)}
+      {!collapsed && rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
       {extra}
     </React.Fragment>;
   };
 
   /* ── Cartão: Incidentes e execução de destaque ── */
   const incGroups = hubs.map(h => ({ h, covered: filterRows(coveredByHub[h.exec.id] || []) }));
-  const incSel = cardGroupSel.inc || 'all';
-  const incVisibleHubs = incSel === 'all' ? incGroups : incGroups.filter(x => x.h.exec.id === incSel);
+  const incVisibleHubs = incGroups;
   const isHubOpen = (id) => hubOpenOverride.hasOwnProperty(id)
     ? hubOpenOverride[id]
     : (incVisibleHubs.length === 1 || id === (hubs[0] && hubs[0].exec.id));
   const toggleHubOpen = (id) => setHubOpenOverride(prev => ({ ...prev, [id]: !isHubOpen(id) }));
+  const allHubsOpen = incGroups.length > 0 && incGroups.every(x => isHubOpen(x.h.exec.id));
+  const setAllHubsOpen = (open) => setHubOpenOverride(Object.fromEntries(incGroups.map(x => [x.h.exec.id, open])));
   /* Linha de grupo do hub (IDPJ/MCF/Central): fase atual, "cobre N EFs/apensos", sinais, subtotal e
      pior prescrição do próprio hub + tudo o que ele cobre (incl. apensos aninhados). Recolhível. */
   const HubGroupRow = ({ h, covered }) => {
@@ -4481,16 +4491,9 @@ function EditionClaudeProcessos(p) {
           <div className="cx-card-h" onClick={() => toggleCard('inc')}>
             <span className="cx-chev">{cardCollapsed('inc') ? '▸' : '▾'}</span><h5>Incidentes e execução de destaque</h5><span className="cx-count">{hubs.length}</span>
             <span className="cx-muted cx-small">· IDPJ, cautelar e central com as EFs cobertas</span>
+            {!cardCollapsed('inc') && hubs.length >= 4 && <button type="button" className="cx-link-btn cx-card-h-act" onClick={ev => { ev.stopPropagation(); setAllHubsOpen(!allHubsOpen); }}>{allHubsOpen ? 'recolher todos' : 'expandir todos'}</button>}
           </div>
           {!cardCollapsed('inc') && hubs.length > 0 && <>
-            <div className="cx-pp-grpbar">
-              <button type="button" className={incSel === 'all' ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: 'all' }))}>Todos <i>{hubs.length}</i></button>
-              {incGroups.map(({ h, covered }) => (
-                <button key={h.exec.id} type="button" className={incSel === h.exec.id ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: h.exec.id }))}>
-                  <em className={'cx-pd-kind ' + cxProcKind(h.exec).cls}>{cxProcKind(h.exec).label}</em>{h.exec.processNumber} <i>{covered.length} EFs · {fmtCur(cxEfMeta(h, prazosByDebt).total + covered.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))}</i>
-                </button>
-              ))}
-            </div>
             <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
               {incVisibleHubs.map(({ h, covered }) => <HubGroupRow key={h.exec.id} h={h} covered={covered} />)}
             </tbody></table></div>
@@ -4505,19 +4508,15 @@ function EditionClaudeProcessos(p) {
             <span className="cx-muted cx-small">· fora de IDPJ, cautelar e central</span>
           </div>
           {!cardCollapsed('semv') && <>
-            <div className="cx-pp-grpbar">
-              {EF_BANDS.map(b => (
-                <button key={b.key} type="button" className={bandsOn[b.key] ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, [b.key]: !s[b.key] }))}>{b.label} <i>{(semVincBands[b.key] || []).length}</i></button>
-              ))}
-            </div>
+            {uncoveredEFs.length === 0 && extinctVisible.length === 0 ? <div className="cx-empty-row">Nenhuma execução fora de IDPJ, cautelar e central.</div> :
             <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
-              {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => bandsOn[k] && (semVincBands[k] || []).length).map(k => {
+              {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => (semVincBands[k] || []).length).map(k => {
                 const bd = EF_BANDS.find(b => b.key === k);
-                return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} />;
+                return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} collapsed={!!bandsClosed[k]} onToggle={() => toggleBand(k)} />;
               })}
-              {bandsOn.extinta && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} />}
-              {!bandsOn.extinta && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setBandsOn(s => ({ ...s, extinta: true }))}>mostrar</button></td></tr>}
-            </tbody></table></div>
+              {showExtinct && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} onToggle={() => setShowExtinct(false)} />}
+              {!showExtinct && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setShowExtinct(true)}>mostrar</button></td></tr>}
+            </tbody></table></div>}
           </>}
         </section>
 

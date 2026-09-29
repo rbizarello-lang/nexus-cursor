@@ -4739,6 +4739,8 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .app-layout.edition-claude .cx-page { max-width: none; margin: 0; padding-left: 28px; padding-right: 28px; }
 /* Reserva o espaço da barra de rolagem (Windows) para a largura não mudar entre abas curtas e longas. */
 .app-layout.edition-claude .cx-tabpanel > .cx-page { flex: 1; min-height: 0; overflow-y: auto; width: 100%; }
+/* A página rola; os blocos dentro dela não encolhem (faixa de números cortada). */
+.app-layout.edition-claude .cx-tabpanel > .cx-page > * { flex-shrink: 0; }
 .app-layout.edition-claude :is(.cx-scroll, .cx-oph, .cx-tabpanel > .cx-page, .cx-tabpanel > .entity-area) { scrollbar-gutter: stable; }
 .app-layout.edition-claude .cx-oph { overflow-y: hidden; }
 @media (max-width: 900px) {
@@ -5222,6 +5224,9 @@ tr.cx-pt-row { cursor: pointer; }
 tr.cx-pt-row:hover td { background: var(--cx-hover); }
 tr.cx-pt-row.on td { background: var(--cx-accent-soft); }
 tr.cx-pt-band td { background: var(--cx-surface-2); font-size: 11.5px; padding-top: 6px; padding-bottom: 6px; }
+tr.cx-pt-band.tgl { cursor: pointer; }
+tr.cx-pt-band.tgl:hover td { background: var(--cx-hover); }
+.cx-card-h .cx-card-h-act { margin-left: auto; font-size: 11.5px; }
 tr.cx-pt-more td { padding: 6px 10px; }
 tr.cx-pt-more.dim td { color: var(--cx-ink-3); font-size: 11.5px; }
 .cx-pt-more .cx-link-btn { font-size: 11.5px; }
