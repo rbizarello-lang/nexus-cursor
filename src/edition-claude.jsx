@@ -3192,14 +3192,16 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
 
-  const openNew = () => { setDraftType('observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
+  const [pinNext, setPinNext] = React.useState(false);
+  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); setDraftType((opts && opts.type) || 'observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
   const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      setPinNext(false);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
         ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
@@ -3212,8 +3214,13 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
 
   React.useEffect(() => {
     if (!editRequestId) return;
-    const en = entries.find(e => e.id === editRequestId);
-    if (en) openEdit(en);
+    if (editRequestId === 'new') {
+      openNew({ pin: true, type: 'estrategia' });
+      setTimeout(() => { const el = document.querySelector('.cx-bf-diary'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 40);
+    } else {
+      const en = entries.find(e => e.id === editRequestId);
+      if (en) openEdit(en);
+    }
     if (onEditConsumed) onEditConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequestId]);
@@ -3231,7 +3238,7 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
       </select>
       <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
       <span className="cx-sp" />
-      <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
+      <button type="button" className="cx-btn sm ghost" onClick={() => { setComposer(null); setPinNext(false); }}>Cancelar</button>
       <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? '+ Adicionar' : 'Salvar'}</button>
     </div>
     <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
@@ -3459,7 +3466,11 @@ function EditionClaudeBriefing(p) {
               const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
               return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
             })}
-          </>) : null}
+          </>) : (
+            <div className="cx-bf-lead-empty">
+              <button type="button" className="cx-bf-ic" title="Editar a leitura" aria-label="Editar a leitura" onClick={() => setDiaryEditId('new')}><CxIcon n="edit" s={13} /></button>
+            </div>
+          )}
         </section>
 
         {/* Frentes processuais */}
@@ -3593,15 +3604,19 @@ function EditionClaudeBriefing(p) {
               </div>
             );
           })}
-          {semIncidenteEFs.length > 0 && (
+          {semIncidenteEFs.length > 0 && (() => {
+            const semOpen = isLaneOpen('sem-incidente');
+            return (
             <div className="cx-bf-lane quiet">
-              <div className="cx-bf-lane-h">
+              <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={semOpen}
+                onClick={() => toggleLane('sem-incidente')} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane('sem-incidente'); }}>
+                <span className="cx-chev cx-bf-lane-chev"><CxIcon n={semOpen ? 'chevD' : 'chevR'} s={13} /></span>
                 <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
                 <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
                 <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
                 <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
               </div>
-              <div className="cx-bf-quiet-list">
+              {semOpen && <div className="cx-bf-quiet-list">
                 {semIncidenteEFs.map(ef => (
                   <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
                     <span className="cx-mono">{ef.processNumber || '—'}</span>
@@ -3609,9 +3624,10 @@ function EditionClaudeBriefing(p) {
                     <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
                   </button>
                 ))}
-              </div>
+              </div>}
             </div>
-          )}
+            );
+          })()}
         </section>
 
         {/* Diário */}

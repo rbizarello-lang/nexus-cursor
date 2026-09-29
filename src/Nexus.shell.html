@@ -4977,6 +4977,8 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
   .cx-bf-rail { position: static; }
 }
 .cx-bf-lead { padding: 14px 16px; border-left: 3px solid var(--cx-green); }
+.cx-bf-lead-empty { display: flex; justify-content: flex-end; align-items: center; min-height: 22px; }
+.cx-bf-lead:has(.cx-bf-lead-empty) { padding: 4px 10px; }
 .cx-bf-lead-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .cx-bf-lead-txt { font-size: 14px; line-height: 1.55; }
 .cx-bf-lead-txt mark { background: var(--cx-yellow-soft); border-radius: 2px; padding: 0 2px; }
