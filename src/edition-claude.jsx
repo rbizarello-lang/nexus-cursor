@@ -1168,14 +1168,17 @@ function cxLoadDrawerBlocks() {
   return { ...CX_BLK_DEFAULTS };
 }
 function cxSaveDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function CxBlock({ title, summary, count, open, onToggle, children }) {
+function CxBlock({ title, summary, count, open, onToggle, aside, children }) {
   return <div className="cx-blk">
-    <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
-      <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
-      <span className="cx-blk-t">{title}</span>
-      {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
-      {count != null ? <span className="cx-blk-n">{count}</span> : null}
-    </button>
+    <div className="cx-blk-bar">
+      <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
+        <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+        <span className="cx-blk-t">{title}</span>
+        {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
+        {count != null ? <span className="cx-blk-n">{count}</span> : null}
+      </button>
+      {aside || null}
+    </div>
     {open ? <div className="cx-blk-b">{children}</div> : null}
   </div>;
 }
@@ -3545,7 +3548,7 @@ function EditionClaudeBriefing(p) {
                     );
                   })}
                   <span className="cx-bf-stp add">
-                    <button type="button" onClick={() => setAddMenu(addOpen ? null : front.id)}>+ Evento</button>
+                    <button type="button" title="Novo evento" aria-label="Novo evento" onClick={() => setAddMenu(addOpen ? null : front.id)}>+</button>
                     {addOpen && (<>
                       <div className="cx-menu-scrim" onClick={() => setAddMenu(null)} />
                       <div className="cx-menu-pop cx-bf-addmenu">
@@ -3565,6 +3568,22 @@ function EditionClaudeBriefing(p) {
                   const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
                   const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
                   const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
+                  const editNote = (idx, raw) => {
+                    const atu = presentAtuacaoProcessNote(raw);
+                    const seed = atu ? atu.text : String(raw || '');
+                    const t = prompt('Editar nota:', seed);
+                    if (t == null) return;
+                    const next = t.trim();
+                    if (!next) return;
+                    let stored = next;
+                    if (atu && atu.url) {
+                      const body = next.replace(/^Registro de atuação:\s*/, '').trim();
+                      stored = (body ? `Registro de atuação: ${body}` : 'Registro de atuação') + ` / Peça: ${atu.url}`;
+                    }
+                    const arr = rawNotes.slice();
+                    arr[idx] = stored;
+                    setNotes(arr);
+                  };
                   return (
                     <div className="cx-bf-work">
                       <div className="cx-bf-editphase-wrap">
@@ -3592,13 +3611,16 @@ function EditionClaudeBriefing(p) {
                         </button>
                       </div>
                       <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
-                        summary={cardNotes.length ? (presentAtuacaoProcessNote(cardNotes[cardNotes.length - 1].n)?.text || cardNotes[cardNotes.length - 1].n) : 'Nenhuma nota'}>
-                        <div className="cx-bf-work-k">
-                          <span>Notas do processo</span><span className="cx-sp" />
-                          <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
-                        </div>
+                        summary={cardNotes.length ? (presentAtuacaoProcessNote(cardNotes[cardNotes.length - 1].n)?.text || cardNotes[cardNotes.length - 1].n) : 'Nenhuma nota'}
+                        aside={<button type="button" className="cx-bf-ic" title="Adicionar nota" aria-label="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>}>
                         {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                          <div key={idx} className="cx-bf-note"><span>{renderProcessNote(n)}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
+                          <div key={idx} className="cx-bf-note">
+                            <span>{renderProcessNote(n)}</span>
+                            <span className="cx-bf-note-acts">
+                              <button type="button" className="cx-bf-ic" title="Editar nota" aria-label="Editar nota" onClick={() => editNote(idx, n)}><CxIcon n="edit" s={11} /></button>
+                              <button type="button" className="cx-bf-ic" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button>
+                            </span>
+                          </div>
                         )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
                       </CxBlock>
                       <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}
