@@ -59,6 +59,29 @@ function CxIcon({ n, s = 16, className = '', style }) {
   return <svg className={'cx-i ' + className} width={s} height={s} viewBox="0 0 24 24" aria-hidden="true" style={style} dangerouslySetInnerHTML={{ __html: CX_ICONS[n] || '' }} />;
 }
 
+function DocsPieceGlyph() {
+  return <svg className="nx-piece-glyph" width="15" height="15" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#4285F4" d="M37 45H11a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h19l10 10v29a3 3 0 0 1-3 3z" />
+    <path fill="#A8C7FA" d="M30 3v9a1 1 0 0 0 1 1h9z" />
+    <path fill="#fff" d="M15 23h18v2.2H15zm0 5h18v2.2H15zm0 5h12v2.2H15z" />
+  </svg>;
+}
+
+/** Texto da nota de atuação e, se houver peça, o ícone que abre o documento. */
+function AtuacaoNoteView({ text, url }) {
+  return <>
+    {text}
+    {url ? <>{' / Peça: '}<a className="nx-piece-link" href={url} target="_blank" rel="noopener noreferrer" title="Abrir peça" aria-label="Abrir peça" onClick={e => e.stopPropagation()}><DocsPieceGlyph /></a></> : null}
+  </>;
+}
+
+function renderProcessNote(note, linkify) {
+  const raw = typeof note === 'string' ? note : ((note && (note.text || note.content || note.body)) || '');
+  const atu = presentAtuacaoProcessNote(raw);
+  if (atu) return <AtuacaoNoteView text={atu.text} url={atu.url} />;
+  return linkify ? linkify(raw) : raw;
+}
+
 /* ─── Helpers de leitura (não gravam nada) ─── */
 const CX_DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const CX_DOW_L = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -3569,13 +3592,13 @@ function EditionClaudeBriefing(p) {
                         </button>
                       </div>
                       <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
-                        summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
+                        summary={cardNotes.length ? (presentAtuacaoProcessNote(cardNotes[cardNotes.length - 1].n)?.text || cardNotes[cardNotes.length - 1].n) : 'Nenhuma nota'}>
                         <div className="cx-bf-work-k">
                           <span>Notas do processo</span><span className="cx-sp" />
                           <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
                         </div>
                         {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                          <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
+                          <div key={idx} className="cx-bf-note"><span>{renderProcessNote(n)}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
                         )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
                       </CxBlock>
                       <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}

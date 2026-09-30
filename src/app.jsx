@@ -13,6 +13,7 @@ import {
 import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
+  presentAtuacaoProcessNote,
   clusterDuplicateExecutions,
   countExecutionReferences,
   getExecutionMergeConflicts,
@@ -5274,6 +5275,8 @@ function App() {
   }, [data.people]);
   const linkify = (text) => {
     if (!text || typeof text !== 'string') return text;
+    const atuacao = presentAtuacaoProcessNote(text);
+    if (atuacao) return <AtuacaoNoteView text={atuacao.text} url={atuacao.url} />;
     // Regex for: URL, process number, CNPJ, CPF
     const pattern = /(https?:\/\/[^\s<]+[^\s<.,;:!?)}\]'"])|(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})|(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})|(\d{3}\.\d{3}\.\d{3}-\d{2})/g;
     const parts = [];
