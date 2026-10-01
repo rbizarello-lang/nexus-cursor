@@ -2571,27 +2571,247 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
     </div>
   </div>;
 }
-/* Modos da página Linha do tempo. Hoje só o Panorama (M1); os próximos (Frentes · Prescrição · Narrativa) entram
-   aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, … }).
-   Com um modo só, o seletor fica escondido. */
-const CX_TL_MODES = [['panorama', 'Panorama']];
-const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama };
-function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
+/* Modos da página Linha do tempo: Panorama (M1, a régua) e Prescrição (M4, o relógio por CDA); o próximo (Narrativa)
+   entra aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, lead, … };
+   `lead` é o seletor de operação mais o seletor de modo, e a visão o coloca na própria barra de ferramentas).
+   Com um modo só, o seletor fica escondido. O modo escolhido é lembrado neste navegador. */
+const CX_TL_MODES = [['panorama', 'Panorama'], ['prescricao', 'Prescrição']];
+const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, prescricao: EditionClaudeTimelineClocks };
+const CX_TL_DESC = {
+  panorama: 'Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.',
+  prescricao: 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa de prazos; cada barra vale 5 anos (ou 1+5), então dá para comparar CDAs de idades diferentes. Clique numa CDA para abrir a ficha com a memória de cálculo.',
+};
+const CX_TL_MODE_STORE = 'nexus_cx_tl_mode';
+function cxTlLoadMode() { const m = cxLs(CX_TL_MODE_STORE, 'panorama'); return CX_TL_VIEWS[m] ? m : 'panorama'; }
+function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
-  const [mode, setMode] = React.useState('panorama');
+  const [mode, setModeS] = React.useState(cxTlLoadMode);
+  const setMode = (m) => { setModeS(m); cxLsSet(CX_TL_MODE_STORE, m); };
   const tl = React.useMemo(() => (op ? cxBuildTimeline(data, op, prescLookup) : null), [data, op, prescLookup]);
   const View = CX_TL_VIEWS[mode] || CX_TL_VIEWS.panorama;
   return <div className="cx cx-page cx-page-wide">
-    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
+    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>{CX_TL_DESC[mode] || CX_TL_DESC.panorama}</p></div>
       {op ? <div className="cx-acts"><button type="button" className="cx-btn" onClick={() => onOpenOp(op.id)}>Abrir operação<CxIcon n="chevR" s={13} /></button></div> : null}</div>
     {!op ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma operação ativa.</div></div> : <>
-      <View key={op.id + '|' + mode} tl={tl} op={op} lead={<>
+      <View key={op.id + '|' + mode} tl={tl} op={op} data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} lead={<>
         <CxSelect id="cx-tl-op" pre="Operação" value={op.id} onChange={setOpId} options={ops.map(o => [o.id, cxOpName(o)])} />
         {CX_TL_MODES.length > 1 ? <CxSeg className="lg" label="Modo" value={mode} onChange={setMode} options={CX_TL_MODES} /> : null}
       </>} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />
     </>}
   </div>;
+}
+
+/* ═════════════════════ Relógio da prescrição por CDA (M4) ═════════════════════
+   "Quanto tempo falta, CDA por CDA? O que já parou ou zerou o relógio, e o que eu precisaria fazer para reiniciá-lo?"
+   Vive em dois lugares: Prazos extintivos (visão "Relógios", todas as operações ou uma) e a Linha do tempo (modo
+   Prescrição, uma operação). Tudo sai do motor e da Mesa (src/lib/clocks.js): onde a Mesa lista a CDA, o termo e os dias
+   são os dela. A barra é normalizada (5 anos, ou 1+5): dá para comparar CDAs de idades diferentes; o calendário de
+   termos mostra as datas absolutas. "E se eu ajuizar hoje?" roda o motor com um ajuizamento hipotético, só na tela. */
+const CX_CLK_TONE = { red: 'var(--cx-red)', orange: 'var(--cx-orange)', yellow: 'var(--cx-yellow)', green: 'var(--cx-green)', cyan: 'var(--cx-cyan)', grey: 'var(--cx-ink-3)' };
+const cxClkTone = (group) => CX_CLK_TONE[(CLK_GROUPS.find(g => g.key === group) || {}).tone] || 'var(--cx-ink-3)';
+const CX_CLK_SIM_TIP = 'Roda o motor de prescrição com um ajuizamento hoje (despacho que ordena a citação), só nesta tela. Nada é gravado.';
+function cxClkCountdown(c) {
+  if (c.kind === 'orig') {
+    const d = c.termDays;
+    if (d == null) return { big: '—', sm: '' };
+    if (d < 0) return { big: 'vencida', sm: tlDurLabel(d) + (c.estimated ? ' (estimado)' : ''), cls: 'late' };
+    return { big: d === 0 ? 'hoje' : d < 366 ? d + (d === 1 ? ' dia' : ' dias') : tlDurLabel(d), sm: 'para ajuizar' + (c.estimated ? ' (est.)' : '') };
+  }
+  if (c.kind === 'inter') {
+    const d = c.termDays;
+    if (d != null && d < 0) return { big: 'vencida', sm: tlDurLabel(d) + (c.estimated ? ' (estimado)' : ''), cls: 'late' };
+    return { big: d == null ? '—' : tlDurLabel(d), sm: 'de prescrição intercorrente' };
+  }
+  if (c.kind === 'parc') {
+    const since = c.since ? tlDurLabel(-daysUntil(c.since)) : '';
+    return { big: 'parado', sm: c.cause === 'pausa' ? 'pausa da exigibilidade' : (since ? since + ' de parcelamento' : 'parcelamento vigente'), small: true };
+  }
+  if (c.kind === 'piso') return { big: c.floor ? c.floor.slice(0, 4) : '—', sm: 'piso · ' + (c.floorDays != null ? tlDurLabel(c.floorDays) : ''), small: true };
+  return { big: '—', sm: 'falta dado', small: true };
+}
+function CxClkBar({ c, todayIso }) {
+  const tone = cxClkTone(c.group);
+  const pc = (a, b, x) => clkPct(a, b, x) * 100;
+  let trk = null, left = null, right = null, hojeP = null, hojeTxt = 'HOJE', term = null;
+  if (c.kind === 'orig') {
+    const p = pc(c.start, c.term, todayIso), late = c.termDays != null && c.termDays < 0;
+    hojeP = p; hojeTxt = 'HOJE · ' + (late ? '100' : Math.round(p)) + '%';
+    trk = <><div className={'cx-clk-fill' + (late ? ' late' : '')} style={{ width: p + '%' }} />{[20, 40, 60, 80].map(t => <i key={t} className="cx-clk-tk" style={{ left: t + '%' }} />)}</>;
+    left = <>{c.startKnown ? 'constituição' : 'início estimado'} <b>{fmtDate(c.start)}</b></>;
+    right = <>{c.estimated ? 'termo estimado' : 'termo'} <b>{fmtDate(c.term)}</b></>;
+    term = <CxTlGlyph kind="presc" c={tone} s={20} />;
+  } else if (c.kind === 'inter') {
+    const p = pc(c.start, c.term, todayIso);
+    hojeP = p;
+    trk = <>{c.segs.map((s, i) => {
+      const a = pc(c.start, c.term, s.from), b = pc(c.start, c.term, s.to);
+      if (s.t === 'susp') return <div key={i} className="cx-clk-sg susp" style={{ left: a + '%', width: Math.max(0.6, b - a) + '%' }} />;
+      return <React.Fragment key={i}><div className="cx-clk-sg rest" style={{ left: a + '%', width: Math.max(0, b - a) + '%' }} /><div className={'cx-clk-fill' + (c.termDays < 0 ? ' late' : '')} style={{ left: a + '%', width: Math.max(0, Math.min(p, b) - a) + '%' }} /></React.Fragment>;
+    })}{[1, 2, 3, 4, 5].map(t => <i key={t} className="cx-clk-tk" style={{ left: (t / 6 * 100) + '%' }} />)}</>;
+    left = <>marco <b>{fmtDate(c.start)}</b> · 1 ano de suspensão</>;
+    right = <>{c.estimated ? 'termo estimado' : 'termo'} <b>{fmtDate(c.term)}</b></>;
+    term = <CxTlGlyph kind="presc" c={tone} s={20} />;
+  } else if (c.kind === 'parc') {
+    hojeP = 46;
+    trk = <><div className="cx-clk-sg parc" style={{ left: 0, width: '46%' }} /><div className="cx-clk-sg ghost" style={{ left: '46%', right: 0 }} /></>;
+    left = c.since ? <>vigente desde <b>{fmtDate(c.since)}</b> · {tlDurLabel(-daysUntil(c.since))}</> : <><b>{c.cause === 'pausa' ? 'pausa vigente' : 'parcelamento vigente'}</b></>;
+    right = c.cause === 'pausa' ? <>volta a correr <b>quando a pausa terminar</b></> : <>novo quinquênio <b>só na rescisão</b></>;
+  } else if (c.kind === 'piso') {
+    const a = (c.anchor && c.anchor.iso) || addCalendarYears(c.floor, -6);
+    const p = Math.max(1.4, pc(a, c.floor, todayIso));
+    hojeP = p;
+    trk = <><div className="cx-clk-sg cyan" style={{ left: 0, width: p + '%' }} /><div className="cx-clk-sg rest" style={{ left: p + '%', right: 0 }} />{[1, 2, 3, 4, 5].map(t => <i key={t} className="cx-clk-tk" style={{ left: (t / 6 * 100) + '%' }} />)}</>;
+    const ak = c.anchor && CX_FLOOR_KIND[c.anchor.kind];
+    left = c.anchor ? <>{ak ? ak : 'ato'} <b>{fmtDate(c.anchor.iso)}</b> encerrou o ciclo{c.simulated ? <> · <b className="cx-clk-simtx">cenário simulado</b></> : null}</> : <>sem relógio ativo</>;
+    right = <>piso <b>{fmtDate(c.floor)}</b> · só há risco depois de novo marco</>;
+    term = <CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={20} />;
+  } else {
+    trk = <div className="cx-clk-sg ghost" style={{ left: 0, right: 0 }} />;
+    left = <>faltam dados para calcular o relógio</>;
+  }
+  return <div className="cx-clk-bar">
+    <div className="cx-clk-trk">
+      <div className="cx-clk-tr">{trk}</div>
+      {hojeP != null ? <div className="cx-clk-hoje" style={{ left: hojeP + '%' }}><span>{hojeTxt}</span></div> : null}
+      {term ? <span className="cx-clk-term">{term}</span> : null}
+    </div>
+    <div className="cx-clk-lbs"><span>{left}</span>{right ? <span className="r">{right}</span> : null}</div>
+  </div>;
+}
+function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpenCda, onOpenProc }) {
+  const todayIso = localIso(new Date());
+  const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '' }), [data, prazosRadar, prescLookup, opId, todayIso]);
+  const [sims, setSims] = React.useState({});
+  const [simErr, setSimErr] = React.useState({});
+  const [fontTick, setFontTick] = React.useState(0);
+  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  React.useEffect(() => { setSims({}); setSimErr({}); }, [opId, data]);
+  const clocks = React.useMemo(() => clkSort(res.clocks.map(c => (sims[c.id] ? clkApplySim(c, sims[c.id], todayIso) : c))), [res, sims, todayIso]);
+  const kpis = React.useMemo(() => clkKpis(clocks, todayIso), [clocks, todayIso]);
+  const strip = React.useMemo(() => clkStrip(clocks, todayIso), [clocks, todayIso]);
+  const byId = React.useMemo(() => { const m = new Map(); clocks.forEach(c => m.set(c.id, c)); return m; }, [clocks]);
+  const tip = useCxTip(React.useCallback((key) => {
+    const c = byId.get(key.replace(/^clk\|/, '')); if (!c) return null;
+    const d = c.kind === 'piso' ? c.floor : c.term;
+    const g = CLK_GROUPS.find(x => x.key === c.group);
+    const dd = d ? daysUntil(d) : null;
+    return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [cxOpName({ name: c.opName }) + ' · ' + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
+  }, [byId]));
+  const open = (c) => {
+    if (c.n > 1 && c.executionId) onOpenProc && onOpenProc(c.executionId);
+    else onOpenCda && onOpenCda({ id: c.leadId, operationId: c.operationId });
+  };
+  const toggleSim = (c) => {
+    if (sims[c.id]) { setSims(prev => { const n = { ...prev }; delete n[c.id]; return n; }); return; }
+    const out = clkSimulateFiling({ debt: c.debt, executions: data.executions || [], events: data.prescriptionEvents || [], today: todayIso });
+    if (!out.ok) { setSimErr(prev => ({ ...prev, [c.id]: out.reason })); return; }
+    setSimErr(prev => { const n = { ...prev }; delete n[c.id]; return n; });
+    setSims(prev => ({ ...prev, [c.id]: out }));
+  };
+  /* ── calendário de termos ── */
+  const W = 1100, X0 = 24, X1 = 1066, MY = 108;
+  const total = Math.max(1, daysBetween(strip.from, strip.to));
+  const xo = (iso) => X0 + Math.max(0, daysBetween(strip.from, iso)) / total * (X1 - X0);
+  const ptTxt = (p) => String(p.number).slice(-9) + ' · ' + (p.kind === 'piso' ? 'piso ' : '') + cxDM(p.d) + '/' + p.d.slice(2, 4) + (p.n > 1 ? ' +' + (p.n - 1) : '');
+  const overdueN = strip.overdue;
+  const overdueTxt = overdueN ? cxPl(overdueN, 'termo já vencido', 'termos já vencidos') : '';
+  const lay = React.useMemo(() => {
+    const items = strip.points.filter(p => p.d >= strip.from).map((p, i) => ({ id: p.id, x: xo(p.d), w: cxTlMeasure(ptTxt(p), 10.5) + 6, prio: i + 1 }));
+    if (strip.overdue) items.push({ id: '__overdue__', x: X0, w: cxTlMeasure(overdueTxt, 10.5) + 6, prio: 0 });
+    return tlLayoutLabels(items, { minX: X0 - 8, maxX: W - 6, levels: 4, pad: 4, gap: 4 });
+  }, [strip, fontTick]);
+  const placed = new Map(lay.placed.map(p => [p.id, p]));
+  const legend = <div className="cx-tl-legend cx-clk-leg">
+    <span className="cx-tl-leg-h">Leitura</span>
+    <span><i className="cx-lg-sw cx-clk-sw fill" />Tempo decorrido</span>
+    <span><i className="cx-lg-sw cx-clk-sw rest" />Tempo restante</span>
+    <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano (art. 40)</span>
+    <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento ou pausa vigente</span>
+    <span><i className="cx-lg-sw cx-clk-sw cyan" />Piso: só há risco depois de novo marco</span>
+    <span><CxTlGlyph kind="presc" c="var(--cx-violet)" s={14} />termo<CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={14} />piso</span>
+  </div>;
+  const groups = CLK_GROUPS.map(g => ({ g, rows: clocks.filter(c => c.group === g.key) })).filter(x => x.rows.length);
+  const mon = (v) => cxMoneyShort(v);
+  const empty = !clocks.length;
+  return <div className="cx-clk" {...tip.bind}>
+    {lead ? <div className="cx-tl-tools">{lead}</div> : null}
+    {empty ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA com relógio a mostrar{opId ? ' nesta operação' : ''}.{res.consumadas ? ' ' + cxPl(res.consumadas, 'consumada está', 'consumadas estão') + ' em Consumadas.' : ''}</div></div> : <>
+      <div className="cx-clk-kpis">
+        <div className="cx-clk-kpi"><span className="l">Próximo termo</span>
+          <span className={'v' + (kpis.next && kpis.next.days <= 90 ? ' red' : '')}>{kpis.next ? (kpis.next.days === 0 ? 'hoje' : cxPl(kpis.next.days, 'dia', 'dias')) : '—'}</span>
+          <span className="s">{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + ' · ' + cxOpName({ name: kpis.next.opName }) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</span></div>
+        <div className="cx-clk-kpi"><span className="l">Termo em até 1 ano</span>
+          <span className="v">{kpis.near.cdas ? mon(kpis.near.value) : '—'}</span>
+          <span className="s">{cxPl(kpis.near.cdas, 'CDA', 'CDAs')} com relógio em curso</span></div>
+        <div className="cx-clk-kpi"><span className="l">Relógio parado</span>
+          <span className="v grn">{cxPl(kpis.parc.cdas, 'CDA', 'CDAs')}</span>
+          <span className="s">{kpis.parc.cdas ? mon(kpis.parc.value) + ' · recomeça na rescisão' : 'nenhum parcelamento ou pausa'}</span></div>
+        <div className="cx-clk-kpi"><span className="l">Sem relógio ativo · piso</span>
+          <span className="v cy">{kpis.piso.cdas ? mon(kpis.piso.value) : '—'}</span>
+          <span className="s">{kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'}</span></div>
+      </div>
+      <section className="cx-card cx-clk-strip" aria-label="Calendário dos termos">
+        <svg viewBox={'0 0 ' + W + ' 138'} role="img" aria-label="Calendário dos termos de prescrição">
+          <text x={X0} y="13" className="cx-clk-cap">CALENDÁRIO DOS TERMOS · HOJE → {strip.to.slice(0, 4)} · hexágono cheio = termo, vazado = piso</text>
+          <line x1={X0} x2={X1} y1={MY + 8} y2={MY + 8} stroke="var(--cx-line-strong)" />
+          {strip.years.map(y => { const x = xo(y === +strip.from.slice(0, 4) ? strip.from : y + '-01-01'); return <g key={y}><line x1={x} x2={x} y1={MY + 4} y2={MY + 12} stroke="var(--cx-line-strong)" /><text x={x + 4} y={MY + 26} className="cx-clk-yr">{y}</text></g>; })}
+          {strip.points.filter(p => p.d >= strip.from).map(p => {
+            const pl = placed.get(p.id);
+            const x = xo(p.d), col = p.kind === 'piso' ? 'var(--cx-cyan)' : cxClkTone(p.group);
+            return <g key={p.id}>
+              {pl ? <><line x1={x} x2={x} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" />
+                <text x={pl.anchor === 'end' ? pl.x1 - 2 : pl.x0 + 2} y={MY - 16 - pl.level * 15} textAnchor={pl.anchor} className={'cx-clk-pl' + (p.kind === 'piso' ? ' piso' : '')}>{ptTxt(p)}</text></> : null}
+              <g transform={'translate(' + (x - 8) + ',' + (MY - 8) + ')'} data-tl={'clk|' + p.id} className="cx-clk-pt" tabIndex={0} role="button" aria-label={'CDA ' + p.number + ' · ' + fmtDate(p.d)} onClick={() => { const c = byId.get(p.id); if (c) open(c); }} onKeyDown={e => { if (e.key === 'Enter') { const c = byId.get(p.id); if (c) open(c); } }}>
+                <rect x="-4" y="-4" width="24" height="24" fill="transparent" />
+                <CxTlGlyph kind="presc" c={col} hollow={p.kind === 'piso'} s={16} />
+              </g>
+            </g>;
+          })}
+          {overdueN ? (() => { const pl = placed.get('__overdue__'); return <g>
+            {pl ? <><line x1={X0} x2={X0} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" /><text x={pl.x0 + 2} y={MY - 16 - pl.level * 15} className="cx-clk-pl late">{overdueTxt}</text></> : null}
+            <g transform={'translate(' + (X0 - 8) + ',' + (MY - 8) + ')'}><CxTlGlyph kind="presc" c="var(--cx-red)" s={16} /></g>
+          </g>; })() : null}
+          <line x1={X0} x2={X0} y1="20" y2={MY + 8} stroke="var(--cx-accent)" strokeWidth="1.5" />
+          <text x={X0 + 5} y="30" className="cx-clk-hj">HOJE</text>
+        </svg>
+        {lay.dropped.length ? <div className="cx-clk-drop">+{lay.dropped.length} sem rótulo (passe o mouse no hexágono)</div> : null}
+      </section>
+      {groups.map(({ g, rows }) => <section key={g.key} aria-label={g.label}>
+        <div className="cx-clk-g"><i style={{ background: cxClkTone(g.key) }} />{g.label}<span className="ln" /><span>{rows.length}</span></div>
+        {rows.map(c => {
+          const cd = cxClkCountdown(c);
+          const tone = c.simulated ? 'var(--cx-cyan)' : cxClkTone(c.group);
+          const cert = c.hasRow ? mesaCertainty(c.row) : '';
+          const simDisabled = c.kind === 'orig' && c.termDays != null && c.termDays < 0;
+          const canSim = c.kind === 'orig' || c.simulated;
+          return <div key={c.id} className="cx-clk-row" style={{ '--c': tone }} role="button" tabIndex={0} onClick={() => open(c)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) open(c); }}
+            title={c.n > 1 ? c.cdaNumbers.join(' · ') : undefined}>
+            <div className="cx-clk-id">
+              <div className="n cx-mono">{c.leadNumber}{c.n > 1 ? <span className="more"> +{c.n - 1}</span> : null}</div>
+              <div className="m"><span className="cx-op-tag"><CxOpSquare opId={c.operationId} /><span className="cx-ell">{cxOpName({ name: c.opName })}</span></span>{c.tribute ? <span>· {c.tribute}</span> : null}<b>{mon(c.value)}</b></div>
+              <div className="m">{c.processNumber ? <CxProc num={c.processNumber} /> : <span className="cx-muted">sem processo</span>}
+                {c.simulated ? <span className="cx-tag cyan">simulado</span> : null}
+                {cert && !c.simulated ? <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span> : null}</div>
+            </div>
+            <CxClkBar c={c} todayIso={todayIso} />
+            <div className={'cx-clk-cd' + (cd.cls ? ' ' + cd.cls : '')}><div className={'big' + (cd.small ? ' sm' : '')}>{cd.big}</div><div className="sm">{cd.sm}</div></div>
+            <div className="cx-clk-act">
+              {canSim ? <button type="button" className="cx-btn sm" disabled={simDisabled} aria-pressed={!!c.simulated} title={simDisabled ? 'O termo já passou: ajuizar hoje não reinicia o prazo. Confira nos autos.' : c.simulated ? 'Voltar ao relógio real' : CX_CLK_SIM_TIP} onClick={e => { e.stopPropagation(); toggleSim(c); }}>{c.simulated ? 'Desfazer simulação' : 'E se eu ajuizar hoje?'}</button> : null}
+              {simErr[c.id] ? <span className="small cx-red-t" role="status">{simErr[c.id]}</span> : null}
+              <span className="small cx-muted">{c.simulated ? 'nada foi gravado' : c.kind === 'orig' ? 'ajuizar' : c.kind === 'parc' ? 'acompanhar rescisão' : c.kind === 'inter' ? 'monitorar' : c.kind === 'piso' ? 'aguardar novo marco' : 'completar o cadastro'}</span>
+            </div>
+          </div>;
+        })}
+      </section>)}
+      {legend}
+      <p className="cx-clk-foot">{res.tratadas ? cxPl(res.tratadas, 'CDA tratada fica', 'CDAs tratadas ficam') + ' fora do relógio. ' : ''}{res.consumadas ? cxPl(res.consumadas, 'prescrição consumada está', 'prescrições consumadas estão') + ' em Consumadas, para análise.' : ''} Termos e dias são os mesmos da Mesa de prazos; o piso é o que a calculadora garante até haver novo marco, não um prazo a cumprir.</p>
+    </>}
+    {tip.node}
+  </div>;
+}
+function EditionClaudeTimelineClocks({ op, lead, data, prazosRadar, prescLookup, onOpenCda, onOpenProc }) {
+  return <EditionClaudeClocks data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} opId={op.id} lead={lead} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
 }
 
 /* ═════════════════════ Horizonte de 90 dias (M5) ═════════════════════
@@ -2912,6 +3132,9 @@ function EditionClaudePrazos(p) {
   const [restOpen, setRestOpen] = React.useState(false);
   const [penOpen, setPenOpen] = React.useState(false);
   const [silOpen, setSilOpen] = React.useState(false);
+  /* Visão da página: a Mesa (padrão, a lista de sempre) ou os Relógios por CDA (M4). Lembrada neste navegador. */
+  const [view, setViewS] = React.useState(() => (cxLs('nexus_cx_prazos_view', 'mesa') === 'relogios' ? 'relogios' : 'mesa'));
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_prazos_view', v); };
   const today = localIso(new Date());
   const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   let rows = [...(prazosRadar.rows || [])];
@@ -2934,14 +3157,23 @@ function EditionClaudePrazos(p) {
   const needs = split.needsYou.concat(split.overCap);
   const needsValue = needs.reduce((s, r) => s + (r.value || 0), 0);
   const restByGroup = [1, 2, 3, 4].map(g => ({ g, rows: split.rest.filter(r => r.group === g) })).filter(x => x.rows.length);
-  return <div className="cx cx-page">
-    <div className="cx-page-h">
-      <div><h1>Prazos extintivos</h1><p>Vermelho só no que pede ato hoje. O resto fica à vista, contado e sem alarme. Nada some: o que sai da fila vai para Silenciados, com data para voltar.</p></div>
+  const head = <div className="cx-page-h">
+      <div><h1>Prazos extintivos</h1><p>{view === 'relogios' ? 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa; a barra de cada CDA vale 5 anos (ou 1+5), para comparar CDAs de idades diferentes.' : 'Vermelho só no que pede ato hoje. O resto fica à vista, contado e sem alarme. Nada some: o que sai da fila vai para Silenciados, com data para voltar.'}</p></div>
       <div className="cx-acts">
         <button type="button" className="cx-btn ghost" onClick={p.onOpenRules}><CxIcon n="book" s={14} />Regras</button>
-        <CxSeg className="lg" label="Modo" value="mesa" onChange={v => { if (v === 'lista') p.onLista(); }} options={[['mesa', 'Mesa de prazos'], ['lista', 'Lista completa']]} />
+        <CxSeg className="lg" label="Modo" value={view} onChange={v => { if (v === 'lista') p.onLista(); else setView(v); }} options={[['mesa', 'Mesa de prazos'], ['relogios', 'Relógios'], ['lista', 'Lista completa']]} />
       </div>
-    </div>
+    </div>;
+  if (view === 'relogios') {
+    return <div className="cx cx-page cx-page-wide">
+      {head}
+      <EditionClaudeClocks data={data} prazosRadar={prazosRadar} prescLookup={a.presc} opId={pf.operationId || ''}
+        lead={<CxSelect id="cx-pz-op" pre="Operação" value={pf.operationId || ''} onChange={v => setPf({ operationId: v, personId: 'all' })} options={[['', 'Todas']].concat(opsOpen.map(o => [o.id, cxOpName(o)]))} />}
+        onOpenCda={p.onOpenCdaDrawer || ((r) => a.openCda(r))} onOpenProc={p.onOpenProcDrawer} />
+    </div>;
+  }
+  return <div className="cx cx-page">
+    {head}
     <div className="cx-pz-sum">
       <button type="button" className="cx-pz-tile need" onClick={() => document.getElementById('cx-pz-need') && document.getElementById('cx-pz-need').scrollIntoView({ behavior: 'smooth', block: 'start' })}>
         <span className="cx-pz-l">Precisa de você</span><span className="cx-pz-v">{needs.length}</span><span className="cx-pz-s">{needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nada exige decisão agora'}</span>
