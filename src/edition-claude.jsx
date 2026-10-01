@@ -1726,6 +1726,7 @@ function cxExecTag(e) {
   if (e.processTag === 'idpj') return 'IDPJ';
   if (e.processTag === 'cautelar_fiscal') return 'MCF';
   if (e.processTag === 'central') return 'CENTRAL';
+  if (e.processTag === 'peticao_incidente_ef') return 'INC';
   const c = cxNorm(e.className);
   if (c.includes('embargos')) return 'EMB';
   if (c.includes('agravo') || c.includes('apela') || c.includes('recurso')) return 'REC';
@@ -1738,7 +1739,7 @@ function cxTagColor(e) {
   const t = cxExecTag(e);
   if (t === 'EMB' || t === 'EXC') return 'var(--cx-orange)';
   if (t === 'REC') return 'var(--cx-blue)';
-  if (t === 'EF') return 'var(--cx-cyan)';
+  if (t === 'EF' || t === 'INC') return 'var(--cx-cyan)';
   return 'var(--cx-ink-3)';
 }
 function cxEvColor(type) {
@@ -3356,7 +3357,7 @@ function EditionClaudeBriefing(p) {
   const panoEFs = opExecs.filter(isUserPanoramaEf);
   const fronts = [...idpjs, ...centrais, ...panoEFs];
   const coverage = computeIncidentCoverage(opExecs, opDebts);
-  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && !isPeticaoIncidenteEf(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
   const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
   const panoCoveredIds = new Set();
   idpjs.forEach(ip => (coverage.efsByIncident[ip.id] || []).forEach(ef => panoCoveredIds.add(ef.id)));
@@ -3802,6 +3803,7 @@ function cxProcKind(exec) {
   if (exec.processTag === 'idpj') return { label: 'IDPJ', cls: 'idpj' };
   if (exec.processTag === 'cautelar_fiscal') return { label: 'MCF', cls: 'idpj' };
   if (exec.processTag === 'central') return { label: 'Central', cls: 'cen' };
+  if (exec.processTag === 'peticao_incidente_ef') return { label: 'Incidente', cls: 'ef' };
   if (isExecucaoFiscalClass(exec)) return { label: 'EF', cls: 'ef' };
   const bucket = otherProcBucket(exec);
   if (bucket === 'recursos') return { label: (otherSpecies(exec).code || 'Recurso'), cls: 'rec' };
