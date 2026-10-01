@@ -5015,6 +5015,16 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-ua-p { font-size: 11px; color: var(--cx-ink-3); white-space: nowrap; }
 .cx-ua-l { align-self: center; display: inline-flex; justify-content: center; }
 .cx-ua-more { display: flex; align-items: center; gap: 10px; padding: 6px 10px 8px 14px; border-top: 1px solid var(--cx-line); }
+/* Atuação proativa: formulário (texto longo colado) e leitura — gavetas um pouco mais largas */
+.cx-drawer.cx-atu { width: min(720px, 100%); }
+.cx-atu-form { display: flex; flex-direction: column; gap: 14px; }
+.cx-atu-form label { font-size: 11.5px; color: var(--cx-ink-3); display: flex; flex-direction: column; gap: 5px; }
+.cx-atu-form .cx-atu-date .cx-input { width: 180px; }
+.cx-atu-form textarea.cx-atu-peca { min-height: 300px; font-size: 12.5px; line-height: 1.5; resize: vertical; }
+.cx-atu-sum { white-space: pre-wrap; font-size: 13px; margin: 0; }
+.cx-atu-tools { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.cx-atu-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 56vh; overflow-y: auto; font-size: 12.5px; line-height: 1.55; color: var(--cx-ink); background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 8px; padding: 10px 12px; }
+.cx-a.cx-a-flush { margin-left: 0; }
 @media (max-width: 900px) {
   .cx-ua-row { grid-template-columns: 74px minmax(0, 1fr) 18px; row-gap: 3px; }
   .cx-ua-chip { grid-column: 2; grid-row: 1; }

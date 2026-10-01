@@ -3375,6 +3375,7 @@ function EditionClaudeBriefing(p) {
   const [laneMenu, setLaneMenu] = React.useState(null); // execId
   const [linkAdd, setLinkAdd] = React.useState(false);
   const [diaryEditId, setDiaryEditId] = React.useState(null);
+  const [proView, setProView] = React.useState(null); // { execId, actionId } — leitura de uma atuação proativa
 
   const setRec = (execId, sk, patch) => cxStageSetRec(op, upsert, execId, sk, patch);
   const delRec = (execId, sk) => cxStageDelRec(op, upsert, execId, sk);
@@ -3691,7 +3692,13 @@ function EditionClaudeBriefing(p) {
 
         {/* Últimas atuações */}
         <EditionClaudeUltimasAtuacoes op={op} data={data} onOpenIntim={p.onOpenIntim}
-          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} />
+          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+          onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
+        {proView && (() => {
+          const ex = (data.executions || []).find(x => x.id === proView.execId);
+          const act = ex && (ex.proactiveActions || []).find(x => x.id === proView.actionId);
+          return act ? <EditionClaudeAtuacaoView exec={ex} action={act} onClose={() => setProView(null)} /> : null;
+        })()}
 
         {/* Diário */}
         <section className="cx-card">
@@ -3841,13 +3848,132 @@ function cxSortCdasByPresc(cdas, prazosByDebt) {
   });
 }
 
+/* ═════════════ Atuação proativa (ficha do processo) ═════════════
+   "Registrar atuação" no rodapé da ficha do processo: o que o usuário fez por conta própria, sem
+   intimação. Gaveta (e não janela) porque o campo da peça recebe um texto longo colado. A gravação —
+   nota no card do processo, execution.proactiveActions e, com link, o documento em Arquivos — é de
+   planProactiveAction (src/lib/atuacoes.js), chamada por EditionClaudeProcDrawer. */
+function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
+  const [date, setDate] = React.useState(() => localIso(new Date()));
+  const [summary, setSummary] = React.useState('');
+  const [pecaText, setPecaText] = React.useState('');
+  const [pecaUrl, setPecaUrl] = React.useState('');
+  const [err, setErr] = React.useState('');
+  const summaryRef = React.useRef(null);
+  const dirty = !!(summary.trim() || pecaText.trim() || pecaUrl.trim());
+  const dirtyRef = React.useRef(false);
+  dirtyRef.current = dirty;
+  // Um clique ou Esc sem querer não pode jogar fora um texto longo colado: pede confirmação se há algo digitado.
+  const cancel = () => { if (dirtyRef.current && !confirm('Descartar o que foi digitado?')) return; onCancel(); };
+  const cancelRef = React.useRef(cancel);
+  cancelRef.current = cancel;
+  React.useEffect(() => {
+    if (summaryRef.current) summaryRef.current.focus();
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) { e.preventDefault(); cancelRef.current(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const urlBad = !!pecaUrl.trim() && !normalizePecaUrl(pecaUrl);
+  const canSave = !!summary.trim() && !urlBad;
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!canSave) return;
+    const msg = onSave({ date, summary, pecaText, pecaUrl });
+    if (msg) setErr(msg);
+  };
+  return <>
+    <div className="cx-scrim" onClick={cancel} />
+    <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Registrar atuação">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className="cx-pd-kind">Registrar atuação</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <button type="button" className="cx-icon-btn" onClick={cancel} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <form id="cx-atu-form" className="cx-dr-body cx-atu-form" onSubmit={submit}>
+        <label className="cx-atu-date">Data da atuação
+          <input type="date" className="cx-input" value={date} onChange={ev => setDate(ev.target.value)} />
+        </label>
+        <label>Resumo da atuação *
+          <textarea ref={summaryRef} className="cx-input" rows={3} value={summary} onChange={ev => setSummary(ev.target.value)} placeholder="Ex.: Petição requerendo SISBAJUD e penhora de faturamento" />
+        </label>
+        <label>Peça (texto integral, opcional)
+          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois em Últimas atuações." />
+          {pecaText.trim() ? <span className="cx-form-note">{pecaText.length.toLocaleString('pt-BR')} caracteres</span> : null}
+        </label>
+        <label>Link da peça (opcional)
+          <input className="cx-input" value={pecaUrl} onChange={ev => setPecaUrl(ev.target.value)} placeholder="https://docs.google.com/…" />
+        </label>
+        {urlBad ? <div className="cx-form-warn">O link da peça precisa começar com http:// ou https://.</div> : null}
+        {err ? <div className="cx-form-warn">{err}</div> : null}
+        <div className="cx-form-note">O resumo vai para as notas deste processo e para “Últimas atuações”, no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
+      </form>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn ghost" onClick={cancel}>Cancelar</button>
+        <span className="cx-sp" />
+        <button type="submit" form="cx-atu-form" className="cx-btn primary" disabled={!canSave}><CxIcon n="tick" s={14} />Registrar atuação</button>
+      </div>
+    </aside>
+  </>;
+}
+
+/* Leitura de uma atuação proativa (clique na linha de "Últimas atuações"): resumo, data, link e o texto
+   da peça colado, em bloco rolável. O texto é sempre exibido como texto puro (nunca como HTML). */
+function EditionClaudeAtuacaoView({ exec, action, onClose }) {
+  const [blocks, setBlocks] = React.useState({ resumo: true, peca: true });
+  const toggle = (k) => setBlocks(prev => ({ ...prev, [k]: !prev[k] }));
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const url = safeUrl(action.pecaUrl);
+  const text = String(action.pecaText || '');
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Atuação proativa">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className="cx-pd-kind">Atuação proativa</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        <dl className="cx-pd-facts">
+          <dt>Data</dt><dd>{action.date ? fmtDate(action.date) : '—'}</dd>
+          <dt>Processo</dt><dd><span className="cx-mono cx-small">{exec.processNumber || 'S/N'}</span>{exec.className ? ' · ' + exec.className : ''}</dd>
+          <dt>Peça</dt><dd>{url ? <a className="cx-a cx-a-flush" href={url} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{url.includes('docs.google') ? 'Google Docs' : 'Abrir peça'}</a> : <span className="cx-muted">Sem link</span>}</dd>
+          {action.createdAt ? <><dt>Registrada</dt><dd className="cx-muted">{new Date(action.createdAt).toLocaleString('pt-BR')}</dd></> : null}
+        </dl>
+        <CxBlock title="Resumo" open={!!blocks.resumo} onToggle={() => toggle('resumo')} summary={action.summary}>
+          <p className="cx-bf-work-txt cx-atu-sum">{action.summary}</p>
+        </CxBlock>
+        <CxBlock title="Texto da peça" open={!!blocks.peca} onToggle={() => toggle('peca')}
+          count={text ? text.length.toLocaleString('pt-BR') + ' car.' : null} summary={text ? text.slice(0, 80) : 'Nenhum texto colado'}>
+          {text
+            ? <>
+              <div className="cx-atu-tools"><button type="button" className="cx-link-btn" onClick={() => { cxCopy(text); cxNotify('Texto da peça copiado'); }}><CxIcon n="copy" s={13} />Copiar texto</button></div>
+              <div className="cx-atu-text" tabIndex={0} aria-label="Texto da peça">{text}</div>
+            </>
+            : <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhum texto da peça foi colado nesta atuação.</div>}
+        </CxBlock>
+      </div>
+      <div className="cx-dr-foot">
+        {url ? <a className="cx-btn sm primary" href={url} target="_blank" rel="noopener noreferrer">Abrir peça ↗</a> : null}
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm ghost" onClick={onClose}>Fechar</button>
+      </div>
+    </aside>
+  </>;
+}
+
 /* ═════════════ Ficha lateral (8a) — processo ou CDA avulsa ═════════════ */
 function EditionClaudeProcDrawer(p) {
   const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, onClose, onOpenExec, onOpenCda, relatedOthers, linkify } = p;
   const [tab, setTab] = React.useState('resumo');
-  React.useEffect(() => { setTab('resumo'); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
+  const [atuacaoOpen, setAtuacaoOpen] = React.useState(false); // formulário "Registrar atuação" (atuação proativa)
+  const atuacaoOpenRef = React.useRef(false);
+  atuacaoOpenRef.current = atuacaoOpen;
+  React.useEffect(() => { setTab('resumo'); setAtuacaoOpen(false); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
   React.useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    // Com o formulário aberto, o Esc é dele (confirma antes de descartar o que foi digitado).
+    const onKey = (e) => { if (e.key === 'Escape' && !atuacaoOpenRef.current && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
@@ -3888,6 +4014,20 @@ function EditionClaudeProcDrawer(p) {
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
+  // Atuação proativa: mesmas consequências de responder uma intimação (nota no card, registro no processo,
+  // documento em Arquivos quando há link). Uma única gravação da execução (nota + registro) para não sobrescrever uma à outra.
+  const registerAtuacao = (fields) => {
+    const latest = (data.executions || []).find(x => x.id === e.id) || e;
+    const plan = planProactiveAction({ exec: latest, fields, ids: { action: uid(), doc: uid() }, nowIso: new Date().toISOString() });
+    if (plan.error) return plan.error;
+    upsert('executions', plan.execution);
+    if (plan.document) upsert('documents', plan.document);
+    cxNotify('Atuação registrada: nota do processo e Últimas atuações' + (plan.document ? ' · peça em Arquivos' : ''));
+    setAtuacaoOpen(false);
+    setTab('notas');
+    return '';
+  };
+  if (atuacaoOpen && e) return <EditionClaudeAtuacaoForm exec={e} onCancel={() => setAtuacaoOpen(false)} onSave={registerAtuacao} />;
   return <>
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Processo">
@@ -4001,6 +4141,7 @@ function EditionClaudeProcDrawer(p) {
       <div className="cx-dr-foot">
         <button type="button" className="cx-btn sm" onClick={batchEventOnGroup} disabled={!cdas.length}>+ Evento nas {cdas.length} CDAs</button>
         <button type="button" className="cx-btn sm" onClick={genTask}>Gerar tarefa</button>
+        {e && <button type="button" className="cx-btn sm" onClick={() => setAtuacaoOpen(true)} title="Registrar uma atuação sua neste processo, sem intimação">Registrar atuação</button>}
         {e && <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: e })}>Dados do processo</button>}
       </div>
     </aside>

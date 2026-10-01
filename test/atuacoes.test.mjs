@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ATUACAO_KINDS, applyTaskCompletion, buildUltimasAtuacoes } from '../src/lib/atuacoes.js';
+import { ATUACAO_KINDS, applyTaskCompletion, buildUltimasAtuacoes, normalizePecaUrl, planProactiveAction } from '../src/lib/atuacoes.js';
 
 const NOW = '2026-10-01T15:00:00.000Z';
 
@@ -145,5 +145,82 @@ describe('buildUltimasAtuacoes — respostas, tarefas concluídas e atuações p
     assert.deepEqual(buildUltimasAtuacoes(), []);
     assert.deepEqual(buildUltimasAtuacoes({ operationId: op }), []);
     assert.deepEqual(buildUltimasAtuacoes({ operationId: op, intimations: [null], tasks: [undefined], executions: [{ operationId: op, proactiveActions: [null] }] }), []);
+  });
+});
+
+describe('normalizePecaUrl — link da peça', () => {
+  it('aceita http(s) e acrescenta https:// quando o usuário cola só o endereço', () => {
+    assert.equal(normalizePecaUrl('https://docs.google.com/document/d/abc'), 'https://docs.google.com/document/d/abc');
+    assert.equal(normalizePecaUrl(' http://exemplo.com.br/peca.pdf '), 'http://exemplo.com.br/peca.pdf');
+    assert.equal(normalizePecaUrl('docs.google.com/document/d/abc'), 'https://docs.google.com/document/d/abc');
+    assert.equal(normalizePecaUrl(''), '');
+    assert.equal(normalizePecaUrl(null), '');
+  });
+  it('recusa esquemas perigosos e texto que não é endereço', () => {
+    assert.equal(normalizePecaUrl('javascript:alert(1)'), '');
+    assert.equal(normalizePecaUrl('data:text/html,<script>1</script>'), '');
+    assert.equal(normalizePecaUrl('pendente upload'), '');
+    assert.equal(normalizePecaUrl('ftp://x.com/a'), '');
+  });
+});
+
+describe('planProactiveAction — registrar atuação proativa', () => {
+  const NOW = '2026-10-01T15:00:00.000Z';
+  const exec = { id: 'e1', operationId: 'op1', processNumber: '5001234-56.2023.4.04.7001', className: 'Execução Fiscal', notesList: ['Nota antiga'] };
+  const fields = { date: '2026-09-30', summary: '  Requereu SISBAJUD  ', pecaText: 'Linha 1\r\nLinha 2  \n', pecaUrl: 'docs.google.com/document/d/zzz' };
+  const ids = { action: 'act1', doc: 'doc1' };
+
+  it('grava o registro dentro da execução, com a nota no card e o documento em Arquivos', () => {
+    const plan = planProactiveAction({ exec, fields, ids, nowIso: NOW });
+    assert.equal(plan.error, undefined);
+    assert.deepEqual(plan.action, {
+      id: 'act1', date: '2026-09-30', summary: 'Requereu SISBAJUD', pecaText: 'Linha 1\nLinha 2', pecaUrl: 'https://docs.google.com/document/d/zzz', createdAt: NOW,
+    });
+    assert.deepEqual(plan.execution.proactiveActions, [plan.action]);
+    assert.deepEqual(plan.execution.notesList, ['Nota antiga', '[Atuação proativa · 30/09/2026] Requereu SISBAJUD Peça: https://docs.google.com/document/d/zzz']);
+    assert.equal(plan.execution.id, 'e1');
+    assert.deepEqual(plan.document, {
+      id: 'doc1', operationId: 'op1', title: 'Atuação proativa — 5001234-56.2023.4.04.7001', type: 'Atuação proativa',
+      url: 'https://docs.google.com/document/d/zzz', processNumber: '5001234-56.2023.4.04.7001', sourceActionType: 'proativa',
+      description: 'Atuação proativa registrada. Requereu SISBAJUD.', actionDate: '2026-09-30', createdAt: NOW, updatedAt: NOW,
+    });
+    assert.equal('sourceIntimationId' in plan.document, false);
+  });
+
+  it('é aditivo: acrescenta às atuações anteriores e não altera a execução recebida', () => {
+    const before = Object.freeze({ ...exec, notesList: Object.freeze([...exec.notesList]), proactiveActions: Object.freeze([{ id: 'old', date: '2026-08-01', summary: 'antiga' }]) });
+    const plan = planProactiveAction({ exec: before, fields, ids, nowIso: NOW });
+    assert.deepEqual(plan.execution.proactiveActions.map(a => a.id), ['old', 'act1']);
+    assert.equal(before.proactiveActions.length, 1);
+    assert.equal(before.notesList.length, 1);
+  });
+
+  it('sem link não cria documento; sem texto da peça guarda vazio', () => {
+    const plan = planProactiveAction({ exec, fields: { summary: 'Só resumo', date: '2026-09-30' }, ids, nowIso: NOW });
+    assert.equal(plan.document, null);
+    assert.equal(plan.action.pecaText, '');
+    assert.equal(plan.action.pecaUrl, '');
+    assert.equal(plan.execution.notesList[1], '[Atuação proativa · 30/09/2026] Só resumo');
+  });
+
+  it('resumo é obrigatório e o link, se vier, precisa ser http(s)', () => {
+    assert.match(planProactiveAction({ exec, fields: { summary: '   ' }, ids, nowIso: NOW }).error, /resumo/i);
+    assert.match(planProactiveAction({ exec, fields: { summary: 'x', pecaUrl: 'javascript:alert(1)' }, ids, nowIso: NOW }).error, /http/i);
+    assert.match(planProactiveAction({ exec: null, fields, ids, nowIso: NOW }).error, /Processo/);
+  });
+
+  it('data em branco assume o dia do registro', () => {
+    assert.equal(planProactiveAction({ exec, fields: { summary: 'x', date: '' }, ids, nowIso: NOW }).action.date, '2026-10-01');
+  });
+
+  it('o registro aparece em "Últimas atuações" com data, resumo, link e texto da peça', () => {
+    const plan = planProactiveAction({ exec, fields, ids, nowIso: NOW });
+    const rows = buildUltimasAtuacoes({ operationId: 'op1', executions: [plan.execution] });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].kind, 'proativa');
+    assert.equal(rows[0].date, '2026-09-30');
+    assert.equal(rows[0].title, 'Requereu SISBAJUD');
+    assert.equal(rows[0].url, 'https://docs.google.com/document/d/zzz');
+    assert.equal(rows[0].hasText, true);
   });
 });

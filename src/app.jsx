@@ -5517,6 +5517,12 @@ function App() {
         const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
         events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
       });
+      // Atuações proativas (execution.proactiveActions): entram como as respostas a intimações — só o resumo (o texto da peça não vai).
+      opExecs.forEach(ex => (Array.isArray(ex.proactiveActions) ? ex.proactiveActions : []).forEach(a => {
+        const d = a && (toDayKey(a.date) || toDayKey(a.createdAt));
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Atuação', text: `Atuação proativa${a.summary ? ' — ' + a.summary : ''}`, mono: ex.processNumber || '' });
+      }));
       opDocuments.forEach(doc => {
         const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
         if (!d || !inPeriod(d)) return;

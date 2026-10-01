@@ -528,6 +528,27 @@ export function buildAtuacaoProcessNote(intim, action, respondedAt) {
   return chunks.join(' ');
 }
 
+/**
+ * Nota automática no card do processo para uma atuação PROATIVA (sem intimação) — mesmo papel de
+ * buildAtuacaoProcessNote, com o rótulo "Atuação proativa". O texto integral da peça NÃO vai para a
+ * nota (fica em execution.proactiveActions[].pecaText).
+ */
+export function buildProactiveProcessNote(action) {
+  const a = action || {};
+  let datePart = '';
+  const iso = String(a.date || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split('-');
+    datePart = ` · ${d}/${m}/${y}`;
+  }
+  const chunks = [`[Atuação proativa${datePart}]`];
+  const summary = String(a.summary || '').trim();
+  if (summary) chunks.push(summary);
+  const url = String(a.pecaUrl || '').trim();
+  if (url) chunks.push(`Peça: ${url}`);
+  return chunks.join(' ');
+}
+
 export function appendAtuacaoNoteToExecution(execution, noteText) {
   if (!execution || !noteText) return execution;
   const existing = execution.notesList || (execution.notes ? [execution.notes] : []);

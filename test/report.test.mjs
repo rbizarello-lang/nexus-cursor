@@ -115,6 +115,22 @@ describe('groupAccountingByMonth / tallyAccounting — Prestação de contas', (
     assert.deepEqual(tally, { intimacoes: 2, pecas: 1, fases: 1, constricoes: 1, tarefas: 1 });
   });
 
+  it('atuação proativa aparece na prestação de contas (kind "Atuação"), com o texto escapado, sem mexer nos totais', () => {
+    const proactive = { date: '2026-09-24', kind: 'Atuação', text: 'Atuação proativa — requereu <img src=x onerror=alert(1)> & penhora', mono: '5001234-56.2023.4.04.7001' };
+    assert.deepEqual(tallyAccounting([...events, proactive]), { intimacoes: 2, pecas: 1, fases: 1, constricoes: 1, tarefas: 1 });
+    const html = renderReportDocument({
+      model: 'prestacao',
+      op: { name: 'Operação X' },
+      periodLabel: '01/09/2026 a 30/09/2026',
+      generatedAtLabel: '01/10/2026 10:00',
+      accountingEvents: [proactive],
+    });
+    assert.ok(html.includes('<span class="k">Atuação</span>'));
+    assert.ok(html.includes('Atuação proativa — requereu &lt;img src=x onerror=alert(1)&gt; &amp; penhora'));
+    assert.ok(!html.includes('<img src=x'));
+    assert.ok(html.includes('5001234-56.2023.4.04.7001'));
+  });
+
   it('eventos sem data não entram em nenhum grupo', () => {
     const groups = groupAccountingByMonth([{ date: '', kind: 'Peça', text: 'x' }, ...events.slice(0, 1)]);
     const total = groups.reduce((s, g) => s + g.events.length, 0);

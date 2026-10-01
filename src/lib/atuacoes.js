@@ -9,6 +9,7 @@
  */
 import { toDayKey } from './dates.js';
 import { safeUrl } from './report.js';
+import { appendAtuacaoNoteToExecution, buildProactiveProcessNote } from './processes.js';
 
 export const ATUACAO_KINDS = {
   resposta: 'Resposta à intimação',
@@ -113,4 +114,67 @@ export function buildUltimasAtuacoes({ operationId, intimations, tasks, executio
     if (!a.date !== !b.date) return a.date ? -1 : 1;
     return (b.date || '').localeCompare(a.date || '') || (b.ts || '').localeCompare(a.ts || '') || a.key.localeCompare(b.key);
   });
+}
+
+/**
+ * Link da peça digitado pelo usuário → URL http(s) segura. Aceita "docs.google.com/…" (sem esquema,
+ * ganha https://); qualquer outra coisa que não seja http(s) vira '' (inválido).
+ */
+export function normalizePecaUrl(value) {
+  const s = str(value);
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return safeUrl(s);
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|\?|#|$)/i.test(s)) return safeUrl('https://' + s);
+  return '';
+}
+
+/**
+ * Atuação proativa (registrada na ficha do processo, sem intimação) — mesmas consequências de
+ * responder uma intimação (handleRespondIntim):
+ *  - nota no card do processo ("Atuação proativa");
+ *  - registro guardado na própria execução (`execution.proactiveActions[]`), de onde sai o card
+ *    "Últimas atuações" e o relatório de prestação de contas — vai junto com o upsert/sync da
+ *    execução, sem coleção nova;
+ *  - com link da peça, um documento na operação (aba Arquivos), `sourceActionType: 'proativa'`.
+ * Devolve { execution, document|null, action } ou { error } (resumo obrigatório; link, se
+ * informado, precisa ser http(s)). Não altera o objeto recebido.
+ */
+export function planProactiveAction({ exec, fields, ids, nowIso } = {}) {
+  if (!exec) return { error: 'Processo não encontrado.' };
+  const f = fields || {};
+  const summary = str(f.summary);
+  if (!summary) return { error: 'Informe o resumo da atuação.' };
+  const rawUrl = str(f.pecaUrl);
+  const pecaUrl = normalizePecaUrl(rawUrl);
+  if (rawUrl && !pecaUrl) return { error: 'O link da peça precisa começar com http:// ou https://.' };
+  const nowDay = toDayKey(nowIso);
+  const action = {
+    id: (ids && ids.action) || 'pa-' + nowIso,
+    date: toDayKey(f.date) || nowDay,
+    summary,
+    pecaText: String(f.pecaText == null ? '' : f.pecaText).replace(/\r\n?/g, '\n').trim(),
+    pecaUrl,
+    createdAt: nowIso,
+  };
+  const execution = {
+    ...appendAtuacaoNoteToExecution(exec, buildProactiveProcessNote(action)),
+    proactiveActions: [...(Array.isArray(exec.proactiveActions) ? exec.proactiveActions : []), action],
+  };
+  let document = null;
+  if (pecaUrl && exec.operationId) {
+    document = {
+      id: (ids && ids.doc) || 'doc-' + action.id,
+      operationId: exec.operationId,
+      title: 'Atuação proativa' + (exec.processNumber ? ' — ' + exec.processNumber : ''),
+      type: 'Atuação proativa',
+      url: pecaUrl,
+      processNumber: exec.processNumber || '',
+      sourceActionType: 'proativa',
+      description: 'Atuação proativa registrada. ' + summary + (/[.!?]$/.test(summary) ? '' : '.'),
+      actionDate: action.date,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+  }
+  return { execution, document, action };
 }
