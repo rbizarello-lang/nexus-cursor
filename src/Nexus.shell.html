@@ -4420,6 +4420,26 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-op-money { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: auto; }
 .cx-op-money b { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .cx-bar.cx-bar-full { width: 100%; }
+/* Carteira, variante B (Polimento): cabeçalho com tile, meta, anel e pílulas */
+.cx-chip-grp { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cx-ink-3); margin-right: 4px; min-width: 92px; }
+.cx-chips.cx-chips-tight { margin-bottom: 8px; }
+.cx-op-card.cx-oc { padding: 18px 20px 16px; gap: 12px; }
+.cx-oc-h { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cx-oc-n { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cx-oc-n .cx-op-nm { font-size: 15px; letter-spacing: -0.01em; }
+.cx-oc-meta { display: block; font-size: 12px; color: var(--cx-ink-3); margin-top: 1px; }
+.cx-oc-rv { display: flex; }
+.cx-oc-m { display: flex; align-items: center; gap: 12px; padding-top: 4px; margin-top: auto; }
+.cx-oc-m b { display: block; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cx-oc-m .cx-pct { display: block; font: 400 11.5px var(--cx-font); color: var(--cx-ink-3); margin-top: 2px; }
+.cx-oc-f { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--cx-line); align-items: center; }
+.cx-oc-av { margin-left: auto; }
+.cx-pl { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid var(--cx-line); border-radius: 8px; background: var(--cx-surface); font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; }
+.cx-pl .cx-i { color: var(--cx-ink-3); }
+.cx-pl b { font-weight: 600; color: var(--cx-ink); font-variant-numeric: tabular-nums; }
+.cx-pl .cx-due { font-size: 12px; font-weight: 600; }
+.cx-pl.red { background: var(--cx-red-soft); border-color: transparent; color: var(--cx-red); } .cx-pl.red .cx-i, .cx-pl.red b { color: var(--cx-red); }
+.cx-pl.viol { background: var(--cx-violet-soft); border-color: transparent; color: var(--cx-violet); } .cx-pl.viol .cx-i, .cx-pl.viol b { color: var(--cx-violet); }
 .cx-op-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--cx-ink-3); padding-top: 10px; border-top: 1px solid var(--cx-line); }
 .cx-op-meta > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .cx-op-meta .cx-due { font-size: 11.5px; }

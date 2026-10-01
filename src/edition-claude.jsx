@@ -326,8 +326,9 @@ function CxSeg({ value, onChange, options, label, className = '' }) {
 }
 /* Chips de filtro unificados (Polimento · Kit visual): contorno fino, contagem numa caixa cinza e ativo em cinza
    claro (nunca preto). options: [chave, rótulo, contagem?, cor do ponto?]. Contagem 0 fica apagada, mas clicável. */
-function CxChips({ value, onChange, options, label, sm = false, className = '' }) {
+function CxChips({ value, onChange, options, label, sm = false, className = '', group = '' }) {
   return <div className={'cx-chipset ' + className} role="group" aria-label={label}>
+    {group ? <span className="cx-chip-grp">{group}</span> : null}
     {options.map(o => <button key={o[0]} type="button" className={'cx-fchip' + (sm ? ' sm' : '') + (value === o[0] ? ' on' : '') + (o[2] === 0 ? ' zero' : '')} aria-pressed={value === o[0]} onClick={() => onChange(o[0])}>
       {o[3] ? <span className="cx-dot" style={{ background: o[3] }} /> : null}{o[1]}{o[2] != null ? <span className="cx-fcn">{o[2]}</span> : null}
     </button>)}
@@ -386,8 +387,9 @@ function CxRing({ pct, size = 44, stroke = 6, color = 'var(--cx-green)', label }
 }
 /* Tile de iniciais na cor da operação (Polimento · K3); anel violeta para operação nova, como o quadradinho. */
 function cxOpInitials(op) {
-  const words = cxOpName(op).split(/\s+/).filter(Boolean);
-  return (words.slice(0, 2).map(w => w.charAt(0)).join('') || '?').toUpperCase();
+  const all = cxOpName(op).split(/\s+/).filter(Boolean);
+  const words = all.filter(w => !/^(d[aeo]s?|e)$/i.test(w));
+  return ((words.length ? words : all).slice(0, 2).map(w => w.charAt(0)).join('') || '?').toUpperCase();
 }
 function CxOpTile({ op, size = 40 }) {
   const isNew = cxOpIsNew(op);
@@ -1831,6 +1833,7 @@ function EditionClaudeCarteira(p) {
   const filter = p.classFilter || localF;
   const setFilter = p.setClassFilter || setLocalF;
   const [q, setQ] = React.useState('');
+  const [prio, setPrio] = React.useState(null); // filtro opcional por prioridade (alterna ao clicar de novo)
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
@@ -1841,7 +1844,10 @@ function EditionClaudeCarteira(p) {
   if (nClosed) chips.push(['encerrada', 'Encerradas', nClosed]);
   const toks = cxNorm(q).split(/\s+/).filter(Boolean);
   let list = ops.filter(o => (filter === 'all' ? o.status !== 'encerrada' : opMatchesClassFilter(o, filter)))
-    .filter(o => !toks.length || toks.every(t => cxNorm(o.name + ' ' + (o.description || '')).includes(t)));
+    .filter(o => !toks.length || toks.every(t => cxNorm(o.name + ' ' + (o.description || '')).includes(t)))
+    .filter(o => !prio || normalizeOpPriority(o.priority) === prio);
+  const prioOps = ops.filter(o => o.status !== 'encerrada');
+  const prioChips = ['maxima', 'alta', 'media', 'baixa'].map(k => [k, OP_PRIORITIES[k].label, prioOps.filter(o => normalizeOpPriority(o.priority) === k).length, ({ maxima: 'var(--cx-opc-maxima)', alta: 'var(--cx-opc-alta)', media: 'var(--cx-opc-media)', baixa: 'var(--cx-opc-baixa)' })[k]]);
   const money = (o) => idx(o.id).debts.reduce((s, d) => s + (d.value || 0), 0);
   const guar = (o) => idx(o.id).debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const cov = (o) => { const t = money(o); return t > 0 ? guar(o) / t : 1; };
@@ -1859,7 +1865,7 @@ function EditionClaudeCarteira(p) {
   const guarAll = active.reduce((s, o) => s + guar(o), 0);
   return <div className="cx cx-page">
     <div className="cx-page-h">
-      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. A barra verde é a parte garantida da dívida.</p></div>
+      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. O anel mostra a parte garantida da dívida.</p></div>
       <div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNewOp}><CxIcon n="plus" s={14} />Nova operação</button></div>
     </div>
     <div className="cx-toolbar">
@@ -1867,33 +1873,39 @@ function EditionClaudeCarteira(p) {
       <span className="cx-sp" />
       <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
     </div>
-    <CxChips label="Filtrar por classificação" className="cx-chips" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
+    <CxChips label="Filtrar por classificação" group="Classificação" className="cx-chips cx-chips-tight" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
+    <CxChips label="Filtrar por prioridade" group="Prioridade" className="cx-chips" value={prio} onChange={v => setPrio(prio === v ? null : v)} options={prioChips} />
     {list.length === 0 ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>{ops.length ? 'Nenhuma operação neste filtro.' : 'Nenhuma operação ainda. Crie a primeira.'}</div></div> :
     <div className="cx-op-grid">{list.map(o => {
       const x = idx(o.id);
       const total = money(o), g = guar(o), pct = total > 0 ? Math.round(g / total * 100) : 0;
       const cls = getOpClassifications(o);
       const closed = o.status === 'encerrada';
-      return <button key={o.id} type="button" className={'cx-op-card' + (closed ? ' closed' : '')} onClick={() => p.onOpenOp(o.id)}>
-        <span className="cx-op-h">
-          <CxOpSquare op={o} />
-          <span className="cx-op-nm cx-ell" title={o.name}>{cxOpName(o)}</span>
-          {cxOpPrioTag(o)}
-          <span className="cx-sp" />
-          {closed ? <span className="cx-tag">Encerrada</span> : cxReviewTag(o)}
+      const since = o.lastReviewedAt ? cxDaysSince(o.lastReviewedAt) : null;
+      const meta = (closed ? 'Encerrada' : 'Ativa') + ' · ' + (since === null ? 'nunca revisada' : since <= 0 ? 'revisada hoje' : 'revisada há ' + cxPl(since, 'dia', 'dias'));
+      const rv = closed ? null : cxReviewTag(o);
+      return <button key={o.id} type="button" className={'cx-op-card cx-oc' + (closed ? ' closed' : '')} onClick={() => p.onOpenOp(o.id)}>
+        <span className="cx-oc-h">
+          <CxOpTile op={o} size={40} />
+          <span className="cx-minw0">
+            <span className="cx-oc-n"><span className="cx-op-nm cx-ell" title={o.name}>{cxOpName(o)}</span>{cxOpPrioTag(o)}</span>
+            <span className="cx-oc-meta">{meta}</span>
+          </span>
         </span>
+        {rv ? <span className="cx-oc-rv">{rv}</span> : null}
         <span className="cx-op-desc">{o.description || <span className="cx-muted">Sem descrição.</span>}</span>
         {cls.length ? <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span> : null}
-        <span className="cx-op-money"><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
-        <span className="cx-bar cx-bar-full"><i style={{ width: pct + '%' }} /></span>
-        <span className="cx-op-meta">
-          <span title="Processos"><CxIcon n="scale" s={13} />{x.execs.length}</span>
-          <span title="CDAs ativas"><CxIcon n="file" s={13} />{x.debts.length}</span>
-          <span title="Intimações abertas" className={x.late ? 'cx-red-t' : ''}><CxIcon n="inbox" s={13} />{x.open.length}{x.late ? ' · ' + x.late + ' venc.' : ''}</span>
-          {x.risk ? <span title="CDAs nos grupos urgentes de prescrição" className="cx-violet-t"><CxIcon n="hourglass" s={13} />{x.risk}</span> : null}
-          <span title="Próximo prazo"><CxIcon n="clock" s={13} />{x.next ? <CxDue iso={x.next.dateDeadline} /> : '—'}</span>
-          <span className="cx-sp" />
-          {x.targets.length ? <CxAvatars people={x.targets} /> : null}
+        <span className="cx-oc-m">
+          <CxRing pct={pct} size={40} stroke={5.5} label={pct + '% garantido'} />
+          <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
+        </span>
+        <span className="cx-oc-f">
+          <span className="cx-pl" title="Processos"><CxIcon n="scale" s={13} /><b>{x.execs.length}</b></span>
+          <span className="cx-pl" title="CDAs ativas"><CxIcon n="file" s={13} /><b>{x.debts.length}</b></span>
+          <span className={'cx-pl' + (x.late ? ' red' : '')} title="Intimações abertas"><CxIcon n="inbox" s={13} /><b>{x.open.length}</b>{x.late ? ' · ' + x.late + ' venc.' : ''}</span>
+          {x.risk ? <span className="cx-pl viol" title="CDAs nos grupos urgentes de prescrição"><CxIcon n="hourglass" s={13} /><b>{x.risk}</b></span> : null}
+          <span className="cx-pl" title="Próximo prazo"><CxIcon n="clock" s={13} />{x.next ? <CxDue iso={x.next.dateDeadline} /> : '—'}</span>
+          {x.targets.length ? <span className="cx-oc-av"><CxAvatars people={x.targets} /></span> : null}
         </span>
       </button>;
     })}</div>}
