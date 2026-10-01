@@ -5,6 +5,7 @@ import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
   presentAtuacaoProcessNote,
+  buildProactiveProcessNote,
   findDuplicateExecutionGroups,
   getExecutionMergeConflicts,
   isRedundantImportedProcessNote,
@@ -308,5 +309,44 @@ describe('nota de atuação no card do processo', () => {
     };
     migrateAtuacaoNotesToProcessCards(data);
     assert.equal(data.intimations[0].responseAction._noteOnProcessCard, undefined);
+  });
+});
+
+describe('atuação proativa (execution.proactiveActions)', () => {
+  const pa = (id) => ({ id, date: '2026-09-23', summary: 'Requereu SISBAJUD', pecaText: 'Texto da peça', pecaUrl: 'https://docs.google.com/document/d/x', createdAt: '2026-09-24T09:00:00.000Z' });
+
+  it('nota no card do processo com o rótulo "Atuação proativa", data, resumo e link; não é nota importada redundante', () => {
+    const note = buildProactiveProcessNote(pa('p1'));
+    assert.equal(note, '[Atuação proativa · 23/09/2026] Requereu SISBAJUD Peça: https://docs.google.com/document/d/x');
+    assert.equal(isRedundantImportedProcessNote(note), false);
+    assert.equal(buildProactiveProcessNote({ summary: 'Só resumo' }), '[Atuação proativa] Só resumo');
+    // o texto integral da peça não vai para a nota
+    assert.equal(buildProactiveProcessNote({ ...pa('p1'), pecaText: 'SEGREDO' }).includes('SEGREDO'), false);
+  });
+
+  it('o registro sobrevive a reimportação da planilha (mergeImportedExecution)', () => {
+    const existing = { id: 'a', processNumber: '1', notesList: ['x'], proactiveActions: [pa('p1')] };
+    const merged = mergeImportedExecution(existing, { processNumber: '1', className: 'Execução Fiscal' });
+    assert.deepEqual(merged.proactiveActions, [pa('p1')]);
+  });
+
+  it('o registro sobrevive à consolidação de duplicidades (canônico e absorvido)', () => {
+    const data = baseData();
+    data.executions.find(e => e.id === 'a').proactiveActions = [pa('p1')];
+    data.executions.find(e => e.id === 'b').proactiveActions = [pa('p2')];
+    const out = mergeDuplicateExecutions(data, { canonicalId: 'a', duplicateIds: ['b'], now: '2026-09-30T00:00:00.000Z' }).data;
+    assert.deepEqual(out.executions.find(e => e.id === 'a').proactiveActions.map(x => x.id).sort(), ['p1', 'p2']);
+    // só o absorvido tinha atuações: o canônico herda
+    const data2 = baseData();
+    data2.executions.find(e => e.id === 'b').proactiveActions = [pa('p2')];
+    const out2 = mergeDuplicateExecutions(data2, { canonicalId: 'a', duplicateIds: ['b'] }).data;
+    assert.deepEqual(out2.executions.find(e => e.id === 'a').proactiveActions.map(x => x.id), ['p2']);
+  });
+
+  it('o registro atravessa a serialização do sync (JSON da nuvem) sem perdas', () => {
+    const data = baseData();
+    data.executions.find(e => e.id === 'a').proactiveActions = [pa('p1')];
+    const roundtrip = JSON.parse(JSON.stringify(data));
+    assert.deepEqual(roundtrip.executions.find(e => e.id === 'a').proactiveActions, [pa('p1')]);
   });
 });

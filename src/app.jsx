@@ -1599,8 +1599,13 @@ const BRIEFING_ENTRY_TYPES = {
 };
 const escapeHtmlText = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 // Sanitiza HTML do editor rico: whitelist de tags; remove scripts e atributos perigosos.
-// Preserva apenas background-color em SPAN (marca-texto).
-const sanitizeNoteHtml = (html) => {
+// Preserva apenas background-color em SPAN (marca-texto) e, só com { color: true }, a cor do texto
+// (color em SPAN, validada: hex, rgb()/rgba() ou nome). A cor é opt-in para que o texto colado de fora
+// (ex.: Google Docs, que traz color:#000 em cada trecho) continue sem cor no diário do Clássico e da Beta.
+const NOTE_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})$/i;
+const NOTE_COLOR_KEYWORDS = /^(inherit|initial|unset|revert|revert-layer|transparent|currentcolor)$/i;
+const sanitizeNoteHtml = (html, opts) => {
+  const allowColor = !!(opts && opts.color);
   const ALLOWED = new Set(['B','STRONG','I','EM','U','BR','UL','OL','LI','DIV','P','SPAN','S','STRIKE']);
   const tpl = document.createElement('template');
   tpl.innerHTML = String(html || '');
@@ -1614,9 +1619,22 @@ const sanitizeNoteHtml = (html) => {
   }
   tpl.content.querySelectorAll('*').forEach(el => {
     const isSpan = el.tagName === 'SPAN';
-    const bg = isSpan && el.style ? el.style.backgroundColor : '';
+    // Com cor ligada, o estilo de qualquer elemento vale (o Chrome põe a cor direto no <b>/<i>/<li> quando a
+    // seleção cobre o elemento inteiro); fora de SPAN ele é reposto num <span> interno.
+    const takeStyle = (isSpan || allowColor) && el.style;
+    const bg = takeStyle ? el.style.backgroundColor : '';
+    const fg = allowColor && takeStyle ? String(el.style.color || '').trim() : '';
     [...el.attributes].forEach(a => el.removeAttribute(a.name));
-    if (isSpan && bg && bg !== 'transparent') el.setAttribute('style', `background-color:${bg};border-radius:2px;padding:0 2px`);
+    const css = [];
+    if (fg && NOTE_COLOR_RE.test(fg) && !NOTE_COLOR_KEYWORDS.test(fg)) css.push(`color:${fg}`);
+    if (bg && bg !== 'transparent') css.push(`background-color:${bg};border-radius:2px;padding:0 2px`);
+    if (!css.length) return;
+    if (isSpan) { el.setAttribute('style', css.join(';')); return; }
+    if (/^(UL|OL|BR)$/.test(el.tagName) || !el.firstChild) return;
+    const w = document.createElement('span');
+    w.setAttribute('style', css.join(';'));
+    while (el.firstChild) w.appendChild(el.firstChild);
+    el.appendChild(w);
   });
   return tpl.innerHTML;
 };
@@ -3174,12 +3192,13 @@ function App() {
   const [cxDrawerId, setCxDrawerId] = useState(null);
   const [cxIntimView, setCxIntimView] = useState('lista');
   const [cxIntimInitialUf, setCxIntimInitialUf] = useState(null);
+  const [cxAgendaInitialDay, setCxAgendaInitialDay] = useState(null);
   const [cxSideOpen, setCxSideOpen] = useState(false);
   const [cxReturnOpId, setCxReturnOpId] = useState(null);
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
-  const [cxTlScale, setCxTlScale] = useState('anos');
   const [cxTlOp, setCxTlOp] = useState(null);
+  const [cxProcFocus, setCxProcFocus] = useState(null); // { execId?, cdaId?, n } — pedido da Linha do tempo para abrir a ficha lateral na aba Processos e prescrição
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
@@ -4380,7 +4399,9 @@ function App() {
           }
         });
       }
-      const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...entity, updatedAt: now } : e) : [...list, { ...entity, createdAt: now, updatedAt: now }];
+      // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
+      const toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...toSave, updatedAt: now } : e) : [...list, { ...toSave, createdAt: now, updatedAt: now }];
       let newPrev = { ...prev, [col]: updated };
       if (logEntries.length > 0) {
         newPrev.changeLog = [...logEntries, ...(prev.changeLog || [])].slice(0, 500); // cap 500
@@ -5529,6 +5550,12 @@ function App() {
         const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
         events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
       });
+      // Atuações proativas (execution.proactiveActions): entram como as respostas a intimações — só o resumo (o texto da peça não vai).
+      opExecs.forEach(ex => (Array.isArray(ex.proactiveActions) ? ex.proactiveActions : []).forEach(a => {
+        const d = a && (toDayKey(a.date) || toDayKey(a.createdAt));
+        if (!d || !inPeriod(d)) return;
+        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Atuação', text: `Atuação proativa${a.summary ? ' — ' + a.summary : ''}`, mono: ex.processNumber || '' });
+      }));
       opDocuments.forEach(doc => {
         const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
         if (!d || !inPeriod(d)) return;
@@ -6097,7 +6124,10 @@ function App() {
       if (isClaude) {
         return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
           opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
-          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab} />;
+          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
+          onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
+          onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+          onOpenTimeline={() => { cxLsSet('nexus_cx_tl_mode', 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
       }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
@@ -7705,6 +7735,7 @@ function App() {
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           people={getOpSlices(opId).people}
           linkify={linkify}
+          focus={cxProcFocus} onFocusDone={() => setCxProcFocus(null)}
         />;
       }
 
@@ -10651,6 +10682,17 @@ function App() {
     else setViewMode('tarefas_global');
     setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
   };
+  // Linha do tempo → ficha lateral do processo (ou da CDA) na aba "Processos e prescrição" da operação dele.
+  const cxOpenProcDrawer = (focus) => {
+    const ex = focus.execId ? (data.executions || []).find(x => x.id === focus.execId) : null;
+    const debt = focus.cdaId ? (data.debts || []).find(x => x.id === focus.cdaId) : null;
+    const opId = (ex && ex.operationId) || (debt && debt.operationId);
+    if (!opId) return;
+    setCxSideOpen(false);
+    setCxReturnOpId(opId);
+    setCxProcFocus({ ...focus, n: Date.now() });
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
+  };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
   const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
     const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
@@ -10957,7 +10999,10 @@ function App() {
       {viewMode === 'hoje' && isClaude && <div className="cx-scroll"><EditionClaudeHoje data={data} prazosRadar={prazosRadar} prazosByDebt={prazosByDebt} opsById={opsById}
         onOpenIntim={(id) => setCxDrawerId(id)} onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} openPrazos={openPrazos}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }}
-        onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }} /></div>}
+        onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }}
+        onOpenAgendaDay={(iso) => { setCxAgendaInitialDay(iso); cxGo('audiencias'); }}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onReviewed={(op) => { upsert('operations', { ...op, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }} /></div>}
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
@@ -10967,10 +11012,12 @@ function App() {
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
         a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}
         onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
+        onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProcDrawer={(id) => cxOpenProcDrawer({ execId: id })}
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
-      {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
-        scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
-        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })} /></div>}
+      {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup} prazosRadar={prazosRadar}
+        onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
+        onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+        onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
@@ -10980,6 +11027,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        initialDay={cxAgendaInitialDay} onInitialDayConsumed={() => setCxAgendaInitialDay(null)}
         onNewHearing={() => setModal({ type: 'create', entityType: 'hearing', initial: { status: 'agendada', modality: 'presencial', hearingType: 'instrucao', remindDays: '3' } })}
         onOpenOp={(id) => cxOpenOp(id)} /></div>}
       {viewMode === 'acompanhar' && isClaude && <div className="cx-scroll"><EditionClaudeAcompanhar data={data} opsById={opsById} upsert={upsert}
@@ -11253,7 +11301,7 @@ function App() {
       )}
 
       {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
-      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
+      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} prescLookup={prescLookup} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
         onOpenOp={(id) => cxOpenOp(id)} onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
       {viewMode === 'operacoes' && !isClaude && (
         <div className="painel-container">
@@ -11768,6 +11816,9 @@ function App() {
         };
         const copiarMapa = (m) => { copyModelMap(m); alert('Mapa copiado. Cole no rascunho da peça ou no chat da IA.'); };
         const emptyFicha = (msg) => <div className="model-empty">{msg}</div>;
+        // Nexus Prumo (Polimento): chips com contagem e faixa "Vigência a reconferir" (src/lib/hoje.js). Clássico e Beta não usam.
+        const reconf = isClaude ? modelosReconferir(models, localIso(new Date())) : [];
+        const verVigencia = (m) => { setModelStageFilter('all'); setModelSel(null); setModelMatters([]); selectModel(m); setModelFichaTab('vig'); };
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
@@ -11794,7 +11845,7 @@ function App() {
               <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:700}}>Matérias identificadas</span>
               {modelMatters.map(x => <span key={x.materia} style={{fontSize:10,padding:'2px 9px',borderRadius:999,border:'1px solid var(--accent)',background:'var(--accent-dim)',color:'var(--accent)',fontWeight:600}}>{x.materia}</span>)}
             </div>}
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
+            {!isClaude && (<div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
               <button type="button" className={'model-chip' + (modelStageFilter === 'all' ? ' on' : '')} onClick={() => setModelStageFilter('all')}>Todos</button>
               {Object.entries(MODEL_STAGES).map(([k, v]) => (
                 <button type="button" key={k} className={'model-chip' + (modelStageFilter === k ? ' on' : '')} onClick={() => setModelStageFilter(k)}>{v.label}</button>
@@ -11806,8 +11857,31 @@ function App() {
                   <button type="button" key={c} className={'model-chip' + (modelSel && modelSel.cat === c ? ' on' : '')} onClick={() => { setModelSel({ cat: c }); setModelMatters([]); }}>{c}</button>
                 ))}
               </>}
-            </div>
+            </div>)}
           </div>
+
+          {isClaude && models.length > 0 && <div className="cx-lib-chips">
+            <CxChips group="Situação" label="Filtrar modelos por situação" value={modelStageFilter} onChange={setModelStageFilter}
+              options={[['all', 'Todos', models.length]].concat(Object.entries(MODEL_STAGES).map(([k, v]) => [k, v.label, models.filter(m => (m.stage || 'primario') === k).length]))} />
+            {cats.length > 1 && <CxChips group="Categoria" label="Filtrar modelos por categoria" value={modelSel ? modelSel.cat : 'all'}
+              onChange={v => { if (v === 'all') setModelSel(null); else { setModelSel({ cat: v }); setModelMatters([]); } }}
+              options={[['all', 'Todas as categorias', models.length]].concat(cats.map(c => [c, c, models.filter(m => (m.category || 'Sem categoria') === c).length]))} />}
+          </div>}
+
+          {isClaude && reconf.length > 0 && (() => {
+            const top = reconf[0];
+            const allPontos = reconf.every(r => r.pontos > 0);
+            return <div className="cx-vstrip" role="note">
+              <CxRing pct={reconf.length / models.length * 100} size={28} stroke={4} color="var(--cx-orange)" label={reconf.length + ' de ' + models.length + ' modelos a reconferir'} />
+              <span><b>{reconf.length === 1 ? '1 modelo' : reconf.length + ' modelos'}</b>{allPontos ? ' com pontos a reconferir' : ' a reconferir'}</span>
+              <span className="cx-vsep" />
+              <span className="cx-vnum">{top.model.number || '—'}</span>
+              <span className="cx-vt cx-ell">{top.model.title || 'Sem título'}</span>
+              <span className="cx-vmeta">{[top.pontos ? top.pontos + (top.pontos === 1 ? ' ponto' : ' pontos') : '', top.diasConsolidado !== null ? 'consolidado há ' + top.diasConsolidado + (top.diasConsolidado === 1 ? ' dia' : ' dias') : ''].filter(Boolean).join(' · ')}{reconf.length > 1 ? ' · +' + (reconf.length - 1) + (reconf.length === 2 ? ' outro' : ' outros') : ''}</span>
+              <span className="cx-sp" />
+              <button type="button" className="btn-secondary btn-sm" onClick={() => verVigencia(top.model)}>Ver vigência</button>
+            </div>;
+          })()}
 
           {models.length === 0 ? <div className="empty-state"><div className="empty-icon">📄</div><p>Nenhum modelo cadastrado.</p><p style={{fontSize:11}}>Cadastre o número, o cabimento e o link do Word. O texto da peça continua no documento, não aqui.</p></div> :
           <div className="model-md-frame">
@@ -11821,7 +11895,9 @@ function App() {
                   <button type="button" key={m.id} className={'model-md-row' + (isOn ? ' active' : '')} onClick={() => selectModel(m)}>
                     <span className="model-md-num">{m.number || '—'}</span>
                     <span>
-                      <span className="model-md-row-t">{m.title || 'Sem título'}</span>
+                      {isClaude
+                        ? <span className="cx-lrow-l1"><span className="model-md-row-t">{m.title || 'Sem título'}</span><span className="cx-used" title="Total acumulado de vezes em que o Word foi aberto a partir deste modelo">{(m.useCount || 0) + '× usado'}</span></span>
+                        : <span className="model-md-row-t">{m.title || 'Sem título'}</span>}
                       <span className="model-md-row-s">
                         <span className={'model-badge ' + st.cls}>{st.label}</span>
                         {m.legalRefs && <span>{m.legalRefs}</span>}
@@ -12281,7 +12357,7 @@ function App() {
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
       {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
-        prazosRadar={prazosRadar} prescLookup={prescLookup}
+        prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
         onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
         onDiag={() => openDiagnostico(activeOp.id)}
@@ -12290,6 +12366,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
         {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
@@ -13452,7 +13529,15 @@ function ResponsibilityChips({ cdaId, data, onClickPerson }) {
 // ═══════════════════════════════════════════════
 // Editor contentEditable NÃO-controlado: o HTML digitado vai para draftRef (ref),
 // nunca para state — zero re-render por tecla, zero lag de digitação.
-function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
+// Cores de texto (opt-in via prop `colors`, hoje só na descrição da operação do Prumo): tokens Ardósia.
+const RN_TEXT_COLORS = [
+  ['#14161a', 'Texto escuro'],
+  ['#c2323d', 'Texto vermelho'],
+  ['#946b00', 'Texto âmbar'],
+  ['#21845a', 'Texto verde'],
+  ['#2d62d3', 'Texto azul']
+];
+function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus, colors }) {
   const edRef = React.useRef(null);
   React.useEffect(() => {
     const ed = edRef.current;
@@ -13474,9 +13559,10 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
   const exec = (cmd, val) => {
     const ed = edRef.current; if (!ed) return;
     ed.focus();
-    if (cmd === 'hiliteColor') { try { document.execCommand('styleWithCSS', false, true); } catch (e) {} }
+    const css = cmd === 'hiliteColor' || cmd === 'foreColor';
+    if (css) { try { document.execCommand('styleWithCSS', false, true); } catch (e) {} }
     try { document.execCommand(cmd, false, val); } catch (e) {}
-    if (cmd === 'hiliteColor') { try { document.execCommand('styleWithCSS', false, false); } catch (e) {} }
+    if (css) { try { document.execCommand('styleWithCSS', false, false); } catch (e) {} }
     draftRef.current = ed.innerHTML;
   };
   const HL = [
@@ -13493,6 +13579,10 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
       <span className="rn-sep"></span>
       {HL.map(([c, t]) => <button key={c} type="button" className="rn-swatch" style={{background:c}} title={t} onClick={() => exec('hiliteColor', c)}></button>)}
       <button type="button" className="rn-btn" title="Remover marca-texto" onClick={() => exec('hiliteColor', 'transparent')}>⌫</button>
+      {colors && <>
+        <span className="rn-sep"></span>
+        {RN_TEXT_COLORS.map(([c, t]) => <button key={c} type="button" className="rn-btn rn-tc" style={{color:c,fontWeight:700,borderBottom:`2px solid ${c}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>)}
+      </>}
       <span className="rn-sep"></span>
       <button type="button" className="rn-btn" title="Lista com marcadores" onClick={() => exec('insertUnorderedList')}>•≡</button>
       <button type="button" className="rn-btn" title="Limpar formatação da seleção" onClick={() => exec('removeFormat')}>Tx</button>
