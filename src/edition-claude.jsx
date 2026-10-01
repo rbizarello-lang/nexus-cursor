@@ -324,6 +324,27 @@ function CxChips({ value, onChange, options, label, sm = false, className = '' }
     </button>)}
   </div>;
 }
+/* Cartão de KPI (Polimento · K1): rótulo, número, linha descritiva, divisor fino e rodapé com o contexto (ou a
+   comparação, quando existe). Delta só onde há comparação calculável: `delta = { txt, dir: 'up'|'down'|'none', tone:
+   'good'|'bad'|'neutral' }`. `tone` ('red'|'orange'|'violet') colore o número/linha só quando descrevem um estado.
+   Sem `onClick`, o cartão é um bloco; com ele, um botão. */
+function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, delta, onClick, on, tip, className = '' }) {
+  const body = <>
+    <div className="cx-kc-b">
+      <div className="cx-kc-t"><span className="cx-kc-l">{label}</span>{tag || null}</div>
+      <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
+      <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')}>{desc}</div>
+    </div>
+    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : null}</div>
+  </>;
+  const cls = 'cx-kc' + (onClick ? ' click' : '') + (on ? ' on' : '') + (className ? ' ' + className : '');
+  return onClick
+    ? <button type="button" className={cls} onClick={onClick} title={tip}>{body}</button>
+    : <div className={cls} title={tip}>{body}</div>;
+}
+function CxKpiStrip({ n, dense = true, className = '', children }) {
+  return <div className={'cx-ks' + (dense ? ' dense' : '') + (className ? ' ' + className : '')} style={{ '--n': n }}>{children}</div>;
+}
 function CxSelect({ id, pre, value, onChange, options, label }) {
   return <label className="cx-sel">
     {pre ? <span className="cx-pre">{pre}</span> : null}
@@ -4696,14 +4717,20 @@ function EditionClaudeProcessos(p) {
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
     </div>
 
-    <div className="cx-pp-summary">
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('inc')}><small>Incidentes e destaque</small><b>{hubs.length}</b><em>{fmtCur(incValue)}</em>{incAlarms > 0 && <i className="al">{incAlarms} no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('semv')}><small>Execuções sem vínculo</small><b>{uncoveredEFs.length}</b><em>{fmtCur(semVincValue)}</em>{semVincAlarms > 0 && <i className="al">{semVincAlarms} no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('na')}><small>Não ajuizadas</small><b>{unlinkedCdas.length} CDAs</b><em>{fmtCur(naValue)}</em>{naRisk.riskClass === 'critical' && <i className="al">no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('rec')}><small>Recursos</small><b>{otherBuckets.recursos.length}</b></button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('emb')}><small>Embargos</small><b>{otherBuckets.embargos.length}</b>{embargosOpenPrazo && <i className="al">prazo aberto</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('out')}><small>Outros</small><b>{otherBuckets.outros.length}</b></button>
-    </div>
+    <CxKpiStrip n={6}>
+      <CxKpiCard label="Incidentes e destaque" value={hubs.length} desc={fmtCur(incValue)} onClick={() => scrollToCard('inc')}
+        foot={incAlarms > 0 ? cxPl(incAlarms, 'no alarme', 'no alarme') : 'Nenhum no alarme'} footTone={incAlarms > 0 ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Execuções sem vínculo" value={uncoveredEFs.length} desc={fmtCur(semVincValue)} onClick={() => scrollToCard('semv')}
+        foot={semVincAlarms > 0 ? cxPl(semVincAlarms, 'no alarme', 'no alarme') : 'Nenhuma no alarme'} footTone={semVincAlarms > 0 ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Não ajuizadas" value={unlinkedCdas.length + ' CDAs'} desc={fmtCur(naValue)} onClick={() => scrollToCard('na')}
+        foot={naRisk.riskClass === 'critical' ? 'No alarme' : 'Fora do alarme'} footTone={naRisk.riskClass === 'critical' ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Recursos" value={otherBuckets.recursos.length} desc="pelo processo principal" onClick={() => scrollToCard('rec')}
+        foot={otherBuckets.recursos.length + ' de ' + cxPl(execs.length, 'processo', 'processos')} />
+      <CxKpiCard label="Embargos" value={otherBuckets.embargos.length} desc="à execução e de terceiro" onClick={() => scrollToCard('emb')}
+        foot={embargosOpenPrazo ? 'Prazo aberto' : 'Nenhum prazo aberto'} footTone={embargosOpenPrazo ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Outros" value={otherBuckets.outros.length} desc="demais processos" onClick={() => scrollToCard('out')}
+        foot={otherBuckets.outros.length + ' de ' + cxPl(execs.length, 'processo', 'processos')} />
+    </CxKpiStrip>
 
     {duplicates && duplicates.length > 0 && (
       <div className="cx-pp-dup">⚠ {duplicates.length} {duplicates.length === 1 ? 'duplicidade detectada' : 'duplicidades detectadas'} — mesmo número e espécie cadastrados mais de uma vez.</div>
@@ -5149,13 +5176,13 @@ function EditionClaudeInscricoes(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Total ativo</small><b>{fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))}</b><em>{cxPl(totalAtivo.length, 'CDA', 'CDAs')}</em></div>
-      <div className="cx-pp-sum-cell"><small>Ajuizadas</small><b>{ajuizadas.length}</b><em>{fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>Não ajuizadas</small><b>{naoAjuizadas.length}</b><em>{fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>No alarme</small><b style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{noAlarme.length}</b><em style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>Tratadas</small><b>{tratadas.length}</b><em>aguardando reconhecimento: {aguardando.length}</em></div>
-    </div>
+    <CxKpiStrip n={5}>
+      <CxKpiCard label="Total ativo" value={fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))} desc={cxPl(totalAtivo.length, 'CDA', 'CDAs')} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs') + ' na operação'} />
+      <CxKpiCard label="Ajuizadas" value={ajuizadas.length} desc={fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="Não ajuizadas" value={naoAjuizadas.length} desc={fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="No alarme" value={noAlarme.length} tone={noAlarme.length ? 'red' : ''} desc={fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))} descTone={noAlarme.length ? 'red' : ''} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="Tratadas" value={tratadas.length} desc={'aguardando reconhecimento: ' + aguardando.length} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar CDA ou processo" />
@@ -5362,12 +5389,12 @@ function EditionClaudePartes(p) {
   const PersonTableHead = () => <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>;
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Crédito da operação</small><b>{fmtCur(grandTotalUnique)}</b><em>{cxPl(cdasInOp.size, 'CDA ativa', 'CDAs ativas')} · total único</em></div>
-      <div className="cx-pp-sum-cell"><small>Alvos</small><b>{alvos.length}</b><em>{cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PJ').length, 'PJ', 'PJ')} · {cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PF').length, 'PF', 'PF')}</em></div>
-      <div className="cx-pp-sum-cell"><small>Relacionadas</small><b>{relacionadas.length}</b><em>subsídio analítico</em></div>
-      <div className="cx-pp-sum-cell"><small>Patrimônio identificado</small><b>{fmtCur(allAssetsValue)}</b><em>{cxPl(allAssetsIdentified, 'bem', 'bens')}</em></div>
-    </div>
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Crédito da operação" value={fmtCur(grandTotalUnique)} desc={cxPl(cdasInOp.size, 'CDA ativa', 'CDAs ativas') + ' · total único'} foot={'de ' + cxPl(opDebts.length, 'CDA', 'CDAs') + ' na operação'} />
+      <CxKpiCard label="Alvos" value={alvos.length} desc={cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PJ').length, 'PJ', 'PJ') + ' · ' + cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PF').length, 'PF', 'PF')} foot={'de ' + cxPl(stats.length, 'pessoa', 'pessoas') + ' na operação'} />
+      <CxKpiCard label="Relacionadas" value={relacionadas.length} desc="subsídio analítico" foot={'de ' + cxPl(stats.length, 'pessoa', 'pessoas') + ' na operação'} />
+      <CxKpiCard label="Patrimônio identificado" value={fmtCur(allAssetsValue)} desc={cxPl(allAssetsIdentified, 'bem', 'bens')} foot={'de ' + cxPl((data.assets || []).filter(a => a.operationId === opId).length, 'bem', 'bens') + ' na operação'} />
+    </CxKpiStrip>
     {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
 
     <div className="cx-pp-toolbar">
@@ -5563,12 +5590,16 @@ function EditionClaudeBens(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'all' ? ' on' : '')} onClick={() => setNumFilter('all')}><small>Total</small><b>{fmtCur(totalVal)}</b><em>{cxPl(allAssets.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'ativa' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'ativa' ? 'all' : 'ativa')}><small>Indisponibilidade ativa</small><b style={{ color: 'var(--cx-green)' }}>{fmtCur(ativaList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(ativaList.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'requerida' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'requerida' ? 'all' : 'requerida')}><small>Requerida</small><b>{fmtCur(reqList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(reqList.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'semAnalytics' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'semAnalytics' ? 'all' : 'semAnalytics')}><small>Sem Analytics</small><b style={semAnalytics.length ? { color: 'var(--cx-orange)' } : undefined}>{semAnalytics.length}</b><em>registrar</em></button>
-    </div>
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Total" value={fmtCur(totalVal)} desc={cxPl(allAssets.length, 'bem', 'bens')} on={numFilter === 'all'} onClick={() => setNumFilter('all')}
+        foot={ativaList.length + (ativaList.length === 1 ? ' ativa' : ' ativas') + ' · ' + cxPl(reqList.length, 'requerida', 'requeridas')} />
+      <CxKpiCard label="Indisponibilidade ativa" value={fmtCur(ativaList.reduce((s, a) => s + (a.value || 0), 0))} tone="green" desc={cxPl(ativaList.length, 'bem', 'bens')} on={numFilter === 'ativa'} onClick={() => setNumFilter(numFilter === 'ativa' ? 'all' : 'ativa')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+      <CxKpiCard label="Requerida" value={fmtCur(reqList.reduce((s, a) => s + (a.value || 0), 0))} desc={cxPl(reqList.length, 'bem', 'bens')} on={numFilter === 'requerida'} onClick={() => setNumFilter(numFilter === 'requerida' ? 'all' : 'requerida')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+      <CxKpiCard label="Sem Analytics" value={semAnalytics.length} tone={semAnalytics.length ? 'orange' : ''} desc="registrar" on={numFilter === 'semAnalytics'} onClick={() => setNumFilter(numFilter === 'semAnalytics' ? 'all' : 'semAnalytics')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar descrição, matrícula, placa" />
@@ -5644,6 +5675,7 @@ function EditionClaudeOpTarefas(p) {
   const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
   const late = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
   const weekToday = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
+  const nextTask = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0; }).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))[0];
 
   const toggle = (t) => { const next = t.status === 'concluida' ? 'pendente' : 'concluida'; upsert('tasks', { ...t, status: next }); cxNotify(next === 'concluida' ? 'Tarefa concluída' : 'Tarefa reaberta'); };
   const addTask = (e) => {
@@ -5657,12 +5689,13 @@ function EditionClaudeOpTarefas(p) {
   const row = (t) => <CxTaskRow key={t.id} t={t} op={opsById.get(t.operationId)} onOpen={onOpenTask} onToggle={toggle} onOpenOp={null} deskOn={isOnDesk('task', t.id)} onDesk={() => toggleDesk('task', t.id, daysUntil(t.dueDate))} />;
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Abertas</small><b>{open.length}</b><em>{cxPl(all.length, 'tarefa', 'tarefas')} no total</em></div>
-      <div className="cx-pp-sum-cell"><small>Vencidas</small><b style={late ? { color: 'var(--cx-red)' } : undefined}>{late}</b><em style={late ? { color: 'var(--cx-red)' } : undefined}>{late ? 'atenção' : 'nenhuma'}</em></div>
-      <div className="cx-pp-sum-cell"><small>Hoje / semana</small><b style={weekToday ? { color: 'var(--cx-orange)' } : undefined}>{weekToday}</b><em>próximos 7 dias</em></div>
-      <div className="cx-pp-sum-cell"><small>Concluídas</small><b>{done.length}</b><em>histórico</em></div>
-    </div>
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Abertas" value={open.length} desc={cxPl(all.length, 'tarefa', 'tarefas') + ' no total'}
+        foot={nextTask ? <>próxima: <b>{cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</b></> : 'nenhuma com data limite'} />
+      <CxKpiCard label="Vencidas" value={late} tone={late ? 'red' : ''} desc={late ? 'atenção' : 'nenhuma'} descTone={late ? 'red' : ''} foot={'de ' + cxPl(open.length, 'aberta', 'abertas')} />
+      <CxKpiCard label="Hoje / semana" value={weekToday} tone={weekToday ? 'orange' : ''} desc="próximos 7 dias" foot={'de ' + cxPl(open.length, 'aberta', 'abertas')} />
+      <CxKpiCard label="Concluídas" value={done.length} desc="histórico" foot={'de ' + cxPl(all.length, 'tarefa', 'tarefas')} />
+    </CxKpiStrip>
 
     <form className="cx-quick" onSubmit={addTask}>
       <CxIcon n="plus" s={15} className="cx-muted" />
@@ -5816,11 +5849,11 @@ function EditionClaudeArquivos(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Total</small><b>{all.length}</b><em>{cxPl(all.length, 'documento', 'documentos')}</em></div>
-      <div className="cx-pp-sum-cell"><small>De intimações</small><b>{nIntim}</b><em>registrados automaticamente</em></div>
-      <div className="cx-pp-sum-cell"><small>Incluídos</small><b>{nManual}</b><em>adicionados à mão</em></div>
-    </div>
+    <CxKpiStrip n={3}>
+      <CxKpiCard label="Total" value={all.length} desc={cxPl(all.length, 'documento', 'documentos')} foot={cxPl(new Set(all.map(d => cxDocGroupKey(d, 'tipo'))).size, 'tipo', 'tipos') + ' de documento'} />
+      <CxKpiCard label="De intimações" value={nIntim} desc="registrados automaticamente" foot={'de ' + cxPl(all.length, 'documento', 'documentos')} />
+      <CxKpiCard label="Incluídos" value={nManual} desc="adicionados à mão" foot={'de ' + cxPl(all.length, 'documento', 'documentos')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar título ou processo" aria-label="Buscar documento" />
