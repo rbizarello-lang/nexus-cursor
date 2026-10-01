@@ -315,6 +315,15 @@ function CxSeg({ value, onChange, options, label, className = '' }) {
     </button>)}
   </div>;
 }
+/* Chips de filtro unificados (Polimento · Kit visual): contorno fino, contagem numa caixa cinza e ativo em cinza
+   claro (nunca preto). options: [chave, rótulo, contagem?, cor do ponto?]. Contagem 0 fica apagada, mas clicável. */
+function CxChips({ value, onChange, options, label, sm = false, className = '' }) {
+  return <div className={'cx-chipset ' + className} role="group" aria-label={label}>
+    {options.map(o => <button key={o[0]} type="button" className={'cx-fchip' + (sm ? ' sm' : '') + (value === o[0] ? ' on' : '') + (o[2] === 0 ? ' zero' : '')} aria-pressed={value === o[0]} onClick={() => onChange(o[0])}>
+      {o[3] ? <span className="cx-dot" style={{ background: o[3] }} /> : null}{o[1]}{o[2] != null ? <span className="cx-fcn">{o[2]}</span> : null}
+    </button>)}
+  </div>;
+}
 function CxSelect({ id, pre, value, onChange, options, label }) {
   return <label className="cx-sel">
     {pre ? <span className="cx-pre">{pre}</span> : null}
@@ -414,7 +423,7 @@ function EditionClaudeSidebar(p) {
     <div className="cx-side-scroll">
       <nav className="cx-nav">
         {item('hoje', 'home', 'Hoje')}
-        {item('intimacoes', 'inbox', 'Intimações', counts.openIntims ? <span className={'cx-badge' + (counts.lateIntims ? ' red' : '')} title={counts.lateIntims ? cxPl(counts.lateIntims, 'vencida', 'vencidas') : undefined}>{counts.openIntims}</span> : null)}
+        {item('intimacoes', 'inbox', 'Intimações', counts.openIntims ? <>{counts.lateIntims ? <span className="cx-cb red" title={cxPl(counts.lateIntims, 'intimação vencida', 'intimações vencidas')}>{counts.lateIntims} venc.</span> : null}<span className="cx-count">{counts.openIntims}</span></> : null)}
         {item('tarefas_global', 'check', 'Tarefas', counts.openTasks ? <span className="cx-count">{counts.openTasks}</span> : null)}
         {item('mesa', 'desk', 'Mesa de intimações', counts.desk ? <span className="cx-count">{counts.desk}</span> : null)}
         <button type="button" className="cx-nav-item" title="Buscar" onClick={p.onSearch}><CxIcon n="search" /><span className="cx-lbl">Buscar</span><kbd className="cx-kbd">/</kbd></button>
@@ -422,7 +431,7 @@ function EditionClaudeSidebar(p) {
       <div className="cx-nav-sec"><span>Trabalho</span></div>
       <nav className="cx-nav">
         {item('operacoes', 'briefcase', 'Carteira', <span className="cx-count">{totalActive}</span>)}
-        {item('prazos', 'hourglass', 'Prazos extintivos', counts.presc1 ? <span className="cx-badge red">{counts.presc1}</span> : null)}
+        {item('prazos', 'hourglass', 'Prazos extintivos', counts.presc1 ? <span className="cx-cb red" title={cxPl(counts.presc1, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição')}>{counts.presc1}</span> : null)}
         {item('cx_timeline', 'timeline', 'Linha do tempo')}
         {item('audiencias', 'calendar', 'Agenda', counts.hearings ? <span className="cx-count">{counts.hearings}</span> : null)}
         {item('acompanhar', 'eye', 'Acompanhar', counts.watch ? <span className="cx-count">{counts.watch}</span> : null)}
@@ -681,7 +690,7 @@ function EditionClaudeHoje(p) {
           <div className="cx-card-h">
             <h2 id="cx-h-fila">Fila do dia</h2>
             <div className="cx-aside">
-              <CxSeg label="Filtro da fila" value={tab} onChange={setTab} options={[['proximos', 'Próximos', null, lists.proximos.length], ['vencidos', 'Vencidos', null, lists.vencidos.length], ['feitos', 'Feitos', null, lists.feitos.length]]} />
+              <CxChips sm label="Filtro da fila" value={tab} onChange={setTab} options={[['proximos', 'Próximos', lists.proximos.length], ['vencidos', 'Vencidos', lists.vencidos.length], ['feitos', 'Feitos', lists.feitos.length]]} />
               <button type="button" className="cx-link-btn" onClick={() => p.onStartFocus()} title="Triagem das intimações, uma por vez"><CxIcon n="zap" s={13} />Foco</button>
             </div>
           </div>
@@ -967,7 +976,7 @@ function EditionClaudeIntimacoes(p) {
       <div className="cx-toolbar">
         <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-f-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Parte, processo, evento ou nota" aria-label="Filtrar intimações" /></label>
         <CxSelect id="cx-f-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-        {view === 'lista' ? <CxSeg label="Ativas ou resolvidas" value={scope} onChange={setScope} options={[['ativas', 'Ativas'], ['resolvidas', 'Resolvidas', null, resolvedCount]]} /> : null}
+        {view === 'lista' ? <CxChips sm label="Ativas ou resolvidas" value={scope} onChange={setScope} options={[['ativas', 'Ativas', all.length - resolvedCount], ['resolvidas', 'Resolvidas', resolvedCount]]} /> : null}
         <span className="cx-sp" />
         {view === 'lista' && scope === 'ativas' ? <CxSelect id="cx-f-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['situacao', 'Situação'], ['operacao', 'Operação'], ['uf', 'UF'], ['etapa', 'Etapa']]} /> : null}
         <CxSelect id="cx-f-s" pre="Ordenar" value={sort} onChange={setSort} options={[['atencao', 'Atenção'], ['prazo', 'Prazo final'], ['importancia', 'Importância'], ['complexidade', 'Complexidade']]} />
@@ -1581,12 +1590,12 @@ function cxOpPrioTag(op, long) {
   const k = normalizeOpPriority(op.priority);
   if (k !== 'maxima' && k !== 'alta') return null;
   const lab = OP_PRIORITIES[k].label;
-  return <span className={'cx-tag ' + (k === 'maxima' ? 'red' : 'orange')}>{long ? 'Prioridade ' + lab.toLowerCase() : lab}</span>;
+  return <span className="cx-tag"><span className="cx-dot cx-dot-s" style={{ background: k === 'maxima' ? 'var(--cx-opc-maxima)' : 'var(--cx-opc-alta)' }} />{long ? 'Prioridade ' + lab.toLowerCase() : lab}</span>;
 }
 function cxClsTag(k) {
   const c = OP_CLASSIFICATIONS[k];
   if (!c) return null;
-  return <span key={k} className="cx-tag cx-cls-tag" style={{ '--c': c.color }}>{c.label}</span>;
+  return <span key={k} className="cx-tag"><span className="cx-dot cx-dot-s" style={{ background: c.color }} />{c.label}</span>;
 }
 
 /* ─── Índice por operação (uma passada no acervo) ─── */
@@ -1655,11 +1664,7 @@ function EditionClaudeCarteira(p) {
       <span className="cx-sp" />
       <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
     </div>
-    <div className="cx-chips" role="group" aria-label="Filtrar por classificação">
-      {chips.map(c => <button key={c[0]} type="button" className={'cx-fchip' + (filter === c[0] ? ' on' : '')} aria-pressed={filter === c[0]} onClick={() => setFilter(c[0])} style={OP_CLASSIFICATIONS[c[0]] ? { '--c': OP_CLASSIFICATIONS[c[0]].color } : null}>
-        {OP_CLASSIFICATIONS[c[0]] ? <span className="cx-dot" style={{ background: OP_CLASSIFICATIONS[c[0]].color }} /> : null}{c[1]}<span className="cx-n">{c[2]}</span>
-      </button>)}
-    </div>
+    <CxChips label="Filtrar por classificação" className="cx-chips" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
     {list.length === 0 ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>{ops.length ? 'Nenhuma operação neste filtro.' : 'Nenhuma operação ainda. Crie a primeira.'}</div></div> :
     <div className="cx-op-grid">{list.map(o => {
       const x = idx(o.id);
@@ -2627,8 +2632,8 @@ function EditionClaudeAgenda(p) {
       <CxSelect id="cx-ag-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
     </div>
     <div className="cx-chips" role="group" aria-label="Mostrar na agenda">
-      {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '')} style={{ '--c': k[2] }} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
-        <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-n">{counts[k[0]]}</span>
+      {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '') + (counts[k[0]] === 0 ? ' zero' : '')} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
+        <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-fcn">{counts[k[0]]}</span>
       </button>)}
       <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} neste período</span>
     </div>
@@ -5668,7 +5673,7 @@ function EditionClaudeOpTarefas(p) {
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar tarefa" aria-label="Buscar tarefa" />
-      <CxSeg value={seg} onChange={setSeg} options={[['abertas', 'Abertas', null, open.length], ['concluidas', 'Concluídas', null, done.length]]} />
+      <CxChips sm label="Situação das tarefas" value={seg} onChange={setSeg} options={[['abertas', 'Abertas', open.length], ['concluidas', 'Concluídas', done.length]]} />
       <select className="cx-sel sm" value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Agrupar tarefas">
         <option value="prazo">Agrupar: Prazo</option>
         <option value="prioridade">Agrupar: Prioridade</option>
@@ -5819,7 +5824,7 @@ function EditionClaudeArquivos(p) {
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar título ou processo" aria-label="Buscar documento" />
-      <CxSeg value={origin} onChange={setOrigin} options={[['all', 'Todos', null, all.length], ['intim', 'De intimações', null, nIntim], ['manual', 'Incluídos', null, nManual]]} />
+      <CxChips sm label="Origem dos arquivos" value={origin} onChange={setOrigin} options={[['all', 'Todos', all.length], ['intim', 'De intimações', nIntim], ['manual', 'Incluídos', nManual]]} />
       <select className="cx-sel sm" value={groupMode} onChange={e => setGroupMode(e.target.value)} aria-label="Agrupar documentos">
         <option value="tipo">Agrupar: Tipo</option>
         <option value="processo">Agrupar: Processo</option>
