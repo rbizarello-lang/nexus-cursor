@@ -4375,7 +4375,9 @@ function App() {
           }
         });
       }
-      const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...entity, updatedAt: now } : e) : [...list, { ...entity, createdAt: now, updatedAt: now }];
+      // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
+      const toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...toSave, updatedAt: now } : e) : [...list, { ...toSave, createdAt: now, updatedAt: now }];
       let newPrev = { ...prev, [col]: updated };
       if (logEntries.length > 0) {
         newPrev.changeLog = [...logEntries, ...(prev.changeLog || [])].slice(0, 500); // cap 500
@@ -6083,7 +6085,8 @@ function App() {
       if (isClaude) {
         return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
           opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
-          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab} />;
+          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
+          onOpenIntim={(id) => setCxDrawerId(id)} />;
       }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');

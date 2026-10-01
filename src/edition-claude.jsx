@@ -2358,7 +2358,7 @@ function CxTaskRow({ t, op, onOpen, onToggle, onOpenOp, deskOn, onDesk }) {
       {done ? null : cxDeskBtn(deskOn, onDesk)}
     </div>
     <div className="cx-c-due">
-      {t.status === 'concluida' ? <span className="cx-due done">✓ {t.updatedAt ? cxDM(t.updatedAt) : ''}</span> : <CxDue iso={t.dueDate} />}
+      {t.status === 'concluida' ? <span className="cx-due done">✓ {t.completedAt || t.updatedAt ? cxDM(t.completedAt || t.updatedAt) : ''}</span> : <CxDue iso={t.dueDate} />}
       <span className="cx-sub">{t.status === 'concluida' ? 'concluída' : t.dueDate ? 'limite ' + cxDM(t.dueDate) : 'sem data'}</span>
     </div>
   </div>;
@@ -2429,7 +2429,7 @@ function EditionClaudeTarefas(p) {
     return toks.every(tk => hay.includes(tk));
   });
   const open = filtered.filter(cxTaskOpen);
-  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
   const openAll = inScope.filter(cxTaskOpen);
   const late = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
   const week = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
@@ -3326,6 +3326,39 @@ function cxLoadBfCards() {
   return { ...CX_BF_CARD_DEFAULTS };
 }
 function cxSaveBfCards(v) { try { localStorage.setItem('nexus_cx_bf_cards', JSON.stringify(v)); } catch (e) { /* ignore */ } }
+/* Últimas atuações: respostas a intimações, tarefas concluídas e atuações proativas da operação, da mais
+   recente para a mais antiga (agregação pura em src/lib/atuacoes.js). Mostra 10 por vez. */
+const CX_UA_STEP = 10;
+function EditionClaudeUltimasAtuacoes({ op, data, onOpenIntim, onOpenTask, onOpenProativa }) {
+  const [shown, setShown] = React.useState(CX_UA_STEP);
+  const rows = React.useMemo(
+    () => buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }),
+    [op.id, data.intimations, data.tasks, data.executions]
+  );
+  const open = (r) => {
+    if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
+    else if (r.kind === 'tarefa') { const t = (data.tasks || []).find(x => x.id === r.taskId); if (t && onOpenTask) onOpenTask(t); }
+    else if (onOpenProativa) onOpenProativa(r.executionId, r.actionId);
+  };
+  return <section className="cx-card cx-bf-ua">
+    <div className="cx-card-h"><h5>Últimas atuações</h5><span className="cx-count">{rows.length}</span></div>
+    {rows.length === 0
+      ? <div className="cx-empty-row">Nenhuma atuação registrada nesta operação ainda.</div>
+      : <div className="cx-ua-list">
+        {rows.slice(0, shown).map(r => <div key={r.key} className="cx-ua-row" role="button" tabIndex={0} onClick={() => open(r)}
+          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(r); } }}>
+          <span className={'cx-ua-d cx-mono' + (r.date ? '' : ' cx-muted')}>{r.date ? fmtDate(r.date) : 'sem data'}</span>
+          <span className={'cx-ua-chip ' + r.kind}>{r.kindLabel}</span>
+          <span className="cx-ua-t">{r.title}</span>
+          <span className="cx-ua-p cx-mono">{r.processNumber}</span>
+          <span className="cx-ua-l"><CxDocIcon url={r.url} size={16} /></span>
+        </div>)}
+      </div>}
+    {rows.length > shown
+      ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
+      : null}
+  </section>;
+}
 function EditionClaudeBriefing(p) {
   const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
   const briefing = op.briefing || {};
@@ -3655,6 +3688,10 @@ function EditionClaudeBriefing(p) {
             </div>
           )}
         </section>
+
+        {/* Últimas atuações */}
+        <EditionClaudeUltimasAtuacoes op={op} data={data} onOpenIntim={p.onOpenIntim}
+          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} />
 
         {/* Diário */}
         <section className="cx-card">
@@ -5458,7 +5495,7 @@ function EditionClaudeOpTarefas(p) {
     return toks.every(tk => hay.includes(tk));
   });
   const open = filtered.filter(cxTaskOpen);
-  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
   const late = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
   const weekToday = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
 
