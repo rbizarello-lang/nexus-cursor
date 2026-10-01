@@ -2010,6 +2010,48 @@ function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, se
 }
 
 /* ═════════════════════ Visão geral da operação ═════════════════════ */
+/* Descrição da operação no cabeçalho da Visão geral. Texto simples em op.description (busca, Clássico,
+   Beta, relatório e modal "Editar operação" seguem usando só ele) e, quando há formatação, HTML em
+   op.descriptionHtml — exibido (sanitizado de novo) só enquanto o texto simples dele for igual a
+   description; se alguém editar no modal clássico, volta ao texto simples. Edição inline com o mesmo
+   editor rico do Diário (RichNoteEditor), com cor de texto. */
+const cxSanitizeDesc = (h) => sanitizeNoteHtml(h, { color: true });
+function EditionClaudeOpDesc({ op, upsert }) {
+  const [editing, setEditing] = React.useState(false);
+  const draftRef = React.useRef('');
+  const plain = String(op.description || '').trim();
+  const rich = React.useMemo(() => pickOpDescriptionHtml(op, cxSanitizeDesc), [op.description, op.descriptionHtml]);
+  const cancel = () => setEditing(false);
+  const save = () => {
+    upsert('operations', { ...op, ...buildOpDescriptionPatch(draftRef.current, cxSanitizeDesc) });
+    setEditing(false);
+    cxNotify('Descrição salva');
+  };
+  if (editing) {
+    return <div className="cx-opd cx-opd-edit"
+      onKeyDown={e => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+        else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); save(); }
+      }}>
+      <RichNoteEditor initialHtml={rich || escapeHtmlText(plain)} placeholder="Descreva a operação…" draftRef={draftRef} autoFocus colors />
+      <div className="cx-opd-acts">
+        <span className="cx-muted cx-small">Esc cancela · Ctrl+Enter salva</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm ghost" onClick={cancel}>Cancelar</button>
+        <button type="button" className="cx-btn sm primary" onClick={save}>Salvar</button>
+      </div>
+    </div>;
+  }
+  if (!rich && !plain) {
+    return <div className="cx-opd"><button type="button" className="cx-link-btn cx-opd-add" onClick={() => setEditing(true)}>Adicionar descrição</button></div>;
+  }
+  return <div className="cx-opd">
+    {rich
+      ? <div className="cx-opd-txt cx-opd-rich" dangerouslySetInnerHTML={{ __html: rich }} />
+      : <p className="cx-opd-txt cx-opd-plain">{plain}</p>}
+    <button type="button" className="cx-icon-btn cx-sm cx-opd-pen" onClick={() => setEditing(true)} title="Editar descrição" aria-label="Editar descrição"><CxIcon n="edit" s={13} /></button>
+  </div>;
+}
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
   const [scale, setScale] = React.useState('anos');
@@ -2033,7 +2075,6 @@ function EditionClaudeOpOverview(p) {
       <div className="cx-minw0">
         <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>
         <div className="cx-op-hero"><CxOpSquare op={op} size={14} className="cx-sq-lg" /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
-        {op.description ? <p className="cx-lede cx-op-lede">{op.description}</p> : null}
         <div className="cx-tags" style={{ marginTop: 10 }}>{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
       </div>
       <div className="cx-op-actions">
@@ -2043,6 +2084,7 @@ function EditionClaudeOpOverview(p) {
         <button type="button" className="cx-btn ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={14} />Relatório</button>
       </div>
     </div>
+    <EditionClaudeOpDesc key={op.id} op={op} upsert={p.upsert} />
     <nav className="cx-optabs" aria-label="Abas da operação">
       <button type="button" className="on" aria-current="page">Visão geral</button>
       {CX_OP_TABS.map(t => <button key={t[0]} type="button" onClick={() => p.onTab(t[0])}>{t[1]}</button>)}

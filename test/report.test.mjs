@@ -251,6 +251,33 @@ describe('relatório: HTML seguro', () => {
     assert.equal(sanitizeReportHtml('<span style="background-image:url(x)">a</span>'), '<span>a</span>');
   });
   
+  it('sanitizeReportHtml mantém só cor de texto simples (hex, rgb, nome) em SPAN', () => {
+    assert.equal(sanitizeReportHtml('<span style="color: rgb(194, 50, 61)">a</span>'), '<span style="color:rgb(194, 50, 61)">a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:#c2323d;">a</span>'), '<span style="color:#c2323d">a</span>');
+    assert.equal(sanitizeReportHtml("<span style='color:red'>a</span>"), '<span style="color:red">a</span>');
+    // cor + marca-texto juntas, em qualquer ordem
+    assert.equal(
+      sanitizeReportHtml('<span style="color: rgb(33, 132, 90); background-color: rgba(212, 168, 56, 0.45)">a</span>'),
+      '<span style="color:rgb(33, 132, 90);background-color:rgba(212, 168, 56, 0.45);border-radius:2px;padding:0 2px">a</span>'
+    );
+    assert.equal(
+      sanitizeReportHtml('<span style="background-color: yellow; color: #14161a">a</span>'),
+      '<span style="color:#14161a;background-color:yellow;border-radius:2px;padding:0 2px">a</span>'
+    );
+    // background-color sozinho não vira "color"
+    assert.equal(sanitizeReportHtml('<span style="background-color:red">a</span>'), '<span style="background-color:red;border-radius:2px;padding:0 2px">a</span>');
+  });
+
+  it('sanitizeReportHtml rejeita cor com valor perigoso e cor fora de SPAN', () => {
+    assert.equal(sanitizeReportHtml('<span style="color:url(javascript:alert(1))">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:expression(alert(1))">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:var(--x)">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:red;position:fixed;top:0">a</span>'), '<span style="color:red">a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:red\"onmouseover=\"x()">a</span>').includes('onmouseover'), false);
+    assert.equal(sanitizeReportHtml('<b style="color:red">a</b>'), '<b>a</b>');
+    assert.equal(sanitizeReportHtml('<div style="color:red">a</div>'), '<div>a</div>');
+  });
+
   it('safeUrl e escHtml: só http(s)/mailto e aspas escapadas', () => {
     assert.equal(safeUrl('javascript:alert(1)'), '');
     assert.equal(safeUrl(' data:text/html,x'), '');

@@ -4466,6 +4466,22 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-op-hero h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
 .cx-sq-lg { width: 14px; height: 14px; border-radius: 4px; flex: none; }
 .cx-op-lede { margin-top: 6px; }
+/* Descrição da operação (Visão geral): largura do cabeçalho (até 1400px), 13px, texto simples ou rico. */
+.cx-opd { margin-top: 12px; max-width: 1400px; display: flex; align-items: flex-start; gap: 4px; }
+.cx-opd-txt { flex: 0 1 auto; min-width: 0; margin: 0; font-size: 13px; line-height: 1.55; color: var(--cx-ink-2); overflow-wrap: anywhere; }
+.cx-opd-plain { white-space: pre-wrap; }
+.cx-opd-rich div, .cx-opd-rich p { margin: 0; }
+.cx-opd-rich ul, .cx-opd-rich ol { margin: 3px 0 3px 20px; padding: 0; }
+.cx-opd-rich b, .cx-opd-rich strong { font-weight: 600; }
+.cx-opd-pen { margin-top: -2px; opacity: 0.5; }
+.cx-opd:hover .cx-opd-pen, .cx-opd-pen:focus-visible { opacity: 1; }
+.cx-opd-add { font-size: 12.5px; color: var(--cx-ink-3); }
+.cx-opd-add:hover { color: var(--cx-ink); text-decoration: underline dotted; text-underline-offset: 2px; }
+.cx-opd-edit { display: block; }
+.cx-opd-edit .rich-note { background: var(--cx-surface); border-color: var(--cx-line-strong); border-radius: 8px; }
+.cx-opd-edit .rn-toolbar { background: var(--cx-surface-2); border-bottom-color: var(--cx-line); }
+.cx-opd-edit .rn-editor { font-family: var(--cx-font); font-size: 13px; line-height: 1.55; color: var(--cx-ink-2); min-height: 96px; max-height: 55vh; padding: 10px 12px; }
+.cx-opd-acts { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .cx-op-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .cx-optabs { display: flex; gap: 2px; margin: 18px 0 0; border-bottom: 1px solid var(--cx-line); overflow-x: auto; scrollbar-width: none; }
 .cx-optabs::-webkit-scrollbar { display: none; }

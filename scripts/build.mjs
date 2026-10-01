@@ -28,6 +28,7 @@ const exportPath = path.join(root, 'src', 'lib', 'export.js');
 const agendaPath = path.join(root, 'src', 'lib', 'agenda.js');
 const reportPath = path.join(root, 'src', 'lib', 'report.js');
 const esteiraPath = path.join(root, 'src', 'lib', 'esteira.js');
+const richTextPath = path.join(root, 'src', 'lib', 'rich-text.js');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
 const outDemoPath = path.join(root, 'Nexus.demo.html');
@@ -143,6 +144,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(reportPath, 'utf8')),
   '/* --- src/lib/esteira.js --- */',
   unwrapModule(fs.readFileSync(esteiraPath, 'utf8')),
+  '/* --- src/lib/rich-text.js --- */',
+  unwrapModule(fs.readFileSync(richTextPath, 'utf8')),
   '/* --- src/edition-claude.jsx --- */',
   unwrapModule(fs.readFileSync(claudePath, 'utf8')),
   '/* --- src/app.jsx --- */',

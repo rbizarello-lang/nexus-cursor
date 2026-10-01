@@ -1579,8 +1579,13 @@ const BRIEFING_ENTRY_TYPES = {
 };
 const escapeHtmlText = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 // Sanitiza HTML do editor rico: whitelist de tags; remove scripts e atributos perigosos.
-// Preserva apenas background-color em SPAN (marca-texto).
-const sanitizeNoteHtml = (html) => {
+// Preserva apenas background-color em SPAN (marca-texto) e, só com { color: true }, a cor do texto
+// (color em SPAN, validada: hex, rgb()/rgba() ou nome). A cor é opt-in para que o texto colado de fora
+// (ex.: Google Docs, que traz color:#000 em cada trecho) continue sem cor no diário do Clássico e da Beta.
+const NOTE_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})$/i;
+const NOTE_COLOR_KEYWORDS = /^(inherit|initial|unset|revert|revert-layer|transparent|currentcolor)$/i;
+const sanitizeNoteHtml = (html, opts) => {
+  const allowColor = !!(opts && opts.color);
   const ALLOWED = new Set(['B','STRONG','I','EM','U','BR','UL','OL','LI','DIV','P','SPAN','S','STRIKE']);
   const tpl = document.createElement('template');
   tpl.innerHTML = String(html || '');
@@ -1594,9 +1599,22 @@ const sanitizeNoteHtml = (html) => {
   }
   tpl.content.querySelectorAll('*').forEach(el => {
     const isSpan = el.tagName === 'SPAN';
-    const bg = isSpan && el.style ? el.style.backgroundColor : '';
+    // Com cor ligada, o estilo de qualquer elemento vale (o Chrome põe a cor direto no <b>/<i>/<li> quando a
+    // seleção cobre o elemento inteiro); fora de SPAN ele é reposto num <span> interno.
+    const takeStyle = (isSpan || allowColor) && el.style;
+    const bg = takeStyle ? el.style.backgroundColor : '';
+    const fg = allowColor && takeStyle ? String(el.style.color || '').trim() : '';
     [...el.attributes].forEach(a => el.removeAttribute(a.name));
-    if (isSpan && bg && bg !== 'transparent') el.setAttribute('style', `background-color:${bg};border-radius:2px;padding:0 2px`);
+    const css = [];
+    if (fg && NOTE_COLOR_RE.test(fg) && !NOTE_COLOR_KEYWORDS.test(fg)) css.push(`color:${fg}`);
+    if (bg && bg !== 'transparent') css.push(`background-color:${bg};border-radius:2px;padding:0 2px`);
+    if (!css.length) return;
+    if (isSpan) { el.setAttribute('style', css.join(';')); return; }
+    if (/^(UL|OL|BR)$/.test(el.tagName) || !el.firstChild) return;
+    const w = document.createElement('span');
+    w.setAttribute('style', css.join(';'));
+    while (el.firstChild) w.appendChild(el.firstChild);
+    el.appendChild(w);
   });
   return tpl.innerHTML;
 };
@@ -12239,7 +12257,7 @@ function App() {
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
       {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
-        prazosRadar={prazosRadar} prescLookup={prescLookup}
+        prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
         onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
         onDiag={() => openDiagnostico(activeOp.id)}
@@ -13410,7 +13428,15 @@ function ResponsibilityChips({ cdaId, data, onClickPerson }) {
 // ═══════════════════════════════════════════════
 // Editor contentEditable NÃO-controlado: o HTML digitado vai para draftRef (ref),
 // nunca para state — zero re-render por tecla, zero lag de digitação.
-function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
+// Cores de texto (opt-in via prop `colors`, hoje só na descrição da operação do Prumo): tokens Ardósia.
+const RN_TEXT_COLORS = [
+  ['#14161a', 'Texto escuro'],
+  ['#c2323d', 'Texto vermelho'],
+  ['#946b00', 'Texto âmbar'],
+  ['#21845a', 'Texto verde'],
+  ['#2d62d3', 'Texto azul']
+];
+function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus, colors }) {
   const edRef = React.useRef(null);
   React.useEffect(() => {
     const ed = edRef.current;
@@ -13432,9 +13458,10 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
   const exec = (cmd, val) => {
     const ed = edRef.current; if (!ed) return;
     ed.focus();
-    if (cmd === 'hiliteColor') { try { document.execCommand('styleWithCSS', false, true); } catch (e) {} }
+    const css = cmd === 'hiliteColor' || cmd === 'foreColor';
+    if (css) { try { document.execCommand('styleWithCSS', false, true); } catch (e) {} }
     try { document.execCommand(cmd, false, val); } catch (e) {}
-    if (cmd === 'hiliteColor') { try { document.execCommand('styleWithCSS', false, false); } catch (e) {} }
+    if (css) { try { document.execCommand('styleWithCSS', false, false); } catch (e) {} }
     draftRef.current = ed.innerHTML;
   };
   const HL = [
@@ -13451,6 +13478,10 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus }) {
       <span className="rn-sep"></span>
       {HL.map(([c, t]) => <button key={c} type="button" className="rn-swatch" style={{background:c}} title={t} onClick={() => exec('hiliteColor', c)}></button>)}
       <button type="button" className="rn-btn" title="Remover marca-texto" onClick={() => exec('hiliteColor', 'transparent')}>⌫</button>
+      {colors && <>
+        <span className="rn-sep"></span>
+        {RN_TEXT_COLORS.map(([c, t]) => <button key={c} type="button" className="rn-btn rn-tc" style={{color:c,fontWeight:700,borderBottom:`2px solid ${c}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>)}
+      </>}
       <span className="rn-sep"></span>
       <button type="button" className="rn-btn" title="Lista com marcadores" onClick={() => exec('insertUnorderedList')}>•≡</button>
       <button type="button" className="rn-btn" title="Limpar formatação da seleção" onClick={() => exec('removeFormat')}>Tx</button>
