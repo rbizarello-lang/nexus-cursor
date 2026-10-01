@@ -157,6 +157,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(timelinePath, 'utf8')),
   '/* --- src/lib/clocks.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'clocks.js'), 'utf8')),
+  '/* --- src/lib/narrativa.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'narrativa.js'), 'utf8')),
   '/* --- src/edition-claude.jsx --- */',
   unwrapModule(fs.readFileSync(claudePath, 'utf8')),
   '/* --- src/app.jsx --- */',

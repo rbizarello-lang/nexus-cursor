@@ -6093,7 +6093,9 @@ function App() {
         return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
           opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
           upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
-          onOpenIntim={(id) => setCxDrawerId(id)} />;
+          onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
+          onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+          onOpenTimeline={() => { cxLsSet('nexus_cx_tl_mode', 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
       }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
@@ -10972,7 +10974,8 @@ function App() {
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup} prazosRadar={prazosRadar}
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
-        onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })} /></div>}
+        onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+        onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}

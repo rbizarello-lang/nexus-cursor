@@ -2033,8 +2033,8 @@ function cxBuildTimeline(data, op, prescLookup) {
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', kind: r.outcome ? 'dec' : 'and' }); });
-      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome }); }
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
+      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
     });
     const seen = new Set();
     events.forEach(pe => {
@@ -2042,7 +2042,7 @@ function cxBuildTimeline(data, op, prescLookup) {
       const d = toDayKey(pe.requestDate || pe.date); if (!d) return;
       const key = pe.type + '|' + d; if (seen.has(key)) return; seen.add(key);
       const t = PRESC_EVENT_TYPES[normalizePrescEventType(pe.type)] || {};
-      addEv({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc', kind: 'presc' });
+      addEv({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc', kind: 'presc', pcat: t.category || '' });
     });
     const start = toDayKey(e.protocolDate) || (evs.map(x => x.d).sort()[0]) || toDayKey(e.createdAt) || today;
     // Prescrição: pior CDA do processo
@@ -2166,6 +2166,10 @@ function CxTlGlyph({ kind, c, ghost, hollow, s = 14 }) {
     case 'prazo': shape = <path d="M2.4 4.2H13.6L8 12.8Z" style={ghost ? ring : { fill: col, ...sf }} />; break;
     case 'presc': shape = <polygon points="8,2.2 13,5.1 13,10.9 8,13.8 3,10.9 3,5.1" style={hollow || ghost ? ring : { fill: col, ...sf }} />; break;
     case 'rev': shape = <g><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.6 }} /><path d="M8 5.2V8l2 1.4" style={{ fill: 'none', stroke: col, strokeWidth: 1.5, strokeLinecap: 'round' }} /></g>; break;
+    /* Só da Narrativa: atuação minha (círculo cheio com visto) e tarefa (caixa; com visto = concluída). */
+    case 'act': shape = <g><circle cx="8" cy="8" r="5.6" style={{ fill: col, stroke: 'var(--cx-surface)', strokeWidth: 1.3 }} /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" style={{ fill: 'none', stroke: '#fff', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
+    case 'tar': shape = <rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} />; break;
+    case 'tarok': shape = <g><rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} /><path d="M5.6 8.2l1.7 1.7 3.2-3.6" style={{ fill: 'none', stroke: col, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
     default: shape = <circle cx="8" cy="8" r="3" style={{ fill: col }} />;
   }
   return <svg className="cx-tl-gl" width={s} height={s} viewBox="0 0 16 16" aria-hidden="true">{shape}</svg>;
@@ -2571,25 +2575,29 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
     </div>
   </div>;
 }
-/* Modos da página Linha do tempo: Panorama (M1, a régua) e Prescrição (M4, o relógio por CDA); o próximo (Narrativa)
-   entra aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, lead, … };
+/* Modos da página Linha do tempo: Panorama (M1, a régua), Prescrição (M4, o relógio por CDA) e Narrativa (M2); um modo
+   novo entra aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, lead, … };
    `lead` é o seletor de operação mais o seletor de modo, e a visão o coloca na própria barra de ferramentas).
    Com um modo só, o seletor fica escondido. O modo escolhido é lembrado neste navegador. */
-const CX_TL_MODES = [['panorama', 'Panorama'], ['prescricao', 'Prescrição']];
-const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, prescricao: EditionClaudeTimelineClocks };
+const CX_TL_MODES = [['panorama', 'Panorama'], ['prescricao', 'Prescrição'], ['narrativa', 'Narrativa']];
+const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, prescricao: EditionClaudeTimelineClocks, narrativa: EditionClaudeTimelineNarrative };
 const CX_TL_DESC = {
   panorama: 'Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.',
   prescricao: 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa de prazos; cada barra vale 5 anos (ou 1+5), então dá para comparar CDAs de idades diferentes. Clique numa CDA para abrir a ficha com a memória de cálculo.',
+  narrativa: 'A história da operação em ordem de importância: o que está atrasado e o que vem (do mais próximo ao mais distante), e abaixo do divisor Hoje o que já houve, com as decisões em destaque e o que você mesmo fez. Filtre por natureza ou por processo; clique num cartão para abrir o processo, a intimação, a audiência, a tarefa ou a CDA.',
 };
 const CX_TL_MODE_STORE = 'nexus_cx_tl_mode';
 function cxTlLoadMode() { const m = cxLs(CX_TL_MODE_STORE, 'panorama'); return CX_TL_VIEWS[m] ? m : 'panorama'; }
-function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
+function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc, onOpenTask }) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
   const [mode, setModeS] = React.useState(cxTlLoadMode);
   const setMode = (m) => { setModeS(m); cxLsSet(CX_TL_MODE_STORE, m); };
   const tl = React.useMemo(() => (op ? cxBuildTimeline(data, op, prescLookup) : null), [data, op, prescLookup]);
   const View = CX_TL_VIEWS[mode] || CX_TL_VIEWS.panorama;
+  const [proView, setProView] = React.useState(null); // leitura de uma atuação proativa (clique na Narrativa)
+  const proExec = proView ? (data.executions || []).find(x => x.id === proView.execId) : null;
+  const proAct = proExec ? (proExec.proactiveActions || []).find(x => x.id === proView.actionId) : null;
   return <div className="cx cx-page cx-page-wide">
     <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>{CX_TL_DESC[mode] || CX_TL_DESC.panorama}</p></div>
       {op ? <div className="cx-acts"><button type="button" className="cx-btn" onClick={() => onOpenOp(op.id)}>Abrir operação<CxIcon n="chevR" s={13} /></button></div> : null}</div>
@@ -2597,8 +2605,9 @@ function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRad
       <View key={op.id + '|' + mode} tl={tl} op={op} data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} lead={<>
         <CxSelect id="cx-tl-op" pre="Operação" value={op.id} onChange={setOpId} options={ops.map(o => [o.id, cxOpName(o)])} />
         {CX_TL_MODES.length > 1 ? <CxSeg className="lg" label="Modo" value={mode} onChange={setMode} options={CX_TL_MODES} /> : null}
-      </>} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />
+      </>} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
     </>}
+    {proAct ? <EditionClaudeAtuacaoView exec={proExec} action={proAct} onClose={() => setProView(null)} /> : null}
   </div>;
 }
 
@@ -2812,6 +2821,193 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
 }
 function EditionClaudeTimelineClocks({ op, lead, data, prazosRadar, prescLookup, onOpenCda, onOpenProc }) {
   return <EditionClaudeClocks data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} opId={op.id} lead={lead} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
+}
+
+/* ═════════════════════ Narrativa da operação (M2) ═════════════════════
+   "Me conte a história desta operação: o que foi decidido, o que eu já fiz, o que está atrasado e o que vem — na ordem
+   em que importa." Vive na Linha do tempo (modo Narrativa, com o painel de leitura ao lado) e no Briefing (o card que
+   era "Últimas atuações" — veja docs/MELHORIAS.md: um card só, com o passado e o futuro). Mesmos dados da régua
+   (`cxBuildTimeline`) mais as atuações de `buildUltimasAtuacoes` (respostas a intimações, tarefas concluídas, atuações
+   proativas) e as tarefas abertas; a classificação, os filtros e a frase-resumo são de src/lib/narrativa.js. */
+const CX_NARR_KIND = { dec: 'Decisão', and: 'Fase', aud: 'Audiência', prazo: 'Prazo', presc: 'Prescrição', rev: 'Revisão', resposta: 'Resposta à intimação', proativa: 'Atuação proativa', tarefa: 'Tarefa', tarok: 'Tarefa concluída' };
+const CX_NARR_ORDERS = [['foco', 'Próximo → antigo'], ['cron', 'Cronológica']];
+function cxBuildNarrative(data, op, tl, todayIso) {
+  const out = [];
+  const execOfNum = (pn) => { const e = pn ? (tl.procs.map(r => r.x.e).find(x => sameProc(x.processNumber, pn))) : null; return e ? e.id : ''; };
+  tl.items.forEach(it => {
+    const base = { id: it.id, d: it.d || '', execId: it.execId || '', ref: it.ref, color: cxTlColor(it), glyph: it.kind, kindLabel: CX_NARR_KIND[it.kind] || '', title: it.l, text: '', badges: [] };
+    if (it.k === 'stage' && (it.kind === 'dec' || it.kind === 'and')) {
+      const pending = it.out === 'pendente';
+      out.push({ ...base, cat: 'dec', big: it.kind === 'dec' && !pending, pending, out: it.out || '', text: it.t || '' });
+    } else if (it.kind === 'presc' && it.k === 'cda') {
+      const dbt = it.debt || {};
+      out.push({ ...base, cat: 'presc', open: true, deadline: true, big: false, text: [dbt.tribute || dbt.system || '', cxMoneyShort(dbt.value), 'sem processo'].filter(Boolean).join(' · '), glyph: 'presc' });
+    } else if (it.kind === 'presc') {
+      const interrupts = it.pcat === 'interruptiva', suspends = it.pcat === 'suspensiva';
+      out.push({ ...base, cat: 'presc', deadline: !!(it.mark && it.deadline), text: it.mark ? 'Prescrição pela CDA em pior situação do processo' : '', badges: interrupts ? [{ t: '⌛ interrompe a prescrição', c: 'var(--cx-violet)' }] : suspends ? [{ t: 'suspende a prescrição', c: 'var(--cx-blue)' }] : [] });
+    } else if (it.kind === 'prazo') {
+      const dd = daysUntil(it.d);
+      const bd = [];
+      if (intimIsUrgent(it.i)) bd.push({ t: 'URGENTE', c: 'var(--cx-red)' });
+      if (dd !== null && dd < 0) bd.push({ t: 'vencido há ' + tlDurLabel(-dd).replace(/^há /, ''), c: 'var(--cx-red)' });
+      else if (dd !== null && dd <= 7) bd.push({ t: dd === 0 ? 'vence hoje' : 'faltam ' + tlDurLabel(dd), c: cxTlColor(it) });
+      else bd.push({ t: 'prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d), c: cxTlColor(it) });
+      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i), badges: bd });
+    } else if (it.kind === 'aud') {
+      out.push({ ...base, cat: 'aud', tm: it.tm || '', done: !!it.realized, open: !it.realized, text: (it.hearing && it.hearing.parties) || '', badges: it.realized ? [{ t: 'realizada', c: 'var(--cx-ink-3)' }] : [] });
+    } else if (it.kind === 'rev') {
+      const late = daysUntil(it.d) < 0;
+      out.push({ ...base, cat: 'prazo', open: true, title: late ? it.l + ' atrasada' : it.l, text: late ? 'Marque como revisada no cabeçalho da operação depois de conferir prazos e prescrição.' : '', badges: late ? [{ t: 'vencida há ' + tlDurLabel(-daysUntil(it.d)).replace(/^há /, ''), c: 'var(--cx-red)' }] : [], ref: null });
+    }
+  });
+  (data.tasks || []).forEach(k => {
+    if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    out.push({ id: 'tk|' + k.id, cat: 'tar', glyph: 'tar', kindLabel: CX_NARR_KIND.tarefa, d, open: true, execId: execOfNum(k.processNumber), ref: { t: 'task', k }, color: 'var(--cx-blue)', title: k.title || k.description || 'Tarefa', text: k.description && k.title ? k.description : '', badges: k.priority === 'urgente' ? [{ t: 'URGENTE', c: 'var(--cx-red)' }] : [], procNum: k.processNumber || '' });
+  });
+  buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }).forEach(r => {
+    const task = r.kind === 'tarefa';
+    out.push({ id: 'at|' + r.key, cat: 'mine', cats: task ? ['tar'] : undefined, mineKind: r.kind, glyph: task ? 'tarok' : 'act', kindLabel: r.kindLabel, d: r.date || '', done: true, execId: execOfNum(r.processNumber), color: 'var(--cx-green)', title: r.title, text: '', url: r.url, procNum: r.processNumber,
+      ref: r.kind === 'resposta' ? { t: 'intim', id: r.intimationId } : task ? { t: 'taskId', id: r.taskId } : { t: 'pro', execId: r.executionId, actionId: r.actionId },
+      badges: r.kind === 'resposta' ? [{ t: 'respondida', c: 'var(--cx-green)' }] : [] });
+  });
+  return out;
+}
+/* Frase-resumo escrita só com os próprios dados (sem IA, sem campo novo). */
+function cxNarrSentence(sum) {
+  const bits = [];
+  if (sum.late.n) bits.push(<span key="l">Há <b className="cx-red-t">{cxPl(sum.late.n, 'prazo vencido', 'prazos vencidos')}</b>{sum.late.first ? ' (' + cxTlShortDesc(sum.late.first.title, 34) + ')' : ''} e <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
+  else bits.push(<span key="l">Nenhum prazo vencido; <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
+  if (sum.aud) bits.push(<span key="a">A próxima audiência é <b>{sum.aud.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.aud.days)}</b> ({cxDM(sum.aud.d)}{sum.aud.tm ? ' ' + sum.aud.tm : ''}).</span>);
+  if (sum.decision) bits.push(<span key="d">A última decisão foi <b>{cxTlShortDesc(sum.decision.title, 44)}</b>, em {fmtDate(sum.decision.d)}.</span>);
+  if (sum.term) bits.push(<span key="t">O próximo termo de prescrição é em <b>{fmtDate(sum.term.d)}</b> ({sum.term.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.term.days)}).</span>);
+  else bits.push(<span key="t">Nenhum termo de prescrição à frente.</span>);
+  return bits.reduce((a, b, i) => (i ? a.concat([' ', b]) : [b]), []);
+}
+function CxNarrItem({ it, todayIso, onOpen }) {
+  const dd = it.d ? daysUntil(it.d) : null;
+  const late = !!it.open && !it.done && dd !== null && dd < 0;
+  const rel = dd === null ? 'sem data' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd === -1 ? 'ontem' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd);
+  const c = it.color || 'var(--cx-ink-2)';
+  const clickable = !!it.ref;
+  return <div className={'cx-nr-it' + (it.big ? ' big' : '') + (late ? ' late' : '') + (it.done ? ' done' : '') + (clickable ? ' click' : '')} style={{ '--c': c }}
+    role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => onOpen(it) : undefined}
+    onKeyDown={clickable ? (e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(it); } }) : undefined}>
+    <span className="cx-nr-mk"><CxTlGlyph kind={it.glyph} c={c} s={18} /></span>
+    <span className="cx-nr-t"><span className="cx-nr-k">{it.kindLabel}</span><span className="cx-nr-tt">{it.title}</span></span>
+    <span className="cx-nr-w">{it.d ? <><b>{CX_DOW[cxDate(it.d).getDay()]} {cxDM(it.d)}{it.tm ? ' · ' + it.tm : ''}</b>{rel}</> : <><b>sem data</b></>}</span>
+    {it.text ? <span className="cx-nr-s">{it.text}</span> : null}
+    <span className="cx-nr-m">
+      {it.badges.map((b, i) => <span key={i} className="cx-nr-b" style={{ '--c': b.c }}>{b.t}</span>)}
+      {it.procLabel ? <><span className="cx-ptag" style={{ '--c': it.procColor }}>{it.procTag}</span><span className="cx-mono cx-small cx-muted">{it.procLabel}</span></> : it.procNum ? <span className="cx-mono cx-small cx-muted">{it.procNum}</span> : null}
+      {it.url ? <CxDocIcon url={it.url} size={16} /> : null}
+    </span>
+  </div>;
+}
+function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+  const todayIso = localIso(new Date());
+  const card = variant === 'card';
+  const [cat, setCat] = React.useState('all');
+  const [execId, setExecId] = React.useState('');
+  const [order, setOrder] = React.useState('foco');
+  const [pastShown, setPastShown] = React.useState(NARR_PAST_STEP);
+  const [laterAll, setLaterAll] = React.useState(false);
+  const entries = React.useMemo(() => {
+    const execOf = new Map(tl.procs.map(r => [r.x.e.id, r.x.e]));
+    return cxBuildNarrative(data, op, tl, todayIso).map(it => {
+      const e = it.execId ? execOf.get(it.execId) : null;
+      return e ? { ...it, procTag: cxExecTag(e), procColor: cxTagColor(e), procLabel: cxExecShortNum(e) } : it;
+    });
+  }, [data, op, tl, todayIso]);
+  const counts = React.useMemo(() => narrCounts(entries, execId), [entries, execId]);
+  const shown = React.useMemo(() => narrFilter(entries, { cat, execId }), [entries, cat, execId]);
+  const sum = React.useMemo(() => narrSummary(entries, todayIso), [entries, todayIso]);
+  const focus = React.useMemo(() => narrSectionsFocus(shown, todayIso), [shown, todayIso]);
+  const pg = React.useMemo(() => narrPaginate(focus, { pastShown, laterCap: card ? 6 : Infinity, laterExpanded: laterAll }), [focus, pastShown, card, laterAll]);
+  const chrono = React.useMemo(() => (order === 'cron' ? narrSectionsChrono(shown, todayIso) : null), [shown, todayIso, order]);
+  const open = (it) => {
+    const r = it.ref; if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+    else if (r.t === 'task') onOpenTask && onOpenTask(r.k);
+    else if (r.t === 'taskId') { const t = (data.tasks || []).find(x => x.id === r.id); if (t && onOpenTask) onOpenTask(t); }
+    else if (r.t === 'pro') onOpenProativa && onOpenProativa(r.execId, r.actionId);
+  };
+  const items = (list) => list.map(it => <CxNarrItem key={it.id} it={it} todayIso={todayIso} onOpen={open} />);
+  const nowRow = <div className="cx-nr-now"><span className="pin"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="#fff" /></svg></span><b>Hoje · {CX_DOW[cxDate(todayIso).getDay()]} {fmtDate(todayIso)}</b><span className="ln" /><span className="cx-small cx-muted">acima: o que vem · abaixo: o que já houve</span></div>;
+  const group = (s) => <React.Fragment key={s.key}>
+    <div className={'cx-nr-g' + (s.tone === 'late' ? ' late' : '')}>{s.label}{s.sub ? <span className="sub"> · {s.sub}</span> : null}<span className="cnt">{s.total || s.items.length}</span></div>
+    {items(s.items)}
+  </React.Fragment>;
+  let body;
+  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{entries.length ? 'Nada com esses filtros.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
+  else if (order === 'cron' && chrono) {
+    body = chrono.sections.map((s, si) => <React.Fragment key={s.key}>
+      <div className="cx-nr-g">{s.label}<span className="cnt">{s.items.length}</span></div>
+      {s.items.map((it, ii) => <React.Fragment key={it.id}>{chrono.nowAt && chrono.nowAt.section === si && chrono.nowAt.index === ii ? nowRow : null}<CxNarrItem it={it} todayIso={todayIso} onOpen={open} /></React.Fragment>)}
+    </React.Fragment>);
+    if (!chrono.nowAt) body.push(<React.Fragment key="now-end">{nowRow}</React.Fragment>);
+  } else {
+    body = <>
+      {pg.sections.slice(0, pg.now).map(group)}
+      {nowRow}
+      {pg.sections.slice(pg.now).map(group)}
+      {pg.hiddenLater > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setLaterAll(true)}>Mostrar mais {pg.hiddenLater} adiante</button></div> : null}
+      {pg.hiddenPast > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setPastShown(n => n + NARR_PAST_STEP)}>Mostrar mais {Math.min(NARR_PAST_STEP, pg.hiddenPast)}</button><span className="cx-muted cx-small">{pg.hiddenPast} {pg.hiddenPast === 1 ? 'anterior' : 'anteriores'} ainda fora da lista</span></div> : null}
+    </>;
+  }
+  const chips = <div className="cx-nr-chips">
+    {NARR_CATS.map(([k, l]) => <button key={k} type="button" className={'cx-fchip sm' + (cat === k ? ' on' : '') + (counts[k] === 0 && k !== 'all' ? ' zero' : '')} aria-pressed={cat === k} onClick={() => { setCat(k); setPastShown(NARR_PAST_STEP); }}>{l}<span className="cx-fcn">{counts[k]}</span></button>)}
+    <span className="cx-sp" />
+    <CxSelect id={card ? 'cx-nr-proc-card' : 'cx-nr-proc'} pre="Processo" value={execId} onChange={v => { setExecId(v); setPastShown(NARR_PAST_STEP); }} options={[['', 'Todos']].concat(tl.procs.map(r => [r.x.e.id, cxExecTag(r.x.e) + ' ' + cxExecShortNum(r.x.e)]))} />
+  </div>;
+  if (card) {
+    return <section className="cx-card cx-bf-nr" aria-label="Narrativa da operação">
+      <div className="cx-card-h"><h5>Narrativa</h5><span className="cx-count">{entries.length}</span><span className="cx-muted cx-small cx-nr-sub">o que houve, o que fiz e o que vem</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+      <div className="cx-nr-body">
+        <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
+        {chips}
+        <div className="cx-nr-sc compact"><div className="cx-nr-story">{body}</div></div>
+      </div>
+    </section>;
+  }
+  const pendRec = sum.pendingRec;
+  return <div>
+    <div className="cx-tl-tools">
+      {lead}
+      <span className="cx-sp" />
+      <span className="cx-tl-leg-h">Ordem</span>
+      <CxSeg className="lg" label="Ordem da narrativa" value={order} onChange={setOrder} options={CX_NARR_ORDERS} />
+    </div>
+    <div className="cx-nr-grid">
+      <div className="cx-nr-main">
+        {chips}
+        <div className="cx-nr-sc"><div className="cx-nr-story">{body}</div></div>
+      </div>
+      <aside className="cx-nr-side">
+        <div className="cx-card cx-nr-sc-card"><h5>Em uma frase</h5><p>{cxNarrSentence(sum)}</p></div>
+        <div className="cx-card cx-nr-sc-card"><h5>Panorama</h5><div className="cx-nr-kv">
+          <div><b className={sum.late.n ? 'red' : ''}>{sum.late.n}</b><span>{sum.late.n === 1 ? 'prazo vencido' : 'prazos vencidos'}</span></div>
+          <div><b>{sum.soon.n}</b><span>prazos em 14 dias</span></div>
+          <div><b>{sum.audN}</b><span>{sum.audN === 1 ? 'audiência à frente' : 'audiências à frente'}</span></div>
+          <div><b className={pendRec ? 'yel' : ''}>{pendRec}</b><span>{pendRec === 1 ? 'recurso pendente' : 'recursos pendentes'}</span></div>
+        </div></div>
+        <div className="cx-card cx-nr-sc-card"><h5>O que eu já fiz (30 dias)</h5>
+          {sum.done30.total ? <p className="cx-small"><b>{sum.done30.resp}</b> {sum.done30.resp === 1 ? 'intimação respondida' : 'intimações respondidas'} · <b>{sum.done30.pro}</b> {sum.done30.pro === 1 ? 'atuação proativa' : 'atuações proativas'} · <b>{sum.done30.tar}</b> {sum.done30.tar === 1 ? 'tarefa concluída' : 'tarefas concluídas'}. Último movimento seu: <b>{fmtDate(sum.done30.last.d)}</b>, {sum.done30.last.days === 0 ? 'hoje' : tlDurLabel(-sum.done30.last.days)}.</p> : <p className="cx-small cx-muted">Nenhuma atuação sua registrada nos últimos 30 dias.</p>}</div>
+        <div className="cx-card cx-nr-sc-card"><h5>Como ler</h5><p className="cx-small cx-muted">Cartões com <b>borda grossa</b> são decisões e desfechos; vermelho é vencido. O divisor <b>Hoje</b> separa o que vem (do mais próximo ao mais distante) do que já houve (do mais recente). Tarefas sem data limite não entram.</p></div>
+      </aside>
+    </div>
+  </div>;
+}
+function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa }) {
+  return <EditionClaudeNarrative tl={tl} op={op} data={data} lead={lead} variant="page" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} />;
+}
+/* Card do Briefing: monta a régua de dados da operação e entrega à Narrativa (variante compacta). */
+function EditionClaudeNarrativeCard({ op, data, prescLookup, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+  const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
+  return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={onOpenTimeline} />;
 }
 
 /* ═════════════════════ Horizonte de 90 dias (M5) ═════════════════════
@@ -4284,39 +4480,6 @@ function cxLoadBfCards() {
   return { ...CX_BF_CARD_DEFAULTS };
 }
 function cxSaveBfCards(v) { try { localStorage.setItem('nexus_cx_bf_cards', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-/* Últimas atuações: respostas a intimações, tarefas concluídas e atuações proativas da operação, da mais
-   recente para a mais antiga (agregação pura em src/lib/atuacoes.js). Mostra 10 por vez. */
-const CX_UA_STEP = 10;
-function EditionClaudeUltimasAtuacoes({ op, data, onOpenIntim, onOpenTask, onOpenProativa }) {
-  const [shown, setShown] = React.useState(CX_UA_STEP);
-  const rows = React.useMemo(
-    () => buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }),
-    [op.id, data.intimations, data.tasks, data.executions]
-  );
-  const open = (r) => {
-    if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
-    else if (r.kind === 'tarefa') { const t = (data.tasks || []).find(x => x.id === r.taskId); if (t && onOpenTask) onOpenTask(t); }
-    else if (onOpenProativa) onOpenProativa(r.executionId, r.actionId);
-  };
-  return <section className="cx-card cx-bf-ua">
-    <div className="cx-card-h"><h5>Últimas atuações</h5><span className="cx-count">{rows.length}</span></div>
-    {rows.length === 0
-      ? <div className="cx-empty-row">Nenhuma atuação registrada nesta operação ainda.</div>
-      : <div className="cx-ua-list">
-        {rows.slice(0, shown).map(r => <div key={r.key} className="cx-ua-row" role="button" tabIndex={0} onClick={() => open(r)}
-          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(r); } }}>
-          <span className={'cx-ua-d cx-mono' + (r.date ? '' : ' cx-muted')}>{r.date ? fmtDate(r.date) : 'sem data'}</span>
-          <span className={'cx-ua-chip ' + r.kind}>{r.kindLabel}</span>
-          <span className="cx-ua-t">{r.title}</span>
-          <span className="cx-ua-p cx-mono">{r.processNumber}</span>
-          <span className="cx-ua-l"><CxDocIcon url={r.url} size={16} /></span>
-        </div>)}
-      </div>}
-    {rows.length > shown
-      ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
-      : null}
-  </section>;
-}
 function EditionClaudeBriefing(p) {
   const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
   const briefing = op.briefing || {};
@@ -4648,8 +4811,10 @@ function EditionClaudeBriefing(p) {
           )}
         </section>
 
-        {/* Últimas atuações */}
-        <EditionClaudeUltimasAtuacoes op={op} data={data} onOpenIntim={p.onOpenIntim}
+        {/* Narrativa: o card que era "Últimas atuações", agora com o futuro (atrasado, esta semana, próxima, mais adiante) */}
+        <EditionClaudeNarrativeCard op={op} data={data} prescLookup={p.prescLookup} onOpenIntim={p.onOpenIntim}
+          onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
+          onOpenCda={p.onOpenCda} onOpenProc={p.onOpenProc} onOpenTimeline={p.onOpenTimeline}
           onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
           onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
         {proView && (() => {
@@ -4854,7 +5019,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
           <textarea ref={summaryRef} className="cx-input" rows={3} value={summary} onChange={ev => setSummary(ev.target.value)} placeholder="Ex.: Petição requerendo SISBAJUD e penhora de faturamento" />
         </label>
         <label>Peça (texto integral, opcional)
-          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois em Últimas atuações." />
+          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois na Narrativa do Briefing." />
           {pecaText.trim() ? <span className="cx-form-note">{pecaText.length.toLocaleString('pt-BR')} caracteres</span> : null}
         </label>
         <label>Link da peça (opcional)
@@ -4862,7 +5027,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
         </label>
         {urlBad ? <div className="cx-form-warn">O link da peça precisa começar com http:// ou https://.</div> : null}
         {err ? <div className="cx-form-warn">{err}</div> : null}
-        <div className="cx-form-note">O resumo vai para as notas deste processo e para “Últimas atuações”, no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
+        <div className="cx-form-note">O resumo vai para as notas deste processo e para a Narrativa (Minhas atuações), no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
       </form>
       <div className="cx-dr-foot">
         <button type="button" className="cx-btn ghost" onClick={cancel}>Cancelar</button>
@@ -4873,7 +5038,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
   </>;
 }
 
-/* Leitura de uma atuação proativa (clique na linha de "Últimas atuações"): resumo, data, link e o texto
+/* Leitura de uma atuação proativa (clique na linha em "Minhas atuações", na Narrativa): resumo, data, link e o texto
    da peça colado, em bloco rolável. O texto é sempre exibido como texto puro (nunca como HTML). */
 function EditionClaudeAtuacaoView({ exec, action, onClose }) {
   const [blocks, setBlocks] = React.useState({ resumo: true, peca: true });
@@ -4980,7 +5145,7 @@ function EditionClaudeProcDrawer(p) {
     if (plan.error) return plan.error;
     upsert('executions', plan.execution);
     if (plan.document) upsert('documents', plan.document);
-    cxNotify('Atuação registrada: nota do processo e Últimas atuações' + (plan.document ? ' · peça em Arquivos' : ''));
+    cxNotify('Atuação registrada: nota do processo e Narrativa' + (plan.document ? ' · peça em Arquivos' : ''));
     setAtuacaoOpen(false);
     setTab('notas');
     return '';
