@@ -5980,6 +5980,63 @@ button.cx-kc:disabled { cursor: default; background: var(--cx-surface); color: v
 button.cx-kc:disabled:hover { background: var(--cx-surface); }
 button.cx-kc:disabled :is(.cx-kc-v, .cx-kc-l, .cx-kc-d) { color: var(--cx-ink-3); opacity: 0.8; }
 .cx-kc-pair .cx-pt { align-items: baseline; min-height: 16px; line-height: 16px; }
+/* A5 · colunas fixas e compartilhadas nas tabelas empilhadas (Processos, Inscrições, Partes, Bens) */
+table.cx-pt.cx-pt-fx { table-layout: fixed; }
+.cx-pt-fx td, .cx-pt-fx th { overflow: hidden; text-overflow: ellipsis; }
+.cx-pt-fx td.cx-pt-num { white-space: nowrap; }
+.cx-pt-c-ck { width: 34px; }
+.cx-pt-c-sig { width: 120px; }
+.cx-pt-c-st { width: 160px; }
+.cx-pt-c-n { width: 70px; }
+.cx-pt-c-val { width: 150px; }
+.cx-pt-c-presc { width: 200px; }
+.cx-pt-c-cda { width: 260px; }
+.cx-pt-c-role { width: 130px; }
+.cx-pt-c-tit { width: 190px; }
+.cx-pt-c-proc { width: 230px; }
+.cx-pt-c-an { width: 110px; }
+/* A9 · lista de Tarefas: colunas de ação e prazo com largura fixa (as linhas deixam de se deslocar entre si) */
+.cx-t-row { grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) 34px 106px 96px; min-height: 57px; }
+.cx-desk-btn { min-width: 76px; justify-content: center; }
+
+/* A11 · títulos de cartão (h5) com a mesma escala em todo o app: 13px/600 */
+.cx-card-h h5, .cx-bf-rail-card .cx-card-h h5 { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
+/* A11 · a coluna da direita acompanha o topo da principal (o sticky com top > 0 empurrava 14 px no início) */
+.cx-bf-rail { top: 0; }
+
+/* M5 · todo cartão com cabeçalho tem o divisor sob o título (o primeiro bloco ganha a borda superior; linhas que já a têm não duplicam) */
+.cx-card > .cx-card-h + :not(.cx-tbl-wrap) { border-top: 1px solid var(--cx-line); }
+.cx-card > .cx-card-h + .cx-pad { padding-top: 12px; }
+
+/* A8 · cartões da Carteira: blocos com altura reservada, para valor, régua e rodapé caírem na mesma linha */
+.cx-oc .cx-oc-rv { min-height: 22px; }
+.cx-oc .cx-tags { min-height: 49px; align-content: flex-start; }
+.cx-oc .cx-pulse { min-height: 111px; justify-content: flex-start; }
+@media (min-width: 1100px) { .cx-oc .cx-oc-f { flex-wrap: nowrap; } }
+.cx-oc .cx-oc-f > * { flex: none; }
+.cx-oc .cx-oc-av { min-width: 0; }
+.cx-oc .cx-oc-f { gap: 4px; }
+.cx-oc .cx-oc-f .cx-pl { padding: 0 7px; gap: 4px; }
+/* A6 · cabeçalho único da operação (mesma posição e escala em todas as abas, inclusive a Visão geral); M14 · linhas fixas, sem chips quebrando em três linhas */
+.cx-oph-top { flex-wrap: nowrap; align-items: center; }
+.cx-oph-main { flex: 1 1 0; min-width: 0; }
+.cx-oph-name { flex-wrap: nowrap; }
+.cx-oph-name h1 { flex: 0 1 auto; min-width: 0; }
+.cx-oph-tags { display: flex; flex-wrap: wrap; gap: 5px 6px; margin-top: 8px; }
+.cx-oph-tags:empty { display: none; }
+.cx-oph .cx-op-actions { flex: none; flex-wrap: nowrap; }
+.cx-oph-sum { margin-top: 8px; }
+@media (max-width: 900px) {
+  .cx-oph-top { flex-wrap: wrap; }
+  .cx-oph .cx-op-actions { flex-wrap: wrap; }
+}
+/* M14 · telas baixas (≤ 900 px de altura): cabeçalho da operação mais compacto, mais área para o conteúdo */
+@media (max-height: 900px) {
+  .cx-oph { padding-top: 10px; }
+  .cx-oph-tags { margin-top: 6px; }
+  .cx-oph-sum { margin-top: 5px; }
+  .cx-oph .cx-optabs.cx-oph-tabs { margin-top: 4px; }
+}
 </style>
 </head>
 <body>

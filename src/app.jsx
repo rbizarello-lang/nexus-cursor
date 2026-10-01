@@ -10658,6 +10658,15 @@ function App() {
     startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
   };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
+  /* Cabeçalho único da operação (Nexus Prumo): o mesmo componente em todas as abas, inclusive a Visão geral. */
+  const cxOpHeaderEl = (isClaude && viewMode === 'operation' && activeOp) ? <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
+    onTab={(t) => startTabSwitch(() => setActiveTab(t))}
+    onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
+    onDiag={() => openDiagnostico(activeOp.id)}
+    onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
+    onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
+    onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+    onOpenIntim={(id) => setCxDrawerId(id)} /> : null;
   const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
     const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
     const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
@@ -12385,27 +12394,19 @@ function App() {
       {viewMode === 'operation' && !activeOp && (
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
-      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
+      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <>
+        {cxOpHeaderEl}
+        <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
         prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
-        onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
-        onDiag={() => openDiagnostico(activeOp.id)}
-        onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
-        onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
-        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
+        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
+      </>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
-        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
-          onTab={(t) => startTabSwitch(() => setActiveTab(t))}
-          onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
-          onDiag={() => openDiagnostico(activeOp.id)}
-          onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
-          onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
-          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
-          onOpenIntim={(id) => setCxDrawerId(id)} />}
+        {cxOpHeaderEl}
         {!isClaude && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>

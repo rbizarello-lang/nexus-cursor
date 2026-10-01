@@ -1923,14 +1923,14 @@ function EditionClaudeCarteira(p) {
             <span className="cx-oc-meta">{meta}</span>
           </span>
         </span>
-        {rv ? <span className="cx-oc-rv">{rv}</span> : null}
+        <span className="cx-oc-rv">{rv}</span>
         <span className="cx-op-desc">{o.description || <span className="cx-muted">Sem descrição.</span>}</span>
-        {cls.length ? <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span> : null}
+        <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span>
         <span className="cx-oc-m">
           <CxRing pct={pct} size={40} stroke={5.5} label={pct + '% garantido'} />
           <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
         </span>
-        {pulses.get(o.id) ? <CxPulse pulse={pulses.get(o.id)} todayIso={todayIso} /> : null}
+        {pulses.get(o.id) ? <CxPulse pulse={pulses.get(o.id)} todayIso={todayIso} /> : <span className="cx-pulse" aria-hidden="true" />}
         <span className="cx-oc-f">
           <span className="cx-pl" title="Processos"><CxIcon n="scale" s={13} /><b>{x.execs.length}</b></span>
           <span className="cx-pl" title="CDAs ativas"><CxIcon n="file" s={13} /><b>{x.debts.length}</b></span>
@@ -3742,24 +3742,7 @@ function EditionClaudeOpOverview(p) {
     audiencia: nextHearing ? { dias: daysUntil(nextHearing.date), tipo: (CX_HEARING[nextHearing.hearingType] || '').replace(/^Audiência( de)? /i, '').toLowerCase(), iso: toDayKey(nextHearing.date), time: nextHearing.time || '' } : null,
   }) : '';
   return <div className="cx cx-page cx-page-wide cx-op-page">
-    <div className="cx-op-top">
-      <div className="cx-minw0">
-        <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>
-        <div className="cx-op-hero"><CxOpTile op={op} size={38} /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
-      </div>
-      <div className="cx-op-actions">
-        <button type="button" className={'cx-btn' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={14} />Revisada</button>
-        <button type="button" className="cx-btn" onClick={p.onEdit}><CxIcon n="edit" s={14} />Editar</button>
-        <button type="button" className="cx-btn ghost" onClick={p.onDiag}>Diagnóstico</button>
-        <button type="button" className="cx-btn ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={14} />Relatório</button>
-      </div>
-    </div>
     <EditionClaudeOpDesc key={op.id} op={op} upsert={p.upsert} />
-    <div className="cx-tags cx-op-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
-    <nav className="cx-optabs" aria-label="Abas da operação">
-      <button type="button" className="on" aria-current="page">Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" onClick={() => p.onTab(t[0])}>{t[1]}</button>)}
-    </nav>
     {s ? <CxResumo text={resumo} className="cx-rs-op" /> : null}
     {s ? <CxKpiStrip n={4} dense={false} className="cpair">
       <CxKpiCard label="Dívida total" value={cxMoneyShort(s.total)} desc={cxPl(s.debts, 'CDA', 'CDAs') + (opCartShare !== null ? ' · ' + opCartShare + '% da carteira' : '')} onClick={() => p.onTab('dividas')}
@@ -4505,19 +4488,19 @@ function EditionClaudeOpHeader(p) {
           <h1 className="cx-ell" title={op.name}>{op.name}</h1>
           {op.status === 'encerrada' ? <span className="cx-tag">Encerrada</span> : null}
           {cxOpPrioTag(op)}
-          <span className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</span>
         </div>
-        {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
       </div>
       <div className="cx-op-actions">
-        <button type="button" className={'cx-btn sm' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={13} />Revisada</button>
-        <button type="button" className="cx-btn sm" onClick={p.onEdit}><CxIcon n="edit" s={13} />Editar</button>
-        <button type="button" className="cx-btn sm ghost" onClick={p.onDiag}>Diagnóstico</button>
-        <button type="button" className="cx-btn sm ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={13} />Relatório</button>
+        <button type="button" className={'cx-btn' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={14} />Revisada</button>
+        <button type="button" className="cx-btn" onClick={p.onEdit}><CxIcon n="edit" s={14} />Editar</button>
+        <button type="button" className="cx-btn ghost" onClick={p.onDiag}>Diagnóstico</button>
+        <button type="button" className="cx-btn ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={14} />Relatório</button>
       </div>
     </div>
+    <div className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
+    {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
     <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
-      <button type="button" onClick={() => p.onTab('visao')}>Visão geral</button>
+      <button type="button" className={activeTab === 'visao' ? 'on' : ''} aria-current={activeTab === 'visao' ? 'page' : undefined} onClick={() => { if (activeTab !== 'visao') p.onTab('visao'); }}>Visão geral</button>
       {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
     </nav>
   </div>;
@@ -5177,8 +5160,7 @@ function EditionClaudeBriefing(p) {
     <div className="cx-bf-grid">
       <div className="cx-bf-main">
         {/* Leitura da operação */}
-        <section className="cx-card cx-bf-lead">
-          {highlight ? (<>
+        {highlight ? (<section className="cx-card cx-bf-lead">
             <div className="cx-bf-lead-hd">
               <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
               <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
@@ -5194,8 +5176,7 @@ function EditionClaudeBriefing(p) {
               const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
               return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
             })}
-          </>) : null}
-        </section>
+        </section>) : null}
 
         {/* Frentes processuais */}
         <section className="cx-card cx-bf-fronts">
@@ -6253,8 +6234,14 @@ function EditionClaudeProcessos(p) {
     </React.Fragment>;
   };
 
-  const ProcTableHead = ({ first = 'Processo', sig = true, counts = true }) => (
-    <thead><tr><th className="cx-pt-ck"></th><th>{first}</th>{!drawerOpen && sig && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerOpen && counts && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  /* Colunas fixas e compartilhadas (A5): as seis tabelas empilhadas da aba usam o mesmo <colgroup>, então Situação, CDAs,
+     Valor e Prescrição ficam alinhados de um cartão para o outro. `blank` (CDAs não ajuizadas) mantém as colunas
+     Marcadores e CDAs, só que vazias, para Situação/Valor/Prescrição caírem nos mesmos x. */
+  const ProcTableHead = ({ first = 'Processo', blank = false }) => (
+    <>
+      <colgroup><col className="cx-pt-c-ck" /><col />{!drawerOpen && <col className="cx-pt-c-sig" />}<col className="cx-pt-c-st" />{!drawerOpen && <col className="cx-pt-c-n" />}<col className="cx-pt-c-val" /><col className="cx-pt-c-presc" /></colgroup>
+      <thead><tr><th className="cx-pt-ck"></th><th>{first}</th>{!drawerOpen && <th className="cx-pt-sig">{blank ? '' : 'Marcadores'}</th>}<th>Situação</th>{!drawerOpen && <th className="cx-pt-r">{blank ? '' : 'CDAs'}</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+    </>
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
@@ -6404,7 +6391,7 @@ function EditionClaudeProcessos(p) {
             {!cardCollapsed('inc') && hubs.length >= 4 && <button type="button" className="cx-link-btn cx-card-h-act" onClick={ev => { ev.stopPropagation(); setAllHubsOpen(!allHubsOpen); }}>{allHubsOpen ? 'recolher todos' : 'expandir todos'}</button>}
           </div>
           {!cardCollapsed('inc') && hubs.length > 0 && <>
-            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
               {incVisibleHubs.map(({ h, covered }) => <HubGroupRow key={h.exec.id} h={h} covered={covered} />)}
             </tbody></table></div>
           </>}
@@ -6419,7 +6406,7 @@ function EditionClaudeProcessos(p) {
           </div>
           {!cardCollapsed('semv') && <>
             {uncoveredEFs.length === 0 && extinctVisible.length === 0 ? <div className="cx-empty-row">Nenhuma execução fora de IDPJ, cautelar e central.</div> :
-            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
               {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => (semVincBands[k] || []).length).map(k => {
                 const bd = EF_BANDS.find(b => b.key === k);
                 return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} collapsed={!!bandsClosed[k]} onToggle={() => toggleBand(k)} />;
@@ -6435,7 +6422,7 @@ function EditionClaudeProcessos(p) {
             <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
             <span className="cx-muted cx-small">· sem processo</span>
           </div>
-          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead first="Inscrição" sig={false} counts={false} /><tbody>
+          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead first="Inscrição" blank /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
             {unlinkedVisible.length > 0 && (() => {
               const shownN = showMore['na'] || 8;
@@ -6448,7 +6435,9 @@ function EditionClaudeProcessos(p) {
                   return <tr key={d.id} className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => openCdaDrawer(d.id)}>
                     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
                     <td className="cx-pt-num"><CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
+                    {!drawerOpen && <td className="cx-pt-sig"></td>}
                     <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
+                    {!drawerOpen && <td className="cx-pt-r"></td>}
                     <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
                     <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
                   </tr>;
@@ -6465,7 +6454,7 @@ function EditionClaudeProcessos(p) {
             <span className="cx-chev">{cardCollapsed('rec') ? '▸' : '▾'}</span><h5>Recursos</h5><span className="cx-count">{otherBuckets.recursos.length}</span>
             <span className="cx-muted cx-small">· agrupados pelo processo principal</span>
           </div>
-          {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+          {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             {(() => {
               const byParent = new Map();
               filterRows(otherBuckets.recursos).forEach(g => { const pid = g.exec.parentExecutionId || '—'; if (!byParent.has(pid)) byParent.set(pid, []); byParent.get(pid).push(g); });
@@ -6487,7 +6476,7 @@ function EditionClaudeProcessos(p) {
             <span className="cx-muted cx-small">· embargos à execução, à execução fiscal e de terceiro</span>
             {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}
           </div>
-          {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+          {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="emb-all" label={null} rows={filterRows(otherBuckets.embargos)} />
             {otherBuckets.embargos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum embargo.</td></tr>}
           </tbody></table></div>}
@@ -6499,7 +6488,7 @@ function EditionClaudeProcessos(p) {
             <span className="cx-chev">{cardCollapsed('out') ? '▸' : '▾'}</span><h5>Outros</h5><span className="cx-count">{otherBuckets.outros.length}</span>
             <span className="cx-muted cx-small">· cumprimento, procedimento comum e demais</span>
           </div>
-          {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+          {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="out-all" label={null} rows={filterRows(otherBuckets.outros)} />
             {otherBuckets.outros.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum outro processo.</td></tr>}
           </tbody></table></div>}
@@ -6762,7 +6751,10 @@ function EditionClaudeInscricoes(p) {
     cxNotify(`Memória técnica copiada — ${entries.length} CDA(s).`);
   };
 
-  const IncTableHead = () => <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>;
+  const IncTableHead = () => <>
+    <colgroup><col className="cx-pt-c-ck" /><col className="cx-pt-c-cda" /><col /><col className="cx-pt-c-st" /><col className="cx-pt-c-val" /><col className="cx-pt-c-presc" /></colgroup>
+    <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  </>;
 
   const SubGroupBlock = ({ g, sg, isLast = true }) => {
     const isSameAsUmbrella = sg.subExec.id === g.umbrella.id;
@@ -6876,7 +6868,7 @@ function EditionClaudeInscricoes(p) {
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        {view === 'relogios' ? <EditionClaudeClocks embedded data={data} prazosRadar={p.prazosRadar} prescLookup={p.prescLookup} opId={opId} debtIds={clkIds} filtered={clkFiltered} onOpenCda={openCdaFromClock} /> : <div className="cx-card cx-pt-wrap"><table className="cx-pt"><IncTableHead />
+        {view === 'relogios' ? <EditionClaudeClocks embedded data={data} prazosRadar={p.prazosRadar} prescLookup={p.prescLookup} opId={opId} debtIds={clkIds} filtered={clkFiltered} onOpenCda={openCdaFromClock} /> : <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx"><IncTableHead />
           <tbody>
             {cdaSort === 'por_processo' ? <>
               {groups.map(g => <GroupHeaderRow key={g.umbrella.id} g={g} />)}
@@ -7049,7 +7041,10 @@ function EditionClaudePartes(p) {
     </tr>;
   };
 
-  const PersonTableHead = () => <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>;
+  const PersonTableHead = () => <>
+    <colgroup><col /><col className="cx-pt-c-role" /><col className="cx-pt-c-n" /><col className="cx-pt-c-val" /><col className="cx-pt-c-n" /><col className="cx-pt-c-presc" /></colgroup>
+    <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>
+  </>;
 
   return <div className="cx cx-page cx-page-wide cx-pp">
     <CxKpiStrip n={4}>
@@ -7069,7 +7064,7 @@ function EditionClaudePartes(p) {
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><PersonTableHead />
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx"><PersonTableHead />
           <tbody>
             {alvos.length > 0 && <tr className="cx-pt-band"><td colSpan={6}>Alvos diretos <span className="cx-muted cx-small">· {alvos.length}</span></td></tr>}
             {alvos.map(s => <PersonRow key={s.person.id} s={s} />)}
@@ -7271,7 +7266,8 @@ function EditionClaudeBens(p) {
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt">
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx">
+          <colgroup><col className="cx-pt-c-ck" /><col /><col className="cx-pt-c-tit" /><col className="cx-pt-c-proc" /><col className="cx-pt-c-val" /><col className="cx-pt-c-st" /><col className="cx-pt-c-an" /></colgroup>
           <thead><tr><th className="cx-pt-ck"></th><th>Bem</th><th>Titular</th><th>Processo · origem</th><th className="cx-pt-r">Valor</th><th>Situação</th><th>Analytics</th></tr></thead>
           <tbody>
             {groupEntries.map(g => <GroupBlock key={g.key} g={g} />)}
