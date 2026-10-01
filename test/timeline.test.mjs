@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { addCalendarDays } from '../src/lib/dates.js';
 import {
   TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlLayoutLabels, tlPickGap, tlDurLabel,
   tlCdaBar, tlCountKinds, tlToggleKind, tlCapList,
@@ -7,6 +8,7 @@ import {
   horizonOffRuns, horizonRangeLabel,
   TL_WINDOWS, TL_DEFAULT_WINDOW, tlWindowLabel, tlFocusDefault, tlFocusStep, tlFocusRange, tlNormalizeFocus, tlBreakLabel,
   tlCompressZone, tlProjectBroken, tlFocusAxis, tlZoneTicks,
+  TL_PULSE_FROM, TL_PULSE_TO, tlPulseLayout, tlPulseSummary, tlPhaseTrail, tlMiniTrail,
 } from '../src/lib/timeline.js';
 
 describe('Vocabulário da Linha do tempo', () => {
@@ -292,5 +294,141 @@ describe('Panorama — marcas do eixo', () => {
     T.breaks.forEach(b => { assert.ok(b.x1 > b.x0 && /^≈/.test(b.label)); assert.ok(b.x0 >= 700); });
     assert.ok(T.ticks.every(t => t.x >= 700 && t.x <= 1000));
     assert.equal(tlZoneTicks(null, 0, TODAY).ticks.length, 0);
+  });
+});
+
+describe('Miniaturas (M6) — pulso de 120 dias', () => {
+  const TODAY = '2026-10-01'; // quinta-feira
+  const it = (id, kind, d, o = {}) => ({ id, kind, d, ...o });
+  it('layout: pontos dentro da janela, empilhados no mesmo dia, hoje e próximos 7 dias na escala', () => {
+    const items = [it('a', 'prazo', '2026-10-01'), it('b', 'aud', '2026-10-01'), it('c', 'dec', '2026-09-20'), it('d', 'presc', '2027-07-28'), it('e', 'prazo', '2026-12-30')];
+    const L = tlPulseLayout(items, { todayIso: TODAY });
+    assert.equal(L.points.length, 3);
+    assert.equal(L.hidden, 1);
+    assert.deepEqual(L.points.map(p => [p.id, p.lvl]), [['c', 0], ['a', 0], ['b', 1]]);
+    assert.ok(L.points[0].x < L.today && L.today < L.points[2].x + 1);
+    assert.equal(L.points.find(p => p.id === 'a').x, L.today);
+    assert.ok(L.next7.x1 > L.next7.x0);
+    assert.ok(Math.abs((L.next7.x1 - L.next7.x0) - 7 / 120 * (L.X1 - L.X0)) < 1e-9);
+    assert.equal(L.x(TL_PULSE_FROM), L.X0);
+    assert.equal(L.x(TL_PULSE_TO), L.X1);
+  });
+  it('layout: segundas viram marca de semana e o dia 1 marca de mês com o nome abreviado', () => {
+    const L = tlPulseLayout([], { todayIso: TODAY });
+    assert.ok(L.ticks.some(t => t.type === 'month' && t.label === 'out'));
+    assert.ok(L.ticks.some(t => t.type === 'month' && t.label === 'nov'));
+    assert.ok(L.ticks.some(t => t.type === 'week' && t.o === 4)); // segunda 05/10
+    assert.equal(L.ticks.filter(t => t.type === 'week').every(t => new Date(addCalendarDays(TODAY, t.o) + 'T00:00:00').getDay() === 1), true);
+  });
+  it('layout: itens sem data são ignorados e a lista recebida não muda', () => {
+    const items = [it('x', 'prazo', ''), it('y', 'prazo', '2026-10-03')];
+    const copy = JSON.stringify(items);
+    assert.equal(tlPulseLayout(items, { todayIso: TODAY }).points.length, 1);
+    assert.equal(JSON.stringify(items), copy);
+  });
+  it('resumo: próximo, vencidos, próximos 7 dias e o próximo termo (com +N)', () => {
+    const items = [
+      it('p1', 'prazo', '2026-09-29', { title: 'Vencido' }),
+      it('p2', 'prazo', '2026-10-06', { title: 'Exceção' }),
+      it('au', 'aud', '2026-10-05', { tm: '14:30', title: 'Justificação' }),
+      it('t1', 'tar', '2026-10-04', { title: 'Memorial' }),
+      it('t2', 'tar', '2026-11-20', { title: 'Longe' }),
+      it('dc', 'dec', '2026-10-02'),
+      it('c1', 'presc', '2027-07-28'),
+      it('c2', 'presc', '2028-09-27'),
+    ];
+    const s = tlPulseSummary(items, TODAY);
+    assert.equal(s.next.id, 't1');
+    assert.equal(s.next.o, 3);
+    assert.equal(s.late, 1);
+    assert.equal(s.in7, 3);
+    assert.deepEqual(s.term, { d: '2027-07-28', o: 300, extra: 1 });
+  });
+  it('resumo: sem nada à frente devolve vazio e não quebra', () => {
+    const s = tlPulseSummary([], TODAY);
+    assert.deepEqual(s, { next: null, late: 0, in7: 0, term: null });
+    assert.equal(tlPulseSummary([it('a', 'prazo', '2026-09-01')], TODAY).late, 1);
+    assert.equal(tlPulseSummary(null, TODAY).next, null);
+  });
+});
+
+describe('Miniaturas (M6) — trilha de fases do processo', () => {
+  const TODAY = '2026-10-01';
+  const stage = (key, label, o = {}) => ({ key, label, has: false, ...o });
+  const defs = () => [
+    stage('ajuizamento', 'Ajuizamento', { has: true, d: '2026-06-03', text: 'IDPJ ajuizado' }),
+    stage('citacao', 'Citação'),
+    stage('liminar', 'Liminar', { has: true, d: '2026-07-03', out: 'favoravel', outLabel: 'favorável', ev: '12' }),
+    stage('audiencia', 'Audiência'),
+    stage('saneamento', 'Saneamento e provas', { has: true, d: '2026-09-04' }),
+    stage('recurso1', 'Recurso', { has: true, multi: true, recursos: [{ d: '2026-09-11', out: 'pendente', outLabel: 'pendente de julgamento', parte: 'adversa' }] }),
+    stage('decisao', 'Decisão final'),
+    stage('transito', 'Trânsito em julgado'),
+  ];
+  it('cumpridas, a atual (a mais recente), sem registro que já passou e esperadas', () => {
+    const t = tlPhaseTrail({ stages: defs(), hearings: [], todayIso: TODAY });
+    assert.deepEqual(t.steps.map(s => s.state), ['done', 'skip', 'done', 'skip', 'done', 'cur', 'next', 'next']);
+    assert.equal(t.curIndex, 5);
+    assert.equal(t.done, 4);
+    assert.equal(t.total, 8);
+    assert.equal(t.steps[5].label, 'Recurso (parte adversa)');
+  });
+  it('dias entre fases datadas (só quando positivos)', () => {
+    const t = tlPhaseTrail({ stages: defs(), hearings: [], todayIso: TODAY });
+    assert.deepEqual(t.steps.map(s => s.gap), [null, null, 30, null, 63, 7, null, null]);
+  });
+  it('audiência futura do processo dá data à fase "Audiência" ainda sem registro', () => {
+    const t = tlPhaseTrail({ stages: defs(), hearings: [{ d: '2026-10-05', tm: '14:30', label: 'Justificação' }, { d: '2026-09-01', label: 'Passada' }], todayIso: TODAY });
+    const a = t.steps.find(s => s.key === 'audiencia');
+    assert.equal(a.state, 'next');
+    assert.equal(a.d, '2026-10-05');
+    assert.equal(a.tm, '14:30');
+    assert.equal(a.hearing, true);
+    assert.equal(a.label, 'Justificação');
+  });
+  it('fase registrada com data futura é esperada; recurso sem data vira um passo só (e, sem nenhuma fase datada, é a atual)', () => {
+    const t = tlPhaseTrail({ stages: [stage('a', 'A', { has: true, d: '2026-08-01' }), stage('b', 'B', { has: true, d: '2026-12-01' }), stage('c', 'C', { has: true })], todayIso: TODAY });
+    assert.deepEqual(t.steps.map(s => s.state), ['cur', 'next', 'next']); // a mais recente é a de maior data; registro sem data depois dela é o que se espera
+    const r = tlPhaseTrail({ stages: [stage('r', 'Recurso', { has: true, multi: true, recursos: [] })], todayIso: TODAY });
+    assert.equal(r.steps.length, 1);
+    assert.equal(r.steps[0].state, 'cur');
+  });
+  it('registro sem data e sem desfecho depois da última fase datada é esperado ("aguardando"); com desfecho ou antes, é cumprido', () => {
+    const t = tlPhaseTrail({ stages: [
+      stage('a', 'A', { has: true }), // sem data, mas antes da última datada
+      stage('b', 'B', { has: true, d: '2026-08-01' }),
+      stage('dec', 'Decisão', { has: true, text: 'Aguardando instrução' }), // sem data, sem desfecho, depois
+      stage('x', 'X', { has: true, out: 'favoravel' }), // sem data, com desfecho
+    ], todayIso: TODAY });
+    assert.deepEqual(t.steps.map(s => s.state), ['done', 'cur', 'next', 'done']);
+  });
+  it('sem nada registrado: tudo esperado; entrada nula não quebra', () => {
+    const t = tlPhaseTrail({ stages: [stage('a', 'A'), stage('b', 'B')], todayIso: TODAY });
+    assert.deepEqual(t.steps.map(s => s.state), ['next', 'next']);
+    assert.equal(t.curIndex, -1);
+    assert.deepEqual(tlPhaseTrail().steps, []);
+  });
+  it('trilha curta: até 3 fases cumpridas, você, a próxima coisa com data e a próxima fase', () => {
+    const t = tlPhaseTrail({ stages: defs(), hearings: [{ d: '2026-10-05', tm: '14:30', label: 'Justificação' }], todayIso: TODAY });
+    const m = tlMiniTrail(t, { d: '2026-09-29', label: 'Este prazo', late: true });
+    assert.deepEqual(m.map(x => x.k), ['done', 'done', 'done', 'you', 'future', 'ghost']);
+    assert.deepEqual(m.slice(0, 3).map(x => x.label), ['Liminar', 'Saneamento e provas', 'Recurso (parte adversa)']);
+    assert.equal(m[3].late, true);
+    assert.equal(m[4].hearing, true);
+    assert.equal(m[5].label, 'Decisão final');
+  });
+  it('trilha curta sem nenhuma fase cumprida não inventa a "próxima fase"', () => {
+    const t = tlPhaseTrail({ stages: [stage('a', 'Ajuizamento da EF'), stage('b', 'Citação')], hearings: [{ d: '2026-10-19', tm: '14:00', label: 'Instrução' }, ], todayIso: TODAY });
+    const m = tlMiniTrail(t, { d: '2026-10-06' });
+    assert.deepEqual(m.map(x => x.k), ['you']);
+    const t2 = tlPhaseTrail({ stages: [stage('a', 'Ajuizamento da EF'), stage('audiencia', 'Audiência')], hearings: [{ d: '2026-10-19', tm: '14:00', label: 'Instrução' }], todayIso: TODAY });
+    assert.deepEqual(tlMiniTrail(t2, { d: '2026-10-06' }).map(x => x.k), ['you', 'future']);
+  });
+  it('trilha curta nunca passa do máximo e funciona sem fases', () => {
+    const t = tlPhaseTrail({ stages: defs(), hearings: [], todayIso: TODAY });
+    assert.ok(tlMiniTrail(t, { d: TODAY }, { max: 4 }).length <= 4);
+    const vazio = tlMiniTrail(tlPhaseTrail({ stages: [], todayIso: TODAY }), { d: TODAY, label: 'X' });
+    assert.deepEqual(vazio.map(x => x.k), ['you']);
+    assert.equal(tlMiniTrail(null, null)[0].label, 'Este prazo');
   });
 });

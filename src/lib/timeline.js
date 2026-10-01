@@ -14,6 +14,10 @@
  *    quebrado — o foco (30 d … 1 ano) em escala linear e o passado/futuro comprimidos nas laterais, com vãos
  *    longos sem fato viram quebras hachuradas ("≈ 13 m") —, `tlFocusAxis`/`tlZoneTicks` geram as marcas do eixo,
  *    `tlNormalizeFocus` protege o estado lembrado no navegador.
+ *  - Miniaturas (M6): `tlPulseLayout`/`tlPulseSummary` (pulso de 120 dias da Carteira: pontos em dias a partir de hoje,
+ *    marcas de semana e de mês, frase "Próximo …"), `tlPhaseTrail` (trilha de fases de um processo: cumpridas, atual,
+ *    sem registro e esperadas, com os dias entre fases) e `tlMiniTrail` (a trilha curta de até 6 pontos da gaveta da
+ *    intimação: fases cumpridas, "você está aqui" e o que vem).
  *  - Horizonte de 90 dias (M5): `horizonColumns` (funil Atrasados · esta semana · semanas 2-5 · meses · Depois),
  *    `horizonBucket` (itens por coluna), `horizonDayCounts`/`horizonBusyDays` (dias com 3 ou mais itens) e
  *    `horizonOffRuns` (dias úteis que não são úteis: feriado, recesso ou calendário local — o predicado vem de fora).
@@ -415,4 +419,124 @@ export function tlZoneTicks(zone, x0, todayIso, opts = {}) {
     }
   });
   return out;
+}
+
+/* ═════════════ Miniaturas (M6) ═════════════ */
+/** Janela do pulso da Carteira: 30 dias para trás e 90 para a frente (120 dias). */
+export const TL_PULSE_FROM = -30;
+export const TL_PULSE_TO = 90;
+const PULSE_ACT = new Set(['prazo', 'aud', 'tar']);
+
+/**
+ * Pulso de uma operação: pontos (prazos, audiências, tarefas, decisões e termos) na janela [from, to] em dias a partir
+ * de hoje, empilhados quando caem no mesmo dia (`lvl` 0, 1, 2…), com marcas de segunda-feira e de início de mês e a faixa
+ * dos próximos 7 dias. items: [{ id, kind, d }]. Retorna { width, X0, X1, x(o), today, next7: { x0, x1 }, ticks, points, hidden }
+ * — `hidden` conta o que ficou fora da janela (a tela avisa com o selo de termo).
+ */
+export function tlPulseLayout(items, { todayIso, from = TL_PULSE_FROM, to = TL_PULSE_TO, width = 380, pad = 10 } = {}) {
+  const X0 = pad, X1 = width - pad;
+  const x = (o) => X0 + (o - from) / (to - from) * (X1 - X0);
+  const ticks = [];
+  for (let o = from; o <= to; o++) {
+    const iso = addCalendarDays(todayIso, o);
+    const dow = new Date(iso + 'T00:00:00').getDay();
+    const dd = +iso.slice(8, 10);
+    if (dd === 1) ticks.push({ o, x: x(o), type: 'month', label: TL_MES[+iso.slice(5, 7) - 1] });
+    else if (dow === 1) ticks.push({ o, x: x(o), type: 'week', label: '' });
+  }
+  const seen = new Map();
+  const points = [];
+  let hidden = 0;
+  (items || []).filter(it => it && toDayKey(it.d)).map((it, i) => ({ it, i, o: daysBetween(todayIso, toDayKey(it.d)) }))
+    .sort((a, b) => a.o - b.o || a.i - b.i)
+    .forEach(({ it, o }) => {
+      if (o < from || o > to) { hidden++; return; }
+      const lvl = seen.get(o) || 0;
+      seen.set(o, lvl + 1);
+      points.push({ id: it.id, kind: it.kind, o, x: x(o), lvl });
+    });
+  return { width, X0, X1, x, today: x(0), next7: { x0: x(0), x1: x(Math.min(to, 7)) }, ticks, points, hidden, from, to };
+}
+
+/**
+ * Frase do pulso: o próximo prazo/audiência/tarefa (a data e a hora, em dias), quantos vencidos, quantos nos próximos
+ * 7 dias e o próximo termo de prescrição (com "+N" se houver mais). items: [{ id, kind, d, tm?, title }] — todos os
+ * fatos da operação, não só os da janela (o termo pode estar a anos). Retorna { next, late, in7, term }.
+ */
+export function tlPulseSummary(items, todayIso) {
+  const rows = (items || []).filter(it => it && toDayKey(it.d)).map(it => ({ ...it, o: daysBetween(todayIso, toDayKey(it.d)) }));
+  const act = rows.filter(r => PULSE_ACT.has(r.kind));
+  const up = act.filter(r => r.o >= 0).sort((a, b) => a.o - b.o || String(a.tm || '').localeCompare(String(b.tm || '')) || String(a.id).localeCompare(String(b.id)));
+  const terms = rows.filter(r => r.kind === 'presc' && r.o >= 0).sort((a, b) => a.o - b.o);
+  return {
+    next: up[0] ? { id: up[0].id, kind: up[0].kind, d: up[0].d, o: up[0].o, tm: up[0].tm || '', title: up[0].title || '' } : null,
+    late: act.filter(r => r.o < 0 && r.kind !== 'aud').length,
+    in7: up.filter(r => r.o <= 7).length,
+    term: terms.length ? { d: terms[0].d, o: terms[0].o, extra: terms.length - 1 } : null,
+  };
+}
+
+/**
+ * Trilha de fases de um processo, na ordem do tipo de processo (IDPJ/MCF ou central). stages: [{ key, label, has, multi,
+ * d, out, outLabel, text, ev, recursos: [{ d, out, outLabel, parte, texto, proc }] }]; hearings: [{ d, tm, label }]
+ * futuras do processo. Cada passo: { id, key, label, state, d, tm, out, outLabel, text, ev, gap, hearing, parte }
+ *   state: 'done' (registrada, até hoje) · 'cur' (a última registrada: "onde estamos") · 'next' (esperada: sem registro,
+ *          registrada com data futura, ou registrada sem data nem desfecho depois da última fase datada) ·
+ *          'skip' (sem registro, mas já passou: uma fase seguinte foi cumprida).
+ * `gap` = dias desde a fase datada anterior (só quando positivo). Uma audiência futura do processo dá data à fase
+ * "audiencia" ainda sem registro. Retorna { steps, done, total, curIndex }.
+ */
+export function tlPhaseTrail({ stages, hearings, todayIso } = {}) {
+  const today = toDayKey(todayIso);
+  const raw = [];
+  (stages || []).forEach(st => {
+    if (!st) return;
+    if (st.multi && st.has && (st.recursos || []).length) {
+      st.recursos.forEach((r, i) => raw.push({ id: st.key + '#' + i, key: st.key, label: st.label + (r.parte === 'adversa' ? ' (parte adversa)' : ''), has: true, d: toDayKey(r.d) || '', out: r.out || '', outLabel: r.outLabel || '', text: [r.proc ? 'Proc. ' + r.proc : '', r.texto || ''].filter(Boolean).join(' · '), ev: '', parte: r.parte || '' }));
+    } else raw.push({ id: st.key, key: st.key, label: st.label, has: !!st.has, d: toDayKey(st.d) || '', out: st.out || '', outLabel: st.outLabel || '', text: st.text || '', ev: st.ev || '', parte: '' });
+  });
+  const lastDoneIdx = (() => { let k = -1; raw.forEach((r, i) => { if (r.has && (!r.d || r.d <= today)) k = i; }); return k; })();
+  /* Registro sem data e sem desfecho depois da última fase datada = o que se espera ("Decisão final — aguardando…"). */
+  const lastDatedIdx = (() => { let k = -1; raw.forEach((r, i) => { if (r.has && r.d && r.d <= today) k = i; }); return k; })();
+  const hear = (hearings || []).filter(h => h && toDayKey(h.d) && toDayKey(h.d) >= today).sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  const steps = raw.map((r, i) => {
+    const base = { ...r, tm: '', hearing: false, gap: null };
+    if (r.has) {
+      if (r.d) return { ...base, state: r.d <= today ? 'done' : 'next' };
+      return { ...base, state: !r.out && lastDatedIdx >= 0 && i > lastDatedIdx ? 'next' : 'done' };
+    }
+    if (r.key === 'audiencia' && hear[0]) return { ...base, state: 'next', d: toDayKey(hear[0].d), tm: hear[0].tm || '', hearing: true, label: hear[0].label || r.label };
+    return { ...base, state: i < lastDoneIdx ? 'skip' : 'next' };
+  });
+  /* "cur" = a fase registrada mais recente (maior data; no empate, a última da ordem) */
+  let cur = -1, bestD = '';
+  steps.forEach((s, i) => { if (s.state === 'done' && (cur < 0 || s.d >= bestD)) { cur = i; bestD = s.d; } });
+  if (cur >= 0) steps[cur].state = 'cur';
+  let prev = '';
+  steps.forEach(s => {
+    if ((s.state === 'done' || s.state === 'cur') && s.d) {
+      if (prev) { const g = daysBetween(prev, s.d); if (g > 0) s.gap = g; }
+      prev = s.d;
+    }
+  });
+  const done = steps.filter(s => s.state === 'done' || s.state === 'cur').length;
+  return { steps, done, total: steps.length, curIndex: cur };
+}
+
+/**
+ * Trilha curta ("você está aqui") para a gaveta da intimação: até 3 fases cumpridas (as mais recentes), o prazo desta
+ * intimação, a próxima coisa com data (audiência) e a próxima fase esperada (tracejada). `trail` vem de tlPhaseTrail;
+ * `you` = { d, label, late }. Retorna [{ k: 'done'|'you'|'future'|'ghost', label, d, tm, out, hearing }] com no máximo `max`.
+ */
+export function tlMiniTrail(trail, you, { max = 6 } = {}) {
+  const steps = (trail && trail.steps) || [];
+  const past = steps.filter(s => (s.state === 'done' || s.state === 'cur') && s.d).slice().sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  const futureDated = steps.filter(s => s.state === 'next' && s.d).slice().sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  const ghost = past.length ? steps.find(s => s.state === 'next' && !s.d) : null; // sem fase cumprida, "a próxima fase" não quer dizer nada
+  const tail = [];
+  if (futureDated[0]) tail.push({ k: 'future', label: futureDated[0].label, d: futureDated[0].d, tm: futureDated[0].tm, out: futureDated[0].out, hearing: !!futureDated[0].hearing });
+  if (ghost) tail.push({ k: 'ghost', label: ghost.label, d: '', tm: '', out: '', hearing: false });
+  const keep = Math.max(0, max - 1 - tail.length);
+  const head = past.slice(Math.max(0, past.length - Math.min(3, keep))).map(s => ({ k: 'done', label: s.label, d: s.d, tm: '', out: s.out, hearing: false }));
+  return head.concat([{ k: 'you', label: (you && you.label) || 'Este prazo', d: (you && you.d) || '', tm: '', out: '', hearing: false, late: !!(you && you.late) }], tail).slice(0, max);
 }

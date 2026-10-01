@@ -1504,6 +1504,16 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const ra = intim.responseAction;
   const alarmCount = cdas.filter(d => { const row = prazosByDebt.get(d.id); return row && row.group === 1; }).length;
   const showCtx = !!(exec || cdas.length || siblings.length);
+  /* Trilha curta "você está aqui" (M6-B): fases cumpridas do processo, este prazo e o que vem. Só na gaveta. */
+  const trailPts = React.useMemo(() => {
+    if (!exec) return null;
+    const todayIso = localIso(new Date());
+    const tr = cxProcTrail(data, op || (data.operations || []).find(o => o.id === exec.operationId), exec, todayIso);
+    if (!tr || !tr.steps.length) return null;
+    const dl = toDayKey(intim.dateDeadline);
+    const pts = tlMiniTrail(tr, { d: dl || '', label: 'Este prazo', late: !!(dl && !intim.responseAction && daysUntil(dl) < 0) });
+    return pts.length > 1 ? pts : null; // só "este prazo" não conta nada
+  }, [data, op, exec, intim.dateDeadline, intim.responseAction]);
   const pecas = cxPecasList(intim, data);
   const resume = esteiraResumeInfo(intim.esteira);
   const estSummary = esteiraSummary(intim.esteira);
@@ -1525,6 +1535,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
     <h2 className="cx-d-title">{cxPartyName(intim)}</h2>
     <CxIntimObjEditable intim={intim} upsert={a.upsert} />
     <CxRuler intim={intim} />
+    {trailPts ? <div className="cx-mt-wrap"><div className="cx-mt-cap">Onde este prazo cai no processo</div><CxMiniTrail points={trailPts} /></div> : null}
 
     {resume ? <div className="cx-resume">
       <div className="cx-resume-k">Continuar · etapa {resume.index + 1} de {resume.total} · parou {esteiraStoppedLabel(resume.updatedAt, { withTime: true })}</div>
@@ -1828,7 +1839,8 @@ function cxOpIndex(data, prazosByDebt) {
 
 /* ═════════════════════ Carteira ═════════════════════ */
 function EditionClaudeCarteira(p) {
-  const { data, prazosByDebt } = p;
+  const { data, prazosByDebt, prescLookup } = p;
+  const todayIso = localIso(new Date());
   const [localF, setLocalF] = React.useState('all');
   const filter = p.classFilter || localF;
   const setFilter = p.setClassFilter || setLocalF;
@@ -1838,6 +1850,24 @@ function EditionClaudeCarteira(p) {
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
   const ops = data.operations || [];
+  /* Pulso de 120 dias de cada operação ativa (M6-A): um cxBuildTimeline por operação, só quando os dados mudam. */
+  const pulses = React.useMemo(() => {
+    const m = new Map();
+    if (!prescLookup) return m;
+    ops.filter(o => o.status !== 'encerrada').forEach(o => { try { m.set(o.id, cxPulseData(data, o, prescLookup, todayIso)); } catch (err) { /* sem pulso */ } });
+    return m;
+  }, [data, prescLookup, todayIso]);
+  const pulseTip = useCxTip(React.useCallback((key) => {
+    const rest = key.replace(/^pl\|/, '');
+    for (const pu of pulses.values()) {
+      const it = pu.items.find(i => i.id === rest); if (!it) continue;
+      const d = cxTlTipData(it.tip, pu.execById);
+      d.lines = (d.lines || []).filter(l => l.indexOf('Clique') !== 0);
+      if (it.kind === 'tar') d.lines.unshift('Tarefa');
+      return d;
+    }
+    return null;
+  }, [pulses]));
   const chips = [['all', 'Todas', ops.filter(o => o.status !== 'encerrada').length]];
   opClassChipKeys(ops, { hideEmpty: true }).forEach(k => { if (OP_CLASSIFICATIONS[k]) chips.push([k, OP_CLASSIFICATIONS[k].label, ops.filter(o => opMatchesClassFilter(o, k)).length]); });
   const nClosed = ops.filter(o => o.status === 'encerrada').length;
@@ -1876,7 +1906,7 @@ function EditionClaudeCarteira(p) {
     <CxChips label="Filtrar por classificação" group="Classificação" className="cx-chips cx-chips-tight" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
     <CxChips label="Filtrar por prioridade" group="Prioridade" className="cx-chips" value={prio} onChange={v => setPrio(prio === v ? null : v)} options={prioChips} />
     {list.length === 0 ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>{ops.length ? 'Nenhuma operação neste filtro.' : 'Nenhuma operação ainda. Crie a primeira.'}</div></div> :
-    <div className="cx-op-grid">{list.map(o => {
+    <div className="cx-op-grid" {...pulseTip.bind}>{list.map(o => {
       const x = idx(o.id);
       const total = money(o), g = guar(o), pct = total > 0 ? Math.round(g / total * 100) : 0;
       const cls = getOpClassifications(o);
@@ -1899,6 +1929,7 @@ function EditionClaudeCarteira(p) {
           <CxRing pct={pct} size={40} stroke={5.5} label={pct + '% garantido'} />
           <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
         </span>
+        {pulses.get(o.id) ? <CxPulse pulse={pulses.get(o.id)} todayIso={todayIso} /> : null}
         <span className="cx-oc-f">
           <span className="cx-pl" title="Processos"><CxIcon n="scale" s={13} /><b>{x.execs.length}</b></span>
           <span className="cx-pl" title="CDAs ativas"><CxIcon n="file" s={13} /><b>{x.debts.length}</b></span>
@@ -1909,6 +1940,7 @@ function EditionClaudeCarteira(p) {
         </span>
       </button>;
     })}</div>}
+    {pulseTip.node}
   </div>;
 }
 
@@ -3008,6 +3040,140 @@ function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpe
 function EditionClaudeNarrativeCard({ op, data, prescLookup, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
   return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={onOpenTimeline} />;
+}
+
+/* ═════════════════════ Miniaturas (M6) ═════════════════════
+   "Onde estamos neste processo e o que vem aqui — sem sair da tela em que já estou?" O mesmo vocabulário de formas
+   (◆ ○ ■ ▼ ⬢) em três usos: (A) pulso de 120 dias no cartão da Carteira; (B) trilha de 5-6 pontos "você está aqui" na
+   gaveta da intimação (o cartão da lista não muda); (C) trilha vertical de fases + a barra de prescrição na ficha do
+   processo. Cálculo em src/lib/timeline.js (tlPulseLayout, tlPulseSummary, tlPhaseTrail, tlMiniTrail); nada de dado novo. */
+const CX_MT_OUT = { favoravel: 'var(--cx-green)', provido: 'var(--cx-green)', desfavoravel: 'var(--cx-red)', nao_provido: 'var(--cx-red)', pendente: 'var(--cx-yellow)' };
+const cxMtOutColor = (o) => CX_MT_OUT[o] || 'var(--cx-ink-2)';
+/* Trilha de fases do processo (ordem do tipo: IDPJ/MCF ou central), a partir do mesmo `stageMeta` do Briefing. */
+function cxProcTrail(data, op, e, todayIso) {
+  if (!e) return null;
+  const idpj = e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal';
+  const recs = getStageRecords((op && op.briefing) || {}, e.id) || {};
+  const metas = stageMeta(idpj ? PROCESS_STAGES : CENTRAL_STAGES, idpj ? PROCESS_STAGE_KEYS : CENTRAL_STAGE_KEYS, recs);
+  const stages = metas.map(m => ({
+    key: m.k, label: m.sd.label, has: !!m.has, multi: !!m.sd.multiRecurso,
+    d: toDayKey(m.rec && m.rec.date) || '', out: (m.rec && m.rec.outcome) || '', outLabel: m.outcomeLabel || '',
+    text: String((m.rec && m.rec.texto) || '').trim(), ev: (m.rec && m.rec.evento) || '',
+    recursos: (m.recursos || []).map(r => ({ d: toDayKey(r.date) || '', out: r.outcome || '', outLabel: RECURSO_OUTCOMES[r.outcome] || '', parte: r.parte === 'adversa' ? 'adversa' : 'nossa', texto: String(r.texto || '').trim(), proc: r.proc || '' })),
+  }));
+  const hearings = (data.hearings || []).filter(h => h.date && h.status !== 'cancelada' && h.status !== 'realizada' && sameProc(h.processNumber, e.processNumber) && (!e.operationId || h.operationId === e.operationId))
+    .map(h => ({ d: toDayKey(h.date), tm: h.time || '', label: CX_HEARING_SHORT[h.hearingType] || 'Audiência' }));
+  return tlPhaseTrail({ stages, hearings, todayIso });
+}
+/* (B) Trilha curta da gaveta da intimação. */
+function CxMiniTrail({ points }) {
+  const you = points.findIndex(x => x.k === 'you');
+  return <div className="cx-mt" role="list" aria-label="Onde este prazo cai no processo">
+    {points.map((x, i) => {
+      const c = x.k === 'you' ? (x.late ? 'var(--cx-red)' : 'var(--cx-accent)') : x.k === 'done' ? (x.out ? cxMtOutColor(x.out) : 'var(--cx-ink-2)') : x.hearing ? 'var(--cx-orange)' : 'var(--cx-ink-3)';
+      const kind = x.k === 'you' ? 'prazo' : x.hearing ? 'aud' : x.out ? 'dec' : 'and';
+      const when = x.d ? cxDM(x.d) + (x.tm ? ' ' + x.tm : '') : 'sem data';
+      return <div key={i} role="listitem" className={'cx-mt-s ' + x.k + (i < you ? ' before' : '')} style={{ '--c': c }} title={x.label + ' · ' + (x.d ? fmtDate(x.d) : 'sem data') + (x.k === 'you' ? ' (este prazo)' : x.k === 'ghost' ? ' (fase esperada)' : '')}>
+        <span className="cx-mt-g">{x.k === 'you' ? <span className="cx-mt-ring" /> : null}<CxTlGlyph kind={kind} c={c} ghost={x.k === 'ghost'} s={x.k === 'you' ? 18 : 15} /></span>
+        <span className="cx-mt-l">{x.k === 'you' ? 'Este prazo' : tlClip(x.label, 22)}</span>
+        <span className="cx-mt-d">{x.k === 'you' ? (x.d ? cxDM(x.d) : '') : when}</span>
+      </div>;
+    })}
+  </div>;
+}
+/* (C) Trilha vertical de fases. */
+function CxPhaseTrail({ trail, todayIso }) {
+  const { steps, done, total } = trail;
+  const cur = trail.curIndex;
+  const nextDated = steps.find(s => s.state === 'next' && s.d);
+  return <div className="cx-pt">
+    <div className="cx-pt-sum"><span><b>{cur >= 0 ? 'Fase ' + (cur + 1) + ' de ' + total : cxPl(total, 'fase', 'fases')}</b> · {cxPl(done, 'cumprida', 'cumpridas')}</span><span className="cx-muted">{nextDated ? 'próxima com data: ' + fmtDate(nextDated.d) : ''}</span></div>
+    <div className="cx-pt-prog" aria-hidden="true"><i style={{ width: (total ? done / total * 100 : 0) + '%', background: 'var(--cx-green)' }} />{cur >= 0 ? <i style={{ width: (total ? 1 / total * 100 : 0) + '%', background: 'var(--cx-accent)' }} /> : null}</div>
+    <div className="cx-pt-list">
+      {steps.map(s => {
+        const dd = s.d ? daysUntil(s.d) : null;
+        const oc = s.out ? cxMtOutColor(s.out) : '';
+        const dt = s.state === 'skip' ? 'sem registro' : s.d ? fmtDate(s.d) + (s.tm ? ' · ' + s.tm : '') : s.state === 'next' ? 'sem data' : 'sem data';
+        const extra = s.gap ? '+' + s.gap + ' d' : s.state === 'next' && dd !== null ? (dd === 0 ? 'hoje' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd)) : '';
+        return <div key={s.id} className={'cx-pt-s ' + s.state} style={{ '--c': oc || 'var(--cx-green)' }}>
+          <span className="cx-pt-nd">{s.state === 'done' ? <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><path d="M1.5 4.6l2 2 4-4.4" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.state === 'cur' ? <span className="cx-pt-dot" /> : null}</span>
+          <div className="cx-pt-tt"><span>{s.label}</span>{s.outLabel ? <span className="cx-nr-b" style={{ '--c': oc }}>{s.outLabel}</span> : null}<span className="cx-pt-dt">{dt}{extra ? ' · ' + extra : ''}</span></div>
+          {s.text || s.ev ? <div className="cx-pt-tx">{[s.ev ? 'Ev. ' + s.ev : '', s.text].filter(Boolean).join(' · ')}</div> : null}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+/* Barra de prescrição da ficha do processo: a pior CDA do processo (ou das EFs cobertas, no IDPJ/MCF), com a mesma
+   leitura da tela de Relógios (CxClkBar). */
+function cxProcPrescMini(data, e, cdas, prazosByDebt, todayIso) {
+  if (!e) return null;
+  let targets = (cdas || []).filter(d => d.status !== 'extinta' && !d.prescriptionHandled);
+  let covered = false;
+  if (!targets.length && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal')) {
+    const linked = (e.linkedExecutionIds || []).map(id => (data.executions || []).find(x => x.id === id)).filter(Boolean);
+    targets = (data.debts || []).filter(d => d.status !== 'extinta' && !d.prescriptionHandled && linked.some(x => sameProc(x.processNumber, d.processNumber)));
+    covered = targets.length > 0;
+  }
+  if (!targets.length) return null;
+  let best = null;
+  targets.forEach(d => {
+    let r = null; try { r = computePrescription({ debt: d, executions: data.executions || [], events: data.prescriptionEvents || [] }); } catch (err) { r = null; }
+    if (!r) return;
+    const s = CX_SEV[r.status] || 0, bs = best ? (CX_SEV[best.r.status] || 0) : -1;
+    if (s > bs || (s === bs && (r.daysLeft ?? 1e9) < (best.r.daysLeft ?? 1e9))) best = { d, r };
+  });
+  if (!best) return null;
+  const c = clkClassify({ debt: best.d, r: best.r, row: prazosByDebt && prazosByDebt.get ? prazosByDebt.get(best.d.id) : undefined, today: todayIso });
+  if (!c || c.skip) return null;
+  return { c, n: targets.length, covered, status: best.r.status };
+}
+function CxProcPrescMini({ mini, todayIso }) {
+  if (!mini) return null;
+  return <div className="cx-pt-presc">
+    <div className="cx-pt-presc-h"><span className="cx-pt-cap">Prescrição{mini.covered ? ' das EFs cobertas' : ''}</span><span className="cx-muted cx-small">{mini.n > 1 ? 'pior de ' + cxPl(mini.n, 'CDA', 'CDAs') : '1 CDA'} · {CX_PRESC_TXT[mini.status] || ''}</span></div>
+    <CxClkBar c={mini.c} todayIso={todayIso} />
+  </div>;
+}
+/* (A) Pulso de 120 dias (−30 … +90) do cartão da Carteira: um ponto por prazo, audiência, tarefa, decisão ou termo. */
+function cxPulseData(data, op, prescLookup, todayIso) {
+  const tl = cxBuildTimeline(data, op, prescLookup);
+  const items = [];
+  tl.items.forEach(it => {
+    if (!it.d) return;
+    if (it.kind === 'prazo') items.push({ id: it.id, kind: 'prazo', d: it.d, title: it.l, color: cxTlColor(it), tip: it });
+    else if (it.kind === 'aud') items.push({ id: it.id, kind: 'aud', d: it.d, tm: it.tm || '', title: it.short || it.l, color: cxTlColor(it), tip: it });
+    else if (it.k === 'stage' && it.kind === 'dec' && it.out !== 'pendente') items.push({ id: it.id, kind: 'dec', d: it.d, title: it.l, color: it.c, tip: it });
+    else if (it.kind === 'presc' && (it.k === 'cda' || (it.mark && it.deadline))) items.push({ id: it.id, kind: 'presc', d: it.d, title: it.l, color: 'var(--cx-violet)', tip: it });
+  });
+  (data.tasks || []).forEach(k => {
+    if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    items.push({ id: 'tk|' + k.id, kind: 'tar', d, title: k.title || k.description || 'Tarefa', color: 'var(--cx-blue)', tip: { id: 'tk|' + k.id, kind: 'and', d, l: k.title || k.description || 'Tarefa', ref: { t: 'task' } } });
+  });
+  return { items, layout: tlPulseLayout(items, { todayIso }), sum: tlPulseSummary(items, todayIso), execById: tl.execById };
+}
+function CxPulse({ pulse, todayIso }) {
+  const { layout: L, sum, items } = pulse;
+  const byId = new Map(items.map(i => [i.id, i]));
+  const Y = 38;
+  const rel = (o) => (o === 0 ? 'hoje' : o === 1 ? 'amanhã' : o > 0 ? 'em ' + tlDurLabel(o) : tlDurLabel(o));
+  return <span className="cx-pulse">
+    <svg viewBox={'0 0 ' + L.width + ' 60'} width="100%" role="img" aria-label="Pulso dos próximos 120 dias: de 30 dias atrás a 90 dias à frente">
+      <line x1={L.X0} x2={L.X1} y1={Y} y2={Y} stroke="var(--cx-line-strong)" strokeWidth="1.5" />
+      {L.ticks.map(t => t.type === 'month'
+        ? <g key={'m' + t.o}><line x1={t.x} x2={t.x} y1={Y - 6} y2={Y + 8} stroke="var(--cx-ink-3)" /><text x={t.x + 3} y={Y + 19} className="cx-pulse-mo">{t.label}</text></g>
+        : <line key={'w' + t.o} x1={t.x} x2={t.x} y1={Y - 3} y2={Y + 3} stroke="var(--cx-line-strong)" />)}
+      <rect x={L.next7.x0} y={Y - 8} width={L.next7.x1 - L.next7.x0} height="16" rx="3" fill="var(--cx-accent)" opacity="0.1" />
+      {L.points.map(p => { const it = byId.get(p.id); if (!it) return null; const y = Y - (p.lvl ? 9 * p.lvl + 4 : 0); return <g key={p.id} transform={'translate(' + (p.x - 7.5) + ',' + (y - 7.5) + ')'} data-tl={'pl|' + p.id} className="cx-pulse-pt"><CxTlGlyph kind={it.kind === 'tar' ? 'tar' : it.kind} c={it.color} s={15} /></g>; })}
+      <line x1={L.today} x2={L.today} y1="2" y2="50" stroke="var(--cx-accent)" strokeWidth="1.6" />
+      <text x={L.today + 3} y="9" className="cx-pulse-hj">HOJE</text>
+    </svg>
+    <span className="cx-pulse-ln">{sum.next
+      ? <><span className="cx-dot" style={{ background: (byId.get(sum.next.id) || {}).color || 'var(--cx-ink-3)' }} /><span className="cx-pulse-nx"><span className="cx-pulse-pre">Próximo:</span><b className="cx-ell" title={sum.next.title}>{sum.next.title}</b><span className="cx-pulse-rel">· {rel(sum.next.o)}{sum.next.tm ? ' ' + sum.next.tm : ''}</span></span></>
+      : <span className="cx-muted">Nada agendado à frente.</span>}</span>
+    <span className="cx-pulse-ln sub">{sum.late ? <b className="cx-red-t">{sum.late} vencido{sum.late === 1 ? '' : 's'}</b> : null}{sum.late ? ' · ' : ''}{cxPl(sum.in7, 'item', 'itens')} nos próximos 7 dias{sum.term ? <> · <span className="cx-violet-t">⌛ {sum.term.o <= 90 ? 'termo em ' + tlDurLabel(sum.term.o) : 'próximo termo ' + cxDM(sum.term.d) + '/' + sum.term.d.slice(2, 4)}{sum.term.extra ? ' (+' + sum.term.extra + ')' : ''}</span></> : null}</span>
+  </span>;
 }
 
 /* ═════════════════════ Horizonte de 90 dias (M5) ═════════════════════
@@ -5134,6 +5300,10 @@ function EditionClaudeProcDrawer(p) {
     const evs = (data.prescriptionEvents || []).filter(ev => ev.executionId === e.id || cdaIds.has(ev.cdaId) || (ev.batchCdaIds || []).some(id => cdaIds.has(id)));
     return { r, notice, redir: redirecionamentoInfo({ exec: e, events: evs }) };
   })();
+  /* Trilha de fases e barra de prescrição da ficha (M6-C). */
+  const todayIso = localIso(new Date());
+  const trail = e ? cxProcTrail(data, (data.operations || []).find(o => o.id === (e.operationId || opId)), e, todayIso) : null;
+  const prescMini = e ? cxProcPrescMini(data, e, cdas, prazosByDebt, todayIso) : null;
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
@@ -5194,6 +5364,10 @@ function EditionClaudeProcDrawer(p) {
           {procPresc && procPresc.r && procPresc.r.segment === 'intercorrente' && <div className="cx-pd-ruler"><span className="cx-muted cx-small">Intercorrente</span><PrescBandRuler seg={procPresc.r} /></div>}
           {procPresc && procPresc.notice && <div className="cx-pd-notice">{betaSafeUiText(procPresc.notice.text)}</div>}
           {procPresc && procPresc.redir && <div className="cx-pd-sum-row cx-pd-redir" title={procPresc.redir.basis}><span>Redirecionamento</span><b className="cx-small">{procPresc.redir.text}</b></div>}
+          {e && ((trail && trail.done > 0) || prescMini) ? <div className="cx-pd-trail">
+            {trail && trail.done > 0 ? <><div className="cx-pt-cap">Fases do processo</div><CxPhaseTrail trail={trail} todayIso={todayIso} /></> : null}
+            <CxProcPrescMini mini={prescMini} todayIso={todayIso} />
+          </div> : null}
         </div>}
         {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
           {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}

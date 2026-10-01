@@ -11259,7 +11259,7 @@ function App() {
       )}
 
       {/* ═══ OPERAÇÕES (lista alfabética + filtro por classificação) ═══ */}
-      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
+      {viewMode === 'operacoes' && isClaude && <div className="cx-scroll"><EditionClaudeCarteira data={data} prazosByDebt={prazosByDebt} prescLookup={prescLookup} classFilter={opClassFilter} setClassFilter={setOpClassFilter}
         onOpenOp={(id) => cxOpenOp(id)} onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })} /></div>}
       {viewMode === 'operacoes' && !isClaude && (
         <div className="painel-container">
