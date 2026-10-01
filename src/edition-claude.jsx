@@ -328,19 +328,73 @@ function CxChips({ value, onChange, options, label, sm = false, className = '' }
    comparação, quando existe). Delta só onde há comparação calculável: `delta = { txt, dir: 'up'|'down'|'none', tone:
    'good'|'bad'|'neutral' }`. `tone` ('red'|'orange'|'violet') colore o número/linha só quando descrevem um estado.
    Sem `onClick`, o cartão é um bloco; com ele, um botão. */
-function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, delta, onClick, on, tip, className = '' }) {
-  const body = <>
-    <div className="cx-kc-b">
-      <div className="cx-kc-t"><span className="cx-kc-l">{label}</span>{tag || null}</div>
-      <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
-      <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')}>{desc}</div>
-    </div>
-    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : null}</div>
+function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, delta, pair, onClick, on, tip, className = '' }) {
+  const top = <>
+    <div className="cx-kc-t"><span className="cx-kc-l">{label}</span>{tag || null}</div>
+    <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
+    <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')}>{desc}</div>
   </>;
   const cls = 'cx-kc' + (onClick ? ' click' : '') + (on ? ' on' : '') + (className ? ' ' + className : '');
+  if (pair) {
+    /* Variante com métrica par no rodapé: duas áreas clicáveis independentes (principal e par). */
+    const pb = <>
+      <span className="cx-pt"><span>{pair.label}</span>{pair.ctx ? <span className="cx-pctx">{pair.ctx}</span> : null}</span>
+      <span className="cx-pv"><b className={pair.tone || ''}>{pair.value}</b><span className={pair.noteTone || ''}>{pair.note}</span></span>
+    </>;
+    return <div className={cls.replace(' click', '') + ' has-pair'}>
+      {onClick ? <button type="button" className="cx-kc-b click" onClick={onClick} title={tip}>{top}</button> : <div className="cx-kc-b" title={tip}>{top}</div>}
+      {pair.onClick ? <button type="button" className="cx-kc-pair click" onClick={pair.onClick} title={pair.tip}>{pb}</button> : <div className="cx-kc-pair" title={pair.tip}>{pb}</div>}
+    </div>;
+  }
+  const body = <>
+    <div className="cx-kc-b">{top}</div>
+    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : null}</div>
+  </>;
   return onClick
     ? <button type="button" className={cls} onClick={onClick} title={tip}>{body}</button>
     : <div className={cls} title={tip}>{body}</div>;
+}
+/* Anel segmentado (Polimento · K5): só para razão (x de y) ou etapas, sempre com o número escrito ao lado.
+   20 segmentos finos; `pct` 0–100. */
+function CxRing({ pct, size = 44, stroke = 6, color = 'var(--cx-green)', label }) {
+  const n = 20, r = (size - stroke) / 2, c = size / 2;
+  const p = Math.max(0, Math.min(100, pct || 0));
+  let filled = Math.round(p / 100 * n);
+  if (p > 0 && filled === 0) filled = 1;
+  if (p < 100 && filled === n) filled = n - 1;
+  const pt = (deg) => { const a = deg * Math.PI / 180; return (c + r * Math.sin(a)).toFixed(2) + ' ' + (c - r * Math.cos(a)).toFixed(2); };
+  const segs = [];
+  for (let i = 0; i < n; i++) {
+    const a0 = i * 18 + 3, a1 = i * 18 + 15;
+    segs.push(<path key={i} d={'M' + pt(a0) + ' A' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 0 1 ' + pt(a1)} stroke={i < filled ? color : 'var(--cx-line-strong)'} />);
+  }
+  return <svg className="cx-ring" width={size} height={size} viewBox={'0 0 ' + size + ' ' + size} role="img" aria-label={label || (Math.round(p) + '%')} style={{ strokeWidth: stroke, fill: 'none', strokeLinecap: 'butt' }}><title>{label || (Math.round(p) + '%')}</title>{segs}</svg>;
+}
+/* Tile de iniciais na cor da operação (Polimento · K3); anel violeta para operação nova, como o quadradinho. */
+function cxOpInitials(op) {
+  const words = cxOpName(op).split(/\s+/).filter(Boolean);
+  return (words.slice(0, 2).map(w => w.charAt(0)).join('') || '?').toUpperCase();
+}
+function CxOpTile({ op, size = 40 }) {
+  const isNew = cxOpIsNew(op);
+  const style = { '--c': cxOpColor(op), '--s': size + 'px' };
+  if (isNew) { style.outline = '2px solid var(--cx-violet)'; style.outlineOffset = '1.5px'; }
+  return <span className="cx-tile" style={style} title={isNew ? 'Nova' : undefined} aria-hidden="true">{cxOpInitials(op)}</span>;
+}
+/* Carteira inteira: dívida e garantia sobre as CDAs não extintas (mesma conta do cartão "Crédito sob gestão"). */
+function cxCarteiraTotals(data) {
+  const debts = (data.debts || []).filter(d => d.status !== 'extinta');
+  const total = debts.reduce((t, d) => t + (d.value || 0), 0);
+  const guar = debts.filter(d => d.status === 'garantida').reduce((t, d) => t + (d.value || 0), 0);
+  return { total, guar, pct: total > 0 ? Math.round(guar / total * 100) : null };
+}
+/* Linha de Resumo (Polimento · K7): frase montada por regras fixas (src/lib/hoje.js), nunca por IA. */
+function CxResumo({ text, className = '' }) {
+  if (!text) return null;
+  return <div className={'cx-rs ' + className}>
+    <span className="cx-rs-chip" title="Calculado a partir dos dados desta tela, por regras fixas. Sem IA."><CxIcon n="list" s={12} />Resumo</span>
+    <span>{resumoPartes(text).map((x, k) => x.b ? <b key={k}>{x.t}</b> : <React.Fragment key={k}>{x.t}</React.Fragment>)}</span>
+  </div>;
 }
 function CxKpiStrip({ n, dense = true, className = '', children }) {
   return <div className={'cx-ks' + (dense ? ' dense' : '') + (className ? ' ' + className : '')} style={{ '--n': n }}>{children}</div>;
@@ -2090,18 +2144,25 @@ function EditionClaudeOpOverview(p) {
   const hearings = (data.hearings || []).filter(h => h.operationId === op.id && h.date && h.status !== 'realizada' && h.status !== 'cancelada' && daysUntil(h.date) >= 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const indisp = (data.assets || []).filter(x => x.operationId === op.id && (x.status === 'indisponibilidade_ativa' || x.status === 'indisponibilidade_requerida') && x.value > 0).reduce((t, x) => t + x.value, 0);
   const tasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada').sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
-  const stat = (label, value, sub, opts = {}) => {
-    const body = <><span className="cx-stat-l">{label}</span><span className={'cx-stat-v ' + (opts.tone || '')}>{value}</span><span className="cx-stat-s">{sub}</span></>;
-    return opts.onClick
-      ? <button type="button" className="cx-stat click" onClick={opts.onClick} title={opts.tip}>{body}</button>
-      : <div className="cx-stat" title={opts.tip}>{body}</div>;
-  };
+  const cart = cxCarteiraTotals(data);
+  const opPct = s && s.total > 0 ? Math.round(s.guar / s.total * 100) : null;
+  const opCartShare = s && cart.total > 0 ? Math.round(s.total / cart.total * 100) : null;
+  const opExecCount = (data.executions || []).filter(e => e.operationId === op.id).length;
+  const nextTask = tasks.find(t => t.dueDate && daysUntil(t.dueDate) >= 0);
+  const lateIntims = open.map(i => ({ i, dd: daysUntil(i.dateDeadline) })).filter(x => x.dd !== null && x.dd < 0).sort((a, b) => a.dd - b.dd);
+  const nextHearing = hearings[0];
+  const resumo = s ? resumoOperacao({
+    garantiaPct: opPct, carteiraPct: cart.pct,
+    intimVencidas: lateIntims.length ? { n: lateIntims.length, maisAntigaDias: -lateIntims[0].dd, parte: cxPartyName(lateIntims[0].i) } : null,
+    cdasAlarme: s.prescA || 0,
+    revisaoAtrasadaDias: rs.overdue && rs.daysLeft != null ? -rs.daysLeft : null,
+    audiencia: nextHearing ? { dias: daysUntil(nextHearing.date), tipo: (CX_HEARING[nextHearing.hearingType] || '').replace(/^Audiência( de)? /i, '').toLowerCase(), iso: toDayKey(nextHearing.date), time: nextHearing.time || '' } : null,
+  }) : '';
   return <div className="cx cx-page cx-page-wide cx-op-page">
     <div className="cx-op-top">
       <div className="cx-minw0">
         <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>
-        <div className="cx-op-hero"><CxOpSquare op={op} size={14} className="cx-sq-lg" /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
-        <div className="cx-tags" style={{ marginTop: 10 }}>{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
+        <div className="cx-op-hero"><CxOpTile op={op} size={38} /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
       </div>
       <div className="cx-op-actions">
         <button type="button" className={'cx-btn' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={14} />Revisada</button>
@@ -2111,20 +2172,24 @@ function EditionClaudeOpOverview(p) {
       </div>
     </div>
     <EditionClaudeOpDesc key={op.id} op={op} upsert={p.upsert} />
+    <div className="cx-tags cx-op-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
     <nav className="cx-optabs" aria-label="Abas da operação">
       <button type="button" className="on" aria-current="page">Visão geral</button>
       {CX_OP_TABS.map(t => <button key={t[0]} type="button" onClick={() => p.onTab(t[0])}>{t[1]}</button>)}
     </nav>
-    {s ? <div className="cx-stats">
-      {stat('Dívida total', cxMoneyShort(s.total), cxPl(s.debts, 'CDA', 'CDAs'), { onClick: () => p.onTab('dividas') })}
-      {stat('Garantido (CDA)', cxMoneyShort(s.guar), (s.total ? Math.round(s.guar / s.total * 100) : 0) + '% da dívida', { tip: 'CDAs com status Garantida' })}
-      {stat('Indisponibilidades', s.indispHasValue ? cxMoneyShort(indisp) : s.indispLabel, s.indispCount ? cxPl(s.indispCount, 'bem', 'bens') : 'nenhum bem', { onClick: s.indispCount ? () => p.onTab('bens') : null })}
-      {stat('Cobertura', (s.covPct != null ? s.covPct + '%' : '—'), 'pelos incidentes', { tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' })}
-      {stat('Prescrição · CDAs', s.prescA, 'nos grupos urgentes', { tone: s.prescA ? 'violet' : '', onClick: p.onOpenPrazos })}
-      {stat('Processos em alerta', s.prescExec, 'crítico, alerta ou vencido', { tone: s.prescExec ? 'violet' : '', onClick: () => p.onTab('prescricao_v2') })}
-      {stat('Intimações', s.openIntims, s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida', { tone: s.overdueIntims ? 'red' : '' })}
-      {stat('Tarefas', s.openTasks, s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'em aberto', { tone: s.overdueTasks ? 'red' : '', onClick: () => p.onTab('tarefas') })}
-    </div> : null}
+    {s ? <CxResumo text={resumo} className="cx-rs-op" /> : null}
+    {s ? <CxKpiStrip n={4} dense={false} className="cpair">
+      <CxKpiCard label="Dívida total" value={cxMoneyShort(s.total)} desc={cxPl(s.debts, 'CDA', 'CDAs') + (opCartShare !== null ? ' · ' + opCartShare + '% da carteira' : '')} onClick={() => p.onTab('dividas')}
+        pair={{ label: 'Indisponibilidades', value: s.indispHasValue ? cxMoneyShort(indisp) : s.indispLabel, note: s.indispCount ? cxPl(s.indispCount, 'bem', 'bens') : 'nenhum bem', onClick: s.indispCount ? () => p.onTab('bens') : null }} />
+      <CxKpiCard label="Garantido (CDA)" value={cxMoneyShort(s.guar)} tip="CDAs com status Garantida"
+        side={opPct !== null ? <span className="cx-kc-ring"><CxRing pct={opPct} size={44} stroke={6} label={opPct + '% garantido'} /></span> : null}
+        desc={<>{(opPct !== null ? opPct : 0) + '% da dívida'}{opPct !== null && cart.pct !== null && opPct !== cart.pct ? <span className={'cx-dl ' + (opPct < cart.pct ? 'down bad' : 'up good')} style={{ marginLeft: 8 }}>{(opPct < cart.pct ? '−' : '+') + Math.abs(opPct - cart.pct) + ' p.p. vs. carteira'}</span> : null}</>}
+        pair={{ label: 'Cobertura', value: s.covPct != null ? s.covPct + '%' : '—', note: 'pelos incidentes', tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' }} />
+      <CxKpiCard label="Prescrição · CDAs" value={s.prescA} tone={s.prescA ? 'violet' : ''} desc="nos grupos urgentes" onClick={p.onOpenPrazos}
+        pair={{ label: 'Processos em alerta', value: s.prescExec, tone: s.prescExec ? 'violet' : '', note: 'de ' + cxPl(opExecCount, 'processo', 'processos') + ' · crítico, alerta ou vencido', onClick: () => p.onTab('prescricao_v2') }} />
+      <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
+        pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
+    </CxKpiStrip> : null}
     <div className="cx-sub-h"><h2>Linha do tempo</h2><span className="cx-sp" /><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>
     <EditionClaudeTimeline data={data} op={op} prescLookup={p.prescLookup} scale={scale} setScale={setScale} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenCda={p.onOpenCda} />
     <div className="cx-home-grid" style={{ marginTop: 22 }}>
