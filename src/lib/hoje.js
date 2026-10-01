@@ -200,6 +200,49 @@ export function resumoPartes(s) {
 }
 
 /**
+ * Intimações atuadas (com `responseAction.respondedAt`) nos últimos 7 dias contra os 7 anteriores.
+ * Conta só intimações que continuam no acervo. `atual` = hoje e os 6 dias anteriores; `anterior` = os 7 dias antes disso.
+ */
+export function atuacoesSemana(intimations, today) {
+  let atual = 0, anterior = 0;
+  (intimations || []).forEach(x => {
+    const at = x && x.responseAction && x.responseAction.respondedAt;
+    const dd = at ? daysUntil(at, today) : null;
+    if (dd === null) return;
+    if (dd <= 0 && dd >= -6) atual++;
+    else if (dd <= -7 && dd >= -13) anterior++;
+  });
+  return { atual, anterior, delta: atual - anterior };
+}
+
+/**
+ * Prazos de intimações abertas: nos próximos 5 dias (hoje a +5), nos 5 seguintes (+6 a +10) e o próximo prazo.
+ * `intimsAbertas` já vem filtrada pela regra do app (sem atuação, não analisada); só entram as que têm prazo final.
+ */
+export function janelaPrazos(intimsAbertas, today) {
+  let prox5 = 0, seg5 = 0, proximo = null;
+  (intimsAbertas || []).forEach(x => {
+    const iso = toDayKey(x && x.dateDeadline);
+    if (!iso) return;
+    const dd = daysUntil(iso, today);
+    if (dd === null || dd < 0) return;
+    if (dd <= 5) prox5++; else if (dd <= 10) seg5++;
+    if (!proximo || iso < proximo.iso) proximo = { iso, dd, item: x };
+  });
+  return { prox5, seg5, delta: seg5 - prox5, proximo };
+}
+
+/** Termo mais próximo entre as CDAs do grupo 1 da Mesa de prazos (menor `prescDays`), com a data a partir de hoje. */
+export function proximoTermo(rows, today) {
+  let best = null;
+  (rows || []).forEach(r => {
+    if (!r || r.group !== 1 || r.prescDays == null) return;
+    if (!best || r.prescDays < best.dias) best = { dias: r.prescDays, iso: addCalendarDays(today, r.prescDays), row: r };
+  });
+  return best;
+}
+
+/**
  * "Precisa de atenção": CDAs no alarme (linhas do grupo 1 da Mesa de prazos, da mais próxima do termo para a mais
  * distante) e operações ativas com a revisão fora do prazo (da mais atrasada para a menos).
  * @param {object} i

@@ -4,6 +4,7 @@ import {
   cargaUrgencia, cargaItens, cargaMapa, composicaoDia,
   resumoCarga, resumoOperacao, resumoPlain, resumoPartes,
   atencaoItens, atencaoFrase, dowDmIso, dmIso,
+  atuacoesSemana, janelaPrazos, proximoTermo,
 } from '../src/lib/hoje.js';
 
 const TODAY = '2026-10-01'; // quinta-feira
@@ -244,5 +245,46 @@ describe('formatação de datas curtas', () => {
     assert.equal(dowDmIso('2026-10-04'), 'dom 04/10');
     assert.equal(dowDmIso('2026-10-01'), 'qui 01/10');
     assert.equal(dmIso('2026-10-08'), '08/10');
+  });
+});
+
+describe('Números dos cartões da tela Hoje', () => {
+  const resp = (id, at) => ({ id, responseAction: { type: 'ciencia', respondedAt: at } });
+
+  it('atuadas em 7 dias contra os 7 anteriores', () => {
+    const r = atuacoesSemana([
+      resp('a', '2026-10-01T10:00:00.000Z'), resp('b', '2026-09-28T10:00:00.000Z'), resp('c', '2026-09-25'), // atual: hoje, -3, -6
+      resp('d', '2026-09-24'), // -7: anterior
+      resp('e', '2026-09-18'), // -13: anterior
+      resp('f', '2026-09-17'), // -14: fora
+      resp('g', '2026-10-02'), // futuro: fora
+      { id: 'h' }, // sem atuação
+    ], TODAY);
+    assert.deepEqual(r, { atual: 3, anterior: 2, delta: 1 });
+  });
+
+  it('janela de prazos: 5 dias, 5 seguintes e o próximo', () => {
+    const j = janelaPrazos([
+      intim('1', '2026-10-01'), intim('2', '2026-10-04'), intim('3', '2026-10-06'), // 0, 3, 5
+      intim('4', '2026-10-07'), intim('5', '2026-10-11'), // 6, 10
+      intim('6', '2026-10-12'), // 11: fora
+      intim('7', '2026-09-30'), // vencida: fora
+      intim('8', ''),
+    ], TODAY);
+    assert.equal(j.prox5, 3);
+    assert.equal(j.seg5, 2);
+    assert.equal(j.delta, -1);
+    assert.equal(j.proximo.iso, '2026-10-01');
+    assert.equal(janelaPrazos([], TODAY).proximo, null);
+  });
+
+  it('próximo termo: menor prescDays do grupo 1, com a data a partir de hoje', () => {
+    const t = proximoTermo([
+      { id: 'a', group: 1, prescDays: 160 }, { id: 'b', group: 1, prescDays: 70 }, { id: 'c', group: 2, prescDays: 5 }, { id: 'd', group: 1, prescDays: null },
+    ], TODAY);
+    assert.equal(t.dias, 70);
+    assert.equal(t.iso, '2026-12-10');
+    assert.equal(t.row.id, 'b');
+    assert.equal(proximoTermo([{ id: 'x', group: 2, prescDays: 1 }], TODAY), null);
   });
 });

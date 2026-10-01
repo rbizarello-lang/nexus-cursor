@@ -170,6 +170,15 @@ function cxMoneyShort(v) {
   if (v >= 1e3) return 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
   return fmtCur(v);
 }
+/* Horizonte de um termo em dias: "em 70 dias", "hoje", "há 4 dias" (acima de 2 anos, em anos, como a Mesa). */
+function cxHorizonTxt(days) {
+  const n = Number(days);
+  if (days == null || !Number.isFinite(n)) return '';
+  if (Math.abs(n) > 730) return formatPrescHorizon(n);
+  if (n < 0) return 'há ' + cxPl(-n, 'dia', 'dias');
+  if (n === 0) return 'hoje';
+  return 'em ' + cxPl(n, 'dia', 'dias');
+}
 function cxPl(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 function cxNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 /* Mesma regra do card clássico: parte adversa, nunca a Fazenda/União. */
@@ -328,7 +337,7 @@ function CxChips({ value, onChange, options, label, sm = false, className = '' }
    comparação, quando existe). Delta só onde há comparação calculável: `delta = { txt, dir: 'up'|'down'|'none', tone:
    'good'|'bad'|'neutral' }`. `tone` ('red'|'orange'|'violet') colore o número/linha só quando descrevem um estado.
    Sem `onClick`, o cartão é um bloco; com ele, um botão. */
-function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, delta, pair, onClick, on, tip, className = '' }) {
+function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, footR, footRTone, delta, pair, onClick, nested, on, tip, className = '' }) {
   const top = <>
     <div className="cx-kc-t"><span className="cx-kc-l">{label}</span>{tag || null}</div>
     <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
@@ -348,8 +357,13 @@ function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, 
   }
   const body = <>
     <div className="cx-kc-b">{top}</div>
-    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : null}</div>
+    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : footR ? <span className={'cx-kc-fr' + (footRTone ? ' ' + footRTone : '')}>{footR}</span> : null}</div>
   </>;
+  if (onClick && nested) {
+    /* Cartão com botões dentro (ex.: chips de tribunal): não pode ser <button>, vira área clicável acessível. */
+    return <div className={cls} role="button" tabIndex={0} onClick={onClick} title={tip}
+      onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>{body}</div>;
+  }
   return onClick
     ? <button type="button" className={cls} onClick={onClick} title={tip}>{body}</button>
     : <div className={cls} title={tip}>{body}</div>;
@@ -634,9 +648,114 @@ function cxContinueQueue(data) {
   });
   return out;
 }
+/* ─── Carga de prazos (Polimento · Hoje): mapa de pontos, um ponto por item aberto com data ───
+   Cálculo em src/lib/hoje.js (cargaItens/cargaMapa/resumoCarga). Cor = urgência (vencido, até 2 dias, 3 a 7, 8+),
+   forma = tipo (círculo intimação, quadrado tarefa, losango audiência). Dia com mais de 5 itens ganha coluna fina extra:
+   nenhum ponto some. Clicar num dia abre a Agenda só nesse dia. */
+const CX_URG_C = ['var(--cx-red)', 'var(--cx-orange)', 'var(--cx-opc-media)', 'var(--cx-opc-none)'];
+const CX_KIND_SHAPE = { i: 'ki', t: 'kt', h: 'kh' };
+const CX_KIND_NAME = { i: 'Intimação', t: 'Tarefa', h: 'Audiência' };
+function cxDotTitle(it, iso) {
+  return dowDmIso(iso) + ' · ' + CX_KIND_NAME[it.kind] + ' — ' + it.label + (it.sub ? ' · ' + it.sub : '');
+}
+function CxCargaStack({ items, perCol }) {
+  const cols = Math.max(1, Math.ceil(items.length / perCol));
+  const out = [];
+  for (let c = 0; c < cols; c++) {
+    const slots = [];
+    for (let k = 0; k < perCol; k++) {
+      const it = items[c * perCol + k];
+      slots.push(it ? <i key={k} className={'cx-hd ' + CX_KIND_SHAPE[it.kind] + ' u' + it.urg} title={cxDotTitle(it, it.iso)} /> : <i key={k} className="cx-dot7" />);
+    }
+    out.push(<div key={c} className="cx-sc">{slots}</div>);
+  }
+  return <div className="cx-stack">{out}</div>;
+}
+function CxCargaCard({ mapa, weeks, setWeeks, resumo, onOpenDay, onVencidos }) {
+  const long = weeks > 3;
+  const pico = mapa.pico, sp = mapa.semanaPesada;
+  const venc = mapa.vencidos;
+  const tipoLeg = [['i', 'Intimações'], ['t', 'Tarefas'], ['h', 'Audiências']];
+  const sbarColor = { i: 'var(--cx-ink-2)', t: 'var(--cx-opc-none)', h: 'var(--cx-line-strong)' };
+  return <section className="cx-card cx-cg-card" aria-labelledby="cx-h-carga">
+    <div className="cx-cg">
+      <div className="cx-cg-l">
+        <div>
+          <div className="cx-kc-l" style={{ marginBottom: 8 }}>Itens em {weeks} semanas</div>
+          <div className="cx-cg-n"><span className="big">{mapa.total}</span><span className="cap">itens em {weeks * 7} dias</span></div>
+        </div>
+        <div className="cx-sbar" title={tipoLeg.map(t => t[1] + ' ' + mapa.porTipo[t[0]]).join(' · ')}>{tipoLeg.filter(t => mapa.porTipo[t[0]] > 0).map(t => <i key={t[0]} style={{ flex: mapa.porTipo[t[0]], background: sbarColor[t[0]] }} />)}</div>
+        <div className="cx-cg-lg">{tipoLeg.map(t => <div key={t[0]}><span className={'cx-sh ' + CX_KIND_SHAPE[t[0]]} style={{ background: sbarColor[t[0]] }} />{t[1]}<b>{mapa.porTipo[t[0]]}</b></div>)}</div>
+        <div className="cx-ug">{[['vencido', 0], ['até 2 dias', 1], ['3 a 7 dias', 2], ['8 dias ou mais', 3]].map(u => <span key={u[1]}><i className="sw" style={{ background: CX_URG_C[u[1]] }} />{u[0]}</span>)}</div>
+      </div>
+      <div className="cx-cg-r">
+        <div className="cx-cg-h">
+          <h2 id="cx-h-carga" title="Um ponto por item. Clicar num dia abre a Agenda nesse dia.">Carga de prazos</h2>
+          {pico ? <span className="cx-chp"><CxIcon n="flag" s={12} />Pico: <b>{dowDmIso(pico.iso)}</b> · {cxPl(pico.count, 'item', 'itens')}</span> : null}
+          {venc.length ? <button type="button" className="cx-chp red" onClick={onVencidos} title="Ver os vencidos na Fila do dia">{cxPl(venc.length, 'vencido', 'vencidos')}</button> : null}
+          {sp ? <span className="cx-chp">Semana {sp.idx + 1} · <b>{cxPl(sp.count, 'item', 'itens')}</b>{sp.idx > 0 && sp.deltaAtual !== 0 ? <span className={'cx-dl ' + (sp.deltaAtual > 0 ? 'up' : 'down') + ' neutral'} style={{ fontSize: 11 }} title="Contra a semana 1">{(sp.deltaAtual > 0 ? '+' : '−') + Math.abs(sp.deltaAtual)}</span> : null}</span> : null}
+          <CxSelect id="cx-carga-w" value={String(weeks)} onChange={v => setWeeks(Number(v))} options={[['3', '3 semanas'], ['6', '6 semanas']]} label="Horizonte da carga de prazos" />
+        </div>
+        <div className="cx-hm">
+          <div className="cx-hm-v">
+            <div className="cx-wkh"><div style={{ border: 0, paddingLeft: 4 }}><b>Vencidos</b></div></div>
+            <button type="button" className="cx-hc" onClick={onVencidos} disabled={!venc.length} title={cxPl(venc.length, 'item vencido', 'itens vencidos')}>
+              <CxCargaStack items={venc} perCol={mapa.perCol} />
+              <div className={'cx-dlb' + (venc.length ? ' ven' : '')}>venc.<b>{venc.length}</b></div>
+            </button>
+          </div>
+          <div className="cx-hm-wk">
+            <div className="cx-wkh">{mapa.semanas.map(w => <div key={w.idx} style={{ flex: 7 }}>{long ? 'S' + (w.idx + 1) : 'Semana ' + (w.idx + 1)} · {w.from.slice(5, 7) === w.to.slice(5, 7) ? w.from.slice(8, 10) + '–' + dmIso(w.to) : dmIso(w.from) + '–' + dmIso(w.to)} · <b>{long ? w.count : cxPl(w.count, 'item', 'itens')}</b></div>)}</div>
+            <div className="cx-cols">{mapa.days.map(d => <button key={d.iso} type="button" className={'cx-hc' + (d.isWeekend ? ' we' : '') + (d.week > 0 && d.iso === mapa.semanas[d.week].from ? ' wkb' : '')} style={d.cols > 1 ? { minWidth: d.cols * 12 } : null}
+              onClick={() => onOpenDay(d.iso)} title={dowDmIso(d.iso) + ' · ' + cxPl(d.count, 'item', 'itens') + ' · abrir a Agenda neste dia'}>
+              <CxCargaStack items={d.items} perCol={mapa.perCol} />
+              <div className={'cx-dlb' + (d.isToday ? ' today' : '')}>{long ? '' : dowIso(d.iso)}<b>{d.iso.slice(8, 10)}</b></div>
+            </button>)}</div>
+          </div>
+        </div>
+        {resumo ? <CxResumo text={resumo} className="cx-cg-rs" /> : null}
+      </div>
+    </div>
+  </section>;
+}
+/* ─── Precisa de atenção (Polimento · Hoje): CDAs no alarme e operações com a revisão atrasada ─── */
+function CxAtencaoCard({ atencao, today, opsById, onOpenCda, onReviewed, onOpenPrazos, onOpenCarteira }) {
+  const a = atencao;
+  const CAP = 4;
+  const frase = atencaoFrase(a);
+  return <section className="cx-card" aria-labelledby="cx-h-aten">
+    <div className="cx-card-h"><h2 id="cx-h-aten">Precisa de atenção</h2><div className="cx-aside"><span className="cx-count">{a.total}</span></div></div>
+    {a.total ? <>
+      <div className="cx-at-top"><span className="big">{a.total}</span><span className="cap">{frase.replace(/^\d+ /, '')}</span></div>
+      <div className="cx-at-txt"><p>CDAs com o prazo de prescrição mais próximo (grupo urgente da Mesa de prazos) e operações com a revisão fora do prazo.</p></div>
+      {a.cdas.slice(0, CAP).map(r => <div key={'c' + r.id} className="cx-ar">
+        <span className="ico"><CxIcon n="hourglass" s={16} /></span>
+        <div className="cx-minw0">
+          <div className="tt cx-ell"><span className="cx-mono">{r.cdaNumber || 'S/N'}</span><span className="cd">{r.prescDays == null ? 'sem data' : cxHorizonTxt(r.prescDays)}</span></div>
+          <div className="mm">{[cxOpName(opsById.get(r.operationId)), r.prescDays == null ? '' : fmtDate(addCalendarDays(today, r.prescDays)), r.value ? cxMoneyShort(r.value) : ''].filter(Boolean).join(' · ')}</div>
+        </div>
+        <button type="button" className="cx-btn sm" onClick={() => onOpenCda(r)}>Abrir CDA</button>
+      </div>)}
+      {a.revisoes.slice(0, CAP).map(v => <div key={'r' + v.op.id} className="cx-ar">
+        <span className="ico o"><CxIcon n="history" s={16} /></span>
+        <div className="cx-minw0">
+          <div className="tt cx-ell">{cxOpName(v.op)}</div>
+          <div className="mm">Atrasada há {cxPl(v.diasAtraso, 'dia', 'dias')}{v.intervalo ? ' · revisão ' + v.intervalo : ''}</div>
+        </div>
+        <button type="button" className="cx-btn sm" onClick={() => onReviewed(v.op)} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={13} />Revisada</button>
+      </div>)}
+      {a.cdas.length > CAP || a.revisoes.length > CAP ? <div className="cx-more">
+        {a.cdas.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenPrazos}>+{a.cdas.length - CAP} na Mesa de prazos</button> : null}
+        {a.revisoes.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenCarteira}>+{a.revisoes.length - CAP} na Carteira</button> : null}
+      </div> : null}
+    </> : <div className="cx-empty-row">Nada pede uma decisão sua agora: nenhuma CDA no alarme de prescrição e nenhuma revisão atrasada.</div>}
+  </section>;
+}
 function EditionClaudeHoje(p) {
   const { data, prazosRadar, prazosByDebt, opsById } = p;
   const [tab, setTab] = React.useState('proximos');
+  const [cargaW, setCargaWS] = React.useState(() => (cxLs('nexus_cx_carga_weeks', '3') === '6' ? 6 : 3));
+  const setCargaW = (v) => { setCargaWS(v); cxLsSet('nexus_cx_carga_weeks', String(v)); };
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
   const continueQueue = React.useMemo(() => cxContinueQueue(data), [data]);
   const intims = data.intimations || [];
@@ -654,6 +773,15 @@ function EditionClaudeHoje(p) {
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
   const guarTotal = activeDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const gpct = debtTotal > 0 ? Math.round(guarTotal / debtTotal * 100) : 0;
+  const todayIso = localIso(new Date());
+  const atuacoes = atuacoesSemana(intims, todayIso);
+  const janela = janelaPrazos(open, todayIso);
+  const termo = proximoTermo(prazosRadar.rows, todayIso);
+  const cargaIts = React.useMemo(() => cargaItens(data, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
+  const mapa = React.useMemo(() => cargaMapa(cargaIts, { today: todayIso, weeks: cargaW }), [cargaIts, todayIso, cargaW]);
+  const nextAud = cargaIts.filter(x => x.kind === 'h' && x.dd >= 0).sort((a, b) => a.dd - b.dd || String(a.iso).localeCompare(String(b.iso)))[0];
+  const resumoCargaTxt = resumoCarga(mapa, nextAud ? { dias: nextAud.dd, time: nextAud.ref.time || '' } : null);
+  const atencao = React.useMemo(() => atencaoItens({ rows: prazosRadar.rows, operations: data.operations, reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
 
   // Entradas por dia útil (data de envio do eproc), últimos 14 dias úteis
   const intake = React.useMemo(() => {
@@ -723,31 +851,29 @@ function EditionClaudeHoje(p) {
       {n1 ? <>. {n1 === 1 ? '1 CDA está' : n1 + ' CDAs estão'} no grupo urgente de prescrição</> : null}.
     </p>
 
-    <div className="cx-kpis">
-      <div className="cx-kpi" role="button" tabIndex={0} onClick={() => p.onNav('intimacoes')} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNav('intimacoes'); } }}>
-        <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
-        <span className="cx-kpi-v">{open.length}</span>
-        <span className={'cx-kpi-s' + (late.length ? ' red' : '')}>{cxPl(late.length, 'vencida', 'vencidas')} · {today.length} hoje</span>
-        {tribCounts.length ? <span className="cx-kpi-uf">{tribCounts.map(([j, v]) => <button key={j} type="button" className="cx-kpi-uf-i" onClick={e => { e.stopPropagation(); p.onOpenIntimUf(j); }}>{j} {v.total}</button>)}</span> : null}
-        <span className="cx-spark" title="Intimações recebidas por dia útil (data de envio), últimos 14 dias úteis" aria-hidden="true">{intake.map((v, k) => <i key={k} className={k === intake.length - 1 ? 'last' : ''} style={{ height: Math.max(4, v / intakeMax * 100) + '%' }} />)}</span>
-      </div>
-      <button type="button" className="cx-kpi" onClick={() => p.onNav('intimacoes')}>
-        <span className="cx-kpi-l"><CxIcon n="clock" s={14} />Vencem em 5 dias</span>
-        <span className="cx-kpi-v">{next5.length}</span>
-        <span className="cx-kpi-s orange">{next5.filter(x => intimImpKey(x) === 'alta').length} de importância alta</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => p.openPrazos(1)}>
-        <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Prazos extintivos</span>
-        <span className="cx-kpi-v">{n1}<small>urgentes</small></span>
-        <span className="cx-kpi-s violet">{riskVal ? cxMoneyShort(riskVal) + ' urgente' : 'Situação controlada'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => p.onNav('operacoes')}>
-        <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
-        <span className="cx-kpi-v">{cxMoneyShort(debtTotal)}</span>
-        <span className="cx-meter" title={gpct + '% garantido'}><i style={{ width: gpct + '%' }} /></span>
-        <span className="cx-kpi-s">{gpct}% garantido · {cxPl(activeOps.length, 'operação', 'operações')}</span>
-      </button>
-    </div>
+    <CxKpiStrip n={4} dense={false} className="cx-hoje-ks">
+      <CxKpiCard label="Intimações abertas" value={open.length} nested onClick={() => p.onNav('intimacoes')}
+        tag={tribCounts.length ? <span className="cx-kc-tribs">{tribCounts.map(([j, v]) => <button key={j} type="button" className="cx-mini" title={'Ver só ' + j + ' em Intimações'} onClick={e => { e.stopPropagation(); p.onOpenIntimUf(j); }}>{j}<b>{v.total}</b></button>)}</span> : null}
+        side={<span className="cx-kc-spark" title="Intimações recebidas por dia útil (data de envio), últimos 14 dias úteis" aria-hidden="true">{intake.map((v, k) => <i key={k} className={k === intake.length - 1 ? 'last' : ''} style={{ height: Math.max(4, v / intakeMax * 100) + '%' }} />)}</span>}
+        desc={<>{late.length ? <span className="cx-red-t">{cxPl(late.length, 'vencida', 'vencidas')}</span> : '0 vencidas'} · {today.length} hoje</>}
+        foot={<>Atuadas em 7 dias: <b>{atuacoes.atual}</b></>}
+        delta={atuacoes.delta !== 0 ? { txt: (atuacoes.delta > 0 ? '+' : '−') + Math.abs(atuacoes.delta) + ' vs. anteriores', dir: atuacoes.delta > 0 ? 'up' : 'down', tone: atuacoes.delta > 0 ? 'good' : 'bad' } : null}
+        footR={atuacoes.delta === 0 && atuacoes.anterior > 0 ? 'igual aos 7 anteriores' : null} />
+      <CxKpiCard label="Vencem em 5 dias" value={next5.length} onClick={() => p.onNav('intimacoes')}
+        desc={<span className="cx-orange-t">{next5.filter(x => intimImpKey(x) === 'alta').length} de importância alta</span>}
+        foot={janela.proximo ? <>Próximo: <b>{cxDue(janela.proximo.dd, janela.proximo.iso).txt}</b></> : 'Nenhum prazo aberto'}
+        delta={janela.delta !== 0 ? { txt: (janela.delta > 0 ? '+' : '−') + Math.abs(janela.delta) + ' nos 5 seguintes', dir: janela.delta > 0 ? 'up' : 'down', tone: 'neutral' } : null} />
+      <CxKpiCard label="Prazos extintivos" value={n1} unit="urgentes" onClick={() => p.openPrazos(1)}
+        desc={<span className="cx-violet-t">{riskVal ? cxMoneyShort(riskVal) + ' urgente' : 'Situação controlada'}</span>}
+        foot={termo ? <>Próximo termo: <b>{fmtDate(termo.iso)}</b></> : 'Nenhuma CDA no alarme'}
+        footR={termo ? cxHorizonTxt(termo.dias) : null} footRTone="violet" />
+      <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(debtTotal)} onClick={() => p.onNav('operacoes')}
+        side={debtTotal > 0 ? <span className="cx-kc-ring"><CxRing pct={gpct} size={44} stroke={6} label={gpct + '% garantido'} /></span> : null}
+        desc={gpct + '% garantido'}
+        foot={<><b>{cxMoneyShort(guarTotal)}</b> garantidos</>} footR={cxPl(activeOps.length, 'operação', 'operações')} />
+    </CxKpiStrip>
+
+    <CxCargaCard mapa={mapa} weeks={cargaW} setWeeks={setCargaW} resumo={resumoCargaTxt} onOpenDay={(iso) => p.onOpenAgendaDay(iso)} onVencidos={() => setTab('vencidos')} />
 
     <div className="cx-home-grid">
       <div className="cx-col">
@@ -787,9 +913,9 @@ function EditionClaudeHoje(p) {
               const pct = r.total > 0 ? Math.round(r.guar / r.total * 100) : 0;
               const cls = r.cls ? OP_CLASSIFICATIONS[r.cls] : null;
               return <tr key={r.o.id} className="click" onClick={() => p.onOpenOp(r.o.id)}>
-                <td><span className="cx-op-cell" title={r.o.name}><CxOpSquare op={r.o} /><span className="cx-ell">{cxOpName(r.o)}</span></span></td>
+                <td><span className="cx-op-cell" title={r.o.name}><CxOpTile op={r.o} size={26} /><span className="cx-ell">{cxOpName(r.o)}</span></span></td>
                 <td>{cls ? <span className="cx-pill"><span className="cx-dot" style={{ background: cls.color }} />{cls.label}</span> : <span className="cx-muted">—</span>}</td>
-                <td><span className="cx-cover"><span className="cx-bar"><i style={{ width: pct + '%' }} /></span><span className="cx-pct">{pct}%</span></span></td>
+                <td><span className="cx-cover"><CxRing pct={pct} size={26} stroke={4} label={pct + '% garantido'} /><span className="cx-pct">{pct}%</span></span></td>
                 <td className="num cx-mono">{r.total ? cxMoneyShort(r.total) : '—'}</td>
                 <td>{r.nx ? <CxDue iso={r.nx.dateDeadline} /> : <span className="cx-muted">—</span>}</td>
                 <td>{r.targets.length ? <CxAvatars people={r.targets} /> : <span className="cx-muted">—</span>}</td>
@@ -813,6 +939,8 @@ function EditionClaudeHoje(p) {
             </div>
           </div>
         </div> : null}
+
+        <CxAtencaoCard atencao={atencao} today={todayIso} opsById={opsById} onOpenCda={p.onOpenCda} onReviewed={p.onReviewed} onOpenPrazos={() => p.openPrazos(1)} onOpenCarteira={() => p.onNav('operacoes')} />
 
         <section className="cx-card" aria-labelledby="cx-h-prox">
           <div className="cx-card-h"><h2 id="cx-h-prox">Próximos prazos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onNav('audiencias')}><CxIcon n="calendar" s={13} />Agenda</button></div></div>
@@ -2649,16 +2777,25 @@ function CxHearingRow({ h, op, onOpen, onOpenOp, deskOn, onDesk }) {
 }
 function EditionClaudeAgenda(p) {
   const { data, opsById, prazosRadar } = p;
-  const [view, setViewS] = React.useState(() => cxLs('nexus_cx_ag_view', 'semana'));
-  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_ag_view', v); };
-  const [anchor, setAnchor] = React.useState(() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; });
+  const [viewState, setViewS] = React.useState(() => cxLs('nexus_cx_ag_view', 'semana'));
+  /* Foco num dia (vindo do mapa "Carga de prazos" da Hoje): mostra só esse dia, em lista. Trocar a visão, "Hoje"
+     ou o × do chip desfaz o foco; ‹ › andam um dia. */
+  const [dayFocus, setDayFocus] = React.useState(() => p.initialDay || null);
+  React.useEffect(() => { if (p.initialDay && p.onInitialDayConsumed) p.onInitialDayConsumed(); }, []);
+  const view = dayFocus ? 'lista' : viewState;
+  const [anchor, setAnchor] = React.useState(() => { const d = p.initialDay ? new Date(p.initialDay + 'T12:00:00') : new Date(); d.setHours(12, 0, 0, 0); return d; });
+  const setView = (v) => { if (dayFocus) { setAnchor(new Date(dayFocus + 'T12:00:00')); setDayFocus(null); } setViewS(v); cxLsSet('nexus_cx_ag_view', v); };
   const [kinds, setKindsS] = React.useState(() => { try { const v = JSON.parse(localStorage.getItem('nexus_cx_ag_kinds') || 'null'); return v && typeof v === 'object' ? v : { aud: true, prazo: true, tarefa: true, presc: true }; } catch (e) { return { aud: true, prazo: true, tarefa: true, presc: true }; } });
   const setKinds = (v) => { setKindsS(v); cxLsSet('nexus_cx_ag_kinds', JSON.stringify(v)); };
   const [opFRaw, setOpF] = React.useState('all');
   const [pastOpen, setPastOpen] = React.useState(false);
   const todayIso = localIso(new Date());
   let days, label;
-  if (view === 'mes') {
+  if (dayFocus) {
+    const fd = new Date(dayFocus + 'T12:00:00');
+    days = [fd];
+    label = cxCap(CX_DOW_L[fd.getDay()]) + ', ' + fd.getDate() + ' de ' + CX_MES_L[fd.getMonth()] + ' de ' + fd.getFullYear();
+  } else if (view === 'mes') {
     const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 12);
     const start = cxMonday(first);
     const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 12);
@@ -2681,8 +2818,8 @@ function EditionClaudeAgenda(p) {
   const byDay = {};
   const counts = { aud: 0, prazo: 0, tarefa: 0, presc: 0 };
   Object.keys(byDayAll).forEach(k => { byDayAll[k].forEach(it => { counts[it.kind]++; }); byDay[k] = byDayAll[k].filter(it => kinds[it.kind]); });
-  const shift = (n) => { const d = new Date(anchor); if (view === 'mes') { d.setDate(1); d.setMonth(d.getMonth() + n); } else d.setDate(d.getDate() + (view === 'lista' ? 30 : 7) * n); setAnchor(d); };
-  const goToday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setAnchor(d); };
+  const shift = (n) => { if (dayFocus) { setDayFocus(localIso(cxAddDays(new Date(dayFocus + 'T12:00:00'), n))); return; } const d = new Date(anchor); if (view === 'mes') { d.setDate(1); d.setMonth(d.getMonth() + n); } else d.setDate(d.getDate() + (view === 'lista' ? 30 : 7) * n); setAnchor(d); };
+  const goToday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setAnchor(d); setDayFocus(null); };
   const open = (it) => {
     if (it.kind === 'aud') p.onOpenHearing(it.ref);
     else if (it.kind === 'prazo') p.onOpenIntim(it.ref.id);
@@ -2721,14 +2858,15 @@ function EditionClaudeAgenda(p) {
       {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '') + (counts[k[0]] === 0 ? ' zero' : '')} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
         <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-fcn">{counts[k[0]]}</span>
       </button>)}
-      <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} neste período</span>
+      {dayFocus ? <button type="button" className="cx-fchip sm on" onClick={() => { setAnchor(new Date(dayFocus + 'T12:00:00')); setDayFocus(null); }} title="Voltar à visão da agenda">Só este dia<span className="cx-fcn">✕</span></button> : null}
+      <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} {dayFocus ? 'neste dia' : 'neste período'}</span>
     </div>
     {view === 'lista' ? <div className="cx-list cx-ag-list">
       {days.filter(d => (byDay[localIso(d)] || []).length).map(d => { const k = localIso(d); return <div key={k} className="cx-ag-lday">
         <div className={'cx-ag-lh' + (k === todayIso ? ' today' : '')}>{dayHead(d)}<span className="cx-muted cx-small">{CX_DOW_L[d.getDay()]}, {d.getDate()} de {CX_MES_L[d.getMonth()]}</span><span className="cx-n" style={{ marginLeft: 'auto' }}>{byDay[k].length}</span></div>
         <div className="cx-ag-lits">{byDay[k].map(it => <CxAgItem key={it.id} it={it} opsById={opsById} onOpen={open} />)}</div>
       </div>; })}
-      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nada nos próximos 30 dias com esses filtros.</div> : null}
+      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{dayFocus ? 'Nada neste dia com esses filtros.' : 'Nada nos próximos 30 dias com esses filtros.'}</div> : null}
     </div> : <div className={'cx-ag-grid' + (view === 'mes' ? ' month' : '')}>
       {view === 'mes' ? ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(n => <div key={n} className="cx-ag-mh">{n}</div>) : null}
       {days.map(d => {

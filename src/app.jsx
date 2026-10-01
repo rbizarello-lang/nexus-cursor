@@ -3169,6 +3169,7 @@ function App() {
   const [cxDrawerId, setCxDrawerId] = useState(null);
   const [cxIntimView, setCxIntimView] = useState('lista');
   const [cxIntimInitialUf, setCxIntimInitialUf] = useState(null);
+  const [cxAgendaInitialDay, setCxAgendaInitialDay] = useState(null);
   const [cxSideOpen, setCxSideOpen] = useState(false);
   const [cxReturnOpId, setCxReturnOpId] = useState(null);
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
@@ -10943,7 +10944,10 @@ function App() {
       {viewMode === 'hoje' && isClaude && <div className="cx-scroll"><EditionClaudeHoje data={data} prazosRadar={prazosRadar} prazosByDebt={prazosByDebt} opsById={opsById}
         onOpenIntim={(id) => setCxDrawerId(id)} onNav={cxGo} onOpenOp={(id) => cxOpenOp(id)} openPrazos={openPrazos}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }}
-        onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }} /></div>}
+        onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }}
+        onOpenAgendaDay={(iso) => { setCxAgendaInitialDay(iso); cxGo('audiencias'); }}
+        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onReviewed={(op) => { upsert('operations', { ...op, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }} /></div>}
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
@@ -10965,6 +10969,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        initialDay={cxAgendaInitialDay} onInitialDayConsumed={() => setCxAgendaInitialDay(null)}
         onNewHearing={() => setModal({ type: 'create', entityType: 'hearing', initial: { status: 'agendada', modality: 'presencial', hearingType: 'instrucao', remindDays: '3' } })}
         onOpenOp={(id) => cxOpenOp(id)} /></div>}
       {viewMode === 'acompanhar' && isClaude && <div className="cx-scroll"><EditionClaudeAcompanhar data={data} opsById={opsById} upsert={upsert}
