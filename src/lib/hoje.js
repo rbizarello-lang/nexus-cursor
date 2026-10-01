@@ -273,3 +273,26 @@ export function atencaoFrase(a) {
   if (a.revisoes.length) parts.push(hjPlural(a.revisoes.length, 'revisão atrasada', 'revisões atrasadas'));
   return (a.total === 1 ? '1 item pede' : a.total + ' itens pedem') + ' uma decisão sua: ' + hjJoinE(parts);
 }
+
+/** Biblioteca: consolidação antiga (dias) a partir da qual o modelo entra em "Vigência a reconferir". */
+export const VIGENCIA_DIAS = 180;
+
+/**
+ * Modelos da Biblioteca com a vigência a reconferir: os que têm pontos em `vigencia.recheck` (não vazios) ou cuja
+ * data de consolidação (`consolidatedAt`, opcional) tem 180 dias ou mais. Os dois campos são opcionais; quem não tem
+ * nenhum deles não entra. Mais pontos primeiro; empate, consolidação mais antiga primeiro.
+ * Não usa `updatedAt` (é regravado a cada "Abrir o Word") nem `lastUsedAt`.
+ */
+export function modelosReconferir(models, today) {
+  const out = [];
+  (models || []).forEach(m => {
+    if (!m) return;
+    const pontos = ((m.vigencia && m.vigencia.recheck) || []).filter(x => String(x || '').trim()).length;
+    const dd = m.consolidatedAt ? daysUntil(m.consolidatedAt, today) : null;
+    const dias = dd === null ? null : -dd;
+    if (pontos > 0 || (dias !== null && dias >= VIGENCIA_DIAS)) out.push({ model: m, pontos, diasConsolidado: dias });
+  });
+  out.sort((a, b) => b.pontos - a.pontos || (b.diasConsolidado || 0) - (a.diasConsolidado || 0));
+  return out;
+}
+

@@ -4,7 +4,7 @@ import {
   cargaUrgencia, cargaItens, cargaMapa, composicaoDia,
   resumoCarga, resumoOperacao, resumoPlain, resumoPartes,
   atencaoItens, atencaoFrase, dowDmIso, dmIso,
-  atuacoesSemana, janelaPrazos, proximoTermo,
+  atuacoesSemana, janelaPrazos, proximoTermo, modelosReconferir,
 } from '../src/lib/hoje.js';
 
 const TODAY = '2026-10-01'; // quinta-feira
@@ -286,5 +286,35 @@ describe('Números dos cartões da tela Hoje', () => {
     assert.equal(t.iso, '2026-12-10');
     assert.equal(t.row.id, 'b');
     assert.equal(proximoTermo([{ id: 'x', group: 2, prescDays: 1 }], TODAY), null);
+  });
+});
+
+describe('Biblioteca — vigência a reconferir', () => {
+  const mod = (id, extra = {}) => ({ id, number: id, title: 'Modelo ' + id, ...extra });
+
+  it('entra quem tem pontos a reconferir ou consolidação com 180 dias ou mais', () => {
+    const r = modelosReconferir([
+      mod('1'),
+      mod('2', { vigencia: { recheck: ['a', 'b', '  ', ''] }, consolidatedAt: '2026-08-28' }),
+      mod('3', { consolidatedAt: '2026-03-31' }), // 184 dias
+      mod('4', { consolidatedAt: '2026-04-05' }), // 179 dias: ainda não
+      mod('5', { vigencia: { fragile: 'texto', recheck: [] } }),
+    ], TODAY);
+    assert.deepEqual(r.map(x => x.model.id), ['2', '3']);
+    assert.equal(r[0].pontos, 2);
+    assert.equal(r[0].diasConsolidado, 34);
+    assert.equal(r[1].pontos, 0);
+    assert.equal(r[1].diasConsolidado, 184);
+  });
+
+  it('ordena por pontos e, no empate, pela consolidação mais antiga; sem nada, lista vazia', () => {
+    const r = modelosReconferir([
+      mod('a', { vigencia: { recheck: ['x'] }, consolidatedAt: '2026-09-01' }),
+      mod('b', { vigencia: { recheck: ['x'] }, consolidatedAt: '2026-01-01' }),
+      mod('c', { vigencia: { recheck: ['x', 'y'] } }),
+    ], TODAY);
+    assert.deepEqual(r.map(x => x.model.id), ['c', 'b', 'a']);
+    assert.deepEqual(modelosReconferir([mod('z'), null], TODAY), []);
+    assert.deepEqual(modelosReconferir(undefined, TODAY), []);
   });
 });

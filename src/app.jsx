@@ -11758,6 +11758,9 @@ function App() {
         };
         const copiarMapa = (m) => { copyModelMap(m); alert('Mapa copiado. Cole no rascunho da peça ou no chat da IA.'); };
         const emptyFicha = (msg) => <div className="model-empty">{msg}</div>;
+        // Nexus Prumo (Polimento): chips com contagem e faixa "Vigência a reconferir" (src/lib/hoje.js). Clássico e Beta não usam.
+        const reconf = isClaude ? modelosReconferir(models, localIso(new Date())) : [];
+        const verVigencia = (m) => { setModelStageFilter('all'); setModelSel(null); setModelMatters([]); selectModel(m); setModelFichaTab('vig'); };
         return (<div className="entity-area">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
@@ -11784,7 +11787,7 @@ function App() {
               <span style={{fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,fontWeight:700}}>Matérias identificadas</span>
               {modelMatters.map(x => <span key={x.materia} style={{fontSize:10,padding:'2px 9px',borderRadius:999,border:'1px solid var(--accent)',background:'var(--accent-dim)',color:'var(--accent)',fontWeight:600}}>{x.materia}</span>)}
             </div>}
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
+            {!isClaude && (<div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
               <button type="button" className={'model-chip' + (modelStageFilter === 'all' ? ' on' : '')} onClick={() => setModelStageFilter('all')}>Todos</button>
               {Object.entries(MODEL_STAGES).map(([k, v]) => (
                 <button type="button" key={k} className={'model-chip' + (modelStageFilter === k ? ' on' : '')} onClick={() => setModelStageFilter(k)}>{v.label}</button>
@@ -11796,8 +11799,31 @@ function App() {
                   <button type="button" key={c} className={'model-chip' + (modelSel && modelSel.cat === c ? ' on' : '')} onClick={() => { setModelSel({ cat: c }); setModelMatters([]); }}>{c}</button>
                 ))}
               </>}
-            </div>
+            </div>)}
           </div>
+
+          {isClaude && models.length > 0 && <div className="cx-lib-chips">
+            <CxChips group="Situação" label="Filtrar modelos por situação" value={modelStageFilter} onChange={setModelStageFilter}
+              options={[['all', 'Todos', models.length]].concat(Object.entries(MODEL_STAGES).map(([k, v]) => [k, v.label, models.filter(m => (m.stage || 'primario') === k).length]))} />
+            {cats.length > 1 && <CxChips group="Categoria" label="Filtrar modelos por categoria" value={modelSel ? modelSel.cat : 'all'}
+              onChange={v => { if (v === 'all') setModelSel(null); else { setModelSel({ cat: v }); setModelMatters([]); } }}
+              options={[['all', 'Todas as categorias', models.length]].concat(cats.map(c => [c, c, models.filter(m => (m.category || 'Sem categoria') === c).length]))} />}
+          </div>}
+
+          {isClaude && reconf.length > 0 && (() => {
+            const top = reconf[0];
+            const allPontos = reconf.every(r => r.pontos > 0);
+            return <div className="cx-vstrip" role="note">
+              <CxRing pct={reconf.length / models.length * 100} size={28} stroke={4} color="var(--cx-orange)" label={reconf.length + ' de ' + models.length + ' modelos a reconferir'} />
+              <span><b>{reconf.length === 1 ? '1 modelo' : reconf.length + ' modelos'}</b>{allPontos ? ' com pontos a reconferir' : ' a reconferir'}</span>
+              <span className="cx-vsep" />
+              <span className="cx-vnum">{top.model.number || '—'}</span>
+              <span className="cx-vt cx-ell">{top.model.title || 'Sem título'}</span>
+              <span className="cx-vmeta">{[top.pontos ? top.pontos + (top.pontos === 1 ? ' ponto' : ' pontos') : '', top.diasConsolidado !== null ? 'consolidado há ' + top.diasConsolidado + (top.diasConsolidado === 1 ? ' dia' : ' dias') : ''].filter(Boolean).join(' · ')}{reconf.length > 1 ? ' · +' + (reconf.length - 1) + (reconf.length === 2 ? ' outro' : ' outros') : ''}</span>
+              <span className="cx-sp" />
+              <button type="button" className="btn-secondary btn-sm" onClick={() => verVigencia(top.model)}>Ver vigência</button>
+            </div>;
+          })()}
 
           {models.length === 0 ? <div className="empty-state"><div className="empty-icon">📄</div><p>Nenhum modelo cadastrado.</p><p style={{fontSize:11}}>Cadastre o número, o cabimento e o link do Word. O texto da peça continua no documento, não aqui.</p></div> :
           <div className="model-md-frame">
@@ -11811,7 +11837,9 @@ function App() {
                   <button type="button" key={m.id} className={'model-md-row' + (isOn ? ' active' : '')} onClick={() => selectModel(m)}>
                     <span className="model-md-num">{m.number || '—'}</span>
                     <span>
-                      <span className="model-md-row-t">{m.title || 'Sem título'}</span>
+                      {isClaude
+                        ? <span className="cx-lrow-l1"><span className="model-md-row-t">{m.title || 'Sem título'}</span><span className="cx-used" title="Total acumulado de vezes em que o Word foi aberto a partir deste modelo">{(m.useCount || 0) + '× usado'}</span></span>
+                        : <span className="model-md-row-t">{m.title || 'Sem título'}</span>}
                       <span className="model-md-row-s">
                         <span className={'model-badge ' + st.cls}>{st.label}</span>
                         {m.legalRefs && <span>{m.legalRefs}</span>}
