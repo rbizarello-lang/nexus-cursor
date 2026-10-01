@@ -12321,7 +12321,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
-        onOpenProc={(id) => cxOpenProcDrawer({ execId: id })} onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })}
+        onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
         {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}

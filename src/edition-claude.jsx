@@ -2507,6 +2507,127 @@ function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, se
   </div>;
 }
 
+/* ═════════════════════ Horizonte de 90 dias (M5) ═════════════════════
+   "O que eu preciso fazer, e em que ordem, nos próximos 90 dias?" Colunas em funil (Atrasados · esta semana ·
+   semanas 2 a 5 · meses · Depois — src/lib/timeline.js, `horizonColumns`) e linhas por natureza (Prazos,
+   Audiências, Tarefas, Prescrição e revisões). Cada cartão abre a gaveta/janela que já existe. Dia com 3 ou mais
+   itens deixa a coluna âmbar e marca "!" no cartão. Dias não úteis vêm de `isBusinessDay` (feriados nacionais,
+   recesso forense e o calendário local de ⚙): nenhuma tabela nova. Não é calendário (isso é a Agenda): é um
+   resumo por urgência. `cxBuildHorizon` aceita várias operações — o componente é reutilizável. */
+function cxBuildHorizon(data, opIds, prazosRadar, todayIso) {
+  const ids = new Set(opIds);
+  const showOp = ids.size > 1;
+  const opSg = (id) => { const o = (data.operations || []).find(x => x.id === id); return o ? String(cxOpName(o)).split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() : ''; };
+  const execOf = (pn) => (data.executions || []).find(e => sameProc(e.processNumber, pn));
+  const procTxt = (pn, fallback) => { const e = pn ? execOf(pn) : null; return e ? cxExecTag(e) + ' ' + cxExecShortNum(e) : (fallback || ''); };
+  const subOf = (opId, txt) => [showOp ? opSg(opId) : '', txt].filter(Boolean).join(' · ');
+  const toneOf = (iso) => cxDue(daysUntil(iso), iso).tone;
+  const items = [];
+  (data.intimations || []).forEach(i => {
+    if (!ids.has(i.operationId) || !cxIsOpen(i) || !i.dateDeadline) return;
+    const d = toDayKey(i.dateDeadline); if (!d) return;
+    items.push({ id: 'i|' + i.id, cat: 'prazo', d, tone: toneOf(d), urgent: intimIsUrgent(i), opId: i.operationId, title: i.eventDescription || i.className || 'Intimação', sub: subOf(i.operationId, procTxt(i.processNumber, cxPartyName(i))), ref: { t: 'intim', id: i.id } });
+  });
+  (data.hearings || []).forEach(h => {
+    if (!ids.has(h.operationId) || !h.date || h.status === 'realizada' || h.status === 'cancelada') return;
+    const d = toDayKey(h.date); if (!d || daysUntil(d) < 0) return;
+    items.push({ id: 'h|' + h.id, cat: 'aud', d, tm: h.time || '', tone: toneOf(d), opId: h.operationId, title: CX_HEARING_SHORT[h.hearingType] || 'Audiência', sub: subOf(h.operationId, procTxt(h.processNumber, h.parties || '')), ref: { t: 'hearing', h } });
+  });
+  (data.tasks || []).forEach(k => {
+    if (!ids.has(k.operationId) || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    items.push({ id: 't|' + k.id, cat: 'tar', d, tone: toneOf(d), opId: k.operationId, title: k.title || k.description || 'Tarefa', sub: subOf(k.operationId, k.processNumber ? procTxt(k.processNumber) : ''), ref: { t: 'task', k } });
+  });
+  const rows = ((prazosRadar && prazosRadar.rows) || []).filter(r => ids.has(r.operationId) && r.group !== 6);
+  const split = splitMesaRows(rows, todayIso);
+  split.needsYou.concat(split.overCap).forEach(r => {
+    const d = toDayKey(r.prescDate || r.keyDate); if (!d) return;
+    const late = daysUntil(d) < 0;
+    items.push({ id: 'p|' + r.id, cat: 'presc', d, tone: late ? 'late' : toneOf(d), opId: r.operationId, title: (late ? 'Vencida · ' : 'Termo · ') + (r.cdaNumber || 'S/N'), sub: subOf(r.operationId, [r.value ? cxMoneyShort(r.value) : '', r.processNumber ? procTxt(r.processNumber) : 'sem processo'].filter(Boolean).join(' · ')), ref: { t: 'cda', row: r } });
+  });
+  (data.operations || []).forEach(o => {
+    if (!ids.has(o.id) || o.status === 'encerrada') return;
+    const d = cxReviewNext(o); if (!d) return;
+    const dd = daysUntil(d);
+    items.push({ id: 'r|' + o.id, cat: 'presc', rev: true, d, tone: dd < 0 ? 'late' : 'later', opId: o.id, title: dd < 0 ? 'Revisão atrasada' : 'Revisão da operação', sub: subOf(o.id, dd < 0 ? tlDurLabel(dd).replace(/^há /, '') + ' de atraso' : ((REVIEW_INTERVALS[o.reviewInterval || 'mensal'] || {}).label || '').toLowerCase()), ref: { t: 'rev' } });
+  });
+  const columns = horizonColumns(todayIso);
+  const buckets = horizonBucket(items, columns);
+  const busy = horizonBusyDays(horizonDayCounts(items));
+  return { items, columns, buckets, busy, end: addCalendarDays(todayIso, HORIZON_DAYS) };
+}
+const CX_HZ_TONE = { late: 'var(--cx-red)', today: 'var(--cx-orange)', soon: 'var(--cx-yellow)', later: 'var(--cx-ink-3)', none: 'var(--cx-ink-3)' };
+function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHearing, onOpenTask, onOpenCda, onOpenTimeline }) {
+  const todayIso = localIso(new Date());
+  const hz = React.useMemo(() => cxBuildHorizon(data, opIds, prazosRadar, todayIso), [data, opIds.join(','), prazosRadar, todayIso]);
+  const [open, setOpen] = React.useState(() => new Set());
+  const [folded, setFolded] = React.useState(() => { try { return localStorage.getItem('nexus_cx_hz_folded') === '1'; } catch (e) { return false; } });
+  const setFold = (v) => { setFolded(v); try { localStorage.setItem('nexus_cx_hz_folded', v ? '1' : '0'); } catch (e) { /* ignore */ } };
+  const toggle = (k) => setOpen(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const isOff = (iso) => !isBusinessDay(new Date(iso + 'T00:00:00'));
+  const act = (it) => {
+    const r = it.ref;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'task') onOpenTask && onOpenTask(r.k);
+    else if (r.t === 'cda') onOpenCda && onOpenCda(r.row);
+  };
+  const card = (it, col) => {
+    const wk = col.kind === 'week';
+    const d = it.d, dow = CX_DOW[cxDate(d).getDay()];
+    const dl = (wk ? dow + ' ' + d.slice(8, 10) : cxDM(d)) + (it.tm ? ' · ' + it.tm : '');
+    const busyDay = hz.busy.has(d);
+    const clickable = it.ref.t !== 'rev';
+    const Tag = clickable ? 'button' : 'div';
+    return <Tag key={it.id} type={clickable ? 'button' : undefined} className={'cx-hz-it cat-' + it.cat + ' tone-' + it.tone + (busyDay ? ' crit' : '') + (it.urgent ? ' urg' : '')} style={{ '--ct': CX_HZ_TONE[it.tone] }}
+      onClick={clickable ? () => act(it) : undefined} title={it.title + (it.sub ? ' · ' + it.sub : '') + ' · ' + fmtDate(d) + (busyDay ? ' · dia com ' + hz.items.filter(x => x.d === d).length + ' itens' : '') + (it.ref.t === 'rev' ? ' · use "Revisada" no cabeçalho da operação' : '')}>
+      <span className="cx-hz-d"><span className="cx-hz-dl">{dl}</span>{busyDay ? <b className="cx-hz-bang" aria-label="dia com 3 ou mais itens">!</b> : null}{it.urgent ? <b className="cx-hz-urg">URGENTE</b> : null}</span>
+      <span className="cx-hz-t">{it.title}</span>
+      {it.sub ? <span className="cx-hz-s">{it.sub}</span> : null}
+    </Tag>;
+  };
+  const total = hz.items.length;
+  const lateN = hz.buckets.late.length;
+  const rowsDef = HORIZON_ROWS;
+  return <section className="cx-card cx-hz" aria-label="Próximos 90 dias">
+    <div className="cx-hz-h">
+      <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} no horizonte{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
+      <span className="cx-hz-key"><i className="cx-hz-sw busy" />dia com 3 ou mais itens<span className="cx-hz-off-k" title="Dias de semana sem expediente: feriado nacional, recesso forense (20/12 a 20/01) ou dia marcado no calendário local (⚙)">● dia não útil</span></span>
+      <span className="cx-sp" />
+      <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>
+      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Ver linha do tempo completa<CxIcon n="chevR" s={13} /></button> : null}
+      <button type="button" className="cx-link-btn" onClick={() => setFold(!folded)} aria-expanded={!folded} title={folded ? 'Mostrar o horizonte' : 'Recolher o horizonte (lembrado neste navegador)'}>{folded ? 'Mostrar' : 'Recolher'}</button>
+    </div>
+    {folded ? null : <div className="cx-hz-scroll">
+      <div className="cx-hz-grid" style={{ gridTemplateColumns: '112px repeat(' + hz.columns.length + ', minmax(116px, 1fr))' }}>
+        <div className="cx-hz-corner" />
+        {hz.columns.map(c => {
+          const n = hz.buckets[c.key].length, offs = horizonOffRuns(c, isOff);
+          return <div key={c.key} className={'cx-hz-ch ' + c.kind + (c.key === 'w1' ? ' now' : '')}>
+            <b>{c.label}</b><span className="cx-hz-sub">{c.sub}</span>
+            <span className="cx-hz-n">{n} {n === 1 ? 'item' : 'itens'}</span>
+            {offs.map(r => <span key={r.from} className="cx-hz-off" title={(r.n === 1 ? 'Dia de semana sem expediente' : r.n + ' dias de semana sem expediente') + ': feriado, recesso forense ou calendário local (⚙)'}>● {r.from === r.to ? cxDM(r.from) : r.from.slice(8, 10) + '–' + cxDM(r.to)}</span>)}
+          </div>;
+        })}
+        {rowsDef.map(([cat, label, subL]) => <React.Fragment key={cat}>
+          <div className="cx-hz-rl"><b>{label}</b>{subL ? <span>{subL}</span> : null}</div>
+          {hz.columns.map(c => {
+            const list = hz.buckets[c.key].filter(i => i.cat === cat);
+            const cellKey = cat + '|' + c.key;
+            const cap = c.kind === 'week' ? 4 : 3;
+            const cp = tlCapList(list, cap, open.has(cellKey));
+            const crowded = list.some(i => hz.busy.has(i.d));
+            return <div key={c.key} className={'cx-hz-c ' + c.kind + (c.key === 'w1' ? ' now' : '') + (crowded ? ' busy' : '')}>
+              {list.length ? cp.shown.map(i => card(i, c)) : <span className="cx-hz-none">—</span>}
+              {cp.more > 0 ? <button type="button" className="cx-hz-more" onClick={() => toggle(cellKey)}>+ {cp.more} {cp.more === 1 ? 'item' : 'itens'}</button> : (open.has(cellKey) && list.length > cap ? <button type="button" className="cx-hz-more" onClick={() => toggle(cellKey)}>recolher</button> : null)}
+            </div>;
+          })}
+        </React.Fragment>)}
+      </div>
+    </div>}
+  </section>;
+}
+
 /* ═════════════════════ Visão geral da operação ═════════════════════ */
 /* Descrição da operação no cabeçalho da Visão geral. Texto simples em op.description (busca, Clássico,
    Beta, relatório e modal "Editar operação" seguem usando só ele) e, quando há formatação, HTML em
@@ -2552,7 +2673,6 @@ function EditionClaudeOpDesc({ op, upsert }) {
 }
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
-  const [scale, setScale] = React.useState('anos');
   const rs = cxRS(op);
   const cls = getOpClassifications(op);
   const open = (data.intimations || []).filter(i => i.operationId === op.id && cxIsOpen(i)).sort(cxAttention);
@@ -2608,8 +2728,8 @@ function EditionClaudeOpOverview(p) {
       <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
         pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
     </CxKpiStrip> : null}
-    <div className="cx-sub-h"><h2>Linha do tempo</h2><span className="cx-sp" /><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>
-    <EditionClaudeTimeline data={data} op={op} prescLookup={p.prescLookup} scale={scale} setScale={setScale} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenCda={p.onOpenCdaDrawer || p.onOpenCda} onOpenProc={p.onOpenProc} />
+    <div className="cx-sub-h"><h2>Próximos 90 dias</h2></div>
+    <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenTask={p.onOpenTask} onOpenCda={p.onOpenCda} onOpenTimeline={p.onOpenTimeline} />
     <div className="cx-home-grid" style={{ marginTop: 22 }}>
       <section className="cx-card">
         <div className="cx-card-h"><h2>Intimações abertas</h2><div className="cx-aside"><span className="cx-count">{open.length}</span></div></div>

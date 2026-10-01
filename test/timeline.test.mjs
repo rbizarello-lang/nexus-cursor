@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlLayoutLabels, tlPickGap, tlDurLabel,
   tlCdaBar, tlCountKinds, tlToggleKind, tlCapList,
+  HORIZON_DAYS, HORIZON_ROWS, horizonColumns, horizonColumnOf, horizonBucket, horizonDayCounts, horizonBusyDays,
+  horizonOffRuns, horizonRangeLabel,
 } from '../src/lib/timeline.js';
 
 describe('Vocabulário da Linha do tempo', () => {
@@ -105,5 +107,82 @@ describe('Durações e barra de CDA', () => {
     assert.deepEqual(tlCapList(l, 3, false), { shown: [1, 2, 3], more: 2 });
     assert.deepEqual(tlCapList(l, 3, true), { shown: l, more: 0 });
     assert.deepEqual(tlCapList(l, 9, false), { shown: l, more: 0 });
+  });
+});
+
+describe('Horizonte de 90 dias — colunas do funil', () => {
+  const TODAY = '2026-10-01'; // quinta-feira
+  const cols = horizonColumns(TODAY);
+  it('Atrasados, esta semana, semanas 2 a 5, um mês por coluna e Depois (segunda a domingo)', () => {
+    assert.deepEqual(cols.map(c => c.label), ['Atrasados', 'Esta semana', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5', 'Novembro', 'Dezembro', 'Depois']);
+    assert.deepEqual(cols.map(c => c.sub), ['antes de hoje', '01–04/10', '05–11/10', '12–18/10', '19–25/10', '26/10–01/11', '02–30/11', '01–30/12', 'após 30/12']);
+    assert.equal(cols[0].to, '2026-09-30'); assert.equal(cols[0].from, null);
+    assert.equal(cols[1].from, TODAY); assert.equal(cols[1].to, '2026-10-04');
+    assert.equal(cols[cols.length - 1].from, '2026-12-31'); assert.equal(cols[cols.length - 1].to, null);
+    assert.equal(HORIZON_DAYS, 90);
+  });
+  it('as colunas cobrem a linha do tempo inteira, sem furo nem sobreposição', () => {
+    for (let i = 1; i < cols.length; i++) {
+      const prev = cols[i - 1].to, next = cols[i].from;
+      const after = new Date(prev + 'T00:00:00'); after.setDate(after.getDate() + 1);
+      assert.equal(after.toISOString().slice(0, 10), next, 'entre ' + cols[i - 1].key + ' e ' + cols[i].key);
+    }
+  });
+  it('em domingo, "esta semana" é só o próprio dia; a semana 2 começa na segunda', () => {
+    const c = horizonColumns('2026-10-04');
+    assert.equal(c[1].from, '2026-10-04'); assert.equal(c[1].to, '2026-10-04'); assert.equal(c[1].sub, '04/10');
+    assert.equal(c[2].from, '2026-10-05');
+  });
+  it('em segunda, esta semana vai até domingo; janela curta não gera meses', () => {
+    const c = horizonColumns('2026-10-05');
+    assert.equal(c[1].to, '2026-10-11');
+    const short = horizonColumns('2026-10-05', { days: 20 });
+    assert.ok(!short.some(x => x.kind === 'month'));
+    assert.equal(short[short.length - 1].kind, 'after');
+  });
+  it('em que coluna cai cada data', () => {
+    assert.equal(horizonColumnOf('2026-09-29', cols), 'late');
+    assert.equal(horizonColumnOf('2026-10-01', cols), 'w1');
+    assert.equal(horizonColumnOf('2026-10-04', cols), 'w1');
+    assert.equal(horizonColumnOf('2026-10-05', cols), 'w2');
+    assert.equal(horizonColumnOf('2026-11-01', cols), 'w5');
+    assert.equal(horizonColumnOf('2026-11-02', cols), 'm:2026-11');
+    assert.equal(horizonColumnOf('2026-12-30', cols), 'm:2026-12');
+    assert.equal(horizonColumnOf('2027-07-28', cols), 'after');
+    assert.equal(horizonColumnOf('', cols), null);
+  });
+  it('agrupa por coluna em ordem de data e hora; item sem data fica de fora', () => {
+    const b = horizonBucket([
+      { id: 'c', d: '2026-10-19', tm: '14:00' }, { id: 'a', d: '2026-10-19', tm: '09:30' }, { id: 'x', d: '' },
+      { id: 'late', d: '2026-09-21' }, { id: 'far', d: '2028-01-01' }, { id: 'd', d: '2026-10-06' },
+    ], cols);
+    assert.deepEqual(b.w4.map(i => i.id), ['a', 'c']);
+    assert.deepEqual(b.late.map(i => i.id), ['late']);
+    assert.deepEqual(b.after.map(i => i.id), ['far']);
+    assert.deepEqual(b.w2.map(i => i.id), ['d']);
+    assert.equal(Object.values(b).reduce((s, l) => s + l.length, 0), 5);
+  });
+  it('dia com 3 ou mais itens aperta', () => {
+    const counts = horizonDayCounts([{ d: '2026-10-19' }, { d: '2026-10-19' }, { d: '2026-10-19' }, { d: '2026-10-06' }, { d: '2026-10-06' }, { d: '' }]);
+    assert.equal(counts.get('2026-10-19'), 3);
+    const busy = horizonBusyDays(counts);
+    assert.ok(busy.has('2026-10-19')); assert.ok(!busy.has('2026-10-06'));
+    assert.ok(horizonBusyDays(counts, 2).has('2026-10-06'));
+  });
+  it('dias não úteis: usa o predicado recebido, ignora fim de semana e junta sequências', () => {
+    const off = new Set(['2026-10-12', '2026-11-02', '2026-12-21', '2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-28']);
+    const isOff = (d) => off.has(d);
+    assert.deepEqual(horizonOffRuns(cols[3], isOff), [{ from: '2026-10-12', to: '2026-10-12', n: 1 }]);
+    assert.deepEqual(horizonOffRuns(cols[6], isOff), [{ from: '2026-11-02', to: '2026-11-02', n: 1 }]);
+    const dez = horizonOffRuns(cols[7], isOff);
+    assert.equal(dez.length, 1); assert.equal(dez[0].from, '2026-12-21'); assert.equal(dez[0].to, '2026-12-28'); assert.equal(dez[0].n, 6);
+    assert.deepEqual(horizonOffRuns(cols[0], isOff), []);
+    assert.deepEqual(horizonOffRuns(cols[1], null), []);
+  });
+  it('rótulos de intervalo e linhas por natureza', () => {
+    assert.equal(horizonRangeLabel('2026-10-05', '2026-10-11'), '05–11/10');
+    assert.equal(horizonRangeLabel('2026-10-26', '2026-11-01'), '26/10–01/11');
+    assert.equal(horizonRangeLabel('2026-10-04', '2026-10-04'), '04/10');
+    assert.deepEqual(HORIZON_ROWS.map(r => r[0]), ['prazo', 'aud', 'tar', 'presc']);
   });
 });

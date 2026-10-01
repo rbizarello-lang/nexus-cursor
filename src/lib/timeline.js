@@ -10,8 +10,11 @@
  *    contagem) o que não cabe — o tooltip cobre o resto.
  *  - Texto na barra do processo: `tlPickGap` acha um vão sem marcador para o rótulo de status.
  *  - CDAs a ajuizar: `tlCdaBar` (posição proporcional do "hoje" entre o início e o termo).
+ *  - Horizonte de 90 dias (M5): `horizonColumns` (funil Atrasados · esta semana · semanas 2-5 · meses · Depois),
+ *    `horizonBucket` (itens por coluna), `horizonDayCounts`/`horizonBusyDays` (dias com 3 ou mais itens) e
+ *    `horizonOffRuns` (dias úteis que não são úteis: feriado, recesso ou calendário local — o predicado vem de fora).
  */
-import { daysBetween } from './dates.js';
+import { daysBetween, addCalendarDays, toDayKey, localIso } from './dates.js';
 
 /** Um tipo de fato = uma forma. A ordem é a da legenda. */
 export const TL_KINDS = {
@@ -137,4 +140,117 @@ export function tlCapList(list, cap, expanded) {
   const all = list || [];
   if (expanded || all.length <= cap) return { shown: all, more: 0 };
   return { shown: all.slice(0, cap), more: all.length - cap };
+}
+
+/* ═════════════ Horizonte de 90 dias (M5) ═════════════ */
+const HZ_MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+export const HORIZON_DAYS = 90;
+/** Nº de itens num mesmo dia a partir do qual o dia "aperta" (colunas com um dia assim ganham destaque). */
+export const HORIZON_BUSY_MIN = 3;
+/** Linhas do Horizonte, por natureza: [chave, rótulo, subtítulo]. */
+export const HORIZON_ROWS = [['prazo', 'Prazos', 'intimações'], ['aud', 'Audiências', ''], ['tar', 'Tarefas', ''], ['presc', 'Prescrição e revisões', 'termos · revisão']];
+
+const hzDm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+const hzDow = (iso) => new Date(iso + 'T00:00:00').getDay();
+/** "05–11/10" (mesmo mês) ou "26/10–01/11"; um dia só: "04/10". */
+export function horizonRangeLabel(from, to) {
+  if (!from || !to) return '';
+  if (from === to) return hzDm(from);
+  if (from.slice(0, 7) === to.slice(0, 7)) return from.slice(8, 10) + '–' + hzDm(to);
+  return hzDm(from) + '–' + hzDm(to);
+}
+
+/**
+ * Colunas do funil, da esquerda para a direita:
+ *   Atrasados (antes de hoje) · Esta semana (hoje até domingo) · Semana 2..5 (segunda a domingo) ·
+ *   um mês por coluna até o fim da janela (hoje + `days`) · Depois (além da janela).
+ * Cada coluna: { key, kind, label, sub, from, to } com from/to em ISO (null = aberto).
+ */
+export function horizonColumns(todayIso, opts = {}) {
+  const today = toDayKey(todayIso);
+  const days = opts.days == null ? HORIZON_DAYS : opts.days;
+  const end = addCalendarDays(today, days);
+  const cols = [{ key: 'late', kind: 'late', label: 'Atrasados', sub: 'antes de hoje', from: null, to: addCalendarDays(today, -1) }];
+  const dow = hzDow(today);
+  let from = today;
+  let to = addCalendarDays(today, dow === 0 ? 0 : 7 - dow);
+  for (let w = 1; w <= 5 && from <= end; w++) {
+    const t = to > end ? end : to;
+    cols.push({ key: 'w' + w, kind: 'week', label: w === 1 ? 'Esta semana' : 'Semana ' + w, sub: horizonRangeLabel(from, t), from, to: t });
+    from = addCalendarDays(to, 1);
+    to = addCalendarDays(from, 6);
+  }
+  let guard = 0;
+  while (from <= end && guard++ < 24) {
+    const y = +from.slice(0, 4), m = +from.slice(5, 7);
+    const monthEnd = localIso(new Date(y, m, 0)); // último dia do mês (m é 1-based; dia 0 do mês seguinte)
+    const t = monthEnd > end ? end : monthEnd;
+    cols.push({ key: 'm:' + from.slice(0, 7), kind: 'month', label: HZ_MESES[m - 1], sub: horizonRangeLabel(from, t), from, to: t });
+    from = addCalendarDays(monthEnd, 1);
+  }
+  cols.push({ key: 'after', kind: 'after', label: 'Depois', sub: 'após ' + hzDm(end), from: addCalendarDays(end, 1), to: null });
+  return cols;
+}
+
+/** Em que coluna cai uma data (ISO)? Antes de hoje = Atrasados; depois do fim da janela = Depois. Sem data: null. */
+export function horizonColumnOf(iso, columns) {
+  const d = toDayKey(iso);
+  if (!d) return null;
+  for (const c of columns) {
+    if ((c.from === null || d >= c.from) && (c.to === null || d <= c.to)) return c.key;
+  }
+  return null;
+}
+
+/** Agrupa itens ({ d, tm? }) por coluna, em ordem de data e hora. Itens sem data ficam de fora. */
+export function horizonBucket(items, columns) {
+  const out = {};
+  columns.forEach(c => { out[c.key] = []; });
+  (items || []).forEach(it => {
+    const k = horizonColumnOf(it && it.d, columns);
+    if (k) out[k].push(it);
+  });
+  Object.keys(out).forEach(k => out[k].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : String(a.tm || '').localeCompare(String(b.tm || '')))));
+  return out;
+}
+
+/** Quantos itens em cada dia (ISO → n). */
+export function horizonDayCounts(items) {
+  const m = new Map();
+  (items || []).forEach(it => { const d = toDayKey(it && it.d); if (d) m.set(d, (m.get(d) || 0) + 1); });
+  return m;
+}
+/** Dias com `min` itens ou mais (o aperto da semana). */
+export function horizonBusyDays(counts, min = HORIZON_BUSY_MIN) {
+  const s = new Set();
+  counts.forEach((n, d) => { if (n >= min) s.add(d); });
+  return s;
+}
+
+/**
+ * Sequências de dias de semana não úteis (feriado, recesso, calendário local) dentro de uma coluna.
+ * `isOff(iso)` diz se o dia é não útil; sábados e domingos nunca contam. Colunas abertas (Atrasados/Depois) não têm.
+ * Retorna [{ from, to, n }].
+ */
+export function horizonOffRuns(column, isOff) {
+  if (!column || !column.from || !column.to || typeof isOff !== 'function') return [];
+  const runs = [];
+  let cur = null;
+  for (let d = column.from, g = 0; d <= column.to && g < 400; d = addCalendarDays(d, 1), g++) {
+    const w = hzDow(d);
+    if (w === 0 || w === 6) continue;
+    if (isOff(d)) {
+      if (cur && !hzWeekdayGap(cur.to, d, isOff)) { cur.to = d; cur.n++; }
+      else { cur = { from: d, to: d, n: 1 }; runs.push(cur); }
+    } else cur = null;
+  }
+  return runs;
+}
+/* Entre dois dias não úteis há algum dia de semana útil? (então são sequências separadas) */
+function hzWeekdayGap(a, b, isOff) {
+  for (let d = addCalendarDays(a, 1); d < b; d = addCalendarDays(d, 1)) {
+    const w = hzDow(d);
+    if (w !== 0 && w !== 6 && !isOff(d)) return true;
+  }
+  return false;
 }
