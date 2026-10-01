@@ -2951,8 +2951,11 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIn
       return e ? { ...it, procTag: cxExecTag(e), procColor: cxTagColor(e), procLabel: cxExecShortNum(e) } : it;
     });
   }, [data, op, tl, todayIso]);
-  const counts = React.useMemo(() => narrCounts(entries, execId), [entries, execId]);
-  const shown = React.useMemo(() => narrFilter(entries, { cat, execId }), [entries, cat, execId]);
+  /* No Briefing o card só olha para frente (atrasado e a vir): o passado é do card "Atuações recentes"; a frase-resumo
+     segue usando tudo. Na Linha do tempo a narrativa é inteira (passado e futuro). */
+  const listed = React.useMemo(() => (card ? entries.filter(it => { const c = narrClassify(it, todayIso); return c === 'late' || c === 'future'; }) : entries), [entries, card, todayIso]);
+  const counts = React.useMemo(() => narrCounts(listed, execId), [listed, execId]);
+  const shown = React.useMemo(() => narrFilter(listed, { cat, execId }), [listed, cat, execId]);
   const sum = React.useMemo(() => narrSummary(entries, todayIso), [entries, todayIso]);
   const focus = React.useMemo(() => narrSectionsFocus(shown, todayIso), [shown, todayIso]);
   const pg = React.useMemo(() => narrPaginate(focus, { pastShown, laterCap: card ? 6 : Infinity, laterExpanded: laterAll }), [focus, pastShown, card, laterAll]);
@@ -2974,8 +2977,13 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIn
     {items(s.items)}
   </React.Fragment>;
   let body;
-  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{entries.length ? 'Nada com esses filtros.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
-  else if (order === 'cron' && chrono) {
+  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{listed.length ? 'Nada com esses filtros.' : card ? 'Nada à frente: nenhum prazo, audiência, tarefa ou termo de prescrição à vista.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
+  else if (card) {
+    body = <>
+      {pg.sections.map(group)}
+      {pg.hiddenLater > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setLaterAll(true)}>Mostrar mais {pg.hiddenLater} adiante</button></div> : null}
+    </>;
+  } else if (order === 'cron' && chrono) {
     body = chrono.sections.map((s, si) => <React.Fragment key={s.key}>
       <div className="cx-nr-g">{s.label}<span className="cnt">{s.items.length}</span></div>
       {s.items.map((it, ii) => <React.Fragment key={it.id}>{chrono.nowAt && chrono.nowAt.section === si && chrono.nowAt.index === ii ? nowRow : null}<CxNarrItem it={it} todayIso={todayIso} onOpen={open} /></React.Fragment>)}
@@ -2991,13 +2999,13 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIn
     </>;
   }
   const chips = <div className="cx-nr-chips">
-    {NARR_CATS.map(([k, l]) => <button key={k} type="button" className={'cx-fchip sm' + (cat === k ? ' on' : '') + (counts[k] === 0 && k !== 'all' ? ' zero' : '')} aria-pressed={cat === k} onClick={() => { setCat(k); setPastShown(NARR_PAST_STEP); }}>{l}<span className="cx-fcn">{counts[k]}</span></button>)}
+    {NARR_CATS.filter(([k]) => !(card && k === 'mine')).map(([k, l]) => <button key={k} type="button" className={'cx-fchip sm' + (cat === k ? ' on' : '') + (counts[k] === 0 && k !== 'all' ? ' zero' : '')} aria-pressed={cat === k} onClick={() => { setCat(k); setPastShown(NARR_PAST_STEP); }}>{l}<span className="cx-fcn">{counts[k]}</span></button>)}
     <span className="cx-sp" />
     <CxSelect id={card ? 'cx-nr-proc-card' : 'cx-nr-proc'} pre="Processo" value={execId} onChange={v => { setExecId(v); setPastShown(NARR_PAST_STEP); }} options={[['', 'Todos']].concat(tl.procs.map(r => [r.x.e.id, cxExecTag(r.x.e) + ' ' + cxExecShortNum(r.x.e)]))} />
   </div>;
   if (card) {
     return <section className="cx-card cx-bf-nr" aria-label="Narrativa da operação">
-      <div className="cx-card-h"><h5>Narrativa</h5><span className="cx-count">{entries.length}</span><span className="cx-muted cx-small cx-nr-sub">o que houve, o que fiz e o que vem</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+      <div className="cx-card-h"><h5>Narrativa</h5><span className="cx-count">{listed.length}</span><span className="cx-muted cx-small cx-nr-sub">o que vem: atrasado, esta semana, próxima, mais adiante</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
       <div className="cx-nr-body">
         <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
         {chips}
@@ -3040,6 +3048,84 @@ function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpe
 function EditionClaudeNarrativeCard({ op, data, prescLookup, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
   return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={onOpenTimeline} />;
+}
+
+/* ═════════════════════ Atuações recentes (Briefing) ═════════════════════
+   O que a operação já recebeu de mim: respostas a intimações, tarefas concluídas e atuações proativas, da mais
+   recente para a mais antiga (agregação pura em src/lib/atuacoes.js), 10 por vez. É o passado, sozinho: a Narrativa
+   do Briefing cuida do que vem. "Registrar atuação" precisa de um processo: abre a escolha do processo e, em seguida,
+   o mesmo formulário da ficha do processo (EditionClaudeAtuacaoForm). */
+const CX_UA_STEP = 10;
+function CxAtuProcPicker({ execs, onPick, onClose }) {
+  const [q, setQ] = React.useState('');
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) { e.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const live = (e) => e.status !== 'extinta' && e.status !== 'arquivada';
+  const sorted = React.useMemo(() => execs.slice().sort((a, b) => (live(b) ? 1 : 0) - (live(a) ? 1 : 0) || String(a.processNumber || '').localeCompare(String(b.processNumber || ''))), [execs]);
+  const needle = q.trim().toLowerCase();
+  const list = needle ? sorted.filter(e => (String(e.processNumber || '') + ' ' + (e.className || '') + ' ' + cxExecTag(e)).toLowerCase().includes(needle)) : sorted;
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <div className="cx cx-pick" role="dialog" aria-modal="true" aria-label="Em qual processo foi a atuação?">
+      <div className="cx-pick-h"><b>Em qual processo foi a atuação?</b><span className="cx-sp" /><button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button></div>
+      <p className="cx-pick-n">A atuação fica registrada no processo: entra nas notas dele, em Arquivos (se houver link) e aqui, em Atuações recentes.</p>
+      {sorted.length > 6 ? <input className="cx-input" autoFocus placeholder="Filtrar por número ou classe" value={q} onChange={ev => setQ(ev.target.value)} aria-label="Filtrar processos" /> : null}
+      <div className="cx-pick-l">
+        {list.map(e => <button key={e.id} type="button" className={'cx-pick-r' + (live(e) ? '' : ' off')} onClick={() => onPick(e)}>
+          <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span>
+          <span className="cx-mono cx-pick-num">{e.processNumber || 'S/N'}</span>
+          <span className="cx-pick-c">{e.className || ''}{live(e) ? '' : ' · ' + ((EXEC_STATUSES[e.status] || {}).label || e.status || '')}</span>
+        </button>)}
+        {!list.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhum processo com esse filtro.</div> : null}
+      </div>
+    </div>
+  </>;
+}
+function EditionClaudeAtuacoesRecentes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa }) {
+  const [shown, setShown] = React.useState(CX_UA_STEP);
+  const [step, setStep] = React.useState(null); // null · 'pick' · { exec } (formulário)
+  const rows = React.useMemo(
+    () => buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }),
+    [op.id, data.intimations, data.tasks, data.executions]
+  );
+  const open = (r) => {
+    if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
+    else if (r.kind === 'tarefa') { const t = (data.tasks || []).find(x => x.id === r.taskId); if (t && onOpenTask) onOpenTask(t); }
+    else if (onOpenProativa) onOpenProativa(r.executionId, r.actionId);
+  };
+  const start = () => { if (!execs.length) return; setStep(execs.length === 1 ? { exec: execs[0] } : 'pick'); };
+  const save = (fields) => {
+    const r = cxRegisterAtuacao({ data, upsert, exec: step.exec, fields });
+    if (r.error) return r.error;
+    setStep(null);
+    setShown(CX_UA_STEP);
+    return '';
+  };
+  return <section className="cx-card cx-bf-ua" aria-label="Atuações recentes">
+    <div className="cx-card-h"><h5>Atuações recentes</h5><span className="cx-count">{rows.length}</span><span className="cx-sp" />
+      <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
+        title={execs.length ? 'Registrar o que você fez por conta própria (petição, diligência…), sem intimação. Escolha o processo e preencha o resumo.' : 'Cadastre um processo nesta operação para registrar atuações.'}><CxIcon n="plus" s={13} />Registrar atuação</button></div>
+    {rows.length === 0
+      ? <div className="cx-empty-row">Nenhuma atuação registrada nesta operação ainda.</div>
+      : <div className="cx-ua-list">
+        {rows.slice(0, shown).map(r => <div key={r.key} className="cx-ua-row" role="button" tabIndex={0} onClick={() => open(r)}
+          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(r); } }}>
+          <span className={'cx-ua-d cx-mono' + (r.date ? '' : ' cx-muted')}>{r.date ? fmtDate(r.date) : 'sem data'}</span>
+          <span className={'cx-ua-chip ' + r.kind}>{r.kindLabel}</span>
+          <span className="cx-ua-t">{r.title}</span>
+          <span className="cx-ua-p cx-mono">{r.processNumber}</span>
+          <span className="cx-ua-l"><CxDocIcon url={r.url} size={16} /></span>
+        </div>)}
+      </div>}
+    {rows.length > shown
+      ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
+      : null}
+    {step === 'pick' ? <CxAtuProcPicker execs={execs} onClose={() => setStep(null)} onPick={(e) => setStep({ exec: e })} /> : null}
+    {step && step.exec ? <EditionClaudeAtuacaoForm exec={step.exec} onCancel={() => setStep(null)} onSave={save} /> : null}
+  </section>;
 }
 
 /* ═════════════════════ Miniaturas (M6) ═════════════════════
@@ -4977,7 +5063,12 @@ function EditionClaudeBriefing(p) {
           )}
         </section>
 
-        {/* Narrativa: o card que era "Últimas atuações", agora com o futuro (atrasado, esta semana, próxima, mais adiante) */}
+        {/* Atuações recentes: só o passado (respostas, tarefas concluídas, atuações proativas), mais recente primeiro */}
+        <EditionClaudeAtuacoesRecentes op={op} data={data} execs={opExecs} upsert={upsert} onOpenIntim={p.onOpenIntim}
+          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
+          onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
+
+        {/* Narrativa: o que vem (atrasado, esta semana, próxima semana, mais adiante); o passado fica em Atuações recentes */}
         <EditionClaudeNarrativeCard op={op} data={data} prescLookup={p.prescLookup} onOpenIntim={p.onOpenIntim}
           onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
           onOpenCda={p.onOpenCda} onOpenProc={p.onOpenProc} onOpenTimeline={p.onOpenTimeline}
@@ -5142,6 +5233,18 @@ function cxSortCdasByPresc(cdas, prazosByDebt) {
    intimação. Gaveta (e não janela) porque o campo da peça recebe um texto longo colado. A gravação —
    nota no card do processo, execution.proactiveActions e, com link, o documento em Arquivos — é de
    planProactiveAction (src/lib/atuacoes.js), chamada por EditionClaudeProcDrawer. */
+/* Grava uma atuação proativa: mesmas consequências de responder uma intimação (nota no card, registro no processo,
+   documento em Arquivos quando há link). Uma única gravação da execução (nota + registro) para não sobrescrever uma à
+   outra. Usada pela ficha do processo e pelo card "Atuações recentes" do Briefing. Devolve { ok } ou { error }. */
+function cxRegisterAtuacao({ data, upsert, exec, fields }) {
+  const latest = (data.executions || []).find(x => x.id === exec.id) || exec;
+  const plan = planProactiveAction({ exec: latest, fields, ids: { action: uid(), doc: uid() }, nowIso: new Date().toISOString() });
+  if (plan.error) return { error: plan.error };
+  upsert('executions', plan.execution);
+  if (plan.document) upsert('documents', plan.document);
+  cxNotify('Atuação registrada: nota do processo e Atuações recentes' + (plan.document ? ' · peça em Arquivos' : ''));
+  return { ok: true };
+}
 function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
   const [date, setDate] = React.useState(() => localIso(new Date()));
   const [summary, setSummary] = React.useState('');
@@ -5185,7 +5288,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
           <textarea ref={summaryRef} className="cx-input" rows={3} value={summary} onChange={ev => setSummary(ev.target.value)} placeholder="Ex.: Petição requerendo SISBAJUD e penhora de faturamento" />
         </label>
         <label>Peça (texto integral, opcional)
-          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois na Narrativa do Briefing." />
+          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois em Atuações recentes, no Briefing." />
           {pecaText.trim() ? <span className="cx-form-note">{pecaText.length.toLocaleString('pt-BR')} caracteres</span> : null}
         </label>
         <label>Link da peça (opcional)
@@ -5193,7 +5296,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
         </label>
         {urlBad ? <div className="cx-form-warn">O link da peça precisa começar com http:// ou https://.</div> : null}
         {err ? <div className="cx-form-warn">{err}</div> : null}
-        <div className="cx-form-note">O resumo vai para as notas deste processo e para a Narrativa (Minhas atuações), no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
+        <div className="cx-form-note">O resumo vai para as notas deste processo e para Atuações recentes, no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
       </form>
       <div className="cx-dr-foot">
         <button type="button" className="cx-btn ghost" onClick={cancel}>Cancelar</button>
@@ -5204,7 +5307,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
   </>;
 }
 
-/* Leitura de uma atuação proativa (clique na linha em "Minhas atuações", na Narrativa): resumo, data, link e o texto
+/* Leitura de uma atuação proativa (clique na linha em Atuações recentes, ou em "Minhas atuações" da Narrativa da Linha do tempo): resumo, data, link e o texto
    da peça colado, em bloco rolável. O texto é sempre exibido como texto puro (nunca como HTML). */
 function EditionClaudeAtuacaoView({ exec, action, onClose }) {
   const [blocks, setBlocks] = React.useState({ resumo: true, peca: true });
@@ -5307,15 +5410,10 @@ function EditionClaudeProcDrawer(p) {
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
-  // Atuação proativa: mesmas consequências de responder uma intimação (nota no card, registro no processo,
-  // documento em Arquivos quando há link). Uma única gravação da execução (nota + registro) para não sobrescrever uma à outra.
+  // Atuação proativa (gravação em cxRegisterAtuacao, compartilhada com o card "Atuações recentes" do Briefing).
   const registerAtuacao = (fields) => {
-    const latest = (data.executions || []).find(x => x.id === e.id) || e;
-    const plan = planProactiveAction({ exec: latest, fields, ids: { action: uid(), doc: uid() }, nowIso: new Date().toISOString() });
-    if (plan.error) return plan.error;
-    upsert('executions', plan.execution);
-    if (plan.document) upsert('documents', plan.document);
-    cxNotify('Atuação registrada: nota do processo e Narrativa' + (plan.document ? ' · peça em Arquivos' : ''));
+    const r = cxRegisterAtuacao({ data, upsert, exec: e, fields });
+    if (r.error) return r.error;
     setAtuacaoOpen(false);
     setTab('notas');
     return '';
