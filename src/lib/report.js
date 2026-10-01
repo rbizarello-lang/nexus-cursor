@@ -55,9 +55,14 @@ export function sanitizeReportHtml(html) {
       if (m[0][1] === '/') out += `</${name}>`;
       else if (name === 'br') out += '<br>';
       else {
-        // Marca-texto: só background-color com valor simples, como no editor.
+        // Marca-texto e cor do texto: só background-color / color com valor simples (hex, rgb() ou nome),
+        // como no editor. "color" exige um separador antes ([\s;"']) para não casar com "background-color".
         const bg = name === 'span' ? /background-color\s*:\s*(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})\s*(;|["']|$)/i.exec(m[0]) : null;
-        out += bg ? `<span style="background-color:${bg[1]};border-radius:2px;padding:0 2px">` : `<${name}>`;
+        const fg = name === 'span' ? /[\s;"']color\s*:\s*(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})\s*(;|["']|$)/i.exec(m[0]) : null;
+        const css = [];
+        if (fg) css.push(`color:${fg[1]}`);
+        if (bg) css.push(`background-color:${bg[1]};border-radius:2px;padding:0 2px`);
+        out += css.length ? `<span style="${css.join(';')}">` : `<${name}>`;
       }
     }
     last = tagRe.lastIndex;

@@ -115,6 +115,22 @@ describe('groupAccountingByMonth / tallyAccounting — Prestação de contas', (
     assert.deepEqual(tally, { intimacoes: 2, pecas: 1, fases: 1, constricoes: 1, tarefas: 1 });
   });
 
+  it('atuação proativa aparece na prestação de contas (kind "Atuação"), com o texto escapado, sem mexer nos totais', () => {
+    const proactive = { date: '2026-09-24', kind: 'Atuação', text: 'Atuação proativa — requereu <img src=x onerror=alert(1)> & penhora', mono: '5001234-56.2023.4.04.7001' };
+    assert.deepEqual(tallyAccounting([...events, proactive]), { intimacoes: 2, pecas: 1, fases: 1, constricoes: 1, tarefas: 1 });
+    const html = renderReportDocument({
+      model: 'prestacao',
+      op: { name: 'Operação X' },
+      periodLabel: '01/09/2026 a 30/09/2026',
+      generatedAtLabel: '01/10/2026 10:00',
+      accountingEvents: [proactive],
+    });
+    assert.ok(html.includes('<span class="k">Atuação</span>'));
+    assert.ok(html.includes('Atuação proativa — requereu &lt;img src=x onerror=alert(1)&gt; &amp; penhora'));
+    assert.ok(!html.includes('<img src=x'));
+    assert.ok(html.includes('5001234-56.2023.4.04.7001'));
+  });
+
   it('eventos sem data não entram em nenhum grupo', () => {
     const groups = groupAccountingByMonth([{ date: '', kind: 'Peça', text: 'x' }, ...events.slice(0, 1)]);
     const total = groups.reduce((s, g) => s + g.events.length, 0);
@@ -251,6 +267,33 @@ describe('relatório: HTML seguro', () => {
     assert.equal(sanitizeReportHtml('<span style="background-image:url(x)">a</span>'), '<span>a</span>');
   });
   
+  it('sanitizeReportHtml mantém só cor de texto simples (hex, rgb, nome) em SPAN', () => {
+    assert.equal(sanitizeReportHtml('<span style="color: rgb(194, 50, 61)">a</span>'), '<span style="color:rgb(194, 50, 61)">a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:#c2323d;">a</span>'), '<span style="color:#c2323d">a</span>');
+    assert.equal(sanitizeReportHtml("<span style='color:red'>a</span>"), '<span style="color:red">a</span>');
+    // cor + marca-texto juntas, em qualquer ordem
+    assert.equal(
+      sanitizeReportHtml('<span style="color: rgb(33, 132, 90); background-color: rgba(212, 168, 56, 0.45)">a</span>'),
+      '<span style="color:rgb(33, 132, 90);background-color:rgba(212, 168, 56, 0.45);border-radius:2px;padding:0 2px">a</span>'
+    );
+    assert.equal(
+      sanitizeReportHtml('<span style="background-color: yellow; color: #14161a">a</span>'),
+      '<span style="color:#14161a;background-color:yellow;border-radius:2px;padding:0 2px">a</span>'
+    );
+    // background-color sozinho não vira "color"
+    assert.equal(sanitizeReportHtml('<span style="background-color:red">a</span>'), '<span style="background-color:red;border-radius:2px;padding:0 2px">a</span>');
+  });
+
+  it('sanitizeReportHtml rejeita cor com valor perigoso e cor fora de SPAN', () => {
+    assert.equal(sanitizeReportHtml('<span style="color:url(javascript:alert(1))">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:expression(alert(1))">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:var(--x)">a</span>'), '<span>a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:red;position:fixed;top:0">a</span>'), '<span style="color:red">a</span>');
+    assert.equal(sanitizeReportHtml('<span style="color:red\"onmouseover=\"x()">a</span>').includes('onmouseover'), false);
+    assert.equal(sanitizeReportHtml('<b style="color:red">a</b>'), '<b>a</b>');
+    assert.equal(sanitizeReportHtml('<div style="color:red">a</div>'), '<div>a</div>');
+  });
+
   it('safeUrl e escHtml: só http(s)/mailto e aspas escapadas', () => {
     assert.equal(safeUrl('javascript:alert(1)'), '');
     assert.equal(safeUrl(' data:text/html,x'), '');
