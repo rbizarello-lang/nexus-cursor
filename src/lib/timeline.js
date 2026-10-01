@@ -107,6 +107,22 @@ export function tlClip(text, n) {
 }
 
 /** "10 meses", "2,5 anos", "3 dias", "hoje"; negativos viram "há …". */
+/**
+ * Forma curta do nº do processo para rótulos estreitos.
+ * - CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO, com ou sem pontuação) → "NNNNNNN-DD".
+ * - Formato antigo da JF (AAAA.TT.SS.NNNNNN-D, com ou sem pontuação: 15 dígitos) → número inteiro
+ *   formatado, porque o ano sozinho ("2005") não identifica o processo.
+ * - Qualquer outro texto → como veio.
+ */
+export function tlProcShort(num) {
+  const raw = String(num == null ? '' : num).trim();
+  if (!raw) return '—';
+  const d = raw.replace(/\D/g, '');
+  if (d.length === 20 && /^\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}$/.test(raw)) return d.slice(0, 7) + '-' + d.slice(7, 9);
+  if (d.length === 15 && /^\d{4}\.?\d{2}\.?\d{2}\.?\d{6}-?\d$/.test(raw)) return d.slice(0, 4) + '.' + d.slice(4, 6) + '.' + d.slice(6, 8) + '.' + d.slice(8, 14) + '-' + d.slice(14);
+  return raw;
+}
+
 export function tlDurLabel(days) {
   if (days === null || days === undefined || Number.isNaN(days)) return '';
   if (days === 0) return 'hoje';

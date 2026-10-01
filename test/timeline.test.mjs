@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { addCalendarDays } from '../src/lib/dates.js';
 import {
-  TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlLayoutLabels, tlPickGap, tlDurLabel,
+  TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlProcShort, tlLayoutLabels, tlPickGap, tlDurLabel,
   tlCdaBar, tlCountKinds, tlToggleKind, tlCapList,
   HORIZON_DAYS, HORIZON_ROWS, horizonColumns, horizonColumnOf, horizonBucket, horizonDayCounts, horizonBusyDays,
   horizonOffRuns, horizonRangeLabel,
@@ -511,5 +511,22 @@ describe('Panorama — histórico longo (2004–2028, muitos fatos espalhados)',
     const Z = tlCompressZone(-3000, -30, 90, [-2990, -1500, -40]);
     const T = tlZoneTicks(Z, 0, TODAY, {});
     T.breaks.forEach(b => assert.equal(b.showLabel, (b.x1 - b.x0) >= tlEstimateWidth(b.label, TL_BREAK_FONT) + 2));
+  });
+});
+
+describe('tlProcShort', () => {
+  it('CNJ com e sem pontuação vira NNNNNNN-DD', () => {
+    assert.equal(tlProcShort('5012402-27.2016.4.04.7208'), '5012402-27');
+    assert.equal(tlProcShort('50124022720164047208'), '5012402-27');
+  });
+  it('formato antigo da JF fica inteiro e formatado', () => {
+    assert.equal(tlProcShort('2005.72.08.003320-2'), '2005.72.08.003320-2');
+    assert.equal(tlProcShort('200572080033202'), '2005.72.08.003320-2');
+  });
+  it('vazio e formatos desconhecidos', () => {
+    assert.equal(tlProcShort(''), '—');
+    assert.equal(tlProcShort(null), '—');
+    assert.equal(tlProcShort('0001234-56.2019.8.26.0100'), '0001234-56');
+    assert.equal(tlProcShort('Processo administrativo 123'), 'Processo administrativo 123');
   });
 });

@@ -1993,7 +1993,7 @@ function cxIsFront(e) {
 const CX_FLOOR_KIND = { protocolo: 'protocolo', citacao: 'citação', despacho: 'despacho de citação', constricao: 'constrição' };
 const CX_HEARING_SHORT = { instrucao: 'Instrução', conciliacao: 'Conciliação', una: 'Audiência una', justificacao: 'Justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 /* Número curto do processo ("5001234-56"), como o advogado o cita. */
-function cxExecShortNum(e) { return String((e && e.processNumber) || '').split('.')[0] || '—'; }
+function cxExecShortNum(e) { return tlProcShort(e && e.processNumber); }
 /* Devedor do processo: o responsável originário da primeira CDA, o devedor da ficha ou, na falta de CDA
    (IDPJ, MCF, exceção, recurso), a parte mais citada nas intimações do processo. */
 function cxExecWho(data, e, cdas) {
