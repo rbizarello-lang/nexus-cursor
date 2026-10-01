@@ -9372,9 +9372,9 @@ function App() {
             localStorage.setItem('nexus_autosync_enabled', v ? 'true' : 'false');
           }}>Auto-sync: {autoSyncEnabled ? 'ON' : 'OFF'}</button>
         </>}
-        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>⬇ Exportar</button>
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
-        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
+        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>{isClaude ? <><CxIcon n="upload" s={13} style={{ transform: 'rotate(180deg)' }} />Exportar</> : '⬇ Exportar'}</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="upload" s={13} />Importar JSON</> : '⬆ Importar JSON'}</button>
+        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="sync" s={13} />Resetar / carregar dados demo</> : '🧪 Resetar / carregar dados demo'}</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
@@ -9406,9 +9406,9 @@ function App() {
     </div>}
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
-      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
+      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>{isClaude ? 'Diagnóstico de integridade' : '🩺 Diagnóstico de integridade'}</button>
       <div style={{fontSize:10,color:'var(--text-muted)',margin:'6px 0 4px',lineHeight:1.4}}>Toda a carteira. Para corrigir um caso, use o diagnóstico da operação.</div>
-      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>🩺 Diagnóstico desta operação</button>
+      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>{isClaude ? 'Diagnóstico desta operação' : '🩺 Diagnóstico desta operação'}</button>
       {!activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Abra uma operação para restringir o diagnóstico.</div>}
     </div>
   </div></>);
@@ -10067,6 +10067,7 @@ function App() {
     };
     return (
       <div className="prazos-view">
+        {isClaude && <div className="cx cx-page-h"><div><h1>Prazos extintivos</h1><p>Lista completa: todas as inscrições com termo calculado, por grupo. Clique num contador para filtrar.</p></div></div>}
         <div className="prazos-head">
           {counterBtn(1, 'Urgentes')}
           {counterBtn(2, 'A conferir')}
@@ -11858,7 +11859,14 @@ function App() {
         const reconf = isClaude ? modelosReconferir(models, localIso(new Date())) : [];
         const verVigencia = (m) => { setModelStageFilter('all'); setModelSel(null); setModelMatters([]); selectModel(m); setModelFichaTab('vig'); };
         return (<div className="entity-area">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
+          {isClaude && <div className="cx cx-page-h">
+            <div><h1>Modelos</h1><p>{models.length} no banco{lista.length !== models.length ? ` · ${lista.length} nesta seleção` : ''}. Modelos de peças com cabimento, mapa, variantes e precedentes.</p></div>
+            <div className="cx-acts">
+              <button type="button" className="cx-btn" title="Copia o catálogo + um pedido pronto. Cole no assistente e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}><CxIcon n="zap" s={14} />Catálogo para IA</button>
+              <button type="button" className="cx-btn primary" onClick={() => setModal({type:'create',entityType:'model',initial:{}})}><CxIcon n="plus" s={14} />Modelo</button>
+            </div>
+          </div>}
+          {!isClaude && <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Modelos</span>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} no banco{lista.length !== models.length ? ` · ${lista.length} nesta seleção` : ''}</span>
@@ -11867,7 +11875,7 @@ function App() {
               <button className="btn-secondary btn-sm" title="Copia o catálogo + um pedido pronto. Cole no assistente e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}>✨ Catálogo para IA</button>
               <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'model',initial:{}})}>+ Modelo</button>
             </div>
-          </div>
+          </div>}
 
           <div style={{marginBottom:12,padding:'10px 12px',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)'}}>
             <div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}>
@@ -11875,7 +11883,7 @@ function App() {
                 placeholder="Cole aqui o texto da intimação ou da peça adversa — o app identifica a matéria e filtra os modelos."
                 style={{flex:1,minWidth:240,fontSize:11,resize:'vertical'}} />
               <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                <button className="btn-primary btn-sm" onClick={analisar} disabled={!modelQuery.trim()}>🔎 Identificar</button>
+                <button className="btn-primary btn-sm" onClick={analisar} disabled={!modelQuery.trim()}>{isClaude ? <><CxIcon n="search" s={13} />Identificar</> : '🔎 Identificar'}</button>
                 {(modelQuery || modelMatters.length > 0) && <button className="btn-secondary btn-xs" onClick={limpar}>Limpar</button>}
               </div>
             </div>

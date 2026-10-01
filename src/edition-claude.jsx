@@ -1335,13 +1335,13 @@ function CxPecasBlock({ intim, data, a }) {
     setLabel(''); setUrl('');
   };
   const remove = (idx) => { const links = (intim.links || []).filter((_, i) => i !== idx); a.upsert('intimations', { ...intim, links }); };
-  return <div className="cx-pl">
+  return <div className="cx-pecas">
     {items.length ? items.map(it => <div key={it.key} className="cx-pl-row">
       <span className="cx-pl-ic">{(it.label || '?').trim().slice(0, 2).toUpperCase()}</span>
       <div className="cx-minw0"><div className="cx-ell">{it.label}</div><div className="cx-muted cx-small">{it.origin}</div></div>
       {it.custom ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => remove(it.idx)} title="Remover" aria-label="Remover link"><CxIcon n="x" s={12} /></button> : null}
       <a className="cx-a cx-small" href={it.url} target="_blank" rel="noopener noreferrer">Abrir<CxIcon n="arrowUR" s={11} /></a>
-    </div>) : <div className="cx-muted cx-small">Nenhum link ainda.</div>}
+    </div>) : <div className="cx-empty-note">Nenhum link ainda.</div>}
     <form className="cx-pl-add" onSubmit={add}>
       <input className="cx-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="Rótulo (opcional)" aria-label="Rótulo do link" />
       <input className="cx-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" aria-label="URL do link" />
@@ -1564,7 +1564,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
       summary={notes.length ? notes[notes.length - 1] : 'Sem notas ainda'}>
       <div className="cx-notes">
         {notes.map((n, k) => <div key={k} className="cx-note">{a.linkify ? a.linkify(n) : n}</div>)}
-        {notes.length === 0 ? <div className="cx-muted cx-small">Sem notas ainda.</div> : null}
+        {notes.length === 0 ? <div className="cx-empty-note">Sem notas ainda.</div> : null}
         <form className="cx-note-add" onSubmit={e => { e.preventDefault(); const v = nt.trim(); if (!v) return; set({ notesList: [...notes, v] }); setNt(''); cxNotify('Nota adicionada'); }}>
           <textarea id={'cx-nt-' + intim.id} value={nt} onChange={e => setNt(e.target.value)} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} />
           <button type="submit" className="cx-btn">Anotar</button>
@@ -2575,9 +2575,11 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
       <CxSeg className="lg" label="Janela de foco" value={String(st.w)} onChange={v => setWindow(+v)} options={TL_WINDOWS.map(w => [String(w), tlWindowLabel(w)])} />
       <span className="cx-sp" />
       <span className="cx-tl-rng">{rangeTxt}</span>
-      <button type="button" className="cx-btn sm" onClick={() => shift(-step)} title={'Voltar ' + step + ' dias'}>‹ {step} d</button>
-      <button type="button" className="cx-btn sm" onClick={() => upd({ c: tlFocusDefault(st.w).c })} title="Voltar o foco para hoje">Hoje</button>
-      <button type="button" className="cx-btn sm" onClick={() => shift(step)} title={'Avançar ' + step + ' dias'}>{step} d ›</button>
+      <div className="cx-seg cx-tl-nav" role="group" aria-label="Mover a janela">
+        <button type="button" onClick={() => shift(-step)} title={'Voltar ' + step + ' dias'}>‹ {step} d</button>
+        <button type="button" onClick={() => upd({ c: tlFocusDefault(st.w).c })} title="Voltar o foco para hoje">Hoje</button>
+        <button type="button" onClick={() => shift(step)} title={'Avançar ' + step + ' dias'}>{step} d ›</button>
+      </div>
     </div>
     {sum.length ? <div className="cx-tl-sum">{sum.map(s => <span key={s.k} className={s.k}>{s.node}</span>)}</div> : null}
     <div className="cx-tl-legend top">
@@ -2785,7 +2787,7 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
   const lay = React.useMemo(() => {
     const items = strip.points.filter(p => p.d >= strip.from).map((p, i) => ({ id: p.id, x: xo(p.d), w: cxTlMeasure(ptTxt(p), 10.5) + 6, prio: i + 1 }));
     if (strip.overdue) items.push({ id: '__overdue__', x: X0, w: cxTlMeasure(overdueTxt, 10.5) + 6, prio: 0 });
-    return tlLayoutLabels(items, { minX: X0 - 8, maxX: W - 6, levels: 4, pad: 4, gap: 4 });
+    return tlLayoutLabels(items, { minX: X0 - 8, maxX: W - 6, levels: 4, pad: 6, gap: 8 });
   }, [strip, fontTick]);
   const placed = new Map(lay.placed.map(p => [p.id, p]));
   const legend = <div className="cx-tl-legend cx-clk-leg">
@@ -5263,7 +5265,7 @@ function EditionClaudeBriefing(p) {
                             if (r.date) bits.push(fmtDate(r.date));
                             if (r.proc) bits.push(r.proc);
                             return <li key={ri}>{bits.join(' · ') || (r.texto || '—')}</li>;
-                          })}</ol> : <div className="cx-muted cx-small">Sem julgamentos listados.</div>
+                          })}</ol> : <div className="cx-empty-note">Sem julgamentos listados.</div>
                         ) : (
                           <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
                         )}
@@ -5281,7 +5283,7 @@ function EditionClaudeBriefing(p) {
                         </div>
                         {cardNotes.length ? cardNotes.map(({ n, idx }) => (
                           <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
-                        )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
+                        )) : <div className="cx-empty-note">Nenhuma nota.</div>}
                       </CxBlock>
                       <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}
                         summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
@@ -5361,14 +5363,14 @@ function EditionClaudeBriefing(p) {
             {migratedLinks.map((lnk, idx) => (
               <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
             ))}
-            {!migratedLinks.length && !linkAdd && <div className="cx-muted cx-small">Nenhuma fonte cadastrada.</div>}
+            {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
             {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
           </div>
         </section>
         <section className="cx-card cx-bf-rail-card">
           <div className="cx-card-h"><h5>Lembretes</h5><span className="cx-count">{reminders.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button></div>
           <div className="cx-bf-rail-b">
-            {reminders.length === 0 && <div className="cx-muted cx-small">Nenhum lembrete.</div>}
+            {reminders.length === 0 && <div className="cx-empty-note">Nenhum lembrete.</div>}
             {reminders.slice(0, 6).map(n => (
               <div key={n.id} className="cx-bf-rem" onClick={() => setModal({ type: 'edit', entityType: 'stickyNote', initial: n })}>
                 <span>{n.title ? <b>{n.title}: </b> : null}{truncate(n.content || '', 90)}</span>
@@ -5397,7 +5399,7 @@ function EditionClaudeBriefing(p) {
         <section className="cx-card cx-bf-rail-card">
           <div className="cx-card-h"><h5>Próximas tarefas</h5><span className="cx-count">{opTasks.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setActiveTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button></div>
           <div className="cx-bf-rail-b">
-            {nextTasks.length === 0 && <div className="cx-muted cx-small">Nenhuma tarefa com data.</div>}
+            {nextTasks.length === 0 && <div className="cx-empty-note">Nenhuma tarefa com data.</div>}
             {nextTasks.map(t => (
               <div key={t.id} className="cx-bf-task" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: t })}>
                 <span className={'p' + (daysUntil(t.dueDate) < 0 ? ' late' : '')} />
@@ -7598,7 +7600,7 @@ function EditionClaudeImportar(p) {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('over'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('over')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('over'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
-                  <b>📂 Solte os arquivos ou clique</b>
+                  <b><CxIcon n="upload" s={14} /> Solte os arquivos ou clique</b>
                   <span className="cx-mono cx-small">RelatorioAbaInscricoes*.xls · RelatorioAbaProcessosJudiciais*.xls</span>
                 </div>
                 <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{ display: 'none' }} onChange={handleXLSImport} />
@@ -7609,7 +7611,7 @@ function EditionClaudeImportar(p) {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('over'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('over')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('over'); handleEprocImport({ target: { files: e.dataTransfer.files } }); }}>
-                  <b>📬 Solte os arquivos ou clique</b>
+                  <b><CxIcon n="upload" s={14} /> Solte os arquivos ou clique</b>
                   <span className="cx-mono cx-small">citacaoIntimacao*.xls</span>
                 </div>
               </div>
