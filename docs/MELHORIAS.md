@@ -148,6 +148,11 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   herdar a operação aberta na tela: intimação nova só recebe operação se o
   processo constar em um processo/CDA cadastrado (ou em intimação irmã do mesmo
   processo). Sem correspondência → fica "Nenhuma", com aviso no resumo do import.
+- **Nexus Prumo — botão "← Voltar" e histórico interno** (01/10/2026) — pilha em memória (20 entradas,
+  `src/lib/navhist.js`) com tela, operação/aba e sub-estados que contam como outra tela (modo e operação da
+  Linha do tempo, visão dos Prazos extintivos e das Inscrições, Intimações lista/foco). Botão na barra superior
+  (some quando não há para onde voltar) e atalho Alt+←; voltar fecha gavetas abertas. Não restaura filtros, rolagem
+  nem o dia focado da Agenda.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---

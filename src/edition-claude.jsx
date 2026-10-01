@@ -571,6 +571,7 @@ function EditionClaudeTopbar(p) {
   const syncColor = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
+    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span><span className="cx-back-t">&nbsp;Voltar</span></button> : null}
     <div className="cx-crumb">
       <span>NEXUS</span>
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
@@ -4000,8 +4001,24 @@ function EditionClaudePrazos(p) {
 const CX_PRIO_ORDER = { urgente: 0, alta: 1, media: 2, baixa: 3 };
 const CX_TASK_ST_ORDER = ['pendente', 'em_andamento', 'concluida'];
 const CX_TASK_ST = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
-function cxLs(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
-function cxLsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+/* Sub-estados que o histórico (← Voltar) trata como "outra tela": modo da Linha do tempo, visão dos Prazos extintivos
+   e visão das Inscrições. Cada um já vive em localStorage (lido ao montar o componente). Para o histórico poder
+   observá-los e restaurá-los sem levantar estado, os setters passam por cxLsSet, que mantém um espelho em memória
+   (vale mesmo sem localStorage) e avisa o app com o evento 'nexus-cx-nav'; cxLs lê o espelho antes do storage. */
+const CX_NAV_KEYS = { nexus_cx_tl_mode: 1, nexus_cx_prazos_view: 1, nexus_cx_insc_view: 1 };
+const cxNavMirror = {};
+function cxLs(k, d) {
+  if (CX_NAV_KEYS[k] && cxNavMirror[k]) return cxNavMirror[k];
+  try { return localStorage.getItem(k) || d; } catch (e) { return d; }
+}
+function cxLsSet(k, v) {
+  if (CX_NAV_KEYS[k]) {
+    const changed = cxNavMirror[k] !== v;
+    cxNavMirror[k] = v;
+    if (changed) { try { window.dispatchEvent(new Event('nexus-cx-nav')); } catch (e) { /* ignore */ } }
+  }
+  try { localStorage.setItem(k, v); } catch (e) { /* ignore */ }
+}
 function cxTaskNotes(t) { return Array.isArray(t.notesList) ? t.notesList : (t.notes ? [t.notes] : []); }
 /* Mesma regra da tela clássica: sem operação, global ou legado aparecem na lista geral; "interna" fica só na operação. */
 function cxTaskIsGlobal(t) { return !t.operationId || t.taskVisibility !== 'operation'; }

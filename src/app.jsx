@@ -3175,6 +3175,11 @@ function App() {
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const [cxTlOp, setCxTlOp] = useState(null);
+  // Histórico de navegação do Prumo (← Voltar): pilha em memória (src/lib/navhist.js); cxNavBack = entrada do topo, só para o botão
+  const cxNavRef = useRef({ stack: [], cur: null, restoreKey: null, until: 0 });
+  const [cxNavBack, setCxNavBack] = useState(null);
+  const [cxNavEpoch, setCxNavEpoch] = useState(0); // +1 a cada "voltar": remonta a área principal (fecha gavetas locais e relê os sub-estados)
+  const [cxNavTick, setCxNavTick] = useState(0);   // +1 quando um sub-estado local (modo da Linha do tempo, visão dos Prazos/Inscrições) muda
   const [cxProcFocus, setCxProcFocus] = useState(null); // { execId?, cdaId?, n } — pedido da Linha do tempo para abrir a ficha lateral na aba Processos e prescrição
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
@@ -10675,6 +10680,72 @@ function App() {
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
   })();
+  // ─── Histórico de navegação (← Voltar) ───
+  // Um só lugar observa o estado de navegação e registra as mudanças; nenhum ponto de chamada precisa saber do histórico.
+  const cxNavSnap = () => nhSnapshot({
+    viewMode, activeOpId, activeTab, tlOp: cxTlOp || activeOpId, tlMode: cxLs('nexus_cx_tl_mode', 'panorama'),
+    prazosDeskMode, prazosView: cxLs('nexus_cx_prazos_view', 'mesa'), inscView: cxLs('nexus_cx_insc_view', 'tabela'), intimView: cxIntimView,
+  });
+  useEffect(() => {
+    const on = () => setCxNavTick(t => t + 1);
+    window.addEventListener('nexus-cx-nav', on);
+    return () => window.removeEventListener('nexus-cx-nav', on);
+  }, []);
+  useEffect(() => {
+    const n = cxNavRef.current;
+    if (!isClaude) { if (n.stack.length || n.cur) { n.stack = []; n.cur = null; n.restoreKey = null; setCxNavBack(null); } return; }
+    if (isTabSwitching) return; // transição em andamento: espera a tela assentar para não registrar estado intermediário
+    const snap = cxNavSnap(), key = nhKey(snap);
+    if (n.restoreKey !== null) {
+      if (key === n.restoreKey) { n.restoreKey = null; return; } // chegou ao destino do "voltar": não é navegação nova
+      if (Date.now() < n.until) return;
+      n.restoreKey = null;
+    }
+    if (!n.cur || nhKey(n.cur) === key) { n.cur = snap; return; }
+    n.stack = nhPush(n.stack, n.cur);
+    n.cur = snap;
+    setCxNavBack(nhPeek(n.stack));
+  }, [isClaude, isTabSwitching, viewMode, activeOpId, activeTab, cxTlOp, prazosDeskMode, cxIntimView, cxNavTick]);
+  const cxGoBack = () => {
+    const n = cxNavRef.current;
+    let entry = null;
+    while (n.stack.length) { // pula entradas cuja operação foi apagada
+      const r = nhPop(n.stack); n.stack = r.stack;
+      const okOp = (id) => !id || (data.operations || []).some(o => o.id === id);
+      if (okOp(r.entry.op) && okOp(r.entry.tlOp)) { entry = r.entry; break; }
+    }
+    setCxNavBack(nhPeek(n.stack));
+    if (!entry) return;
+    n.cur = entry; n.restoreKey = nhKey(entry); n.until = Date.now() + 1500;
+    setCxDrawerId(null); setCxProcFocus(null); setCxSideOpen(false); setImportResult(null);
+    if (entry.tlMode) cxLsSet('nexus_cx_tl_mode', entry.tlMode);
+    if (entry.prazos) { if (entry.prazos !== 'lista') cxLsSet('nexus_cx_prazos_view', entry.prazos); setPrazosDeskMode(entry.prazos === 'lista' ? 'lista' : 'mesa'); }
+    if (entry.insc) cxLsSet('nexus_cx_insc_view', entry.insc);
+    if (entry.intim) setCxIntimView(entry.intim);
+    if (entry.vm === 'cx_timeline') setCxTlOp(entry.tlOp);
+    if (entry.vm === 'operation' && entry.op) { setActiveOpId(entry.op); setCxReturnOpId(entry.op); setActiveTab(entry.tab || 'visao'); }
+    setViewMode(entry.vm);
+    setCxNavEpoch(e => e + 1);
+  };
+  const cxGoBackRef = useRef(cxGoBack);
+  cxGoBackRef.current = cxGoBack;
+  useEffect(() => {
+    if (!isClaude) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'ArrowLeft' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (modal || globalSearch || !cxNavRef.current.stack.length) return;
+      e.preventDefault();
+      cxGoBackRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isClaude, modal, globalSearch]);
+  const cxBackLabel = cxNavBack ? nhLabel(cxNavBack, {
+    opName: (id) => { const o = (data.operations || []).find(x => x.id === id); return o ? cxOpName(o) : ''; },
+    tabLabel: (t) => (t === 'pessoas' ? 'Partes' : t === 'bens' ? 'Bens' : tabLabels[t]),
+  }) : null;
   const cxSyncTime = (() => {
     const m = /(\d{2}\/\d{2}\/\d{4}),?\s+(\d{1,2}:\d{2})/.exec(cloudLastSync || '');
     if (!m) return cloudLastSync || '';
@@ -10832,7 +10903,7 @@ function App() {
       </div>
     </div>
 
-    <div className="main-content">
+    <div className="main-content" key={cxNavEpoch}>
       {/* Top Navigation — startTabSwitch evita freeze ao trocar de vista */}
       {isDemo ? (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`} ref={betaNavRef}>
@@ -10916,7 +10987,7 @@ function App() {
       </div>
       )}
 
-      {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)}
+      {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)} backLabel={cxBackLabel} onBack={cxGoBack}
         onSearch={() => { setGlobalSearch(true); setGsQuery(''); }}
         lastOp={cxReturnOp} onOpenLastOp={() => { if (cxReturnOp && !(viewMode === 'operation' && activeOpId === cxReturnOp.id)) cxOpenOp(cxReturnOp.id); }}
         sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}

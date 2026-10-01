@@ -161,6 +161,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'narrativa.js'), 'utf8')),
   '/* --- src/lib/frentes.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'frentes.js'), 'utf8')),
+  '/* --- src/lib/navhist.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'navhist.js'), 'utf8')),
   '/* --- src/edition-claude.jsx --- */',
   unwrapModule(fs.readFileSync(claudePath, 'utf8')),
   '/* --- src/app.jsx --- */',
