@@ -10,6 +10,10 @@
  *    contagem) o que não cabe — o tooltip cobre o resto.
  *  - Texto na barra do processo: `tlPickGap` acha um vão sem marcador para o rótulo de status.
  *  - CDAs a ajuizar: `tlCdaBar` (posição proporcional do "hoje" entre o início e o termo).
+ *  - Panorama (M1, régua com foco no agora): `tlProjectBroken` projeta datas (em dias a partir de hoje) num eixo
+ *    quebrado — o foco (30 d … 1 ano) em escala linear e o passado/futuro comprimidos nas laterais, com vãos
+ *    longos sem fato viram quebras hachuradas ("≈ 13 m") —, `tlFocusAxis`/`tlZoneTicks` geram as marcas do eixo,
+ *    `tlNormalizeFocus` protege o estado lembrado no navegador.
  *  - Horizonte de 90 dias (M5): `horizonColumns` (funil Atrasados · esta semana · semanas 2-5 · meses · Depois),
  *    `horizonBucket` (itens por coluna), `horizonDayCounts`/`horizonBusyDays` (dias com 3 ou mais itens) e
  *    `horizonOffRuns` (dias úteis que não são úteis: feriado, recesso ou calendário local — o predicado vem de fora).
@@ -90,6 +94,12 @@ export function tlPickGap(markerXs, from, to, w, opts = {}) {
     if (xs.every(x => x + half <= c || x - half >= c + w)) return c;
   }
   return null;
+}
+
+/** Corta o texto em `n` caracteres com reticências (sem deixar espaço antes do "…"). */
+export function tlClip(text, n) {
+  const s = String(text == null ? '' : text).trim();
+  return s.length <= n ? s : s.slice(0, Math.max(1, n - 1)).trimEnd() + '…';
 }
 
 /** "10 meses", "2,5 anos", "3 dias", "hoje"; negativos viram "há …". */
@@ -253,4 +263,156 @@ function hzWeekdayGap(a, b, isOff) {
     if (w !== 0 && w !== 6 && !isOff(d)) return true;
   }
   return false;
+}
+
+/* ═════════════ Panorama (M1) — eixo quebrado e janela de foco ═════════════ */
+const TL_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const TL_MES_L = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+/** Janelas de foco, em dias. */
+export const TL_WINDOWS = [30, 60, 90, 180, 365];
+export const TL_DEFAULT_WINDOW = 90;
+export const tlWindowLabel = (w) => (w === 365 ? '1 ano' : w + ' d');
+/** Foco padrão: hoje a 1/3 da janela (mais futuro que passado). `c` é o centro da janela, em dias desde hoje. */
+export const tlFocusDefault = (w) => ({ w, c: Math.round(w / 6) });
+/** Passo dos botões ‹ ›: um terço da janela (no mínimo 7 dias). */
+export const tlFocusStep = (w) => Math.max(7, Math.round(w / 3));
+export const tlFocusRange = (w, c) => ({ f0: c - w / 2, f1: c + w / 2 });
+const TL_FOCUS_LIMIT = 365 * 12;
+/**
+ * Estado do foco lembrado no navegador ({ w, c, hidden }): aceita só janelas conhecidas, centro numérico
+ * (limitado a ±12 anos) e tipos de fato conhecidos; qualquer outra coisa volta ao padrão.
+ */
+export function tlNormalizeFocus(raw) {
+  const o = raw && typeof raw === 'object' ? raw : {};
+  const w = TL_WINDOWS.includes(o.w) ? o.w : TL_DEFAULT_WINDOW;
+  const cOk = typeof o.c === 'number' && Number.isFinite(o.c);
+  const c = cOk ? Math.max(-TL_FOCUS_LIMIT, Math.min(TL_FOCUS_LIMIT, Math.round(o.c))) : tlFocusDefault(w).c;
+  const hidden = Array.isArray(o.hidden) ? o.hidden.filter(k => TL_KIND_ORDER.includes(k)) : [];
+  return { w, c, hidden };
+}
+
+/** "≈ 13 m", "≈ 3,5 a" — o tamanho de um vão comprimido. */
+export function tlBreakLabel(days) {
+  if (days < 45) return '≈ ' + Math.max(1, Math.round(days)) + ' d';
+  const months = Math.round(days / 30.44);
+  if (months < 24) return '≈ ' + months + ' m';
+  const y = Math.round(days / 365.25 * 10) / 10;
+  return '≈ ' + String(y).replace('.', ',') + ' a';
+}
+
+/**
+ * Comprime o trecho [a, b] (dias) em `px` pixels. Cada ponto de interesse mantém uma janela de ±`win` dias em escala
+ * (uniforme entre as janelas); o que sobra entre elas e tem `minGap` dias ou mais vira uma quebra de largura fixa
+ * (`breakW`); vãos menores são só espremidos. Retorna { f, pieces, px, a, b }; f(dia) → x dentro da zona.
+ */
+export function tlCompressZone(a, b, px, points, opts = {}) {
+  const win = opts.win == null ? 22 : opts.win;
+  const minGap = opts.minGap == null ? 60 : opts.minGap;
+  const breakW = opts.breakW == null ? 26 : opts.breakW;
+  const wins = [];
+  (points || []).filter(p => Number.isFinite(p) && p >= a - 1 && p <= b + 1).sort((x, y) => x - y).forEach(p => {
+    const s0 = Math.max(a, p - win), e0 = Math.min(b, p + win);
+    if (wins.length && s0 <= wins[wins.length - 1][1] + 1) wins[wins.length - 1][1] = Math.max(wins[wins.length - 1][1], e0);
+    else wins.push([s0, e0]);
+  });
+  const pieces = [];
+  let cur = a;
+  wins.forEach(([s0, e0]) => {
+    if (s0 > cur) pieces.push({ a: cur, b: s0, gap: s0 - cur >= minGap });
+    pieces.push({ a: s0, b: e0, gap: false });
+    cur = e0;
+  });
+  if (cur < b) pieces.push({ a: cur, b, gap: b - cur >= minGap });
+  const nb = pieces.filter(p => p.gap).length;
+  const nd = pieces.filter(p => !p.gap).reduce((t, p) => t + (p.b - p.a), 0) || 1;
+  const avail = Math.max(12, px - nb * breakW);
+  let x = 0;
+  pieces.forEach(p => { p.x0 = x; p.x1 = x + (p.gap ? breakW : (p.b - p.a) / nd * avail); x = p.x1; });
+  const f = (o) => {
+    if (o <= a) return 0;
+    if (o >= b) return px;
+    for (const p of pieces) if (o <= p.b) return p.x0 + (o - p.a) / ((p.b - p.a) || 1) * (p.x1 - p.x0);
+    return px;
+  };
+  return { f, pieces, px, a, b };
+}
+
+/**
+ * Projeção de eixo quebrado: foco [f0, f1] em escala linear no meio; antes dele o passado e depois o futuro,
+ * comprimidos (só existem se houver fato fora do foco). `points` são todos os dias (desde hoje) que importam.
+ * Retorna { f, f0, f1, lo, hi, pastW, futW, focusW, ppd, zP, zU, width }; `f(dia)` → x no canvas inteiro.
+ */
+export function tlProjectBroken({ points, f0, f1, width, pastFrac = 0.17, futFrac = 0.2, pad = 4 }) {
+  const pts = (points || []).filter(Number.isFinite);
+  const minP = Math.min(...pts), maxP = Math.max(...pts);
+  const past = pts.length > 0 && minP < f0 - 1, fut = pts.length > 0 && maxP > f1 + 1;
+  const lo = past ? minP - pad : f0, hi = fut ? maxP + pad : f1;
+  let pastW = past ? Math.round(pastFrac * width) : 0;
+  let futW = fut ? Math.round(futFrac * width) : 0;
+  const focusW = Math.max(60, width - pastW - futW);
+  if (pastW + futW + focusW > width) { const k = (width - focusW) / Math.max(1, pastW + futW); pastW = Math.floor(pastW * k); futW = Math.floor(futW * k); }
+  const ppd = focusW / (f1 - f0);
+  const zP = pastW ? tlCompressZone(lo, f0, pastW, pts.filter(o => o < f0).concat([f0])) : null;
+  const zU = futW ? tlCompressZone(f1, hi, futW, pts.filter(o => o > f1).concat([f1])) : null;
+  const f = (o) => (o <= f0 ? (zP ? zP.f(o) : 0) : o <= f1 ? pastW + (o - f0) * ppd : pastW + focusW + (zU ? zU.f(o) : futW));
+  return { f, f0, f1, lo, hi, pastW, futW, focusW, ppd, zP, zU, width };
+}
+
+/**
+ * Marcas do eixo dentro do foco: rótulos de mês, números de dia (todos os dias se couber; senão as segundas,
+ * de k em k), linhas de grade e sombreado de fim de semana/dia não útil (só com escala de 3 px por dia ou mais).
+ * `todayIso`: referência de dia 0; `isOff(iso)`: dia de semana não útil (opcional).
+ */
+export function tlFocusAxis({ f0, f1, ppd, f, todayIso, isOff }) {
+  const majors = [], ticks = [], grid = [], shade = [];
+  const first = Math.ceil(f0), last = Math.floor(f1);
+  const everyDay = ppd >= 16;
+  const k = Math.max(1, Math.ceil(30 / (7 * ppd)));
+  let mondays = 0;
+  for (let o = first; o <= last; o++) {
+    const iso = addCalendarDays(todayIso, o);
+    const dow = new Date(iso + 'T00:00:00').getDay();
+    const dd = +iso.slice(8, 10), mm = +iso.slice(5, 7) - 1;
+    const x = f(o);
+    if (dd === 1 || o === first) majors.push({ x, o, iso, partial: dd !== 1, text: TL_MES_L[mm] + ' ' + iso.slice(0, 4), short: TL_MES[mm] + ' ' + iso.slice(2, 4) });
+    if (dd === 1) grid.push({ x, strong: true });
+    if (dow === 1) grid.push({ x, strong: false });
+    if (everyDay) ticks.push({ x: x + ppd / 2, o, text: String(dd), we: dow === 0 || dow === 6 });
+    else if (dow === 1 && (mondays++ % k === 0)) ticks.push({ x, o, text: String(dd), we: false });
+    if (ppd >= 3) {
+      const off = dow === 0 || dow === 6 || (typeof isOff === 'function' && isOff(iso));
+      if (off) shade.push({ x, w: Math.max(1, f(o + 1) - x), o, holiday: !(dow === 0 || dow === 6) });
+    }
+  }
+  return { majors, ticks, grid, shade };
+}
+
+/**
+ * Marcas de uma zona comprimida: um traço por início de mês dentro dos trechos em escala, rótulo "mmm aa" no início
+ * de cada trecho largo o bastante (ou do primeiro do passado) e as quebras com o tamanho do vão.
+ * `x0` é o deslocamento da zona no canvas. Retorna { ticks, labels, breaks }.
+ */
+export function tlZoneTicks(zone, x0, todayIso, opts = {}) {
+  const out = { ticks: [], labels: [], breaks: [] };
+  if (!zone) return out;
+  const minLabelW = opts.minLabelW == null ? 30 : opts.minLabelW;
+  let firstScaled = true;
+  zone.pieces.forEach(p => {
+    if (p.gap) { out.breaks.push({ x0: x0 + p.x0, x1: x0 + p.x1, days: p.b - p.a, label: tlBreakLabel(p.b - p.a) }); return; }
+    const start = addCalendarDays(todayIso, Math.ceil(p.a));
+    if (p.x1 - p.x0 >= minLabelW || (opts.labelFirst && firstScaled)) {
+      out.labels.push({ x: x0 + p.x0, text: TL_MES[+start.slice(5, 7) - 1] + ' ' + start.slice(2, 4) });
+    }
+    firstScaled = false;
+    let y = +start.slice(0, 4), m = +start.slice(5, 7) - (+start.slice(8, 10) > 1 ? 0 : 1);
+    for (let g = 0; g < 400; g++) {
+      m++;
+      if (m > 11) { m = 0; y++; }
+      const iso = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+      const o = daysBetween(todayIso, iso);
+      if (o > p.b) break;
+      if (o >= p.a) out.ticks.push({ x: x0 + zone.f(o), o });
+    }
+  });
+  return out;
 }

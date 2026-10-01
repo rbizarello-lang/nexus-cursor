@@ -3174,7 +3174,6 @@ function App() {
   const [cxReturnOpId, setCxReturnOpId] = useState(null);
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
-  const [cxTlScale, setCxTlScale] = useState('anos');
   const [cxTlOp, setCxTlOp] = useState(null);
   const [cxProcFocus, setCxProcFocus] = useState(null); // { execId?, cdaId?, n } — pedido da Linha do tempo para abrir a ficha lateral na aba Processos e prescrição
   const [importResult, setImportResult] = useState(null);
@@ -10971,7 +10970,7 @@ function App() {
         onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
-        scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
+        onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}

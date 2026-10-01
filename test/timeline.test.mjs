@@ -5,6 +5,8 @@ import {
   tlCdaBar, tlCountKinds, tlToggleKind, tlCapList,
   HORIZON_DAYS, HORIZON_ROWS, horizonColumns, horizonColumnOf, horizonBucket, horizonDayCounts, horizonBusyDays,
   horizonOffRuns, horizonRangeLabel,
+  TL_WINDOWS, TL_DEFAULT_WINDOW, tlWindowLabel, tlFocusDefault, tlFocusStep, tlFocusRange, tlNormalizeFocus, tlBreakLabel,
+  tlCompressZone, tlProjectBroken, tlFocusAxis, tlZoneTicks,
 } from '../src/lib/timeline.js';
 
 describe('Vocabulário da Linha do tempo', () => {
@@ -184,5 +186,111 @@ describe('Horizonte de 90 dias — colunas do funil', () => {
     assert.equal(horizonRangeLabel('2026-10-26', '2026-11-01'), '26/10–01/11');
     assert.equal(horizonRangeLabel('2026-10-04', '2026-10-04'), '04/10');
     assert.deepEqual(HORIZON_ROWS.map(r => r[0]), ['prazo', 'aud', 'tar', 'presc']);
+  });
+});
+
+describe('Panorama — janela de foco e estado lembrado', () => {
+  it('janelas conhecidas, rótulos, foco padrão (hoje a 1/3) e passo', () => {
+    assert.deepEqual(TL_WINDOWS, [30, 60, 90, 180, 365]);
+    assert.equal(TL_DEFAULT_WINDOW, 90);
+    assert.equal(tlWindowLabel(90), '90 d'); assert.equal(tlWindowLabel(365), '1 ano');
+    assert.deepEqual(tlFocusDefault(90), { w: 90, c: 15 });
+    const r = tlFocusRange(90, 15);
+    assert.equal(r.f0, -30); assert.equal(r.f1, 60);
+    assert.equal(tlFocusStep(90), 30); assert.equal(tlFocusStep(30), 10); assert.equal(tlFocusStep(365), 122); assert.equal(tlFocusStep(6), 7);
+  });
+  it('normaliza o que vem do localStorage: lixo volta ao padrão, tipos desconhecidos saem', () => {
+    assert.deepEqual(tlNormalizeFocus(null), { w: 90, c: 15, hidden: [] });
+    assert.deepEqual(tlNormalizeFocus('x'), { w: 90, c: 15, hidden: [] });
+    assert.deepEqual(tlNormalizeFocus({ w: 45, c: 'a', hidden: 'dec' }), { w: 90, c: 15, hidden: [] });
+    assert.deepEqual(tlNormalizeFocus({ w: 180, c: 30, hidden: ['aud', 'zzz', 'prazo'] }), { w: 180, c: 30, hidden: ['aud', 'prazo'] });
+    assert.equal(tlNormalizeFocus({ w: 60, c: 1e9 }).c, 365 * 12);
+    assert.equal(tlNormalizeFocus({ w: 60, c: NaN }).c, 10);
+  });
+  it('rótulo da quebra: dias, meses e anos', () => {
+    assert.equal(tlBreakLabel(20), '≈ 20 d');
+    assert.equal(tlBreakLabel(400), '≈ 13 m');
+    assert.equal(tlBreakLabel(730), '≈ 2 a');
+    assert.equal(tlBreakLabel(1300), '≈ 3,6 a');
+  });
+});
+
+describe('Panorama — eixo quebrado', () => {
+  const pts = [-400, -300, -20, -5, 0, 3, 18, 170, 330, 400, 900];
+  const S = tlProjectBroken({ points: pts, f0: -30, f1: 60, width: 900 });
+  it('o foco é linear; passado e futuro ocupam as laterais; tudo cabe na largura', () => {
+    assert.ok(S.pastW > 0 && S.futW > 0);
+    assert.equal(Math.round(S.f(-30)), S.pastW);
+    assert.equal(Math.round(S.f(60)), S.pastW + S.focusW);
+    assert.ok(Math.abs((S.f(30) - S.f(0)) - 30 * S.ppd) < 1e-6);
+    assert.ok(S.pastW + S.focusW + S.futW <= 900 + 1);
+    pts.forEach(p => { const x = S.f(p); assert.ok(x >= 0 && x <= 900, p + ' → ' + x); });
+  });
+  it('é monotônica: dia depois nunca fica à esquerda', () => {
+    let prev = -1;
+    for (let o = -420; o <= 920; o += 3) { const x = S.f(o); assert.ok(x >= prev - 1e-9, 'em ' + o); prev = x; }
+  });
+  it('sem fato fora do foco não há zonas: escala toda linear', () => {
+    const L = tlProjectBroken({ points: [-10, 5, 40], f0: -30, f1: 60, width: 800 });
+    assert.equal(L.pastW, 0); assert.equal(L.futW, 0); assert.equal(L.zP, null); assert.equal(L.zU, null);
+    assert.ok(Math.abs(L.ppd - 800 / 90) < 1e-9);
+    assert.equal(L.f(-30), 0); assert.ok(Math.abs(L.f(60) - 800) < 1e-9);
+  });
+  it('vãos de 60 dias ou mais viram quebras de largura fixa; menores só se espremem', () => {
+    const Z = tlCompressZone(60, 500, 200, [70, 90, 130, 480]);
+    const gaps = Z.pieces.filter(p => p.gap);
+    assert.ok(gaps.length >= 1);
+    gaps.forEach(g => { assert.equal(Math.round(g.x1 - g.x0), 26); assert.ok(g.b - g.a >= 60); });
+    Z.pieces.filter(p => !p.gap).forEach(p => assert.ok(p.b - p.a < 60 || true));
+    const small = tlCompressZone(60, 140, 200, [70, 130]);
+    assert.ok(small.pieces.every(p => !p.gap));
+  });
+  it('as peças da zona são contíguas, cobrem [a, b] e terminam na largura da zona', () => {
+    const Z = tlCompressZone(-400, -30, 150, [-390, -200, -40]);
+    assert.equal(Z.pieces[0].a, -400); assert.equal(Z.pieces[Z.pieces.length - 1].b, -30);
+    for (let i = 1; i < Z.pieces.length; i++) { assert.equal(Z.pieces[i].a, Z.pieces[i - 1].b); assert.ok(Math.abs(Z.pieces[i].x0 - Z.pieces[i - 1].x1) < 1e-9); }
+    assert.ok(Math.abs(Z.pieces[Z.pieces.length - 1].x1 - 150) < 1e-6);
+    assert.equal(Z.f(-500), 0); assert.equal(Z.f(0), 150);
+  });
+  it('janela estreita ainda devolve uma escala utilizável', () => {
+    const N = tlProjectBroken({ points: [-900, 900], f0: -10, f1: 20, width: 200 });
+    assert.ok(N.focusW >= 60); assert.ok(Number.isFinite(N.ppd) && N.ppd > 0);
+  });
+});
+
+describe('Panorama — marcas do eixo', () => {
+  const TODAY = '2026-10-01';
+  it('com escala larga, um número por dia e sombreado de fim de semana', () => {
+    const f = (o) => o * 20;
+    const A = tlFocusAxis({ f0: 0, f1: 13, ppd: 20, f, todayIso: TODAY });
+    assert.equal(A.ticks.length, 14);
+    assert.equal(A.majors[0].text, 'outubro 2026');
+    assert.equal(A.majors[0].short, 'out 26');
+    assert.equal(A.majors[0].partial, false); // 01/10 é dia 1
+    assert.equal(tlFocusAxis({ f0: 3, f1: 8, ppd: 20, f, todayIso: TODAY }).majors[0].partial, true);
+    assert.deepEqual(A.shade.map(s => s.o), [2, 3, 9, 10]); // sáb 03/10, dom 04/10, sáb 10/10, dom 11/10
+    assert.ok(A.shade.every(s => !s.holiday));
+  });
+  it('dia não útil de semana também é sombreado e marcado como feriado', () => {
+    const f = (o) => o * 20;
+    const A = tlFocusAxis({ f0: 0, f1: 13, ppd: 20, f, todayIso: TODAY, isOff: iso => iso === '2026-10-12' });
+    const h = A.shade.filter(s => s.holiday);
+    assert.equal(h.length, 1); assert.equal(h[0].o, 11);
+  });
+  it('com escala curta, só segundas (de k em k) e sem sombreado', () => {
+    const f = (o) => o * 2.4;
+    const A = tlFocusAxis({ f0: -30, f1: 335, ppd: 2.4, f, todayIso: TODAY });
+    assert.equal(A.shade.length, 0);
+    assert.ok(A.ticks.length > 10 && A.ticks.length < 40);
+    assert.ok(A.majors.length >= 12);
+    assert.ok(A.grid.some(g => g.strong));
+  });
+  it('zona comprimida: traço por mês, rótulo por trecho largo e quebras com tamanho', () => {
+    const Z = tlCompressZone(60, 700, 300, [90, 400, 690]);
+    const T = tlZoneTicks(Z, 700, TODAY, {});
+    assert.ok(T.breaks.length >= 1);
+    T.breaks.forEach(b => { assert.ok(b.x1 > b.x0 && /^≈/.test(b.label)); assert.ok(b.x0 >= 700); });
+    assert.ok(T.ticks.every(t => t.x >= 700 && t.x <= 1000));
+    assert.equal(tlZoneTicks(null, 0, TODAY).ticks.length, 0);
   });
 });

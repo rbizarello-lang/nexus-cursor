@@ -1913,8 +1913,7 @@ function EditionClaudeCarteira(p) {
 }
 
 /* ═════════════════════ Linha do tempo ═════════════════════ */
-const CX_TL_SCALES = { semanas: { ppd: 22 }, meses: { ppd: 3.2 }, anos: { ppd: 0.6 } };
-const CX_TL_ROW = 36, CX_TL_AXIS = 50;
+const CX_TL_AXIS = 56;
 const CX_TAG_C = { idpj: 'var(--cx-red)', cautelar_fiscal: 'var(--cx-yellow)', central: 'var(--cx-violet)', normal: 'var(--cx-cyan)' };
 function cxExecTag(e) {
   if (e.processTag === 'idpj') return 'IDPJ';
@@ -1959,6 +1958,7 @@ function cxIsFront(e) {
   if (!e) return false;
   return isIncidentOnPanorama(e) || (e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada') || isUserPanoramaEf(e);
 }
+const CX_FLOOR_KIND = { protocolo: 'protocolo', citacao: 'citação', despacho: 'despacho de citação', constricao: 'constrição' };
 const CX_HEARING_SHORT = { instrucao: 'Instrução', conciliacao: 'Conciliação', una: 'Audiência una', justificacao: 'Justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 /* Número curto do processo ("5001234-56"), como o advogado o cita. */
 function cxExecShortNum(e) { return String((e && e.processNumber) || '').split('.')[0] || '—'; }
@@ -2007,10 +2007,14 @@ function cxLinkText(kind, a, b) {
   if (tb === 'EMB') return nb + ' é embargos de ' + na;
   return nb + ' é vinculado a ' + na;
 }
-/* Monta as linhas da régua a partir dos dados reais. Datas em ISO.
-   Além das linhas, devolve `items`: a lista única de fatos com data (decisão, andamento, audiência, prazo,
-   prescrição, revisão), cada um com `kind` (vocabulário de src/lib/timeline.js), `ref` (o que abrir ao clicar) e
-   `execId` — é a base dos filtros da legenda e dos modos futuros. `ms` é o recorte que vai para "Marcos da operação". */
+/* Monta os dados da régua a partir dos dados reais. Datas em ISO.
+   `items` é a lista única de fatos com data (decisão, andamento, audiência, prazo, prescrição, revisão), cada um com
+   `kind` (vocabulário de src/lib/timeline.js), `ref` (o que abrir ao clicar) e `execId` (processo dono, ou null) — é a
+   base dos filtros da legenda e dos modos da página (Panorama hoje; Frentes, Prescrição e Narrativa depois).
+   `procs` são as linhas de processo na ordem da régua (`front`: IDPJ/MCF/central/EF no panorama do Briefing;
+   `depth`: filhos sob o pai); `cdas` as CDAs sem processo a ajuizar (todas: o limite de linhas é da tela); `links` os
+   conectores nomeados (cobre · apenso/exceção/recurso de); `info` guarda por processo o papel, o devedor e a prescrição
+   (`presc`: segmentos, marcos e a faixa até o piso); `allDates` serve ao eixo. */
 function cxBuildTimeline(data, op, prescLookup) {
   const execs = (data.executions || []).filter(e => e.operationId === op.id);
   const ids = new Set(execs.map(e => e.id));
@@ -2054,7 +2058,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     if (worst) {
       const segs = [], marks = [];
       const r = worst;
-      const addMark = (m) => { const x = { id: nid('pm'), execId: e.id, ref: { t: 'exec', id: e.id }, kind: 'presc', short: m.deadline ? 'Prescrição' : m.l, ...m }; marks.push(x); items.push(x); };
+      const addMark = (m) => { const x = { id: nid('pm'), execId: e.id, ref: { t: 'exec', id: e.id }, kind: 'presc', mark: true, short: m.deadline ? 'Prescrição' : m.l, ...m }; marks.push(x); items.push(x); };
       if (r.segment === 'intercorrente' && r.diesAQuo) {
         const m = (r.memory || []).find(x => /Fim da suspens|Fim do 1º ano/.test(String(x.event || '')));
         let yearEnd = m && toDayKey(m.date);
@@ -2079,7 +2083,10 @@ function cxBuildTimeline(data, op, prescLookup) {
       const cedo = r.band && r.band.alarme !== false && r.band.cedo && toDayKey(r.band.cedo.diesAdQuem);
       if (cedo && cedo !== toDayKey(r.diesAdQuem)) addMark({ d: cedo, l: 'Data cedo · ' + fmtDate(cedo) + ' (leitura mais desfavorável)', c: 'var(--cx-red)', deadline: true });
       if (!segs.length && r.bounds && r.bounds.floor) addMark({ d: toDayKey(r.bounds.floor), l: 'Não pode ter prescrito antes de ' + fmtDate(r.bounds.floor), c: 'var(--cx-ink-3)', hollow: true });
-      presc = { r, debt: worstDebt, n: debts.length, segs, marks };
+      /* Faixa do piso: do último ato que fecha o ciclo (citação, despacho, constrição) até 6 anos depois. */
+      const fa = r.bounds && r.bounds.floorAnchor, fl = r.bounds && toDayKey(r.bounds.floor);
+      const band = !segs.length && fl && fa && toDayKey(fa.iso) ? { from: toDayKey(fa.iso), to: fl, kind: CX_FLOOR_KIND[fa.kind] || '' } : null;
+      presc = { r, debt: worstDebt, n: debts.length, segs, marks, band };
     }
     const intims = (data.intimations || []).filter(i => cxIsOpen(i) && i.dateDeadline && sameProc(i.processNumber, e.processNumber)).map(i => {
       const end = toDayKey(i.dateDeadline);
@@ -2101,17 +2108,14 @@ function cxBuildTimeline(data, op, prescLookup) {
   // as demais execuções ficam abaixo de uma divisória ("Outras execuções").
   const frontsTop = tops.filter(cxIsFront).sort(byStart);
   const othersTop = tops.filter(e => !cxIsFront(e)).sort(byStart);
-  const rows = [{ kind: 'ms' }];
-  const pushExec = (e, depth) => {
-    const x = info.get(e.id);
-    rows.push({ kind: 'proc', x, depth });
-    if (x.presc && (x.presc.segs.length || x.presc.marks.length)) rows.push({ kind: 'presc', x, depth });
-    x.intims.forEach(it => rows.push({ kind: 'prazo', it, i: it.i, x, depth }));
-    execs.filter(c => c.parentExecutionId === e.id).sort(byStart).forEach(c => pushExec(c, depth + 1));
+  /* Linhas de processo na ordem da régua: frentes primeiro, cada pai seguido de seus filhos (apensos, exceções, recursos). */
+  const procs = [];
+  const pushExec = (e, depth, front) => {
+    procs.push({ x: info.get(e.id), depth, front });
+    execs.filter(c => c.parentExecutionId === e.id).sort(byStart).forEach(c => pushExec(c, depth + 1, front));
   };
-  frontsTop.forEach(e => pushExec(e, 0));
-  if (frontsTop.length && othersTop.length) rows.push({ kind: 'divider', label: 'Outras execuções' });
-  othersTop.forEach(e => pushExec(e, 0));
+  frontsTop.forEach(e => pushExec(e, 0, true));
+  othersTop.forEach(e => pushExec(e, 0, false));
   // CDAs sem processo nesta operação, com o prazo para ajuizar apertado (ordinária). Todas entram: o limite de
   // linhas visíveis é da tela (com "+N" que expande), nunca um corte silencioso aqui.
   const cdas = [];
@@ -2128,37 +2132,23 @@ function cxBuildTimeline(data, op, prescLookup) {
     cdas.push({ d, r, end, start: it.start, it });
   });
   cdas.sort((a, b) => a.end.localeCompare(b.end));
-  if (cdas.length) rows.push({ kind: 'cdah', n: cdas.length });
-  // Marcos da operação: audiências, e só de IDPJ, MCF e EFs levadas ao panorama do Briefing (mesmas frentes)
-  // as decisões e os termos de prescrição; mais os termos das CDAs a ajuizar e a próxima revisão.
-  const ms = [];
+  // Audiências (do processo, quando o número bate; senão ficam na linha "Operação") e a próxima revisão.
   (data.hearings || []).forEach(h => {
     if (h.operationId !== op.id || !h.date || h.status === 'cancelada') return;
     const owner = execs.find(e => sameProc(e.processNumber, h.processNumber));
-    const it = { id: 'au|' + h.id, kind: 'aud', d: toDayKey(h.date), tm: h.time || '', l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), short: CX_HEARING_SHORT[h.hearingType] || 'Audiência', c: 'var(--cx-orange)', execId: owner ? owner.id : null, ref: { t: 'hearing', h }, hearing: h, realized: h.status === 'realizada' };
-    items.push(it); ms.push(it);
+    items.push({ id: 'au|' + h.id, kind: 'aud', d: toDayKey(h.date), tm: h.time || '', l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), short: CX_HEARING_SHORT[h.hearingType] || 'Audiência', c: 'var(--cx-orange)', execId: owner ? owner.id : null, ref: { t: 'hearing', h }, hearing: h, realized: h.status === 'realizada' });
   });
-  info.forEach(x => {
-    if (!cxIsFront(x.e)) return;
-    x.evs.forEach(ev => { if (ev.decisive) ms.push(ev); });
-    if (x.presc) x.presc.marks.forEach(m => { if (m.deadline) ms.push(m); });
-  });
-  cdas.forEach(c => ms.push(c.it));
   const rv = cxReviewNext(op);
-  if (rv) {
-    const it = { id: 'rv|' + op.id, kind: 'rev', d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), short: 'Revisão', c: 'var(--cx-accent)', ref: { t: 'op', id: op.id } };
-    items.push(it); ms.push(it);
-  }
-  ms.sort((a, b) => String(a.d).localeCompare(String(b.d)));
+  if (rv) items.push({ id: 'rv|' + op.id, kind: 'rev', d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), short: 'Revisão', c: 'var(--cx-accent)', ref: { t: 'op', id: op.id } });
   // Conectores nomeados: "cobre" (IDPJ/MCF → execução coberta) e "apenso/exceção/recurso de" (pai → filho).
   const links = [];
   execs.forEach(e => (e.linkedExecutionIds || []).forEach(c => { if (ids.has(c)) links.push({ id: 'lk|cover|' + e.id + '|' + c, type: 'cover', a: e.id, b: c, text: cxLinkText('cover', e, execById.get(c)) }); }));
   execs.filter(e => e.parentExecutionId && ids.has(e.parentExecutionId)).forEach(e => links.push({ id: 'lk|parent|' + e.parentExecutionId + '|' + e.id, type: 'parent', a: e.parentExecutionId, b: e.id, text: cxLinkText('parent', execById.get(e.parentExecutionId), e) }));
   const allDates = [];
-  info.forEach(x => { allDates.push(x.start); x.evs.forEach(v => allDates.push(v.d)); if (x.presc) { x.presc.segs.forEach(s => { allDates.push(s.from); allDates.push(s.to); }); x.presc.marks.forEach(m => allDates.push(m.d)); } });
+  info.forEach(x => { allDates.push(x.start); x.evs.forEach(v => allDates.push(v.d)); if (x.presc) { x.presc.segs.forEach(s => { allDates.push(s.from); allDates.push(s.to); }); x.presc.marks.forEach(m => allDates.push(m.d)); if (x.presc.band) { allDates.push(x.presc.band.from); allDates.push(x.presc.band.to); } } });
   items.forEach(it => { if (it.d) allDates.push(it.d); if (it.from) allDates.push(it.from); });
   cdas.forEach(c => { allDates.push(c.start); allDates.push(c.end); });
-  return { rows, ms, items, links, cdas, execById, info, allDates: allDates.filter(Boolean), empty: execs.length === 0 && cdas.length === 0 };
+  return { procs, items, links, cdas, execById, info, allDates: allDates.filter(Boolean), empty: execs.length === 0 && cdas.length === 0 };
 }
 
 /* ─── Glifo por tipo de fato (SVG): ◆ decisão · ○ andamento · ■ audiência · ▼ prazo · ⬢ prescrição · ◔ revisão ───
@@ -2253,34 +2243,87 @@ function cxTlTipData(it, execById) {
   if (open) lines.push(open);
   return { when: (it.d ? dow + ' ' + fmtDate(it.d) + (it.tm ? ' · ' + it.tm : '') + ' · ' + rel : 'sem data'), title: it.l, lines, tone: dd !== null && dd < 0 && it.kind === 'prazo' ? 'late' : '' };
 }
-function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, compact }) {
-  const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
-  const [hidden, setHidden] = React.useState(() => new Set());
+/* Estado do foco da Panorama, lembrado por operação no navegador (nunca derruba a tela se o storage falhar). */
+const CX_TL_STORE = 'nexus_cx_tl_focus_';
+function cxTlLoadFocus(opId) {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(CX_TL_STORE + opId)); } catch (e) { raw = null; }
+  const n = tlNormalizeFocus(raw);
+  return { w: n.w, c: n.c, hidden: new Set(n.hidden) };
+}
+function cxTlSaveFocus(opId, st) {
+  try { localStorage.setItem(CX_TL_STORE + opId, JSON.stringify({ w: st.w, c: st.c, hidden: Array.from(st.hidden) })); } catch (e) { /* ignore */ }
+}
+/* Prazo: "Manifestar sobre exceção de pré-executividade — 15 dias" → "Manifestar sobre exceção de pré-…". */
+const cxTlShortDesc = (s, n = 26) => tlClip(String(s || '').replace(/\s*[—–-]\s*\d+\s*dias?\s*$/i, ''), n);
+/* Texto do rótulo de um fato na régua. */
+function cxTlLabelText(it) {
+  const dm = cxDM(it.d);
+  if (it.kind === 'prazo') return cxTlShortDesc(it.l) + ' ' + dm;
+  if (it.kind === 'aud') return it.short + ' ' + dm + (it.tm ? ' ' + it.tm : '');
+  if (it.kind === 'rev') return 'Revisão ' + dm;
+  return tlClip(it.short || it.l, 30) + ' ' + dm;
+}
+/* Faixa-resumo acima da régua: o que mais importa na operação, sem abrir nada. */
+function cxTlSummary(tl, todayIso) {
+  const out = [];
+  const pz = tl.items.filter(i => i.kind === 'prazo');
+  const late = pz.filter(i => daysUntil(i.d) < 0).sort((a, b) => a.d.localeCompare(b.d));
+  const soon = pz.filter(i => { const d = daysUntil(i.d); return d >= 0 && d <= 14; });
+  const aud = tl.items.filter(i => i.kind === 'aud' && !i.realized && daysUntil(i.d) >= 0).sort((a, b) => a.d.localeCompare(b.d))[0];
+  const cda = tl.cdas.filter(c => daysUntil(c.end) >= 0)[0] || tl.cdas[0];
+  if (late.length) out.push({ k: 'late', node: <><b className="cx-red-t">{cxPl(late.length, 'prazo vencido', 'prazos vencidos')}</b> · {cxTlShortDesc(late[0].l, 34)}</> });
+  out.push({ k: 'soon', node: <><b>{cxPl(soon.length, 'prazo', 'prazos')}</b> nos próximos 14 dias</> });
+  if (aud) out.push({ k: 'aud', node: <>Próxima audiência: <b>{cxDM(aud.d)}{aud.tm ? ' ' + aud.tm : ''}</b> · {aud.l.replace(/ · .*$/, '')}</> });
+  if (cda) out.push({ k: 'cda', node: <>Primeiro termo para ajuizar: <b>{fmtDate(cda.end)}</b> ({daysUntil(cda.end) < 0 ? 'vencido' : tlDurLabel(daysUntil(cda.end))})</> });
+  return out;
+}
+/* Panorama (M1) — régua com foco no agora. Eixo quebrado (src/lib/timeline.js): o foco (30 d … 1 ano) em escala
+   linear, passado e futuro comprimidos nas laterais, vãos longos sem fato viram quebras hachuradas ("≈ 13 m").
+   Prazos (janela início → final) e audiências ficam na linha do processo; abaixo dela, a faixa de prescrição com
+   o piso/termo. Todo marco é clicável (abre a gaveta que já existe). Estado (janela, posição e tipos ocultos)
+   lembrado por operação. `tl` vem de cxBuildTimeline (compartilhado com os outros modos da página). */
+function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
+  const [st, setSt] = React.useState(() => cxTlLoadFocus(op.id));
+  const upd = (patch) => setSt(prev => { const n = { ...prev, ...patch }; cxTlSaveFocus(op.id, n); return n; });
   const [cdaAll, setCdaAll] = React.useState(false);
-  React.useEffect(() => { setCdaAll(false); }, [op.id]);
-  const sc = CX_TL_SCALES[scale] || CX_TL_SCALES.meses;
-  const offs = tl.allDates.map(d => daysUntil(d)).filter(v => v !== null);
-  let from, to;
-  if (scale === 'semanas') { from = -28; to = 49; }
-  else if (scale === 'meses') { from = -300; to = 240; }
-  else { from = Math.max(-365 * 16, Math.min(-365 * 2, ...offs) - 60); to = Math.min(365 * 8, Math.max(365, ...offs) + 120); }
-  const W = Math.round((to - from) * sc.ppd);
-  const x = (off) => (off - from) * sc.ppd;
-  const xi = (iso) => { const o = daysUntil(iso); return o === null ? null : x(o); };
-  const inR = (iso) => { const o = daysUntil(iso); return o !== null && o >= from && o <= to; };
-  const scRef = React.useRef(null);
-  React.useLayoutEffect(() => { const el = scRef.current; if (el) el.scrollLeft = Math.max(0, x(0) - el.clientWidth * 0.45); }, [op.id, scale]);
+  const rRef = React.useRef(null);
+  const [cw, setCw] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = rRef.current; if (!el) return;
+    const m = () => setCw(el.clientWidth);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', m);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', m); };
+  }, []);
+  const [, setFontTick] = React.useState(0);
+  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  const todayIso = localIso(new Date());
+  const CW = Math.max(520, (cw || 900) - 1);
+  const { f0, f1 } = tlFocusRange(st.w, st.c);
+  const step = tlFocusStep(st.w);
+  const S = React.useMemo(() => {
+    const pts = tl.allDates.map(d => daysUntil(d)).filter(v => v !== null);
+    return tlProjectBroken({ points: pts, f0, f1, width: CW });
+  }, [tl, f0, f1, CW]);
+  const f = S.f, x0 = f(0);
+  const isOff = (iso) => !isBusinessDay(new Date(iso + 'T00:00:00'));
+  const hid = (k) => st.hidden.has(k);
   const counts = React.useMemo(() => tlCountKinds(tl.items), [tl]);
   const byId = React.useMemo(() => { const m = new Map(); tl.items.forEach(it => m.set(it.id, it)); return m; }, [tl]);
   const linkById = React.useMemo(() => { const m = new Map(); tl.links.forEach(l => m.set(l.id, l)); return m; }, [tl]);
+  const brkRef = React.useRef([]);
   const tip = useCxTip(React.useCallback((key) => {
     if (key.indexOf('lk|') === 0) { const l = linkById.get(key); return l ? { when: l.type === 'cover' ? 'Cobertura' : 'Vínculo', title: l.text, lines: [] } : null; }
-    if (key.indexOf('bar|') === 0) { const e = tl.execById.get(key.slice(4)); const x = e ? tl.info.get(e.id) : null; return x ? { when: (EXEC_STATUSES[e.status] || {}).label || 'Processo', title: x.role + ' · ' + cxExecShortNum(e), lines: [(e.className || '') + (x.who ? ' · ' + x.who : ''), 'Ajuizado em ' + fmtDate(x.start)].filter(Boolean) } : null; }
+    if (key.indexOf('bar|') === 0) { const e = tl.execById.get(key.slice(4)); const x = e ? tl.info.get(e.id) : null; return x ? { when: (EXEC_STATUSES[e.status] || {}).label || 'Processo', title: x.role + ' · ' + cxExecShortNum(e), lines: [(e.className || '') + (x.who ? ' · ' + x.who : ''), 'Ajuizado em ' + fmtDate(x.start), 'Clique para abrir o processo'].filter(Boolean) } : null; }
     if (key.indexOf('seg|') === 0) { const parts = key.split('|'); return { when: 'Prescrição', title: parts[1], lines: [parts[2]] }; }
+    if (key.indexOf('band|') === 0) { const x = tl.info.get(key.slice(5)); const b = x && x.presc && x.presc.band; return b ? { when: 'Prescrição · ' + (CX_PRESC_TXT[x.presc.r.status] || x.presc.r.status), title: 'Não prescreve antes de ' + fmtDate(b.to), lines: ['Último ato do ciclo: ' + fmtDate(b.from) + (b.kind ? ' (' + b.kind + ')' : ''), 'Piso = último ato + 6 anos (não é marco)'] } : null; }
+    if (key.indexOf('brk|') === 0) { const b = brkRef.current[+key.slice(4)]; return b ? { when: 'Eixo comprimido', title: 'Sem fatos por ' + b.label.replace('≈ ', '≈ '), lines: ['De ' + fmtDate(addCalendarDays(todayIso, Math.round(b.a))) + ' a ' + fmtDate(addCalendarDays(todayIso, Math.round(b.b)))] } : null; }
     const it = byId.get(key); return it ? cxTlTipData(it, tl.execById) : null;
-  }, [byId, linkById, tl]));
-  if (tl.empty) return <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Esta operação ainda não tem processos cadastrados. Eles aparecem aqui assim que forem lançados na aba Processos e prescrição.</div></div>;
-  const hid = (k) => hidden.has(k);
+  }, [byId, linkById, tl, todayIso]));
+  if (tl.empty) return <div><div className="cx-tl-tools">{lead}</div><div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Esta operação ainda não tem processos cadastrados. Eles aparecem aqui assim que forem lançados na aba Processos e prescrição.</div></div></div>;
   const open = (it) => {
     const r = it && it.ref; if (!r) return;
     if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
@@ -2288,200 +2331,239 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
     else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
     else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
   };
-  const clamp = (a, b) => { const s = Math.max(a, from), e = Math.min(b, to); return e <= s ? null : { left: x(s), width: Math.max(4, (e - s) * sc.ppd) }; };
-  const clampIso = (fa, tb) => { const a = daysUntil(fa), b = daysUntil(tb); if (a === null || b === null) return null; return clamp(a, b); };
-  const axis = [], grid = [];
-  const base = new Date(); base.setHours(12, 0, 0, 0);
-  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  const x0 = x(0);
-  const nearToday = (px) => Math.abs(px - x0) < 26;
-  for (let d = from; d <= to; d++) {
-    const D = new Date(base); D.setDate(D.getDate() + d);
-    const dd = D.getDate(), mm = D.getMonth(), wd = D.getDay();
-    if (scale === 'semanas') {
-      axis.push(<span key={'t' + d} className={'cx-tl-tick' + (wd === 0 || wd === 6 ? ' we' : '')} style={{ left: x(d) + sc.ppd / 2 }}>{dd}</span>);
-      if (wd === 6) grid.push(<span key={'w' + d} className="cx-tl-shade" style={{ left: x(d), width: sc.ppd * 2 }} />);
-      if (dd === 1 || d === from) axis.push(<span key={'m' + d} className="cx-tl-major" style={{ left: x(d) }}>{CX_MES_L[mm]} {D.getFullYear()}</span>);
-      if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
-    } else if (scale === 'meses') {
-      if (dd === 1) { if (!nearToday(x(d) + 15 * sc.ppd)) axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 15 * sc.ppd }}>{MES[mm]}</span>); grid.push(<span key={'g' + d} className="cx-tl-grid strong" style={{ left: x(d) }} />); }
-      else if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
-      if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
-    } else {
-      if (dd === 1 && mm % 3 === 0) { if (!nearToday(x(d) + 45 * sc.ppd)) axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 45 * sc.ppd }}>{'T' + (mm / 3 + 1)}</span>); grid.push(<span key={'g' + d} className={'cx-tl-grid' + (mm === 0 ? ' strong' : '')} style={{ left: x(d) }} />); }
-      if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
+  const cl = (x) => Math.max(0, Math.min(CW, x));
+  const span = (isoA, isoB) => { const a = daysUntil(isoA), b = daysUntil(isoB); if (a === null || b === null) return null; const xa = cl(f(a)), xb = cl(f(b)); return { left: xa, width: Math.max(3, xb - xa) }; };
+  const inFocus = (iso) => { const o = daysUntil(iso); return o !== null && o >= f0 && o <= f1; };
+  const msTxt = cxTlLabelText;
+  /* ── linhas e geometria ── */
+  const sections = [];
+  const procRows = tl.procs;
+  const hasFront = procRows.some(r => r.front), hasOther = procRows.some(r => !r.front);
+  let prevFront = null;
+  procRows.forEach(r => {
+    if (r.depth === 0 && r.front !== prevFront) {
+      if (r.front) sections.push({ kind: 'head', label: 'Frentes', sub: 'IDPJ · MCF · execução central' });
+      else if (hasFront || hasOther) sections.push({ kind: 'head', label: hasFront ? 'Outras execuções' : 'Execuções' });
+      prevFront = r.front;
     }
-  }
-  /* Linhas visíveis (filtros da legenda) e a altura de cada uma. */
-  const cdaCap = tlCapList(tl.cdas, 10, cdaAll);
-  const vis = [];
-  tl.rows.forEach(r => {
-    if (r.kind === 'prazo' && hid('prazo')) return;
-    if (r.kind === 'presc' && hid('presc')) return;
-    if (r.kind === 'cdah') { if (hid('presc')) return; vis.push({ r }); cdaCap.shown.forEach(c => vis.push({ r: { kind: 'cda', c } })); if (cdaCap.more > 0 || (cdaAll && tl.cdas.length > 10)) vis.push({ r: { kind: 'cdamore', n: cdaCap.more, total: tl.cdas.length } }); return; }
-    vis.push({ r });
+    sections.push({ kind: 'proc', x: r.x, depth: r.depth });
   });
-  /* Marcos da operação: rótulos em faixas, sem colisão; perto de "hoje" têm prioridade. */
-  const msVis = tl.ms.filter(m => !hid(m.kind) && inR(m.d));
-  const msText = (m) => m.short + ' ' + cxDM(m.d) + (m.kind === 'aud' && m.tm ? ' ' + m.tm : '');
-  const msLay = tlLayoutLabels(msVis.map(m => ({ id: m.id, x: xi(m.d), w: cxTlMeasure(msText(m)) + 4, prio: Math.abs(daysUntil(m.d)) - (TL_KIND_WEIGHT[m.kind] || 0) * 25 })), { minX: 4, maxX: W - 4, levels: 3 });
-  const msPlaced = new Map(msLay.placed.map(p => [p.id, p]));
-  vis.forEach(v => {
-    const k = v.r.kind;
-    if (k === 'ms') { v.by = 12 + 13 * msLay.levels + (msLay.levels ? 0 : 6); v.h = Math.max(36, v.by + 16); }
-    else if (k === 'proc') v.h = 46;
-    else if (k === 'cda') v.h = 42;
-    else if (k === 'cdamore') v.h = 32;
-    else if (k === 'cdah' || k === 'divider') v.h = 34;
-    else v.h = CX_TL_ROW;
+  const cdaCap = tlCapList(tl.cdas, 10, cdaAll);
+  if (tl.cdas.length && !hid('presc')) {
+    sections.push({ kind: 'head', label: 'CDAs sem processo · ajuizar', sub: tl.cdas.length + ' em risco', icon: 'file' });
+    cdaCap.shown.forEach(c => sections.push({ kind: 'cda', c }));
+    if (cdaCap.more > 0 || (cdaAll && tl.cdas.length > 10)) sections.push({ kind: 'cdamore', n: cdaCap.more });
+  }
+  const orphan = tl.items.filter(i => !i.execId && !hid(i.kind) && (i.kind === 'aud' || i.kind === 'rev'));
+  if (orphan.length) sections.push({ kind: 'op', its: orphan });
+  /* rótulos: dentro do foco, em faixas; perto de "hoje" primeiro */
+  const labelFor = (its) => {
+    const cand = its.filter(it => !hid(it.kind) && inFocus(it.d));
+    const lay = tlLayoutLabels(cand.map(it => ({ id: it.id, x: f(daysUntil(it.d)), w: cxTlMeasure(msTxt(it)) + 8, prio: Math.abs(daysUntil(it.d)) - (TL_KIND_WEIGHT[it.kind] || 0) * 25 })), { minX: S.pastW + 4, maxX: S.pastW + S.focusW - 4, levels: 3 });
+    return { lay, placed: new Map(lay.placed.map(p => [p.id, p])) };
+  };
+  sections.forEach(v => {
+    if (v.kind === 'proc') {
+      const X = v.x;
+      v.its = tl.items.filter(it => it.execId === X.e.id && it.d && !it.mark);
+      v.lab = labelFor(v.its);
+      const L = v.lab.lay.levels;
+      v.by = L ? 24 + 13 * L : 22;
+      v.strip = !!(X.presc && !hid('presc') && (X.presc.segs.length || X.presc.band || X.presc.marks.length));
+      v.h = v.by + (v.strip ? 42 : 18);
+    } else if (v.kind === 'op') {
+      v.lab = labelFor(v.its);
+      const L = v.lab.lay.levels;
+      v.by = L ? 24 + 13 * L : 22;
+      v.h = v.by + 14;
+    } else if (v.kind === 'cda') v.h = 44;
+    else if (v.kind === 'cdamore') v.h = 32;
+    else v.h = 30;
   });
   let yy = CX_TL_AXIS;
-  vis.forEach(v => { v.y = yy; yy += v.h; });
+  sections.forEach(v => { v.y = yy; yy += v.h; });
   const H = yy;
   const rowY = {};
-  vis.forEach(v => { if (v.r.kind === 'proc') rowY[v.r.x.e.id] = v.y + v.h / 2; });
+  sections.forEach(v => { if (v.kind === 'proc') rowY[v.x.e.id] = v.y + v.by; });
   const links = [];
   tl.links.forEach(l => {
     if (rowY[l.a] == null || rowY[l.b] == null) return;
-    const xa = xi(tl.info.get(l.b).start);
-    if (xa === null || xa < 0 || xa > W) return;
+    const xa = cl(f(daysUntil(tl.info.get(l.b).start)));
     links.push({ l, x: xa, ya: rowY[l.a], yb: rowY[l.b] });
   });
-  const minLbl = scale === 'anos' ? 160 : 110;
-  const tagOf = (r) => cxExecTag(r.x.e);
+  /* ── eixo ── */
+  const fa = tlFocusAxis({ f0, f1, ppd: S.ppd, f, todayIso, isOff });
+  const zp = tlZoneTicks(S.zP, 0, todayIso, { labelFirst: true });
+  const zu = tlZoneTicks(S.zU, S.pastW + S.focusW, todayIso, {});
+  /* intervalo em dias de cada quebra (mesma ordem de zp.breaks + zu.breaks), para o tooltip */
+  const brkInfo = [];
+  [[S.zP, 0], [S.zU, S.pastW + S.focusW]].forEach(([z]) => { if (z) z.pieces.filter(p => p.gap).forEach(p => brkInfo.push({ a: p.a, b: p.b, label: tlBreakLabel(p.b - p.a) })); });
+  brkRef.current = brkInfo;
+  const nearToday = (px) => Math.abs(px - x0) < 22;
+  /* rótulos de mês do foco: por extenso se couber (mês largo), abreviado se não; nunca um por cima do outro */
+  const shortM = 30.44 * S.ppd < 92;
+  const mLab = (m) => (shortM ? m.short : m.text);
+  const mLw = (m) => cxTlMeasure(mLab(m), 11.5) + 12;
+  const majors = [];
+  let lastEnd = -1e9;
+  fa.majors.filter(m => !m.partial).forEach(m => { if (m.x >= lastEnd + 4) { majors.push(m); lastEnd = m.x + mLw(m); } });
+  const part = fa.majors.find(m => m.partial);
+  if (part && (!majors.length || part.x + mLw(part) + 4 <= majors[0].x)) majors.unshift(part);
+  /* ── marcador clicável ── */
+  const mk = (it, X, Y) => <button key={it.id + '@' + Y} type="button" className="cx-tl-g" style={{ left: X, top: Y }} data-tl={it.id} aria-label={it.l + (it.d ? ' · ' + fmtDate(it.d) : '')} onClick={() => open(it)}><CxTlGlyph kind={it.kind} c={cxTlColor(it)} hollow={it.hollow} s={it.big ? 16 : 14} /></button>;
+  const labelEls = (v, its, inner) => {
+    its.forEach(it => {
+      const pl = v.lab.placed.get(it.id); if (!pl) return;
+      const X = f(daysUntil(it.d));
+      const top = v.by - 20 - 13 * (pl.level + 1);
+      if (pl.level > 0) inner.push(<span key={'ld' + it.id} className="cx-tl-lead" style={{ left: X, top: top + 13, height: v.by - 18 - (top + 13) }} />);
+      inner.push(<span key={'l' + it.id} className={'cx-tl-dm-l' + (it.kind === 'prazo' && daysUntil(it.d) < 0 ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: pl.x0, top, width: pl.x1 - pl.x0, textAlign: pl.anchor === 'end' ? 'right' : 'left' }}>{msTxt(it)}</span>);
+    });
+    const dropped = v.lab.lay.dropped.length;
+    if (dropped) inner.push(<span key="drop" className="cx-tl-drop" style={{ top: 3 }} title="Marcos sem rótulo: passe o mouse sobre o marcador">+{dropped} sem rótulo</span>);
+  };
   const left = (v, k) => {
-    const r = v.r, st = { height: v.h };
-    const pad = { ...st, paddingLeft: 12 + (r.depth || 0) * 14 };
-    if (r.kind === 'ms') return <div key={k} className="cx-tl-rl ms" style={st}><CxIcon n="flag" s={13} /><span className="cx-ell" title={msLay.dropped.length ? msLay.dropped.length + ' marco(s) sem rótulo: passe o mouse sobre o losango' : undefined}>Marcos da operação</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{msVis.length}</span></div>;
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl ms" style={st}>{r.label}</div>;
-    if (r.kind === 'proc') {
-      const e = r.x.e, X = r.x;
-      const sub = [X.rel, X.who, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + (X.cdaVal ? ' · ' + cxMoneyShort(X.cdaVal) : '') : ''].filter(Boolean).join(' · ');
-      return <div key={k} className={'cx-tl-rl pr' + (onOpenProc ? ' click' : '')} style={pad} role={onOpenProc ? 'button' : undefined} tabIndex={onOpenProc ? 0 : undefined}
-        onClick={onOpenProc ? () => onOpenProc(e.id) : undefined} onKeyDown={onOpenProc ? (ev => { if (ev.key === 'Enter') onOpenProc(e.id); }) : undefined}
-        title={[X.role, e.processNumber, X.rel, X.who, e.court, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(X.cdaVal) : ''].filter(Boolean).join(' · ')}>
-        <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{tagOf(r)}</span>
-        <span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{X.role}</span><span className="cx-ell cx-tl-who"><span className="cx-mono">{cxExecShortNum(e)}</span>{sub ? ' · ' + sub : ''}</span></span>
-      </div>;
-    }
-    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rl ms" style={st}><CxIcon n="file" s={13} /><span className="cx-ell" title="CDAs desta operação sem processo, com o prazo de 5 anos para ajuizar perto do fim">CDAs sem processo · ajuizar</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{r.n}</span></div>;
-    if (r.kind === 'cdamore') return <div key={k} className="cx-tl-rl sub click" style={{ ...st, paddingLeft: 26 }} role="button" tabIndex={0} onClick={() => setCdaAll(v => !v)} onKeyDown={ev => { if (ev.key === 'Enter') setCdaAll(v => !v); }}><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{cdaAll ? 'Mostrar só as 10 primeiras' : '+' + r.n + (r.n === 1 ? ' CDA' : ' CDAs') + ' · mostrar todas'}</span></div>;
-    if (r.kind === 'cda') {
-      const c = r.c, bar = tlCdaBar({ start: c.start, end: c.end, today: localIso(new Date()) });
-      return <div key={k} className={'cx-tl-rl pr sub' + (onOpenCda ? ' click' : '')} style={{ ...st, paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}>
+    const st0 = { height: v.h };
+    if (v.kind === 'head') return <div key={k} className="cx-tl-rl hd" style={st0}>{v.icon ? <CxIcon n={v.icon} s={13} /> : null}<span className="cx-ell">{v.label}</span>{v.sub ? <span className="cx-tl-hsub">{v.sub}</span> : null}</div>;
+    if (v.kind === 'op') return <div key={k} className="cx-tl-rl" style={{ ...st0, alignItems: 'flex-end', paddingBottom: 10 }}><CxIcon n="flag" s={13} /><span className="cx-ell">Operação</span><span className="cx-tl-hsub">audiências · revisão</span></div>;
+    if (v.kind === 'cdamore') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 26 }} role="button" tabIndex={0} onClick={() => setCdaAll(a => !a)} onKeyDown={ev => { if (ev.key === 'Enter') setCdaAll(a => !a); }}><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{cdaAll ? 'Mostrar só as 10 primeiras' : '+' + v.n + (v.n === 1 ? ' CDA' : ' CDAs') + ' · mostrar todas'}</span></div>;
+    if (v.kind === 'cda') {
+      const c = v.c, bar = tlCdaBar({ start: c.start, end: c.end, today: todayIso });
+      return <div key={k} className={'cx-tl-rl pr sub' + (onOpenCda ? ' click' : '')} style={{ ...st0, paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}>
         <CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} />
         <span className="cx-tl-l2"><span className="cx-mono cx-ell" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-tl-who">{[c.d.tribute || c.d.system, c.d.value ? cxMoneyShort(c.d.value) : '', bar.late ? 'vencida' : 'faltam ' + tlDurLabel(bar.left)].filter(Boolean).join(' · ')}</span></span>
       </div>;
     }
-    if (r.kind === 'presc') { const pr = r.x.presc; return <div key={k} className="cx-tl-rl sub" style={{ ...st, paddingLeft: 26 + (r.depth || 0) * 14 }} title={pr.r.summary || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-ell">Prescrição · {CX_PRESC_TXT[pr.r.status] || pr.r.status}{pr.n > 1 ? ' · pior de ' + pr.n + ' CDAs' : ''}</span></div>; }
-    return <div key={k} className={'cx-tl-rl sub' + (onOpenIntim ? ' click' : '')} style={{ ...st, paddingLeft: 26 + (r.depth || 0) * 14 }} role={onOpenIntim ? 'button' : undefined} tabIndex={onOpenIntim ? 0 : undefined}
-      onClick={onOpenIntim ? () => onOpenIntim(r.i.id) : undefined} onKeyDown={onOpenIntim ? (ev => { if (ev.key === 'Enter') onOpenIntim(r.i.id); }) : undefined} title={r.i.eventDescription || r.i.className || ''}><CxStatusIcon s={r.i.status} /><span className="cx-ell">{r.i.eventDescription || r.i.className || 'Intimação'}</span></div>;
+    const e = v.x.e, X = v.x;
+    const sub = [X.rel, X.who, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + (X.cdaVal ? ' · ' + cxMoneyShort(X.cdaVal) : '') : ''].filter(Boolean).join(' · ');
+    const stat = e.status && e.status !== 'ativa' ? (EXEC_STATUSES[e.status] || {}).label : '';
+    const statShort = { arquivada: 'Arquivada', suspensa: 'Suspensa', suspensa_parcelamento: 'Parcelamento', extinta: 'Extinta' }[e.status] || stat;
+    return <div key={k} className={'cx-tl-rl pr' + (onOpenProc ? ' click' : '')} style={{ ...st0, paddingLeft: 12 + (v.depth || 0) * 14, alignItems: 'flex-start', paddingTop: Math.max(4, v.by - 17) }} role={onOpenProc ? 'button' : undefined} tabIndex={onOpenProc ? 0 : undefined}
+      onClick={onOpenProc ? () => onOpenProc(e.id) : undefined} onKeyDown={onOpenProc ? (ev => { if (ev.key === 'Enter') onOpenProc(e.id); }) : undefined}
+      title={[X.role, e.processNumber, X.rel, X.who, e.court, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(X.cdaVal) : '', stat].filter(Boolean).join(' · ')}>
+      <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span>
+      <span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{X.role}{stat ? <span className="cx-tl-stat" title={stat}>{statShort}</span> : null}</span><span className="cx-ell cx-tl-who"><span className="cx-mono">{cxExecShortNum(e)}</span>{sub ? ' · ' + sub : ''}</span></span>
+    </div>;
   };
-  /* Marcador clicável (botão, com rótulo de acessibilidade) na posição X do eixo e Y da linha. */
-  const mk = (it, X, Y, extra) => <button key={it.id + (extra || '')} type="button" className="cx-tl-g" style={{ left: X, top: Y }} data-tl={it.id} aria-label={it.l + (it.d ? ' · ' + fmtDate(it.d) : '')} onClick={() => open(it)}><CxTlGlyph kind={it.kind} c={cxTlColor(it)} hollow={it.hollow} s={it.big ? 16 : 14} /></button>;
   const right = (v, k) => {
-    const r = v.r, inner = [], st = { height: v.h };
-    if (r.kind === 'divider' || r.kind === 'cdah' || r.kind === 'cdamore') return <div key={k} className={'cx-tl-rr' + (r.kind === 'divider' ? ' divider ms' : r.kind === 'cdah' ? ' ms' : '')} style={st} />;
-    if (r.kind === 'cda') {
-      const c = r.c, it = c.it, today = localIso(new Date()), bar = tlCdaBar({ start: c.start, end: c.end, today });
-      const b = clampIso(c.start, c.end), o = daysUntil(c.end), Y = v.h / 2;
-      if (b) {
-        const xn = Math.max(b.left, Math.min(b.left + b.width, x0));
-        inner.push(<span key="s1" className="cx-tl-seg inter" data-tl={it.id} style={{ left: b.left, width: Math.max(2, xn - b.left), top: Y - 7 }} />);
-        if (b.left + b.width > xn + 1) inner.push(<span key="s2" className="cx-tl-seg inter rest" data-tl={it.id} style={{ left: xn, width: b.left + b.width - xn, top: Y - 7 }} />);
-      }
-      if (o !== null && o >= from && o <= to) {
-        const X = x(o), txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + cxDM(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
-        const w = cxTlMeasure(txt) + 10, rightFits = X + 10 + w <= W - 4;
-        inner.push(mk(it, X, Y));
-        inner.push(<span key="tx" className={'cx-tl-cdal' + (bar.late ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={rightFits ? { left: X + 10, top: Y - 9 } : { left: Math.max(4, X - 10 - w), top: Y - 9 }}>{txt}</span>);
-      }
-      if (!inner.length) inner.push(<span key="h" className="cx-tl-hint">Termo em {fmtDate(c.end)}, fora desta escala</span>);
-      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
+    const st0 = { height: v.h }, inner = [];
+    if (v.kind === 'head' || v.kind === 'cdamore') return <div key={k} className={'cx-tl-rr' + (v.kind === 'head' ? ' ms' : '')} style={st0} />;
+    if (v.kind === 'op') {
+      v.its.filter(it => !hid(it.kind)).forEach(it => { const o = daysUntil(it.d); if (o !== null) inner.push(mk(it, cl(f(o)), v.by)); });
+      labelEls(v, v.its, inner);
+      return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
     }
-    if (r.kind === 'ms') {
-      msVis.forEach(m => {
-        const X = xi(m.d), pl = msPlaced.get(m.id);
-        inner.push(mk(m, X, v.by));
-        if (pl) {
-          const top = v.by - 10 - 13 * (pl.level + 1) - 2;
-          if (pl.level > 0) inner.push(<span key={'ld' + m.id} className="cx-tl-lead" style={{ left: X, top: top + 13, height: v.by - 8 - (top + 13) }} />);
-          inner.push(<span key={'l' + m.id} className={'cx-tl-dm-l' + (m.kind === 'prazo' && daysUntil(m.d) < 0 ? ' late' : '')} data-tl={m.id} onClick={() => open(m)} style={{ left: pl.x0, top, width: pl.x1 - pl.x0, textAlign: pl.anchor === 'end' ? 'right' : 'left' }}>{msText(m)}</span>);
-        }
-      });
-      if (msLay.dropped.length) inner.push(<span key="drop" className="cx-tl-drop" title="Marcos sem rótulo: passe o mouse sobre o losango">+{msLay.dropped.length} sem rótulo</span>);
-      return <div key={k} className="cx-tl-rr ms" style={st}>{inner}</div>;
-    }
-    if (r.kind === 'proc') {
-      const X = r.x, e = X.e, Y = v.h / 2;
-      const b = clampIso(X.start, X.end || localIso(new Date(Date.now() + to * 86400000)));
-      const evs = X.evs.filter(ev => !hid(ev.kind) && inR(ev.d));
-      if (b) {
-        inner.push(<div key="b" className={'cx-tl-bar' + (X.end ? ' ended' : ' open-end')} data-tl={'bar|' + e.id} style={{ left: b.left, width: b.width, top: Y - 11, '--c': cxTagColor(e) }} />);
-        /* Status só quando diz algo (diferente de "Ativa") e só num vão sem marcador: nunca é cortado por um glifo. */
-        const stTxt = e.status && e.status !== 'ativa' ? ((EXEC_STATUSES[e.status] || {}).label || '') + (X.end ? ' · extinta' : '') : (X.end ? 'Extinta' : '');
-        if (stTxt && b.width > 40) {
-          const w = cxTlMeasure(stTxt) + 4;
-          const gx = tlPickGap(evs.map(ev => xi(ev.d)), b.left + 8, b.left + b.width - 6, w, { half: 8 });
-          if (gx !== null) inner.push(<span key="bl" className="cx-tl-blbl" style={{ left: gx, top: Y - 11 }}>{stTxt}</span>);
-        }
+    if (v.kind === 'cda') {
+      const c = v.c, it = c.it, bar = tlCdaBar({ start: c.start, end: c.end, today: todayIso }), Y = 30;
+      const a = span(c.start, c.end), o = daysUntil(c.end);
+      if (a) {
+        const xn = Math.max(a.left, Math.min(a.left + a.width, x0));
+        inner.push(<span key="s1" className="cx-tl-seg inter thin" data-tl={it.id} style={{ left: a.left, width: Math.max(2, xn - a.left), top: Y - 4 }} />);
+        if (a.left + a.width > xn + 1) inner.push(<span key="s2" className="cx-tl-seg inter rest thin" data-tl={it.id} style={{ left: xn, width: a.left + a.width - xn, top: Y - 4 }} />);
       }
-      evs.forEach(ev => inner.push(mk(ev, xi(ev.d), Y)));
-      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
+      const X = cl(f(o));
+      const txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + cxDM(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
+      const w = cxTlMeasure(txt) + 8, lx = Math.max(4, Math.min(X + 8 - w, CW - w - 4));
+      inner.push(mk(it, X, Y));
+      inner.push(<span key="tx" className={'cx-tl-cdal' + (bar.late ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: lx, top: 4, width: w }}>{txt}</span>);
+      return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
     }
-    if (r.kind === 'presc') {
-      const pr = r.x.presc, marks = pr.marks.filter(m => inR(m.d)), mxs = marks.map(m => xi(m.d));
+    /* processo */
+    const X = v.x, e = X.e, by = v.by;
+    const bar = span(X.start, X.end || addCalendarDays(todayIso, Math.ceil(S.hi)));
+    if (bar) inner.push(<div key="b" className={'cx-tl-bar thin' + (X.end ? ' ended' : ' open-end')} data-tl={'bar|' + e.id} style={{ left: bar.left, width: bar.width, top: by - 4, '--c': cxTagColor(e) }} />);
+    /* janelas de prazo (início → final) acima da linha, com o ▼ no vencimento */
+    v.its.filter(it => it.kind === 'prazo' && !hid('prazo')).forEach(it => {
+      const w = span(it.from, it.d); if (!w) return;
+      const c = cxTlPrazoColor(it.d);
+      if (w.width >= 6) inner.push(<span key={'w' + it.id} className="cx-tl-win" data-tl={it.id} style={{ left: w.left, width: w.width, top: by - 12, '--c': c }} onClick={() => open(it)} />);
+      inner.push(<button key={'g' + it.id} type="button" className="cx-tl-g" style={{ left: cl(f(daysUntil(it.d))), top: by - 9 }} data-tl={it.id} aria-label={it.l + ' · final ' + fmtDate(it.d)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
+    });
+    v.its.filter(it => it.kind !== 'prazo' && !hid(it.kind)).forEach(it => { const o = daysUntil(it.d); if (o !== null) inner.push(mk(it, cl(f(o)), by)); });
+    labelEls(v, v.its, inner);
+    /* faixa de prescrição sob a linha */
+    if (v.strip) {
+      const pr = X.presc, sy = by + 18;
+      const mxs = pr.marks.map(m => cl(f(daysUntil(m.d))));
       pr.segs.forEach((s, j) => {
-        const b = clampIso(s.from, s.to); if (!b) return;
+        const b = span(s.from, s.to); if (!b) return;
         const names = { susp: 'Suspensão de 1 ano', inter: 'Contagem de 5 anos', pausa: 'Parcelamento', susp2: s.l || 'Pausa' };
-        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} data-tl={'seg|' + names[s.t] + '|' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} style={{ left: b.left, width: b.width }} />);
+        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} data-tl={'seg|' + names[s.t] + '|' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} style={{ left: b.left, width: b.width, top: sy - 7 }} />);
         const w = cxTlMeasure(names[s.t]) + 6;
-        if (b.width > w + 12) { const gx = tlPickGap(mxs, b.left + 4, b.left + b.width - 4, w, { half: 8 }); if (gx !== null) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: gx - 6 }}>{names[s.t]}</span>); }
+        if (b.width > w + 12) { const gx = tlPickGap(mxs, b.left + 4, b.left + b.width - 4, w, { half: 8 }); if (gx !== null) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: gx - 6, top: sy - 18 }}>{names[s.t]}</span>); }
       });
-      marks.forEach(m => inner.push(mk(m, xi(m.d), v.h / 2)));
-      if (!pr.segs.length || (pr.r.status === 'indeterminado' && !pr.segs.length)) {
-        const fl = pr.marks.find(m => m.hollow);
-        const txt = pr.r.status === 'indeterminado' ? 'A contagem do art. 40 ainda não começou' : 'Nada nesta escala';
-        inner.unshift(<span key="h" className="cx-tl-hint">{txt}{fl ? ' · não prescreve antes de ' + fmtDate(fl.d) : ''}</span>);
+      if (pr.band) {
+        const b = span(pr.band.from, pr.band.to);
+        if (b) {
+          inner.push(<span key="band" className="cx-tl-band" data-tl={'band|' + e.id} style={{ left: b.left, width: b.width, top: sy - 6 }} />);
+          const txt = 'Prescrição · ' + (CX_PRESC_TXT[pr.r.status] || pr.r.status) + ' · piso ' + fmtDate(pr.band.to);
+          const tw = cxTlMeasure(txt, 11) + 6;
+          inner.push(<span key="bandt" className="cx-tl-bandt" style={{ left: Math.max(6, Math.min(Math.max(b.left, b.left < S.pastW ? S.pastW + 6 : 0), CW - tw - 8)), top: sy + 7 }}>{txt}</span>);
+        }
       }
-      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
+      pr.marks.forEach(m => { const o = daysUntil(m.d); if (o !== null && !hid('presc')) inner.push(mk(m, cl(f(o)), sy)); });
     }
-    /* prazo: janela (início → final) com rótulo e o ▼ no vencimento */
-    const it = r.it, i = r.i, end = it.d, c = cxTlPrazoColor(end);
-    const b = clampIso(it.from, localIso(new Date(new Date(end + 'T12:00:00').getTime() + 86400000))), Y = v.h / 2;
-    if (b) {
-      const wide = b.width >= 18;
-      if (wide) inner.push(<div key="p" className="cx-tl-bar prazo" data-tl={it.id} role="button" tabIndex={0} style={{ left: b.left, width: b.width, '--c': c }} onClick={() => open(it)} onKeyDown={ev => { if (ev.key === 'Enter') open(it); }}>{b.width > 110 ? <span className="cx-tl-lbl">Prazo · final {cxDM(end)}</span> : null}</div>);
-      inner.push(<button key="m" type="button" className="cx-tl-g" style={{ left: b.left + b.width - (wide ? 6 : 0), top: Y }} data-tl={it.id} aria-label={it.l + ' · final ' + fmtDate(end)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
-      if (b.width <= 110) inner.push(<span key="pl" className={'cx-tl-dm-l' + (daysUntil(end) < 0 ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: b.left + b.width + 12, top: Y - 7, width: 120 }}>final {cxDM(end)}</span>);
-    }
-    return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
+    return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
   };
+  /* ── legenda e ferramentas ── */
   const legendKinds = TL_KIND_ORDER.filter(k => counts[k] > 0);
-  return <div onClick={ev => { const t = ev.target.closest && ev.target.closest('[data-tl]'); if (!t) return; const k = t.getAttribute('data-tl'); if (k.indexOf('lk|') === 0 || k.indexOf('seg|') === 0) return; if (k.indexOf('bar|') === 0) { onOpenProc && onOpenProc(k.slice(4)); return; } /* demais marcadores já têm onClick próprio */ }}>
-    {!compact ? null : <div className="cx-tl-tools"><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>}
+  const kindColor = (k) => (k === 'dec' ? 'var(--cx-green)' : k === 'prazo' ? 'var(--cx-blue)' : k === 'presc' ? 'var(--cx-violet)' : k === 'aud' ? 'var(--cx-orange)' : k === 'rev' ? 'var(--cx-accent)' : undefined);
+  const sum = cxTlSummary(tl, todayIso);
+  const setWindow = (w) => upd({ w, c: tlFocusDefault(w).c });
+  const shift = (d) => upd({ c: st.c + d });
+  const rd = (o) => { const iso = addCalendarDays(todayIso, Math.round(o)); return st.w >= 180 ? fmtDate(iso) : cxDM(iso); };
+  const rangeTxt = rd(f0) + ' → ' + rd(f1);
+  return <div onClick={ev => { const t = ev.target.closest && ev.target.closest('[data-tl]'); if (!t) return; const k = t.getAttribute('data-tl'); if (k.indexOf('bar|') === 0) onOpenProc && onOpenProc(k.slice(4)); }}>
+    <div className="cx-tl-tools cx-tl-pan">
+      {lead}
+      <span className="cx-tl-leg-h" style={{ marginLeft: lead ? 10 : 0 }}>Janela de foco</span>
+      <CxSeg className="lg" label="Janela de foco" value={String(st.w)} onChange={v => setWindow(+v)} options={TL_WINDOWS.map(w => [String(w), tlWindowLabel(w)])} />
+      <span className="cx-sp" />
+      <span className="cx-tl-rng">{rangeTxt}</span>
+      <button type="button" className="cx-btn sm" onClick={() => shift(-step)} title={'Voltar ' + step + ' dias'}>‹ {step} d</button>
+      <button type="button" className="cx-btn sm" onClick={() => upd({ c: tlFocusDefault(st.w).c })} title="Voltar o foco para hoje">Hoje</button>
+      <button type="button" className="cx-btn sm" onClick={() => shift(step)} title={'Avançar ' + step + ' dias'}>{step} d ›</button>
+    </div>
+    {sum.length ? <div className="cx-tl-sum">{sum.map(s => <span key={s.k} className={s.k}>{s.node}</span>)}</div> : null}
     <div className="cx-tl-legend top">
       <span className="cx-tl-leg-h">Mostrar</span>
-      {legendKinds.map(k => <button key={k} type="button" className={'cx-fchip sm cx-tl-chip' + (hid(k) ? ' off' : ' on') + (counts[k] === 0 ? ' zero' : '')} aria-pressed={!hid(k)} onClick={() => setHidden(h => tlToggleKind(h, k))} title={(hid(k) ? 'Mostrar ' : 'Ocultar ') + TL_KINDS[k].plural.toLowerCase()}>
-        <CxTlGlyph kind={k} c={k === 'dec' ? 'var(--cx-green)' : k === 'prazo' ? 'var(--cx-blue)' : k === 'presc' ? 'var(--cx-violet)' : k === 'aud' ? 'var(--cx-orange)' : k === 'rev' ? 'var(--cx-accent)' : undefined} s={14} />{TL_KINDS[k].label}<span className="cx-fcn">{counts[k]}</span>
+      {legendKinds.map(k => <button key={k} type="button" className={'cx-fchip sm cx-tl-chip' + (hid(k) ? ' off' : ' on')} aria-pressed={!hid(k)} onClick={() => upd({ hidden: tlToggleKind(st.hidden, k) })} title={(hid(k) ? 'Mostrar ' : 'Ocultar ') + TL_KINDS[k].plural.toLowerCase()}>
+        <CxTlGlyph kind={k} c={kindColor(k)} s={14} />{TL_KINDS[k].label}<span className="cx-fcn">{counts[k]}</span>
       </button>)}
       <span className="cx-tl-leg-br" />
       <span className="cx-tl-leg-h">Leitura</span>
-      <span><i className="cx-lg-sw" style={{ background: 'color-mix(in srgb, var(--cx-cyan) 14%, var(--cx-surface))', border: '1px solid color-mix(in srgb, var(--cx-cyan) 40%, transparent)' }} />Processo</span>
+      <span><i className="cx-lg-sw" style={{ background: 'color-mix(in srgb, var(--cx-cyan) 22%, var(--cx-surface))', border: '1px solid color-mix(in srgb, var(--cx-cyan) 45%, transparent)', height: 6 }} />Processo</span>
+      <span><i className="cx-lg-sw cx-tl-win" style={{ position: 'static', '--c': 'var(--cx-blue)', height: 7 }} />Janela do prazo</span>
+      <span><i className="cx-lg-sw cx-tl-band" style={{ position: 'static', height: 10 }} />Faixa até o piso</span>
       <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano</span>
       <span><i className="cx-lg-sw cx-tl-seg inter" />Contagem de 5 anos</span>
       <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento</span>
-      <span><i className="cx-lg-sw cx-tl-seg susp2" />Outra pausa</span>
+      <span><i className="cx-lg-sw cx-tl-brk-k" />Quebra do eixo</span>
       <span className="cx-tl-leg-out"><i className="cx-tl-oc" style={{ background: 'var(--cx-green)' }} />favorável<i className="cx-tl-oc" style={{ background: 'var(--cx-red)' }} />desfavorável<i className="cx-tl-oc" style={{ background: 'var(--cx-yellow)' }} />pendente</span>
     </div>
     <div className="cx-tl" {...tip.bind}>
-      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · papel · devedor</div>{vis.map((v, k) => left(v, k))}</div>
-      <div className="cx-tl-r" ref={scRef}>
-        <div className="cx-tl-cv" style={{ width: W, height: H }}>
-          <div className="cx-tl-axis">{axis}</div>
-          {grid}
-          {vis.map((v, k) => right(v, k))}
-          <svg className="cx-tl-svg" width={W} height={H}>{links.map((l, k) => { const d = 'M' + l.x + ' ' + l.ya + ' C ' + (l.x - 16) + ' ' + l.ya + ', ' + (l.x - 16) + ' ' + l.yb + ', ' + l.x + ' ' + l.yb; return <g key={k} data-tl={l.l.id}><path d={d} className={'cx-tl-link' + (l.l.type === 'cover' ? ' cover' : '')} /><path d={d} className="cx-tl-link-hit" /><circle cx={l.x} cy={l.yb} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>; })}</svg>
+      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · papel · devedor</div>{sections.map((v, k) => left(v, k))}</div>
+      <div className="cx-tl-r" ref={rRef}>
+        <div className="cx-tl-cv" style={{ width: CW, height: H }}>
+          <div className="cx-tl-axis" style={{ height: CX_TL_AXIS }}>
+            {S.pastW >= 120 ? <span className="cx-tl-cap" style={{ left: 6 }}>PASSADO · COMPRIMIDO</span> : null}
+            <span className="cx-tl-cap foc" style={{ left: S.pastW + 6 }}>FOCO · {st.w === 365 ? '1 ANO' : st.w + ' DIAS'} · {rangeTxt}</span>
+            {S.futW >= 120 ? <span className="cx-tl-cap" style={{ right: 6 }}>FUTURO · COMPRIMIDO</span> : null}
+            {majors.map((m, i) => <span key={'M' + i} className="cx-tl-major" style={{ left: m.x }}>{mLab(m)}</span>)}
+            {fa.ticks.filter(tk => !nearToday(tk.x)).map((tk, i) => <span key={'T' + i} className={'cx-tl-tick' + (tk.we ? ' we' : '')} style={{ left: tk.x }}>{tk.text}</span>)}
+            {zp.labels.concat(zu.labels).map((lb, i) => <span key={'Z' + i} className="cx-tl-major zn" style={{ left: lb.x }}>{lb.text}</span>)}
+          </div>
+          {S.pastW ? <span className="cx-tl-zone" style={{ left: 0, width: S.pastW, top: CX_TL_AXIS }} /> : null}
+          {S.futW ? <span className="cx-tl-zone" style={{ left: S.pastW + S.focusW, width: S.futW, top: CX_TL_AXIS }} /> : null}
+          {fa.shade.map((s, i) => <span key={'sh' + i} className={'cx-tl-shade' + (s.holiday ? ' hol' : '')} style={{ left: s.x, width: s.w }} />)}
+          {fa.grid.map((g, i) => <span key={'g' + i} className={'cx-tl-grid' + (g.strong ? ' strong' : '')} style={{ left: g.x }} />)}
+          {zp.ticks.concat(zu.ticks).map((tk, i) => <span key={'zt' + i} className="cx-tl-grid strong zt" style={{ left: tk.x }} />)}
+          {sections.map((v, k) => right(v, k))}
+          <svg className="cx-tl-svg" width={CW} height={H}>{links.map((l, k) => { const d = 'M' + l.x + ' ' + l.ya + ' C ' + (l.x - 16) + ' ' + l.ya + ', ' + (l.x - 16) + ' ' + l.yb + ', ' + l.x + ' ' + l.yb; return <g key={k} data-tl={l.l.id}><path d={d} className={'cx-tl-link' + (l.l.type === 'cover' ? ' cover' : '')} /><path d={d} className="cx-tl-link-hit" /><circle cx={l.x} cy={l.yb} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>; })}</svg>
+          {zp.breaks.concat(zu.breaks).map((b, i) => <React.Fragment key={'br' + i}>
+            <span className="cx-tl-brk" data-tl={'brk|' + i} style={{ left: b.x0, width: b.x1 - b.x0, top: CX_TL_AXIS - 22 }} />
+            <span className="cx-tl-brk-l" style={{ left: b.x0, width: b.x1 - b.x0 }}>{b.label}</span>
+          </React.Fragment>)}
           <div className="cx-tl-today" style={{ left: x0 }}><span>Hoje</span></div>
         </div>
       </div>
@@ -2489,20 +2571,25 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
     </div>
   </div>;
 }
-function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
+/* Modos da página Linha do tempo. Hoje só o Panorama (M1); os próximos (Frentes · Prescrição · Narrativa) entram
+   aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, … }).
+   Com um modo só, o seletor fica escondido. */
+const CX_TL_MODES = [['panorama', 'Panorama']];
+const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama };
+function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
+  const [mode, setMode] = React.useState('panorama');
+  const tl = React.useMemo(() => (op ? cxBuildTimeline(data, op, prescLookup) : null), [data, op, prescLookup]);
+  const View = CX_TL_VIEWS[mode] || CX_TL_VIEWS.panorama;
   return <div className="cx cx-page cx-page-wide">
-    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição da operação numa mesma régua. Cada forma é um tipo de fato; clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa lilás usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
+    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
       {op ? <div className="cx-acts"><button type="button" className="cx-btn" onClick={() => onOpenOp(op.id)}>Abrir operação<CxIcon n="chevR" s={13} /></button></div> : null}</div>
     {!op ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma operação ativa.</div></div> : <>
-      <div className="cx-tl-tools">
+      <View key={op.id + '|' + mode} tl={tl} op={op} lead={<>
         <CxSelect id="cx-tl-op" pre="Operação" value={op.id} onChange={setOpId} options={ops.map(o => [o.id, cxOpName(o)])} />
-        <CxSeg className="lg" label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} />
-        <span className="cx-sp" />
-        <span className="cx-muted cx-small">Use Anos para ver o 1 ano + 5 anos inteiro; passe o mouse num marco para a prévia.</span>
-      </div>
-      <EditionClaudeTimeline data={data} op={op} prescLookup={prescLookup} scale={scale} setScale={setScale} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />
+        {CX_TL_MODES.length > 1 ? <CxSeg className="lg" label="Modo" value={mode} onChange={setMode} options={CX_TL_MODES} /> : null}
+      </>} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />
     </>}
   </div>;
 }
