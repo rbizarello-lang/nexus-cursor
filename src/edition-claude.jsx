@@ -319,7 +319,7 @@ function CxDocIcon({ url, size = 18 }) {
 }
 function CxSeg({ value, onChange, options, label, className = '' }) {
   return <div className={'cx-seg ' + className} role="group" aria-label={label}>
-    {options.map(o => <button key={o[0]} type="button" className={value === o[0] ? 'on' : ''} aria-pressed={value === o[0]} onClick={() => onChange(o[0])}>
+    {options.map(o => <button key={o[0]} type="button" className={(value === o[0] ? 'on' : '') + (o[4] && o[4].disabled ? ' dis' : '')} aria-pressed={value === o[0]} aria-disabled={o[4] && o[4].disabled ? true : undefined} title={o[4] && o[4].title ? o[4].title : undefined} onClick={() => { if (!(o[4] && o[4].disabled)) onChange(o[0]); }}>
       {o[2] ? <CxIcon n={o[2]} s={13} /> : null}{o[1]}{o[3] != null ? <span className="cx-n">{o[3]}</span> : null}
     </button>)}
   </div>;
@@ -2065,8 +2065,8 @@ function cxBuildTimeline(data, op, prescLookup) {
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
-      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
+      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', sk: k, kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
     });
     const seen = new Set();
     events.forEach(pe => {
@@ -2607,14 +2607,15 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
     </div>
   </div>;
 }
-/* Modos da página Linha do tempo: Panorama (M1, a régua), Prescrição (M4, o relógio por CDA) e Narrativa (M2); um modo
+/* Modos da página Linha do tempo: Panorama (M1, a régua), Frentes (M3, o mapa de dependências), Prescrição (M4, o relógio por CDA) e Narrativa (M2); um modo
    novo entra aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, lead, … };
    `lead` é o seletor de operação mais o seletor de modo, e a visão o coloca na própria barra de ferramentas).
    Com um modo só, o seletor fica escondido. O modo escolhido é lembrado neste navegador. */
-const CX_TL_MODES = [['panorama', 'Panorama'], ['prescricao', 'Prescrição'], ['narrativa', 'Narrativa']];
-const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, prescricao: EditionClaudeTimelineClocks, narrativa: EditionClaudeTimelineNarrative };
+const CX_TL_MODES = [['panorama', 'Panorama'], ['frentes', 'Frentes'], ['prescricao', 'Prescrição'], ['narrativa', 'Narrativa']];
+const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, frentes: EditionClaudeTimelineFrentes, prescricao: EditionClaudeTimelineClocks, narrativa: EditionClaudeTimelineNarrative };
 const CX_TL_DESC = {
   panorama: 'Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.',
+  frentes: 'O que depende de quê: uma raia por processo (IDPJ, MCF, execuções, exceção, agravo, CDAs) numa sequência de acontecimentos, com setas de efeito e de condição. Passe o mouse numa estação para ver o que a originou e o que ela destrava; "Caminho crítico" realça o que ainda precisa acontecer até o que está por decidir. Clique numa estação para abrir o processo, a intimação, a audiência ou a CDA.',
   prescricao: 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa de prazos; cada barra vale 5 anos (ou 1+5), então dá para comparar CDAs de idades diferentes. Clique numa CDA para abrir a ficha com a memória de cálculo.',
   narrativa: 'A história da operação em ordem de importância: o que está atrasado e o que vem (do mais próximo ao mais distante), e abaixo do divisor Hoje o que já houve, com as decisões em destaque e o que você mesmo fez. Filtre por natureza ou por processo; clique num cartão para abrir o processo, a intimação, a audiência, a tarefa ou a CDA.',
 };
@@ -2936,7 +2937,7 @@ function CxNarrItem({ it, todayIso, onOpen }) {
     </span>
   </div>;
 }
-function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, switchNode, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
   const todayIso = localIso(new Date());
   const card = variant === 'card';
   const [cat, setCat] = React.useState('all');
@@ -3005,7 +3006,7 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIn
   </div>;
   if (card) {
     return <section className="cx-card cx-bf-nr" aria-label="Narrativa da operação">
-      <div className="cx-card-h"><h5>Narrativa</h5><span className="cx-count">{listed.length}</span><span className="cx-muted cx-small cx-nr-sub">o que vem: atrasado, esta semana, próxima, mais adiante</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+      <div className="cx-card-h">{switchNode || <h5>Narrativa</h5>}<span className="cx-count">{listed.length}</span><span className="cx-muted cx-small cx-nr-sub">o que vem: atrasado, esta semana, próxima, mais adiante</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
       <div className="cx-nr-body">
         <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
         {chips}
@@ -3044,10 +3045,279 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, onOpenIn
 function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa }) {
   return <EditionClaudeNarrative tl={tl} op={op} data={data} lead={lead} variant="page" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} />;
 }
-/* Card do Briefing: monta a régua de dados da operação e entrega à Narrativa (variante compacta). */
+/* Card do Briefing: monta a régua de dados da operação e mostra UMA coisa por vez, a escolha no cabeçalho — "Narrativa" (o que
+   vem) ou "Mapa de frentes" (M3). A escolha fica lembrada neste navegador; sem frentes para mapear (nenhum IDPJ/MCF nem
+   processos vinculados), o mapa fica desabilitado. */
+const CX_BF_NR_VIEW = 'nexus_cx_bf_nr_view';
 function EditionClaudeNarrativeCard({ op, data, prescLookup, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
-  return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={onOpenTimeline} />;
+  const [saved, setSaved] = React.useState(() => (cxLs(CX_BF_NR_VIEW, 'narrativa') === 'mapa' ? 'mapa' : 'narrativa'));
+  const canMap = React.useMemo(() => frentesHasFronts({ lanes: tl.procs.map(r => ({ incident: r.x.e.processTag === 'idpj' || r.x.e.processTag === 'cautelar_fiscal' })), links: tl.links }), [tl]);
+  const view = saved === 'mapa' && canMap ? 'mapa' : 'narrativa';
+  const pick = (v) => { setSaved(v); cxLsSet(CX_BF_NR_VIEW, v); };
+  const sw = <CxSeg label="O que mostrar neste card" value={view} onChange={pick}
+    options={[['narrativa', 'Narrativa'], ['mapa', 'Mapa de frentes', null, null, canMap ? null : { disabled: true, title: CX_FR_NOHINT }]]} />;
+  const openTl = onOpenTimeline ? () => onOpenTimeline(view === 'mapa' ? 'frentes' : 'narrativa') : null; // a Linha do tempo abre no modo do card
+  if (view === 'mapa') return <EditionClaudeFrentes key={op.id + '|mapa'} tl={tl} op={op} variant="card" switchNode={sw} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTimeline={openTl} />;
+  return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" switchNode={sw} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={openTl} />;
+}
+
+/* ═════════════════════ Mapa de frentes e dependências (M3, estilo metrô) ═════════════════════
+   "O que depende de quê? Quando o IDPJ decidir, o que destrava nas execuções — e qual é o caminho crítico?" Uma raia por
+   processo (IDPJ, MCF, EF principal, EF apensa, exceção, agravo…) e uma para as CDAs sem processo; eixo ORDINAL (cada coluna
+   é um acontecimento, a data vai no rótulo); setas de efeito (verde), de condição (violeta tracejada), de origem (cinza) e
+   de cobertura; estações vazadas = derivadas do vínculo; tracejadas = esperadas, sem data. Passar o mouse numa estação
+   realça o que a originou e o que ela destrava. Tudo sai dos dados que o app já tem (`cxBuildTimeline` + vínculos
+   `parentExecutionId`/`linkedExecutionIds` + registros de fase); grafo, colunas, setas, cadeia e caminho crítico são puros
+   (src/lib/frentes.js). Vive na Linha do tempo (modo Frentes) e no Briefing (card Narrativa, no seletor "Narrativa | Mapa de
+   frentes"). */
+function cxFrParentLabel(e) {
+  if (/agravo/i.test(e.className || '')) return 'agravo';
+  const t = cxExecTag(e);
+  return t === 'EXC' ? 'exceção' : t === 'REC' ? 'recurso' : t === 'EMB' ? 'embargos' : t === 'EF' || t === 'CENTRAL' ? 'apenso' : 'vínculo';
+}
+/* Adapta a régua (`cxBuildTimeline`) às entradas do grafo puro. */
+function cxBuildFrentesGraph(tl, op, todayIso) {
+  const lanes = [], events = [], links = [];
+  let orphans = 0;
+  const execLabel = (e) => cxExecTag(e) + ' ' + cxExecShortNum(e);
+  tl.procs.forEach(r => {
+    const x = r.x, e = x.e;
+    const coveredBy = tl.links.filter(l => l.type === 'cover' && l.b === e.id).map(l => tl.execById.get(l.a)).filter(Boolean);
+    const covers = tl.links.filter(l => l.type === 'cover' && l.a === e.id).length;
+    lanes.push({
+      id: e.id, kind: 'proc', execId: e.id, tag: cxExecTag(e), color: cxTagColor(e), title: x.role, num: cxExecShortNum(e), name: execLabel(e), who: x.who,
+      sub: [x.rel, coveredBy.length ? 'coberta por ' + coveredBy.map(execLabel).join(', ') : '', covers ? 'cobre ' + cxPl(covers, 'execução', 'execuções') : '', x.cdaN ? cxPl(x.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cdaVal) : ''].filter(Boolean),
+      incident: e.processTag === 'idpj' ? 'idpj' : e.processTag === 'cautelar_fiscal' ? 'mcf' : '',
+      closed: e.status === 'extinta' || e.status === 'arquivada',
+    });
+  });
+  if (tl.cdas.length) lanes.push({ id: 'cda', kind: 'cda', tag: 'CDA', color: 'var(--cx-violet)', title: 'CDAs sem processo', num: '', name: 'CDAs sem processo', sub: [cxPl(tl.cdas.length, 'a ajuizar', 'a ajuizar')] });
+  tl.links.forEach(l => links.push({ type: l.type, a: l.a, b: l.b, label: l.type === 'parent' ? cxFrParentLabel(tl.execById.get(l.b)) : 'cobre' }));
+  const hasAjuiz = new Set();
+  tl.items.forEach(it => {
+    if (!it.d || it.kind === 'rev') return;
+    if (it.kind === 'presc' && it.mark && !it.deadline) return;
+    const lane = it.k === 'cda' ? 'cda' : it.execId;
+    if (!lane) { if (it.kind === 'aud') orphans++; return; }
+    if (it.sk === 'ajuizamento' || it.sk === 'ajuizamento_ef') hasAjuiz.add(lane);
+    const label = it.k === 'cda' ? 'Ajuizar CDA …' + String((it.debt && it.debt.cdaNumber) || 'S/N').slice(-9) : it.kind === 'aud' ? String(it.l).replace(/ · .*$/, '') : it.kind === 'prazo' ? cxTlShortDesc(it.l, 44) : it.l;
+    events.push({
+      id: it.id, lane, d: it.d, tm: it.tm || '', kind: it.kind, label, color: cxTlColor(it), sk: it.sk || '', out: it.out || '',
+      open: it.kind === 'prazo' || (it.kind === 'aud' && !it.realized) || it.k === 'cda', late: it.kind === 'prazo' && daysUntil(it.d) < 0, ref: it.ref, item: it,
+    });
+  });
+  tl.procs.forEach(r => {
+    const e = r.x.e, d = toDayKey(e.protocolDate);
+    if (!d || hasAjuiz.has(e.id)) return;
+    events.push({ id: 'dist|' + e.id, lane: e.id, d, tm: '', kind: 'and', label: 'Distribuição', color: 'var(--cx-ink-2)', open: false, late: false, ref: { t: 'exec', id: e.id } });
+  });
+  const g = buildFrentesGraph({ lanes, events, links, todayIso: todayIso || localIso(new Date()) });
+  g.orphans = orphans;
+  return g;
+}
+const CX_FR = { LW: 196, PADL: 24, COLW: 62, LH: 108, TOP: 50 };
+const CX_FR_NOHINT = 'Esta operação não tem frentes para mapear: nenhum IDPJ, MCF nem processos vinculados (apenso, exceção, recurso).';
+/* Quebra o rótulo em até 2 linhas que caibam em `maxW` px (reticências no que sobra). */
+function cxFrWrap(text, maxW) {
+  const rest = String(text || '').split(/\s+/).filter(Boolean);
+  const fit = (t) => cxTlMeasure(t, 11) <= maxW;
+  const clip = (t) => { let s = t; while (s.length > 1 && !fit(s + '…')) s = s.slice(0, -1); return s + '…'; };
+  const lines = [];
+  while (rest.length && lines.length < 2) {
+    let cur = '';
+    while (rest.length && fit(cur ? cur + ' ' + rest[0] : rest[0])) cur = cur ? cur + ' ' + rest.shift() : rest.shift();
+    if (!cur) cur = rest.shift(); // palavra maior que a linha
+    lines.push(cur);
+  }
+  const k = lines.length - 1;
+  if (rest.length) lines[k] = clip(lines[k] + ' ' + rest.join(' '));
+  else if (k >= 0 && !fit(lines[k])) lines[k] = clip(lines[k]);
+  return lines;
+}
+const CX_FR_EDGE = { eff: { c: 'var(--cx-green)', mk: 'cx-fr-ar-eff' }, cond: { c: 'var(--cx-violet)', mk: 'cx-fr-ar-cond', dash: '5 4' }, flow: { c: 'var(--cx-ink-3)', mk: 'cx-fr-ar-flow' }, cover: { c: 'var(--cx-ink-3)', mk: 'cx-fr-ar-flow', dash: '2 4' } };
+function CxFrMap({ graph, tl, crit, onlyCrit, onOpen }) {
+  const { LW, PADL, COLW, LH, TOP } = CX_FR;
+  const [hl, setHl] = React.useState('');
+  const wrapRef = React.useRef(null);
+  const ncols = graph.cols.length;
+  const W = PADL + ncols * COLW + 56;
+  const H = TOP + graph.lanes.length * LH + 6;
+  const laneIdx = React.useMemo(() => new Map(graph.lanes.map((l, i) => [l.id, i])), [graph]);
+  const pos = (n) => ({ x: PADL + n.col * COLW + COLW / 2, y: TOP + laneIdx.get(n.lane) * LH + LH / 2 });
+  const todayX = PADL + graph.todayCol * COLW;
+  const labels = React.useMemo(() => frentesColumnLabels(graph), [graph]);
+  const chain = React.useMemo(() => (hl ? frentesChain(graph, hl) : null), [graph, hl]);
+  const lit = chain || (onlyCrit && crit.ids.length ? crit.set : null);
+  const [, setFontTick] = React.useState(0);
+  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  // Abre com o "hoje" visível (um pouco de passado à esquerda).
+  React.useLayoutEffect(() => { const el = wrapRef.current; if (el) el.scrollLeft = Math.max(0, todayX - el.clientWidth * 0.4); }, [graph]);
+  const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('lane|') === 0) { const l = graph.lanes.find(x => x.id === key.slice(5)); return l ? { when: l.kind === 'cda' ? 'CDAs sem processo' : l.title, title: l.name, lines: [l.who ? 'Devedor: ' + l.who : '', l.sub.join(' · '), l.kind === 'cda' ? '' : 'Clique para abrir o processo'].filter(Boolean) } : null; }
+    if (key.indexOf('ed|') === 0) {
+      const e = graph.edges.find(x => x.id === key); if (!e) return null;
+      const A = graph.byId.get(e.a), B = graph.byId.get(e.b);
+      const ln = (n) => (n.label || '') + ' (' + ((graph.lanes.find(l => l.id === n.lane) || {}).name || '') + ')';
+      return { when: FRENTES_EDGE_LABEL[e.type] || '', title: ln(A) + ' → ' + ln(B), lines: e.type === 'cond' ? ['Só vale se a decisão esperada for favorável'] : [] };
+    }
+    const n = graph.byId.get(key); if (!n) return null;
+    const laneName = (graph.lanes.find(l => l.id === n.lane) || {}).name || '';
+    if (n.item) { const d = cxTlTipData(n.item, tl.execById); if (n.open && !n.ghost && !n.late && n.d > graph.today) d.lines.push('Em aberto: está no caminho de quem depende dele'); return d; }
+    if (n.ghost) return { when: 'Esperado · sem data', title: n.label, lines: [n.note, laneName, 'Clique para abrir o processo'].filter(Boolean) };
+    if (n.derived) return { when: 'Derivado · ' + fmtDate(n.d), title: n.label, lines: [n.note, 'Clique para abrir o processo'] };
+    return { when: CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d), title: n.label, lines: [laneName, 'Clique para abrir o processo'] };
+  }, [graph, tl]));
+  const openNode = (n) => { const r = n && n.ref; if (r) onOpen(r); };
+  const nodeOf = (ev) => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-st]') : null; return t ? t.getAttribute('data-st') : ''; };
+  const dim = (id) => !!lit && !lit.has(id);
+  const o = [];
+  /* faixa do futuro e grade das colunas */
+  o.push(<rect key="fut" x={todayX} y={TOP - 8} width={Math.max(0, W - todayX)} height={H - TOP + 8} style={{ fill: 'var(--cx-surface-2)' }} />);
+  labels.forEach((lb, i) => {
+    const x = PADL + i * COLW + COLW / 2;
+    o.push(<g key={'c' + i}>
+      {lb.top ? <text x={x} y={16} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: 'var(--cx-ink-2)' }}>{lb.top}</text> : null}
+      <text x={x} y={31} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--cx-mono)', fill: 'var(--cx-ink-3)' }}>{lb.bottom || 'a definir'}</text>
+      <line x1={x} x2={x} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-line)', strokeDasharray: '1 4', opacity: 0.7 }} />
+    </g>);
+  });
+  o.push(<line key="axis" x1={0} x2={W} y1={TOP - 8} y2={TOP - 8} style={{ stroke: 'var(--cx-line)' }} />);
+  /* raias (faixas) */
+  graph.lanes.forEach((l, i) => {
+    const y = TOP + i * LH;
+    o.push(<g key={'l' + l.id}><rect x={0} y={y} width={W} height={LH} style={{ fill: i % 2 ? 'transparent' : 'var(--cx-surface-2)', opacity: 0.5 }} /><line x1={0} x2={W} y1={y + LH} y2={y + LH} style={{ stroke: 'var(--cx-line)' }} />
+      {!l.nodes.length ? <text x={PADL + 8} y={y + LH / 2 + 4} style={{ fontSize: 11, fill: 'var(--cx-ink-3)', fontStyle: 'italic' }}>sem fatos datados</text> : null}</g>);
+  });
+  /* arestas: primeiro a sequência das raias, depois as setas entre raias */
+  const laneCol = (id) => { const l = graph.lanes.find(x => x.id === id); return l ? l.color : 'var(--cx-ink-3)'; };
+  graph.edges.filter(e => e.type === 'lane').forEach(e => {
+    const A = graph.byId.get(e.a), B = graph.byId.get(e.b), a = pos(A), b = pos(B);
+    o.push(<line key={e.id} className={lit && !(lit.has(e.a) && lit.has(e.b)) ? 'cx-fr-dim' : ''} x1={a.x} x2={b.x} y1={a.y} y2={b.y} style={{ stroke: laneCol(A.lane), strokeWidth: 3, strokeOpacity: e.ghost ? 0.3 : 0.55, strokeDasharray: e.ghost ? '3 5' : undefined, strokeLinecap: 'round' }} />);
+  });
+  graph.edges.filter(e => e.type !== 'lane').forEach(e => {
+    const A = graph.byId.get(e.a), B = graph.byId.get(e.b), a = pos(A), b = pos(B), st = CX_FR_EDGE[e.type] || CX_FR_EDGE.flow;
+    const down = b.y > a.y, sy = a.y + (down ? 9 : -9), ty = b.y + (down ? -9 : 9);
+    let d, mx, my;
+    if (Math.abs(a.x - b.x) < 3) { const jx = e.label ? 0 : 6; d = 'M' + (a.x + 5 + jx) + ' ' + sy + ' L' + (b.x + 5 + jx) + ' ' + ty; mx = a.x + 5 + jx; my = (sy + ty) / 2; }
+    else { const k = down ? 30 : -30; d = 'M' + a.x + ' ' + sy + ' C' + a.x + ' ' + (sy + k) + ', ' + b.x + ' ' + (ty - k) + ', ' + b.x + ' ' + ty; mx = (a.x + b.x) / 2; my = (sy + ty) / 2; }
+    const faded = lit && !(lit.has(e.a) && lit.has(e.b));
+    o.push(<g key={e.id} className={faded ? 'cx-fr-dim' : ''} data-tl={e.id}>
+      <path d={d} fill="none" style={{ stroke: st.c, strokeWidth: 2, strokeDasharray: st.dash }} markerEnd={'url(#' + st.mk + ')'} />
+      <path d={d} fill="none" style={{ stroke: 'transparent', strokeWidth: 12 }} />
+      {e.label ? <g><rect x={mx + 7} y={my - 8} width={cxTlMeasure(e.label, 10.5) + 10} height={16} rx={4} style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-line)' }} /><text x={mx + 12} y={my + 3.5} style={{ fontSize: 10.5, fill: st.c, fontWeight: 500 }}>{e.label}</text></g> : null}
+    </g>);
+  });
+  /* estações */
+  graph.lanes.forEach((l, li) => {
+    l.nodes.forEach((id, idx) => {
+      const n = graph.byId.get(id), p = pos(n);
+      const above = idx % 2 === 0;
+      const lines = cxFrWrap(n.label, COLW * 2 - 12);
+      const dtxt = n.ghost ? 'a definir' : cxDM(n.d) + (n.tm ? ' ' + n.tm : '');
+      const ty = above ? p.y - 22 - lines.length * 12 : p.y + 25;
+      const col = n.ghost ? 'var(--cx-ink-3)' : n.color || 'var(--cx-ink-2)';
+      const onCrit = crit.set.has(id);
+      o.push(<g key={'s' + id} className={'cx-fr-st' + (dim(id) ? ' cx-fr-dim' : '') + (n.ghost ? ' ghost' : '')} data-st={id} data-tl={id} tabIndex={0} role="button" aria-label={n.label + (n.ghost ? ', esperado, sem data' : ', ' + fmtDate(n.d))}>
+        <circle cx={p.x} cy={p.y} r={15} style={{ fill: hl === id || (onCrit && lit === crit.set) ? 'var(--cx-accent-soft)' : 'transparent' }} />
+        <g transform={'translate(' + (p.x - 9) + ' ' + (p.y - 9) + ')'}>{n.derived
+          ? <svg className="cx-tl-gl" width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-green)', strokeWidth: 1.8 }} /><circle cx="8" cy="8" r="1.8" style={{ fill: 'var(--cx-green)' }} /></svg>
+          : <CxTlGlyph kind={n.kind} c={col} ghost={n.ghost} s={18} />}</g>
+        <text x={p.x} y={ty} textAnchor="middle" className="cx-fr-t" style={{ fontSize: 9.5, fontFamily: 'var(--cx-mono)', fill: n.late ? 'var(--cx-red)' : 'var(--cx-ink-3)' }}>{dtxt}</text>
+        {lines.map((t, i) => <text key={i} x={p.x} y={ty + 12 + i * 12} textAnchor="middle" className="cx-fr-t" style={{ fontSize: 11, fill: n.late ? 'var(--cx-red)' : n.ghost ? 'var(--cx-ink-3)' : 'var(--cx-ink)', fontWeight: n.kind === 'dec' && !n.ghost ? 600 : 500, fontStyle: n.ghost ? 'italic' : undefined }}>{t}</text>)}
+      </g>);
+    });
+  });
+  /* hoje */
+  o.push(<g key="hoje"><line x1={todayX} x2={todayX} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-accent)', strokeWidth: 1.6 }} /><rect x={todayX - 22} y={H - 17} width={44} height={15} rx={4} style={{ fill: 'var(--cx-accent)' }} /><text x={todayX} y={H - 6} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: '#fff', fontFamily: 'var(--cx-mono)' }}>HOJE</text></g>);
+  const mark = (id, c) => <marker key={id} id={id} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style={{ fill: c }} /></marker>;
+  const hoverBind = {
+    onMouseOver: (ev) => { const k = nodeOf(ev); if (k !== hl) setHl(k); },
+    onMouseMove: tip.bind.onMouseMove,
+    onMouseLeave: () => { setHl(''); tip.bind.onMouseLeave(); },
+    onFocus: (ev) => { const k = nodeOf(ev); if (k) setHl(k); tip.bind.onFocus(ev); },
+    onBlur: (ev) => { setHl(''); tip.bind.onBlur(ev); },
+    onClick: (ev) => { const k = nodeOf(ev); if (k) { openNode(graph.byId.get(k)); return; } const lane = ev.target.closest && ev.target.closest('[data-lane]'); if (lane) { const l = graph.lanes.find(x => x.id === lane.getAttribute('data-lane')); if (l && l.execId) onOpen({ t: 'exec', id: l.execId }); } },
+    onKeyDown: (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute && ev.target.getAttribute('data-st')) { ev.preventDefault(); openNode(graph.byId.get(ev.target.getAttribute('data-st'))); } },
+  };
+  return <div className="cx-fr-wrap" ref={wrapRef} {...hoverBind}>
+    <div className="cx-fr-in" style={{ width: LW + W, height: H }}>
+      <div className="cx-fr-lanes" style={{ width: LW, height: H }}>
+        <div className="cx-fr-lh">Frentes <span>{graph.lanes.filter(l => l.kind === 'proc').length}</span></div>
+        {graph.lanes.map((l, i) => <div key={l.id} className={'cx-fr-ln' + (l.closed ? ' off' : '') + (l.execId ? ' click' : '')} style={{ top: TOP + i * LH, height: LH }} data-lane={l.id} data-tl={'lane|' + l.id} role={l.execId ? 'button' : undefined} tabIndex={l.execId ? 0 : undefined}
+          onKeyDown={l.execId ? (ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onOpen({ t: 'exec', id: l.execId }); } }) : undefined}>
+          <span className="cx-ptag" style={{ '--c': l.color }}>{l.tag}</span>
+          <b>{l.title}</b>
+          {l.num ? <span className="cx-mono cx-fr-num">{l.num}</span> : null}
+          {l.sub.slice(0, 2).map((t, k) => <span key={k} className="cx-fr-sub">{t}</span>)}
+        </div>)}
+      </div>
+      <svg className="cx-fr-svg" width={W} height={H} viewBox={'0 0 ' + W + ' ' + H} role="img" aria-label="Mapa de frentes e dependências">
+        <defs>{mark('cx-fr-ar-eff', 'var(--cx-green)')}{mark('cx-fr-ar-cond', 'var(--cx-violet)')}{mark('cx-fr-ar-flow', 'var(--cx-ink-3)')}</defs>
+        {o}
+      </svg>
+    </div>
+    {tip.node}
+  </div>;
+}
+function cxFrLegend() {
+  const ar = (c, dash) => <svg width="30" height="10" viewBox="0 0 30 10" aria-hidden="true"><path d="M1 5H25" style={{ stroke: c, strokeWidth: 2, strokeDasharray: dash }} /><path d="M24 1.5L29 5L24 8.5z" style={{ fill: c }} /></svg>;
+  return <div className="cx-tl-legend top">
+    <span><CxTlGlyph kind="dec" c="var(--cx-blue)" /> decisão</span><span><CxTlGlyph kind="and" /> andamento</span><span><CxTlGlyph kind="aud" c="var(--cx-orange)" /> audiência</span><span><CxTlGlyph kind="prazo" c="var(--cx-yellow)" /> prazo</span><span><CxTlGlyph kind="presc" c="var(--cx-violet)" /> prescrição</span>
+    <span><svg className="cx-tl-gl" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-green)', strokeWidth: 1.8 }} /><circle cx="8" cy="8" r="1.8" style={{ fill: 'var(--cx-green)' }} /></svg> derivada do vínculo</span>
+    <span><CxTlGlyph kind="dec" c="var(--cx-ink-3)" ghost /> esperada, sem data</span>
+    <span className="cx-tl-leg-br" />
+    <span>{ar('var(--cx-green)')} efeito já ocorrido</span><span>{ar('var(--cx-violet)', '5 4')} condicional</span><span>{ar('var(--cx-ink-3)')} origem (apenso, exceção, recurso)</span><span>{ar('var(--cx-ink-3)', '2 4')} cobertura</span>
+  </div>;
+}
+/* Cartões do caminho crítico (abaixo do mapa): o que falta, em ordem, até o que está por decidir. */
+function CxFrCrit({ graph, crit, onOpen }) {
+  return <div className="cx-fr-crit">{crit.ids.map((id, i) => {
+    const n = graph.byId.get(id), lane = graph.lanes.find(l => l.id === n.lane) || {};
+    const dd = n.d ? daysUntil(n.d) : null;
+    const when = n.ghost ? 'Sem data' : (CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d) + (n.tm ? ' · ' + n.tm : '') + (dd === null ? '' : dd === 0 ? ' · hoje' : dd < 0 ? ' · vencido ' + tlDurLabel(dd) : ' · em ' + tlDurLabel(dd)));
+    return <button key={id} type="button" className={'cx-fr-cr' + (n.ghost ? ' g' : '') + (n.late ? ' late' : '')} onClick={() => n.ref && onOpen(n.ref)}>
+      <span className="n">CAMINHO CRÍTICO · {i + 1}</span><h6>{n.label}</h6><p>{when}</p><p className="cx-muted">{lane.name}{n.ghost && n.note ? ' · ' + n.note.replace(/ Sem data\.$/, '') : ''}</p>
+    </button>;
+  })}</div>;
+}
+function EditionClaudeFrentes({ tl, op, variant = 'page', lead, switchNode, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTimeline }) {
+  const card = variant === 'card';
+  const todayIso = localIso(new Date());
+  const graph = React.useMemo(() => cxBuildFrentesGraph(tl, op, todayIso), [tl, op, todayIso]);
+  const crit = React.useMemo(() => frentesCriticalPath(graph, todayIso), [graph, todayIso]);
+  const [onlyCrit, setOnlyCrit] = React.useState(false);
+  const open = (r) => {
+    if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+  };
+  const critBtn = <button type="button" className={'cx-fchip sm' + (onlyCrit ? ' on' : '') + (!crit.ids.length ? ' zero' : '')} aria-pressed={onlyCrit} disabled={!crit.ids.length}
+    title={crit.ids.length ? 'Realça só o que ainda precisa acontecer até o que está por decidir (a decisão esperada e o que depende dela)' : 'Sem decisão esperada neste mapa (nenhum IDPJ/MCF ou recurso aguardando julgamento): não há caminho crítico a destacar'} onClick={() => setOnlyCrit(v => !v)}><span className="cx-dot" style={{ background: 'var(--cx-accent)' }} />Caminho crítico<span className="cx-fcn">{crit.ids.length}</span></button>;
+  const nReal = graph.nodes.filter(n => !n.ghost && !n.derived).length;
+  const body = !graph.hasFronts
+    ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{CX_FR_NOHINT}</div>
+    : <>
+      {cxFrLegend()}
+      <CxFrMap graph={graph} tl={tl} crit={crit} onlyCrit={onlyCrit} onOpen={open} />
+      {crit.ids.length && (onlyCrit || !card) ? <CxFrCrit graph={graph} crit={crit} onOpen={open} /> : null}
+      <p className="cx-fr-note cx-muted cx-small">Cada coluna é um acontecimento, na ordem das datas (a distância não vale tempo). Setas e estações vazadas ou tracejadas saem dos vínculos entre processos e das fases registradas; nenhuma é fato novo.{graph.orphans ? ' ' + cxPl(graph.orphans, 'audiência sem número de processo fica', 'audiências sem número de processo ficam') + ' fora do mapa.' : ''} Tarefas e revisões não entram.</p>
+    </>;
+  if (card) {
+    return <section className="cx-card cx-bf-nr cx-bf-fr" aria-label="Mapa de frentes e dependências">
+      <div className="cx-card-h">{switchNode}<span className="cx-count">{nReal}</span><span className="cx-muted cx-small cx-nr-sub">o que depende de quê</span><span className="cx-sp" />{graph.hasFronts ? critBtn : null}{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+      <div className="cx-nr-body">{body}</div>
+    </section>;
+  }
+  return <div>
+    <div className="cx-tl-tools">{lead}<span className="cx-sp" />{graph.hasFronts ? critBtn : null}</div>
+    <div className="cx-card cx-fr-card">{body}</div>
+  </div>;
+}
+function EditionClaudeTimelineFrentes({ tl, op, lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
+  return <EditionClaudeFrentes tl={tl} op={op} variant="page" lead={lead} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
 }
 
 /* ═════════════════════ Atuações recentes (Briefing) ═════════════════════

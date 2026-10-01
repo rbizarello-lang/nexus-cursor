@@ -6095,7 +6095,7 @@ function App() {
           upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
           onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
           onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
-          onOpenTimeline={() => { cxLsSet('nexus_cx_tl_mode', 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
+          onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
       }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
