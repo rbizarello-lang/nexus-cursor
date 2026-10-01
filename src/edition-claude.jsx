@@ -2740,9 +2740,13 @@ function CxClkBar({ c, todayIso }) {
     <div className="cx-clk-lbs"><span>{left}</span>{right ? <span className="r">{right}</span> : null}</div>
   </div>;
 }
-function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpenCda, onOpenProc }) {
+/* Relógios da prescrição (M4). Dois usos: página/aba solta (Prazos extintivos, Linha do tempo) e `embedded` dentro da aba
+   Inscrições da operação — mesma tela, mesma conta; `debtIds` (Set) recorta às CDAs que passaram nos filtros da aba
+   (busca e Pessoa) e `filtered` só ajusta o texto de "nada a mostrar". Sem `onOpenProc`, clicar numa linha com várias CDAs
+   do mesmo processo abre a primeira CDA (na aba, a gaveta da CDA). */
+function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpenCda, onOpenProc, debtIds, embedded, filtered }) {
   const todayIso = localIso(new Date());
-  const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '' }), [data, prazosRadar, prescLookup, opId, todayIso]);
+  const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '', debtIds: debtIds || null }), [data, prazosRadar, prescLookup, opId, debtIds, todayIso]);
   const [sims, setSims] = React.useState({});
   const [simErr, setSimErr] = React.useState({});
   const [fontTick, setFontTick] = React.useState(0);
@@ -2757,10 +2761,10 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     const d = c.kind === 'piso' ? c.floor : c.term;
     const g = CLK_GROUPS.find(x => x.key === c.group);
     const dd = d ? daysUntil(d) : null;
-    return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [cxOpName({ name: c.opName }) + ' · ' + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
-  }, [byId]));
+    return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [(embedded ? '' : cxOpName({ name: c.opName }) + ' · ') + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
+  }, [byId, embedded]));
   const open = (c) => {
-    if (c.n > 1 && c.executionId) onOpenProc && onOpenProc(c.executionId);
+    if (c.n > 1 && c.executionId && onOpenProc) onOpenProc(c.executionId);
     else onOpenCda && onOpenCda({ id: c.leadId, operationId: c.operationId });
   };
   const toggleSim = (c) => {
@@ -2795,13 +2799,13 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
   const groups = CLK_GROUPS.map(g => ({ g, rows: clocks.filter(c => c.group === g.key) })).filter(x => x.rows.length);
   const mon = (v) => cxMoneyShort(v);
   const empty = !clocks.length;
-  return <div className="cx-clk" {...tip.bind}>
+  return <div className={'cx-clk' + (embedded ? ' emb' : '')} {...tip.bind}>
     {lead ? <div className="cx-tl-tools">{lead}</div> : null}
-    {empty ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA com relógio a mostrar{opId ? ' nesta operação' : ''}.{res.consumadas ? ' ' + cxPl(res.consumadas, 'consumada está', 'consumadas estão') + ' em Consumadas.' : ''}</div></div> : <>
+    {empty ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA com relógio a mostrar{opId ? ' nesta operação' : ''}{filtered ? ' com os filtros da aba (busca e Pessoa)' : ''}.{res.consumadas ? ' ' + cxPl(res.consumadas, 'consumada está', 'consumadas estão') + ' em Consumadas.' : ''}</div></div> : <>
       <div className="cx-clk-kpis">
         <div className="cx-clk-kpi"><span className="l">Próximo termo</span>
           <span className={'v' + (kpis.next && kpis.next.days <= 90 ? ' red' : '')}>{kpis.next ? (kpis.next.days === 0 ? 'hoje' : cxPl(kpis.next.days, 'dia', 'dias')) : '—'}</span>
-          <span className="s">{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + ' · ' + cxOpName({ name: kpis.next.opName }) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</span></div>
+          <span className="s">{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + (embedded ? '' : ' · ' + cxOpName({ name: kpis.next.opName })) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</span></div>
         <div className="cx-clk-kpi"><span className="l">Termo em até 1 ano</span>
           <span className="v">{kpis.near.cdas ? mon(kpis.near.value) : '—'}</span>
           <span className="s">{cxPl(kpis.near.cdas, 'CDA', 'CDAs')} com relógio em curso</span></div>
@@ -2850,7 +2854,7 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
             title={c.n > 1 ? c.cdaNumbers.join(' · ') : undefined}>
             <div className="cx-clk-id">
               <div className="n cx-mono">{c.leadNumber}{c.n > 1 ? <span className="more"> +{c.n - 1}</span> : null}</div>
-              <div className="m"><span className="cx-op-tag"><CxOpSquare opId={c.operationId} /><span className="cx-ell">{cxOpName({ name: c.opName })}</span></span>{c.tribute ? <span>· {c.tribute}</span> : null}<b>{mon(c.value)}</b></div>
+              <div className="m">{embedded ? null : <span className="cx-op-tag"><CxOpSquare opId={c.operationId} /><span className="cx-ell">{cxOpName({ name: c.opName })}</span></span>}{c.tribute ? <span>{embedded ? '' : '· '}{c.tribute}</span> : null}<b>{mon(c.value)}</b>{embedded && c.personName ? <span className="cx-ell">· {c.personName}</span> : null}</div>
               <div className="m">{c.processNumber ? <CxProc num={c.processNumber} /> : <span className="cx-muted">sem processo</span>}
                 {c.simulated ? <span className="cx-tag cyan">simulado</span> : null}
                 {cert && !c.simulated ? <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span> : null}</div>
@@ -6672,6 +6676,9 @@ function EditionClaudeInscricoes(p) {
   }
 
   const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null
+  /* Visão da aba: Tabela (padrão) ou Relógios (M4, só as CDAs desta operação). Lembrada neste navegador. */
+  const [view, setViewS] = React.useState(() => (cxLs('nexus_cx_insc_view', 'tabela') === 'relogios' ? 'relogios' : 'tabela'));
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_insc_view', v); };
   const [peopleOpen, setPeopleOpen] = React.useState(false);
   const [showMore, setShowMore] = React.useState({});
 
@@ -6713,6 +6720,15 @@ function EditionClaudeInscricoes(p) {
   })() : null;
 
   const { groups, unajuizadas } = React.useMemo(() => cxCdaGroupsByProcess(sorted, opExecs), [sorted, opExecs]);
+  /* Relógios: as CDAs que sobraram dos filtros da aba (busca e Pessoa); agrupar/ordenar da tabela não se aplicam. */
+  const clkKey = items.map(d => d.id).join('|');
+  const clkIds = React.useMemo(() => new Set(items.map(d => d.id)), [clkKey]);
+  const clkFiltered = items.length !== allDebts.length;
+  const openCdaFromClock = ({ id }) => {
+    const d = allDebts.find(x => x.id === id);
+    const exec = d && d.processNumber ? (opExecs || []).find(e => e.processNumber && sameProc(e.processNumber, d.processNumber)) : null;
+    openDrawer(id, exec ? exec.id : null);
+  };
 
   // "Abrir" vindo de Prazos/Mesa: abre a ficha da CDA e garante a linha visível além do "Mostrar mais".
   const { focusCda, onFocusCdaDone } = p;
@@ -6850,6 +6866,7 @@ function EditionClaudeInscricoes(p) {
     </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
+      <CxSeg className="sm" label="Visão das inscrições" value={view} onChange={setView} options={[['tabela', 'Tabela'], ['relogios', 'Relógios']]} />
       <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar CDA ou processo" />
       <div className="cx-pp-person">
         <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((data.people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
@@ -6858,6 +6875,7 @@ function EditionClaudeInscricoes(p) {
           {personCounts.map(({ person, count }) => <button key={person.id} type="button" onClick={() => { setCdaPersonFilter(person.id); setPeopleOpen(false); }}>{person.name} · {count}</button>)}
         </div>}
       </div>
+      {view === 'tabela' ? <>
       <select className="cx-sel sm" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
         <option value="" disabled>Agrupar…</option>
         <option value="por_processo">Agrupar: Processo</option>
@@ -6872,13 +6890,14 @@ function EditionClaudeInscricoes(p) {
         <option value="value_asc">Ordenar: valor ↑</option>
         <option value="prescription">Ordenar: prescrição</option>
       </select>
+      </> : null}
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'debt', initial: {} })}>+ Inscrição</button>
     </div>
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><IncTableHead />
+        {view === 'relogios' ? <EditionClaudeClocks embedded data={data} prazosRadar={p.prazosRadar} prescLookup={p.prescLookup} opId={opId} debtIds={clkIds} filtered={clkFiltered} onOpenCda={openCdaFromClock} /> : <div className="cx-card cx-pt-wrap"><table className="cx-pt"><IncTableHead />
           <tbody>
             {cdaSort === 'por_processo' ? <>
               {groups.map(g => <GroupHeaderRow key={g.umbrella.id} g={g} />)}
@@ -6899,7 +6918,7 @@ function EditionClaudeInscricoes(p) {
               </>;
             })()}
           </tbody>
-        </table></div>
+        </table></div>}
       </div>
       {drawerCda && (() => {
         const d = allDebts.find(x => x.id === drawerCda.id);

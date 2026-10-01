@@ -7177,7 +7177,7 @@ function App() {
     if (activeTab === 'dividas') {
       if (isClaude) {
         return <EditionClaudeInscricoes opId={opId} data={data} allDebts={getOpSlices(opId).debts} opExecs={getOpSlices(opId).executions}
-          prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
+          prazosRadar={prazosRadar} prescLookup={prescLookup} prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery} cdaSort={cdaSort} setCdaSort={setCdaSort}
           setModal={setModal} setData={setData} togglePrescCheck={togglePrescCheck} bulkDelete={bulkDelete}
