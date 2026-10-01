@@ -3176,6 +3176,7 @@ function App() {
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const [cxTlScale, setCxTlScale] = useState('anos');
   const [cxTlOp, setCxTlOp] = useState(null);
+  const [cxProcFocus, setCxProcFocus] = useState(null); // { execId?, cdaId?, n } — pedido da Linha do tempo para abrir a ficha lateral na aba Processos e prescrição
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
   const [selectedCDAs, setSelectedCDAs] = useState(new Set());
@@ -7701,6 +7702,7 @@ function App() {
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           people={getOpSlices(opId).people}
           linkify={linkify}
+          focus={cxProcFocus} onFocusDone={() => setCxProcFocus(null)}
         />;
       }
 
@@ -10638,6 +10640,17 @@ function App() {
     else setViewMode('tarefas_global');
     setTimeout(() => setModal({ type: 'edit', entityType: 'task', initial: t }), 80);
   };
+  // Linha do tempo → ficha lateral do processo (ou da CDA) na aba "Processos e prescrição" da operação dele.
+  const cxOpenProcDrawer = (focus) => {
+    const ex = focus.execId ? (data.executions || []).find(x => x.id === focus.execId) : null;
+    const debt = focus.cdaId ? (data.debts || []).find(x => x.id === focus.cdaId) : null;
+    const opId = (ex && ex.operationId) || (debt && debt.operationId);
+    if (!opId) return;
+    setCxSideOpen(false);
+    setCxReturnOpId(opId);
+    setCxProcFocus({ ...focus, n: Date.now() });
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
+  };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
   const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
     const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
@@ -10959,7 +10972,7 @@ function App() {
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
         scale={cxTlScale} setScale={setCxTlScale} onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
-        onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })} /></div>}
+        onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
@@ -12308,6 +12321,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
+        onOpenProc={(id) => cxOpenProcDrawer({ execId: id })} onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
         {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}

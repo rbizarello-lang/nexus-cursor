@@ -1952,7 +1952,6 @@ function cxOutcomeColor(o) {
 }
 const CX_SEV = { prescrito: 9, critico: 8, alerta: 7, correndo: 6, interrompido: 5, suspenso: 4, indeterminado: 3, seguro: 2, sem_dados: 1 };
 const CX_PRESC_TXT = { prescrito: 'vencida', critico: 'crítica', alerta: 'em alerta', correndo: 'correndo', interrompido: 'ciclo encerrado', suspenso: 'pausada', indeterminado: 'sem ciência lançada', seguro: 'sem risco próximo', sem_dados: 'sem dados' };
-/* Monta as linhas da régua a partir dos dados reais. Datas em ISO. */
 /* Mesmas frentes do Briefing: IDPJ/MCF no panorama, execução central, ou EF levada ao panorama
    pelo usuário. Usado para separar "Marcos da operação" e as linhas da régua entre frentes e
    "Outras execuções" (item 7). */
@@ -1960,21 +1959,78 @@ function cxIsFront(e) {
   if (!e) return false;
   return isIncidentOnPanorama(e) || (e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada') || isUserPanoramaEf(e);
 }
+const CX_HEARING_SHORT = { instrucao: 'Instrução', conciliacao: 'Conciliação', una: 'Audiência una', justificacao: 'Justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
+/* Número curto do processo ("5001234-56"), como o advogado o cita. */
+function cxExecShortNum(e) { return String((e && e.processNumber) || '').split('.')[0] || '—'; }
+/* Devedor do processo: o responsável originário da primeira CDA, o devedor da ficha ou, na falta de CDA
+   (IDPJ, MCF, exceção, recurso), a parte mais citada nas intimações do processo. */
+function cxExecWho(data, e, cdas) {
+  const resp = (data.links && data.links.cdaResponsibilities) || [];
+  for (const d of cdas) {
+    const r = resp.find(x => x.cdaId === d.id && x.role === 'originario');
+    const p = r ? (data.people || []).find(x => x.id === r.personId) : null;
+    if (p && p.name) return p.name;
+    if (d.devedor) return d.devedor;
+  }
+  const cnt = new Map();
+  (data.intimations || []).forEach(i => { if (i.partyName && sameProc(i.processNumber, e.processNumber)) cnt.set(i.partyName, (cnt.get(i.partyName) || 0) + 1); });
+  let best = '', n = 0;
+  cnt.forEach((v, k) => { if (v > n) { best = k; n = v; } });
+  return best;
+}
+/* Papel do processo na operação ("EF principal", "EF apensa", "Exceção de pré-exec."): é o que diferencia duas
+   "Execução Fiscal" lado a lado. A relação com o pai ("apenso de 5001234-56") vai na segunda linha. */
+function cxExecRole(e, parent, hasChildren) {
+  const tag = cxExecTag(e);
+  if (tag === 'IDPJ') return 'Desconsideração (IDPJ)';
+  if (tag === 'MCF') return 'Medida cautelar fiscal';
+  if (tag === 'CENTRAL') return 'EF central';
+  if (tag === 'EF') return parent ? 'EF apensa' : (hasChildren ? 'EF principal' : 'Execução fiscal');
+  if (tag === 'EXC') return 'Exceção de pré-exec.';
+  if (tag === 'EMB') return 'Embargos à execução';
+  if (tag === 'REC') return e.className || 'Recurso';
+  return e.className || 'Processo';
+}
+function cxExecRel(e, parent) {
+  if (!parent) return '';
+  const tag = cxExecTag(e);
+  return (tag === 'EF' || tag === 'CENTRAL' ? 'apenso de ' : 'em ') + cxExecShortNum(parent);
+}
+/* Relação do processo filho com o pai, para o tooltip do conector. */
+function cxLinkText(kind, a, b) {
+  const ta = cxExecTag(a), tb = cxExecTag(b);
+  const na = ta + ' ' + cxExecShortNum(a), nb = tb + ' ' + cxExecShortNum(b);
+  if (kind === 'cover') return na + ' cobre ' + nb;
+  if (tb === 'EF' || tb === 'CENTRAL') return nb + ' é apenso de ' + na;
+  if (tb === 'EXC') return nb + ' é exceção nos autos de ' + na;
+  if (tb === 'REC') return nb + ' é recurso de ' + na;
+  if (tb === 'EMB') return nb + ' é embargos de ' + na;
+  return nb + ' é vinculado a ' + na;
+}
+/* Monta as linhas da régua a partir dos dados reais. Datas em ISO.
+   Além das linhas, devolve `items`: a lista única de fatos com data (decisão, andamento, audiência, prazo,
+   prescrição, revisão), cada um com `kind` (vocabulário de src/lib/timeline.js), `ref` (o que abrir ao clicar) e
+   `execId` — é a base dos filtros da legenda e dos modos futuros. `ms` é o recorte que vai para "Marcos da operação". */
 function cxBuildTimeline(data, op, prescLookup) {
   const execs = (data.executions || []).filter(e => e.operationId === op.id);
   const ids = new Set(execs.map(e => e.id));
+  const execById = new Map(execs.map(e => [e.id, e]));
   const events = data.prescriptionEvents || [];
   const today = localIso(new Date());
   const info = new Map();
+  const items = [];
+  let seq = 0;
+  const nid = (p) => p + '|' + (seq++);
   execs.forEach(e => {
     const stages = getStageRecords(op.briefing, e.id) || {};
     const DEF = (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') ? PROCESS_STAGES : CENTRAL_STAGES;
     const evs = [];
+    const addEv = (it) => { const x = { id: nid('ev'), execId: e.id, ref: { t: 'exec', id: e.id }, short: it.l, ...it }; evs.push(x); items.push(x); return x; };
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) evs.push({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage' }); });
-      else { const d = toDayKey(rec.date); if (d) evs.push({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', decisive: !!rec.outcome }); }
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', kind: r.outcome ? 'dec' : 'and' }); });
+      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome }); }
     });
     const seen = new Set();
     events.forEach(pe => {
@@ -1982,7 +2038,7 @@ function cxBuildTimeline(data, op, prescLookup) {
       const d = toDayKey(pe.requestDate || pe.date); if (!d) return;
       const key = pe.type + '|' + d; if (seen.has(key)) return; seen.add(key);
       const t = PRESC_EVENT_TYPES[normalizePrescEventType(pe.type)] || {};
-      evs.push({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc' });
+      addEv({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc', kind: 'presc' });
     });
     const start = toDayKey(e.protocolDate) || (evs.map(x => x.d).sort()[0]) || toDayKey(e.createdAt) || today;
     // Prescrição: pior CDA do processo
@@ -1998,6 +2054,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     if (worst) {
       const segs = [], marks = [];
       const r = worst;
+      const addMark = (m) => { const x = { id: nid('pm'), execId: e.id, ref: { t: 'exec', id: e.id }, kind: 'presc', short: m.deadline ? 'Prescrição' : m.l, ...m }; marks.push(x); items.push(x); };
       if (r.segment === 'intercorrente' && r.diesAQuo) {
         const m = (r.memory || []).find(x => /Fim da suspens|Fim do 1º ano/.test(String(x.event || '')));
         let yearEnd = m && toDayKey(m.date);
@@ -2007,8 +2064,8 @@ function cxBuildTimeline(data, op, prescLookup) {
         const interFrom = yearEnd || r.diesAQuo;
         const interTo = stop || toDayKey(r.diesAdQuem);
         if (interTo && interTo > interFrom && (!stop || stop > interFrom)) segs.push({ from: interFrom, to: interTo, t: 'inter' });
-        if (stop) marks.push({ d: stop, l: 'Ciclo encerrado em ' + fmtDate(stop), c: 'var(--cx-cyan)' });
-        else if (r.diesAdQuem) marks.push({ d: toDayKey(r.diesAdQuem), l: 'Termo ' + (r.estimated ? 'estimado' : 'calculado') + ' · ' + fmtDate(r.diesAdQuem), c: 'var(--cx-violet)', big: true, deadline: true });
+        if (stop) addMark({ d: stop, l: 'Ciclo encerrado em ' + fmtDate(stop), c: 'var(--cx-cyan)' });
+        else if (r.diesAdQuem) addMark({ d: toDayKey(r.diesAdQuem), l: 'Termo ' + (r.estimated ? 'estimado' : 'calculado') + ' · ' + fmtDate(r.diesAdQuem), c: 'var(--cx-violet)', big: true, deadline: true });
       }
       let parcEnds = null; try { parcEnds = inferParcelamentoEnds(r.timeline || []); } catch (err) { parcEnds = null; }
       (r.timeline || []).forEach(ev => {
@@ -2020,12 +2077,23 @@ function cxBuildTimeline(data, op, prescLookup) {
         segs.push({ from, to: to < from ? from : to, t: isAdesaoType(ev.type) ? 'pausa' : 'susp2', l: t.label });
       });
       const cedo = r.band && r.band.alarme !== false && r.band.cedo && toDayKey(r.band.cedo.diesAdQuem);
-      if (cedo && cedo !== toDayKey(r.diesAdQuem)) marks.push({ d: cedo, l: 'Data cedo · ' + fmtDate(cedo) + ' (leitura mais desfavorável)', c: 'var(--cx-red)', deadline: true });
-      if (!segs.length && r.bounds && r.bounds.floor) marks.push({ d: toDayKey(r.bounds.floor), l: 'Não pode ter prescrito antes de ' + fmtDate(r.bounds.floor), c: 'var(--cx-ink-3)', hollow: true });
+      if (cedo && cedo !== toDayKey(r.diesAdQuem)) addMark({ d: cedo, l: 'Data cedo · ' + fmtDate(cedo) + ' (leitura mais desfavorável)', c: 'var(--cx-red)', deadline: true });
+      if (!segs.length && r.bounds && r.bounds.floor) addMark({ d: toDayKey(r.bounds.floor), l: 'Não pode ter prescrito antes de ' + fmtDate(r.bounds.floor), c: 'var(--cx-ink-3)', hollow: true });
       presc = { r, debt: worstDebt, n: debts.length, segs, marks };
     }
-    const intims = (data.intimations || []).filter(i => cxIsOpen(i) && i.dateDeadline && sameProc(i.processNumber, e.processNumber));
-    info.set(e.id, { e, evs, start, presc, intims, end: e.status === 'extinta' ? (evs.map(x => x.d).sort().pop() || toDayKey(e.updatedAt)) : null });
+    const intims = (data.intimations || []).filter(i => cxIsOpen(i) && i.dateDeadline && sameProc(i.processNumber, e.processNumber)).map(i => {
+      const end = toDayKey(i.dateDeadline);
+      const it = { id: 'pz|' + i.id, kind: 'prazo', d: end, from: toDayKey(i.dateStart) || toDayKey(i.dateSent) || end, l: i.eventDescription || i.className || 'Intimação', short: 'Prazo', execId: e.id, ref: { t: 'intim', id: i.id }, i, st: i.status };
+      items.push(it);
+      return it;
+    });
+    const cdaVal = debts.reduce((s, d) => s + (d.value || 0), 0);
+    info.set(e.id, { e, evs, start, presc, intims, debts, cdaN: debts.length, cdaVal, who: cxExecWho(data, e, debts), end: e.status === 'extinta' ? (evs.map(x => x.d).sort().pop() || toDayKey(e.updatedAt)) : null });
+  });
+  info.forEach(x => {
+    const parent = x.e.parentExecutionId && ids.has(x.e.parentExecutionId) ? execById.get(x.e.parentExecutionId) : null;
+    x.role = cxExecRole(x.e, parent, execs.some(c => c.parentExecutionId === x.e.id));
+    x.rel = cxExecRel(x.e, parent);
   });
   const byStart = (a, b) => String(info.get(a.id).start).localeCompare(String(info.get(b.id).start));
   const tops = execs.filter(e => !e.parentExecutionId || !ids.has(e.parentExecutionId));
@@ -2038,13 +2106,14 @@ function cxBuildTimeline(data, op, prescLookup) {
     const x = info.get(e.id);
     rows.push({ kind: 'proc', x, depth });
     if (x.presc && (x.presc.segs.length || x.presc.marks.length)) rows.push({ kind: 'presc', x, depth });
-    x.intims.forEach(i => rows.push({ kind: 'prazo', i, x, depth }));
+    x.intims.forEach(it => rows.push({ kind: 'prazo', it, i: it.i, x, depth }));
     execs.filter(c => c.parentExecutionId === e.id).sort(byStart).forEach(c => pushExec(c, depth + 1));
   };
   frontsTop.forEach(e => pushExec(e, 0));
   if (frontsTop.length && othersTop.length) rows.push({ kind: 'divider', label: 'Outras execuções' });
   othersTop.forEach(e => pushExec(e, 0));
-  // CDAs sem processo nesta operação, com o prazo para ajuizar apertado (ordinária)
+  // CDAs sem processo nesta operação, com o prazo para ajuizar apertado (ordinária). Todas entram: o limite de
+  // linhas visíveis é da tela (com "+N" que expande), nunca um corte silencioso aqui.
   const cdas = [];
   (data.debts || []).forEach(d => {
     if (d.operationId !== op.id || d.status === 'extinta' || d.prescriptionHandled) return;
@@ -2053,33 +2122,142 @@ function cxBuildTimeline(data, op, prescLookup) {
     if (!r || r.segment !== 'credito' || !r.diesAdQuem) return;
     if (r.status !== 'critico' && r.status !== 'alerta' && r.status !== 'prescrito') return;
     const end = toDayKey(r.diesAdQuem);
-    cdas.push({ d, r, end, start: toDayKey(r.diesAQuo) || addCalendarYears(end, -5) });
+    const num = d.cdaNumber || 'S/N';
+    const it = { id: 'cda|' + d.id, kind: 'presc', k: 'cda', d: end, l: 'Ajuizar a CDA ' + num + ' até ' + fmtDate(end), short: 'CDA …' + String(num).slice(-9), c: r.status === 'prescrito' ? 'var(--cx-red)' : 'var(--cx-violet)', big: true, ref: { t: 'cda', id: d.id, operationId: d.operationId }, debt: d, r, start: toDayKey(r.diesAQuo) || addCalendarYears(end, -5) };
+    items.push(it);
+    cdas.push({ d, r, end, start: it.start, it });
   });
   cdas.sort((a, b) => a.end.localeCompare(b.end));
-  if (cdas.length) { rows.push({ kind: 'cdah', n: cdas.length }); cdas.slice(0, 10).forEach(c => rows.push({ kind: 'cda', c })); }
-  // Marcos da operação: só IDPJ, MCF e EFs levadas ao panorama do Briefing (mesmas frentes).
+  if (cdas.length) rows.push({ kind: 'cdah', n: cdas.length });
+  // Marcos da operação: audiências, e só de IDPJ, MCF e EFs levadas ao panorama do Briefing (mesmas frentes)
+  // as decisões e os termos de prescrição; mais os termos das CDAs a ajuizar e a próxima revisão.
   const ms = [];
-  (data.hearings || []).forEach(h => { if (h.operationId === op.id && h.date && h.status !== 'cancelada') ms.push({ d: toDayKey(h.date), l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), c: 'var(--cx-orange)', hearing: h }); });
+  (data.hearings || []).forEach(h => {
+    if (h.operationId !== op.id || !h.date || h.status === 'cancelada') return;
+    const owner = execs.find(e => sameProc(e.processNumber, h.processNumber));
+    const it = { id: 'au|' + h.id, kind: 'aud', d: toDayKey(h.date), tm: h.time || '', l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), short: CX_HEARING_SHORT[h.hearingType] || 'Audiência', c: 'var(--cx-orange)', execId: owner ? owner.id : null, ref: { t: 'hearing', h }, hearing: h, realized: h.status === 'realizada' };
+    items.push(it); ms.push(it);
+  });
   info.forEach(x => {
     if (!cxIsFront(x.e)) return;
-    x.evs.forEach(ev => { if (ev.decisive) ms.push({ d: ev.d, l: ev.l, c: ev.c }); });
-    if (x.presc) x.presc.marks.forEach(m => { if (m.deadline) ms.push({ d: m.d, l: 'Prescrição · ' + fmtDate(m.d), c: m.c, big: true }); });
+    x.evs.forEach(ev => { if (ev.decisive) ms.push(ev); });
+    if (x.presc) x.presc.marks.forEach(m => { if (m.deadline) ms.push(m); });
   });
-  cdas.slice(0, 10).forEach(c => ms.push({ d: c.end, l: 'Ajuizar CDA ' + (c.d.cdaNumber || '') + ' até ' + fmtDate(c.end), c: 'var(--cx-violet)', big: true }));
+  cdas.forEach(c => ms.push(c.it));
   const rv = cxReviewNext(op);
-  if (rv) ms.push({ d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), c: 'var(--cx-accent)' });
+  if (rv) {
+    const it = { id: 'rv|' + op.id, kind: 'rev', d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), short: 'Revisão', c: 'var(--cx-accent)', ref: { t: 'op', id: op.id } };
+    items.push(it); ms.push(it);
+  }
   ms.sort((a, b) => String(a.d).localeCompare(String(b.d)));
-  const covers = [];
-  execs.forEach(e => (e.linkedExecutionIds || []).forEach(c => { if (ids.has(c)) covers.push([e.id, c]); }));
-  const parents = execs.filter(e => e.parentExecutionId && ids.has(e.parentExecutionId)).map(e => [e.parentExecutionId, e.id]);
+  // Conectores nomeados: "cobre" (IDPJ/MCF → execução coberta) e "apenso/exceção/recurso de" (pai → filho).
+  const links = [];
+  execs.forEach(e => (e.linkedExecutionIds || []).forEach(c => { if (ids.has(c)) links.push({ id: 'lk|cover|' + e.id + '|' + c, type: 'cover', a: e.id, b: c, text: cxLinkText('cover', e, execById.get(c)) }); }));
+  execs.filter(e => e.parentExecutionId && ids.has(e.parentExecutionId)).forEach(e => links.push({ id: 'lk|parent|' + e.parentExecutionId + '|' + e.id, type: 'parent', a: e.parentExecutionId, b: e.id, text: cxLinkText('parent', execById.get(e.parentExecutionId), e) }));
   const allDates = [];
   info.forEach(x => { allDates.push(x.start); x.evs.forEach(v => allDates.push(v.d)); if (x.presc) { x.presc.segs.forEach(s => { allDates.push(s.from); allDates.push(s.to); }); x.presc.marks.forEach(m => allDates.push(m.d)); } });
-  ms.forEach(m => allDates.push(m.d));
-  cdas.slice(0, 10).forEach(c => { allDates.push(c.start); allDates.push(c.end); });
-  return { rows, ms, covers, parents, allDates: allDates.filter(Boolean), empty: execs.length === 0 && cdas.length === 0 };
+  items.forEach(it => { if (it.d) allDates.push(it.d); if (it.from) allDates.push(it.from); });
+  cdas.forEach(c => { allDates.push(c.start); allDates.push(c.end); });
+  return { rows, ms, items, links, cdas, execById, info, allDates: allDates.filter(Boolean), empty: execs.length === 0 && cdas.length === 0 };
 }
-function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenCda, compact }) {
+
+/* ─── Glifo por tipo de fato (SVG): ◆ decisão · ○ andamento · ■ audiência · ▼ prazo · ⬢ prescrição · ◔ revisão ───
+   Mesma forma na régua, na legenda e nos modos futuros. `c` é a cor (resultado, urgência, ato); `ghost` = esperado
+   e sem data (tracejado); `hollow` = piso/não pode ter prescrito antes (vazado). */
+function CxTlGlyph({ kind, c, ghost, hollow, s = 14 }) {
+  const col = c || 'var(--cx-ink-2)';
+  const ring = { fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.8, strokeDasharray: ghost || hollow ? '2.4 2' : undefined };
+  const sf = { stroke: 'var(--cx-surface)', strokeWidth: 1.3, strokeLinejoin: 'round' };
+  let shape;
+  switch (kind) {
+    case 'dec': shape = <rect x="3.1" y="3.1" width="9.8" height="9.8" rx="1.8" transform="rotate(45 8 8)" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'and': shape = <circle cx="8" cy="8" r="4.3" style={{ fill: 'var(--cx-surface)', stroke: ghost ? col : 'var(--cx-ink-2)', strokeWidth: 1.9, strokeDasharray: ghost ? '2.4 2' : undefined }} />; break;
+    case 'aud': shape = <rect x="3.3" y="3.3" width="9.4" height="9.4" rx="2" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'prazo': shape = <path d="M2.4 4.2H13.6L8 12.8Z" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'presc': shape = <polygon points="8,2.2 13,5.1 13,10.9 8,13.8 3,10.9 3,5.1" style={hollow || ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'rev': shape = <g><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.6 }} /><path d="M8 5.2V8l2 1.4" style={{ fill: 'none', stroke: col, strokeWidth: 1.5, strokeLinecap: 'round' }} /></g>; break;
+    default: shape = <circle cx="8" cy="8" r="3" style={{ fill: col }} />;
+  }
+  return <svg className="cx-tl-gl" width={s} height={s} viewBox="0 0 16 16" aria-hidden="true">{shape}</svg>;
+}
+/* Cor de um prazo pela urgência (vencido, hoje, até 5 dias, depois). */
+function cxTlPrazoColor(iso) {
+  const info = cxDue(daysUntil(iso), iso);
+  return info.tone === 'late' ? 'var(--cx-red)' : info.tone === 'today' ? 'var(--cx-orange)' : info.tone === 'soon' ? 'var(--cx-yellow)' : 'var(--cx-blue)';
+}
+/* Cor do glifo de um fato. */
+function cxTlColor(it) {
+  if (it.kind === 'prazo') return cxTlPrazoColor(it.d);
+  if (it.kind === 'aud') return it.realized ? 'var(--cx-ink-3)' : 'var(--cx-orange)';
+  return it.c || 'var(--cx-ink-2)';
+}
+/* Medidor de texto (canvas) com a fonte do Prumo; sem canvas, estimativa. */
+const cxTlMeasure = (() => {
+  let ctx = null, fam = '';
+  return (text, px = 11) => {
+    try {
+      if (!ctx) { ctx = document.createElement('canvas').getContext('2d'); const el = document.querySelector('.cx') || document.body; fam = getComputedStyle(el).fontFamily || 'sans-serif'; }
+      ctx.font = '400 ' + px + 'px ' + fam;
+      const w = ctx.measureText(String(text)).width;
+      return w > 0 ? w : tlEstimateWidth(text, px);
+    } catch (err) { return tlEstimateWidth(text, px); }
+  };
+})();
+/* Tooltip leve, sem estado do React: o elemento é preenchido direto no DOM a cada passada do mouse (a régua tem
+   centenas de nós; re-renderizar a cada mousemove seria pesado). `resolve(chave)` devolve { when, title, lines, tone }
+   ou null. Serve também ao foco do teclado. Reutilizável pelos outros modos da Linha do tempo. */
+function useCxTip(resolve) {
+  const ref = React.useRef(null);
+  const keyRef = React.useRef('');
+  const hide = () => { const el = ref.current; if (el) { el.style.display = 'none'; keyRef.current = ''; } };
+  const show = (key, x, y) => {
+    const el = ref.current; if (!el) return;
+    const d = key ? resolve(key) : null;
+    if (!d) { hide(); return; }
+    if (keyRef.current !== key) {
+      keyRef.current = key;
+      el.textContent = '';
+      const add = (cls, txt) => { if (!txt) return; const n = document.createElement('div'); n.className = cls; n.textContent = txt; el.appendChild(n); };
+      add('cx-tl-tip-w' + (d.tone ? ' ' + d.tone : ''), d.when);
+      add('cx-tl-tip-t', d.title);
+      (d.lines || []).forEach(l => add('cx-tl-tip-s', l));
+    }
+    el.style.display = 'block';
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let left = x + 14, top = y + 16;
+    if (left + w > window.innerWidth - 8) left = Math.max(8, x - w - 12);
+    if (top + h > window.innerHeight - 8) top = Math.max(8, y - h - 12);
+    el.style.left = left + 'px'; el.style.top = top + 'px';
+  };
+  const keyOf = (ev) => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-tl]') : null; return t ? t.getAttribute('data-tl') : ''; };
+  const bind = {
+    onMouseMove: (ev) => show(keyOf(ev), ev.clientX, ev.clientY),
+    onMouseLeave: hide,
+    onFocus: (ev) => { const k = keyOf(ev); if (!k) return; const r = ev.target.getBoundingClientRect(); show(k, r.left + r.width / 2, r.bottom); },
+    onBlur: hide,
+  };
+  return { bind, node: <div ref={ref} className="cx-tl-tip" role="tooltip" style={{ display: 'none' }} /> };
+}
+/* Texto do tooltip de um fato da régua. */
+function cxTlTipData(it, execById) {
+  const dd = it.d ? daysUntil(it.d) : null;
+  const dow = it.d ? CX_DOW[cxDate(it.d).getDay()] : '';
+  const rel = dd === null ? '' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd === -1 ? 'ontem' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd);
+  const e = it.execId ? execById.get(it.execId) : null;
+  const lines = [];
+  if (it.kind === 'prazo') lines.push('Prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d));
+  if (e) lines.push(cxExecTag(e) + ' ' + cxExecShortNum(e));
+  if (it.kind === 'aud' && it.hearing && it.hearing.parties) lines.push(it.hearing.parties);
+  if (it.k === 'cda' && it.debt) lines.push((it.debt.tribute || it.debt.system || 'CDA') + ' · ' + cxMoneyShort(it.debt.value) + ' · sem processo');
+  const open = it.ref && it.ref.t === 'op' ? '' : it.ref && it.ref.t === 'hearing' ? 'Clique para abrir a audiência' : it.ref && it.ref.t === 'intim' ? 'Clique para abrir a intimação' : it.ref && it.ref.t === 'cda' ? 'Clique para abrir a CDA' : 'Clique para abrir o processo';
+  if (open) lines.push(open);
+  return { when: (it.d ? dow + ' ' + fmtDate(it.d) + (it.tm ? ' · ' + it.tm : '') + ' · ' + rel : 'sem data'), title: it.l, lines, tone: dd !== null && dd < 0 && it.kind === 'prazo' ? 'late' : '' };
+}
+function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, compact }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
+  const [hidden, setHidden] = React.useState(() => new Set());
+  const [cdaAll, setCdaAll] = React.useState(false);
+  React.useEffect(() => { setCdaAll(false); }, [op.id]);
   const sc = CX_TL_SCALES[scale] || CX_TL_SCALES.meses;
   const offs = tl.allDates.map(d => daysUntil(d)).filter(v => v !== null);
   let from, to;
@@ -2089,14 +2267,34 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
   const W = Math.round((to - from) * sc.ppd);
   const x = (off) => (off - from) * sc.ppd;
   const xi = (iso) => { const o = daysUntil(iso); return o === null ? null : x(o); };
+  const inR = (iso) => { const o = daysUntil(iso); return o !== null && o >= from && o <= to; };
   const scRef = React.useRef(null);
   React.useLayoutEffect(() => { const el = scRef.current; if (el) el.scrollLeft = Math.max(0, x(0) - el.clientWidth * 0.45); }, [op.id, scale]);
+  const counts = React.useMemo(() => tlCountKinds(tl.items), [tl]);
+  const byId = React.useMemo(() => { const m = new Map(); tl.items.forEach(it => m.set(it.id, it)); return m; }, [tl]);
+  const linkById = React.useMemo(() => { const m = new Map(); tl.links.forEach(l => m.set(l.id, l)); return m; }, [tl]);
+  const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('lk|') === 0) { const l = linkById.get(key); return l ? { when: l.type === 'cover' ? 'Cobertura' : 'Vínculo', title: l.text, lines: [] } : null; }
+    if (key.indexOf('bar|') === 0) { const e = tl.execById.get(key.slice(4)); const x = e ? tl.info.get(e.id) : null; return x ? { when: (EXEC_STATUSES[e.status] || {}).label || 'Processo', title: x.role + ' · ' + cxExecShortNum(e), lines: [(e.className || '') + (x.who ? ' · ' + x.who : ''), 'Ajuizado em ' + fmtDate(x.start)].filter(Boolean) } : null; }
+    if (key.indexOf('seg|') === 0) { const parts = key.split('|'); return { when: 'Prescrição', title: parts[1], lines: [parts[2]] }; }
+    const it = byId.get(key); return it ? cxTlTipData(it, tl.execById) : null;
+  }, [byId, linkById, tl]));
   if (tl.empty) return <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Esta operação ainda não tem processos cadastrados. Eles aparecem aqui assim que forem lançados na aba Processos e prescrição.</div></div>;
+  const hid = (k) => hidden.has(k);
+  const open = (it) => {
+    const r = it && it.ref; if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+  };
   const clamp = (a, b) => { const s = Math.max(a, from), e = Math.min(b, to); return e <= s ? null : { left: x(s), width: Math.max(4, (e - s) * sc.ppd) }; };
   const clampIso = (fa, tb) => { const a = daysUntil(fa), b = daysUntil(tb); if (a === null || b === null) return null; return clamp(a, b); };
   const axis = [], grid = [];
   const base = new Date(); base.setHours(12, 0, 0, 0);
   const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const x0 = x(0);
+  const nearToday = (px) => Math.abs(px - x0) < 26;
   for (let d = from; d <= to; d++) {
     const D = new Date(base); D.setDate(D.getDate() + d);
     const dd = D.getDate(), mm = D.getMonth(), wd = D.getDay();
@@ -2106,125 +2304,205 @@ function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenI
       if (dd === 1 || d === from) axis.push(<span key={'m' + d} className="cx-tl-major" style={{ left: x(d) }}>{CX_MES_L[mm]} {D.getFullYear()}</span>);
       if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
     } else if (scale === 'meses') {
-      if (dd === 1) { axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 15 * sc.ppd }}>{MES[mm]}</span>); grid.push(<span key={'g' + d} className="cx-tl-grid strong" style={{ left: x(d) }} />); }
+      if (dd === 1) { if (!nearToday(x(d) + 15 * sc.ppd)) axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 15 * sc.ppd }}>{MES[mm]}</span>); grid.push(<span key={'g' + d} className="cx-tl-grid strong" style={{ left: x(d) }} />); }
       else if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
       if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
     } else {
-      if (dd === 1 && mm % 3 === 0) { axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 45 * sc.ppd }}>{'T' + (mm / 3 + 1)}</span>); grid.push(<span key={'g' + d} className={'cx-tl-grid' + (mm === 0 ? ' strong' : '')} style={{ left: x(d) }} />); }
+      if (dd === 1 && mm % 3 === 0) { if (!nearToday(x(d) + 45 * sc.ppd)) axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 45 * sc.ppd }}>{'T' + (mm / 3 + 1)}</span>); grid.push(<span key={'g' + d} className={'cx-tl-grid' + (mm === 0 ? ' strong' : '')} style={{ left: x(d) }} />); }
       if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
     }
   }
+  /* Linhas visíveis (filtros da legenda) e a altura de cada uma. */
+  const cdaCap = tlCapList(tl.cdas, 10, cdaAll);
+  const vis = [];
+  tl.rows.forEach(r => {
+    if (r.kind === 'prazo' && hid('prazo')) return;
+    if (r.kind === 'presc' && hid('presc')) return;
+    if (r.kind === 'cdah') { if (hid('presc')) return; vis.push({ r }); cdaCap.shown.forEach(c => vis.push({ r: { kind: 'cda', c } })); if (cdaCap.more > 0 || (cdaAll && tl.cdas.length > 10)) vis.push({ r: { kind: 'cdamore', n: cdaCap.more, total: tl.cdas.length } }); return; }
+    vis.push({ r });
+  });
+  /* Marcos da operação: rótulos em faixas, sem colisão; perto de "hoje" têm prioridade. */
+  const msVis = tl.ms.filter(m => !hid(m.kind) && inR(m.d));
+  const msText = (m) => m.short + ' ' + cxDM(m.d) + (m.kind === 'aud' && m.tm ? ' ' + m.tm : '');
+  const msLay = tlLayoutLabels(msVis.map(m => ({ id: m.id, x: xi(m.d), w: cxTlMeasure(msText(m)) + 4, prio: Math.abs(daysUntil(m.d)) - (TL_KIND_WEIGHT[m.kind] || 0) * 25 })), { minX: 4, maxX: W - 4, levels: 3 });
+  const msPlaced = new Map(msLay.placed.map(p => [p.id, p]));
+  vis.forEach(v => {
+    const k = v.r.kind;
+    if (k === 'ms') { v.by = 12 + 13 * msLay.levels + (msLay.levels ? 0 : 6); v.h = Math.max(36, v.by + 16); }
+    else if (k === 'proc') v.h = 46;
+    else if (k === 'cda') v.h = 42;
+    else if (k === 'cdamore') v.h = 32;
+    else if (k === 'cdah' || k === 'divider') v.h = 34;
+    else v.h = CX_TL_ROW;
+  });
+  let yy = CX_TL_AXIS;
+  vis.forEach(v => { v.y = yy; yy += v.h; });
+  const H = yy;
   const rowY = {};
-  tl.rows.forEach((r, k) => { if (r.kind === 'proc') rowY[r.x.e.id] = CX_TL_AXIS + k * CX_TL_ROW + CX_TL_ROW / 2; });
-  const H = CX_TL_AXIS + tl.rows.length * CX_TL_ROW;
+  vis.forEach(v => { if (v.r.kind === 'proc') rowY[v.r.x.e.id] = v.y + v.h / 2; });
   const links = [];
-  tl.parents.concat(tl.covers).forEach(([a, b]) => {
-    if (rowY[a] == null || rowY[b] == null) return;
-    const rowB = tl.rows.find(r => r.kind === 'proc' && r.x.e.id === b);
-    const xa = rowB ? xi(rowB.x.start) : null;
+  tl.links.forEach(l => {
+    if (rowY[l.a] == null || rowY[l.b] == null) return;
+    const xa = xi(tl.info.get(l.b).start);
     if (xa === null || xa < 0 || xa > W) return;
-    links.push([xa, rowY[a], rowY[b]]);
+    links.push({ l, x: xa, ya: rowY[l.a], yb: rowY[l.b] });
   });
   const minLbl = scale === 'anos' ? 160 : 110;
-  const left = (r, k) => {
-    const pad = { paddingLeft: 12 + (r.depth || 0) * 14 };
-    if (r.kind === 'ms') return <div key={k} className="cx-tl-rl ms"><CxIcon n="flag" s={13} />Marcos da operação<span className="cx-count" style={{ marginLeft: 'auto' }}>{tl.ms.length}</span></div>;
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl ms">{r.label}</div>;
-    if (r.kind === 'proc') { const e = r.x.e; return <div key={k} className="cx-tl-rl" style={pad} title={(e.className || '') + ' · ' + (e.processNumber || '')}><span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span><span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{e.className || 'Processo'}</span><span className="cx-ell cx-mono cx-tl-who">{e.processNumber || '—'}</span></span></div>; }
-    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rl ms"><CxIcon n="file" s={13} /><span className="cx-ell" title="CDAs desta operação sem processo, com o prazo de 5 anos para ajuizar perto do fim">CDAs sem processo · ajuizar</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{r.n}</span></div>;
-    if (r.kind === 'cda') { const c = r.c; return <div key={k} className={'cx-tl-rl sub' + (onOpenCda ? ' click' : '')} style={{ paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-mono" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-muted">{c.r.status === 'prescrito' ? 'venceu em ' + fmtDate(c.end) : 'até ' + fmtDate(c.end)}</span></div>; }
-    if (r.kind === 'presc') { const pr = r.x.presc; return <div key={k} className="cx-tl-rl sub" style={{ paddingLeft: 26 + (r.depth || 0) * 14 }} title={pr.r.summary || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-ell">Prescrição · {CX_PRESC_TXT[pr.r.status] || pr.r.status}{pr.n > 1 ? ' · pior de ' + pr.n + ' CDAs' : ''}</span></div>; }
-    return <div key={k} className="cx-tl-rl sub" style={{ paddingLeft: 26 + (r.depth || 0) * 14 }}><CxStatusIcon s={r.i.status} /><span className="cx-ell">{r.i.eventDescription || r.i.className || 'Intimação'}</span></div>;
-  };
-  const right = (r, k) => {
-    const inner = [];
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rr ms" />;
-    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rr ms" />;
+  const tagOf = (r) => cxExecTag(r.x.e);
+  const left = (v, k) => {
+    const r = v.r, st = { height: v.h };
+    const pad = { ...st, paddingLeft: 12 + (r.depth || 0) * 14 };
+    if (r.kind === 'ms') return <div key={k} className="cx-tl-rl ms" style={st}><CxIcon n="flag" s={13} /><span className="cx-ell" title={msLay.dropped.length ? msLay.dropped.length + ' marco(s) sem rótulo: passe o mouse sobre o losango' : undefined}>Marcos da operação</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{msVis.length}</span></div>;
+    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl ms" style={st}>{r.label}</div>;
+    if (r.kind === 'proc') {
+      const e = r.x.e, X = r.x;
+      const sub = [X.rel, X.who, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + (X.cdaVal ? ' · ' + cxMoneyShort(X.cdaVal) : '') : ''].filter(Boolean).join(' · ');
+      return <div key={k} className={'cx-tl-rl pr' + (onOpenProc ? ' click' : '')} style={pad} role={onOpenProc ? 'button' : undefined} tabIndex={onOpenProc ? 0 : undefined}
+        onClick={onOpenProc ? () => onOpenProc(e.id) : undefined} onKeyDown={onOpenProc ? (ev => { if (ev.key === 'Enter') onOpenProc(e.id); }) : undefined}
+        title={[X.role, e.processNumber, X.rel, X.who, e.court, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(X.cdaVal) : ''].filter(Boolean).join(' · ')}>
+        <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{tagOf(r)}</span>
+        <span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{X.role}</span><span className="cx-ell cx-tl-who"><span className="cx-mono">{cxExecShortNum(e)}</span>{sub ? ' · ' + sub : ''}</span></span>
+      </div>;
+    }
+    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rl ms" style={st}><CxIcon n="file" s={13} /><span className="cx-ell" title="CDAs desta operação sem processo, com o prazo de 5 anos para ajuizar perto do fim">CDAs sem processo · ajuizar</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{r.n}</span></div>;
+    if (r.kind === 'cdamore') return <div key={k} className="cx-tl-rl sub click" style={{ ...st, paddingLeft: 26 }} role="button" tabIndex={0} onClick={() => setCdaAll(v => !v)} onKeyDown={ev => { if (ev.key === 'Enter') setCdaAll(v => !v); }}><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{cdaAll ? 'Mostrar só as 10 primeiras' : '+' + r.n + (r.n === 1 ? ' CDA' : ' CDAs') + ' · mostrar todas'}</span></div>;
     if (r.kind === 'cda') {
-      const c = r.c, b = clampIso(c.start, c.end), o = daysUntil(c.end);
-      if (b) inner.push(<span key="s" className="cx-tl-seg inter" style={{ left: b.left, width: b.width }} title={'Prazo de 5 anos para ajuizar · termo ' + (c.r.estimated ? 'estimado' : 'calculado') + ' em ' + fmtDate(c.end)} />);
-      if (b && b.width > minLbl) inner.push(<span key="sl" className="cx-tl-seg-l" style={{ left: b.left }}>{c.r.diesAQuo ? 'Prazo para ajuizar' : 'Prazo para ajuizar (início estimado)'}</span>);
-      if (o !== null && o >= from && o <= to) inner.push(<span key="m" className="cx-tl-dm lg" style={{ left: x(o), '--c': c.r.status === 'prescrito' ? 'var(--cx-red)' : 'var(--cx-violet)' }} title={'Termo ' + fmtDate(c.end)} />);
+      const c = r.c, bar = tlCdaBar({ start: c.start, end: c.end, today: localIso(new Date()) });
+      return <div key={k} className={'cx-tl-rl pr sub' + (onOpenCda ? ' click' : '')} style={{ ...st, paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}>
+        <CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} />
+        <span className="cx-tl-l2"><span className="cx-mono cx-ell" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-tl-who">{[c.d.tribute || c.d.system, c.d.value ? cxMoneyShort(c.d.value) : '', bar.late ? 'vencida' : 'faltam ' + tlDurLabel(bar.left)].filter(Boolean).join(' · ')}</span></span>
+      </div>;
+    }
+    if (r.kind === 'presc') { const pr = r.x.presc; return <div key={k} className="cx-tl-rl sub" style={{ ...st, paddingLeft: 26 + (r.depth || 0) * 14 }} title={pr.r.summary || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-ell">Prescrição · {CX_PRESC_TXT[pr.r.status] || pr.r.status}{pr.n > 1 ? ' · pior de ' + pr.n + ' CDAs' : ''}</span></div>; }
+    return <div key={k} className={'cx-tl-rl sub' + (onOpenIntim ? ' click' : '')} style={{ ...st, paddingLeft: 26 + (r.depth || 0) * 14 }} role={onOpenIntim ? 'button' : undefined} tabIndex={onOpenIntim ? 0 : undefined}
+      onClick={onOpenIntim ? () => onOpenIntim(r.i.id) : undefined} onKeyDown={onOpenIntim ? (ev => { if (ev.key === 'Enter') onOpenIntim(r.i.id); }) : undefined} title={r.i.eventDescription || r.i.className || ''}><CxStatusIcon s={r.i.status} /><span className="cx-ell">{r.i.eventDescription || r.i.className || 'Intimação'}</span></div>;
+  };
+  /* Marcador clicável (botão, com rótulo de acessibilidade) na posição X do eixo e Y da linha. */
+  const mk = (it, X, Y, extra) => <button key={it.id + (extra || '')} type="button" className="cx-tl-g" style={{ left: X, top: Y }} data-tl={it.id} aria-label={it.l + (it.d ? ' · ' + fmtDate(it.d) : '')} onClick={() => open(it)}><CxTlGlyph kind={it.kind} c={cxTlColor(it)} hollow={it.hollow} s={it.big ? 16 : 14} /></button>;
+  const right = (v, k) => {
+    const r = v.r, inner = [], st = { height: v.h };
+    if (r.kind === 'divider' || r.kind === 'cdah' || r.kind === 'cdamore') return <div key={k} className={'cx-tl-rr' + (r.kind === 'divider' ? ' divider ms' : r.kind === 'cdah' ? ' ms' : '')} style={st} />;
+    if (r.kind === 'cda') {
+      const c = r.c, it = c.it, today = localIso(new Date()), bar = tlCdaBar({ start: c.start, end: c.end, today });
+      const b = clampIso(c.start, c.end), o = daysUntil(c.end), Y = v.h / 2;
+      if (b) {
+        const xn = Math.max(b.left, Math.min(b.left + b.width, x0));
+        inner.push(<span key="s1" className="cx-tl-seg inter" data-tl={it.id} style={{ left: b.left, width: Math.max(2, xn - b.left), top: Y - 7 }} />);
+        if (b.left + b.width > xn + 1) inner.push(<span key="s2" className="cx-tl-seg inter rest" data-tl={it.id} style={{ left: xn, width: b.left + b.width - xn, top: Y - 7 }} />);
+      }
+      if (o !== null && o >= from && o <= to) {
+        const X = x(o), txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + cxDM(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
+        const w = cxTlMeasure(txt) + 10, rightFits = X + 10 + w <= W - 4;
+        inner.push(mk(it, X, Y));
+        inner.push(<span key="tx" className={'cx-tl-cdal' + (bar.late ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={rightFits ? { left: X + 10, top: Y - 9 } : { left: Math.max(4, X - 10 - w), top: Y - 9 }}>{txt}</span>);
+      }
       if (!inner.length) inner.push(<span key="h" className="cx-tl-hint">Termo em {fmtDate(c.end)}, fora desta escala</span>);
-      return <div key={k} className="cx-tl-rr">{inner}</div>;
+      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
     }
     if (r.kind === 'ms') {
-      const vis = tl.ms.filter(m => { const o = daysUntil(m.d); return o !== null && o >= from && o <= to; });
-      vis.forEach((m, j) => {
-        const X = xi(m.d), next = vis[j + 1], room = next ? xi(next.d) - X - 14 : 200;
-        inner.push(<span key={'d' + j} className={'cx-tl-dm' + (m.big ? ' lg' : '')} style={{ left: X, '--c': m.c, cursor: m.hearing ? 'pointer' : 'default' }} title={fmtDate(m.d) + ' · ' + m.l} onClick={m.hearing && onOpenHearing ? () => onOpenHearing(m.hearing) : undefined} />);
-        if (room >= 90) inner.push(<span key={'l' + j} className="cx-tl-dm-l" style={{ left: X, maxWidth: Math.min(room, 220) }}>{m.l}</span>);
+      msVis.forEach(m => {
+        const X = xi(m.d), pl = msPlaced.get(m.id);
+        inner.push(mk(m, X, v.by));
+        if (pl) {
+          const top = v.by - 10 - 13 * (pl.level + 1) - 2;
+          if (pl.level > 0) inner.push(<span key={'ld' + m.id} className="cx-tl-lead" style={{ left: X, top: top + 13, height: v.by - 8 - (top + 13) }} />);
+          inner.push(<span key={'l' + m.id} className={'cx-tl-dm-l' + (m.kind === 'prazo' && daysUntil(m.d) < 0 ? ' late' : '')} data-tl={m.id} onClick={() => open(m)} style={{ left: pl.x0, top, width: pl.x1 - pl.x0, textAlign: pl.anchor === 'end' ? 'right' : 'left' }}>{msText(m)}</span>);
+        }
       });
-    } else if (r.kind === 'proc') {
-      const X = r.x, e = X.e;
+      if (msLay.dropped.length) inner.push(<span key="drop" className="cx-tl-drop" title="Marcos sem rótulo: passe o mouse sobre o losango">+{msLay.dropped.length} sem rótulo</span>);
+      return <div key={k} className="cx-tl-rr ms" style={st}>{inner}</div>;
+    }
+    if (r.kind === 'proc') {
+      const X = r.x, e = X.e, Y = v.h / 2;
       const b = clampIso(X.start, X.end || localIso(new Date(Date.now() + to * 86400000)));
-      if (b) inner.push(<div key="b" className={'cx-tl-bar' + (X.end ? ' ended' : ' open-end')} style={{ left: b.left, width: b.width, '--c': cxTagColor(e) }} title={(e.className || '') + ' · desde ' + fmtDate(X.start)}>{b.width > 70 ? <span className="cx-tl-lbl">{EXEC_STATUSES[e.status] ? EXEC_STATUSES[e.status].label : ''}{X.end ? ' · extinta' : ''}</span> : null}</div>);
-      X.evs.forEach((ev, j) => { const o = daysUntil(ev.d); if (o === null || o < from || o > to) return; inner.push(<span key={'e' + j} className="cx-tl-dm" style={{ left: x(o), '--c': ev.c }} title={fmtDate(ev.d) + ' · ' + ev.l} />); });
-    } else if (r.kind === 'presc') {
-      const pr = r.x.presc;
+      const evs = X.evs.filter(ev => !hid(ev.kind) && inR(ev.d));
+      if (b) {
+        inner.push(<div key="b" className={'cx-tl-bar' + (X.end ? ' ended' : ' open-end')} data-tl={'bar|' + e.id} style={{ left: b.left, width: b.width, top: Y - 11, '--c': cxTagColor(e) }} />);
+        /* Status só quando diz algo (diferente de "Ativa") e só num vão sem marcador: nunca é cortado por um glifo. */
+        const stTxt = e.status && e.status !== 'ativa' ? ((EXEC_STATUSES[e.status] || {}).label || '') + (X.end ? ' · extinta' : '') : (X.end ? 'Extinta' : '');
+        if (stTxt && b.width > 40) {
+          const w = cxTlMeasure(stTxt) + 4;
+          const gx = tlPickGap(evs.map(ev => xi(ev.d)), b.left + 8, b.left + b.width - 6, w, { half: 8 });
+          if (gx !== null) inner.push(<span key="bl" className="cx-tl-blbl" style={{ left: gx, top: Y - 11 }}>{stTxt}</span>);
+        }
+      }
+      evs.forEach(ev => inner.push(mk(ev, xi(ev.d), Y)));
+      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
+    }
+    if (r.kind === 'presc') {
+      const pr = r.x.presc, marks = pr.marks.filter(m => inR(m.d)), mxs = marks.map(m => xi(m.d));
       pr.segs.forEach((s, j) => {
         const b = clampIso(s.from, s.to); if (!b) return;
         const names = { susp: 'Suspensão de 1 ano', inter: 'Contagem de 5 anos', pausa: 'Parcelamento', susp2: s.l || 'Pausa' };
-        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} style={{ left: b.left, width: b.width }} title={names[s.t] + ' · ' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} />);
-        if (b.width > minLbl * 0.8) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: b.left }}>{names[s.t]}</span>);
+        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} data-tl={'seg|' + names[s.t] + '|' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} style={{ left: b.left, width: b.width }} />);
+        const w = cxTlMeasure(names[s.t]) + 6;
+        if (b.width > w + 12) { const gx = tlPickGap(mxs, b.left + 4, b.left + b.width - 4, w, { half: 8 }); if (gx !== null) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: gx - 6 }}>{names[s.t]}</span>); }
       });
-      pr.marks.forEach((m, j) => { const o = daysUntil(m.d); if (o === null || o < from || o > to) return; inner.push(<span key={'m' + j} className={'cx-tl-dm' + (m.big ? ' lg' : '') + (m.hollow ? ' hollow' : '')} style={{ left: x(o), '--c': m.c }} title={m.l} />); });
-      if (!inner.length || (pr.r.status === 'indeterminado' && !pr.segs.length)) {
+      marks.forEach(m => inner.push(mk(m, xi(m.d), v.h / 2)));
+      if (!pr.segs.length || (pr.r.status === 'indeterminado' && !pr.segs.length)) {
         const fl = pr.marks.find(m => m.hollow);
         const txt = pr.r.status === 'indeterminado' ? 'A contagem do art. 40 ainda não começou' : 'Nada nesta escala';
         inner.unshift(<span key="h" className="cx-tl-hint">{txt}{fl ? ' · não prescreve antes de ' + fmtDate(fl.d) : ''}</span>);
       }
-    } else {
-      const i = r.i, info = cxDue(daysUntil(i.dateDeadline), i.dateDeadline);
-      const c = info.tone === 'late' ? 'var(--cx-red)' : info.tone === 'today' ? 'var(--cx-orange)' : info.tone === 'soon' ? 'var(--cx-yellow)' : 'var(--cx-ink-3)';
-      const st = toDayKey(i.dateStart) || toDayKey(i.dateSent) || toDayKey(i.dateDeadline);
-      const end = toDayKey(i.dateDeadline);
-      const b = clampIso(st, localIso(new Date(new Date(end + 'T12:00:00').getTime() + 86400000)));
-      if (b) inner.push(<div key="p" className="cx-tl-bar prazo" role="button" tabIndex={0} style={{ left: b.left, width: b.width, '--c': c }} onClick={() => onOpenIntim && onOpenIntim(i.id)} onKeyDown={ev => { if (ev.key === 'Enter' && onOpenIntim) onOpenIntim(i.id); }} title={(i.eventDescription || '') + ' · final ' + fmtDate(end)}>{b.width > 110 ? <span className="cx-tl-lbl">Prazo · final {cxDM(end)}</span> : null}</div>);
+      return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
     }
-    return <div key={k} className={'cx-tl-rr' + (r.kind === 'ms' ? ' ms' : '')}>{inner}</div>;
+    /* prazo: janela (início → final) com rótulo e o ▼ no vencimento */
+    const it = r.it, i = r.i, end = it.d, c = cxTlPrazoColor(end);
+    const b = clampIso(it.from, localIso(new Date(new Date(end + 'T12:00:00').getTime() + 86400000))), Y = v.h / 2;
+    if (b) {
+      const wide = b.width >= 18;
+      if (wide) inner.push(<div key="p" className="cx-tl-bar prazo" data-tl={it.id} role="button" tabIndex={0} style={{ left: b.left, width: b.width, '--c': c }} onClick={() => open(it)} onKeyDown={ev => { if (ev.key === 'Enter') open(it); }}>{b.width > 110 ? <span className="cx-tl-lbl">Prazo · final {cxDM(end)}</span> : null}</div>);
+      inner.push(<button key="m" type="button" className="cx-tl-g" style={{ left: b.left + b.width - (wide ? 6 : 0), top: Y }} data-tl={it.id} aria-label={it.l + ' · final ' + fmtDate(end)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
+      if (b.width <= 110) inner.push(<span key="pl" className={'cx-tl-dm-l' + (daysUntil(end) < 0 ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: b.left + b.width + 12, top: Y - 7, width: 120 }}>final {cxDM(end)}</span>);
+    }
+    return <div key={k} className="cx-tl-rr" style={st}>{inner}</div>;
   };
-  return <div>
+  const legendKinds = TL_KIND_ORDER.filter(k => counts[k] > 0);
+  return <div onClick={ev => { const t = ev.target.closest && ev.target.closest('[data-tl]'); if (!t) return; const k = t.getAttribute('data-tl'); if (k.indexOf('lk|') === 0 || k.indexOf('seg|') === 0) return; if (k.indexOf('bar|') === 0) { onOpenProc && onOpenProc(k.slice(4)); return; } /* demais marcadores já têm onClick próprio */ }}>
     {!compact ? null : <div className="cx-tl-tools"><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>}
-    <div className="cx-tl">
-      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · evento</div>{tl.rows.map(left)}</div>
-      <div className="cx-tl-r" ref={scRef}>
-        <div className="cx-tl-cv" style={{ width: W, height: H }}>
-          <div className="cx-tl-axis">{axis}</div>
-          {grid}
-          {tl.rows.map(right)}
-          <svg className="cx-tl-svg" width={W} height={H} aria-hidden="true">{links.map((l, k) => <g key={k}><path d={'M' + l[0] + ' ' + l[1] + ' C ' + (l[0] - 16) + ' ' + l[1] + ', ' + (l[0] - 16) + ' ' + l[2] + ', ' + l[0] + ' ' + l[2]} style={{ fill: 'none', stroke: 'var(--cx-line-strong)', strokeWidth: 1.5 }} /><circle cx={l[0]} cy={l[2]} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>)}</svg>
-          <div className="cx-tl-today" style={{ left: x(0) }}><span>Hoje</span></div>
-        </div>
-      </div>
-    </div>
-    <div className="cx-tl-legend">
+    <div className="cx-tl-legend top">
+      <span className="cx-tl-leg-h">Mostrar</span>
+      {legendKinds.map(k => <button key={k} type="button" className={'cx-fchip sm cx-tl-chip' + (hid(k) ? ' off' : ' on') + (counts[k] === 0 ? ' zero' : '')} aria-pressed={!hid(k)} onClick={() => setHidden(h => tlToggleKind(h, k))} title={(hid(k) ? 'Mostrar ' : 'Ocultar ') + TL_KINDS[k].plural.toLowerCase()}>
+        <CxTlGlyph kind={k} c={k === 'dec' ? 'var(--cx-green)' : k === 'prazo' ? 'var(--cx-blue)' : k === 'presc' ? 'var(--cx-violet)' : k === 'aud' ? 'var(--cx-orange)' : k === 'rev' ? 'var(--cx-accent)' : undefined} s={14} />{TL_KINDS[k].label}<span className="cx-fcn">{counts[k]}</span>
+      </button>)}
+      <span className="cx-tl-leg-br" />
+      <span className="cx-tl-leg-h">Leitura</span>
       <span><i className="cx-lg-sw" style={{ background: 'color-mix(in srgb, var(--cx-cyan) 14%, var(--cx-surface))', border: '1px solid color-mix(in srgb, var(--cx-cyan) 40%, transparent)' }} />Processo</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-green)' }} />Favorável</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-red)' }} />Desfavorável</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-cyan)' }} />Resultado útil</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-orange)' }} />Audiência</span>
       <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano</span>
       <span><i className="cx-lg-sw cx-tl-seg inter" />Contagem de 5 anos</span>
       <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento</span>
       <span><i className="cx-lg-sw cx-tl-seg susp2" />Outra pausa</span>
+      <span className="cx-tl-leg-out"><i className="cx-tl-oc" style={{ background: 'var(--cx-green)' }} />favorável<i className="cx-tl-oc" style={{ background: 'var(--cx-red)' }} />desfavorável<i className="cx-tl-oc" style={{ background: 'var(--cx-yellow)' }} />pendente</span>
+    </div>
+    <div className="cx-tl" {...tip.bind}>
+      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · papel · devedor</div>{vis.map((v, k) => left(v, k))}</div>
+      <div className="cx-tl-r" ref={scRef}>
+        <div className="cx-tl-cv" style={{ width: W, height: H }}>
+          <div className="cx-tl-axis">{axis}</div>
+          {grid}
+          {vis.map((v, k) => right(v, k))}
+          <svg className="cx-tl-svg" width={W} height={H}>{links.map((l, k) => { const d = 'M' + l.x + ' ' + l.ya + ' C ' + (l.x - 16) + ' ' + l.ya + ', ' + (l.x - 16) + ' ' + l.yb + ', ' + l.x + ' ' + l.yb; return <g key={k} data-tl={l.l.id}><path d={d} className={'cx-tl-link' + (l.l.type === 'cover' ? ' cover' : '')} /><path d={d} className="cx-tl-link-hit" /><circle cx={l.x} cy={l.yb} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>; })}</svg>
+          <div className="cx-tl-today" style={{ left: x0 }}><span>Hoje</span></div>
+        </div>
+      </div>
+      {tip.node}
     </div>
   </div>;
 }
-function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda }) {
+function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc }) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
   return <div className="cx cx-page cx-page-wide">
-    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição da operação numa mesma régua. A faixa lilás usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
+    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição da operação numa mesma régua. Cada forma é um tipo de fato; clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa lilás usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
       {op ? <div className="cx-acts"><button type="button" className="cx-btn" onClick={() => onOpenOp(op.id)}>Abrir operação<CxIcon n="chevR" s={13} /></button></div> : null}</div>
     {!op ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma operação ativa.</div></div> : <>
       <div className="cx-tl-tools">
         <CxSelect id="cx-tl-op" pre="Operação" value={op.id} onChange={setOpId} options={ops.map(o => [o.id, cxOpName(o)])} />
         <CxSeg className="lg" label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} />
         <span className="cx-sp" />
-        <span className="cx-muted cx-small">Clique num prazo para abrir a intimação. Use Anos para ver o 1 ano + 5 anos inteiro.</span>
+        <span className="cx-muted cx-small">Use Anos para ver o 1 ano + 5 anos inteiro; passe o mouse num marco para a prévia.</span>
       </div>
-      <EditionClaudeTimeline data={data} op={op} prescLookup={prescLookup} scale={scale} setScale={setScale} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} />
+      <EditionClaudeTimeline data={data} op={op} prescLookup={prescLookup} scale={scale} setScale={setScale} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />
     </>}
   </div>;
 }
@@ -2331,7 +2609,7 @@ function EditionClaudeOpOverview(p) {
         pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
     </CxKpiStrip> : null}
     <div className="cx-sub-h"><h2>Linha do tempo</h2><span className="cx-sp" /><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>
-    <EditionClaudeTimeline data={data} op={op} prescLookup={p.prescLookup} scale={scale} setScale={setScale} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenCda={p.onOpenCda} />
+    <EditionClaudeTimeline data={data} op={op} prescLookup={p.prescLookup} scale={scale} setScale={setScale} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenCda={p.onOpenCdaDrawer || p.onOpenCda} onOpenProc={p.onOpenProc} />
     <div className="cx-home-grid" style={{ marginTop: 22 }}>
       <section className="cx-card">
         <div className="cx-card-h"><h2>Intimações abertas</h2><div className="cx-aside"><span className="cx-count">{open.length}</span></div></div>
@@ -4709,7 +4987,7 @@ function cxHubStageInfo(exec, briefing) {
 function EditionClaudeProcessos(p) {
   const { opId, data, briefing, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
     selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck,
-    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people, linkify } = p;
+    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people, linkify, focus, onFocusDone } = p;
   const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates } = classified;
 
   const [sigActive, setSigActive] = React.useState(() => new Set());
@@ -4776,6 +5054,13 @@ function EditionClaudeProcessos(p) {
   const openCdaDrawer = (cdaId, execId) => { setDrawerCda({ id: cdaId, execId: execId || null }); setDrawerExecId(null); };
   const closeCdaDrawer = () => setDrawerCda(null);
   const drawerOpen = !!drawerExecId || !!drawerCda;
+  /* Pedido de fora (Linha do tempo): abre a ficha do processo ou da CDA e avisa que consumiu o pedido. */
+  React.useEffect(() => {
+    if (!focus) return;
+    if (focus.cdaId) openCdaDrawer(focus.cdaId, focus.execId || null);
+    else if (focus.execId) openDrawerFor(focus.execId);
+    if (onFocusDone) onFocusDone();
+  }, [focus && focus.n]);
   const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (collapsedCards.has(id)) setCollapsedCards(prev => { const n = new Set(prev); n.delete(id); return n; }); };
 
   const toggleGroupSelect = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const all = cdas.every(d => n.has(d.id)); cdas.forEach(d => all ? n.delete(d.id) : n.add(d.id)); return n; });
