@@ -11,8 +11,8 @@
  *  - Texto na barra do processo: `tlPickGap` acha um vão sem marcador para o rótulo de status.
  *  - CDAs a ajuizar: `tlCdaBar` (posição proporcional do "hoje" entre o início e o termo).
  *  - Panorama (M1, régua com foco no agora): `tlProjectBroken` projeta datas (em dias a partir de hoje) num eixo
- *    quebrado — o foco (30 d … 1 ano) em escala linear e o passado/futuro comprimidos nas laterais, com vãos
- *    longos sem fato viram quebras hachuradas ("≈ 13 m") —, `tlFocusAxis`/`tlZoneTicks` geram as marcas do eixo,
+ *    quebrado — o foco (30 d … 1 ano) em escala linear e o passado/futuro comprimidos nas laterais (cada uma
+ *    com no máximo 18% da largura e 3 quebras hachuradas "≈ 13 m" nos maiores vãos sem fato; o resto é espremido) —, `tlFocusAxis`/`tlZoneTicks` geram as marcas do eixo,
  *    `tlNormalizeFocus` protege o estado lembrado no navegador.
  *  - Miniaturas (M6): `tlPulseLayout`/`tlPulseSummary` (pulso de 120 dias da Carteira: pontos em dias a partir de hoje,
  *    marcas de semana e de mês, frase "Próximo …"), `tlPhaseTrail` (trilha de fases de um processo: cumpridas, atual,
@@ -304,34 +304,64 @@ export function tlBreakLabel(days) {
   return '≈ ' + String(y).replace('.', ',') + ' a';
 }
 
+/** Quebras do eixo por zona comprimida (no máximo), largura-alvo e largura mínima (px). */
+export const TL_MAX_BREAKS = 3;
+export const TL_BREAK_W = 30;
+export const TL_BREAK_MIN_W = 20;
+/** Fonte (px) do rótulo da quebra — o rótulo só aparece se couber nessa medida. */
+export const TL_BREAK_FONT = 10;
+/** Quanto de um vão sem fato (não escolhido como quebra) conta na escala, em dias: ele é só espremido. */
+const TL_SQUEEZE_CAP = 90;
+
 /**
- * Comprime o trecho [a, b] (dias) em `px` pixels. Cada ponto de interesse mantém uma janela de ±`win` dias em escala
- * (uniforme entre as janelas); o que sobra entre elas e tem `minGap` dias ou mais vira uma quebra de largura fixa
- * (`breakW`); vãos menores são só espremidos. Retorna { f, pieces, px, a, b }; f(dia) → x dentro da zona.
+ * Comprime o trecho [a, b] (dias) em `px` pixels, sempre dentro de `px`. Cada ponto de interesse mantém uma janela de
+ * ±`win` dias em escala; entre as janelas ficam os vãos sem fato. Só os `maxBreaks` MAIORES vãos (com `minGap` dias ou
+ * mais) viram quebra hachurada de largura fixa (`breakW`, no mínimo `minBreakW`; todas juntas ocupam no máximo metade da
+ * zona); os demais são espremidos (peça `squeezed`: pesa no máximo TL_SQUEEZE_CAP dias na escala) ou se fundem às peças em escala vizinhas.
+ * Muitos fatos espalhados por anos, portanto, dão no máximo `maxBreaks` quebras — nunca centenas.
+ * Retorna { f, pieces, px, a, b }; f(dia) → x dentro da zona; cada peça tem { a, b, gap, x0, x1 } e as peças cobrem [0, px].
  */
 export function tlCompressZone(a, b, px, points, opts = {}) {
   const win = opts.win == null ? 22 : opts.win;
   const minGap = opts.minGap == null ? 60 : opts.minGap;
-  const breakW = opts.breakW == null ? 26 : opts.breakW;
+  const breakW = opts.breakW == null ? TL_BREAK_W : opts.breakW;
+  const minBreakW = opts.minBreakW == null ? TL_BREAK_MIN_W : opts.minBreakW;
+  const maxBreaks = opts.maxBreaks == null ? TL_MAX_BREAKS : opts.maxBreaks;
   const wins = [];
   (points || []).filter(p => Number.isFinite(p) && p >= a - 1 && p <= b + 1).sort((x, y) => x - y).forEach(p => {
     const s0 = Math.max(a, p - win), e0 = Math.min(b, p + win);
     if (wins.length && s0 <= wins[wins.length - 1][1] + 1) wins[wins.length - 1][1] = Math.max(wins[wins.length - 1][1], e0);
     else wins.push([s0, e0]);
   });
-  const pieces = [];
+  const raw = [];
   let cur = a;
   wins.forEach(([s0, e0]) => {
-    if (s0 > cur) pieces.push({ a: cur, b: s0, gap: s0 - cur >= minGap });
-    pieces.push({ a: s0, b: e0, gap: false });
+    if (s0 > cur) raw.push({ a: cur, b: s0, gap: s0 - cur >= minGap, win: false });
+    raw.push({ a: s0, b: e0, gap: false, win: true });
     cur = e0;
   });
-  if (cur < b) pieces.push({ a: cur, b, gap: b - cur >= minGap });
-  const nb = pieces.filter(p => p.gap).length;
-  const nd = pieces.filter(p => !p.gap).reduce((t, p) => t + (p.b - p.a), 0) || 1;
-  const avail = Math.max(12, px - nb * breakW);
+  if (cur < b) raw.push({ a: cur, b, gap: b - cur >= minGap, win: false });
+  /* só os maiores vãos viram quebra, e só quantos couberem em metade da zona */
+  const order = raw.map((p, i) => ({ p, i })).filter(o => o.p.gap).sort((x, y) => (y.p.b - y.p.a) - (x.p.b - x.p.a) || x.i - y.i);
+  let nb = Math.min(Math.max(0, maxBreaks), order.length);
+  let bw = nb ? Math.min(breakW, Math.floor(px * 0.5 / nb)) : 0;
+  while (nb > 0 && bw < minBreakW) { nb--; bw = nb ? Math.min(breakW, Math.floor(px * 0.5 / nb)) : 0; }
+  const keep = new Set(order.slice(0, nb).map(o => o.p));
+  const flat = [];
+  raw.forEach(p => {
+    const isBreak = keep.has(p);
+    const q = { a: p.a, b: p.b, gap: isBreak, squeezed: !isBreak && !p.win && p.b - p.a > TL_SQUEEZE_CAP };
+    const last = flat[flat.length - 1];
+    if (!isBreak && !q.squeezed && last && !last.gap && !last.squeezed) { last.b = q.b; last.w += weight(q); } // vizinhas em escala linear se fundem
+    else flat.push({ ...q, w: isBreak ? 0 : weight(q) });
+  });
+  function weight(q) { return q.squeezed ? TL_SQUEEZE_CAP : q.b - q.a; }
+  const pieces = flat;
+  const nd = pieces.filter(p => !p.gap).reduce((t, p) => t + p.w, 0) || 1;
+  const avail = Math.max(0, px - nb * bw);
   let x = 0;
-  pieces.forEach(p => { p.x0 = x; p.x1 = x + (p.gap ? breakW : (p.b - p.a) / nd * avail); x = p.x1; });
+  pieces.forEach(p => { p.x0 = x; p.x1 = x + (p.gap ? bw : p.w / nd * avail); x = p.x1; delete p.w; });
+  if (pieces.length) pieces[pieces.length - 1].x1 = px; // sem erro de arredondamento no fim
   const f = (o) => {
     if (o <= a) return 0;
     if (o >= b) return px;
@@ -346,7 +376,7 @@ export function tlCompressZone(a, b, px, points, opts = {}) {
  * comprimidos (só existem se houver fato fora do foco). `points` são todos os dias (desde hoje) que importam.
  * Retorna { f, f0, f1, lo, hi, pastW, futW, focusW, ppd, zP, zU, width }; `f(dia)` → x no canvas inteiro.
  */
-export function tlProjectBroken({ points, f0, f1, width, pastFrac = 0.17, futFrac = 0.2, pad = 4 }) {
+export function tlProjectBroken({ points, f0, f1, width, pastFrac = 0.17, futFrac = 0.18, pad = 4 }) {
   const pts = (points || []).filter(Number.isFinite);
   const minP = Math.min(...pts), maxP = Math.max(...pts);
   const past = pts.length > 0 && minP < f0 - 1, fut = pts.length > 0 && maxP > f1 + 1;
@@ -392,32 +422,55 @@ export function tlFocusAxis({ f0, f1, ppd, f, todayIso, isOff }) {
 }
 
 /**
- * Marcas de uma zona comprimida: um traço por início de mês dentro dos trechos em escala, rótulo "mmm aa" no início
- * de cada trecho largo o bastante (ou do primeiro do passado) e as quebras com o tamanho do vão.
- * `x0` é o deslocamento da zona no canvas. Retorna { ticks, labels, breaks }.
+ * Marcas de uma zona comprimida: traços de mês (ou de 3, 6, 12… meses, conforme a escala — nunca mais de um a cada
+ * `minTickGap` px), rótulos "mmm aa" no início dos trechos largos (e o ano, em janeiro, quando o passo é de um ano ou mais)
+ * sem sobreposição e dentro da zona, e as quebras com o tamanho do vão — `showLabel` só quando o texto cabe na quebra
+ * (senão o tooltip diz o tamanho). Trechos espremidos (`squeezed`: vãos longos que não viraram quebra) não ganham traços, pois a escala ali não é linear; a tela os sombreia de leve, com o tamanho no tooltip.
+ * `x0` é o deslocamento da zona no canvas. Retorna { ticks, labels, breaks, squeezed }.
  */
 export function tlZoneTicks(zone, x0, todayIso, opts = {}) {
-  const out = { ticks: [], labels: [], breaks: [] };
+  const out = { ticks: [], labels: [], breaks: [], squeezed: [] };
   if (!zone) return out;
   const minLabelW = opts.minLabelW == null ? 30 : opts.minLabelW;
+  const minTickGap = opts.minTickGap == null ? 10 : opts.minTickGap;
+  const cand = [], rawTicks = [];
   let firstScaled = true;
   zone.pieces.forEach(p => {
-    if (p.gap) { out.breaks.push({ x0: x0 + p.x0, x1: x0 + p.x1, days: p.b - p.a, label: tlBreakLabel(p.b - p.a) }); return; }
+    if (p.gap) {
+      const label = tlBreakLabel(p.b - p.a);
+      out.breaks.push({ x0: x0 + p.x0, x1: x0 + p.x1, a: p.a, b: p.b, days: p.b - p.a, label, showLabel: p.x1 - p.x0 >= tlEstimateWidth(label, TL_BREAK_FONT) + 2 });
+      return;
+    }
     const start = addCalendarDays(todayIso, Math.ceil(p.a));
     if (p.x1 - p.x0 >= minLabelW || (opts.labelFirst && firstScaled)) {
-      out.labels.push({ x: x0 + p.x0, text: TL_MES[+start.slice(5, 7) - 1] + ' ' + start.slice(2, 4) });
+      cand.push({ x: x0 + p.x0, text: TL_MES[+start.slice(5, 7) - 1] + ' ' + start.slice(2, 4), prio: opts.labelFirst && firstScaled ? 0 : 1 });
     }
     firstScaled = false;
+    if (p.squeezed) { out.squeezed.push({ x0: x0 + p.x0, x1: x0 + p.x1, a: p.a, b: p.b, days: p.b - p.a, label: tlBreakLabel(p.b - p.a) }); return; }
+    const ppd = (p.x1 - p.x0) / ((p.b - p.a) || 1);
+    const step = [1, 3, 6, 12, 24, 60].find(st => st * 30.44 * ppd >= minTickGap) || 120;
     let y = +start.slice(0, 4), m = +start.slice(5, 7) - (+start.slice(8, 10) > 1 ? 0 : 1);
-    for (let g = 0; g < 400; g++) {
+    for (let g = 0; g < 2000; g++) {
       m++;
       if (m > 11) { m = 0; y++; }
       const iso = y + '-' + String(m + 1).padStart(2, '0') + '-01';
       const o = daysBetween(todayIso, iso);
       if (o > p.b) break;
-      if (o >= p.a) out.ticks.push({ x: x0 + zone.f(o), o });
+      if (o < p.a || (y * 12 + m) % step !== 0) continue;
+      const x = x0 + zone.f(o);
+      rawTicks.push(x);
+      if (step >= 12 && m === 0) cand.push({ x, text: String(y), prio: 2 });
     }
   });
+  rawTicks.sort((a, b) => a - b).forEach(x => { if (!out.ticks.length || x - out.ticks[out.ticks.length - 1].x >= minTickGap) out.ticks.push({ x }); });
+  /* rótulos: os de início de trecho primeiro; nenhum por cima de outro nem para fora da zona */
+  const taken = [];
+  cand.sort((a, b) => a.prio - b.prio || a.x - b.x).forEach(c => {
+    const w = tlEstimateWidth(c.text, 11) + 8;
+    if (c.x + w > x0 + zone.px + 1 && c.prio !== 0) return;
+    if (taken.every(t => c.x + w + 2 <= t[0] || c.x >= t[1] + 2)) { taken.push([c.x, c.x + w]); out.labels.push({ x: c.x, text: c.text }); }
+  });
+  out.labels.sort((a, b) => a.x - b.x);
   return out;
 }
 

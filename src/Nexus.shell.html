@@ -4518,6 +4518,8 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-tl-shade.hol { background: color-mix(in srgb, var(--cx-red) 9%, transparent); }
 .cx-tl-grid.zt { background: color-mix(in srgb, var(--cx-line) 80%, transparent); }
 .cx-tl-brk { position: absolute; bottom: 0; z-index: 2; background: repeating-linear-gradient(135deg, var(--cx-surface-2) 0 4px, color-mix(in srgb, var(--cx-ink-3) 24%, var(--cx-surface-2)) 4px 6px); border-left: 1px solid var(--cx-line-strong); border-right: 1px solid var(--cx-line-strong); cursor: help; }
+.cx-tl-brk.sq { z-index: 0; pointer-events: none; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--cx-ink-3) 14%, transparent) 5px 6px); border: 0; }
+.cx-tl-brk-hit { position: absolute; z-index: 3; height: 22px; cursor: help; }
 .cx-tl-brk-l { position: absolute; top: 37px; z-index: 3; text-align: center; font: 500 9px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; pointer-events: none; }
 .cx-tl-brk-k { background: repeating-linear-gradient(135deg, var(--cx-surface-2) 0 3px, color-mix(in srgb, var(--cx-ink-3) 28%, var(--cx-surface-2)) 3px 5px); border: 1px solid var(--cx-line-strong); }
 .cx-tl-bar.thin { height: 8px; border-radius: 4px; padding: 0; background: color-mix(in srgb, var(--c) 32%, var(--cx-surface)); border-color: color-mix(in srgb, var(--c) 55%, transparent); }
