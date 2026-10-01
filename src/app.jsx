@@ -10961,7 +10961,8 @@ function App() {
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
-        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
+        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()}
+        onNewIntim={() => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } })} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
         a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}

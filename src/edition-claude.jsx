@@ -982,6 +982,7 @@ function EditionClaudeIntimacoes(p) {
         <CxTribBar counts={tribCounts} active={ufFilter} onToggle={j => setUfFilter(f => f === j ? null : j)} />
       </div>
       <div className="cx-acts">
+        <button type="button" className="cx-btn primary" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
       </div>
@@ -997,7 +998,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       {view === 'quadro'
         ? <CxBoard items={filtered.filter(cxIsActive)} sort={sort} onOpen={p.onOpenIntim} opsById={opsById} onSetStatus={(id, s) => { const x = all.find(i => i.id === id); if (x && x.status !== s) { p.upsert('intimations', { ...x, status: s }); cxNotify('Situação: ' + CX_ST[s].l); } }} />
-        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Importe o XLS do eproc para começar.'} />}
+        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Use Nova intimação ou importe o XLS do eproc.'} />}
     </>}
   </div>;
 }
