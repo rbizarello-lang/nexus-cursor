@@ -3919,6 +3919,10 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --cx-scrim: rgba(18,20,26,0.34);
   --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  /* Altura única dos controles de barra de ferramentas (botão, select, busca, chip, segmento). */
+  --cx-ctl-h: 30px;
+  /* Largura reservada da barra de rolagem (ver ::-webkit-scrollbar): o banner alinha com o conteúdo. */
+  --cx-sbw: 6px;
   grid-template-columns: 244px minmax(0, 1fr);
   background: var(--bg-deep);
   font-family: var(--cx-font);
@@ -4062,7 +4066,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-back { flex: none; display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--cx-line); border-radius: 7px; background: var(--cx-surface); color: var(--cx-ink-2); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .cx-back:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); color: var(--cx-ink); }
 .cx-back:focus-visible { outline: 2px solid var(--cx-ink-3); outline-offset: 1px; }
-.cx-banner { margin: 10px 16px 0; padding: 7px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--cx-orange) 35%, var(--cx-line)); background: var(--cx-orange-soft); display: flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--cx-ink-2); cursor: pointer; flex: none; min-width: 0; }
+.cx-banner { margin: 10px calc(28px + var(--cx-sbw, 6px)) 0 28px; padding: 7px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--cx-orange) 35%, var(--cx-line)); background: var(--cx-orange-soft); display: flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--cx-ink-2); cursor: pointer; flex: none; min-width: 0; }
 .cx-banner b { color: var(--cx-orange); font-weight: 600; white-space: nowrap; }
 .cx-banner .cx-i { color: var(--cx-orange); }
 .cx-banner.today { border-color: color-mix(in srgb, var(--cx-red) 40%, var(--cx-line)); background: var(--cx-red-soft); }
@@ -5941,6 +5945,41 @@ tr.cx-tree-child.on td { background: var(--cx-accent-soft); }
 @media (max-width: 720px) {
   .cx-pl-row { grid-template-columns: 26px minmax(0, 1fr) auto; }
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   Auditoria visual · consistência entre telas (somente Nexus Prumo)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* A3 · controles de barra de ferramentas com a mesma altura (--cx-ctl-h) */
+.cx-btn { height: var(--cx-ctl-h, 30px); }
+:is(.cx-toolbar, .cx-tl-tools, .cx-pp-toolbar, .cx-quick, .cx-acts, .cx-ag-nav, .cx-pp-bulk) .cx-btn.sm { height: var(--cx-ctl-h, 30px); padding: 0 11px; font-size: 12.5px; }
+.cx-seg button, .cx-seg.lg button { height: calc(var(--cx-ctl-h, 30px) - 6px); }
+.cx-fchip, .cx-fchip.sm { height: var(--cx-ctl-h, 30px); border-radius: 8px; font-size: 12.5px; font-weight: 400; padding-left: 11px; }
+.cx-fchip.on { font-weight: 500; }
+.cx-fchip .cx-fcn, .cx-fchip.sm .cx-fcn { height: 20px; line-height: 18px; min-width: 22px; }
+.cx-sigf-btn { height: var(--cx-ctl-h, 30px); }
+.cx-sel select, .cx-field { height: var(--cx-ctl-h, 30px); }
+.cx-quick-t { height: var(--cx-ctl-h, 30px); }
+.cx-quick .cx-input { height: var(--cx-ctl-h, 30px); }
+.cx-ag-nav { gap: 6px; }
+.cx-ag-nav .cx-icon-btn { width: var(--cx-ctl-h, 30px); height: var(--cx-ctl-h, 30px); border: 1px solid var(--cx-line); background: var(--cx-surface); border-radius: 7px; }
+.cx-ag-nav .cx-icon-btn:hover { background: var(--cx-hover); }
+
+/* A1 · uma só tira de KPI (.cx-ks): mesmo raio, rótulo em caixa alta, tipografia e regra de altura.
+   "bare" = sem rodapé (Painel, Prazos, Acompanhar, Prescrição). */
+.cx-ks.bare .cx-kc-f { display: none; }
+.cx-ks-sp { margin: 4px 0 18px; }
+.cx-kc-v.cyan { color: var(--cx-cyan); }
+.cx-kc-t { min-height: 20px; }
+.cx-hoje-ks .cx-kc-n { min-height: 44px; }
+.cx-kc-d { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cx-kc-f, .cx-ks.dense .cx-kc-f { flex-wrap: wrap; row-gap: 2px; padding-top: 6px; padding-bottom: 6px; }
+.cx-kc-f > span:first-child { white-space: normal; overflow: visible; text-overflow: clip; }
+.cx-kc-f > span:last-child:not(:first-child) { margin-left: auto; white-space: nowrap; }
+.cx-kc-meter { flex: 1; margin: 0; max-width: 120px; }
+button.cx-kc:disabled { cursor: default; background: var(--cx-surface); color: var(--cx-ink-3); }
+button.cx-kc:disabled:hover { background: var(--cx-surface); }
+button.cx-kc:disabled :is(.cx-kc-v, .cx-kc-l, .cx-kc-d) { color: var(--cx-ink-3); opacity: 0.8; }
+.cx-kc-pair .cx-pt { align-items: baseline; min-height: 16px; line-height: 16px; }
 </style>
 </head>
 <body>

@@ -338,11 +338,11 @@ function CxChips({ value, onChange, options, label, sm = false, className = '', 
    comparação, quando existe). Delta só onde há comparação calculável: `delta = { txt, dir: 'up'|'down'|'none', tone:
    'good'|'bad'|'neutral' }`. `tone` ('red'|'orange'|'violet') colore o número/linha só quando descrevem um estado.
    Sem `onClick`, o cartão é um bloco; com ele, um botão. */
-function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, footR, footRTone, delta, pair, onClick, nested, on, tip, className = '' }) {
+function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, footR, footRTone, delta, pair, onClick, nested, on, tip, disabled, pressed, className = '' }) {
   const top = <>
-    <div className="cx-kc-t"><span className="cx-kc-l">{label}</span>{tag || null}</div>
+    <div className="cx-kc-t"><span className="cx-kc-l" title={typeof label === 'string' ? label : undefined}>{label}</span>{tag || null}</div>
     <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
-    <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')}>{desc}</div>
+    <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')} title={typeof desc === 'string' ? desc : undefined}>{desc}</div>
   </>;
   const cls = 'cx-kc' + (onClick ? ' click' : '') + (on ? ' on' : '') + (className ? ' ' + className : '');
   if (pair) {
@@ -358,7 +358,7 @@ function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, 
   }
   const body = <>
     <div className="cx-kc-b">{top}</div>
-    <div className="cx-kc-f"><span className={footTone ? footTone : ''}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : footR ? <span className={'cx-kc-fr' + (footRTone ? ' ' + footRTone : '')}>{footR}</span> : null}</div>
+    <div className="cx-kc-f"><span className={footTone ? footTone : ''} title={typeof foot === 'string' ? foot : undefined}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : footR ? <span className={'cx-kc-fr' + (footRTone ? ' ' + footRTone : '')}>{footR}</span> : null}</div>
   </>;
   if (onClick && nested) {
     /* Cartão com botões dentro (ex.: chips de tribunal): não pode ser <button>, vira área clicável acessível. */
@@ -366,7 +366,7 @@ function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, 
       onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>{body}</div>;
   }
   return onClick
-    ? <button type="button" className={cls} onClick={onClick} title={tip}>{body}</button>
+    ? <button type="button" className={cls} onClick={onClick} title={tip} disabled={disabled} aria-pressed={pressed === undefined ? undefined : !!pressed}>{body}</button>
     : <div className={cls} title={tip}>{body}</div>;
 }
 /* Anel segmentado (Polimento · K5): só para razão (x de y) ou etapas, sempre com o número escrito ao lado.
@@ -413,13 +413,13 @@ function CxResumo({ text, className = '' }) {
   </div>;
 }
 function CxKpiStrip({ n, dense = true, className = '', children }) {
-  return <div className={'cx-ks' + (dense ? ' dense' : '') + (className ? ' ' + className : '')} style={{ '--n': n }}>{children}</div>;
+  return <div className={'cx-ks' + (dense ? ' dense' : '') + (n >= 5 ? ' many' : '') + (className ? ' ' + className : '')} style={{ '--n': n }}>{children}</div>;
 }
 function CxSelect({ id, pre, value, onChange, options, label }) {
   return <label className="cx-sel">
     {pre ? <span className="cx-pre">{pre}</span> : null}
     <select id={id} value={value} onChange={e => onChange(e.target.value)} aria-label={label || pre} style={pre ? { paddingLeft: (pre.length * 7 + 20) + 'px' } : null}>
-      {options.map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}
+      {options.map(o => <option key={o[0]} value={o[0]} disabled={o[2] === 'dis'} hidden={o[2] === 'dis'}>{o[1]}</option>)}
     </select>
     <CxIcon n="chevD" s={12} />
   </label>;
@@ -953,7 +953,7 @@ function EditionClaudeHoje(p) {
               <CxOpSquare opId={x.opId} />
               <span className="cx-t">{x.intim ? (x.sub || x.title) : x.title}</span>
               {x.intim ? <CxImp intim={x.intim} /> : x.prio ? <CxPrio v={x.prio} /> : <CxIcon n={x.ic} s={13} className="cx-muted" />}
-              {b[0] === 'Próximos 7 dias' ? <span className="cx-due later cx-dl-dow">{cxCap(CX_DOW[(cxDate(x.iso) || new Date()).getDay()])}</span> : null}
+              {b[0] === 'Próximos 7 dias' ? <span className="cx-due later cx-dl-dow">{cxCap(CX_DOW[(cxDate(x.iso) || new Date()).getDay()]) + ' ' + cxDM(x.iso)}</span> : null}
             </button>)}
             {b[1].length > 6 ? <div className="cx-more">+{b[1].length - 6} mais</div> : null}
           </div> : null)}
@@ -2803,20 +2803,16 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
   return <div className={'cx-clk' + (embedded ? ' emb' : '')} {...tip.bind}>
     {lead ? <div className="cx-tl-tools">{lead}</div> : null}
     {empty ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA com relógio a mostrar{opId ? ' nesta operação' : ''}{filtered ? ' com os filtros da aba (busca e Pessoa)' : ''}.{res.consumadas ? ' ' + cxPl(res.consumadas, 'consumada está', 'consumadas estão') + ' em Consumadas.' : ''}</div></div> : <>
-      <div className="cx-clk-kpis">
-        <div className="cx-clk-kpi"><span className="l">Próximo termo</span>
-          <span className={'v' + (kpis.next && kpis.next.days <= 90 ? ' red' : '')}>{kpis.next ? (kpis.next.days === 0 ? 'hoje' : cxPl(kpis.next.days, 'dia', 'dias')) : '—'}</span>
-          <span className="s">{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + (embedded ? '' : ' · ' + cxOpName({ name: kpis.next.opName })) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</span></div>
-        <div className="cx-clk-kpi"><span className="l">Termo em até 1 ano</span>
-          <span className="v">{kpis.near.cdas ? mon(kpis.near.value) : '—'}</span>
-          <span className="s">{cxPl(kpis.near.cdas, 'CDA', 'CDAs')} com relógio em curso</span></div>
-        <div className="cx-clk-kpi"><span className="l">Relógio parado</span>
-          <span className="v grn">{cxPl(kpis.parc.cdas, 'CDA', 'CDAs')}</span>
-          <span className="s">{kpis.parc.cdas ? mon(kpis.parc.value) + ' · recomeça na rescisão' : 'nenhum parcelamento ou pausa'}</span></div>
-        <div className="cx-clk-kpi"><span className="l">Sem relógio ativo · piso</span>
-          <span className="v cy">{kpis.piso.cdas ? mon(kpis.piso.value) : '—'}</span>
-          <span className="s">{kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'}</span></div>
-      </div>
+      <CxKpiStrip n={4} className="bare cx-ks-sp">
+        <CxKpiCard label="Próximo termo" value={kpis.next ? (kpis.next.days === 0 ? 'hoje' : cxPl(kpis.next.days, 'dia', 'dias')) : '—'} tone={kpis.next && kpis.next.days <= 90 ? 'red' : ''}
+          desc={<>{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + (embedded ? '' : ' · ' + cxOpName({ name: kpis.next.opName })) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</>} />
+        <CxKpiCard label="Termo em até 1 ano" value={kpis.near.cdas ? mon(kpis.near.value) : '—'}
+          desc={cxPl(kpis.near.cdas, 'CDA', 'CDAs') + ' com relógio em curso'} />
+        <CxKpiCard label="Relógio parado" value={cxPl(kpis.parc.cdas, 'CDA', 'CDAs')} tone="green"
+          desc={kpis.parc.cdas ? mon(kpis.parc.value) + ' · recomeça na rescisão' : 'nenhum parcelamento ou pausa'} />
+        <CxKpiCard label="Sem relógio ativo · piso" value={kpis.piso.cdas ? mon(kpis.piso.value) : '—'} tone="cyan"
+          desc={kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'} />
+      </CxKpiStrip>
       <section className="cx-card cx-clk-strip" aria-label="Calendário dos termos">
         <svg viewBox={'0 0 ' + W + ' 138'} role="img" aria-label="Calendário dos termos de prescrição">
           <text x={X0} y="13" className="cx-clk-cap">CALENDÁRIO DOS TERMOS · HOJE → {strip.to.slice(0, 4)} · hexágono cheio = termo, vazado = piso</text>
@@ -3916,20 +3912,16 @@ function EditionClaudePrazos(p) {
   }
   return <div className="cx cx-page">
     {head}
-    <div className="cx-pz-sum">
-      <button type="button" className="cx-pz-tile need" onClick={() => document.getElementById('cx-pz-need') && document.getElementById('cx-pz-need').scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-        <span className="cx-pz-l">Precisa de você</span><span className="cx-pz-v">{needs.length}</span><span className="cx-pz-s">{needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nada exige decisão agora'}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={() => setRestOpen(true)}>
-        <span className="cx-pz-l">No radar, sem alarme</span><span className="cx-pz-v">{split.rest.length}</span><span className="cx-pz-s">{[1, 2, 3, 4].map(g => 'G' + g + ' ' + split.rest.filter(r => r.group === g).length).join(' · ')}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={() => setSilOpen(true)}>
-        <span className="cx-pz-l">Silenciados</span><span className="cx-pz-v">{drawer.length}</span><span className={'cx-pz-s' + (dueWeek ? ' orange' : '')}>{dueWeek ? cxPl(dueWeek, 'volta esta semana', 'voltam esta semana') : 'parcelados, adiados e ainda impossíveis'}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={p.onConsumadas} disabled={!consumadas}>
-        <span className="cx-pz-l">Consumadas</span><span className="cx-pz-v">{consumadas}</span><span className="cx-pz-s">para análise, fora do alarme</span>
-      </button>
-    </div>
+    <CxKpiStrip n={4} className="bare cx-ks-sp">
+      <CxKpiCard label="Precisa de você" value={needs.length} tone={needs.length ? 'red' : ''} onClick={() => document.getElementById('cx-pz-need') && document.getElementById('cx-pz-need').scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        desc={needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nada exige decisão agora'} />
+      <CxKpiCard label="No radar, sem alarme" value={split.rest.length} onClick={() => setRestOpen(true)}
+        desc={[1, 2, 3, 4].map(g => 'G' + g + ' ' + split.rest.filter(r => r.group === g).length).join(' · ')} />
+      <CxKpiCard label="Silenciados" value={drawer.length} onClick={() => setSilOpen(true)}
+        desc={dueWeek ? cxPl(dueWeek, 'volta esta semana', 'voltam esta semana') : 'parcelados, adiados e ainda impossíveis'} descTone={dueWeek ? 'orange' : ''} />
+      <CxKpiCard label="Consumadas" value={consumadas} onClick={p.onConsumadas} disabled={!consumadas}
+        desc="para análise, fora do alarme" />
+    </CxKpiStrip>
     <div className="cx-toolbar">
       <CxSelect id="cx-pz-op" pre="Operação" value={pf.operationId || ''} onChange={v => setPf({ operationId: v, personId: 'all' })} options={[['', 'Todas']].concat(opsOpen.map(o => [o.id, cxOpName(o)]))} />
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-pz-q" value={pf.q || ''} onChange={e => setPf({ q: e.target.value })} placeholder="CDA, processo ou devedor" aria-label="Buscar CDA" /></label>
@@ -4172,7 +4164,7 @@ function EditionClaudeTarefas(p) {
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-task-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Título, descrição, processo ou nota" aria-label="Filtrar tarefas" /></label>
       <CxSelect id="cx-task-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-      <CxSeg label="Quais tarefas" value={scope} onChange={setScope} options={[['globais', 'Globais e avulsas'], ['todas', 'Todas', null, hidden || null]]} />
+      <CxChips sm label="Quais tarefas" value={scope} onChange={setScope} options={[['globais', 'Globais e avulsas'], ['todas', 'Todas', hidden || null]]} />
       <span className="cx-sp" />
       {view === 'lista' ? <CxSelect id="cx-task-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Data limite'], ['prioridade', 'Prioridade'], ['operacao', 'Operação']]} /> : null}
     </div>
@@ -4655,23 +4647,22 @@ function EditionClaudeAcompanhar(p) {
   const opOptions = [['all', 'Todas'], ['none', 'Avulsos']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
   const check = (w) => { p.upsert('watchlist', { ...w, lastCheckedAt: new Date().toISOString() }); cxNotify('Verificado hoje'); };
   const setStatus = (w, s) => { if (s === w.status) return; p.upsert('watchlist', { ...w, status: s }); cxNotify('Situação: ' + CX_WATCH[s].l); };
-  const tile = (k, label, n, sub, tone) => <button key={k} type="button" className={'cx-pz-tile' + (scope === k ? ' on' : '')} onClick={() => setScope(k)} aria-pressed={scope === k}>
-    <span className="cx-pz-l">{label}</span><span className={'cx-pz-v' + (tone ? ' ' + tone : '')}>{n}</span><span className="cx-pz-s">{sub}</span></button>;
+  const tile = (k, label, n, sub, tone) => <CxKpiCard key={k} label={label} value={n} tone={tone} desc={sub} on={scope === k} pressed={scope === k} onClick={() => setScope(k)} />;
   return <div className="cx cx-page">
     <div className="cx-page-h">
       <div><h1>Acompanhar</h1><p>Processos que você monitora depois de uma manifestação pontual, quando não há garantia de nova intimação. O que passa de {CX_WATCH_STALE} dias sem conferência sobe na lista.</p></div>
       <div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNew}><CxIcon n="plus" s={14} />Acompanhar processo</button></div>
     </div>
-    <div className="cx-pz-sum cx-w-sum">
+    <CxKpiStrip n={4} className="bare cx-ks-sp">
       {tile('abertos', 'Em acompanhamento', counts.abertos, cxPl(counts.aguardando, 'aguardando', 'aguardando') + ' · ' + counts.movimentado + ' movimentado' + (counts.movimentado === 1 ? '' : 's'))}
       {tile('atencao', 'Sem conferência há ' + CX_WATCH_STALE + '+ dias', counts.atencao, counts.atencao ? 'vale abrir o eproc' : 'tudo conferido na semana', counts.atencao ? 'orange' : '')}
       {tile('movimentado', 'Movimentados', counts.movimentado, 'houve andamento; decida o próximo passo')}
       {tile('encerrados', 'Encerrados', counts.encerrados, 'histórico')}
-    </div>
+    </CxKpiStrip>
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-watch-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Processo, partes, motivo ou nota" aria-label="Filtrar acompanhamentos" /></label>
       <CxSelect id="cx-watch-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-      <CxSeg label="Situação" value={scope} onChange={setScope} options={[['abertos', 'Abertos'], ['aguardando', 'Aguardando'], ['movimentado', 'Movimentados'], ['encerrados', 'Encerrados']]} />
+      <CxChips sm label="Situação" value={scope} onChange={setScope} options={[['abertos', 'Abertos', counts.abertos], ['aguardando', 'Aguardando', counts.aguardando], ['movimentado', 'Movimentados', counts.movimentado], ['encerrados', 'Encerrados', counts.encerrados]]} />
       <span className="cx-sp" />
       <CxSelect id="cx-watch-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['verificacao', 'Conferência mais antiga'], ['situacao', 'Situação'], ['recentes', 'Mais recentes']]} />
     </div>
@@ -4792,34 +4783,19 @@ function EditionClaudePainel(p) {
     <div className="cx-page-h">
       <div><h1>Painel</h1><p>A carteira inteira em números: onde está o crédito, quanto está garantido e onde está o risco. Clique numa operação para abri-la.</p></div>
     </div>
-    <div className="cx-kpis cx-kpis-5">
-      <div className="cx-kpi cx-kpi-static">
-        <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
-        <span className="cx-kpi-v">{cxMoneyShort(kpiCredito)}</span>
-        <span className="cx-kpi-s">{cxPl(liveDebts.length, 'CDA', 'CDAs')} · {cxPl(rows.length, 'operação ativa', 'operações ativas')}{(data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : ''} · {cxPl(nExecs, 'processo', 'processos')}</span>
-      </div>
-      <div className="cx-kpi cx-kpi-static" title={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}>
-        <span className="cx-kpi-l"><CxIcon n="check" s={14} />Garantido</span>
-        <span className="cx-kpi-v">{pctGar}<small>%</small></span>
-        <span className="cx-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>
-        <span className="cx-kpi-s">{cxMoneyShort(kpiGarantido)} em CDAs garantidas</span>
-      </div>
-      <button type="button" className="cx-kpi" onClick={p.onOpenPrazos} title="Mesmos números da tela Prazos extintivos (grupos 1 e 2)">
-        <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Risco prescricional</span>
-        <span className="cx-kpi-v">{riskN}<small>{riskN === 1 ? 'CDA' : 'CDAs'}</small></span>
-        <span className={'cx-kpi-s' + (riskN ? ' violet' : '')}>{riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={p.onOpenIntims}>
-        <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
-        <span className="cx-kpi-v">{openIntims.length}</span>
-        <span className={'cx-kpi-s' + (lateIntims ? ' red' : '')}>{lateIntims ? cxPl(lateIntims, 'vencida', 'vencidas') : 'nenhuma vencida'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-        <span className="cx-kpi-l"><CxIcon n="history" s={14} />Revisões devidas</span>
-        <span className="cx-kpi-v">{due.length}</span>
-        <span className={'cx-kpi-s' + (due.length ? ' orange' : '')}>{due.length ? 'operações com revisão atrasada' : 'todas em dia'}</span>
-      </button>
-    </div>
+    <CxKpiStrip n={5} className="bare cx-ks-sp">
+      <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(kpiCredito)}
+        desc={cxPl(liveDebts.length, 'CDA', 'CDAs') + ' · ' + cxPl(rows.length, 'operação ativa', 'operações ativas') + ((data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : '') + ' · ' + cxPl(nExecs, 'processo', 'processos')} />
+      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}
+        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>}
+        desc={cxMoneyShort(kpiGarantido) + ' em CDAs garantidas'} />
+      <CxKpiCard label="Risco prescricional" value={riskN} unit={riskN === 1 ? 'CDA' : 'CDAs'} tone={riskN ? 'violet' : ''} onClick={p.onOpenPrazos} tip="Mesmos números da tela Prazos extintivos (grupos 1 e 2)"
+        desc={riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
+      <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}
+        desc={lateIntims ? cxPl(lateIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={lateIntims ? 'red' : ''} />
+      <CxKpiCard label="Revisões devidas" value={due.length} tone={due.length ? 'orange' : ''} onClick={() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+        desc={due.length ? 'operações com revisão atrasada' : 'todas em dia'} descTone={due.length ? 'orange' : ''} />
+    </CxKpiStrip>
 
     <section className="cx-card cx-panel-ops">
       <div className="cx-card-h">
@@ -6395,11 +6371,7 @@ function EditionClaudeProcessos(p) {
       </div>
       <CxSigFilterBar counts={sigCounts} active={sigActive} onToggle={toggleSigFilter} />
       <span className="cx-sp" />
-      <select className="cx-sel sm" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-        <option value="valor">Ordenar: valor</option>
-        <option value="prescricao">Ordenar: prescrição</option>
-        <option value="numero">Ordenar: número</option>
-      </select>
+      <CxSelect pre="Ordenar" label="Ordenar processos" value={sortBy} onChange={setSortBy} options={[['valor', 'Valor'], ['prescricao', 'Prescrição'], ['numero', 'Número']]} />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
     </div>
 
@@ -6893,20 +6865,10 @@ function EditionClaudeInscricoes(p) {
         </div>}
       </div>
       {view === 'tabela' ? <>
-      <select className="cx-sel sm" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
-        <option value="" disabled>Agrupar…</option>
-        <option value="por_processo">Agrupar: Processo</option>
-        <option value="status">Agrupar: Situação</option>
-        <option value="devedor">Agrupar: Devedor</option>
-        <option value="tribute">Agrupar: Tributo</option>
-        <option value="ajuizada">Agrupar: Ajuizada / não</option>
-      </select>
-      <select className="cx-sel sm" value={SORT_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
-        <option value="">Ordenar…</option>
-        <option value="value_desc">Ordenar: valor ↓</option>
-        <option value="value_asc">Ordenar: valor ↑</option>
-        <option value="prescription">Ordenar: prescrição</option>
-      </select>
+      <CxSelect pre="Agrupar" label="Agrupar inscrições" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={v => { if (v) setCdaSort(v); }}
+        options={[['', '—', 'dis'], ['por_processo', 'Processo'], ['status', 'Situação'], ['devedor', 'Devedor'], ['tribute', 'Tributo'], ['ajuizada', 'Ajuizada / não']]} />
+      <CxSelect pre="Ordenar" label="Ordenar inscrições" value={SORT_MODES.includes(cdaSort) ? cdaSort : ''} onChange={v => { if (v) setCdaSort(v); }}
+        options={[['', '—', 'dis'], ['value_desc', 'Valor ↓'], ['value_asc', 'Valor ↑'], ['prescription', 'Prescrição']]} />
       </> : null}
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'debt', initial: {} })}>+ Inscrição</button>
@@ -7100,11 +7062,7 @@ function EditionClaudePartes(p) {
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar nome ou CPF/CNPJ" />
-      <select className="cx-sel sm" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-        <option value="all">Tipo: todos</option>
-        <option value="PJ">Tipo: PJ</option>
-        <option value="PF">Tipo: PF</option>
-      </select>
+      <CxSelect pre="Tipo" label="Filtrar por tipo de parte" value={typeFilter} onChange={setTypeFilter} options={[['all', 'Todos'], ['PJ', 'PJ'], ['PF', 'PF']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'person', initial: {} })}>+ Pessoa</button>
     </div>
@@ -7304,17 +7262,9 @@ function EditionClaudeBens(p) {
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar descrição, matrícula, placa" />
-      <select className="cx-sel sm" value={mode} onChange={e => setAssetSort(e.target.value)}>
-        <option value="status">Agrupar: Situação</option>
-        <option value="titular">Agrupar: Titular</option>
-        <option value="processo">Agrupar: Processo</option>
-        <option value="tipo">Agrupar: Tipo</option>
-      </select>
-      <select className="cx-sel sm" value={SORT_MODES.includes(assetSort) ? assetSort : ''} onChange={e => { if (e.target.value) setAssetSort(e.target.value); }}>
-        <option value="">Ordenar…</option>
-        <option value="valor_desc">Ordenar: valor ↓</option>
-        <option value="valor_asc">Ordenar: valor ↑</option>
-      </select>
+      <CxSelect pre="Agrupar" label="Agrupar bens" value={mode} onChange={setAssetSort} options={[['status', 'Situação'], ['titular', 'Titular'], ['processo', 'Processo'], ['tipo', 'Tipo']]} />
+      <CxSelect pre="Ordenar" label="Ordenar bens" value={SORT_MODES.includes(assetSort) ? assetSort : ''} onChange={v => { if (v) setAssetSort(v); }}
+        options={[['', '—', 'dis'], ['valor_desc', 'Valor ↓'], ['valor_asc', 'Valor ↑']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'asset', initial: {} })}>+ Bem</button>
     </div>
@@ -7340,10 +7290,8 @@ function EditionClaudeBens(p) {
       <div className="cx-pp-bulk">
         <b>{cxPl(selectedAssets.size, 'bem selecionado', 'bens selecionados')}</b>
         <span className="cx-sp" />
-        <select className="cx-sel sm" onChange={e => { if (e.target.value) { bulkUpdateAssets('status', e.target.value); e.target.value = ''; } }} defaultValue="">
-          <option value="" disabled>Alterar situação…</option>
-          {Object.entries(ASSET_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
+        <CxSelect label="Alterar situação dos bens selecionados" value="" onChange={v => { if (v) bulkUpdateAssets('status', v); }}
+          options={[['', 'Alterar situação…', 'dis']].concat(Object.entries(ASSET_STATUSES).map(([k, v]) => [k, v.label]))} />
         <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', true)}>✓ Marcar Analytics</button>
         <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', false)}>✗ Desmarcar</button>
         <button type="button" className="cx-btn sm" onClick={() => bulkDelete('assets', selectedAssets)}>Excluir</button>
@@ -7408,10 +7356,7 @@ function EditionClaudeOpTarefas(p) {
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar tarefa" aria-label="Buscar tarefa" />
       <CxChips sm label="Situação das tarefas" value={seg} onChange={setSeg} options={[['abertas', 'Abertas', open.length], ['concluidas', 'Concluídas', done.length]]} />
-      <select className="cx-sel sm" value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Agrupar tarefas">
-        <option value="prazo">Agrupar: Prazo</option>
-        <option value="prioridade">Agrupar: Prioridade</option>
-      </select>
+      <CxSelect pre="Agrupar" label="Agrupar tarefas" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['prioridade', 'Prioridade']]} />
       <span className="cx-muted cx-small">🌐 = aparece também na tela Tarefas</span>
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm" onClick={onNewTask}>+ Tarefa completa</button>
@@ -7559,10 +7504,7 @@ function EditionClaudeArquivos(p) {
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar título ou processo" aria-label="Buscar documento" />
       <CxChips sm label="Origem dos arquivos" value={origin} onChange={setOrigin} options={[['all', 'Todos', all.length], ['intim', 'De intimações', nIntim], ['manual', 'Incluídos', nManual]]} />
-      <select className="cx-sel sm" value={groupMode} onChange={e => setGroupMode(e.target.value)} aria-label="Agrupar documentos">
-        <option value="tipo">Agrupar: Tipo</option>
-        <option value="processo">Agrupar: Processo</option>
-      </select>
+      <CxSelect pre="Agrupar" label="Agrupar documentos" value={groupMode} onChange={setGroupMode} options={[['tipo', 'Tipo'], ['processo', 'Processo']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'document', initial: {} })}>+ Documento</button>
     </div>
