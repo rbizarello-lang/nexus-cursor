@@ -123,10 +123,11 @@ export function clkSort(clocks) {
  *   rows      — prazosRadar.rows (Mesa);  silenced — prazosRadar.silenced
  *   lookup    — prescLookup (createPrescLookup)
  *   opId      — '' ou o id de uma operação; opIds (opcional) — conjunto permitido (padrão: operações não encerradas)
+ *   debtIds   — (opcional) Set de ids de CDA: só estas entram (a aba Inscrições passa as que sobraram dos filtros de busca e Pessoa)
  * Uma linha por CDA sem processo; CDAs do mesmo processo (e do mesmo tipo de relógio) andam juntas numa linha só,
  * com `n` CDAs, o valor somado e o termo/piso mais próximo — como a Mesa agrupa a intercorrente.
  */
-export function clkBuild({ data, rows, silenced, lookup, today, opId } = {}) {
+export function clkBuild({ data, rows, silenced, lookup, today, opId, debtIds } = {}) {
   const t = toDayKey(today) || localIso(new Date());
   const ops = new Map((data && data.operations || []).filter(o => o && o.status !== 'encerrada').map(o => [o.id, o]));
   const people = new Map(((data && data.people) || []).filter(p => p && p.id).map(p => [p.id, p]));
@@ -137,6 +138,7 @@ export function clkBuild({ data, rows, silenced, lookup, today, opId } = {}) {
   let consumadas = 0, tratadas = 0;
   ((data && data.debts) || []).forEach(debt => {
     if (!debt || !ops.has(debt.operationId) || (opId && debt.operationId !== opId)) return;
+    if (debtIds && !debtIds.has(debt.id)) return; // recorte de quem chama (os filtros da aba Inscrições)
     if (debt.status === 'extinta') return;
     if (debt.prescriptionHandled && debt.prescriptionHandledType !== 'aguardando_reconhecimento') { tratadas++; return; }
     let r = null;

@@ -2,12 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { addCalendarDays } from '../src/lib/dates.js';
 import {
-  TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlLayoutLabels, tlPickGap, tlDurLabel,
+  TL_KINDS, TL_KIND_ORDER, tlEstimateWidth, tlProcShort, tlLayoutLabels, tlPickGap, tlDurLabel,
   tlCdaBar, tlCountKinds, tlToggleKind, tlCapList,
   HORIZON_DAYS, HORIZON_ROWS, horizonColumns, horizonColumnOf, horizonBucket, horizonDayCounts, horizonBusyDays,
   horizonOffRuns, horizonRangeLabel,
   TL_WINDOWS, TL_DEFAULT_WINDOW, tlWindowLabel, tlFocusDefault, tlFocusStep, tlFocusRange, tlNormalizeFocus, tlBreakLabel,
-  tlCompressZone, tlProjectBroken, tlFocusAxis, tlZoneTicks,
+  tlCompressZone, tlProjectBroken, tlFocusAxis, tlZoneTicks, TL_BREAK_FONT,
   TL_PULSE_FROM, TL_PULSE_TO, tlPulseLayout, tlPulseSummary, tlPhaseTrail, tlMiniTrail,
 } from '../src/lib/timeline.js';
 
@@ -242,7 +242,7 @@ describe('Panorama — eixo quebrado', () => {
     const Z = tlCompressZone(60, 500, 200, [70, 90, 130, 480]);
     const gaps = Z.pieces.filter(p => p.gap);
     assert.ok(gaps.length >= 1);
-    gaps.forEach(g => { assert.equal(Math.round(g.x1 - g.x0), 26); assert.ok(g.b - g.a >= 60); });
+    gaps.forEach(g => { assert.equal(Math.round(g.x1 - g.x0), 30); assert.ok(g.b - g.a >= 60); });
     Z.pieces.filter(p => !p.gap).forEach(p => assert.ok(p.b - p.a < 60 || true));
     const small = tlCompressZone(60, 140, 200, [70, 130]);
     assert.ok(small.pieces.every(p => !p.gap));
@@ -430,5 +430,103 @@ describe('Miniaturas (M6) — trilha de fases do processo', () => {
     const vazio = tlMiniTrail(tlPhaseTrail({ stages: [], todayIso: TODAY }), { d: TODAY, label: 'X' });
     assert.deepEqual(vazio.map(x => x.k), ['you']);
     assert.equal(tlMiniTrail(null, null)[0].label, 'Este prazo');
+  });
+});
+
+describe('Panorama — histórico longo (2004–2028, muitos fatos espalhados)', () => {
+  const TODAY = '2026-10-01';
+  const dayOf = (iso) => Math.round((new Date(iso + 'T00:00:00') - new Date(TODAY + 'T00:00:00')) / 864e5);
+  /* LCG determinístico: fatos "reais" espalhados, como protocolos 2004–2016, andamentos e termos até 2028. */
+  const scatter = (n, fromIso, toIso, seed = 7) => {
+    let s = seed; const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
+    const a = dayOf(fromIso), b = dayOf(toIso);
+    return Array.from({ length: n }, () => Math.round(a + rnd() * (b - a)));
+  };
+  const WIDTHS = [900, 1200, 1500, 1920];
+  const WINDOWS = [[-15, 15], [-30, 60], [-15, 75], [-60, 120], [-120, 245]]; // f0/f1 de 30 d … 1 ano
+  const sample = (n) => scatter(n, '2004-01-01', '2016-12-31', 3).concat(scatter(n / 2, '2017-01-01', '2026-08-31', 5), scatter(8, '2026-10-05', '2028-06-30', 9), [-45, -3, 0, 2, 20, 40]);
+
+  it('o foco nunca recebe quebra e mantém a largura inteira, com qualquer janela e largura', () => {
+    [40, 120, 400].forEach(n => WIDTHS.forEach(W => WINDOWS.forEach(([f0, f1]) => {
+      const S = tlProjectBroken({ points: sample(n), f0, f1, width: W });
+      const tag = n + 'pts W' + W + ' [' + f0 + ',' + f1 + ']';
+      assert.ok(S.pastW + S.focusW + S.futW <= W + 1, 'cabe na largura · ' + tag);
+      [S.zP, S.zU].filter(Boolean).forEach(z => {
+        const lim = z === S.zP ? S.pastW : S.futW;
+        z.pieces.forEach(p => { assert.ok(p.x0 >= -1e-6 && p.x1 <= z.px + 1e-6, 'peça dentro da zona (' + p.x0.toFixed(1) + '–' + p.x1.toFixed(1) + ' de ' + z.px + ') · ' + tag); });
+        assert.ok(Math.abs(z.pieces[z.pieces.length - 1].x1 - z.px) < 1e-6, 'a zona termina na própria largura · ' + tag);
+        assert.ok(z.px === lim, 'zona = pastW/futW · ' + tag);
+      });
+      assert.ok(Math.abs(S.f(f0) - S.pastW) < 1e-6 && Math.abs(S.f(f1) - (S.pastW + S.focusW)) < 1e-6, 'o foco começa e termina nos limites · ' + tag);
+      assert.ok(Math.abs(S.ppd * (f1 - f0) - S.focusW) < 1e-6, 'escala do foco linear · ' + tag);
+      assert.ok(S.focusW >= W * 0.6, 'o foco fica com pelo menos 60% da largura · ' + tag);
+    })));
+  });
+  it('cada zona comprimida usa no máximo 3 quebras, com largura mínima, e no máximo 18% da largura', () => {
+    [40, 120, 400].forEach(n => WIDTHS.forEach(W => WINDOWS.forEach(([f0, f1]) => {
+      const S = tlProjectBroken({ points: sample(n), f0, f1, width: W });
+      assert.ok(S.pastW <= Math.ceil(W * 0.18) && S.futW <= Math.ceil(W * 0.18), 'zonas ≤ 18% · W' + W);
+      [S.zP, S.zU].filter(Boolean).forEach(z => {
+        const br = z.pieces.filter(p => p.gap);
+        assert.ok(br.length <= 3, br.length + ' quebras (máx. 3) · ' + n + 'pts W' + W);
+        br.forEach(p => assert.ok(p.x1 - p.x0 >= 20, 'quebra com pelo menos 20 px'));
+        assert.ok(br.reduce((t, p) => t + (p.x1 - p.x0), 0) <= z.px * 0.5 + 1e-6, 'quebras ocupam no máximo metade da zona');
+      });
+    })));
+  });
+  it('é monotônica e limitada à largura em todo o histórico', () => {
+    const S = tlProjectBroken({ points: sample(300), f0: -30, f1: 60, width: 1500 });
+    let prev = -1;
+    for (let o = -9000; o <= 600; o += 7) { const x = S.f(o); assert.ok(x >= prev - 1e-9 && x <= 1500 + 1e-6, 'em ' + o); prev = x; }
+  });
+  it('as quebras escolhidas são os maiores vãos; vãos menores só se espremem', () => {
+    const Z = tlCompressZone(-6000, -30, 250, [-5990, -5000, -4990, -3000, -2990, -2000, -1990, -900, -890, -400, -390, -40]);
+    const br = Z.pieces.filter(p => p.gap).map(p => p.b - p.a).sort((a, b) => b - a);
+    assert.equal(br.length, 3);
+    assert.ok(br[2] >= 400, 'só vãos grandes viram quebra: ' + br.join(','));
+    const sq = Z.pieces.filter(p => p.squeezed);
+    sq.forEach(p => assert.ok(p.x1 - p.x0 < 60, 'vão espremido não come a zona'));
+  });
+  it('20 anos de histórico viram um resumo legível: poucas marcas, sem rótulo sobreposto', () => {
+    const pts = scatter(500, '2006-01-01', '2026-06-30', 11).concat([0, 10, 30]);
+    const S = tlProjectBroken({ points: pts, f0: -30, f1: 60, width: 1500 });
+    const zp = tlZoneTicks(S.zP, 0, TODAY, { labelFirst: true });
+    assert.ok(zp.breaks.length <= 3);
+    assert.ok(zp.ticks.length <= 30, zp.ticks.length + ' traços');
+    assert.ok(zp.labels.length <= 8, zp.labels.length + ' rótulos');
+    for (let i = 1; i < zp.ticks.length; i++) assert.ok(zp.ticks[i].x - zp.ticks[i - 1].x >= 6, 'traços com respiro');
+    const L = zp.labels.slice().sort((a, b) => a.x - b.x);
+    for (let i = 1; i < L.length; i++) assert.ok(L[i].x - L[i - 1].x >= tlEstimateWidth(L[i - 1].text, 10) , 'rótulos sem sobreposição');
+    zp.breaks.forEach(b => { if (b.showLabel) assert.ok(b.x1 - b.x0 >= tlEstimateWidth(b.label, TL_BREAK_FONT), 'rótulo de quebra só quando cabe'); });
+    L.forEach(l => assert.ok(l.x >= 0 && l.x <= S.pastW));
+  });
+  it('vãos espremidos aparecem à parte das quebras, dentro da zona, com o tamanho', () => {
+    const Z = tlCompressZone(-8000, -30, 250, [-7990, -6000, -5000, -4000, -3000, -2000, -1000, -500, -40]);
+    const T = tlZoneTicks(Z, 100, TODAY, {});
+    assert.equal(T.breaks.length, 3);
+    assert.ok(T.squeezed.length >= 1);
+    T.squeezed.forEach(q => { assert.ok(q.x0 >= 100 && q.x1 <= 350 + 1e-6 && /^≈/.test(q.label)); });
+  });
+  it('quebras sem espaço para o texto saem sem rótulo (o tooltip cobre)', () => {
+    const Z = tlCompressZone(-3000, -30, 90, [-2990, -1500, -40]);
+    const T = tlZoneTicks(Z, 0, TODAY, {});
+    T.breaks.forEach(b => assert.equal(b.showLabel, (b.x1 - b.x0) >= tlEstimateWidth(b.label, TL_BREAK_FONT) + 2));
+  });
+});
+
+describe('tlProcShort', () => {
+  it('CNJ com e sem pontuação vira NNNNNNN-DD', () => {
+    assert.equal(tlProcShort('5012402-27.2016.4.04.7208'), '5012402-27');
+    assert.equal(tlProcShort('50124022720164047208'), '5012402-27');
+  });
+  it('formato antigo da JF fica inteiro e formatado', () => {
+    assert.equal(tlProcShort('2005.72.08.003320-2'), '2005.72.08.003320-2');
+    assert.equal(tlProcShort('200572080033202'), '2005.72.08.003320-2');
+  });
+  it('vazio e formatos desconhecidos', () => {
+    assert.equal(tlProcShort(''), '—');
+    assert.equal(tlProcShort(null), '—');
+    assert.equal(tlProcShort('0001234-56.2019.8.26.0100'), '0001234-56');
+    assert.equal(tlProcShort('Processo administrativo 123'), 'Processo administrativo 123');
   });
 });
