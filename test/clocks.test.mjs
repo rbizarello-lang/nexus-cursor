@@ -50,6 +50,33 @@ describe('Relógio da prescrição — grupos de risco', () => {
   });
 });
 
+describe('clkBuild — recorte por CDA (aba Inscrições)', () => {
+  const data = dataset();
+  const lookup = createPrescLookup(data.debts, data.executions, data.prescriptionEvents, TODAY);
+  const radar = buildPrazosRadar(data, TODAY, lookup, { policy: 'v2' });
+  const run = (extra) => clkBuild({ data, rows: radar.rows, silenced: radar.silenced, lookup, today: TODAY, opId: 'op1', ...extra });
+  const ids = (r) => r.clocks.flatMap(c => c.cdaIds).sort();
+  it('sem debtIds nada muda; com debtIds entram só as CDAs pedidas', () => {
+    assert.deepEqual(ids(run({ debtIds: null })), ids(run({})));
+    assert.deepEqual(ids(run({ debtIds: new Set(['d-crit', 'd-corre']) })), ['d-corre', 'd-crit']);
+  });
+  it('CDAs do mesmo processo se separam quando só uma passa no filtro', () => {
+    const r = run({ debtIds: new Set(['d-ef1']) });
+    assert.equal(r.clocks.length, 1);
+    assert.equal(r.clocks[0].n, 1);
+    assert.equal(r.clocks[0].value, 700000);
+  });
+  it('recorte vazio dá zero relógios (a tela mostra o aviso), sem quebrar as contagens', () => {
+    const r = run({ debtIds: new Set() });
+    assert.equal(r.clocks.length, 0);
+    assert.equal(r.consumadas, 0);
+  });
+  it('o recorte nunca traz CDA de fora da operação pedida', () => {
+    const r = run({ debtIds: new Set(['d-enc', 'd-crit']) });
+    assert.deepEqual(ids(r), ['d-crit']);
+  });
+});
+
 describe('clkBuild — relógios a partir da Mesa e do motor', () => {
   const data = dataset();
   const { radar, res } = build(data);

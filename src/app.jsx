@@ -3175,6 +3175,11 @@ function App() {
   const [cxSideCollapsed, setCxSideCollapsedS] = useState(() => { try { return localStorage.getItem('nexus_cx_side_collapsed') === '1'; } catch (e) { return false; } });
   const setCxSideCollapsed = (v) => { setCxSideCollapsedS(v); try { localStorage.setItem('nexus_cx_side_collapsed', v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const [cxTlOp, setCxTlOp] = useState(null);
+  // Histórico de navegação do Prumo (← Voltar): pilha em memória (src/lib/navhist.js); cxNavBack = entrada do topo, só para o botão
+  const cxNavRef = useRef({ stack: [], cur: null, restoreKey: null, until: 0 });
+  const [cxNavBack, setCxNavBack] = useState(null);
+  const [cxNavEpoch, setCxNavEpoch] = useState(0); // +1 a cada "voltar": remonta a área principal (fecha gavetas locais e relê os sub-estados)
+  const [cxNavTick, setCxNavTick] = useState(0);   // +1 quando um sub-estado local (modo da Linha do tempo, visão dos Prazos/Inscrições) muda
   const [cxProcFocus, setCxProcFocus] = useState(null); // { execId?, cdaId?, n } — pedido da Linha do tempo para abrir a ficha lateral na aba Processos e prescrição
   const [importResult, setImportResult] = useState(null);
   const [expandedExec, setExpandedExec] = useState(null);
@@ -6095,7 +6100,7 @@ function App() {
           upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
           onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
           onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
-          onOpenTimeline={() => { cxLsSet('nexus_cx_tl_mode', 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
+          onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
       }
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
@@ -7177,7 +7182,7 @@ function App() {
     if (activeTab === 'dividas') {
       if (isClaude) {
         return <EditionClaudeInscricoes opId={opId} data={data} allDebts={getOpSlices(opId).debts} opExecs={getOpSlices(opId).executions}
-          prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
+          prazosRadar={prazosRadar} prescLookup={prescLookup} prazosByDebt={prazosByDebt} selectedDebts={selectedDebts} setSelectedDebts={setSelectedDebts}
           cdaPersonFilter={cdaPersonFilter} setCdaPersonFilter={setCdaPersonFilter}
           procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery} cdaSort={cdaSort} setCdaSort={setCdaSort}
           setModal={setModal} setData={setData} togglePrescCheck={togglePrescCheck} bulkDelete={bulkDelete}
@@ -9367,9 +9372,9 @@ function App() {
             localStorage.setItem('nexus_autosync_enabled', v ? 'true' : 'false');
           }}>Auto-sync: {autoSyncEnabled ? 'ON' : 'OFF'}</button>
         </>}
-        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>⬇ Exportar</button>
-        <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>⬆ Importar JSON</button>
-        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>🧪 Resetar / carregar dados demo</button>}
+        <button className="settings-opt" style={{width:'100%'}} onClick={openExportPicker}>{isClaude ? <><CxIcon n="upload" s={13} style={{ transform: 'rotate(180deg)' }} />Exportar</> : '⬇ Exportar'}</button>
+        <button className="settings-opt" style={{width:'100%'}} onClick={() => { fileInputRef.current?.click(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="upload" s={13} />Importar JSON</> : '⬆ Importar JSON'}</button>
+        {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="sync" s={13} />Resetar / carregar dados demo</> : '🧪 Resetar / carregar dados demo'}</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
     </div>
@@ -9401,9 +9406,9 @@ function App() {
     </div>}
     <div className="settings-group">
       <div className="settings-label">Manutenção</div>
-      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>🩺 Diagnóstico de integridade</button>
+      <button className="settings-opt" style={{width:'100%'}} onClick={() => openDiagnostico(null)}>{isClaude ? 'Diagnóstico de integridade' : '🩺 Diagnóstico de integridade'}</button>
       <div style={{fontSize:10,color:'var(--text-muted)',margin:'6px 0 4px',lineHeight:1.4}}>Toda a carteira. Para corrigir um caso, use o diagnóstico da operação.</div>
-      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>🩺 Diagnóstico desta operação</button>
+      <button className="settings-opt" style={{width:'100%'}} disabled={!activeOpId} onClick={() => activeOpId && openDiagnostico(activeOpId)}>{isClaude ? 'Diagnóstico desta operação' : '🩺 Diagnóstico desta operação'}</button>
       {!activeOpId && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:4}}>Abra uma operação para restringir o diagnóstico.</div>}
     </div>
   </div></>);
@@ -10062,6 +10067,7 @@ function App() {
     };
     return (
       <div className="prazos-view">
+        {isClaude && <div className="cx cx-page-h"><div><h1>Prazos extintivos</h1><p>Lista completa: todas as inscrições com termo calculado, por grupo. Clique num contador para filtrar.</p></div></div>}
         <div className="prazos-head">
           {counterBtn(1, 'Urgentes')}
           {counterBtn(2, 'A conferir')}
@@ -10653,6 +10659,15 @@ function App() {
     startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
   };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
+  /* Cabeçalho único da operação (Nexus Prumo): o mesmo componente em todas as abas, inclusive a Visão geral. */
+  const cxOpHeaderEl = (isClaude && viewMode === 'operation' && activeOp) ? <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
+    onTab={(t) => startTabSwitch(() => setActiveTab(t))}
+    onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
+    onDiag={() => openDiagnostico(activeOp.id)}
+    onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
+    onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
+    onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
+    onOpenIntim={(id) => setCxDrawerId(id)} /> : null;
   const cxIntimOrder = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado').sort((a, b) => {
     const ua = intimIsUrgent(a) ? 0 : 1, ub = intimIsUrgent(b) ? 0 : 1; if (ua !== ub) return ua - ub;
     const ia = intimImpOrder(a), ib = intimImpOrder(b); if (ia !== ib) return ia - ib;
@@ -10675,6 +10690,72 @@ function App() {
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
   })();
+  // ─── Histórico de navegação (← Voltar) ───
+  // Um só lugar observa o estado de navegação e registra as mudanças; nenhum ponto de chamada precisa saber do histórico.
+  const cxNavSnap = () => nhSnapshot({
+    viewMode, activeOpId, activeTab, tlOp: cxTlOp || activeOpId, tlMode: cxLs('nexus_cx_tl_mode', 'panorama'),
+    prazosDeskMode, prazosView: cxLs('nexus_cx_prazos_view', 'mesa'), inscView: cxLs('nexus_cx_insc_view', 'tabela'), intimView: cxIntimView,
+  });
+  useEffect(() => {
+    const on = () => setCxNavTick(t => t + 1);
+    window.addEventListener('nexus-cx-nav', on);
+    return () => window.removeEventListener('nexus-cx-nav', on);
+  }, []);
+  useEffect(() => {
+    const n = cxNavRef.current;
+    if (!isClaude) { if (n.stack.length || n.cur) { n.stack = []; n.cur = null; n.restoreKey = null; setCxNavBack(null); } return; }
+    if (isTabSwitching) return; // transição em andamento: espera a tela assentar para não registrar estado intermediário
+    const snap = cxNavSnap(), key = nhKey(snap);
+    if (n.restoreKey !== null) {
+      if (key === n.restoreKey) { n.restoreKey = null; return; } // chegou ao destino do "voltar": não é navegação nova
+      if (Date.now() < n.until) return;
+      n.restoreKey = null;
+    }
+    if (!n.cur || nhKey(n.cur) === key) { n.cur = snap; return; }
+    n.stack = nhPush(n.stack, n.cur);
+    n.cur = snap;
+    setCxNavBack(nhPeek(n.stack));
+  }, [isClaude, isTabSwitching, viewMode, activeOpId, activeTab, cxTlOp, prazosDeskMode, cxIntimView, cxNavTick]);
+  const cxGoBack = () => {
+    const n = cxNavRef.current;
+    let entry = null;
+    while (n.stack.length) { // pula entradas cuja operação foi apagada
+      const r = nhPop(n.stack); n.stack = r.stack;
+      const okOp = (id) => !id || (data.operations || []).some(o => o.id === id);
+      if (okOp(r.entry.op) && okOp(r.entry.tlOp)) { entry = r.entry; break; }
+    }
+    setCxNavBack(nhPeek(n.stack));
+    if (!entry) return;
+    n.cur = entry; n.restoreKey = nhKey(entry); n.until = Date.now() + 1500;
+    setCxDrawerId(null); setCxProcFocus(null); setCxSideOpen(false); setImportResult(null);
+    if (entry.tlMode) cxLsSet('nexus_cx_tl_mode', entry.tlMode);
+    if (entry.prazos) { if (entry.prazos !== 'lista') cxLsSet('nexus_cx_prazos_view', entry.prazos); setPrazosDeskMode(entry.prazos === 'lista' ? 'lista' : 'mesa'); }
+    if (entry.insc) cxLsSet('nexus_cx_insc_view', entry.insc);
+    if (entry.intim) setCxIntimView(entry.intim);
+    if (entry.vm === 'cx_timeline') setCxTlOp(entry.tlOp);
+    if (entry.vm === 'operation' && entry.op) { setActiveOpId(entry.op); setCxReturnOpId(entry.op); setActiveTab(entry.tab || 'visao'); }
+    setViewMode(entry.vm);
+    setCxNavEpoch(e => e + 1);
+  };
+  const cxGoBackRef = useRef(cxGoBack);
+  cxGoBackRef.current = cxGoBack;
+  useEffect(() => {
+    if (!isClaude) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'ArrowLeft' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (modal || globalSearch || !cxNavRef.current.stack.length) return;
+      e.preventDefault();
+      cxGoBackRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isClaude, modal, globalSearch]);
+  const cxBackLabel = cxNavBack ? nhLabel(cxNavBack, {
+    opName: (id) => { const o = (data.operations || []).find(x => x.id === id); return o ? cxOpName(o) : ''; },
+    tabLabel: (t) => (t === 'pessoas' ? 'Partes' : t === 'bens' ? 'Bens' : tabLabels[t]),
+  }) : null;
   const cxSyncTime = (() => {
     const m = /(\d{2}\/\d{2}\/\d{4}),?\s+(\d{1,2}:\d{2})/.exec(cloudLastSync || '');
     if (!m) return cloudLastSync || '';
@@ -10832,7 +10913,7 @@ function App() {
       </div>
     </div>
 
-    <div className="main-content">
+    <div className="main-content" key={cxNavEpoch}>
       {/* Top Navigation — startTabSwitch evita freeze ao trocar de vista */}
       {isDemo ? (
       <div className={`top-nav${isTabSwitching ? ' is-switching' : ''}`} ref={betaNavRef}>
@@ -10916,7 +10997,7 @@ function App() {
       </div>
       )}
 
-      {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)}
+      {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)} backLabel={cxBackLabel} onBack={cxGoBack}
         onSearch={() => { setGlobalSearch(true); setGsQuery(''); }}
         lastOp={cxReturnOp} onOpenLastOp={() => { if (cxReturnOp && !(viewMode === 'operation' && activeOpId === cxReturnOp.id)) cxOpenOp(cxReturnOp.id); }}
         sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}
@@ -11778,7 +11859,14 @@ function App() {
         const reconf = isClaude ? modelosReconferir(models, localIso(new Date())) : [];
         const verVigencia = (m) => { setModelStageFilter('all'); setModelSel(null); setModelMatters([]); selectModel(m); setModelFichaTab('vig'); };
         return (<div className="entity-area">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
+          {isClaude && <div className="cx cx-page-h">
+            <div><h1>Modelos</h1><p>{models.length} no banco{lista.length !== models.length ? ` · ${lista.length} nesta seleção` : ''}. Modelos de peças com cabimento, mapa, variantes e precedentes.</p></div>
+            <div className="cx-acts">
+              <button type="button" className="cx-btn" title="Copia o catálogo + um pedido pronto. Cole no assistente e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}><CxIcon n="zap" s={14} />Catálogo para IA</button>
+              <button type="button" className="cx-btn primary" onClick={() => setModal({type:'create',entityType:'model',initial:{}})}><CxIcon n="plus" s={14} />Modelo</button>
+            </div>
+          </div>}
+          {!isClaude && <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{fontSize:15,fontWeight:700,color:'var(--text-primary)'}}>Modelos</span>
               <span style={{color:'var(--text-muted)',fontSize:11}}>{models.length} no banco{lista.length !== models.length ? ` · ${lista.length} nesta seleção` : ''}</span>
@@ -11787,7 +11875,7 @@ function App() {
               <button className="btn-secondary btn-sm" title="Copia o catálogo + um pedido pronto. Cole no assistente e anexe a peça para ele indicar o modelo." onClick={copiarCatalogo}>✨ Catálogo para IA</button>
               <button className="btn-primary btn-sm" onClick={() => setModal({type:'create',entityType:'model',initial:{}})}>+ Modelo</button>
             </div>
-          </div>
+          </div>}
 
           <div style={{marginBottom:12,padding:'10px 12px',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)'}}>
             <div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}>
@@ -11795,7 +11883,7 @@ function App() {
                 placeholder="Cole aqui o texto da intimação ou da peça adversa — o app identifica a matéria e filtra os modelos."
                 style={{flex:1,minWidth:240,fontSize:11,resize:'vertical'}} />
               <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                <button className="btn-primary btn-sm" onClick={analisar} disabled={!modelQuery.trim()}>🔎 Identificar</button>
+                <button className="btn-primary btn-sm" onClick={analisar} disabled={!modelQuery.trim()}>{isClaude ? <><CxIcon n="search" s={13} />Identificar</> : '🔎 Identificar'}</button>
                 {(modelQuery || modelMatters.length > 0) && <button className="btn-secondary btn-xs" onClick={limpar}>Limpar</button>}
               </div>
             </div>
@@ -12314,27 +12402,19 @@ function App() {
       {viewMode === 'operation' && !activeOp && (
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
-      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
+      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <>
+        {cxOpHeaderEl}
+        <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
         prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
         onTab={(t) => startTabSwitch(() => setActiveTab(t))}
-        onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
-        onDiag={() => openDiagnostico(activeOp.id)}
-        onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
-        onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
-        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>}
+        onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
+      </>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
-        {isClaude && <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
-          onTab={(t) => startTabSwitch(() => setActiveTab(t))}
-          onEdit={() => setModal({ type: 'edit', entityType: 'operation', initial: activeOp })}
-          onDiag={() => openDiagnostico(activeOp.id)}
-          onReport={() => { setReportModalOp(activeOp); setReportModel('passagem'); setReportSectionsS(defaultReportSections()); }}
-          onReviewed={() => { upsert('operations', { ...activeOp, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }}
-          onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
-          onOpenIntim={(id) => setCxDrawerId(id)} />}
+        {cxOpHeaderEl}
         {!isClaude && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
