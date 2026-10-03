@@ -582,7 +582,7 @@ function EditionClaudeSidebar(p) {
     </div>
     <div className="cx-side-foot">
       <span>Nexus Prumo</span>
-      <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
+      <button type="button" className="cx-link-btn" onClick={p.onCloudPull} title="Trazer o JSON salvo no Drive e substituir os dados desta tela">Carregar da Planilha</button>
     </div>
   </aside>;
 }
@@ -594,7 +594,7 @@ function EditionClaudeTopbar(p) {
   const syncColor = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
-    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span><span className="cx-back-t">&nbsp;Voltar</span></button> : null}
+    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span></button> : null}
     <div className="cx-crumb">
       <span>NEXUS</span>
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
@@ -1197,8 +1197,8 @@ function EditionClaudeIntimacoes(p) {
         <CxTribBar counts={tribCounts} active={ufFilter} onToggle={j => setUfFilter(f => f === j ? null : j)} />
       </div>
       <div className="cx-acts">
-        <button type="button" className="cx-btn primary" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
+        <button type="button" className="cx-btn" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
       </div>
     </div>
@@ -4770,8 +4770,8 @@ function EditionClaudePainel(p) {
   // Indicadores: mesmo escopo do Painel clássico (todas as CDAs não extintas); a tabela cobre as operações ativas.
   const liveDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const kpiCredito = liveDebts.reduce((s, d) => s + (d.value || 0), 0);
-  const kpiGarantido = liveDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
-  const pctGar = kpiCredito > 0 ? Math.round(kpiGarantido / kpiCredito * 100) : 0;
+  const kpiIndisp = (data.assets || []).filter(a => a.status === 'indisponibilidade_ativa' || a.status === 'indisponibilidade_requerida').reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const pctGar = kpiCredito > 0 ? Math.round(kpiIndisp / kpiCredito * 100) : 0;
   const totalCredito = rows.reduce((s, o) => s + o.totalValue, 0);
   const totalGarantido = rows.reduce((s, o) => s + o.guaranteedValue, 0);
   const pctGarAtivas = totalCredito > 0 ? Math.round(totalGarantido / totalCredito * 100) : 0;
@@ -4799,9 +4799,9 @@ function EditionClaudePainel(p) {
     <CxKpiStrip n={5} className="bare cx-ks-sp">
       <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(kpiCredito)}
         desc={cxPl(liveDebts.length, 'CDA', 'CDAs') + ' · ' + cxPl(rows.length, 'operação ativa', 'operações ativas') + ((data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : '') + ' · ' + cxPl(nExecs, 'processo', 'processos')} />
-      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}
-        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>}
-        desc={cxMoneyShort(kpiGarantido) + ' em CDAs garantidas'} />
+      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma dos bens com indisponibilidade ativa ou requerida, sobre o crédito sob gestão: ' + fmtCur(kpiIndisp)}
+        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: Math.min(100, pctGar) + '%' }} /></span>}
+        desc={cxMoneyShort(kpiIndisp) + ' em indisponibilidades'} />
       <CxKpiCard label="Risco prescricional" value={riskN} unit={riskN === 1 ? 'CDA' : 'CDAs'} tone={riskN ? 'violet' : ''} onClick={p.onOpenPrazos} tip="Mesmos números da tela Prazos extintivos (grupos 1 e 2)"
         desc={riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
       <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}

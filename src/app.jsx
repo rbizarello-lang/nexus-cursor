@@ -10814,7 +10814,7 @@ function App() {
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
       onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
       onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
-      onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
+      onCloudPull={cloudPull} onClose={() => setCxSideOpen(false)} />}
     {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
       <div className="sidebar-header">
