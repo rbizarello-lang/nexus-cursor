@@ -59,6 +59,29 @@ function CxIcon({ n, s = 16, className = '', style }) {
   return <svg className={'cx-i ' + className} width={s} height={s} viewBox="0 0 24 24" aria-hidden="true" style={style} dangerouslySetInnerHTML={{ __html: CX_ICONS[n] || '' }} />;
 }
 
+function DocsPieceGlyph() {
+  return <svg className="nx-piece-glyph" width="15" height="15" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#4285F4" d="M37 45H11a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h19l10 10v29a3 3 0 0 1-3 3z" />
+    <path fill="#A8C7FA" d="M30 3v9a1 1 0 0 0 1 1h9z" />
+    <path fill="#fff" d="M15 23h18v2.2H15zm0 5h18v2.2H15zm0 5h12v2.2H15z" />
+  </svg>;
+}
+
+/** Texto da nota de atuação e, se houver peça, o ícone que abre o documento. */
+function AtuacaoNoteView({ text, url }) {
+  return <>
+    {text}
+    {url ? <>{' / Peça: '}<a className="nx-piece-link" href={url} target="_blank" rel="noopener noreferrer" title="Abrir peça" aria-label="Abrir peça" onClick={e => e.stopPropagation()}><DocsPieceGlyph /></a></> : null}
+  </>;
+}
+
+function renderProcessNote(note, linkify) {
+  const raw = typeof note === 'string' ? note : ((note && (note.text || note.content || note.body)) || '');
+  const atu = presentAtuacaoProcessNote(raw);
+  if (atu) return <AtuacaoNoteView text={atu.text} url={atu.url} />;
+  return linkify ? linkify(raw) : raw;
+}
+
 /* ─── Helpers de leitura (não gravam nada) ─── */
 const CX_DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const CX_DOW_L = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -559,7 +582,7 @@ function EditionClaudeSidebar(p) {
     </div>
     <div className="cx-side-foot">
       <span>Nexus Prumo</span>
-      <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
+      <button type="button" className="cx-link-btn" onClick={p.onCloudPull} title="Trazer o JSON salvo no Drive e substituir os dados desta tela">Carregar da Planilha</button>
     </div>
   </aside>;
 }
@@ -571,7 +594,7 @@ function EditionClaudeTopbar(p) {
   const syncColor = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
-    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span><span className="cx-back-t">&nbsp;Voltar</span></button> : null}
+    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span></button> : null}
     <div className="cx-crumb">
       <span>NEXUS</span>
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
@@ -1175,6 +1198,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       <div className="cx-acts">
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
+        <button type="button" className="cx-btn" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
       </div>
     </div>
@@ -1189,7 +1213,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       {view === 'quadro'
         ? <CxBoard items={filtered.filter(cxIsActive)} sort={sort} onOpen={p.onOpenIntim} opsById={opsById} onSetStatus={(id, s) => { const x = all.find(i => i.id === id); if (x && x.status !== s) { p.upsert('intimations', { ...x, status: s }); cxNotify('Situação: ' + CX_ST[s].l); } }} />
-        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Importe o XLS do eproc para começar.'} />}
+        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Use Nova intimação ou importe o XLS do eproc.'} />}
     </>}
   </div>;
 }
@@ -1360,14 +1384,17 @@ function cxLoadDrawerBlocks() {
   return { ...CX_BLK_DEFAULTS };
 }
 function cxSaveDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function CxBlock({ title, summary, count, open, onToggle, children }) {
+function CxBlock({ title, summary, count, open, onToggle, aside, children }) {
   return <div className="cx-blk">
-    <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
-      <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
-      <span className="cx-blk-t">{title}</span>
-      {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
-      {count != null ? <span className="cx-blk-n">{count}</span> : null}
-    </button>
+    <div className="cx-blk-bar">
+      <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
+        <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+        <span className="cx-blk-t">{title}</span>
+        {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
+        {count != null ? <span className="cx-blk-n">{count}</span> : null}
+      </button>
+      {aside || null}
+    </div>
     {open ? <div className="cx-blk-b">{children}</div> : null}
   </div>;
 }
@@ -1952,6 +1979,7 @@ function cxExecTag(e) {
   if (e.processTag === 'idpj') return 'IDPJ';
   if (e.processTag === 'cautelar_fiscal') return 'MCF';
   if (e.processTag === 'central') return 'CENTRAL';
+  if (e.processTag === 'peticao_incidente_ef') return 'INC';
   const c = cxNorm(e.className);
   if (c.includes('embargos')) return 'EMB';
   if (c.includes('agravo') || c.includes('apela') || c.includes('recurso')) return 'REC';
@@ -1964,7 +1992,7 @@ function cxTagColor(e) {
   const t = cxExecTag(e);
   if (t === 'EMB' || t === 'EXC') return 'var(--cx-orange)';
   if (t === 'REC') return 'var(--cx-blue)';
-  if (t === 'EF') return 'var(--cx-cyan)';
+  if (t === 'EF' || t === 'INC') return 'var(--cx-cyan)';
   return 'var(--cx-ink-3)';
 }
 function cxEvColor(type) {
@@ -2066,7 +2094,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: (r.outcome === 'provido' && isRecursoAdverso(r)) ? 'var(--cx-red)' : cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
       else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', sk: k, kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
     });
     const seen = new Set();
@@ -4503,7 +4531,7 @@ function EditionClaudeOpHeader(p) {
     {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
     <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
       <button type="button" className={activeTab === 'visao' ? 'on' : ''} aria-current={activeTab === 'visao' ? 'page' : undefined} onClick={() => { if (activeTab !== 'visao') p.onTab('visao'); }}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
+      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}</button>)}
     </nav>
   </div>;
 }
@@ -4742,8 +4770,8 @@ function EditionClaudePainel(p) {
   // Indicadores: mesmo escopo do Painel clássico (todas as CDAs não extintas); a tabela cobre as operações ativas.
   const liveDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const kpiCredito = liveDebts.reduce((s, d) => s + (d.value || 0), 0);
-  const kpiGarantido = liveDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
-  const pctGar = kpiCredito > 0 ? Math.round(kpiGarantido / kpiCredito * 100) : 0;
+  const kpiIndisp = (data.assets || []).filter(a => a.status === 'indisponibilidade_ativa' || a.status === 'indisponibilidade_requerida').reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const pctGar = kpiCredito > 0 ? Math.round(kpiIndisp / kpiCredito * 100) : 0;
   const totalCredito = rows.reduce((s, o) => s + o.totalValue, 0);
   const totalGarantido = rows.reduce((s, o) => s + o.guaranteedValue, 0);
   const pctGarAtivas = totalCredito > 0 ? Math.round(totalGarantido / totalCredito * 100) : 0;
@@ -4771,9 +4799,9 @@ function EditionClaudePainel(p) {
     <CxKpiStrip n={5} className="bare cx-ks-sp">
       <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(kpiCredito)}
         desc={cxPl(liveDebts.length, 'CDA', 'CDAs') + ' · ' + cxPl(rows.length, 'operação ativa', 'operações ativas') + ((data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : '') + ' · ' + cxPl(nExecs, 'processo', 'processos')} />
-      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}
-        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>}
-        desc={cxMoneyShort(kpiGarantido) + ' em CDAs garantidas'} />
+      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma dos bens com indisponibilidade ativa ou requerida, sobre o crédito sob gestão: ' + fmtCur(kpiIndisp)}
+        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: Math.min(100, pctGar) + '%' }} /></span>}
+        desc={cxMoneyShort(kpiIndisp) + ' em indisponibilidades'} />
       <CxKpiCard label="Risco prescricional" value={riskN} unit={riskN === 1 ? 'CDA' : 'CDAs'} tone={riskN ? 'violet' : ''} onClick={p.onOpenPrazos} tip="Mesmos números da tela Prazos extintivos (grupos 1 e 2)"
         desc={riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
       <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}
@@ -4911,14 +4939,16 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
 
-  const openNew = () => { setDraftType('observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
+  const [pinNext, setPinNext] = React.useState(false);
+  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); setDraftType((opts && opts.type) || 'observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
   const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      setPinNext(false);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
         ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
@@ -4931,8 +4961,13 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
 
   React.useEffect(() => {
     if (!editRequestId) return;
-    const en = entries.find(e => e.id === editRequestId);
-    if (en) openEdit(en);
+    if (editRequestId === 'new') {
+      openNew({ pin: true, type: 'estrategia' });
+      setTimeout(() => { const el = document.querySelector('.cx-bf-diary'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 40);
+    } else {
+      const en = entries.find(e => e.id === editRequestId);
+      if (en) openEdit(en);
+    }
     if (onEditConsumed) onEditConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequestId]);
@@ -4950,7 +4985,7 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
       </select>
       <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
       <span className="cx-sp" />
-      <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
+      <button type="button" className="cx-btn sm ghost" onClick={() => { setComposer(null); setPinNext(false); }}>Cancelar</button>
       <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? '+ Adicionar' : 'Salvar'}</button>
     </div>
     <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
@@ -5043,7 +5078,7 @@ function EditionClaudeBriefing(p) {
   const panoEFs = opExecs.filter(isUserPanoramaEf);
   const fronts = [...idpjs, ...centrais, ...panoEFs];
   const coverage = computeIncidentCoverage(opExecs, opDebts);
-  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && !isPeticaoIncidenteEf(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
   const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
   const panoCoveredIds = new Set();
   idpjs.forEach(ip => (coverage.efsByIncident[ip.id] || []).forEach(ef => panoCoveredIds.add(ef.id)));
@@ -5162,7 +5197,8 @@ function EditionClaudeBriefing(p) {
     <div className="cx-bf-grid">
       <div className="cx-bf-main">
         {/* Leitura da operação */}
-        {highlight ? (<section className="cx-card cx-bf-lead">
+        <section className="cx-card cx-bf-lead">
+          {highlight ? (<>
             <div className="cx-bf-lead-hd">
               <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
               <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
@@ -5178,7 +5214,12 @@ function EditionClaudeBriefing(p) {
               const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
               return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
             })}
-        </section>) : null}
+            </>) : (
+              <div className="cx-bf-lead-empty">
+                <button type="button" className="cx-bf-ic" title="Editar a leitura" aria-label="Editar a leitura" onClick={() => setDiaryEditId('new')}><CxIcon n="edit" s={13} /></button>
+              </div>
+            )}
+        </section>
 
         {/* Frentes processuais */}
         <section className="cx-card cx-bf-fronts">
@@ -5229,7 +5270,7 @@ function EditionClaudeBriefing(p) {
                     );
                   })}
                   <span className="cx-bf-stp add">
-                    <button type="button" onClick={() => setAddMenu(addOpen ? null : front.id)}>+ Evento</button>
+                    <button type="button" title="Novo evento" aria-label="Novo evento" onClick={() => setAddMenu(addOpen ? null : front.id)}>+</button>
                     {addOpen && (<>
                       <div className="cx-menu-scrim" onClick={() => setAddMenu(null)} />
                       <div className="cx-menu-pop cx-bf-addmenu">
@@ -5249,6 +5290,22 @@ function EditionClaudeBriefing(p) {
                   const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
                   const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
                   const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
+                  const editNote = (idx, raw) => {
+                    const atu = presentAtuacaoProcessNote(raw);
+                    const seed = atu ? atu.text : String(raw || '');
+                    const t = prompt('Editar nota:', seed);
+                    if (t == null) return;
+                    const next = t.trim();
+                    if (!next) return;
+                    let stored = next;
+                    if (atu && atu.url) {
+                      const body = next.replace(/^Registro de atuação:\s*/, '').trim();
+                      stored = (body ? `Registro de atuação: ${body}` : 'Registro de atuação') + ` / Peça: ${atu.url}`;
+                    }
+                    const arr = rawNotes.slice();
+                    arr[idx] = stored;
+                    setNotes(arr);
+                  };
                   return (
                     <div className="cx-bf-work">
                       <div className="cx-bf-editphase-wrap">
@@ -5276,14 +5333,17 @@ function EditionClaudeBriefing(p) {
                         </button>
                       </div>
                       <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
-                        summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
-                        <div className="cx-bf-work-k">
-                          <span>Notas do processo</span><span className="cx-sp" />
-                          <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
-                        </div>
+                        summary={cardNotes.length ? (presentAtuacaoProcessNote(cardNotes[cardNotes.length - 1].n)?.text || cardNotes[cardNotes.length - 1].n) : 'Nenhuma nota'}
+                        aside={<button type="button" className="cx-bf-ic" title="Adicionar nota" aria-label="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>}>
                         {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                          <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
-                        )) : <div className="cx-empty-note">Nenhuma nota.</div>}
+                          <div key={idx} className="cx-bf-note">
+                            <span>{renderProcessNote(n)}</span>
+                            <span className="cx-bf-note-acts">
+                              <button type="button" className="cx-bf-ic" title="Editar nota" aria-label="Editar nota" onClick={() => editNote(idx, n)}><CxIcon n="edit" s={11} /></button>
+                              <button type="button" className="cx-bf-ic" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button>
+                            </span>
+                          </div>
+                        )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
                       </CxBlock>
                       <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}
                         summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
@@ -5311,15 +5371,19 @@ function EditionClaudeBriefing(p) {
               </div>
             );
           })}
-          {semIncidenteEFs.length > 0 && (
+          {semIncidenteEFs.length > 0 && (() => {
+            const semOpen = isLaneOpen('sem-incidente');
+            return (
             <div className="cx-bf-lane quiet">
-              <div className="cx-bf-lane-h">
+              <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={semOpen}
+                onClick={() => toggleLane('sem-incidente')} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane('sem-incidente'); }}>
+                <span className="cx-chev cx-bf-lane-chev"><CxIcon n={semOpen ? 'chevD' : 'chevR'} s={13} /></span>
                 <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
                 <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
                 <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
                 <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
               </div>
-              <div className="cx-bf-quiet-list">
+              {semOpen && <div className="cx-bf-quiet-list">
                 {semIncidenteEFs.map(ef => (
                   <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
                     <span className="cx-mono">{ef.processNumber || '—'}</span>
@@ -5327,9 +5391,10 @@ function EditionClaudeBriefing(p) {
                     <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
                   </button>
                 ))}
-              </div>
+              </div>}
             </div>
-          )}
+            );
+          })()}
         </section>
 
         {/* Atuações recentes: só o passado (respostas, tarefas concluídas, atuações proativas), mais recente primeiro */}
@@ -5476,6 +5541,7 @@ function cxProcKind(exec) {
   if (exec.processTag === 'idpj') return { label: 'IDPJ', cls: 'idpj' };
   if (exec.processTag === 'cautelar_fiscal') return { label: 'MCF', cls: 'idpj' };
   if (exec.processTag === 'central') return { label: 'Central', cls: 'cen' };
+  if (exec.processTag === 'peticao_incidente_ef') return { label: 'Incidente', cls: 'ef' };
   if (isExecucaoFiscalClass(exec)) return { label: 'EF', cls: 'ef' };
   const bucket = otherProcBucket(exec);
   if (bucket === 'recursos') return { label: (otherSpecies(exec).code || 'Recurso'), cls: 'rec' };
@@ -6191,6 +6257,7 @@ function EditionClaudeProcessos(p) {
   const incValue = [...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const semVincValue = uncoveredVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
+  const naHeaderValue = unlinkedCdas.reduce((s, d) => s + (d.value || 0), 0);
   const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
 
   // Só uma ficha por vez: abrir a do processo fecha a da CDA e vice-versa.
@@ -6423,6 +6490,7 @@ function EditionClaudeProcessos(p) {
           <div className="cx-card-h" onClick={() => toggleCard('na')}>
             <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
             <span className="cx-muted cx-small">· sem processo</span>
+            <span className="cx-sp" /><span className="cx-mono cx-pt-r">{fmtCur(naHeaderValue)}</span>
           </div>
           {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead first="Inscrição" blank /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}

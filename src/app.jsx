@@ -13,6 +13,7 @@ import {
 import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
+  presentAtuacaoProcessNote,
   clusterDuplicateExecutions,
   countExecutionReferences,
   getExecutionMergeConflicts,
@@ -844,9 +845,22 @@ function efBandKey(exec) {
   return 'ativa';
 }
 
-/** Classe é Execução Fiscal (card superior). Exige o vocábulo no início da classe. */
+/** Natureza: petição cível que corre como incidente de uma execução fiscal. A classe continua livre. */
+function isPeticaoIncidenteEf(e) {
+  return !!e && e.processTag === 'peticao_incidente_ef';
+}
+
+/** Execução fiscal pela classe, sem o incidente que só recebe o mesmo tratamento. */
+function isRealExecucaoFiscal(e) {
+  if (!e || isPeticaoIncidenteEf(e)) return false;
+  const cn = (e.className || '').toLowerCase().trim();
+  return /^execu[çc][ãa]o\s+fiscal\b/.test(cn);
+}
+
+/** Tratada como execução fiscal: a classe começa com “Execução Fiscal”, ou a natureza é o incidente em execução fiscal. */
 function isExecucaoFiscalClass(e) {
   if (!e) return false;
+  if (isPeticaoIncidenteEf(e)) return true;
   const cn = (e.className || '').toLowerCase().trim();
   // "Execução Fiscal", "Execução Fiscal Previdenciária", "Execução Fiscal (SIDA)", etc.
   // Não inclui "Embargos à Execução Fiscal" nem "Cumprimento de Sentença".
@@ -863,10 +877,13 @@ function isCentralProcess(e) {
   return !!e && e.processTag === 'central';
 }
 
-/** EF que o usuário escolheu exibir no Panorama, sem ser IDPJ/cautelar/central. */
+/** EF que o usuário escolheu exibir no Panorama, sem ser IDPJ/cautelar/central.
+ *  O incidente em execução fiscal entra por padrão e só sai se o usuário retirar. */
 function isUserPanoramaEf(e) {
-  return !!e && !!e.inPanorama && isExecucaoFiscalClass(e) && !isHubProcess(e)
-    && e.status !== 'extinta' && e.status !== 'arquivada';
+  if (!e || !isExecucaoFiscalClass(e) || isHubProcess(e)) return false;
+  if (e.status === 'extinta' || e.status === 'arquivada') return false;
+  if (isPeticaoIncidenteEf(e)) return e.inPanorama !== false;
+  return !!e.inPanorama;
 }
 
 /** Card de panorama no estilo da execução (régua da EF + valor próprio + apensos). */
@@ -1332,7 +1349,7 @@ function countPrazosActiveFilters(pf) {
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
 // Process tag labels (used across Processos and Proc & Presc² tabs)
-const tagLabels = { idpj: '🔴 IDPJ', cautelar_fiscal: '🟠 Cautelar Fiscal', central: '◆ Central' };
+const tagLabels = { idpj: '🔴 IDPJ', cautelar_fiscal: '🟠 Cautelar Fiscal', central: '◆ Central', peticao_incidente_ef: 'Petição Cível - Incidente em EF' };
 
 // Review intervals — cadência de acompanhamento por operação
 const REVIEW_INTERVALS = {
@@ -1435,12 +1452,14 @@ const getRecursos = (rec) => {
     : [];
   return raw.map(r => ({ parte: 'nossa', ...r }));
 };
-// Cor da fase de recurso: pendente = amarelo; algum não provido = vermelho; todos providos = verde.
-// "Provido" vale tanto para o nosso recurso quanto para o da parte adversa.
+// Cor da fase de recurso: pendente = amarelo.
+// Nosso recurso provido = verde; não provido = vermelho.
+// Recurso da parte adversa provido = vermelho (desfavorável à Fazenda).
 const recursoColor = (recs) => {
   if (!recs.length) return 'var(--text-muted)';
   if (recs.some(r => r.outcome === 'pendente' || !r.outcome)) return 'var(--yellow)';
   if (recs.some(r => r.outcome === 'nao_provido')) return 'var(--red)';
+  if (recs.some(r => r.outcome === 'provido' && isRecursoAdverso(r))) return 'var(--red)';
   return 'var(--green)';
 };
 const stageRecColor = (rec) => !rec ? 'var(--text-muted)' : outcomeColor(rec.outcome);
@@ -1519,6 +1538,7 @@ const badgeFor = (ip) => {
   if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
   if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
   if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+  if (tag === 'peticao_incidente_ef') return { label: 'Incidente', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Petição cível — incidente em execução fiscal', tagClass: 'tag-pano-ef' };
   return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
 };
 // Meta compacta de uma fase (info curta ao lado da bolinha na régua)
@@ -1548,7 +1568,7 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
     const isMulti = !!sd.multiRecurso;
     const rs = isMulti ? getRecursos(rec) : [];
     const col = isMulti
-      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido') ? '#c03040' : '#207848')
+      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido' || (r.outcome === 'provido' && isRecursoAdverso(r))) ? '#c03040' : '#207848')
       : (rec.outcome === 'favoravel' || rec.outcome === 'provido') ? '#207848' : (rec.outcome === 'desfavoravel' || rec.outcome === 'nao_provido') ? '#c03040' : '#2860b0';
     let det;
     if (isMulti) {
@@ -2813,6 +2833,9 @@ function formRequiredError(entityType, form) {
   }
   if (entityType === 'operation' && !t(form.name)) {
     return 'Informe o nome da operação.';
+  }
+  if (entityType === 'execution' && isPeticaoIncidenteEf(form) && !t(form.parentExecutionId)) {
+    return 'Escolha a execução fiscal à qual esta petição está acoplada.';
   }
   return '';
 }
@@ -4684,6 +4707,13 @@ function App() {
         return;
       }
     }
+    if (type === 'execution' && isPeticaoIncidenteEf(cleanEntity)) {
+      const parent = (data.executions || []).find(ex => ex.id === cleanEntity.parentExecutionId);
+      if (!parent || parent.operationId !== cleanEntity.operationId || !isRealExecucaoFiscal(parent)) {
+        alert('Petição Cível - Incidente em Execução Fiscal precisa estar acoplada a uma execução fiscal desta operação.');
+        return;
+      }
+    }
     let noApensoPropagation = false;
     let propagateToLinkedEFs = true;
     if (type === 'prescriptionEvent') {
@@ -5298,6 +5328,8 @@ function App() {
   }, [data.people]);
   const linkify = (text) => {
     if (!text || typeof text !== 'string') return text;
+    const atuacao = presentAtuacaoProcessNote(text);
+    if (atuacao) return <AtuacaoNoteView text={atuacao.text} url={atuacao.url} />;
     // Regex for: URL, process number, CNPJ, CPF
     const pattern = /(https?:\/\/[^\s<]+[^\s<.,;:!?)}\]'"])|(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})|(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})|(\d{3}\.\d{3}\.\d{3}-\d{2})/g;
     const parts = [];
@@ -6316,7 +6348,7 @@ function App() {
         {(() => {
               const coverage = computeIncidentCoverage(opExecs, opDebts);
               const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
-              const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+              const keepCoveredEF = (e) => e && !isIncidentProcess(e) && !isPeticaoIncidenteEf(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
               const sortEFsArquivadasLast = (arr) => [...(arr || [])].sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
               const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
               const efsByIncident = {};
@@ -7862,7 +7894,7 @@ function App() {
                   {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
                   <div className="process-meta">
                     {isDemo ? (<>
-                      {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                      {isApenso && <span className="proc-meta-chip">{isPeticaoIncidenteEf(e) ? 'Incidente' : 'Apenso'}</span>}
                       {myApensosGroups.length > 0 && <Ficha k="Apensos">{myApensosGroups.length}</Ficha>}
                       {isTagged && <Ficha k="Classe" tone="accent">{tagLabels[e.processTag]||e.processTag}</Ficha>}
                       {isLinkedToIDPJ2 && !isTagged && <Ficha k="Vínculo">IDPJ</Ficha>}
@@ -7872,7 +7904,7 @@ function App() {
                       {procAlerts.intims.length > 0 && <Ficha k="Intimações" tone={procAlerts.overdueIntim ? 'overdue' : ''}>{procAlerts.intims.length}</Ficha>}
                       {procAlerts.tasks.length > 0 && <Ficha k="Tarefas" tone={procAlerts.overdueTask ? 'overdue' : ''}>{procAlerts.tasks.length}</Ficha>}
                     </>) : (<>
-                    {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                    {isApenso && <span className="proc-meta-chip">{isPeticaoIncidenteEf(e) ? 'Incidente' : 'Apenso'}</span>}
                     {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
                     {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
                     {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
@@ -8137,6 +8169,7 @@ function App() {
           return out;
         };
         const apensoBadge = <span className="apenso-badge" title="Apenso a outra execução fiscal">Apenso</span>;
+        const incidenteBadge = <span className="apenso-badge" title="Petição cível — incidente em execução fiscal, acoplado a uma execução">Incidente</span>;
         const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
           ? selectedProcHubId
           : (hubs[0]?.exec.id || null);
@@ -8382,6 +8415,7 @@ function App() {
             const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
             const childApensos = (!isOthers && !skipNested && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
             const isRelevant = g.type === 'exec' && !!g.exec.isRelevant;
+            const isIncidenteRow = g.type === 'exec' && isPeticaoIncidenteEf(g.exec);
             const isStandaloneApenso = !nested && !isOthers && g.type === 'exec' && relatedParent
               && isExecucaoFiscalClass(relatedParent) && !isHubProcess(relatedParent);
             return (
@@ -8391,19 +8425,26 @@ function App() {
                   <td className={`mono proc-num-col${nested ? ' proc-apenso-cell' : ''}`}>
                     {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
                     {g.type === 'unlinked' ? 'CDAs sem processo' : <ProcNum exec={g.exec} />}
-                    {(nested || isStandaloneApenso) && apensoBadge}
+                    {(nested || isStandaloneApenso) && (isIncidenteRow ? incidenteBadge : apensoBadge)}
                     {isStandaloneApenso && (
-                      <span className="proc-apenso-parent-ref" title={`Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
-                        (apenso de <ProcNum exec={relatedParent} maxLen={18} />)
+                      <span className="proc-apenso-parent-ref" title={isIncidenteRow ? `Acoplado à execução ${relatedParent.processNumber || ''}` : `Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
+                        ({isIncidenteRow ? 'da execução' : 'apenso de'} <ProcNum exec={relatedParent} maxLen={18} />)
                       </span>
                     )}
                     {g.type === 'exec' && dupBadge(g.exec.id)}
                     {!isOthers && g.type === 'exec' && relatedChips(g.exec.id, 'siglas')}
-                    {!isOthers && childApensos.length > 0 && (
-                      <span className="apenso-count" title={`${childApensos.length} apenso(s)`}>
-                        {childApensos.length} apenso{childApensos.length === 1 ? '' : 's'}
-                      </span>
-                    )}
+                    {!isOthers && childApensos.length > 0 && (() => {
+                      const nInc = childApensos.filter(ap => isPeticaoIncidenteEf(ap.exec)).length;
+                      const nAp = childApensos.length - nInc;
+                      const parts = [];
+                      if (nAp) parts.push(`${nAp} apenso${nAp === 1 ? '' : 's'}`);
+                      if (nInc) parts.push(`${nInc} incidente${nInc === 1 ? '' : 's'}`);
+                      return (
+                        <span className="apenso-count" title={parts.join(' · ')}>
+                          {parts.join(' · ')}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} fixed={isClaude} /> : null}</td>
                   <td className="proc-status-col">{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
@@ -10773,7 +10814,7 @@ function App() {
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
       onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
       onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
-      onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
+      onCloudPull={cloudPull} onClose={() => setCxSideOpen(false)} />}
     {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
       <div className="sidebar-header">
@@ -11046,7 +11087,8 @@ function App() {
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
-        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
+        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()}
+        onNewIntim={() => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } })} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
         a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}
@@ -13688,7 +13730,7 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
   const parteBtn = (r, ri, pk, pl) => {
     const on = (r.parte || 'nossa') === pk;
-    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — provido também fica verde' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
+    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — se provido, o sinal fica vermelho' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
   };
   const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome || isCustom));
   const field = { width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box' };
@@ -14422,6 +14464,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <option value="idpj">🔴 IDPJ — Incidente de Desconsideração</option>
           <option value="cautelar_fiscal">🟠 Medida Cautelar Fiscal</option>
           <option value="central">◆ Processo Central da Operação</option>
+          <option value="peticao_incidente_ef">Petição Cível - Incidente em Execução Fiscal</option>
         </select>
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(EXEC_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
@@ -14483,7 +14526,20 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </button>
       </div>
     )}
-    {isExecucaoFiscalClass(form) && !isHubProcess(form) && (
+    {isPeticaoIncidenteEf(form) && (
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
+          {form.inPanorama !== false
+            ? 'Este incidente aparece no Panorama, no mesmo formato de uma execução. Retirar some só da faixa — o cadastro continua na lista das execuções.'
+            : 'Este incidente está fora do Panorama. O processo segue na lista das execuções, acoplado à de origem.'}
+        </span>
+        <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
+          onClick={() => onSave({ ...form, inPanorama: form.inPanorama === false, _openPanorama: form.inPanorama === false })}>
+          {form.inPanorama !== false ? 'Retirar do panorama' : 'Exibir no panorama'}
+        </button>
+      </div>
+    )}
+    {isExecucaoFiscalClass(form) && !isHubProcess(form) && !isPeticaoIncidenteEf(form) && (
       <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
           {form.inPanorama
@@ -14522,17 +14578,20 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const cn = (form.className || '').toLowerCase();
       const isEmbargo = /embargo/.test(cn);
       const isRecurso = /agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn);
-      const kind = isEmbargo ? 'embargo' : isRecurso ? 'recurso' : 'apenso';
-      const sectionLabel = kind === 'embargo' ? '🔗 Execução Embargada' : kind === 'recurso' ? '🔗 Processo de Origem do Recurso' : '📎 Apensamento';
-      const fieldLabel = kind === 'embargo' ? 'Execução Fiscal embargada' : kind === 'recurso' ? 'Processo recorrido (EF, IDPJ, Cautelar ou outro)' : 'Apensado a (principal)';
-      const emptyLabel = kind === 'embargo' ? '— Selecione a EF embargada —' : kind === 'recurso' ? '— Selecione o processo de origem —' : '— Não é apenso (processo independente ou principal) —';
-      const dateLabel = kind === 'embargo' ? 'Data de oposição' : kind === 'recurso' ? 'Data de interposição' : 'Data do apensamento';
-      const helpTip = kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos e Prescrição.'
+      const kind = isPeticaoIncidenteEf(form) ? 'acoplado' : isEmbargo ? 'embargo' : isRecurso ? 'recurso' : 'apenso';
+      const sectionLabel = kind === 'acoplado' ? '🔗 Execução de origem' : kind === 'embargo' ? '🔗 Execução Embargada' : kind === 'recurso' ? '🔗 Processo de Origem do Recurso' : '📎 Apensamento';
+      const fieldLabel = kind === 'acoplado' ? 'Acoplado à execução fiscal' : kind === 'embargo' ? 'Execução Fiscal embargada' : kind === 'recurso' ? 'Processo recorrido (EF, IDPJ, Cautelar ou outro)' : 'Apensado a (principal)';
+      const dateLabel = kind === 'acoplado' ? 'Data do vínculo' : kind === 'embargo' ? 'Data de oposição' : kind === 'recurso' ? 'Data de interposição' : 'Data do apensamento';
+      const helpTip = kind === 'acoplado' ? 'Esta petição é tratada como execução e fica sempre ligada a uma execução fiscal. Na lista de Processos e Prescrição, aparece indentada sob ela.'
+        : kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos e Prescrição.'
         : kind === 'recurso' ? 'Vincule este recurso ao processo de origem — pode ser uma Execução Fiscal, um IDPJ, uma Cautelar Fiscal ou outro processo. Ao vincular, o recurso aparece indentado sob o processo de origem na aba Processos e Prescrição.'
         : 'Quando uma execução fiscal é apensada a outra, o prosseguimento ocorre nos autos do principal. Atos interruptivos da prescrição praticados no principal estendem-se aos apensos automaticamente.';
       // Options: for embargo/recurso, allow any other process (EFs, IDPJs, Cautelares, Centrais, etc.)
       // For regular apensamento, only show top-level EFs as before.
-      const availableParents = kind === 'apenso'
+      // O incidente em execução fiscal só pode acoplar a uma execução fiscal de verdade.
+      const availableParents = kind === 'acoplado'
+        ? opExecs.filter(ex => ex.id !== form.id && isRealExecucaoFiscal(ex))
+        : kind === 'apenso'
         ? opExecs.filter(ex => !ex.parentExecutionId && ex.id !== form.id)
         : opExecs.filter(ex => ex.id !== form.id);
       // Group options by type for readability when it's recurso/embargo
@@ -14563,7 +14622,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             {/* Searchable process selector */}
             {(() => {
               const [searchTerm, setSearchTerm] = React.useState('');
-              const allOptions = kind === 'apenso' ? availableParents : groupOrder.filter(g => grouped[g]).flatMap(g => grouped[g]);
+              const allOptions = (kind === 'apenso' || kind === 'acoplado') ? availableParents : groupOrder.filter(g => grouped[g]).flatMap(g => grouped[g]);
               const filtered = searchTerm.length >= 2 ? allOptions.filter(ex => (ex.processNumber||'').includes(searchTerm) || (ex.court||'').toLowerCase().includes(searchTerm.toLowerCase()) || (ex.className||'').toLowerCase().includes(searchTerm.toLowerCase())) : allOptions;
               const current = form.parentExecutionId ? allOptions.find(ex => ex.id === form.parentExecutionId) : null;
               return (<div style={{position:'relative'}}>
@@ -14576,7 +14635,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
                 ) : (
                   <div>
                     <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                      placeholder={`Buscar entre ${allOptions.length} processos...`}
+                      placeholder={kind === 'acoplado' ? 'Buscar a execução fiscal de origem...' : `Buscar entre ${allOptions.length} processos...`}
                       style={{width:'100%',fontSize:11,padding:'5px 8px',background:'var(--bg-deep)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,boxSizing:'border-box'}} />
                     {searchTerm.length >= 2 && filtered.length > 0 && (
                       <div style={{position:'absolute',top:'100%',left:0,right:0,maxHeight:200,overflowY:'auto',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:3,zIndex:20,boxShadow:'0 4px 12px rgba(0,0,0,0.4)'}}>
@@ -14601,6 +14660,9 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <input type="date" value={form.apensadoEm||''} onChange={e=>set('apensadoEm',e.target.value)} />
           </div>}
         </div>
+        {kind === 'acoplado' && !form.parentExecutionId && (
+          <div style={{fontSize:11,color:'var(--red)',marginTop:6}}>Escolha a execução fiscal. Sem esse vínculo o cadastro não é salvo.</div>
+        )}
         {!form.parentExecutionId && form.id && (() => {
           const children = opExecs.filter(ex => ex.parentExecutionId === form.id);
           if (children.length === 0) return null;
@@ -14609,8 +14671,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <ul style={{marginTop:4,marginLeft:16,fontSize:10}}>
               {children.map(a => {
                 const acn = (a.className||'').toLowerCase();
-                const aKind = /embargo/.test(acn) ? 'embargo' : /agravo|apela|recurso|mandado/.test(acn) ? 'recurso' : 'apenso';
-                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}><ProcNum exec={a} /> <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
+                const aKind = a.processTag === 'peticao_incidente_ef' ? 'incidente' : /embargo/.test(acn) ? 'embargo' : /agravo|apela|recurso|mandado/.test(acn) ? 'recurso' : 'apenso';
+                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}><ProcNum exec={a} /> <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'incidente' ? 'incidente em execução fiscal' : aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
               })}
             </ul>
           </div>;
