@@ -5615,7 +5615,8 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 
 /* ── Cartões para dezenas de processos ── */
 .cx-pp { display: flex; flex-direction: column; gap: 10px; }
-.cx-pp-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; }
+.cx-pp-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; margin: 0; }
+/* Ordem em toda aba da operação: KPIs → barra de ferramentas → conteúdo; o espaçamento vem só do gap do .cx-pp. */
 .cx-pp-person { position: relative; }
 .cx-pp-people-pop { right: auto; left: 0; top: calc(100% + 4px); max-height: 280px; overflow: auto; min-width: 200px; }
 /* Cartão de KPI (Polimento · K1) — tiras das abas da operação (versão compacta), Visão geral e Hoje. */
@@ -5856,8 +5857,8 @@ tr.cx-tree-child.on td { background: var(--cx-accent-soft); }
 @media (max-width: 900px) { .cx-imp-wrap { grid-template-columns: 1fr; } .cx-imp-drops { grid-template-columns: 1fr; } }
 
 /* Tarefas da operação: mesma lista/cartão da tela Tarefas (cx-list, cx-t-row, cx-quick), com a
-   linha de números e a busca no padrão das demais abas. */
-.cx-pp .cx-quick { margin-top: 12px; }
+   linha de números e a busca no padrão das demais abas; o formulário rápido vem após a barra. */
+.cx-pp .cx-quick { margin: 0; }
 
 /* Rótulo de risco (crítico/alerta/ok) reutilizado fora da tabela — ficha da CDA e aba CDAs
    da ficha do processo, mesmas cores da coluna Prescrição. */

@@ -6406,21 +6406,6 @@ function EditionClaudeProcessos(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-toolbar">
-      <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo ou CDA" />
-      <div className="cx-pp-person">
-        <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
-        {peopleOpen && <div className="cx-menu-pop cx-pp-people-pop">
-          <button type="button" onClick={() => { setCdaPersonFilter('all'); setPeopleOpen(false); }}>Todas</button>
-          {(people || []).map(pp => <button key={pp.id} type="button" onClick={() => { setCdaPersonFilter(pp.id); setPeopleOpen(false); }}>{pp.name}</button>)}
-        </div>}
-      </div>
-      <CxSigFilterBar counts={sigCounts} active={sigActive} onToggle={toggleSigFilter} />
-      <span className="cx-sp" />
-      <CxSelect pre="Ordenar" label="Ordenar processos" value={sortBy} onChange={setSortBy} options={[['valor', 'Valor'], ['prescricao', 'Prescrição'], ['numero', 'Número']]} />
-      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
-    </div>
-
     <CxKpiStrip n={6}>
       <CxKpiCard label="Incidentes e destaque" value={hubs.length} desc={fmtCur(incValue)} onClick={() => scrollToCard('inc')}
         foot={incAlarms > 0 ? cxPl(incAlarms, 'no alarme', 'no alarme') : 'Nenhum no alarme'} footTone={incAlarms > 0 ? 'cx-red-t' : ''} />
@@ -6435,6 +6420,21 @@ function EditionClaudeProcessos(p) {
       <CxKpiCard label="Outros" value={otherBuckets.outros.length} desc="demais processos" onClick={() => scrollToCard('out')}
         foot={otherBuckets.outros.length + ' de ' + cxPl(execs.length, 'processo', 'processos')} />
     </CxKpiStrip>
+
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo ou CDA" />
+      <div className="cx-pp-person">
+        <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
+        {peopleOpen && <div className="cx-menu-pop cx-pp-people-pop">
+          <button type="button" onClick={() => { setCdaPersonFilter('all'); setPeopleOpen(false); }}>Todas</button>
+          {(people || []).map(pp => <button key={pp.id} type="button" onClick={() => { setCdaPersonFilter(pp.id); setPeopleOpen(false); }}>{pp.name}</button>)}
+        </div>}
+      </div>
+      <CxSigFilterBar counts={sigCounts} active={sigActive} onToggle={toggleSigFilter} />
+      <span className="cx-sp" />
+      <CxSelect pre="Ordenar" label="Ordenar processos" value={sortBy} onChange={setSortBy} options={[['valor', 'Valor'], ['prescricao', 'Prescrição'], ['numero', 'Número']]} />
+      <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
+    </div>
 
     {duplicates && duplicates.length > 0 && (
       <div className="cx-pp-dup">⚠ {duplicates.length} {duplicates.length === 1 ? 'duplicidade detectada' : 'duplicidades detectadas'} — mesmo número e espécie cadastrados mais de uma vez.</div>
@@ -7112,7 +7112,6 @@ function EditionClaudePartes(p) {
       <CxKpiCard label="Relacionadas" value={relacionadas.length} desc="subsídio analítico" foot={'de ' + cxPl(stats.length, 'pessoa', 'pessoas') + ' na operação'} />
       <CxKpiCard label="Patrimônio identificado" value={fmtCur(allAssetsValue)} desc={cxPl(allAssetsIdentified, 'bem', 'bens')} foot={'de ' + cxPl((data.assets || []).filter(a => a.operationId === opId).length, 'bem', 'bens') + ' na operação'} />
     </CxKpiStrip>
-    {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar nome ou CPF/CNPJ" />
@@ -7120,6 +7119,7 @@ function EditionClaudePartes(p) {
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'person', initial: {} })}>+ Pessoa</button>
     </div>
+    {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
@@ -7401,13 +7401,6 @@ function EditionClaudeOpTarefas(p) {
       <CxKpiCard label="Concluídas" value={done.length} desc="histórico" foot={'de ' + cxPl(all.length, 'tarefa', 'tarefas')} />
     </CxKpiStrip>
 
-    <form className="cx-quick" onSubmit={addTask}>
-      <CxIcon n="plus" s={15} className="cx-muted" />
-      <input className="cx-quick-t" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="Nova tarefa: escreva e tecle Enter" aria-label="Título da nova tarefa" />
-      <input type="date" className="cx-input cx-quick-d" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} aria-label="Data limite" title="Data limite (opcional)" />
-      <button type="submit" className="cx-btn sm primary" disabled={!draft.title.trim()}>Criar</button>
-    </form>
-
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar tarefa" aria-label="Buscar tarefa" />
       <CxChips sm label="Situação das tarefas" value={seg} onChange={setSeg} options={[['abertas', 'Abertas', open.length], ['concluidas', 'Concluídas', done.length]]} />
@@ -7416,6 +7409,13 @@ function EditionClaudeOpTarefas(p) {
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm" onClick={onNewTask}>+ Tarefa completa</button>
     </div>
+
+    <form className="cx-quick" onSubmit={addTask}>
+      <CxIcon n="plus" s={15} className="cx-muted" />
+      <input className="cx-quick-t" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="Nova tarefa: escreva e tecle Enter" aria-label="Título da nova tarefa" />
+      <input type="date" className="cx-input cx-quick-d" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} aria-label="Data limite" title="Data limite (opcional)" />
+      <button type="submit" className="cx-btn sm primary" disabled={!draft.title.trim()}>Criar</button>
+    </form>
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
