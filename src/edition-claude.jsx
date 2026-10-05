@@ -104,7 +104,7 @@ function cxOpColorHash(id) {
 function cxOpColor(opOrId) {
   const op = cxResolveOp(opOrId);
   if (!op) return cxOpColorHash(opOrId);
-  if (op.color) return op.color;
+  if (op.color) return cxMapOpColor(op.color);
   const cls = getOpClassifications(op);
   if (cls.includes('parcelamento_parcial') || cls.includes('parcelamento_integral') || op.opCategory === 'parcelada') return 'var(--cx-opc-parcel)';
   if (!op.priority) return 'var(--cx-opc-none)';
@@ -2251,7 +2251,7 @@ function CxTlGlyph({ kind, c, ghost, hollow, s = 14 }) {
     case 'presc': shape = <polygon points="8,2.2 13,5.1 13,10.9 8,13.8 3,10.9 3,5.1" style={hollow || ghost ? ring : { fill: col, ...sf }} />; break;
     case 'rev': shape = <g><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.6 }} /><path d="M8 5.2V8l2 1.4" style={{ fill: 'none', stroke: col, strokeWidth: 1.5, strokeLinecap: 'round' }} /></g>; break;
     /* Só da Narrativa: atuação minha (círculo cheio com visto) e tarefa (caixa; com visto = concluída). */
-    case 'act': shape = <g><circle cx="8" cy="8" r="5.6" style={{ fill: col, stroke: 'var(--cx-surface)', strokeWidth: 1.3 }} /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" style={{ fill: 'none', stroke: '#fff', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
+    case 'act': shape = <g><circle cx="8" cy="8" r="5.6" style={{ fill: col, stroke: 'var(--cx-surface)', strokeWidth: 1.3 }} /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" style={{ fill: 'none', stroke: 'var(--cx-on-solid)', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
     case 'tar': shape = <rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} />; break;
     case 'tarok': shape = <g><rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} /><path d="M5.6 8.2l1.7 1.7 3.2-3.6" style={{ fill: 'none', stroke: col, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
     default: shape = <circle cx="8" cy="8" r="3" style={{ fill: col }} />;
@@ -3043,7 +3043,7 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, shell, o
     else if (r.t === 'pro') onOpenProativa && onOpenProativa(r.execId, r.actionId);
   };
   const items = (list) => list.map(it => <CxNarrItem key={it.id} it={it} todayIso={todayIso} onOpen={open} />);
-  const nowRow = <div className="cx-nr-now"><span className="pin"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="#fff" /></svg></span><b>Hoje · {CX_DOW[cxDate(todayIso).getDay()]} {fmtDate(todayIso)}</b><span className="ln" /><span className="cx-small cx-muted">acima: o que vem · abaixo: o que já houve</span></div>;
+  const nowRow = <div className="cx-nr-now"><span className="pin"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" style={{ fill: 'var(--cx-on-solid)' }} /></svg></span><b>Hoje · {CX_DOW[cxDate(todayIso).getDay()]} {fmtDate(todayIso)}</b><span className="ln" /><span className="cx-small cx-muted">acima: o que vem · abaixo: o que já houve</span></div>;
   const group = (s) => <React.Fragment key={s.key}>
     <div className={'cx-nr-g' + (s.tone === 'late' ? ' late' : '')}>{s.label}{s.sub ? <span className="sub"> · {s.sub}</span> : null}<span className="cnt">{s.total || s.items.length}</span></div>
     {items(s.items)}
@@ -3308,7 +3308,7 @@ function CxFrMap({ graph, tl, crit, onlyCrit, onOpen }) {
     });
   });
   /* hoje */
-  o.push(<g key="hoje"><line x1={todayX} x2={todayX} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-accent)', strokeWidth: 1.6 }} /><rect x={todayX - 22} y={H - 17} width={44} height={15} rx={4} style={{ fill: 'var(--cx-accent)' }} /><text x={todayX} y={H - 6} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: '#fff', fontFamily: 'var(--cx-mono)' }}>HOJE</text></g>);
+  o.push(<g key="hoje"><line x1={todayX} x2={todayX} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-accent)', strokeWidth: 1.6 }} /><rect x={todayX - 22} y={H - 17} width={44} height={15} rx={4} style={{ fill: 'var(--cx-accent)' }} /><text x={todayX} y={H - 6} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: 'var(--cx-on-solid)', fontFamily: 'var(--cx-mono)' }}>HOJE</text></g>);
   const mark = (id, c) => <marker key={id} id={id} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style={{ fill: c }} /></marker>;
   const hoverBind = {
     onMouseOver: (ev) => { const k = nodeOf(ev); if (k !== hl) setHl(k); },
@@ -3532,7 +3532,7 @@ function CxPhaseTrail({ trail, todayIso }) {
         const dt = s.state === 'skip' ? 'sem registro' : s.d ? fmtDate(s.d) + (s.tm ? ' · ' + s.tm : '') : s.state === 'next' ? 'sem data' : 'sem data';
         const extra = s.gap ? '+' + s.gap + ' d' : s.state === 'next' && dd !== null ? (dd === 0 ? 'hoje' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd)) : '';
         return <div key={s.id} className={'cx-pt-s ' + s.state} style={{ '--c': oc || 'var(--cx-green)' }}>
-          <span className="cx-pt-nd">{s.state === 'done' ? <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><path d="M1.5 4.6l2 2 4-4.4" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.state === 'cur' ? <span className="cx-pt-dot" /> : null}</span>
+          <span className="cx-pt-nd">{s.state === 'done' ? <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><path d="M1.5 4.6l2 2 4-4.4" fill="none" style={{ stroke: 'var(--cx-on-solid)' }} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.state === 'cur' ? <span className="cx-pt-dot" /> : null}</span>
           <div className="cx-pt-tt"><span>{s.label}</span>{s.outLabel ? <span className="cx-nr-b" style={{ '--c': oc }}>{s.outLabel}</span> : null}<span className="cx-pt-dt">{dt}{extra ? ' · ' + extra : ''}</span></div>
           {s.text || s.ev ? <div className="cx-pt-tx">{[s.ev ? 'Ev. ' + s.ev : '', s.text].filter(Boolean).join(' · ')}</div> : null}
         </div>;
@@ -3766,7 +3766,7 @@ function EditionClaudeOpDesc({ op, upsert }) {
   }
   return <div className="cx-opd">
     {rich
-      ? <div className="cx-opd-txt cx-opd-rich" dangerouslySetInnerHTML={{ __html: rich }} />
+      ? <div className="cx-opd-txt cx-opd-rich" dangerouslySetInnerHTML={{ __html: mapRichTextColors(rich) }} />
       : <p className="cx-opd-txt cx-opd-plain">{plain}</p>}
     <button type="button" className="cx-icon-btn cx-sm cx-opd-pen" onClick={() => setEditing(true)} title="Editar descrição" aria-label="Editar descrição"><CxIcon n="edit" s={13} /></button>
   </div>;
@@ -5139,7 +5139,7 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
               <button type="button" className="cx-bf-ic" title="Excluir" onClick={() => removeEntry(en)}>✕</button>
             </span>
           </div>
-          <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: en.html || '' }} />
+          <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: mapRichTextColors(en.html || '') }} />
         </div>);
       })}
     </div>
@@ -5207,14 +5207,14 @@ function CxBfLead({ op, onEdit }) {
           <span className="cx-sp" />
           <button type="button" className="cx-bf-ic" title="Editar" onClick={() => onEdit(highlight.id)}>✎</button>
         </div>
-        <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: highlight.html || '' }} />
+        <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: mapRichTextColors(highlight.html || '') }} />
         <div className="cx-bf-lead-ft">
           <span className="cx-muted cx-small">{(highlight.type === 'estrategia' ? 'Estratégia fixada mais recente' : 'Entrada fixada mais recente')}{otherPinned.length ? ` · mais ${otherPinned.length} fixada${otherPinned.length > 1 ? 's' : ''}` : ''}</span>
           {otherPinned.length > 0 && <button type="button" className="cx-link" onClick={() => setExpandedPinned(o => !o)}>{expandedPinned ? 'Ocultar ▴' : 'Ver as outras ▾'}</button>}
         </div>
         {expandedPinned && otherPinned.map(en => {
           const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-          return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
+          return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: mapRichTextColors(en.html || '') }} /></div>;
         })}
     </section>
   );

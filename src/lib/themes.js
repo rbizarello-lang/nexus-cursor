@@ -18,3 +18,21 @@ export function cxThemeClass(key) {
   const k = cxThemeKey(key);
   return k ? 'cx-theme-' + k : '';
 }
+
+/**
+ * Cores de operação gravadas (op.color: as 5 amostras do modal "Editar operação", valores de Ardósia).
+ * Só na exibição, no Prumo, viram o token da cor de situação do tema ativo; o dado gravado não muda.
+ * Qualquer outro valor (ou vazio) passa direto.
+ */
+const CX_OP_COLOR_TOKENS = {
+  '#c2323d': 'var(--cx-opc-maxima)',
+  '#e0707a': 'var(--cx-opc-alta)',
+  '#c99a1a': 'var(--cx-opc-media)',
+  '#21845a': 'var(--cx-opc-baixa)',
+  '#2d62d3': 'var(--cx-opc-parcel)',
+};
+export function cxMapOpColor(color) {
+  if (typeof color !== 'string') return color;
+  const k = color.trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(CX_OP_COLOR_TOKENS, k) ? CX_OP_COLOR_TOKENS[k] : color;
+}

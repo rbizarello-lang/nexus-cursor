@@ -5,6 +5,8 @@ import {
   normalizeWs,
   pickOpDescriptionHtml,
   buildOpDescriptionPatch,
+  mapRichTextColors,
+  mapRichTextColor,
 } from '../src/lib/rich-text.js';
 
 // Sanitizador de teste: devolve o HTML como veio (o do app, sanitizeNoteHtml, depende do DOM).
@@ -103,5 +105,45 @@ describe('buildOpDescriptionPatch — o que é gravado na operação', () => {
     const p = buildOpDescriptionPatch('<ul><li>a</li><li>b</li></ul>', ident);
     assert.equal(p.description, '• a\n• b');
     assert.equal(p.descriptionHtml, '<ul><li>a</li><li>b</li></ul>');
+  });
+});
+
+describe('mapRichTextColors (cores do editor → tokens --cx-rt-*, só exibição)', () => {
+  it('mapeia as cinco cores da paleta, em rgb() e em hex', () => {
+    assert.equal(mapRichTextColors('<span style="color:rgb(20, 22, 26)">a</span>'), '<span style="color:var(--cx-rt-ink)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color:rgb(194, 50, 61)">a</span>'), '<span style="color:var(--cx-rt-red)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color:rgb(148, 107, 0)">a</span>'), '<span style="color:var(--cx-rt-amber)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color:rgb(33, 132, 90)">a</span>'), '<span style="color:var(--cx-rt-green)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color:rgb(45, 98, 211)">a</span>'), '<span style="color:var(--cx-rt-blue)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color:#14161A">a</span>'), '<span style="color:var(--cx-rt-ink)">a</span>');
+    assert.equal(mapRichTextColors('<span style="color: #c2323d;">a</span>'), '<span style="color: var(--cx-rt-red);">a</span>');
+  });
+  it('mantém o resto do style e as aspas simples', () => {
+    assert.equal(
+      mapRichTextColors('<span style="background-color:rgba(212, 168, 56, 0.45);border-radius:2px;color:rgb(33, 132, 90)">a</span>'),
+      '<span style="background-color:rgba(212, 168, 56, 0.45);border-radius:2px;color:var(--cx-rt-green)">a</span>');
+    assert.equal(mapRichTextColors("<b style='color:rgb(20,22,26)'>a</b>"), "<b style='color:var(--cx-rt-ink)'>a</b>");
+  });
+  it('não toca em background-color, cores fora da paleta, nomes de cor nem texto corrido', () => {
+    const same = [
+      '<span style="background-color:rgb(20, 22, 26)">a</span>',
+      '<span style="color:rgb(1, 2, 3)">a</span>',
+      '<span style="color:red">a</span>',
+      '<span style="color:rgba(20, 22, 26, 0.5)">a</span>',
+      '<p>color:#14161a e style="color:#14161a" no texto</p>',
+      '<span>sem estilo</span>',
+    ];
+    for (const h of same) assert.equal(mapRichTextColors(h), h);
+  });
+  it('é idempotente e tolera vazio/nulo', () => {
+    const once = mapRichTextColors('<span style="color:rgb(194, 50, 61)">a</span>');
+    assert.equal(mapRichTextColors(once), once);
+    assert.equal(mapRichTextColors(''), '');
+    assert.equal(mapRichTextColors(null), '');
+    assert.equal(mapRichTextColors(undefined), '');
+  });
+  it('mapRichTextColor: uma cor só', () => {
+    assert.equal(mapRichTextColor('#14161a'), 'var(--cx-rt-ink)');
+    assert.equal(mapRichTextColor('#abc'), '#abc');
   });
 });

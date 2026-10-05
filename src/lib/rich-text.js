@@ -82,3 +82,43 @@ export function buildOpDescriptionPatch(html, sanitize) {
   if (!plain) return { description: '', descriptionHtml: '' };
   return { description: plain, descriptionHtml: FORMAT_TAGS_RE.test(clean) ? clean : '' };
 }
+
+/**
+ * Cores de texto do editor rico do Prumo (valores gravados, que são os de Ardósia) → tokens `--cx-rt-*`
+ * dos temas. Só para EXIBIR: o HTML gravado não muda, senão o texto "escuro" sumiria no tema escuro.
+ * Mexe apenas em `color:` dentro de atributos style (nunca em `background-color` nem em texto corrido);
+ * cores fora da paleta passam direto.
+ */
+const RICH_TEXT_COLOR_TOKENS = {
+  '20,22,26': 'var(--cx-rt-ink)',
+  '194,50,61': 'var(--cx-rt-red)',
+  '148,107,0': 'var(--cx-rt-amber)',
+  '33,132,90': 'var(--cx-rt-green)',
+  '45,98,211': 'var(--cx-rt-blue)',
+};
+function richColorToRgbKey(v) {
+  const s = String(v).trim().toLowerCase();
+  let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(s);
+  if (m) {
+    let h = m[1];
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
+  }
+  m = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/.exec(s);
+  return m ? [m[1], m[2], m[3]].map(n => String(parseInt(n, 10))).join(',') : '';
+}
+/** Uma cor (#hex ou rgb()) → token `--cx-rt-*` se for da paleta do editor; senão devolve a própria cor. */
+export function mapRichTextColor(color) {
+  const tok = RICH_TEXT_COLOR_TOKENS[richColorToRgbKey(color)];
+  return tok || color;
+}
+export function mapRichTextColors(html) {
+  const src = String(html == null ? '' : html);
+  // Só dentro de tags (texto corrido que mencione style="color:…" não é tocado).
+  return src.replace(/<[a-zA-Z][^>]*>/g, (tag) => tag.replace(/(\bstyle\s*=\s*)(?:"([^"]*)"|'([^']*)')/gi, (all, pre, dq, sq) => {
+    const body = dq !== undefined ? dq : sq;
+    const mapped = body.replace(/(^|[\s;])color(\s*:\s*)(#[0-9a-f]{3,6}|rgb\([^)]*\))/gi, (a, lead, colon, val) => lead + 'color' + colon + mapRichTextColor(val));
+    if (mapped === body) return all;
+    return pre + (dq !== undefined ? '"' + mapped + '"' : "'" + mapped + "'");
+  }));
+}

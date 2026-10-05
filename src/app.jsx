@@ -9343,12 +9343,18 @@ function App() {
     <div className="settings-group">
       <div className="settings-label">Fonte</div>
       <div className="settings-options cx-font-opts">
-        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>{isClaude ? 'Geist (padrão)' : 'Public Sans'}</button>
+        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>{isClaude ? 'Geist' : 'Public Sans'}</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
       </div>
     </div>
+    {isClaude && <div className="settings-group">
+      <div className="settings-label">Tema</div>
+      <div className="settings-options cx-edition-opts">
+        {CX_THEMES.map(t => <button key={t.key || 'ardosia'} className={`settings-opt ${cxThemeKey(appSettings.cxTheme)===t.key?'active':''}`} onClick={() => updateSetting('cxTheme', t.key)}>{t.label}</button>)}
+      </div>
+    </div>}
     {!isClaude && <div className="settings-group">
       <div className="settings-label">{isDemo ? 'Aparência' : 'Tema'}</div>
       <div className="settings-options">
@@ -10761,7 +10767,7 @@ function App() {
   const cxLateIntims = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado' && daysUntil(x.dateDeadline) !== null && daysUntil(x.dateDeadline) < 0).length : 0;
 
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude ' + cxThemeClass(appSettings.cxTheme) : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
       classFilter={opClassFilter} setClassFilter={setOpClassFilter}
       collapsed={cxSideCollapsed} onToggleCollapsed={() => setCxSideCollapsed(!cxSideCollapsed)}
@@ -13620,7 +13626,7 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus, colors 
       <button type="button" className="rn-btn" title="Remover marca-texto" onClick={() => exec('hiliteColor', 'transparent')}>⌫</button>
       {colors && <>
         <span className="rn-sep"></span>
-        {RN_TEXT_COLORS.map(([c, t]) => <button key={c} type="button" className="rn-btn rn-tc" style={{color:c,fontWeight:700,borderBottom:`2px solid ${c}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>)}
+        {RN_TEXT_COLORS.map(([c, t]) => { const dc = mapRichTextColor(c); return <button key={c} type="button" className="rn-btn rn-tc" style={{color:dc,fontWeight:700,borderBottom:`2px solid ${dc}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>; })}
       </>}
       <span className="rn-sep"></span>
       <button type="button" className="rn-btn" title="Lista com marcadores" onClick={() => exec('insertUnorderedList')}>•≡</button>
@@ -14218,7 +14224,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </div>
         <div className="op-color-grid">
           {OP_COLOR_SWATCHES.map(([c, label]) => (
-            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:c}} title={label} aria-label={label} onClick={() => set('color', c)} />
+            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:cxMapOpColor(c)}} title={label} aria-label={label} onClick={() => set('color', c)} />
           ))}
         </div>
         <span style={{fontSize:9,color:'var(--text-muted)'}}>Cor do quadradinho da operação no menu, no cabeçalho e nas listas do Nexus Prumo. Em automática, segue parcelamento/prioridade da operação.</span>
