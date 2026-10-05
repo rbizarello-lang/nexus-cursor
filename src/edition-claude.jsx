@@ -3075,14 +3075,16 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, switchNo
     <CxSelect id={card ? 'cx-nr-proc-card' : 'cx-nr-proc'} pre="Processo" value={execId} onChange={v => { setExecId(v); setPastShown(NARR_PAST_STEP); }} options={[['', 'Todos']].concat(tl.procs.map(r => [r.x.e.id, cxExecTag(r.x.e) + ' ' + cxExecShortNum(r.x.e)]))} />
   </div>;
   if (card) {
-    return <section className="cx-card cx-bf-nr" aria-label="Narrativa da operação">
-      <div className="cx-card-h">{switchNode || <h5>Narrativa</h5>}<span className="cx-count">{listed.length}</span><span className="cx-muted cx-small cx-nr-sub">o que vem: atrasado, esta semana, próxima, mais adiante</span><span className="cx-sp" />{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+    return <CxFoldCard id="narr" scope="briefing" as="div" className="cx-bf-nr" ariaLabel="Narrativa da operação"
+      title={switchNode || <h5>Narrativa</h5>} count={listed.length} sub="o que vem: atrasado, esta semana, próxima, mais adiante"
+      summary={cxNarrSentence(sum)}
+      actions={onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}>
       <div className="cx-nr-body">
         <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
         {chips}
         <div className="cx-nr-sc compact"><div className="cx-nr-story">{body}</div></div>
       </div>
-    </section>;
+    </CxFoldCard>;
   }
   const pendRec = sum.pendingRec;
   return <div>
@@ -3376,10 +3378,11 @@ function EditionClaudeFrentes({ tl, op, variant = 'page', lead, switchNode, onOp
       <p className="cx-fr-note cx-muted cx-small">Cada coluna é um acontecimento, na ordem das datas (a distância não vale tempo). Setas e estações vazadas ou tracejadas saem dos vínculos entre processos e das fases registradas; nenhuma é fato novo.{graph.orphans ? ' ' + cxPl(graph.orphans, 'audiência sem número de processo fica', 'audiências sem número de processo ficam') + ' fora do mapa.' : ''} Tarefas e revisões não entram.</p>
     </>;
   if (card) {
-    return <section className="cx-card cx-bf-nr cx-bf-fr" aria-label="Mapa de frentes e dependências">
-      <div className="cx-card-h">{switchNode}<span className="cx-count">{nReal}</span><span className="cx-muted cx-small cx-nr-sub">o que depende de quê</span><span className="cx-sp" />{graph.hasFronts ? critBtn : null}{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</div>
+    return <CxFoldCard id="narr" scope="briefing" as="div" className="cx-bf-nr cx-bf-fr" ariaLabel="Mapa de frentes e dependências"
+      title={switchNode} count={nReal} sub="o que depende de quê"
+      actions={<>{graph.hasFronts ? critBtn : null}{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</>}>
       <div className="cx-nr-body">{body}</div>
-    </section>;
+    </CxFoldCard>;
   }
   return <div>
     <div className="cx-tl-tools">{lead}<span className="cx-sp" />{graph.hasFronts ? critBtn : null}</div>
@@ -3444,10 +3447,13 @@ function EditionClaudeAtuacoesRecentes({ op, data, execs, upsert, onOpenIntim, o
     setShown(CX_UA_STEP);
     return '';
   };
-  return <section className="cx-card cx-bf-ua" aria-label="Atuações recentes">
-    <div className="cx-card-h"><h5>Atuações recentes</h5><span className="cx-count">{rows.length}</span><span className="cx-sp" />
-      <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
-        title={execs.length ? 'Registrar o que você fez por conta própria (petição, diligência…), sem intimação. Escolha o processo e preencha o resumo.' : 'Cadastre um processo nesta operação para registrar atuações.'}><CxIcon n="plus" s={13} />Registrar atuação</button></div>
+  return <>
+    <CxFoldCard id="atuacoes" scope="briefing" as="h5" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
+      summary={rows.length ? 'última: ' + (rows[0].title || rows[0].kindLabel) : 'nenhuma registrada'}
+      actions={
+        <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
+          title={execs.length ? 'Registrar o que você fez por conta própria (petição, diligência…), sem intimação. Escolha o processo e preencha o resumo.' : 'Cadastre um processo nesta operação para registrar atuações.'}><CxIcon n="plus" s={13} />Registrar atuação</button>
+      }>
     {rows.length === 0
       ? <div className="cx-empty-row">Nenhuma atuação registrada nesta operação ainda.</div>
       : <div className="cx-ua-list">
@@ -3463,9 +3469,10 @@ function EditionClaudeAtuacoesRecentes({ op, data, execs, upsert, onOpenIntim, o
     {rows.length > shown
       ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
       : null}
+    </CxFoldCard>
     {step === 'pick' ? <CxAtuProcPicker execs={execs} onClose={() => setStep(null)} onPick={(e) => setStep({ exec: e })} /> : null}
     {step && step.exec ? <EditionClaudeAtuacaoForm exec={step.exec} onCancel={() => setStep(null)} onSave={save} /> : null}
-  </section>;
+  </>;
 }
 
 /* ═════════════════════ Miniaturas (M6) ═════════════════════
@@ -3656,8 +3663,6 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHea
   const todayIso = localIso(new Date());
   const hz = React.useMemo(() => cxBuildHorizon(data, opIds, prazosRadar, todayIso), [data, opIds.join(','), prazosRadar, todayIso]);
   const [open, setOpen] = React.useState(() => new Set());
-  const [folded, setFolded] = React.useState(() => { try { return localStorage.getItem('nexus_cx_hz_folded') === '1'; } catch (e) { return false; } });
-  const setFold = (v) => { setFolded(v); try { localStorage.setItem('nexus_cx_hz_folded', v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const toggle = (k) => setOpen(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const isOff = (iso) => !isBusinessDay(new Date(iso + 'T00:00:00'));
   const act = (it) => {
@@ -3684,16 +3689,17 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHea
   const total = hz.items.length;
   const lateN = hz.buckets.late.length;
   const rowsDef = HORIZON_ROWS;
-  return <section className="cx-card cx-hz" aria-label="Próximos 90 dias">
+  return <CxFoldCard id="hz" scope="visao" title="Próximos 90 dias" className="cx-hz" ariaLabel="Próximos 90 dias"
+    summary={total + (total === 1 ? ' item' : ' itens') + ' no horizonte' + (lateN ? ' · ' + lateN + (lateN === 1 ? ' atrasado' : ' atrasados') : '')}
+    actions={<>
+      <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>
+      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Ver linha do tempo completa<CxIcon n="chevR" s={13} /></button> : null}
+    </>}>
     <div className="cx-hz-h">
       <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} no horizonte{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
       <span className="cx-hz-key"><i className="cx-hz-sw busy" />dia com 3 ou mais itens<span className="cx-hz-off-k" title="Dias de semana sem expediente: feriado nacional, recesso forense (20/12 a 20/01) ou dia marcado no calendário local (⚙)">● dia não útil</span></span>
-      <span className="cx-sp" />
-      <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>
-      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Ver linha do tempo completa<CxIcon n="chevR" s={13} /></button> : null}
-      <button type="button" className="cx-link-btn" onClick={() => setFold(!folded)} aria-expanded={!folded} title={folded ? 'Mostrar o horizonte' : 'Recolher o horizonte (lembrado neste navegador)'}>{folded ? 'Mostrar' : 'Recolher'}</button>
     </div>
-    {folded ? null : <div className="cx-hz-scroll">
+    <div className="cx-hz-scroll">
       <div className="cx-hz-grid" style={{ gridTemplateColumns: '112px repeat(' + hz.columns.length + ', minmax(116px, 1fr))' }}>
         <div className="cx-hz-corner" />
         {hz.columns.map(c => {
@@ -3719,8 +3725,8 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHea
           })}
         </React.Fragment>)}
       </div>
-    </div>}
-  </section>;
+    </div>
+  </CxFoldCard>;
 }
 
 /* ═════════════════════ Visão geral da operação ═════════════════════ */
@@ -3810,11 +3816,11 @@ function EditionClaudeOpOverview(p) {
       <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
         pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
     </CxKpiStrip> : null}
-    <div className="cx-sub-h"><h2>Próximos 90 dias</h2></div>
+    <CxFoldAllBar scope="visao" ids={['hz', 'intim', 'presc', 'agenda']} />
     <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenTask={p.onOpenTask} onOpenCda={p.onOpenCda} onOpenTimeline={p.onOpenTimeline} />
-    <div className="cx-home-grid" style={{ marginTop: 22 }}>
-      <section className="cx-card">
-        <div className="cx-card-h"><h2>Intimações abertas</h2><div className="cx-aside"><span className="cx-count">{open.length}</span></div></div>
+    <div className="cx-home-grid">
+      <CxFoldCard id="intim" scope="visao" title="Intimações abertas" count={open.length}
+        summary={lateIntims.length ? cxPl(lateIntims.length, 'vencida', 'vencidas') : open.length ? 'nenhuma vencida' : 'nenhuma aberta'}>
         {open.length ? open.slice(0, 10).map(i => <button key={i.id} type="button" className="cx-q-row cx-q-compact" onClick={() => p.onOpenIntim(i.id)}>
           <span className="cx-q-ic"><CxStatusIcon s={i.status} /></span>
           <span className="cx-q-main"><span className="cx-q-title">{intimIsUrgent(i) ? <span className="cx-urg">URGENTE</span> : null}<b>{cxPartyName(i)}</b></span><span className="cx-q-meta"><CxObj intim={i} /></span></span>
@@ -3822,24 +3828,25 @@ function EditionClaudeOpOverview(p) {
           <span className="cx-q-due"><CxDue iso={i.dateDeadline} /></span>
         </button>) : <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
         {open.length > 10 ? <div className="cx-more">+{open.length - 10} na lista de Intimações</div> : null}
-      </section>
+      </CxFoldCard>
       <div className="cx-col">
-        <section className="cx-card">
-          <div className="cx-card-h"><h2>Prazos extintivos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
+        <CxFoldCard id="presc" scope="visao" title="Prazos extintivos"
+          summary={split.needsYou.length ? cxPl(split.needsYou.length, 'CDA exige decisão', 'CDAs exigem decisão') : 'nada exige decisão agora'}
+          actions={<button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button>}>
           {split.needsYou.length ? split.needsYou.slice(0, 5).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => p.onOpenCda(r)}>
             <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
             <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
             <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
           </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
           <div style={{ height: 6 }} />
-        </section>
-        <section className="cx-card">
-          <div className="cx-card-h"><h2>Agenda</h2><div className="cx-aside"><span className="cx-count">{hearings.length + tasks.length}</span></div></div>
+        </CxFoldCard>
+        <CxFoldCard id="agenda" scope="visao" title="Agenda" count={hearings.length + tasks.length}
+          summary={cxPl(hearings.length, 'audiência', 'audiências') + ' · ' + cxPl(tasks.length, 'tarefa', 'tarefas')}>
           {hearings.slice(0, 3).map(h => <button key={h.id} type="button" className="cx-dl-item" onClick={() => p.onOpenHearing(h)}><CxIcon n="gavel" s={13} className="cx-muted" /><span className="cx-t">{(CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : '')}</span><CxDue iso={h.date} /></button>)}
           {tasks.slice(0, 5).map(t => <button key={t.id} type="button" className="cx-dl-item" onClick={() => p.onOpenTask(t)}><CxPrio v={t.priority} /><span className="cx-t">{t.title || t.description || 'Tarefa'}</span>{t.dueDate ? <CxDue iso={t.dueDate} /> : <span className="cx-muted cx-small">sem data</span>}</button>)}
           {!hearings.length && !tasks.length ? <div className="cx-empty-row">Sem audiências marcadas nem tarefas abertas.</div> : null}
           <div style={{ height: 6 }} />
-        </section>
+        </CxFoldCard>
       </div>
     </div>
   </div>;
@@ -4766,31 +4773,83 @@ function cxPanelSortFn(k) {
   };
   return fns[k] || fns.valor_desc;
 }
-/* Cartões do Painel recolhíveis; o estado fica no navegador (só apresentação, não entra nos dados). */
-const CX_PANEL_FOLD_KEY = 'nexus.cxPanelFold';
+/* ═════════════════════ Cartões recolhíveis (um só idioma) ═════════════════════
+ * cxUseFold(escopo) + CxFoldCard + CxFoldAllBar. Estado em localStorage 'nexus.cxFold' ({ escopo: { id: true=recolhido } },
+ * lógica pura em src/lib/fold.js), compartilhado entre os componentes da página (barra "Recolher tudo" e cartões).
+ * Só apresentação: não entra nos dados. Sem localStorage vale só nesta sessão. */
+let cxFoldStore = null;
+const cxFoldSubs = new Set();
+function cxFoldLoad() {
+  if (cxFoldStore) return cxFoldStore;
+  let raw = null;
+  try { raw = localStorage.getItem(FOLD_KEY); } catch (e) { raw = null; }
+  if (raw !== null) { cxFoldStore = foldParse(raw); return cxFoldStore; }
+  // 1ª vez: traz o que as chaves antigas guardavam (Painel, cartões do Briefing, Horizonte) e passa a ler só a nova.
+  const legacy = {};
+  try { legacy.painel = localStorage.getItem(FOLD_LEGACY_KEYS.painel); legacy.briefing = localStorage.getItem(FOLD_LEGACY_KEYS.briefing); legacy.horizonte = localStorage.getItem(FOLD_LEGACY_KEYS.horizonte); } catch (e) { /* sem armazenamento */ }
+  cxFoldStore = foldMigrateLegacy({}, legacy);
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(cxFoldStore)); } catch (e) { /* ignore */ }
+  return cxFoldStore;
+}
+function cxFoldCommit(next) {
+  cxFoldStore = next;
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(next)); } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
+  cxFoldSubs.forEach(fn => fn());
+}
+/** Estado de um escopo (uma tela). isOpen(id, defaultOpen=true) · toggle(id, defaultOpen=true) · set(id, collapsed) ·
+ *  setAll(ids, collapsed) (recolher/expandir tudo). */
+function cxUseFold(scope) {
+  const [, bump] = React.useReducer(n => n + 1, 0);
+  React.useEffect(() => { cxFoldSubs.add(bump); return () => { cxFoldSubs.delete(bump); }; }, []);
+  const st = cxFoldLoad();
+  const isOpen = (id, defaultOpen = true) => foldIsOpen(st, scope, id, defaultOpen);
+  return {
+    isOpen,
+    toggle: (id, defaultOpen = true) => cxFoldCommit(foldSet(cxFoldLoad(), scope, id, foldIsOpen(cxFoldLoad(), scope, id, defaultOpen))),
+    set: (id, collapsed) => cxFoldCommit(foldSet(cxFoldLoad(), scope, id, collapsed)),
+    setAll: (ids, collapsed) => cxFoldCommit(foldSetAll(cxFoldLoad(), scope, ids, collapsed)),
+  };
+}
+/** Cartão com cabeçalho clicável (recolhe/expande). `summary` aparece só recolhido; `sub` sempre; `actions` à direita
+ *  (cliques em botão/link/campo dentro dele não alternam). `domId` vira o id do <section> (para rolar até o cartão). */
+function CxFoldCard({ id, scope, title, count, summary, sub, actions, className = '', defaultOpen = true, as = 'h2', domId, ariaLabel, children }) {
+  const fold = cxUseFold(scope);
+  const open = fold.isOpen(id, defaultOpen);
+  const flip = () => fold.toggle(id, defaultOpen);
+  const onClick = (e) => {
+    const hit = e.target.closest ? e.target.closest('button, a, input, select, textarea, label') : null;
+    if (hit && hit !== e.currentTarget && e.currentTarget.contains(hit)) return;
+    flip();
+  };
+  const onKeyDown = (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); }
+  };
+  return <section className={'cx-card cx-fold' + (open ? '' : ' folded') + (className ? ' ' + className : '')} id={domId} aria-label={ariaLabel}>
+    <div className="cx-card-h cx-fold-h" role="button" tabIndex={0} aria-expanded={open} title={open ? 'Recolher' : 'Expandir'} onClick={onClick} onKeyDown={onKeyDown}>
+      <span className="cx-fold-chev" aria-hidden="true"><CxIcon n="chevD" s={13} /></span>
+      {React.createElement(as, { className: 'cx-fold-title' }, title)}
+      {count != null ? <span className="cx-count">{count}</span> : null}
+      {sub ? <span className="cx-muted cx-small cx-fold-sub">{sub}</span> : null}
+      {!open && summary ? <span className="cx-fold-sum cx-ell">{summary}</span> : null}
+      {actions ? <div className="cx-aside cx-fold-act">{actions}</div> : null}
+    </div>
+    {open ? children : null}
+  </section>;
+}
+function CxFoldAllBar({ scope, ids, className = '' }) {
+  const fold = cxUseFold(scope);
+  return <div className={'cx-fold-all' + (className ? ' ' + className : '')}>
+    <button type="button" className="cx-fold-all-b" onClick={() => fold.setAll(ids, true)}>Recolher tudo</button>
+    <span aria-hidden="true">·</span>
+    <button type="button" className="cx-fold-all-b" onClick={() => fold.setAll(ids, false)}>Expandir tudo</button>
+  </div>;
+}
 const CX_PANEL_OPS_LIMIT = 10;
-function cxUsePanelFold() {
-  const [folded, setFolded] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(CX_PANEL_FOLD_KEY) || '[]')); } catch (e) { return new Set(); }
-  });
-  const toggle = (k) => setFolded(prev => {
-    const n = new Set(prev);
-    if (n.has(k)) n.delete(k); else n.add(k);
-    try { localStorage.setItem(CX_PANEL_FOLD_KEY, JSON.stringify([...n])); } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
-    return n;
-  });
-  return [folded, toggle];
-}
-function CxFoldTitle({ k, folded, onToggle, children }) {
-  const open = !folded.has(k);
-  return <button type="button" className="cx-fold-t" aria-expanded={open} onClick={() => onToggle(k)} title={open ? 'Recolher' : 'Expandir'}>
-    <span className="cx-chev sm">{open ? '▾' : '▸'}</span><h2>{children}</h2>
-  </button>;
-}
 function EditionClaudePainel(p) {
   const { data, prazosRadar, prazosByDebt } = p;
   const rows = React.useMemo(() => cxPanelAnalytics(data, prazosByDebt), [data, prazosByDebt]);
-  const [folded, toggleFold] = cxUsePanelFold();
+  const fold = cxUseFold('painel');
   const [allOps, setAllOps] = React.useState(false);
   const sort = p.sort || 'valor_desc';
   const sorted = rows.slice().sort(cxPanelSortFn(sort));
@@ -4840,22 +4899,21 @@ function EditionClaudePainel(p) {
         desc={riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
       <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}
         desc={lateIntims ? cxPl(lateIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={lateIntims ? 'red' : ''} />
-      <CxKpiCard label="Revisões devidas" value={due.length} tone={due.length ? 'orange' : ''} onClick={() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+      <CxKpiCard label="Revisões devidas" value={due.length} tone={due.length ? 'orange' : ''} onClick={() => { fold.set('rev', false); setTimeout(() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30); }}
         desc={due.length ? 'operações com revisão atrasada' : 'todas em dia'} descTone={due.length ? 'orange' : ''} />
     </CxKpiStrip>
 
-    <section className="cx-card cx-panel-ops">
-      <div className="cx-card-h">
-        <CxFoldTitle k="ops" folded={folded} onToggle={toggleFold}>Operações</CxFoldTitle><span className="cx-muted cx-small">{sortLabel} · {cxPl(rows.length, 'ativa', 'ativas')}</span>
-        {!folded.has('ops') && <div className="cx-aside">
-          <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Indisponível<i className="cx-lg-n" />Descoberta</span>
-          <label className="cx-sel"><span className="cx-pre">Ordenar</span>
-            <select id="cx-panel-sort" value={sort} onChange={e => p.setSort(e.target.value)} aria-label="Ordenar operações" style={{ paddingLeft: '72px' }}>
-              {CX_PANEL_SORTS.map(g => <optgroup key={g[0]} label={g[0]}>{g[1].map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}</optgroup>)}
-            </select><CxIcon n="chevD" s={12} /></label>
-        </div>}
-      </div>
-      {!folded.has('ops') && <div className="cx-tbl-wrap">
+    <CxFoldCard id="ops" scope="painel" title="Operações" className="cx-panel-ops"
+      sub={sortLabel + ' · ' + cxPl(rows.length, 'ativa', 'ativas')}
+      summary={cxMoneyShort(totalCredito) + ' sob gestão' + (totalCredito > 0 ? ' · ' + cxIndispPctTxt(totalInd) + ' indisponível' : '')}
+      actions={fold.isOpen('ops') ? <>
+        <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Indisponível<i className="cx-lg-n" />Descoberta</span>
+        <label className="cx-sel"><span className="cx-pre">Ordenar</span>
+          <select id="cx-panel-sort" value={sort} onChange={e => p.setSort(e.target.value)} aria-label="Ordenar operações" style={{ paddingLeft: '72px' }}>
+            {CX_PANEL_SORTS.map(g => <optgroup key={g[0]} label={g[0]}>{g[1].map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}</optgroup>)}
+          </select><CxIcon n="chevD" s={12} /></label>
+      </> : null}>
+      <div className="cx-tbl-wrap">
         <table className="cx-tbl cx-panel-tbl">
           <thead><tr>
             <th scope="col" {...colSort('nome')}>Operação</th>
@@ -4903,36 +4961,38 @@ function EditionClaudePainel(p) {
             <td>{due.length ? cxPl(due.length, 'atrasada', 'atrasadas') : 'em dia'}</td>
           </tr></tfoot>
         </table>
-      </div>}
-    </section>
+      </div>
+    </CxFoldCard>
 
     <div className="cx-panel-grid">
-      <section className="cx-card">
-        <div className="cx-card-h"><CxFoldTitle k="presc" folded={folded} onToggle={toggleFold}>Prescrição na carteira</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
-        {!folded.has('presc') && <><div className="cx-panel-groups">{CX_PANEL_GROUPS.map(([g, l]) => <button key={g} type="button" className="cx-panel-g" onClick={() => p.onOpenGroup(g)} title={'Abrir a lista completa filtrada: ' + l}>
+      <CxFoldCard id="presc" scope="painel" title="Prescrição na carteira"
+        summary={riskN ? cxPl(riskN, 'CDA em risco', 'CDAs em risco') + ' · ' + cxMoneyShort(riskV) : 'situação controlada'}
+        actions={<button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button>}>
+        <><div className="cx-panel-groups">{CX_PANEL_GROUPS.map(([g, l]) => <button key={g} type="button" className="cx-panel-g" onClick={() => p.onOpenGroup(g)} title={'Abrir a lista completa filtrada: ' + l}>
           <span className="cx-gnum" style={{ '--c': CX_GROUP_C[g] || 'var(--cx-ink-3)' }}>{g}</span><span className="cx-lbl">{l}</span>
           <span className="cx-mono cx-panel-gn">{gN(g)}</span><span className="cx-muted cx-small cx-panel-gv">{gV(g) ? cxMoneyShort(gV(g)) : ''}</span>
         </button>)}</div>
-        <div className="cx-more">Mesmos números da tela Prazos extintivos. Clique num grupo para ver a lista.</div></>}
-      </section>
-      <section className="cx-card" id="cx-panel-rev">
-        <div className="cx-card-h"><CxFoldTitle k="rev" folded={folded} onToggle={toggleFold}>Revisões devidas</CxFoldTitle><div className="cx-aside"><span className="cx-count">{due.length}</span></div></div>
-        {folded.has('rev') ? null : due.length ? due.map(o => <div key={o.op.id} className="cx-panel-rev">
+        <div className="cx-more">Mesmos números da tela Prazos extintivos. Clique num grupo para ver a lista.</div></>
+      </CxFoldCard>
+      <CxFoldCard id="rev" scope="painel" title="Revisões devidas" domId="cx-panel-rev" count={due.length}
+        summary={due.length ? 'operações com revisão atrasada' : 'todas em dia'}>
+        {due.length ? due.map(o => <div key={o.op.id} className="cx-panel-rev">
           <button type="button" className="cx-op-tag cx-link" onClick={() => p.onOpenOp(o.op.id)} title={'Abrir ' + o.op.name}><CxOpSquare op={o.op} /><span className="cx-ell">{cxOpName(o.op)}</span></button>
           <span className="cx-orange-t cx-small">{o.rs.label}</span>
           <button type="button" className="cx-btn sm" onClick={() => p.onReviewed(o.op)} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={12} />Revisada</button>
         </div>) : <div className="cx-empty-row">Nenhuma revisão atrasada.</div>}
         <div style={{ height: 6 }} />
-      </section>
-      <section className="cx-card">
-        <div className="cx-card-h"><CxFoldTitle k="week" folded={folded} onToggle={toggleFold}>Próximos 7 dias</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenAgenda}>Agenda<CxIcon n="chevR" s={13} /></button></div></div>
-        {!folded.has('week') && <><div className="cx-panel-week">
+      </CxFoldCard>
+      <CxFoldCard id="week" scope="painel" title="Próximos 7 dias"
+        summary={cxPl(wk.aud, 'audiência', 'audiências') + ' · ' + cxPl(wk.prazo, 'prazo', 'prazos') + ' · ' + cxPl(wk.tarefa, 'tarefa', 'tarefas')}
+        actions={<button type="button" className="cx-link-btn" onClick={p.onOpenAgenda}>Agenda<CxIcon n="chevR" s={13} /></button>}>
+        <><div className="cx-panel-week">
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.aud }} /><span className="cx-lbl">Audiências</span><b className="cx-mono">{wk.aud}</b></button>
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.prazo }} /><span className="cx-lbl">Finais de prazo</span><b className="cx-mono">{wk.prazo}</b></button>
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.tarefa }} /><span className="cx-lbl">Tarefas com data limite</span><b className="cx-mono">{wk.tarefa}</b></button>
         </div>
-        <div className="cx-more">O calendário completo, com a prescrição, fica na Agenda.</div></>}
-      </section>
+        <div className="cx-more">O calendário completo, com a prescrição, fica na Agenda.</div></>
+      </CxFoldCard>
     </div>
   </div>;
 }
@@ -5019,14 +5079,12 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
     <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
   </div>);
 
-  return (<div className="cx-bf-diary">
-    <div className="cx-bf-diary-hd">
-      <h5>Diário</h5>
-      <div className="cx-bf-diary-filters">
-        <button type="button" className={filterType === 'all' ? 'on' : ''} onClick={() => setFilterType('all')}>Todos<i>{countByType.all}</i></button>
-        {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <button key={k} type="button" className={filterType === k ? 'on' : ''} onClick={() => setFilterType(k)}>{v.label}<i>{countByType[k] || 0}</i></button>)}
-      </div>
-    </div>
+  return (<CxFoldCard id="diario" scope="briefing" as="h5" title="Diário" summary={cxPl(countByType.all, 'entrada', 'entradas')}
+    actions={<div className="cx-bf-diary-filters">
+      <button type="button" className={filterType === 'all' ? 'on' : ''} onClick={() => setFilterType('all')}>Todos<i>{countByType.all}</i></button>
+      {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <button key={k} type="button" className={filterType === k ? 'on' : ''} onClick={() => setFilterType(k)}>{v.label}<i>{countByType[k] || 0}</i></button>)}
+    </div>}>
+    <div className="cx-bf-diary">
     {!composer && <div className="cx-bf-diary-compose" onClick={openNew}>✎ Registrar risco, estratégia, decisão, providência…</div>}
     {composer && composer.mode === 'new' && renderComposer()}
     {!sorted.length && !composer && <div className="cx-empty-row">Nenhuma entrada. Registre riscos, estratégias, decisões e providências em blocos datados.</div>}
@@ -5050,30 +5108,24 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
         </div>);
       })}
     </div>
-  </div>);
+    </div>
+  </CxFoldCard>);
 }
 
 /* Estado (localStorage) do recolher/expandir de cada frente processual (por id da frente — item 11)
-   e dos três cartões da área de trabalho da fase (mesmo tipo em todas as frentes — item 12). */
+   Os três blocos da área de trabalho da fase (item 12) e os cartões da página usam cxUseFold('briefing'). */
 function cxLoadBfLanes() {
   try { const raw = JSON.parse(localStorage.getItem('nexus_cx_bf_lanes') || 'null'); if (raw && typeof raw === 'object') return raw; } catch (e) { /* ignore */ }
   return {};
 }
 function cxSaveBfLanes(v) { try { localStorage.setItem('nexus_cx_bf_lanes', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-const CX_BF_CARD_DEFAULTS = { evento: true, notas: true, efs: true };
-function cxLoadBfCards() {
-  try { const raw = JSON.parse(localStorage.getItem('nexus_cx_bf_cards') || 'null'); if (raw && typeof raw === 'object') return { ...CX_BF_CARD_DEFAULTS, ...raw }; } catch (e) { /* ignore */ }
-  return { ...CX_BF_CARD_DEFAULTS };
-}
-function cxSaveBfCards(v) { try { localStorage.setItem('nexus_cx_bf_cards', JSON.stringify(v)); } catch (e) { /* ignore */ } }
 function EditionClaudeBriefing(p) {
   const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
   const briefing = op.briefing || {};
   const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
   const isLaneOpen = (frontId) => laneOpenMap[frontId] === true;
   const toggleLane = (frontId) => setLaneOpenMap(prev => { const next = { ...prev, [frontId]: !isLaneOpen(frontId) }; cxSaveBfLanes(next); return next; });
-  const [bfCards, setBfCards] = React.useState(cxLoadBfCards);
-  const toggleBfCard = (key) => setBfCards(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveBfCards(next); return next; });
+  const fold = cxUseFold('briefing'); // cartões da página e os 3 blocos de cada frente (evento, notas, efs): mesmo estado
   const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
   const [expandedPinned, setExpandedPinned] = React.useState(false);
   const [selected, setSelected] = React.useState({}); // execId -> stage key selecionada
@@ -5230,7 +5282,7 @@ function EditionClaudeBriefing(p) {
               <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
               <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
               <span className="cx-sp" />
-              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => setDiaryEditId(highlight.id)}>✎</button>
+              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => { fold.set('diario', false); setDiaryEditId(highlight.id); }}>✎</button>
             </div>
             <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: highlight.html || '' }} />
             <div className="cx-bf-lead-ft">
@@ -5244,8 +5296,10 @@ function EditionClaudeBriefing(p) {
         </section>) : null}
 
         {/* Frentes processuais */}
-        <section className="cx-card cx-bf-fronts">
-          <div className="cx-card-h"><h5>Frentes processuais</h5><span className="cx-count">{fronts.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setActiveTab('prescricao_v2')}>Processos e prescrição<CxIcon n="chevR" s={13} /></button></div>
+        <CxFoldCard id="frentes" scope="briefing" as="h5" className="cx-bf-fronts" title="Frentes processuais" count={fronts.length}
+          summary={fronts.length ? Array.from(new Set(frontRows.map(fr => fr.bm.label))).join(' · ') : 'nenhuma frente'}
+          actions={<button type="button" className="cx-link-btn" onClick={() => setActiveTab('prescricao_v2')}>Processos e prescrição<CxIcon n="chevR" s={13} /></button>}>
+          <div className="cx-bf-fronts-b">
           {fronts.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF, execução central ou EF levada ao panorama.</div>}
           {frontRows.map(fr => {
             const front = fr.front;
@@ -5315,7 +5369,7 @@ function EditionClaudeBriefing(p) {
                   return (
                     <div className="cx-bf-work">
                       <div className="cx-bf-editphase-wrap">
-                        <CxBlock title="Texto do evento" open={!!bfCards.evento} onToggle={() => toggleBfCard('evento')}
+                        <CxBlock title="Texto do evento" open={fold.isOpen('evento')} onToggle={() => fold.toggle('evento')}
                           summary={phaseTitle + (meta ? ' · ' + meta : '')}>
                           <div className="cx-bf-work-k">
                             <span style={{ color: m.c }}>{phaseTitle}</span>
@@ -5338,7 +5392,7 @@ function EditionClaudeBriefing(p) {
                           <CxIcon n="edit" s={13} />
                         </button>
                       </div>
-                      <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
+                      <CxBlock title="Notas" count={cardNotes.length} open={fold.isOpen('notas')} onToggle={() => fold.toggle('notas')}
                         summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
                         <div className="cx-bf-work-k">
                           <span>Notas do processo</span><span className="cx-sp" />
@@ -5348,7 +5402,7 @@ function EditionClaudeBriefing(p) {
                           <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
                         )) : <div className="cx-empty-note">Nenhuma nota.</div>}
                       </CxBlock>
-                      <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}
+                      <CxBlock title="EFs cobertas" count={fr.covered.length} open={fold.isOpen('efs')} onToggle={() => fold.toggle('efs')}
                         summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
                         {fr.covered.length ? fr.covered.slice(0, 8).map(ef => (
                           <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
@@ -5393,7 +5447,8 @@ function EditionClaudeBriefing(p) {
               </div>
             </div>
           )}
-        </section>
+          </div>
+        </CxFoldCard>
 
         {/* Atuações recentes: só o passado (respostas, tarefas concluídas, atuações proativas), mais recente primeiro */}
         <EditionClaudeAtuacoesRecentes op={op} data={data} execs={opExecs} upsert={upsert} onOpenIntim={p.onOpenIntim}
@@ -5413,15 +5468,14 @@ function EditionClaudeBriefing(p) {
         })()}
 
         {/* Diário */}
-        <section className="cx-card">
-          <EditionClaudeBriefingDiary op={op} upsert={upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
-        </section>
+        <EditionClaudeBriefingDiary op={op} upsert={upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
       </div>
 
       {/* Coluna de apoio */}
       <aside className="cx-bf-rail">
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Fontes</h5><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setLinkAdd(o => !o)}>+ link</button></div>
+        <CxFoldCard id="fontes" scope="briefing" as="h5" className="cx-bf-rail-card" title="Fontes"
+          summary={migratedLinks.length ? cxPl(migratedLinks.length, 'fonte', 'fontes') : 'nenhuma cadastrada'}
+          actions={<button type="button" className="cx-link-btn" onClick={() => { fold.set('fontes', false); setLinkAdd(o => !o); }}>+ link</button>}>
           <div className="cx-bf-rail-b">
             {migratedLinks.map((lnk, idx) => (
               <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
@@ -5429,9 +5483,10 @@ function EditionClaudeBriefing(p) {
             {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
             {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
           </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Lembretes</h5><span className="cx-count">{reminders.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button></div>
+        </CxFoldCard>
+        <CxFoldCard id="lembretes" scope="briefing" as="h5" className="cx-bf-rail-card" title="Lembretes" count={reminders.length}
+          summary={reminders.length ? truncate(reminders[0].title || reminders[0].content || '', 40) : 'nenhum lembrete'}
+          actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button>}>
           <div className="cx-bf-rail-b">
             {reminders.length === 0 && <div className="cx-empty-note">Nenhum lembrete.</div>}
             {reminders.slice(0, 6).map(n => (
@@ -5441,9 +5496,9 @@ function EditionClaudeBriefing(p) {
               </div>
             ))}
           </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Checklists</h5><span className="cx-count">{checklistDone}/{checklistTotal}</span></div>
+        </CxFoldCard>
+        <CxFoldCard id="checklists" scope="briefing" as="h5" className="cx-bf-rail-card" title="Checklists" count={checklistDone + '/' + checklistTotal}
+          summary={checklistDone === checklistTotal ? 'tudo feito' : cxPl(checklistTotal - checklistDone, 'item pendente', 'itens pendentes')}>
           <div className="cx-bf-rail-b">
             {checklistGroups.map(g => {
               const done = g.items.filter(([k]) => chk[k]).length;
@@ -5458,9 +5513,10 @@ function EditionClaudeBriefing(p) {
               </div>);
             })}
           </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Próximas tarefas</h5><span className="cx-count">{opTasks.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setActiveTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button></div>
+        </CxFoldCard>
+        <CxFoldCard id="tarefas" scope="briefing" as="h5" className="cx-bf-rail-card" title="Próximas tarefas" count={opTasks.length}
+          summary={nextTasks.length ? truncate(nextTasks[0].title || '', 32) + ' · ' + fmtDate(nextTasks[0].dueDate) : 'nenhuma com data'}
+          actions={<button type="button" className="cx-link-btn" onClick={() => setActiveTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button>}>
           <div className="cx-bf-rail-b">
             {nextTasks.length === 0 && <div className="cx-empty-note">Nenhuma tarefa com data.</div>}
             {nextTasks.map(t => (
@@ -5471,7 +5527,7 @@ function EditionClaudeBriefing(p) {
               </div>
             ))}
           </div>
-        </section>
+        </CxFoldCard>
       </aside>
     </div>
   </div>);
@@ -6215,7 +6271,8 @@ function EditionClaudeProcessos(p) {
     return n;
   });
   const [showMore, setShowMore] = React.useState({});
-  const [collapsedCards, setCollapsedCards] = React.useState(() => new Set(['emb', 'out']));
+  const fold = cxUseFold('processos'); // Embargos e Outros nascem fechados (como antes); o resto, abertos; a escolha fica lembrada
+  const CARD_OPEN = { inc: true, semv: true, na: true, rec: true, emb: false, out: false };
   const [peopleOpen, setPeopleOpen] = React.useState(false);
   const [hubOpenOverride, setHubOpenOverride] = React.useState({});
 
@@ -6269,7 +6326,7 @@ function EditionClaudeProcessos(p) {
     else if (focus.execId) openDrawerFor(focus.execId);
     if (onFocusDone) onFocusDone();
   }, [focus && focus.n]);
-  const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (collapsedCards.has(id)) setCollapsedCards(prev => { const n = new Set(prev); n.delete(id); return n; }); };
+  const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (!fold.isOpen(id, CARD_OPEN[id])) fold.set(id, false); };
 
   const toggleGroupSelect = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const all = cdas.every(d => n.has(d.id)); cdas.forEach(d => all ? n.delete(d.id) : n.add(d.id)); return n; });
   const toggleCdaSel = (id) => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -6381,8 +6438,7 @@ function EditionClaudeProcessos(p) {
   };
   const semVincBands = bandOf(uncoveredVisible);
 
-  const cardCollapsed = (id) => collapsedCards.has(id);
-  const toggleCard = (id) => setCollapsedCards(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const cardCollapsed = (id) => !fold.isOpen(id, CARD_OPEN[id]); // o corpo só é montado com o cartão aberto; as guardas abaixo são redundantes, de propósito
 
   /* ── Ficha lateral: monta o group/relacionados do exec aberto ── */
   const drawerCtx = React.useMemo(() => {
@@ -6447,28 +6503,21 @@ function EditionClaudeProcessos(p) {
     )}
 
     <div className="cx-pp-body">
-      <div className="cx-pp-cards">
+      <div className="cx-pp-cards cx-pp-cards-fold">
         {/* Incidentes e execução de destaque */}
-        <section className="cx-card cx-pcard" id="cx-pcard-inc">
-          <div className="cx-card-h" onClick={() => toggleCard('inc')}>
-            <span className="cx-chev">{cardCollapsed('inc') ? '▸' : '▾'}</span><h5>Incidentes e execução de destaque</h5><span className="cx-count">{hubs.length}</span>
-            <span className="cx-muted cx-small">· IDPJ, cautelar e central com as EFs cobertas</span>
-            {!cardCollapsed('inc') && hubs.length >= 4 && <button type="button" className="cx-link-btn cx-card-h-act" onClick={ev => { ev.stopPropagation(); setAllHubsOpen(!allHubsOpen); }}>{allHubsOpen ? 'recolher todos' : 'expandir todos'}</button>}
-          </div>
+        <CxFoldCard id="inc" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-inc" title="Incidentes e execução de destaque" count={hubs.length} sub="· IDPJ, cautelar e central com as EFs cobertas"
+          summary={cxPl(hubs.length, 'incidente', 'incidentes')} actions={hubs.length >= 4 ? <button type="button" className="cx-link-btn cx-card-h-act" onClick={ev => { ev.stopPropagation(); setAllHubsOpen(!allHubsOpen); }}>{allHubsOpen ? 'recolher todos' : 'expandir todos'}</button> : null}>
           {!cardCollapsed('inc') && hubs.length > 0 && <>
             <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
               {incVisibleHubs.map(({ h, covered }) => <HubGroupRow key={h.exec.id} h={h} covered={covered} />)}
             </tbody></table></div>
           </>}
           {!cardCollapsed('inc') && hubs.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF ou execução central levada ao panorama.</div>}
-        </section>
+        </CxFoldCard>
 
         {/* Execuções sem vínculo */}
-        <section className="cx-card cx-pcard" id="cx-pcard-semv">
-          <div className="cx-card-h" onClick={() => toggleCard('semv')}>
-            <span className="cx-chev">{cardCollapsed('semv') ? '▸' : '▾'}</span><h5>Execuções sem vínculo</h5><span className="cx-count">{uncoveredEFs.length}</span>
-            <span className="cx-muted cx-small">· fora de IDPJ, cautelar e central</span>
-          </div>
+        <CxFoldCard id="semv" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-semv" title="Execuções sem vínculo" count={uncoveredEFs.length} sub="· fora de IDPJ, cautelar e central"
+          summary={cxPl(uncoveredEFs.length, 'execução', 'execuções')}>
           {!cardCollapsed('semv') && <>
             {uncoveredEFs.length === 0 && extinctVisible.length === 0 ? <div className="cx-empty-row">Nenhuma execução fora de IDPJ, cautelar e central.</div> :
             <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
@@ -6480,13 +6529,10 @@ function EditionClaudeProcessos(p) {
               {!showExtinct && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setShowExtinct(true)}>mostrar</button></td></tr>}
             </tbody></table></div>}
           </>}
-        </section>
+        </CxFoldCard>
 
-        <section className="cx-card cx-pcard" id="cx-pcard-na">
-          <div className="cx-card-h" onClick={() => toggleCard('na')}>
-            <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
-            <span className="cx-muted cx-small">· sem processo</span>
-          </div>
+        <CxFoldCard id="na" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-na" title="CDAs não ajuizadas" count={unlinkedCdas.length} sub="· sem processo"
+          summary={unlinkedCdas.length ? fmtCur(naValue) : 'nenhuma'}>
           {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead first="Inscrição" blank /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
             {unlinkedVisible.length > 0 && (() => {
@@ -6511,14 +6557,11 @@ function EditionClaudeProcessos(p) {
               </React.Fragment>;
             })()}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Recursos */}
-        <section className="cx-card cx-pcard" id="cx-pcard-rec">
-          <div className="cx-card-h" onClick={() => toggleCard('rec')}>
-            <span className="cx-chev">{cardCollapsed('rec') ? '▸' : '▾'}</span><h5>Recursos</h5><span className="cx-count">{otherBuckets.recursos.length}</span>
-            <span className="cx-muted cx-small">· agrupados pelo processo principal</span>
-          </div>
+        <CxFoldCard id="rec" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-rec" title="Recursos" count={otherBuckets.recursos.length} sub="· agrupados pelo processo principal"
+          summary={cxPl(otherBuckets.recursos.length, 'recurso', 'recursos')}>
           {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             {(() => {
               const byParent = new Map();
@@ -6532,32 +6575,25 @@ function EditionClaudeProcessos(p) {
             })()}
             {otherBuckets.recursos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum recurso.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Embargos */}
-        <section className="cx-card cx-pcard" id="cx-pcard-emb">
-          <div className="cx-card-h" onClick={() => toggleCard('emb')}>
-            <span className="cx-chev">{cardCollapsed('emb') ? '▸' : '▾'}</span><h5>Embargos</h5><span className="cx-count">{otherBuckets.embargos.length}</span>
-            <span className="cx-muted cx-small">· embargos à execução, à execução fiscal e de terceiro</span>
-            {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}
-          </div>
+        <CxFoldCard id="emb" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-emb" title="Embargos" count={otherBuckets.embargos.length} sub={<>· embargos à execução, à execução fiscal e de terceiro {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}</>} defaultOpen={false}
+          summary={embargosOpenPrazo ? 'prazo aberto' : cxPl(otherBuckets.embargos.length, 'embargo', 'embargos')}>
           {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="emb-all" label={null} rows={filterRows(otherBuckets.embargos)} />
             {otherBuckets.embargos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum embargo.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Outros */}
-        <section className="cx-card cx-pcard" id="cx-pcard-out">
-          <div className="cx-card-h" onClick={() => toggleCard('out')}>
-            <span className="cx-chev">{cardCollapsed('out') ? '▸' : '▾'}</span><h5>Outros</h5><span className="cx-count">{otherBuckets.outros.length}</span>
-            <span className="cx-muted cx-small">· cumprimento, procedimento comum e demais</span>
-          </div>
+        <CxFoldCard id="out" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-out" title="Outros" count={otherBuckets.outros.length} sub="· cumprimento, procedimento comum e demais" defaultOpen={false}
+          summary={cxPl(otherBuckets.outros.length, 'processo', 'processos')}>
           {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="out-all" label={null} rows={filterRows(otherBuckets.outros)} />
             {otherBuckets.outros.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum outro processo.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
       </div>
 
       {drawerCda ? (() => {

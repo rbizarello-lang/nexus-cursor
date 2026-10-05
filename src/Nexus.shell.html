@@ -6176,6 +6176,28 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-lib > .entity-area { padding-top: 28px; }
 /* B4 · Painel: linhas da tabela com a mesma altura */
 .cx-panel-tbl tbody td { height: 60px; }
+/* P5 · cartões recolhíveis (CxFoldCard): um só cabeçalho clicável, 24 px entre cartões, sombra leve. Só tokens do tema. */
+.cx-fold, .cx-bf-lead { box-shadow: var(--cx-card-shadow, 0 1px 2px rgba(20,24,32,0.04), 0 1px 0 rgba(20,24,32,0.02)); }
+.cx-fold-h { cursor: pointer; border-radius: 9px 9px 0 0; transition: background 0.12s; }
+.cx-fold.folded .cx-fold-h { border-radius: 9px; }
+.cx-fold-h:hover { background: var(--cx-surface-2); }
+.cx-fold-h:focus-visible { outline-offset: -2px; }
+.cx-fold-chev { display: grid; place-items: center; width: 16px; height: 16px; margin-left: -4px; color: var(--cx-ink-3); flex: none; transition: transform 0.15s; }
+.cx-fold.folded .cx-fold-chev { transform: rotate(-90deg); }
+.cx-fold-title { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.cx-fold-sum { flex: 1 1 140px; min-width: 0; font-size: 12px; color: var(--cx-ink-3); }
+.cx-fold-act { cursor: default; }
+.cx-fold-all { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin: 10px 0 12px; font-size: 11.5px; color: var(--cx-ink-3); }
+.cx-fold-all-b { color: inherit; padding: 2px 5px; border-radius: 4px; cursor: pointer; }
+.cx-fold-all-b:hover { color: var(--cx-ink); background: var(--cx-hover); }
+.cx-op-page .cx-home-grid, .cx-op-page .cx-col { gap: 24px; }
+.cx-op-page .cx-hz { margin-bottom: 24px; }
+.cx-panel-grid { gap: 24px; margin-top: 24px; }
+.cx-pp-cards.cx-pp-cards-fold { gap: 24px; }
+.cx-bf-main, .cx-bf-rail { gap: 24px; }
+.cx-bf-fronts { padding: 0; }
+.cx-bf-fronts-b { padding: 4px 12px 14px; }
+.cx-bf-diary { padding: 6px 18px 16px; }
 /* M14 · telas baixas (≤ 900 px de altura): cabeçalho da operação mais compacto, mais área para o conteúdo */
 @media (max-height: 900px) {
   .cx-oph { padding-top: 10px; }
