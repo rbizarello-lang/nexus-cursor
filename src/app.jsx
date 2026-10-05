@@ -3375,7 +3375,7 @@ function App() {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
-    let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0;
+    let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0, respSkippedOrig = 0;
     const parsedFiles = [];
 
     for (const file of files) {
@@ -3838,8 +3838,15 @@ function App() {
                 upsert('people', crPerson);
               }
               const respKey = `${existing.id}|${crPerson.id}|coresponsavel_legal`;
-              if (!knownResp.has(respKey)) {
-                addResponsibility(existing.id, crPerson.id, 'coresponsavel_legal', `Inclusão SIDA em ${fmtDate(cr.date)}`);
+              const jaOriginario = knownResp.has(`${existing.id}|${crPerson.id}|originario`) || existing.personId === crPerson.id;
+              if (jaOriginario) {
+                const skipKey = `${existing.id}|${crPerson.id}|skip-orig`;
+                if (!knownResp.has(skipKey)) {
+                  knownResp.add(skipKey);
+                  respSkippedOrig++;
+                }
+              } else if (!knownResp.has(respKey)) {
+                addResponsibility(existing.id, crPerson.id, 'coresponsavel_legal', `Inclusão SIDA em ${fmtDate(cr.date)}`, { silent: true });
                 knownResp.add(respKey);
                 respCreated++;
               }
@@ -3851,7 +3858,12 @@ function App() {
       }
     }
 
-    logs.push(`\n📊 ${cdaUpdated} CDA(s) complementada(s) · ${eventsCreated} evento(s) prescricional(is) criado(s)${cdaNotFound > 0 ? ` · ${cdaNotFound} CDA(s) não encontrada(s)` : ''}${personsCreated > 0 ? ` · ${personsCreated} corresponsável(eis) criado(s)` : ''}${respCreated > 0 ? ` · ${respCreated} vínculo(s) de corresponsabilidade adicionado(s)` : ''}`);
+    const skippedOrigTxt = respSkippedOrig > 0
+      ? (respSkippedOrig === 1
+        ? ' · 1 vez a pessoa já era o devedor da inscrição e não entrou como corresponsável'
+        : ` · ${respSkippedOrig} vezes a pessoa já era o devedor da inscrição e não entrou como corresponsável`)
+      : '';
+    logs.push(`\n📊 ${cdaUpdated} CDA(s) complementada(s) · ${eventsCreated} evento(s) prescricional(is) criado(s)${cdaNotFound > 0 ? ` · ${cdaNotFound} CDA(s) não encontrada(s)` : ''}${personsCreated > 0 ? ` · ${personsCreated} corresponsável(eis) criado(s)` : ''}${respCreated > 0 ? ` · ${respCreated} vínculo(s) de corresponsabilidade adicionado(s)` : ''}${skippedOrigTxt}`);
     // Determine type by file name pattern
     const fileNames = Array.from(e.target.files || []).map(f => f.name);
     const hasSIDA = fileNames.some(n => /sida/i.test(n));
@@ -4499,19 +4511,21 @@ function App() {
     });
   };
 
-  // Add corresponsabilidade link
-  const addResponsibility = (cdaId, personId, role, basis = '') => {
+  // Add corresponsabilidade link. silent: importação em lote — não abre caixa; só ignora o vínculo.
+  const addResponsibility = (cdaId, personId, role, basis = '', opts) => {
+    const silent = !!(opts && opts.silent);
     setData(prev => {
       const existing = (prev.links.cdaResponsibilities || []).filter(r => r.cdaId === cdaId && r.personId === personId);
       // Avoid exact duplicate (same role)
       if (existing.some(r => r.role === role)) return prev;
       // Prevent any other role if person is already originário (originário é exclusivo)
       if (existing.some(r => r.role === 'originario')) {
-        alert('Esta pessoa já é o devedor originário desta CDA. Não é possível adicioná-la também como corresponsável.');
+        if (!silent) alert('Esta pessoa já é o devedor originário desta CDA. Não é possível adicioná-la também como corresponsável.');
         return prev;
       }
       // If trying to add as originário but person already has another role, alert
       if (role === 'originario' && existing.length > 0) {
+        if (silent) return prev;
         if (!confirm('Esta pessoa já tem outro papel nesta CDA. Promovê-la a originária irá remover os papéis anteriores. Continuar?')) return prev;
         return {...prev, links: {...prev.links, cdaResponsibilities: [
           ...(prev.links.cdaResponsibilities || []).filter(r => !(r.cdaId === cdaId && r.personId === personId)),
@@ -14185,12 +14199,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       delete payload.obs1;
       delete payload.obs2;
     }
-    // Clear import flag when user interacts (saves/edits) — the intimation has been "treated"
-    // Must set to null (not delete) because upsert does {...old, ...new} merge
-    if (entityType === 'intimation') {
-      payload._importFlag = null;
-      payload._importFlagAt = null;
-    }
+    // O marcador Novo/Atualizada do último import só sai ao registrar a atuação.
+    // Editar objeto, vincular operação, notas ou classificação não apaga.
     onSave(payload);
   };
   const del = () => onDelete && onDelete(form.id);

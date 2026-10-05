@@ -1644,6 +1644,15 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
         <div className="cx-gram-f"><span>Importância</span><CxSeg label="Importância" value={impK} onChange={v => set({ priority: v })} options={[['baixa', 'Baixa'], ['normal', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Complexidade</span><CxSeg label="Complexidade" value={difK} onChange={v => set({ difficulty: v })} options={[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Marcação</span><button type="button" className={'cx-urg-t' + (urg ? ' on' : '')} aria-pressed={urg} onClick={() => set(urg ? { urgent: false, priority: (intim.priority === 'urgente' || intim.priority === 'urgent') ? 'alta' : intim.priority } : { urgent: true })}><CxIcon n="flag" s={13} />Urgente</button></div>
+        <div className="cx-gram-f cx-gram-status"><span>Situação</span><div className="cx-gram-status-b">
+          {intim.status === 'em_analise'
+            ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
+            : intim.status !== 'analise_concluida'
+              ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
+              : null}
+          <button type="button" className="cx-btn sm" onClick={() => set({ status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' })}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
+          <button type="button" className="cx-btn sm" onClick={() => { set({ status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
+        </div></div>
       </div>}
     </CxBlock>
 
@@ -1689,13 +1698,6 @@ function CxDetailActions({ intim, a, onRespond, compact }) {
   const onDesk = a.isOnDesk('intimation', intim.id);
   return <>
     <button type="button" className="cx-btn primary" onClick={onRespond}><CxIcon n="send" s={14} />Registrar atuação{compact ? <kbd className="cx-kbd">R</kbd> : null}</button>
-    {intim.status === 'em_analise'
-      ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
-      : intim.status !== 'analise_concluida'
-        ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
-        : null}
-    <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' }); }}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
-    <button type="button" className="cx-btn ghost" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
     <span className="cx-sp" />
     <button type="button" className={'cx-icon-btn' + (onDesk ? ' on' : '')} onClick={() => { a.toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); cxNotify(onDesk ? 'Removida da Mesa' : 'Enviada para a Mesa'); }} title={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'} aria-label={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'}><CxIcon n="desk" /></button>
     <button type="button" className="cx-icon-btn" onClick={() => a.onWatch(intim)} title="Acompanhar este processo" aria-label="Acompanhar este processo"><CxIcon n="eye" /></button>
