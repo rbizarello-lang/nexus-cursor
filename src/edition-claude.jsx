@@ -3494,7 +3494,7 @@ function cxProcTrail(data, op, e, todayIso) {
   const stages = metas.map(m => ({
     key: m.k, label: m.sd.label, has: !!m.has, multi: !!m.sd.multiRecurso,
     d: toDayKey(m.rec && m.rec.date) || '', out: (m.rec && m.rec.outcome) || '', outLabel: m.outcomeLabel || '',
-    text: String((m.rec && m.rec.texto) || '').trim(), ev: (m.rec && m.rec.evento) || '',
+    text: String((m.rec && m.rec.texto) || '').trim(), textHtml: pickStageTextHtml(m.rec, cxSanitizeDesc), ev: (m.rec && m.rec.evento) || '',
     recursos: (m.recursos || []).map(r => ({ d: toDayKey(r.date) || '', out: r.outcome || '', outLabel: RECURSO_OUTCOMES[r.outcome] || '', parte: r.parte === 'adversa' ? 'adversa' : 'nossa', texto: String(r.texto || '').trim(), proc: r.proc || '' })),
   }));
   const hearings = (data.hearings || []).filter(h => h.date && h.status !== 'cancelada' && h.status !== 'realizada' && sameProc(h.processNumber, e.processNumber) && (!e.operationId || h.operationId === e.operationId))
@@ -3517,6 +3517,16 @@ function CxMiniTrail({ points }) {
     })}
   </div>;
 }
+/* Texto da fase na trilha da ficha: prévia de 3 linhas (com os parágrafos e a formatação), "mostrar mais" abre tudo. */
+function CxPtText({ s }) {
+  const [open, setOpen] = React.useState(false);
+  const long = String(s.text || '').length > 170 || /\n/.test(s.text || '');
+  return <div className="cx-pt-tx">
+    {s.ev ? <div className="cx-pt-ev">Ev. {s.ev}</div> : null}
+    {s.text ? <div className={'cx-pt-clamp' + (open ? ' open' : '')}><CxRichText text={s.text} html={s.textHtml} /></div> : null}
+    {s.text && long ? <button type="button" className="cx-link-btn cx-pt-more" onClick={() => setOpen(o => !o)} aria-expanded={open}>{open ? 'mostrar menos' : 'mostrar mais'}</button> : null}
+  </div>;
+}
 /* (C) Trilha vertical de fases. */
 function CxPhaseTrail({ trail, todayIso }) {
   const { steps, done, total } = trail;
@@ -3534,7 +3544,7 @@ function CxPhaseTrail({ trail, todayIso }) {
         return <div key={s.id} className={'cx-pt-s ' + s.state} style={{ '--c': oc || 'var(--cx-green)' }}>
           <span className="cx-pt-nd">{s.state === 'done' ? <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><path d="M1.5 4.6l2 2 4-4.4" fill="none" style={{ stroke: 'var(--cx-on-solid)' }} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.state === 'cur' ? <span className="cx-pt-dot" /> : null}</span>
           <div className="cx-pt-tt"><span>{s.label}</span>{s.outLabel ? <span className="cx-nr-b" style={{ '--c': oc }}>{s.outLabel}</span> : null}<span className="cx-pt-dt">{dt}{extra ? ' · ' + extra : ''}</span></div>
-          {s.text || s.ev ? <div className="cx-pt-tx">{[s.ev ? 'Ev. ' + s.ev : '', s.text].filter(Boolean).join(' · ')}</div> : null}
+          {s.text || s.ev ? <CxPtText s={s} /> : null}
         </div>;
       })}
     </div>
@@ -3769,6 +3779,47 @@ function EditionClaudeOpDesc({ op, upsert }) {
       ? <div className="cx-opd-txt cx-opd-rich" dangerouslySetInnerHTML={{ __html: mapRichTextColors(rich) }} />
       : <p className="cx-opd-txt cx-opd-plain">{plain}</p>}
     <button type="button" className="cx-icon-btn cx-sm cx-opd-pen" onClick={() => setEditing(true)} title="Editar descrição" aria-label="Editar descrição"><CxIcon n="edit" s={13} /></button>
+  </div>;
+}
+/* Texto de evento/decisão (fases das Frentes processuais e ficha do processo): parágrafos, respiro e formatação.
+   `html` (já validado por pickStageTextHtml) → HTML sanitizado com as cores do editor mapeadas para o tema;
+   senão `text` simples em parágrafos (linha em branco separa; quebra simples vira <br>) — tudo como elementos
+   React, sem innerHTML. */
+function CxRichText({ text, html, className }) {
+  const clean = React.useMemo(() => (html ? cxSanitizeDesc(html) : ''), [html]);
+  const cls = 'cx-rt' + (className ? ' ' + className : '');
+  if (clean) return <div className={cls + ' cx-rt-html'} dangerouslySetInnerHTML={{ __html: mapRichTextColors(clean) }} />;
+  const paras = plainToParagraphs(text);
+  if (!paras.length) return null;
+  return <div className={cls}>{paras.map((lines, i) => <p key={i}>{lines.map((l, j) => <React.Fragment key={j}>{j ? <br /> : null}{l}</React.Fragment>)}</p>)}</div>;
+}
+/* Editor inline do texto da fase: o mesmo editor rico do Diário e da descrição (negrito, itálico, sublinhado, marca-texto,
+   cores, lista) + "Organizar parágrafos" (organizarParagrafos, só espaços/quebras; refaz o texto sem formatação, com Desfazer). */
+function CxStageTextEditor({ texto, textoHtml, onSave, onCancel }) {
+  const draftRef = React.useRef('');
+  const [seed, setSeed] = React.useState(() => ({ n: 0, html: textoHtml || plainToRichHtml(texto) }));
+  const [undo, setUndo] = React.useState(null);
+  const organizar = () => {
+    const before = cxSanitizeDesc(draftRef.current);
+    const next = organizarParagrafos(richHtmlToPlainText(before, { paragraphs: true }));
+    setUndo({ html: before, lost: /<(b|strong|i|em|u|s|strike|span|ul|ol|li)\b/i.test(before) });
+    setSeed(sd => ({ n: sd.n + 1, html: plainToRichHtml(next) }));
+  };
+  const desfazer = () => { if (!undo) return; setSeed(sd => ({ n: sd.n + 1, html: undo.html })); setUndo(null); };
+  return <div className="cx-opd-edit cx-rt-edit"
+    onKeyDown={e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); onSave(draftRef.current); }
+    }}>
+    <RichNoteEditor key={seed.n} initialHtml={seed.html} placeholder="Texto do evento…" draftRef={draftRef} autoFocus colors />
+    <div className="cx-opd-acts">
+      <button type="button" className="cx-btn sm" onClick={organizar} title="Insere linha em branco antes de 1) 2) a) b) I – e de Ante o exposto, DEFIRO, Intime-se… sem alterar as palavras. Refaz o texto sem a formatação (dá para desfazer).">Organizar parágrafos</button>
+      {undo ? <button type="button" className="cx-link-btn" onClick={desfazer}>Desfazer</button> : null}
+      <span className="cx-muted cx-small">{undo ? (undo.lost ? 'Formatação removida · Desfazer volta' : 'Revise antes de salvar') : 'Esc cancela · Ctrl+Enter salva'}</span>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm ghost" onClick={onCancel}>Cancelar</button>
+      <button type="button" className="cx-btn sm primary" onClick={() => onSave(draftRef.current)}>Salvar</button>
+    </div>
   </div>;
 }
 /* Cartões da Visão geral (CxFoldAllBar): o que "Recolher tudo / Expandir tudo" alcança. Os blocos de dentro de cada frente
@@ -5229,6 +5280,7 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
   const fold = cxUseFold('visao'); // blocos de cada frente (evento, notas, efs): mesmo estado dos cartões da página
   const [selected, setSelected] = React.useState({}); // execId -> stage key selecionada
   const [popup, setPopup] = React.useState(null); // { execId, sk }
+  const [fmtEdit, setFmtEdit] = React.useState(null); // { execId, sk } — editor de texto formatado do evento
   const [addMenu, setAddMenu] = React.useState(null); // execId
   const [laneMenu, setLaneMenu] = React.useState(null); // execId
   const setRec = (execId, sk, patch) => cxStageSetRec(op, upsert, execId, sk, patch);
@@ -5345,7 +5397,7 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
                 const color = m.sd.multiRecurso ? m.c : (isCustom ? 'var(--cx-violet)' : m.c);
                 const meta = stageCompactMeta(m);
                 return (
-                  <button key={m.k} type="button" className={'cx-bf-stp' + (fr.focused && fr.focused.k === m.k ? ' now' : '')} style={{ '--c': color }} onClick={() => setSelected(s => ({ ...s, [front.id]: m.k }))} title={m.sd.label}>
+                  <button key={m.k} type="button" className={'cx-bf-stp' + (fr.focused && fr.focused.k === m.k ? ' now' : '')} style={{ '--c': color }} onClick={() => { setSelected(s => ({ ...s, [front.id]: m.k })); setFmtEdit(null); }} title={m.sd.label}>
                     <span className="d" />
                     <span className="l">{m.sd.label}{m.outcomeLabel ? ' · ' + m.outcomeLabel : ''}</span>
                     <span className="w">{meta || (isCustom ? 'evento livre' : '')}</span>
@@ -5368,6 +5420,7 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
             {fr.focused && (() => {
               const m = fr.focused;
               const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
+              const noteHtml = pickStageTextHtml(m.rec, cxSanitizeDesc);
               const phaseTitle = m.sd.label + (m.outcomeLabel ? ' · ' + m.outcomeLabel : '');
               const meta = stageCompactMeta(m);
               const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
@@ -5388,10 +5441,23 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
                         if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
                         if (r.date) bits.push(fmtDate(r.date));
                         if (r.proc) bits.push(r.proc);
-                        return <li key={ri}>{bits.join(' · ') || (r.texto || '—')}</li>;
+                        const rt = String(r.texto || '').trim();
+                        return <li key={ri}>{bits.join(' · ') || (rt ? null : '—')}{rt ? <CxRichText text={rt} /> : null}</li>;
                       })}</ol> : <div className="cx-empty-note">Sem julgamentos listados.</div>
                     ) : (
-                      <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
+                      fmtEdit && fmtEdit.execId === front.id && fmtEdit.sk === m.k ? (
+                        <CxStageTextEditor key={front.id + '|' + m.k} texto={noteTxt} textoHtml={noteHtml}
+                          onCancel={() => setFmtEdit(null)}
+                          onSave={(html) => {
+                            const patch = buildStageTextPatch(html, cxSanitizeDesc);
+                            setRec(front.id, m.k, { ...patch, ...(m.has || patch.texto ? { _present: true } : {}) });
+                            setFmtEdit(null);
+                            cxNotify('Texto do evento salvo');
+                          }} />
+                      ) : (<>
+                        {noteTxt ? <CxRichText className="cx-bf-rt" text={noteTxt} html={noteHtml} /> : <p className="cx-bf-work-txt">—</p>}
+                        <button type="button" className="cx-link-btn cx-rt-fmt" onClick={() => setFmtEdit({ execId: front.id, sk: m.k })}>Formatar</button>
+                      </>)
                     )}
                     </CxBlock>
                     <button type="button" className="cx-bf-editphase" title="Editar fase" aria-label="Editar fase"

@@ -7,6 +7,11 @@ import {
   buildOpDescriptionPatch,
   mapRichTextColors,
   mapRichTextColor,
+  pickStageTextHtml,
+  buildStageTextPatch,
+  plainToParagraphs,
+  plainToRichHtml,
+  organizarParagrafos,
 } from '../src/lib/rich-text.js';
 
 // Sanitizador de teste: devolve o HTML como veio (o do app, sanitizeNoteHtml, depende do DOM).
@@ -145,5 +150,195 @@ describe('mapRichTextColors (cores do editor → tokens --cx-rt-*, só exibiçã
   it('mapRichTextColor: uma cor só', () => {
     assert.equal(mapRichTextColor('#14161a'), 'var(--cx-rt-ink)');
     assert.equal(mapRichTextColor('#abc'), '#abc');
+  });
+});
+
+describe('richHtmlToPlainText { paragraphs: true }', () => {
+  it('deixa linha em branco entre <p>; sem a opção, continua uma quebra só', () => {
+    assert.equal(richHtmlToPlainText('<p>um</p><p>dois<br>três</p>', { paragraphs: true }), 'um\n\ndois\ntrês');
+    assert.equal(richHtmlToPlainText('<p>um</p><p>dois</p>'), 'um\ndois');
+    assert.equal(richHtmlToPlainText('<p>um</p><div>dois</div>', { paragraphs: true }), 'um\n\ndois');
+  });
+});
+
+describe('pickStageTextHtml — regra de exibição do texto rico da fase', () => {
+  const html = '<p>Vistos.</p><p>Defiro o <b>pedido</b>.</p>';
+  const texto = 'Vistos.\n\nDefiro o pedido.';
+  it('mostra o HTML enquanto o texto simples for equivalente (ignorando espaços e quebras)', () => {
+    assert.equal(pickStageTextHtml({ texto, textoHtml: html }, ident), html);
+    assert.equal(pickStageTextHtml({ texto: 'Vistos. Defiro o   pedido.', textoHtml: html }, ident), html);
+  });
+  it('cai para o texto simples quando `texto` foi alterado em outro lugar (StagePopup do Clássico)', () => {
+    assert.equal(pickStageTextHtml({ texto: texto + ' Intime-se.', textoHtml: html }, ident), '');
+    assert.equal(pickStageTextHtml({ texto: '', textoHtml: html }, ident), '');
+  });
+  it('sem textoHtml (dados antigos), sem sanitizador ou registro nulo: texto simples', () => {
+    assert.equal(pickStageTextHtml({ texto }, ident), '');
+    assert.equal(pickStageTextHtml({ texto, textoHtml: '' }, ident), '');
+    assert.equal(pickStageTextHtml({ texto, textoHtml: html }), '');
+    assert.equal(pickStageTextHtml(null, ident), '');
+    assert.equal(pickStageTextHtml({ texto, textoHtml: 42 }, ident), '');
+  });
+  it('reaplica o sanitizador antes de comparar', () => {
+    const strip = (h) => h.replace(/<script>.*?<\/script>/g, '');
+    assert.equal(pickStageTextHtml({ texto: 'oi', textoHtml: 'oi<script>x</script>' }, strip), 'oi');
+  });
+  it('registro que vem do merge do StagePopup (texto aparado, outros campos) segue válido', () => {
+    const rec = { date: '2026-06-10', evento: '12', outcome: '', _present: true, texto: texto.trim(), textoHtml: html };
+    assert.equal(pickStageTextHtml(rec, ident), html);
+  });
+});
+
+describe('buildStageTextPatch — o que é gravado na fase', () => {
+  it('texto simples com linha em branco entre parágrafos + HTML quando há formatação', () => {
+    const h = '<p>Vistos.</p><p>Defiro o <b>pedido</b>.</p>';
+    const patch = buildStageTextPatch(h, ident);
+    assert.equal(patch.texto, 'Vistos.\n\nDefiro o pedido.');
+    assert.equal(patch.textoHtml, h);
+    assert.equal(pickStageTextHtml(patch, ident), h); // o que foi gravado é exibido de volta
+  });
+  it('sem formatação só o texto (textoHtml antigo é limpo)', () => {
+    assert.deepEqual(buildStageTextPatch('<p>a</p><p>b</p>', ident), { texto: 'a\n\nb', textoHtml: '' });
+  });
+  it('vazio limpa os dois; lista e cor contam como formatação', () => {
+    assert.deepEqual(buildStageTextPatch('<p><br></p>', ident), { texto: '', textoHtml: '' });
+    assert.equal(buildStageTextPatch('<ul><li>a</li></ul>', ident).textoHtml, '<ul><li>a</li></ul>');
+    assert.equal(buildStageTextPatch('x <span style="color:#c2323d">y</span>', ident).textoHtml, 'x <span style="color:#c2323d">y</span>');
+  });
+});
+
+describe('plainToParagraphs / plainToRichHtml', () => {
+  it('linha em branco separa parágrafos; quebra simples vira linha dentro do parágrafo', () => {
+    assert.deepEqual(plainToParagraphs('a\nb\n\n\n  \nc  d'), [['a', 'b'], ['c d']]);
+    assert.deepEqual(plainToParagraphs(''), []);
+    assert.deepEqual(plainToParagraphs(null), []);
+    assert.deepEqual(plainToParagraphs('a\r\n\r\nb'), [['a'], ['b']]);
+  });
+  it('plainToRichHtml escapa HTML e monta <p> / <br>', () => {
+    assert.equal(plainToRichHtml('a & b <c>\nlinha 2\n\nSegundo'), '<p>a &amp; b &lt;c&gt;<br>linha 2</p><p>Segundo</p>');
+    assert.equal(plainToRichHtml('   '), '');
+  });
+  it('ida e volta: plain → html → plain preserva o texto (com parágrafos)', () => {
+    const t = 'Vistos.\n\n1) Defiro.\n2) Intime-se <já>.\n\nCumpra-se.';
+    assert.equal(richHtmlToPlainText(plainToRichHtml(t), { paragraphs: true }), t);
+  });
+});
+
+describe('organizarParagrafos', () => {
+  const sameWords = (a, b) => assert.equal(normalizeWs(a), normalizeWs(b), 'só espaços e quebras podem mudar');
+
+  const EPROC = 'Vistos. 1) Defiro o pedido de fls. 12 e determino a penhora de ativos financeiros até o limite de R$ 1.000,00, ' +
+    'nos termos do art. 835, I, do CPC. 2) Intime-se a parte executada. 3) Após, venham conclusos. ' +
+    'Ante o exposto, DEFIRO o pedido. Intime-se. Cumpra-se.';
+
+  it('decisão colada num bloco: enumeradores e marcadores abrem parágrafo', () => {
+    const out = organizarParagrafos(EPROC);
+    assert.equal(out, [
+      'Vistos.',
+      '1) Defiro o pedido de fls. 12 e determino a penhora de ativos financeiros até o limite de R$ 1.000,00, nos termos do art. 835, I, do CPC.',
+      '2) Intime-se a parte executada.',
+      '3) Após, venham conclusos.',
+      'Ante o exposto, DEFIRO o pedido.',
+      'Intime-se.',
+      'Cumpra-se.',
+    ].join('\n\n'));
+    sameWords(out, EPROC);
+  });
+
+  it('despacho com relatório, fundamentação e dispositivo', () => {
+    const t = 'É o relatório. Decido. Fundamentação. A parte exequente requereu a inclusão do sócio no polo passivo. ' +
+      'Diante do exposto, DEFIRO a desconsideração da personalidade jurídica. Dispositivo: INDEFIRO o pedido de gratuidade. Publique-se. Cite-se.';
+    const out = organizarParagrafos(t);
+    assert.deepEqual(out.split('\n\n'), [
+      'É o relatório.',
+      'Decido.',
+      'Fundamentação.',
+      'A parte exequente requereu a inclusão do sócio no polo passivo.',
+      'Diante do exposto, DEFIRO a desconsideração da personalidade jurídica.',
+      'Dispositivo:',
+      'INDEFIRO o pedido de gratuidade.',
+      'Publique-se.',
+      'Cite-se.',
+    ]);
+    sameWords(out, t);
+  });
+
+  it('enumeradores romanos, de letra e com travessão', () => {
+    const t = 'Determino: I – a citação do executado; II - a penhora de bens; III) a avaliação. Dispositivo: a) prazo de 5 dias; b) multa diária. Intimem-se.';
+    const out = organizarParagrafos(t);
+    assert.deepEqual(out.split('\n\n'), [
+      'Determino:',
+      'I – a citação do executado;',
+      'II - a penhora de bens;',
+      'III) a avaliação.',
+      'Dispositivo:',
+      'a) prazo de 5 dias;',
+      'b) multa diária.',
+      'Intimem-se.',
+    ]);
+    sameWords(out, t);
+  });
+
+  it('não parte "Ante o exposto, DEFIRO" nem marcadores no meio da frase', () => {
+    const t = 'Ante o exposto, DEFIRO o pedido, conforme o Dispositivo legal, e determino que se Cumpra-se o mandado.';
+    assert.equal(organizarParagrafos(t), t);
+  });
+
+  it('falsos positivos: artigos, valores, número de processo, datas e abreviaturas', () => {
+    const cases = [
+      'Nos termos do art. 135 do CTN e do art. 133, § 1º, do CPC, o valor de R$ 1.000,00 foi bloqueado.',
+      'Processo nº 5001234-56.2023.4.04.7001 distribuído em 10/06/2026, às 14h30.',
+      'Conforme fls. 2) e ev. 15, a parte foi intimada.',
+      'Ver ev. 12. Defiro conforme art. 5. Sem quebra aqui.',
+      'A dívida de 2023. 15 dias depois, a parte foi intimada em 10. 5 dias. Valor R$ 1.000,00. 3,5% ao mês.',
+      'No ano de 1) alfa e a) beta, sem pontuação antes, ficam juntos.',
+      'Ante o exposto, defiro. Fulano V. Silva compareceu.',
+    ];
+    for (const t of cases) assert.equal(organizarParagrafos(t), t, t);
+  });
+
+  it('não corta depois de abreviatura (fls., art., n., ev.) mesmo com enumerador na sequência', () => {
+    assert.equal(organizarParagrafos('Vide fls. 2) e ainda art. 3) do regimento.'), 'Vide fls. 2) e ainda art. 3) do regimento.');
+    assert.equal(organizarParagrafos('Juntado no ev. 4. Intime-se.'), 'Juntado no ev. 4.\n\nIntime-se.'); // aqui o ponto é final de frase
+  });
+
+  it('normaliza espaços e quebras, sem mexer nas palavras', () => {
+    assert.equal(organizarParagrafos('  Vistos.   1)  Defiro.  \r\n\r\n\r\n\r\n 2) Intime-se.  '), 'Vistos.\n\n1) Defiro.\n\n2) Intime-se.');
+    assert.equal(organizarParagrafos('a b   c\t\td'), 'a b c d');
+    assert.equal(organizarParagrafos(''), '');
+    assert.equal(organizarParagrafos(null), '');
+  });
+
+  it('quebra simples antes de marcador vira linha em branco; lista em linhas (enumeradores) fica tight', () => {
+    assert.equal(organizarParagrafos('Defiro o pedido.\nIntime-se.'), 'Defiro o pedido.\n\nIntime-se.');
+    assert.equal(organizarParagrafos('Decido:\n1) a\n2) b\n3) c'), 'Decido:\n1) a\n2) b\n3) c');
+  });
+
+  it('"Vistos" no início abre parágrafo; "Vistos, etc." também', () => {
+    assert.equal(organizarParagrafos('Vistos. Trata-se de execução fiscal.'), 'Vistos.\n\nTrata-se de execução fiscal.');
+    assert.equal(organizarParagrafos('Vistos, etc. Trata-se de execução fiscal.'), 'Vistos, etc.\n\nTrata-se de execução fiscal.');
+    assert.equal(organizarParagrafos('Vistos em inspeção. Defiro.'), 'Vistos em inspeção. Defiro.');
+  });
+
+  it('idempotente (inclusive sobre amostras diversas)', () => {
+    const samples = [
+      EPROC,
+      'É o relatório. Decido. Fundamentação. Texto. Diante do exposto, DEFIRO. Publique-se.',
+      'Determino: I – a; II - b; III) c. Fixo: a) x; b) y. Intimem-se.',
+      'Nos termos do art. 135 do CTN, R$ 1.000,00, 10/06/2026.',
+      'Decido:\n1) a\n2) b\n3) c\n\nCumpra-se.',
+      'Vistos, etc. Defiro. Intime-se.\n\n\n\nCumpra-se.',
+    ];
+    for (const t of samples) {
+      const once = organizarParagrafos(t);
+      assert.equal(organizarParagrafos(once), once, t);
+      sameWords(once, t);
+      assert.ok(!/\n{3,}/.test(once));
+    }
+  });
+
+  it('o resultado alimenta o editor e volta como o mesmo texto (plain → html → plain)', () => {
+    const out = organizarParagrafos(EPROC);
+    assert.equal(richHtmlToPlainText(plainToRichHtml(out), { paragraphs: true }), out);
   });
 });
