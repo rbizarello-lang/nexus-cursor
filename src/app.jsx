@@ -3123,7 +3123,8 @@ function App() {
           else if (/[?&]edition=claude\b/.test(window.location.search || '')) { edition = 'claude'; bootstrapped = true; }
         }
       } catch {}
-      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', uiEdition: edition, processViewModel: 'D', prazosFilters: s.prazosFilters, prazosDeskMode: s.prazosDeskMode === 'lista' ? 'lista' : 'mesa' };
+      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', uiEdition: edition, processViewModel: 'D', prazosFilters: s.prazosFilters, prazosDeskMode: s.prazosDeskMode === 'lista' ? 'lista' : 'mesa', cxTheme: cxThemeKey(s.cxTheme) };
+      if (Array.isArray(s.esteiraTemplate)) next.esteiraTemplate = s.esteiraTemplate;
       if ((bootstrapped && s.uiEdition !== edition) || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
@@ -9346,7 +9347,7 @@ function App() {
     <div className="settings-group">
       <div className="settings-label">Fonte</div>
       <div className="settings-options cx-font-opts">
-        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
+        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>{isClaude ? 'Geist (padrão)' : 'Public Sans'}</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
