@@ -4572,7 +4572,7 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-tl-rl.pr .cx-ptag { flex: none; }
 
 /* Horizonte de 90 dias (Visão geral da operação) */
-.cx-hz { overflow: hidden; margin-bottom: 4px; }
+.cx-hz { overflow: hidden; }
 .cx-hz-h { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--cx-line); font-size: 12px; color: var(--cx-ink-2); }
 .cx-hz-sum b { color: var(--cx-ink); font-weight: 600; }
 .cx-hz-key { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--cx-ink-3); }
@@ -5381,13 +5381,6 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-bf-news-ic { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cx-blue); color: #fff; font: 700 11px var(--cx-mono); flex: none; }
 .cx-bf-news-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--cx-line); background: var(--cx-surface); border-radius: 8px; font-size: 12px; }
 .cx-bf-news-detail b { display: block; margin-bottom: 3px; font-size: 11.5px; }
-.cx-bf-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
-.cx-bf-main { display: grid; gap: 14px; min-width: 0; }
-.cx-bf-rail { display: grid; gap: 14px; align-self: start; position: sticky; top: 14px; }
-@media (max-width: 1100px) {
-  .cx-bf-grid { grid-template-columns: minmax(0, 1fr); }
-  .cx-bf-rail { position: static; }
-}
 .cx-bf-lead { padding: 14px 16px; border-left: 3px solid var(--cx-green); }
 .cx-bf-lead-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .cx-bf-lead-txt { font-size: 14px; line-height: 1.55; }
@@ -5445,7 +5438,7 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-bf-lane-h:hover { background: var(--cx-hover); }
 .cx-bf-lane-chev { color: var(--cx-ink-3); flex: none; }
 .cx-bf-kind { font: 700 10px var(--cx-mono); padding: 2px 7px; border-radius: 5px; flex: none; }
-.cx-bf-lane-t { min-width: 160px; flex: 1 1 240px; }
+.cx-bf-lane-t { min-width: 160px; flex: 1 1 150px; }
 .cx-bf-lane-title { font-weight: 600; font-size: 13px; }
 .cx-bf-lane-sub { margin-top: 1px; }
 .cx-bf-lane-m { text-align: right; flex: none; }
@@ -5520,8 +5513,6 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 .cx-bf-ent:hover .cx-bf-ent-acts, .cx-bf-ent:focus-within .cx-bf-ent-acts { opacity: 1; }
 .cx-bf-ent-acts .cx-bf-ic { width: 18px; height: 18px; font-size: 11px; border-radius: 4px; }
 .cx-bf-ent-txt { font-size: 12.5px; line-height: 1.5; }
-.cx-bf-rail-card .cx-card-h { min-height: 38px; padding: 6px 10px 6px 12px; }
-.cx-bf-rail-card .cx-card-h h5 { margin: 0; font-size: 12.5px; font-weight: 600; }
 .cx-bf-rail-b { padding: 4px 12px 10px; display: grid; gap: 6px; }
 .cx-bf-src { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .cx-bf-src a { color: var(--cx-ink); text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5534,10 +5525,6 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
 .cx-bf-chk-item.done { color: var(--cx-ink-3); text-decoration: line-through; }
 .cx-bf-chk-item .ck { width: 12px; text-align: center; font-size: 10px; color: var(--cx-green); flex: none; }
 .cx-bf-chk-item.done .ck { color: var(--cx-green); }
-.cx-bf-task { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 4px; border-radius: 6px; cursor: pointer; font-size: 11.5px; }
-.cx-bf-task:hover { background: var(--cx-hover); }
-.cx-bf-task .p { width: 6px; height: 6px; border-radius: 50%; background: var(--cx-orange); }
-.cx-bf-task .p.late { background: var(--cx-red); }
 
 /* ═══ Fase 8 · Processos Prumo (aba "Processos e prescrição" no Nexus Prumo) ═══
    Sinais (coluna de posição fixa), ficha lateral e cartões agrupados para
@@ -6025,9 +6012,7 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-desk-btn { min-width: 76px; justify-content: center; }
 
 /* A11 · títulos de cartão (h5) com a mesma escala em todo o app: 13px/600 */
-.cx-card-h h5, .cx-bf-rail-card .cx-card-h h5 { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
-/* A11 · a coluna da direita acompanha o topo da principal (o sticky com top > 0 empurrava 14 px no início) */
-.cx-bf-rail { top: 0; }
+.cx-card-h h5 { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
 
 /* M5 · todo cartão com cabeçalho tem o divisor sob o título (o primeiro bloco ganha a borda superior; linhas que já a têm não duplicam) */
 .cx-card > .cx-card-h + :not(.cx-tbl-wrap) { border-top: 1px solid var(--cx-line); }
@@ -6190,11 +6175,14 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-fold-all { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin: 10px 0 12px; font-size: 11.5px; color: var(--cx-ink-3); }
 .cx-fold-all-b { color: inherit; padding: 2px 5px; border-radius: 4px; cursor: pointer; }
 .cx-fold-all-b:hover { color: var(--cx-ink); background: var(--cx-hover); }
-.cx-op-page .cx-home-grid, .cx-op-page .cx-col { gap: 24px; }
-.cx-op-page .cx-hz { margin-bottom: 24px; }
+/* P6 · Visão geral única (Visão geral + Briefing): leitura da operação e "O que vem" em largura total, depois duas colunas —
+   principal (flexível) e lateral de apoio (320 px, não fixa). Abaixo de ~1180 px empilha numa só coluna. 24 px entre cartões. */
+.cx-ov-stack { display: flex; flex-direction: column; gap: 24px; }
+.cx-ov-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+.cx-ov-main, .cx-ov-rail { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+@media (max-width: 1180px) { .cx-ov-grid { grid-template-columns: minmax(0, 1fr); } }
 .cx-panel-grid { gap: 24px; margin-top: 24px; }
 .cx-pp-cards.cx-pp-cards-fold { gap: 24px; }
-.cx-bf-main, .cx-bf-rail { gap: 24px; }
 .cx-bf-fronts { padding: 0; }
 .cx-bf-fronts-b { padding: 4px 12px 14px; }
 .cx-bf-diary { padding: 6px 18px 16px; }

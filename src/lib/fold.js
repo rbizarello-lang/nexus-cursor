@@ -12,6 +12,9 @@
  *   nexus_cx_hz_folded  → '1' | '0'                      Horizonte recolhido               → escopo 'visao', id 'hz'
  * (Os cartões de Processos e prescrição não eram persistidos; começam como antes: Embargos e Outros fechados.)
  * Depois de migrar, as chaves antigas deixam de ser lidas (ficam no disco, sem efeito).
+ *
+ * P6 · a aba Briefing virou parte da Visão geral: os cartões dela passaram do escopo 'briefing' para 'visao'
+ * (ver foldMigrateBriefingToVisao). 'narr' (Narrativa/Mapa) agora é o cartão "O que vem", id 'hz'.
  */
 export const FOLD_KEY = 'nexus.cxFold';
 export const FOLD_LEGACY_KEYS = { painel: 'nexus.cxPanelFold', briefing: 'nexus_cx_bf_cards', horizonte: 'nexus_cx_hz_folded' };
@@ -73,5 +76,28 @@ export function foldMigrateLegacy(state, legacy) {
     if (foldIsObj(obj)) Object.keys(obj).forEach((id) => { if (obj[id] === false) put('briefing', id, true); });
   }
   if (L.horizonte === '1') put('visao', 'hz', true);
+  return next;
+}
+
+/** ids do escopo 'briefing' que mudaram para o escopo 'visao' (P6) → id novo. Os blocos de dentro de cada frente
+ *  (evento, notas, efs) e os cartões da página; 'narr' (Narrativa/Mapa) passou a ser o cartão "O que vem" ('hz').
+ *  'tarefas' (Próximas tarefas) deixou de existir: virou parte da Agenda. */
+export const FOLD_BRIEFING_TO_VISAO = { frentes: 'frentes', atuacoes: 'atuacoes', diario: 'diario', fontes: 'fontes', lembretes: 'lembretes', checklists: 'checklists', evento: 'evento', notas: 'notas', efs: 'efs', narr: 'hz' };
+
+/**
+ * P6 · copia o que estava recolhido no escopo 'briefing' para o escopo 'visao', pelos ids novos. Só preenche o que
+ * ainda não tem escolha em 'visao' (nunca sobrescreve) — por isso pode rodar a cada carga sem efeito colateral.
+ * Devolve o MESMO objeto quando não há o que copiar (quem chama compara por identidade para saber se precisa gravar).
+ */
+export function foldMigrateBriefingToVisao(state) {
+  const from = state && state.briefing;
+  if (!foldIsObj(from)) return state;
+  let next = state;
+  Object.keys(FOLD_BRIEFING_TO_VISAO).forEach((oldId) => {
+    if (typeof from[oldId] !== 'boolean') return;
+    const newId = FOLD_BRIEFING_TO_VISAO[oldId];
+    if (next.visao && next.visao[newId] !== undefined) return;
+    next = foldSet(next, 'visao', newId, from[oldId]);
+  });
   return next;
 }

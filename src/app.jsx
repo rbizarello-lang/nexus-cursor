@@ -3144,7 +3144,10 @@ function App() {
     return () => { ['font-inter', 'font-outfit', 'font-source'].forEach(c => root.classList.remove(c)); };
   }, [appSettings.font]);
 
-  const [activeTab, setActiveTab] = useState('notas');
+  const [activeTabRaw, setActiveTab] = useState('notas');
+  // Nexus Prumo: a antiga aba "Briefing" ('notas') foi para dentro da Visão geral ('visao'); no Prumo 'notas' é só um apelido
+  // (busca global, "levar ao panorama", histórico, links). Clássico e Beta seguem com 'notas' exatamente como antes.
+  const activeTab = (isClaude && activeTabRaw === 'notas') ? 'visao' : activeTabRaw;
   const [panoFocusId, setPanoFocusId] = useState(null); // card aberto na faixa do Briefing
   const [agendaWeekStart, setAgendaWeekStart] = useState(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -6095,16 +6098,7 @@ function App() {
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction);
 
-      // Nexus Prumo: aba "Briefing" tem componente próprio (src/edition-claude.jsx).
-      // Clássico e Beta continuam com o painel abaixo, sem nenhuma mudança.
-      if (isClaude) {
-        return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
-          opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
-          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
-          onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
-          onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
-          onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
-      }
+      // Clássico e Beta: painel do Briefing abaixo. (No Prumo esta aba não existe: 'notas' é apelido de 'visao' — ver activeTab.)
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
       const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
@@ -9247,7 +9241,7 @@ function App() {
       : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||''))
     : '';
 
-  const tabList = isClaude ? ['visao','notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'] : ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
+  const tabList = isClaude ? ['visao','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'] : ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
   const tabLabels = { visao:'Visão geral', notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
   React.useEffect(() => {
     // Abas removidas (grafo, insights, timeline, Processos avulso) → Inscrições + Processos e Prescrição
@@ -12415,7 +12409,9 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
-        onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
+        onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+        setData={setData} setModal={setModal} prescLookup={prescLookup}
+        onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : mode === 'narrativa' ? 'narrativa' : 'panorama'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
       </>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>

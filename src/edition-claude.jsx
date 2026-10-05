@@ -77,9 +77,10 @@ const CX_IMP = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' };
 const CX_DIF = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const CX_HEARING = { instrucao: 'Audiência de instrução', conciliacao: 'Audiência de conciliação', una: 'Audiência una', justificacao: 'Audiência de justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 const CX_OP_COLORS = ['var(--cx-op1)', 'var(--cx-op2)', 'var(--cx-op3)', 'var(--cx-op4)', 'var(--cx-op5)', 'var(--cx-op6)'];
-const CX_OP_TABS = [['notas', 'Briefing'], ['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const CX_OP_TABS = [['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
 /* Partes e Bens são abas independentes (antes, uma aba só com seletor interno). */
-function cxTabOn(activeTab, key) { return activeTab === key; }
+/* 'notas' (antiga aba Briefing) virou parte da Visão geral: no Prumo é só um apelido de 'visao'. */
+function cxTabOn(activeTab, key) { return activeTab === key || (key === 'visao' && activeTab === 'notas'); }
 
 /* Registro global de operações por id, atualizado a cada render do App (ver app.jsx, perto de
    `opsById`). Permite que cxOpColor/CxOpSquare recebam só o id em telas que não têm o objeto
@@ -515,7 +516,7 @@ function EditionClaudeSidebar(p) {
           : m.alerts > 0 ? <span className="cx-dot" style={{ background: 'var(--cx-violet)' }} title={cxPl(m.alerts, 'CDA com prazo extintivo urgente', 'CDAs com prazo extintivo urgente')} /> : null}
       </div>
       {open ? <div className="cx-nav-sub">
-        <button type="button" className={'cx-nav-item' + (onOp && activeTab === 'visao' ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
+        <button type="button" className={'cx-nav-item' + (onOp && cxTabOn(activeTab, 'visao') ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
         {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={'cx-nav-item' + (onOp && cxTabOn(activeTab, t[0]) ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, t[0])}><span className="cx-lbl">{t[1]}</span></button>)}
       </div> : null}
     </div>;
@@ -3007,7 +3008,7 @@ function CxNarrItem({ it, todayIso, onOpen }) {
     </span>
   </div>;
 }
-function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, switchNode, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, shell, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
   const todayIso = localIso(new Date());
   const card = variant === 'card';
   const [cat, setCat] = React.useState('all');
@@ -3075,16 +3076,13 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, switchNo
     <CxSelect id={card ? 'cx-nr-proc-card' : 'cx-nr-proc'} pre="Processo" value={execId} onChange={v => { setExecId(v); setPastShown(NARR_PAST_STEP); }} options={[['', 'Todos']].concat(tl.procs.map(r => [r.x.e.id, cxExecTag(r.x.e) + ' ' + cxExecShortNum(r.x.e)]))} />
   </div>;
   if (card) {
-    return <CxFoldCard id="narr" scope="briefing" as="div" className="cx-bf-nr" ariaLabel="Narrativa da operação"
-      title={switchNode || <h5>Narrativa</h5>} count={listed.length} sub="o que vem: atrasado, esta semana, próxima, mais adiante"
-      summary={cxNarrSentence(sum)}
-      actions={onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}>
+    // Dentro do cartão "O que vem" (Visão geral): `shell` monta o cartão, o seletor de visão e o link da Linha do tempo.
+    return shell({ cls: 'cx-bf-nr', count: listed.length, summary: cxNarrSentence(sum), children:
       <div className="cx-nr-body">
         <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
         {chips}
         <div className="cx-nr-sc compact"><div className="cx-nr-story">{body}</div></div>
-      </div>
-    </CxFoldCard>;
+      </div> });
   }
   const pendRec = sum.pendingRec;
   return <div>
@@ -3117,21 +3115,30 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, switchNo
 function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa }) {
   return <EditionClaudeNarrative tl={tl} op={op} data={data} lead={lead} variant="page" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} />;
 }
-/* Card do Briefing: monta a régua de dados da operação e mostra UMA coisa por vez, a escolha no cabeçalho — "Narrativa" (o que
-   vem) ou "Mapa de frentes" (M3). A escolha fica lembrada neste navegador; sem frentes para mapear (nenhum IDPJ/MCF nem
-   processos vinculados), o mapa fica desabilitado. */
-const CX_BF_NR_VIEW = 'nexus_cx_bf_nr_view';
-function EditionClaudeNarrativeCard({ op, data, prescLookup, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+/* Cartão "O que vem" da Visão geral: UM cartão, três visões escolhidas num seletor no cabeçalho — "Horizonte" (os próximos
+   90 dias, em colunas de urgência), "Narrativa" (o que vem, em texto, por prazo) e "Mapa de frentes" (M3). A escolha fica
+   lembrada neste navegador; sem frentes para mapear (nenhum IDPJ/MCF nem processos vinculados), o mapa fica desabilitado.
+   Um só link para a Linha do tempo, que abre no modo da visão (Horizonte → Panorama). `shell` (função) monta o cartão e é
+   chamada por cada visão com o que é dela: contagem, resumo (recolhido), extras de cabeçalho e o corpo. */
+const CX_OQ_VIEW = 'nexus_cx_oq_view';
+function cxOqLoadView() { const v = cxLs(CX_OQ_VIEW, 'horizonte'); return v === 'narrativa' || v === 'mapa' ? v : 'horizonte'; }
+function CxOqVem({ op, data, prazosRadar, prescLookup, hz, nr, onOpenTimeline }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
-  const [saved, setSaved] = React.useState(() => (cxLs(CX_BF_NR_VIEW, 'narrativa') === 'mapa' ? 'mapa' : 'narrativa'));
+  const [saved, setSaved] = React.useState(cxOqLoadView);
   const canMap = React.useMemo(() => frentesHasFronts({ lanes: tl.procs.map(r => ({ incident: r.x.e.processTag === 'idpj' || r.x.e.processTag === 'cautelar_fiscal' })), links: tl.links }), [tl]);
-  const view = saved === 'mapa' && canMap ? 'mapa' : 'narrativa';
-  const pick = (v) => { setSaved(v); cxLsSet(CX_BF_NR_VIEW, v); };
-  const sw = <CxSeg label="O que mostrar neste card" value={view} onChange={pick}
-    options={[['narrativa', 'Narrativa'], ['mapa', 'Mapa de frentes', null, null, canMap ? null : { disabled: true, title: CX_FR_NOHINT }]]} />;
-  const openTl = onOpenTimeline ? () => onOpenTimeline(view === 'mapa' ? 'frentes' : 'narrativa') : null; // a Linha do tempo abre no modo do card
-  if (view === 'mapa') return <EditionClaudeFrentes key={op.id + '|mapa'} tl={tl} op={op} variant="card" switchNode={sw} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTimeline={openTl} />;
-  return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" switchNode={sw} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenTimeline={openTl} />;
+  const view = saved === 'mapa' && !canMap ? 'horizonte' : saved;
+  const pick = (v) => { setSaved(v); cxLsSet(CX_OQ_VIEW, v); };
+  const sw = <CxSeg className="cx-oq-sw" label="O que mostrar neste cartão" value={view} onChange={pick}
+    options={[['horizonte', 'Horizonte'], ['narrativa', 'Narrativa'], ['mapa', 'Mapa de frentes', null, null, canMap ? null : { disabled: true, title: CX_FR_NOHINT }]]} />;
+  const tlMode = view === 'mapa' ? 'frentes' : view === 'narrativa' ? 'narrativa' : 'panorama';
+  const shell = ({ cls, count, sub, summary, extras, children }) => <CxFoldCard id="hz" scope="visao" as="h2" className={'cx-oq ' + (cls || '')} title="O que vem" ariaLabel="O que vem" count={count} sub={sub} summary={summary}
+    actions={<>
+      {sw}{extras || null}
+      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={() => onOpenTimeline(tlMode)}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}
+    </>}>{children}</CxFoldCard>;
+  if (view === 'mapa') return <EditionClaudeFrentes key={op.id + '|mapa'} tl={tl} op={op} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} />;
+  if (view === 'narrativa') return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} onOpenTask={nr.onOpenTask} onOpenProativa={nr.onOpenProativa} />;
+  return <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} shell={shell} onOpenIntim={hz.onOpenIntim} onOpenHearing={hz.onOpenHearing} onOpenTask={hz.onOpenTask} onOpenCda={hz.onOpenCda} />;
 }
 
 /* ═════════════════════ Mapa de frentes e dependências (M3, estilo metrô) ═════════════════════
@@ -3353,7 +3360,7 @@ function CxFrCrit({ graph, crit, onOpen }) {
     </button>;
   })}</div>;
 }
-function EditionClaudeFrentes({ tl, op, variant = 'page', lead, switchNode, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTimeline }) {
+function EditionClaudeFrentes({ tl, op, variant = 'page', lead, shell, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
   const card = variant === 'card';
   const todayIso = localIso(new Date());
   const graph = React.useMemo(() => cxBuildFrentesGraph(tl, op, todayIso), [tl, op, todayIso]);
@@ -3378,11 +3385,7 @@ function EditionClaudeFrentes({ tl, op, variant = 'page', lead, switchNode, onOp
       <p className="cx-fr-note cx-muted cx-small">Cada coluna é um acontecimento, na ordem das datas (a distância não vale tempo). Setas e estações vazadas ou tracejadas saem dos vínculos entre processos e das fases registradas; nenhuma é fato novo.{graph.orphans ? ' ' + cxPl(graph.orphans, 'audiência sem número de processo fica', 'audiências sem número de processo ficam') + ' fora do mapa.' : ''} Tarefas e revisões não entram.</p>
     </>;
   if (card) {
-    return <CxFoldCard id="narr" scope="briefing" as="div" className="cx-bf-nr cx-bf-fr" ariaLabel="Mapa de frentes e dependências"
-      title={switchNode} count={nReal} sub="o que depende de quê"
-      actions={<>{graph.hasFronts ? critBtn : null}{onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}</>}>
-      <div className="cx-nr-body">{body}</div>
-    </CxFoldCard>;
+    return shell({ cls: 'cx-bf-nr cx-bf-fr', count: nReal, sub: 'o que depende de quê', extras: graph.hasFronts ? critBtn : null, children: <div className="cx-nr-body">{body}</div> });
   }
   return <div>
     <div className="cx-tl-tools">{lead}<span className="cx-sp" />{graph.hasFronts ? critBtn : null}</div>
@@ -3393,7 +3396,7 @@ function EditionClaudeTimelineFrentes({ tl, op, lead, onOpenIntim, onOpenHearing
   return <EditionClaudeFrentes tl={tl} op={op} variant="page" lead={lead} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
 }
 
-/* ═════════════════════ Atuações recentes (Briefing) ═════════════════════
+/* ═════════════════════ Atuações recentes (Visão geral) ═════════════════════
    O que a operação já recebeu de mim: respostas a intimações, tarefas concluídas e atuações proativas, da mais
    recente para a mais antiga (agregação pura em src/lib/atuacoes.js), 10 por vez. É o passado, sozinho: a Narrativa
    do Briefing cuida do que vem. "Registrar atuação" precisa de um processo: abre a escolha do processo e, em seguida,
@@ -3427,7 +3430,7 @@ function CxAtuProcPicker({ execs, onPick, onClose }) {
     </div>
   </>;
 }
-function EditionClaudeAtuacoesRecentes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa }) {
+function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa }) {
   const [shown, setShown] = React.useState(CX_UA_STEP);
   const [step, setStep] = React.useState(null); // null · 'pick' · { exec } (formulário)
   const rows = React.useMemo(
@@ -3448,7 +3451,7 @@ function EditionClaudeAtuacoesRecentes({ op, data, execs, upsert, onOpenIntim, o
     return '';
   };
   return <>
-    <CxFoldCard id="atuacoes" scope="briefing" as="h5" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
+    <CxFoldCard id="atuacoes" scope="visao" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
       summary={rows.length ? 'última: ' + (rows[0].title || rows[0].kindLabel) : 'nenhuma registrada'}
       actions={
         <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
@@ -3659,7 +3662,7 @@ function cxBuildHorizon(data, opIds, prazosRadar, todayIso) {
   return { items, columns, buckets, busy, end: addCalendarDays(todayIso, HORIZON_DAYS) };
 }
 const CX_HZ_TONE = { late: 'var(--cx-red)', today: 'var(--cx-orange)', soon: 'var(--cx-yellow)', later: 'var(--cx-ink-3)', none: 'var(--cx-ink-3)' };
-function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHearing, onOpenTask, onOpenCda, onOpenTimeline }) {
+function EditionClaudeHorizon({ data, opIds, prazosRadar, shell, onOpenIntim, onOpenHearing, onOpenTask, onOpenCda }) {
   const todayIso = localIso(new Date());
   const hz = React.useMemo(() => cxBuildHorizon(data, opIds, prazosRadar, todayIso), [data, opIds.join(','), prazosRadar, todayIso]);
   const [open, setOpen] = React.useState(() => new Set());
@@ -3689,14 +3692,10 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHea
   const total = hz.items.length;
   const lateN = hz.buckets.late.length;
   const rowsDef = HORIZON_ROWS;
-  return <CxFoldCard id="hz" scope="visao" title="Próximos 90 dias" className="cx-hz" ariaLabel="Próximos 90 dias"
-    summary={total + (total === 1 ? ' item' : ' itens') + ' no horizonte' + (lateN ? ' · ' + lateN + (lateN === 1 ? ' atrasado' : ' atrasados') : '')}
-    actions={<>
-      <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>
-      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={onOpenTimeline}>Ver linha do tempo completa<CxIcon n="chevR" s={13} /></button> : null}
-    </>}>
+  const summary = total + (total === 1 ? ' item' : ' itens') + ' nos próximos 90 dias' + (lateN ? ' · ' + lateN + (lateN === 1 ? ' atrasado' : ' atrasados') : '');
+  return shell({ cls: 'cx-hz', summary, extras: <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>, children: <>
     <div className="cx-hz-h">
-      <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} no horizonte{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
+      <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} nos próximos 90 dias{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
       <span className="cx-hz-key"><i className="cx-hz-sw busy" />dia com 3 ou mais itens<span className="cx-hz-off-k" title="Dias de semana sem expediente: feriado nacional, recesso forense (20/12 a 20/01) ou dia marcado no calendário local (⚙)">● dia não útil</span></span>
     </div>
     <div className="cx-hz-scroll">
@@ -3726,7 +3725,7 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, onOpenIntim, onOpenHea
         </React.Fragment>)}
       </div>
     </div>
-  </CxFoldCard>;
+  </> });
 }
 
 /* ═════════════════════ Visão geral da operação ═════════════════════ */
@@ -3772,6 +3771,9 @@ function EditionClaudeOpDesc({ op, upsert }) {
     <button type="button" className="cx-icon-btn cx-sm cx-opd-pen" onClick={() => setEditing(true)} title="Editar descrição" aria-label="Editar descrição"><CxIcon n="edit" s={13} /></button>
   </div>;
 }
+/* Cartões da Visão geral (CxFoldAllBar): o que "Recolher tudo / Expandir tudo" alcança. Os blocos de dentro de cada frente
+   (evento, notas, efs) ficam de fora de propósito. */
+const CX_OV_FOLD_IDS = ['hz', 'intim', 'frentes', 'atuacoes', 'diario', 'presc', 'agenda', 'checklists', 'lembretes', 'fontes'];
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
   const rs = cxRS(op);
@@ -3800,9 +3802,20 @@ function EditionClaudeOpOverview(p) {
     revisaoAtrasadaDias: rs.overdue && rs.daysLeft != null ? -rs.daysLeft : null,
     audiencia: nextHearing ? { dias: daysUntil(nextHearing.date), tipo: (CX_HEARING[nextHearing.hearingType] || '').replace(/^Audiência( de)? /i, '').toLowerCase(), iso: toDayKey(nextHearing.date), time: nextHearing.time || '' } : null,
   }) : '';
+  const fold = cxUseFold('visao');
+  const [diaryEditId, setDiaryEditId] = React.useState(null);
+  const [proView, setProView] = React.useState(null); // { execId, actionId } — leitura de uma atuação proativa (Atuações recentes e Narrativa)
+  const opExecs = React.useMemo(() => (data.executions || []).filter(e => e.operationId === op.id), [data.executions, op.id]);
+  const opDebts = React.useMemo(() => (data.debts || []).filter(d => d.operationId === op.id), [data.debts, op.id]);
+  const moreH = Math.max(0, hearings.length - 3), moreT = Math.max(0, tasks.length - 5);
+  const proExec = proView ? opExecs.find(x => x.id === proView.execId) : null;
+  const proAct = proExec ? (proExec.proactiveActions || []).find(x => x.id === proView.actionId) : null;
+  const openProativa = (execId, actionId) => setProView({ execId, actionId });
+  const editTask = (t) => p.setModal({ type: 'edit', entityType: 'task', initial: t });
   return <div className="cx cx-page cx-page-wide cx-op-page">
     <EditionClaudeOpDesc key={op.id} op={op} upsert={p.upsert} />
     {s ? <CxResumo text={resumo} className="cx-rs-op" /> : null}
+    <CxBfNews data={data} opId={op.id} setData={p.setData} />
     {s ? <CxKpiStrip n={4} dense={false} className="cpair">
       <CxKpiCard label="Dívida total" value={cxMoneyShort(s.total)} desc={cxPl(s.debts, 'CDA', 'CDAs') + (opCartShare !== null ? ' · ' + opCartShare + '% da carteira' : '')} onClick={() => p.onTab('dividas')}
         pair={{ label: 'Cobertura', value: s.coverageGrand > 0 ? s.covPct + '%' : '—', note: 'pelos incidentes', tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' }} />
@@ -3816,39 +3829,55 @@ function EditionClaudeOpOverview(p) {
       <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
         pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
     </CxKpiStrip> : null}
-    <CxFoldAllBar scope="visao" ids={['hz', 'intim', 'presc', 'agenda']} />
-    <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenTask={p.onOpenTask} onOpenCda={p.onOpenCda} onOpenTimeline={p.onOpenTimeline} />
-    <div className="cx-home-grid">
-      <CxFoldCard id="intim" scope="visao" title="Intimações abertas" count={open.length}
-        summary={lateIntims.length ? cxPl(lateIntims.length, 'vencida', 'vencidas') : open.length ? 'nenhuma vencida' : 'nenhuma aberta'}>
-        {open.length ? open.slice(0, 10).map(i => <button key={i.id} type="button" className="cx-q-row cx-q-compact" onClick={() => p.onOpenIntim(i.id)}>
-          <span className="cx-q-ic"><CxStatusIcon s={i.status} /></span>
-          <span className="cx-q-main"><span className="cx-q-title">{intimIsUrgent(i) ? <span className="cx-urg">URGENTE</span> : null}<b>{cxPartyName(i)}</b></span><span className="cx-q-meta"><CxObj intim={i} /></span></span>
-          <span className="cx-q-glyph"><CxImp intim={i} /></span>
-          <span className="cx-q-due"><CxDue iso={i.dateDeadline} /></span>
-        </button>) : <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
-        {open.length > 10 ? <div className="cx-more">+{open.length - 10} na lista de Intimações</div> : null}
-      </CxFoldCard>
-      <div className="cx-col">
-        <CxFoldCard id="presc" scope="visao" title="Prazos extintivos"
-          summary={split.needsYou.length ? cxPl(split.needsYou.length, 'CDA exige decisão', 'CDAs exigem decisão') : 'nada exige decisão agora'}
-          actions={<button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button>}>
-          {split.needsYou.length ? split.needsYou.slice(0, 5).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => p.onOpenCda(r)}>
-            <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
-            <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
-            <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
-          </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
-          <div style={{ height: 6 }} />
-        </CxFoldCard>
-        <CxFoldCard id="agenda" scope="visao" title="Agenda" count={hearings.length + tasks.length}
-          summary={cxPl(hearings.length, 'audiência', 'audiências') + ' · ' + cxPl(tasks.length, 'tarefa', 'tarefas')}>
-          {hearings.slice(0, 3).map(h => <button key={h.id} type="button" className="cx-dl-item" onClick={() => p.onOpenHearing(h)}><CxIcon n="gavel" s={13} className="cx-muted" /><span className="cx-t">{(CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : '')}</span><CxDue iso={h.date} /></button>)}
-          {tasks.slice(0, 5).map(t => <button key={t.id} type="button" className="cx-dl-item" onClick={() => p.onOpenTask(t)}><CxPrio v={t.priority} /><span className="cx-t">{t.title || t.description || 'Tarefa'}</span>{t.dueDate ? <CxDue iso={t.dueDate} /> : <span className="cx-muted cx-small">sem data</span>}</button>)}
-          {!hearings.length && !tasks.length ? <div className="cx-empty-row">Sem audiências marcadas nem tarefas abertas.</div> : null}
-          <div style={{ height: 6 }} />
-        </CxFoldCard>
+    <CxFoldAllBar scope="visao" ids={CX_OV_FOLD_IDS} />
+    <div className="cx-ov-stack">
+      <CxBfLead op={op} onEdit={(id) => { fold.set('diario', false); setDiaryEditId(id); }} />
+      <CxOqVem op={op} data={data} prazosRadar={prazosRadar} prescLookup={p.prescLookup} onOpenTimeline={p.onOpenTimeline}
+        hz={{ onOpenIntim: p.onOpenIntim, onOpenHearing: p.onOpenHearing, onOpenTask: p.onOpenTask, onOpenCda: p.onOpenCda }}
+        nr={{ onOpenIntim: p.onOpenIntim, onOpenHearing: (h) => p.setModal({ type: 'edit', entityType: 'hearing', initial: h }), onOpenCda: p.onOpenCdaDrawer, onOpenProc: p.onOpenProc, onOpenTask: editTask, onOpenProativa: openProativa }} />
+      <div className="cx-ov-grid">
+        <div className="cx-ov-main">
+          <CxFoldCard id="intim" scope="visao" title="Intimações abertas" count={open.length}
+            summary={lateIntims.length ? cxPl(lateIntims.length, 'vencida', 'vencidas') : open.length ? 'nenhuma vencida' : 'nenhuma aberta'}>
+            {open.length ? open.slice(0, 10).map(i => <button key={i.id} type="button" className="cx-q-row cx-q-compact" onClick={() => p.onOpenIntim(i.id)}>
+              <span className="cx-q-ic"><CxStatusIcon s={i.status} /></span>
+              <span className="cx-q-main"><span className="cx-q-title">{intimIsUrgent(i) ? <span className="cx-urg">URGENTE</span> : null}<b>{cxPartyName(i)}</b></span><span className="cx-q-meta"><CxObj intim={i} /></span></span>
+              <span className="cx-q-glyph"><CxImp intim={i} /></span>
+              <span className="cx-q-due"><CxDue iso={i.dateDeadline} /></span>
+            </button>) : <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
+            {open.length > 10 ? <div className="cx-more">+{open.length - 10} na lista de Intimações</div> : null}
+          </CxFoldCard>
+          <CxBfFronts op={op} opExecs={opExecs} opDebts={opDebts} upsert={p.upsert} setModal={p.setModal} onOpenTab={p.onTab} />
+          <CxBfAtuacoes op={op} data={data} execs={opExecs} upsert={p.upsert} onOpenIntim={p.onOpenIntim} onOpenTask={editTask} onOpenProativa={openProativa} />
+          <CxBfDiary op={op} upsert={p.upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
+        </div>
+        <aside className="cx-ov-rail" aria-label="Apoio da operação">
+          <CxFoldCard id="presc" scope="visao" title="Prazos extintivos"
+            summary={split.needsYou.length ? cxPl(split.needsYou.length, 'CDA exige decisão', 'CDAs exigem decisão') : 'nada exige decisão agora'}
+            actions={<button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button>}>
+            {split.needsYou.length ? split.needsYou.slice(0, 5).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => p.onOpenCda(r)}>
+              <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
+              <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
+              <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
+            </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
+            <div style={{ height: 6 }} />
+          </CxFoldCard>
+          {/* Agenda: audiências e tarefas (absorve as antigas "Próximas tarefas" do Briefing) */}
+          <CxFoldCard id="agenda" scope="visao" title="Agenda" count={hearings.length + tasks.length}
+            summary={cxPl(hearings.length, 'audiência', 'audiências') + ' · ' + cxPl(tasks.length, 'tarefa', 'tarefas')}
+            actions={<button type="button" className="cx-link-btn" onClick={() => p.onTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button>}>
+            {hearings.slice(0, 3).map(h => <button key={h.id} type="button" className="cx-dl-item" onClick={() => p.onOpenHearing(h)}><CxIcon n="gavel" s={13} className="cx-muted" /><span className="cx-t">{(CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : '')}</span><CxDue iso={h.date} /></button>)}
+            {tasks.slice(0, 5).map(t => <button key={t.id} type="button" className="cx-dl-item" onClick={() => p.onOpenTask(t)}><CxPrio v={t.priority} /><span className="cx-t">{t.title || t.description || 'Tarefa'}</span>{t.dueDate ? <CxDue iso={t.dueDate} /> : <span className="cx-muted cx-small">sem data</span>}</button>)}
+            {!hearings.length && !tasks.length ? <div className="cx-empty-row">Sem audiências marcadas nem tarefas abertas.</div> : <div style={{ height: 6 }} />}
+            {moreH || moreT ? <div className="cx-more">+ {[moreH ? cxPl(moreH, 'audiência', 'audiências') : '', moreT ? cxPl(moreT, 'tarefa', 'tarefas') : ''].filter(Boolean).join(' · ')} · veja em Agenda e Tarefas</div> : null}
+          </CxFoldCard>
+          <CxBfChecklists op={op} upsert={p.upsert} />
+          <CxBfReminders data={data} opId={op.id} setModal={p.setModal} />
+          <CxBfSources op={op} upsert={p.upsert} />
+        </aside>
       </div>
     </div>
+    {proAct ? <EditionClaudeAtuacaoView exec={proExec} action={proAct} onClose={() => setProView(null)} /> : null}
   </div>;
 }
 
@@ -4562,7 +4591,7 @@ function EditionClaudeOpHeader(p) {
     <div className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
     {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
     <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
-      <button type="button" className={activeTab === 'visao' ? 'on' : ''} aria-current={activeTab === 'visao' ? 'page' : undefined} onClick={() => { if (activeTab !== 'visao') p.onTab('visao'); }}>Visão geral</button>
+      <button type="button" className={cxTabOn(activeTab, 'visao') ? 'on' : ''} aria-current={cxTabOn(activeTab, 'visao') ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, 'visao')) p.onTab('visao'); }}>Visão geral</button>
       {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
     </nav>
   </div>;
@@ -4783,12 +4812,18 @@ function cxFoldLoad() {
   if (cxFoldStore) return cxFoldStore;
   let raw = null;
   try { raw = localStorage.getItem(FOLD_KEY); } catch (e) { raw = null; }
-  if (raw !== null) { cxFoldStore = foldParse(raw); return cxFoldStore; }
-  // 1ª vez: traz o que as chaves antigas guardavam (Painel, cartões do Briefing, Horizonte) e passa a ler só a nova.
-  const legacy = {};
-  try { legacy.painel = localStorage.getItem(FOLD_LEGACY_KEYS.painel); legacy.briefing = localStorage.getItem(FOLD_LEGACY_KEYS.briefing); legacy.horizonte = localStorage.getItem(FOLD_LEGACY_KEYS.horizonte); } catch (e) { /* sem armazenamento */ }
-  cxFoldStore = foldMigrateLegacy({}, legacy);
-  try { localStorage.setItem(FOLD_KEY, JSON.stringify(cxFoldStore)); } catch (e) { /* ignore */ }
+  let st;
+  if (raw !== null) st = foldParse(raw);
+  else {
+    // 1ª vez: traz o que as chaves antigas guardavam (Painel, cartões do Briefing, Horizonte) e passa a ler só a nova.
+    const legacy = {};
+    try { legacy.painel = localStorage.getItem(FOLD_LEGACY_KEYS.painel); legacy.briefing = localStorage.getItem(FOLD_LEGACY_KEYS.briefing); legacy.horizonte = localStorage.getItem(FOLD_LEGACY_KEYS.horizonte); } catch (e) { /* sem armazenamento */ }
+    st = foldMigrateLegacy({}, legacy);
+  }
+  // P6: os cartões do Briefing passaram para a Visão geral (escopo 'visao'); copia o que estava recolhido, sem sobrescrever.
+  const moved = foldMigrateBriefingToVisao(st);
+  cxFoldStore = moved;
+  if (raw === null || moved !== st) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(cxFoldStore)); } catch (e) { /* ignore */ } }
   return cxFoldStore;
 }
 function cxFoldCommit(next) {
@@ -5020,7 +5055,7 @@ function cxStageDelRec(op, upsert, execId, sk) {
 /* Diário — mesma persistência (materialize/persist) e o mesmo formato de
  * briefing.entries que o BriefingStrategyPanel clássico, com outra apresentação:
  * data na margem, filtro por tipo sempre visível (com contagem), editor inline. */
-function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed }) {
+function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
   const briefing = op.briefing || {};
   const entries = getBriefingEntries(briefing);
   const [composer, setComposer] = React.useState(null); // null | { mode:'new'|'edit', entry }
@@ -5079,7 +5114,7 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
     <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
   </div>);
 
-  return (<CxFoldCard id="diario" scope="briefing" as="h5" title="Diário" summary={cxPl(countByType.all, 'entrada', 'entradas')}
+  return (<CxFoldCard id="diario" scope="visao" title="Diário" summary={cxPl(countByType.all, 'entrada', 'entradas')}
     actions={<div className="cx-bf-diary-filters">
       <button type="button" className={filterType === 'all' ? 'on' : ''} onClick={() => setFilterType('all')}>Todos<i>{countByType.all}</i></button>
       {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <button key={k} type="button" className={filterType === k ? 'on' : ''} onClick={() => setFilterType(k)}>{v.label}<i>{countByType[k] || 0}</i></button>)}
@@ -5112,45 +5147,92 @@ function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed 
   </CxFoldCard>);
 }
 
-/* Estado (localStorage) do recolher/expandir de cada frente processual (por id da frente — item 11)
-   Os três blocos da área de trabalho da fase (item 12) e os cartões da página usam cxUseFold('briefing'). */
+/* ─── Seções do antigo Briefing, agora parte da Visão geral (P6) ───
+   Cada seção é um componente próprio: lê `op.briefing`/os dados e grava pelas mesmas funções do app (upsert, setModal,
+   setData), como o Briefing fazia. Os cartões usam o escopo de recolher/expandir 'visao' (cxUseFold). A aba "Briefing"
+   deixou de existir no Prumo ('notas' é só um apelido de 'visao'); o Clássico e a Beta seguem com o painel antigo. */
+
+/* Estado (localStorage) do recolher/expandir de cada frente processual (por id da frente — item 11).
+   Os três blocos da área de trabalho da fase (item 12: evento, notas, efs) e os cartões da página usam cxUseFold('visao'). */
 function cxLoadBfLanes() {
   try { const raw = JSON.parse(localStorage.getItem('nexus_cx_bf_lanes') || 'null'); if (raw && typeof raw === 'object') return raw; } catch (e) { /* ignore */ }
   return {};
 }
 function cxSaveBfLanes(v) { try { localStorage.setItem('nexus_cx_bf_lanes', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function EditionClaudeBriefing(p) {
-  const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
+
+/* Novidades do último import (faixa no topo da Visão geral) */
+function CxBfNews({ data, opId, setData }) {
+  const [newsOpen, setNewsOpen] = React.useState(false);
+  const opLogs = (data.importLogs || []).filter(l => l.operationId === opId && l.diff && !l.seen).sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  const lastLog = opLogs[0];
+  const d = lastLog && lastLog.diff;
+  const newsTotal = d ? ((d.newDebts?.length || 0) + (d.newExecs?.length || 0) + (d.newAssets?.length || 0) + (d.newPeople?.length || 0) + (d.changedDebts?.length || 0) + (d.changedAssets?.length || 0)) : 0;
+  return (<>
+    {lastLog && newsTotal > 0 && (
+      <div className="cx-bf-news">
+        <span className="cx-bf-news-ic">{newsTotal}</span>
+        <b>Novidades do último import</b>
+        <span className="cx-muted">{new Date(lastLog.timestamp).toLocaleString('pt-BR')} · {(lastLog.fileNames || []).join(', ')}</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm" onClick={() => setNewsOpen(o => !o)}>{newsOpen ? 'Ocultar' : 'Ver'}</button>
+        <button type="button" className="cx-btn sm ghost" onClick={() => setData(prev => ({ ...prev, importLogs: (prev.importLogs || []).map(l => l.id === lastLog.id ? { ...l, seen: true } : l) }))}>✓ Marcar como visto</button>
+      </div>
+    )}
+    {newsOpen && d && (
+      <div className="cx-bf-news-detail">
+        {d.newDebts?.length > 0 && <div><b className="cx-green-t">+ {d.newDebts.length} CDA(s) nova(s)</b>{d.newDebts.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.cdaNumber || 'CDA'} — {fmtCur(x.value || 0)}</div>)}</div>}
+        {d.newExecs?.length > 0 && <div><b className="cx-green-t">+ {d.newExecs.length} processo(s) novo(s)</b>{d.newExecs.slice(0, 6).map(x => <div key={x.id} className="cx-small cx-mono">{x.processNumber || 'S/N'}</div>)}</div>}
+        {d.newAssets?.length > 0 && <div><b className="cx-green-t">+ {d.newAssets.length} bem(ns) novo(s)</b>{d.newAssets.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.description || 'Bem'}</div>)}</div>}
+        {d.newPeople?.length > 0 && <div><b className="cx-green-t">+ {d.newPeople.length} pessoa(s) nova(s)</b>{d.newPeople.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.name}</div>)}</div>}
+        {d.changedDebts?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedDebts.length} CDA(s) alterada(s)</b></div>}
+        {d.changedAssets?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedAssets.length} bem(ns) alterado(s)</b></div>}
+      </div>
+    )}
+  </>);
+}
+
+/* Leitura da operação: a entrada fixada mais recente do Diário (mesma regra do relatório). Some quando não há entrada fixada. */
+function CxBfLead({ op, onEdit }) {
+  const [expandedPinned, setExpandedPinned] = React.useState(false);
+  const entries = getBriefingEntries(op.briefing || {});
+  const pinned = entries.filter(e => e && e.pinned);
+  const highlight = pickHighlightEntry(entries);
+  const otherPinned = highlight ? pinned.filter(e => e.id !== highlight.id) : [];
+  if (!highlight) return null;
+  return (
+    <section className="cx-card cx-bf-lead">
+        <div className="cx-bf-lead-hd">
+          <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
+          <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
+          <span className="cx-sp" />
+          <button type="button" className="cx-bf-ic" title="Editar" onClick={() => onEdit(highlight.id)}>✎</button>
+        </div>
+        <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: highlight.html || '' }} />
+        <div className="cx-bf-lead-ft">
+          <span className="cx-muted cx-small">{(highlight.type === 'estrategia' ? 'Estratégia fixada mais recente' : 'Entrada fixada mais recente')}{otherPinned.length ? ` · mais ${otherPinned.length} fixada${otherPinned.length > 1 ? 's' : ''}` : ''}</span>
+          {otherPinned.length > 0 && <button type="button" className="cx-link" onClick={() => setExpandedPinned(o => !o)}>{expandedPinned ? 'Ocultar ▴' : 'Ver as outras ▾'}</button>}
+        </div>
+        {expandedPinned && otherPinned.map(en => {
+          const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
+          return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
+        })}
+    </section>
+  );
+}
+
+/* Frentes processuais: IDPJ + MCF + Central + EF levada ao panorama, cada uma com a régua de fases, texto do evento, notas e EFs cobertas */
+function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
   const briefing = op.briefing || {};
   const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
   const isLaneOpen = (frontId) => laneOpenMap[frontId] === true;
   const toggleLane = (frontId) => setLaneOpenMap(prev => { const next = { ...prev, [frontId]: !isLaneOpen(frontId) }; cxSaveBfLanes(next); return next; });
-  const fold = cxUseFold('briefing'); // cartões da página e os 3 blocos de cada frente (evento, notas, efs): mesmo estado
-  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
-  const [expandedPinned, setExpandedPinned] = React.useState(false);
+  const fold = cxUseFold('visao'); // blocos de cada frente (evento, notas, efs): mesmo estado dos cartões da página
   const [selected, setSelected] = React.useState({}); // execId -> stage key selecionada
   const [popup, setPopup] = React.useState(null); // { execId, sk }
   const [addMenu, setAddMenu] = React.useState(null); // execId
   const [laneMenu, setLaneMenu] = React.useState(null); // execId
-  const [linkAdd, setLinkAdd] = React.useState(false);
-  const [diaryEditId, setDiaryEditId] = React.useState(null);
-  const [proView, setProView] = React.useState(null); // { execId, actionId } — leitura de uma atuação proativa
-
   const setRec = (execId, sk, patch) => cxStageSetRec(op, upsert, execId, sk, patch);
   const delRec = (execId, sk) => cxStageDelRec(op, upsert, execId, sk);
-
-  /* ── Novidades do último import ── */
-  const opLogs = (data.importLogs || []).filter(l => l.operationId === opId && l.diff && !l.seen).sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  const lastLog = opLogs[0];
-  const [newsOpen, setNewsOpen] = React.useState(false);
-  const d = lastLog && lastLog.diff;
-  const newsTotal = d ? ((d.newDebts?.length || 0) + (d.newExecs?.length || 0) + (d.newAssets?.length || 0) + (d.newPeople?.length || 0) + (d.changedDebts?.length || 0) + (d.changedAssets?.length || 0)) : 0;
-
-  /* ── Leitura da operação (mesma regra do relatório) ── */
-  const entries = getBriefingEntries(briefing);
-  const pinned = entries.filter(e => e && e.pinned);
-  const highlight = pickHighlightEntry(entries);
-  const otherPinned = highlight ? pinned.filter(e => e.id !== highlight.id) : [];
 
   /* ── Frentes processuais: IDPJ + MCF + Central + EF levada ao panorama ── */
   const idpjs = opExecs.filter(isIncidentOnPanorama);
@@ -5193,38 +5275,6 @@ function EditionClaudeBriefing(p) {
     return { front, bm, STAGES, stageKeys, recs, metas, visible, covered, coveredVal, focused };
   });
 
-  /* ── Fontes ── */
-  const links = briefing.externalLinks || [];
-  const migratedLinks = [...links];
-  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migratedLinks.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
-  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migratedLinks.push({ label: 'Resumos e anotações', url: briefing.docUrl });
-  const setLinks = (next) => updateBriefing('externalLinks', next);
-  const removeLink = (idx) => { const next = [...migratedLinks]; next.splice(idx, 1); setLinks(next); };
-  const addLink = (url) => {
-    if (!url) return;
-    let label = 'Link';
-    try { label = new URL(url).hostname.replace('www.', '').split('.')[0]; } catch { /* mantém padrão */ }
-    setLinks([...migratedLinks, { label, url }]);
-  };
-
-  /* ── Lembretes ── */
-  const reminders = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-
-  /* ── Checklists ── */
-  const chk = briefing.checklists || {};
-  const toggleChk = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
-  const idpjItems = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
-  const vistaItems = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
-  const checklistGroups = [
-    { label: '1ª vista da operação', items: vistaItems },
-    { label: 'Decisão final do IDPJ', items: idpjItems },
-  ];
-  const checklistDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
-  const checklistTotal = idpjItems.length + vistaItems.length;
-
-  /* ── Próximas tarefas ── */
-  const nextTasks = [...opTasks].filter(t => t.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 3);
-
   const addStage = (front, sk) => {
     const sd = front.STAGES ? front.STAGES[sk] : null;
     const target = sd || (isEfStylePanoramaCard(front.front) ? CENTRAL_STAGES : PROCESS_STAGES)[sk];
@@ -5252,285 +5302,252 @@ function EditionClaudeBriefing(p) {
     setPopup({ execId: front.front.id, sk });
     setAddMenu(null);
   };
-  return (<div className="cx cx-page cx-page-wide cx-bf">
-    {lastLog && newsTotal > 0 && (
-      <div className="cx-bf-news">
-        <span className="cx-bf-news-ic">{newsTotal}</span>
-        <b>Novidades do último import</b>
-        <span className="cx-muted">{new Date(lastLog.timestamp).toLocaleString('pt-BR')} · {(lastLog.fileNames || []).join(', ')}</span>
-        <span className="cx-sp" />
-        <button type="button" className="cx-btn sm" onClick={() => setNewsOpen(o => !o)}>{newsOpen ? 'Ocultar' : 'Ver'}</button>
-        <button type="button" className="cx-btn sm ghost" onClick={() => setData(prev => ({ ...prev, importLogs: (prev.importLogs || []).map(l => l.id === lastLog.id ? { ...l, seen: true } : l) }))}>✓ Marcar como visto</button>
-      </div>
-    )}
-    {newsOpen && d && (
-      <div className="cx-bf-news-detail">
-        {d.newDebts?.length > 0 && <div><b className="cx-green-t">+ {d.newDebts.length} CDA(s) nova(s)</b>{d.newDebts.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.cdaNumber || 'CDA'} — {fmtCur(x.value || 0)}</div>)}</div>}
-        {d.newExecs?.length > 0 && <div><b className="cx-green-t">+ {d.newExecs.length} processo(s) novo(s)</b>{d.newExecs.slice(0, 6).map(x => <div key={x.id} className="cx-small cx-mono">{x.processNumber || 'S/N'}</div>)}</div>}
-        {d.newAssets?.length > 0 && <div><b className="cx-green-t">+ {d.newAssets.length} bem(ns) novo(s)</b>{d.newAssets.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.description || 'Bem'}</div>)}</div>}
-        {d.newPeople?.length > 0 && <div><b className="cx-green-t">+ {d.newPeople.length} pessoa(s) nova(s)</b>{d.newPeople.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.name}</div>)}</div>}
-        {d.changedDebts?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedDebts.length} CDA(s) alterada(s)</b></div>}
-        {d.changedAssets?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedAssets.length} bem(ns) alterado(s)</b></div>}
-      </div>
-    )}
-
-    <div className="cx-bf-grid">
-      <div className="cx-bf-main">
-        {/* Leitura da operação */}
-        {highlight ? (<section className="cx-card cx-bf-lead">
-            <div className="cx-bf-lead-hd">
-              <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
-              <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
-              <span className="cx-sp" />
-              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => { fold.set('diario', false); setDiaryEditId(highlight.id); }}>✎</button>
-            </div>
-            <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: highlight.html || '' }} />
-            <div className="cx-bf-lead-ft">
-              <span className="cx-muted cx-small">{(highlight.type === 'estrategia' ? 'Estratégia fixada mais recente' : 'Entrada fixada mais recente')}{otherPinned.length ? ` · mais ${otherPinned.length} fixada${otherPinned.length > 1 ? 's' : ''}` : ''}</span>
-              {otherPinned.length > 0 && <button type="button" className="cx-link" onClick={() => setExpandedPinned(o => !o)}>{expandedPinned ? 'Ocultar ▴' : 'Ver as outras ▾'}</button>}
-            </div>
-            {expandedPinned && otherPinned.map(en => {
-              const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-              return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
-            })}
-        </section>) : null}
-
-        {/* Frentes processuais */}
-        <CxFoldCard id="frentes" scope="briefing" as="h5" className="cx-bf-fronts" title="Frentes processuais" count={fronts.length}
-          summary={fronts.length ? Array.from(new Set(frontRows.map(fr => fr.bm.label))).join(' · ') : 'nenhuma frente'}
-          actions={<button type="button" className="cx-link-btn" onClick={() => setActiveTab('prescricao_v2')}>Processos e prescrição<CxIcon n="chevR" s={13} /></button>}>
-          <div className="cx-bf-fronts-b">
-          {fronts.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF, execução central ou EF levada ao panorama.</div>}
-          {frontRows.map(fr => {
-            const front = fr.front;
-            const addOpen = addMenu === front.id;
-            const menuOpen = laneMenu === front.id;
-            const laneOpen = isLaneOpen(front.id);
-            return (
-              <div key={front.id} className="cx-bf-lane">
-                <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={laneOpen}
-                  onClick={() => toggleLane(front.id)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane(front.id); }}>
-                  <span className="cx-chev cx-bf-lane-chev"><CxIcon n={laneOpen ? 'chevD' : 'chevR'} s={13} /></span>
-                  <span className="cx-bf-kind" style={{ color: fr.bm.color, background: fr.bm.bg }}>{fr.bm.label}</span>
-                  <div className="cx-bf-lane-t">
-                    <div className="cx-bf-lane-title">{fr.bm.title || front.className || fr.bm.label} <span className="cx-mono cx-muted cx-small">{front.processNumber}</span></div>
-                    <div className="cx-bf-lane-sub cx-muted cx-small">{front.court || 'juízo não informado'}{front.status ? ' · ' + ((EXEC_STATUSES[front.status] || {}).label || front.status) : ''}</div>
-                  </div>
-                  {!laneOpen && fr.focused && <div className="cx-bf-lane-m"><small>Fase</small><strong>{fr.focused.sd.label}{fr.focused.outcomeLabel ? ' · ' + fr.focused.outcomeLabel : ''}</strong></div>}
-                  <div className="cx-bf-lane-m"><small>Cobre</small><strong>{fr.covered.length} {fr.bm.unit}{fr.covered.length !== 1 ? 's' : ''}</strong></div>
-                  <div className="cx-bf-lane-m"><small>Valor</small><strong>{fr.coveredVal > 0 ? fmtCur(fr.coveredVal) : '—'}</strong></div>
-                  <div className="cx-bf-lane-menu" onClick={e => e.stopPropagation()}>
-                    <button type="button" className="cx-bf-ic" title="Menu" onClick={() => setLaneMenu(menuOpen ? null : front.id)}>⋯</button>
-                    {menuOpen && (<>
-                      <div className="cx-menu-scrim" onClick={() => setLaneMenu(null)} />
-                      <div className="cx-menu-pop">
-                        <button type="button" onClick={() => { setModal({ type: 'edit', entityType: 'execution', initial: front }); setLaneMenu(null); }}>Dados</button>
-                        <button type="button" onClick={() => { upsert('executions', { ...front, inPanorama: false }); setLaneMenu(null); }}>Retirar</button>
-                      </div>
-                    </>)}
-                  </div>
-                </div>
-
-                {laneOpen && <>
-                <div className="cx-bf-ruler">
-                  {fr.visible.map(m => {
-                    const isCustom = !!(m.rec && m.rec._custom) && !m.sd.multiRecurso;
-                    const color = m.sd.multiRecurso ? m.c : (isCustom ? 'var(--cx-violet)' : m.c);
-                    const meta = stageCompactMeta(m);
-                    return (
-                      <button key={m.k} type="button" className={'cx-bf-stp' + (fr.focused && fr.focused.k === m.k ? ' now' : '')} style={{ '--c': color }} onClick={() => setSelected(s => ({ ...s, [front.id]: m.k }))} title={m.sd.label}>
-                        <span className="d" />
-                        <span className="l">{m.sd.label}{m.outcomeLabel ? ' · ' + m.outcomeLabel : ''}</span>
-                        <span className="w">{meta || (isCustom ? 'evento livre' : '')}</span>
-                      </button>
-                    );
-                  })}
-                  <span className="cx-bf-stp add">
-                    <button type="button" onClick={() => setAddMenu(addOpen ? null : front.id)}>+ Evento</button>
-                    {addOpen && (<>
-                      <div className="cx-menu-scrim" onClick={() => setAddMenu(null)} />
-                      <div className="cx-menu-pop cx-bf-addmenu">
-                        <input autoFocus placeholder="digite o nome e Enter (evento livre)" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) addCustomStage(fr, e.target.value.trim()); else if (e.key === 'Escape') setAddMenu(null); }} />
-                        <button type="button" onClick={() => addRecursoStage(fr)}>Recurso</button>
-                        {fr.metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom && !m.sd.multiRecurso).map(m => <button key={m.k} type="button" onClick={() => addStage(fr, m.k)}>{m.sd.label}</button>)}
-                      </div>
-                    </>)}
-                  </span>
-                </div>
-
-                {fr.focused && (() => {
-                  const m = fr.focused;
-                  const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                  const phaseTitle = m.sd.label + (m.outcomeLabel ? ' · ' + m.outcomeLabel : '');
-                  const meta = stageCompactMeta(m);
-                  const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
-                  const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
-                  const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
-                  return (
-                    <div className="cx-bf-work">
-                      <div className="cx-bf-editphase-wrap">
-                        <CxBlock title="Texto do evento" open={fold.isOpen('evento')} onToggle={() => fold.toggle('evento')}
-                          summary={phaseTitle + (meta ? ' · ' + meta : '')}>
-                          <div className="cx-bf-work-k">
-                            <span style={{ color: m.c }}>{phaseTitle}</span>
-                          </div>
-                          {meta ? <div className="cx-muted cx-small">{meta}</div> : null}
-                        {m.sd.multiRecurso ? (
-                          (m.recursos || []).length ? <ol className="cx-bf-work-list">{(m.recursos || []).map((r, ri) => {
-                            const bits = [];
-                            if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
-                            if (r.date) bits.push(fmtDate(r.date));
-                            if (r.proc) bits.push(r.proc);
-                            return <li key={ri}>{bits.join(' · ') || (r.texto || '—')}</li>;
-                          })}</ol> : <div className="cx-empty-note">Sem julgamentos listados.</div>
-                        ) : (
-                          <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
-                        )}
-                        </CxBlock>
-                        <button type="button" className="cx-bf-editphase" title="Editar fase" aria-label="Editar fase"
-                          onClick={e => { e.stopPropagation(); setPopup({ execId: front.id, sk: m.k }); }}>
-                          <CxIcon n="edit" s={13} />
-                        </button>
-                      </div>
-                      <CxBlock title="Notas" count={cardNotes.length} open={fold.isOpen('notas')} onToggle={() => fold.toggle('notas')}
-                        summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
-                        <div className="cx-bf-work-k">
-                          <span>Notas do processo</span><span className="cx-sp" />
-                          <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
-                        </div>
-                        {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                          <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
-                        )) : <div className="cx-empty-note">Nenhuma nota.</div>}
-                      </CxBlock>
-                      <CxBlock title="EFs cobertas" count={fr.covered.length} open={fold.isOpen('efs')} onToggle={() => fold.toggle('efs')}
-                        summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
-                        {fr.covered.length ? fr.covered.slice(0, 8).map(ef => (
-                          <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
-                            <span className="cx-mono">{ef.processNumber || '—'}</span>
-                            <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
-                            <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
-                          </button>
-                        )) : <div className="cx-muted cx-small">{isEfStylePanoramaCard(front) ? 'Nenhum apenso fiscal.' : `Nenhuma ${fr.bm.unit} vinculada.`}</div>}
-                      </CxBlock>
-                    </div>
-                  );
-                })()}
-                {popup && popup.execId === front.id && (() => {
-                  const m = fr.metas.find(x => x.k === popup.sk);
-                  if (!m) return null;
-                  return <StagePopup key={'cxstagepop-' + front.id + '-' + m.k} sd={m.sd} rec={m.rec}
-                    onCommit={(patch) => setRec(front.id, m.k, { ...patch, _present: true })}
-                    onDelete={() => { delRec(front.id, m.k); setPopup(null); }}
-                    onAddNote={(text) => { upsert('executions', { ...front, notesList: [...(front.notesList || []), text] }); }}
-                    onClose={() => setPopup(null)} />;
-                })()}
-                </>}
+  return (
+    <CxFoldCard id="frentes" scope="visao" className="cx-bf-fronts" title="Frentes processuais" count={fronts.length}
+      summary={fronts.length ? Array.from(new Set(frontRows.map(fr => fr.bm.label))).join(' · ') : 'nenhuma frente'}
+      actions={<button type="button" className="cx-link-btn" onClick={() => onOpenTab('prescricao_v2')}>Processos e prescrição<CxIcon n="chevR" s={13} /></button>}>
+      <div className="cx-bf-fronts-b">
+      {fronts.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF, execução central ou EF levada ao panorama.</div>}
+      {frontRows.map(fr => {
+        const front = fr.front;
+        const addOpen = addMenu === front.id;
+        const menuOpen = laneMenu === front.id;
+        const laneOpen = isLaneOpen(front.id);
+        return (
+          <div key={front.id} className="cx-bf-lane">
+            <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={laneOpen}
+              onClick={() => toggleLane(front.id)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane(front.id); }}>
+              <span className="cx-chev cx-bf-lane-chev"><CxIcon n={laneOpen ? 'chevD' : 'chevR'} s={13} /></span>
+              <span className="cx-bf-kind" style={{ color: fr.bm.color, background: fr.bm.bg }}>{fr.bm.label}</span>
+              <div className="cx-bf-lane-t">
+                <div className="cx-bf-lane-title">{fr.bm.title || front.className || fr.bm.label} <span className="cx-mono cx-muted cx-small">{front.processNumber}</span></div>
+                <div className="cx-bf-lane-sub cx-muted cx-small">{front.court || 'juízo não informado'}{front.status ? ' · ' + ((EXEC_STATUSES[front.status] || {}).label || front.status) : ''}</div>
               </div>
-            );
-          })}
-          {semIncidenteEFs.length > 0 && (
-            <div className="cx-bf-lane quiet">
-              <div className="cx-bf-lane-h">
-                <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
-                <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
-                <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
-                <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
+              {!laneOpen && fr.focused && <div className="cx-bf-lane-m"><small>Fase</small><strong>{fr.focused.sd.label}{fr.focused.outcomeLabel ? ' · ' + fr.focused.outcomeLabel : ''}</strong></div>}
+              <div className="cx-bf-lane-m"><small>Cobre</small><strong>{fr.covered.length} {fr.bm.unit}{fr.covered.length !== 1 ? 's' : ''}</strong></div>
+              <div className="cx-bf-lane-m"><small>Valor</small><strong>{fr.coveredVal > 0 ? fmtCur(fr.coveredVal) : '—'}</strong></div>
+              <div className="cx-bf-lane-menu" onClick={e => e.stopPropagation()}>
+                <button type="button" className="cx-bf-ic" title="Menu" onClick={() => setLaneMenu(menuOpen ? null : front.id)}>⋯</button>
+                {menuOpen && (<>
+                  <div className="cx-menu-scrim" onClick={() => setLaneMenu(null)} />
+                  <div className="cx-menu-pop">
+                    <button type="button" onClick={() => { setModal({ type: 'edit', entityType: 'execution', initial: front }); setLaneMenu(null); }}>Dados</button>
+                    <button type="button" onClick={() => { upsert('executions', { ...front, inPanorama: false }); setLaneMenu(null); }}>Retirar</button>
+                  </div>
+                </>)}
               </div>
-              <div className="cx-bf-quiet-list">
-                {semIncidenteEFs.map(ef => (
-                  <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
-                    <span className="cx-mono">{ef.processNumber || '—'}</span>
-                    <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
-                    <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
+            </div>
+
+            {laneOpen && <>
+            <div className="cx-bf-ruler">
+              {fr.visible.map(m => {
+                const isCustom = !!(m.rec && m.rec._custom) && !m.sd.multiRecurso;
+                const color = m.sd.multiRecurso ? m.c : (isCustom ? 'var(--cx-violet)' : m.c);
+                const meta = stageCompactMeta(m);
+                return (
+                  <button key={m.k} type="button" className={'cx-bf-stp' + (fr.focused && fr.focused.k === m.k ? ' now' : '')} style={{ '--c': color }} onClick={() => setSelected(s => ({ ...s, [front.id]: m.k }))} title={m.sd.label}>
+                    <span className="d" />
+                    <span className="l">{m.sd.label}{m.outcomeLabel ? ' · ' + m.outcomeLabel : ''}</span>
+                    <span className="w">{meta || (isCustom ? 'evento livre' : '')}</span>
                   </button>
-                ))}
-              </div>
-            </div>
-          )}
-          </div>
-        </CxFoldCard>
-
-        {/* Atuações recentes: só o passado (respostas, tarefas concluídas, atuações proativas), mais recente primeiro */}
-        <EditionClaudeAtuacoesRecentes op={op} data={data} execs={opExecs} upsert={upsert} onOpenIntim={p.onOpenIntim}
-          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
-          onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
-
-        {/* Narrativa: o que vem (atrasado, esta semana, próxima semana, mais adiante); o passado fica em Atuações recentes */}
-        <EditionClaudeNarrativeCard op={op} data={data} prescLookup={p.prescLookup} onOpenIntim={p.onOpenIntim}
-          onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
-          onOpenCda={p.onOpenCda} onOpenProc={p.onOpenProc} onOpenTimeline={p.onOpenTimeline}
-          onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
-          onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
-        {proView && (() => {
-          const ex = (data.executions || []).find(x => x.id === proView.execId);
-          const act = ex && (ex.proactiveActions || []).find(x => x.id === proView.actionId);
-          return act ? <EditionClaudeAtuacaoView exec={ex} action={act} onClose={() => setProView(null)} /> : null;
-        })()}
-
-        {/* Diário */}
-        <EditionClaudeBriefingDiary op={op} upsert={upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
-      </div>
-
-      {/* Coluna de apoio */}
-      <aside className="cx-bf-rail">
-        <CxFoldCard id="fontes" scope="briefing" as="h5" className="cx-bf-rail-card" title="Fontes"
-          summary={migratedLinks.length ? cxPl(migratedLinks.length, 'fonte', 'fontes') : 'nenhuma cadastrada'}
-          actions={<button type="button" className="cx-link-btn" onClick={() => { fold.set('fontes', false); setLinkAdd(o => !o); }}>+ link</button>}>
-          <div className="cx-bf-rail-b">
-            {migratedLinks.map((lnk, idx) => (
-              <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
-            ))}
-            {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
-            {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
-          </div>
-        </CxFoldCard>
-        <CxFoldCard id="lembretes" scope="briefing" as="h5" className="cx-bf-rail-card" title="Lembretes" count={reminders.length}
-          summary={reminders.length ? truncate(reminders[0].title || reminders[0].content || '', 40) : 'nenhum lembrete'}
-          actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button>}>
-          <div className="cx-bf-rail-b">
-            {reminders.length === 0 && <div className="cx-empty-note">Nenhum lembrete.</div>}
-            {reminders.slice(0, 6).map(n => (
-              <div key={n.id} className="cx-bf-rem" onClick={() => setModal({ type: 'edit', entityType: 'stickyNote', initial: n })}>
-                <span>{n.title ? <b>{n.title}: </b> : null}{truncate(n.content || '', 90)}</span>
-                <span className="cx-muted cx-small">{n.updatedAt ? fmtDate(n.updatedAt.slice(0, 10)) : ''}</span>
-              </div>
-            ))}
-          </div>
-        </CxFoldCard>
-        <CxFoldCard id="checklists" scope="briefing" as="h5" className="cx-bf-rail-card" title="Checklists" count={checklistDone + '/' + checklistTotal}
-          summary={checklistDone === checklistTotal ? 'tudo feito' : cxPl(checklistTotal - checklistDone, 'item pendente', 'itens pendentes')}>
-          <div className="cx-bf-rail-b">
-            {checklistGroups.map(g => {
-              const done = g.items.filter(([k]) => chk[k]).length;
-              return (<div key={g.label} className="cx-bf-chk-group">
-                <div className="cx-bf-chk-row-hd"><span>{g.label}</span><span className="cx-mono cx-muted cx-small">{done}/{g.items.length}</span></div>
-                <div className="cx-bar"><i style={{ width: (g.items.length ? Math.round(done / g.items.length * 100) : 0) + '%' }} /></div>
-                {g.items.map(([k, l]) => (
-                  <div key={k} className={'cx-bf-chk-item' + (chk[k] ? ' done' : '')} onClick={() => toggleChk(k)}>
-                    <span className="ck">{chk[k] ? '✓' : '○'}</span><span>{l}</span>
+                );
+              })}
+              <span className="cx-bf-stp add">
+                <button type="button" onClick={() => setAddMenu(addOpen ? null : front.id)}>+ Evento</button>
+                {addOpen && (<>
+                  <div className="cx-menu-scrim" onClick={() => setAddMenu(null)} />
+                  <div className="cx-menu-pop cx-bf-addmenu">
+                    <input autoFocus placeholder="digite o nome e Enter (evento livre)" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) addCustomStage(fr, e.target.value.trim()); else if (e.key === 'Escape') setAddMenu(null); }} />
+                    <button type="button" onClick={() => addRecursoStage(fr)}>Recurso</button>
+                    {fr.metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom && !m.sd.multiRecurso).map(m => <button key={m.k} type="button" onClick={() => addStage(fr, m.k)}>{m.sd.label}</button>)}
                   </div>
-                ))}
-              </div>);
-            })}
+                </>)}
+              </span>
+            </div>
+
+            {fr.focused && (() => {
+              const m = fr.focused;
+              const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
+              const phaseTitle = m.sd.label + (m.outcomeLabel ? ' · ' + m.outcomeLabel : '');
+              const meta = stageCompactMeta(m);
+              const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
+              const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
+              const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
+              return (
+                <div className="cx-bf-work">
+                  <div className="cx-bf-editphase-wrap">
+                    <CxBlock title="Texto do evento" open={fold.isOpen('evento')} onToggle={() => fold.toggle('evento')}
+                      summary={phaseTitle + (meta ? ' · ' + meta : '')}>
+                      <div className="cx-bf-work-k">
+                        <span style={{ color: m.c }}>{phaseTitle}</span>
+                      </div>
+                      {meta ? <div className="cx-muted cx-small">{meta}</div> : null}
+                    {m.sd.multiRecurso ? (
+                      (m.recursos || []).length ? <ol className="cx-bf-work-list">{(m.recursos || []).map((r, ri) => {
+                        const bits = [];
+                        if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
+                        if (r.date) bits.push(fmtDate(r.date));
+                        if (r.proc) bits.push(r.proc);
+                        return <li key={ri}>{bits.join(' · ') || (r.texto || '—')}</li>;
+                      })}</ol> : <div className="cx-empty-note">Sem julgamentos listados.</div>
+                    ) : (
+                      <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
+                    )}
+                    </CxBlock>
+                    <button type="button" className="cx-bf-editphase" title="Editar fase" aria-label="Editar fase"
+                      onClick={e => { e.stopPropagation(); setPopup({ execId: front.id, sk: m.k }); }}>
+                      <CxIcon n="edit" s={13} />
+                    </button>
+                  </div>
+                  <CxBlock title="Notas" count={cardNotes.length} open={fold.isOpen('notas')} onToggle={() => fold.toggle('notas')}
+                    summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
+                    <div className="cx-bf-work-k">
+                      <span>Notas do processo</span><span className="cx-sp" />
+                      <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
+                    </div>
+                    {cardNotes.length ? cardNotes.map(({ n, idx }) => (
+                      <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
+                    )) : <div className="cx-empty-note">Nenhuma nota.</div>}
+                  </CxBlock>
+                  <CxBlock title="EFs cobertas" count={fr.covered.length} open={fold.isOpen('efs')} onToggle={() => fold.toggle('efs')}
+                    summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
+                    {fr.covered.length ? fr.covered.slice(0, 8).map(ef => (
+                      <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
+                        <span className="cx-mono">{ef.processNumber || '—'}</span>
+                        <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
+                        <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
+                      </button>
+                    )) : <div className="cx-muted cx-small">{isEfStylePanoramaCard(front) ? 'Nenhum apenso fiscal.' : `Nenhuma ${fr.bm.unit} vinculada.`}</div>}
+                  </CxBlock>
+                </div>
+              );
+            })()}
+            {popup && popup.execId === front.id && (() => {
+              const m = fr.metas.find(x => x.k === popup.sk);
+              if (!m) return null;
+              return <StagePopup key={'cxstagepop-' + front.id + '-' + m.k} sd={m.sd} rec={m.rec}
+                onCommit={(patch) => setRec(front.id, m.k, { ...patch, _present: true })}
+                onDelete={() => { delRec(front.id, m.k); setPopup(null); }}
+                onAddNote={(text) => { upsert('executions', { ...front, notesList: [...(front.notesList || []), text] }); }}
+                onClose={() => setPopup(null)} />;
+            })()}
+            </>}
           </div>
-        </CxFoldCard>
-        <CxFoldCard id="tarefas" scope="briefing" as="h5" className="cx-bf-rail-card" title="Próximas tarefas" count={opTasks.length}
-          summary={nextTasks.length ? truncate(nextTasks[0].title || '', 32) + ' · ' + fmtDate(nextTasks[0].dueDate) : 'nenhuma com data'}
-          actions={<button type="button" className="cx-link-btn" onClick={() => setActiveTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button>}>
-          <div className="cx-bf-rail-b">
-            {nextTasks.length === 0 && <div className="cx-empty-note">Nenhuma tarefa com data.</div>}
-            {nextTasks.map(t => (
-              <div key={t.id} className="cx-bf-task" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: t })}>
-                <span className={'p' + (daysUntil(t.dueDate) < 0 ? ' late' : '')} />
-                <span className="cx-ell">{t.title}</span>
-                <span className="cx-mono cx-small cx-muted">{fmtDate(t.dueDate)}</span>
-              </div>
+        );
+      })}
+      {semIncidenteEFs.length > 0 && (
+        <div className="cx-bf-lane quiet">
+          <div className="cx-bf-lane-h">
+            <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
+            <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
+            <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
+            <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
+          </div>
+          <div className="cx-bf-quiet-list">
+            {semIncidenteEFs.map(ef => (
+              <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
+                <span className="cx-mono">{ef.processNumber || '—'}</span>
+                <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
+                <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
+              </button>
             ))}
           </div>
-        </CxFoldCard>
-      </aside>
-    </div>
-  </div>);
+        </div>
+      )}
+      </div>
+    </CxFoldCard>
+  );
+}
+
+/* Fontes: links externos da operação (briefing.externalLinks; migra notebookLmUrl/docUrl antigos) */
+function CxBfSources({ op, upsert }) {
+  const briefing = op.briefing || {};
+  const fold = cxUseFold('visao');
+  const [linkAdd, setLinkAdd] = React.useState(false);
+  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
+  /* ── Fontes ── */
+  const links = briefing.externalLinks || [];
+  const migratedLinks = [...links];
+  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migratedLinks.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migratedLinks.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+  const setLinks = (next) => updateBriefing('externalLinks', next);
+  const removeLink = (idx) => { const next = [...migratedLinks]; next.splice(idx, 1); setLinks(next); };
+  const addLink = (url) => {
+    if (!url) return;
+    let label = 'Link';
+    try { label = new URL(url).hostname.replace('www.', '').split('.')[0]; } catch { /* mantém padrão */ }
+    setLinks([...migratedLinks, { label, url }]);
+  };
+  return (
+    <CxFoldCard id="fontes" scope="visao" title="Fontes"
+      summary={migratedLinks.length ? cxPl(migratedLinks.length, 'fonte', 'fontes') : 'nenhuma cadastrada'}
+      actions={<button type="button" className="cx-link-btn" onClick={() => { fold.set('fontes', false); setLinkAdd(o => !o); }}>+ link</button>}>
+      <div className="cx-bf-rail-b">
+        {migratedLinks.map((lnk, idx) => (
+          <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
+        ))}
+        {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
+        {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
+      </div>
+    </CxFoldCard>
+  );
+}
+
+/* Lembretes: anotações soltas (stickyNotes) da operação */
+function CxBfReminders({ data, opId, setModal }) {
+  /* ── Lembretes ── */
+  const reminders = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  return (
+    <CxFoldCard id="lembretes" scope="visao" title="Lembretes" count={reminders.length}
+      summary={reminders.length ? truncate(reminders[0].title || reminders[0].content || '', 40) : 'nenhum lembrete'}
+      actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button>}>
+      <div className="cx-bf-rail-b">
+        {reminders.length === 0 && <div className="cx-empty-note">Nenhum lembrete.</div>}
+        {reminders.slice(0, 6).map(n => (
+          <div key={n.id} className="cx-bf-rem" onClick={() => setModal({ type: 'edit', entityType: 'stickyNote', initial: n })}>
+            <span>{n.title ? <b>{n.title}: </b> : null}{truncate(n.content || '', 90)}</span>
+            <span className="cx-muted cx-small">{n.updatedAt ? fmtDate(n.updatedAt.slice(0, 10)) : ''}</span>
+          </div>
+        ))}
+      </div>
+    </CxFoldCard>
+  );
+}
+
+/* Checklists: 1ª vista da operação e decisão final do IDPJ */
+function CxBfChecklists({ op, upsert }) {
+  const briefing = op.briefing || {};
+  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
+  /* ── Checklists ── */
+  const chk = briefing.checklists || {};
+  const toggleChk = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
+  const idpjItems = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
+  const vistaItems = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
+  const checklistGroups = [
+    { label: '1ª vista da operação', items: vistaItems },
+    { label: 'Decisão final do IDPJ', items: idpjItems },
+  ];
+  const checklistDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
+  const checklistTotal = idpjItems.length + vistaItems.length;
+  return (
+    <CxFoldCard id="checklists" scope="visao" title="Checklists" count={checklistDone + '/' + checklistTotal}
+      summary={checklistDone === checklistTotal ? 'tudo feito' : cxPl(checklistTotal - checklistDone, 'item pendente', 'itens pendentes')}>
+      <div className="cx-bf-rail-b">
+        {checklistGroups.map(g => {
+          const done = g.items.filter(([k]) => chk[k]).length;
+          return (<div key={g.label} className="cx-bf-chk-group">
+            <div className="cx-bf-chk-row-hd"><span>{g.label}</span><span className="cx-mono cx-muted cx-small">{done}/{g.items.length}</span></div>
+            <div className="cx-bar"><i style={{ width: (g.items.length ? Math.round(done / g.items.length * 100) : 0) + '%' }} /></div>
+            {g.items.map(([k, l]) => (
+              <div key={k} className={'cx-bf-chk-item' + (chk[k] ? ' done' : '')} onClick={() => toggleChk(k)}>
+                <span className="ck">{chk[k] ? '✓' : '○'}</span><span>{l}</span>
+              </div>
+            ))}
+          </div>);
+        })}
+      </div>
+    </CxFoldCard>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -5684,7 +5701,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
         </label>
         {urlBad ? <div className="cx-form-warn">O link da peça precisa começar com http:// ou https://.</div> : null}
         {err ? <div className="cx-form-warn">{err}</div> : null}
-        <div className="cx-form-note">O resumo vai para as notas deste processo e para Atuações recentes, no Briefing. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
+        <div className="cx-form-note">O resumo vai para as notas deste processo e para Atuações recentes, na Visão geral. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
       </form>
       <div className="cx-dr-foot">
         <button type="button" className="cx-btn ghost" onClick={cancel}>Cancelar</button>
