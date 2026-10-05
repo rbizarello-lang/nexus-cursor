@@ -154,6 +154,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(atuacoesPath, 'utf8')),
   '/* --- src/lib/hoje.js --- */',
   unwrapModule(fs.readFileSync(hojePath, 'utf8')),
+  '/* --- src/lib/indisp.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'indisp.js'), 'utf8')),
   '/* --- src/lib/timeline.js --- */',
   unwrapModule(fs.readFileSync(timelinePath, 'utf8')),
   '/* --- src/lib/themes.js --- */',

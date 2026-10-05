@@ -397,12 +397,23 @@ function CxOpTile({ op, size = 40 }) {
   if (isNew) { style.outline = '2px solid var(--cx-violet)'; style.outlineOffset = '1.5px'; }
   return <span className="cx-tile" style={style} title={isNew ? 'Nova' : undefined} aria-hidden="true">{cxOpInitials(op)}</span>;
 }
-/* Carteira inteira: dívida e garantia sobre as CDAs não extintas (mesma conta do cartão "Crédito sob gestão"). */
+/* Carteira inteira: dívida e garantia sobre as CDAs não extintas (mesma conta do cartão "Crédito sob gestão") e a
+   indisponibilidade de todos os bens (soma por operação, sem deduplicar). */
 function cxCarteiraTotals(data) {
   const debts = (data.debts || []).filter(d => d.status !== 'extinta');
   const total = debts.reduce((t, d) => t + (d.value || 0), 0);
   const guar = debts.filter(d => d.status === 'garantida').reduce((t, d) => t + (d.value || 0), 0);
-  return { total, guar, pct: total > 0 ? Math.round(guar / total * 100) : null };
+  return { total, guar, pct: total > 0 ? Math.round(guar / total * 100) : null, indisp: indispStats(data.assets || [], total) };
+}
+/* Indisponibilidade (Prumo): anel e texto contam só bens com indisponibilidade ativa ou requerida (src/lib/indisp.js). */
+const CX_INDISP_DUP = 'soma por operação: um mesmo bem lançado em duas operações conta duas vezes';
+const CX_INDISP_RING = 'Parte da dívida (CDAs não extintas) coberta por bens com indisponibilidade, ativa ou requerida.';
+function cxIndispSplit(s) { return indispSplitText(s, cxMoneyShort); }
+/* "47%" no anel/tabela; acima de 100% da dívida, a razão ("2,6×") em vez de um 100% que esconderia o excesso. */
+function cxIndispPctTxt(s) {
+  if (!s || s.pct === null) return '—';
+  if (s.over) return (Math.round(s.ratio * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×';
+  return s.pct + '%';
 }
 /* Linha de Resumo (Polimento · K7): frase montada por regras fixas (src/lib/hoje.js), nunca por IA. */
 function CxResumo({ text, className = '' }) {
@@ -795,6 +806,7 @@ function EditionClaudeHoje(p) {
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
   const guarTotal = activeDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const gpct = debtTotal > 0 ? Math.round(guarTotal / debtTotal * 100) : 0;
+  const cartInd = indispStats(data.assets || [], debtTotal);
   const todayIso = localIso(new Date());
   const atuacoes = atuacoesSemana(intims, todayIso);
   const janela = janelaPrazos(open, todayIso);
@@ -831,10 +843,11 @@ function EditionClaudeHoje(p) {
     const debts = activeDebts.filter(d => d.operationId === o.id);
     const total = debts.reduce((s, d) => s + (d.value || 0), 0);
     const guar = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
+    const ind = indispStats((data.assets || []).filter(a => a.operationId === o.id), total);
     const nx = open.filter(x => x.operationId === o.id && x.dateDeadline).sort(cxByDeadline)[0];
     const targets = (data.people || []).filter(pp => pp.operationId === o.id && pp.operationRole === 'alvo');
     const cls = getOpClassifications(o)[0];
-    return { o, total, guar, nx, targets, cls };
+    return { o, total, guar, ind, nx, targets, cls };
   }).sort((a, b) => b.total - a.total), [data, activeOps.length]);
 
   const activity = React.useMemo(() => {
@@ -890,9 +903,10 @@ function EditionClaudeHoje(p) {
         foot={termo ? <>Próximo termo: <b>{fmtDate(termo.iso)}</b></> : 'Nenhuma CDA no alarme'}
         footR={termo ? cxHorizonTxt(termo.dias) : null} footRTone="violet" />
       <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(debtTotal)} onClick={() => p.onNav('operacoes')}
-        side={debtTotal > 0 ? <span className="cx-kc-ring"><CxRing pct={gpct} size={44} stroke={6} label={gpct + '% garantido'} /></span> : null}
-        desc={gpct + '% garantido'}
-        foot={<><b>{cxMoneyShort(guarTotal)}</b> garantidos</>} footR={cxPl(activeOps.length, 'operação', 'operações')} />
+        tip={[CX_INDISP_RING, cxIndispSplit(cartInd), CX_INDISP_DUP].filter(Boolean).join(' · ')}
+        side={debtTotal > 0 ? <span className="cx-kc-ring"><CxRing pct={cartInd.pct || 0} size={44} stroke={6} label={cxIndispPctTxt(cartInd) + ' indisponível'} /></span> : null}
+        desc={(debtTotal > 0 ? (cartInd.over ? indispRatioText(cartInd.ratio) : cxIndispPctTxt(cartInd)) + ' indisponível' : 'sem dívida') + ' · ' + gpct + '% garantido'}
+        foot={<><b>{cxMoneyShort(cartInd.totalVal)}</b> indisponível</>} footR={cxPl(activeOps.length, 'operação', 'operações')} />
     </CxKpiStrip>
 
     <CxCargaCard mapa={mapa} weeks={cargaW} setWeeks={setCargaW} resumo={resumoCargaTxt} onOpenDay={(iso) => p.onOpenAgendaDay(iso)} onVencidos={() => setTab('vencidos')} />
@@ -930,14 +944,15 @@ function EditionClaudeHoje(p) {
         <section className="cx-card" aria-labelledby="cx-h-cart">
           <div className="cx-card-h"><h2 id="cx-h-cart">Carteira</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onNav('operacoes')}>Todas as operações<CxIcon n="chevR" s={13} /></button></div></div>
           {carteira.length ? <div className="cx-tbl-wrap"><table className="cx-tbl">
-            <thead><tr><th>Operação</th><th>Classificação</th><th>Garantido</th><th className="num">Dívida</th><th>Próximo prazo</th><th>Alvos</th></tr></thead>
+            <thead><tr><th>Operação</th><th>Classificação</th><th>Indisponível</th><th className="num">Dívida</th><th>Próximo prazo</th><th>Alvos</th></tr></thead>
             <tbody>{carteira.slice(0, 8).map(r => {
-              const pct = r.total > 0 ? Math.round(r.guar / r.total * 100) : 0;
+              const gp = r.total > 0 ? Math.round(r.guar / r.total * 100) : 0;
               const cls = r.cls ? OP_CLASSIFICATIONS[r.cls] : null;
+              const ipTip = [cxIndispSplit(r.ind) || 'sem bens indisponíveis com valor', gp + '% garantido'].join(' · ');
               return <tr key={r.o.id} className="click" onClick={() => p.onOpenOp(r.o.id)}>
                 <td><span className="cx-op-cell" title={r.o.name}><CxOpTile op={r.o} size={26} /><span className="cx-ell">{cxOpName(r.o)}</span></span></td>
                 <td>{cls ? <span className="cx-pill"><span className="cx-dot" style={{ background: cls.color }} />{cls.label}</span> : <span className="cx-muted">—</span>}</td>
-                <td><span className="cx-cover"><CxRing pct={pct} size={26} stroke={4} label={pct + '% garantido'} /><span className="cx-pct">{pct}%</span></span></td>
+                <td title={ipTip}><span className="cx-cover"><CxRing pct={r.ind.pct || 0} size={26} stroke={4} label={cxIndispPctTxt(r.ind) + ' indisponível'} /><span className="cx-pct">{r.ind.pct === null ? '0%' : cxIndispPctTxt(r.ind)}</span></span></td>
                 <td className="num cx-mono">{r.total ? cxMoneyShort(r.total) : '—'}</td>
                 <td>{r.nx ? <CxDue iso={r.nx.dateDeadline} /> : <span className="cx-muted">—</span>}</td>
                 <td>{r.targets.length ? <CxAvatars people={r.targets} /> : <span className="cx-muted">—</span>}</td>
@@ -1837,7 +1852,7 @@ function cxClsTag(k) {
 /* ─── Índice por operação (uma passada no acervo) ─── */
 function cxOpIndex(data, prazosByDebt) {
   const idx = {};
-  const get = (id) => idx[id] || (idx[id] = { debts: [], execs: [], open: [], late: 0, risk: 0, riskValue: 0, targets: [], next: null, tasks: 0 });
+  const get = (id) => idx[id] || (idx[id] = { debts: [], execs: [], open: [], late: 0, risk: 0, riskValue: 0, targets: [], next: null, tasks: 0, assets: [] });
   (data.debts || []).forEach(d => {
     if (!d.operationId || d.status === 'extinta') return;
     const x = get(d.operationId); x.debts.push(d);
@@ -1854,6 +1869,7 @@ function cxOpIndex(data, prazosByDebt) {
   });
   (data.people || []).forEach(p => { if (p.operationId && p.operationRole === 'alvo') get(p.operationId).targets.push(p); });
   (data.tasks || []).forEach(t => { if (t.operationId && t.status !== 'concluida' && t.status !== 'cancelada') get(t.operationId).tasks++; });
+  (data.assets || []).forEach(a => { if (a.operationId) get(a.operationId).assets.push(a); });
   return (id) => get(id);
 }
 
@@ -1901,10 +1917,13 @@ function EditionClaudeCarteira(p) {
   const money = (o) => idx(o.id).debts.reduce((s, d) => s + (d.value || 0), 0);
   const guar = (o) => idx(o.id).debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const cov = (o) => { const t = money(o); return t > 0 ? guar(o) / t : 1; };
+  const indOf = (o) => indispStats(idx(o.id).assets, money(o));
+  const indRatio = (o) => { const r = indOf(o).ratio; return r === null ? 1 : r; };
   const sorters = {
     nome: sortOpsByName,
     valor: (a, b) => money(b) - money(a),
     cobertura: (a, b) => cov(a) - cov(b) || money(b) - money(a),
+    indisp: (a, b) => indRatio(a) - indRatio(b) || money(b) - money(a),
     risco: (a, b) => idx(b.id).risk - idx(a.id).risk || money(b) - money(a),
     revisao: (a, b) => ((cxRS(a).daysLeft ?? 99999) - (cxRS(b).daysLeft ?? 99999)),
     intimacoes: (a, b) => idx(b.id).open.length - idx(a.id).open.length || sortOpsByName(a, b),
@@ -1913,15 +1932,17 @@ function EditionClaudeCarteira(p) {
   const active = ops.filter(o => o.status !== 'encerrada');
   const totalAll = active.reduce((s, o) => s + money(o), 0);
   const guarAll = active.reduce((s, o) => s + guar(o), 0);
+  const indAll = indispStats(active.flatMap(o => idx(o.id).assets), totalAll);
+  const indAllTxt = indispRatioText(indAll.ratio);
   return <div className="cx cx-page">
     <div className="cx-page-h">
-      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. O anel mostra a parte garantida da dívida.</p></div>
+      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão{indAllTxt ? ' · ' + indAllTxt + ' com bens indisponíveis' : ''} · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. O anel mostra a parte da dívida coberta por indisponibilidade (ativa e requerida).</p></div>
       <div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNewOp}><CxIcon n="plus" s={14} />Nova operação</button></div>
     </div>
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-cart-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Nome ou descrição da operação" aria-label="Buscar operação" /></label>
       <span className="cx-sp" />
-      <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
+      <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['indisp', 'Menor indisponibilidade'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
     </div>
     <CxChips label="Filtrar por classificação" group="Classificação" className="cx-chips cx-chips-tight" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
     <CxChips label="Filtrar por prioridade" group="Prioridade" className="cx-chips" value={prio} onChange={v => setPrio(prio === v ? null : v)} options={prioChips} />
@@ -1929,6 +1950,8 @@ function EditionClaudeCarteira(p) {
     <div className="cx-op-grid" {...pulseTip.bind}>{list.map(o => {
       const x = idx(o.id);
       const total = money(o), g = guar(o), pct = total > 0 ? Math.round(g / total * 100) : 0;
+      const ind = indOf(o);
+      const ipSplit = cxIndispSplit(ind);
       const cls = getOpClassifications(o);
       const closed = o.status === 'encerrada';
       const since = o.lastReviewedAt ? cxDaysSince(o.lastReviewedAt) : null;
@@ -1945,9 +1968,9 @@ function EditionClaudeCarteira(p) {
         <span className="cx-oc-rv">{rv}</span>
         <span className="cx-op-desc">{o.description || <span className="cx-muted">Sem descrição.</span>}</span>
         <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span>
-        <span className="cx-oc-m">
-          <CxRing pct={pct} size={40} stroke={5.5} label={pct + '% garantido'} />
-          <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
+        <span className="cx-oc-m" title={[ipSplit || 'Sem bens indisponíveis com valor', pct + '% garantido'].join(' · ')}>
+          <CxRing pct={ind.pct || 0} size={40} stroke={5.5} label={cxIndispPctTxt(ind) + ' indisponível'} />
+          <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct ip">{ind.pct === null ? '0%' : cxIndispPctTxt(ind)} indisponível</span><span className="cx-pct">{pct}% garantido</span></span>
         </span>
         {pulses.get(o.id) ? <CxPulse pulse={pulses.get(o.id)} todayIso={todayIso} /> : <span className="cx-pulse" aria-hidden="true" />}
         <span className="cx-oc-f">
@@ -3746,10 +3769,12 @@ function EditionClaudeOpOverview(p) {
   const prazoRows = (prazosRadar.rows || []).filter(r => r.operationId === op.id && r.group !== 6);
   const split = splitMesaRows(prazoRows, today);
   const hearings = (data.hearings || []).filter(h => h.operationId === op.id && h.date && h.status !== 'realizada' && h.status !== 'cancelada' && daysUntil(h.date) >= 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const indisp = (data.assets || []).filter(x => x.operationId === op.id && (x.status === 'indisponibilidade_ativa' || x.status === 'indisponibilidade_requerida') && x.value > 0).reduce((t, x) => t + x.value, 0);
   const tasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada').sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
   const cart = cxCarteiraTotals(data);
   const opPct = s && s.total > 0 ? Math.round(s.guar / s.total * 100) : null;
+  const ind = s ? s.indisp : null;
+  const indDelta = ind && ind.kind === 'valor' ? indispDeltaPp(ind.pct, cart.indisp.pct) : null;
+  const indSplit = ind ? cxIndispSplit(ind) : '';
   const opCartShare = s && cart.total > 0 ? Math.round(s.total / cart.total * 100) : null;
   const opExecCount = (data.executions || []).filter(e => e.operationId === op.id).length;
   const nextTask = tasks.find(t => t.dueDate && daysUntil(t.dueDate) >= 0);
@@ -3757,6 +3782,7 @@ function EditionClaudeOpOverview(p) {
   const nextHearing = hearings[0];
   const resumo = s ? resumoOperacao({
     garantiaPct: opPct, carteiraPct: cart.pct,
+    indispPct: ind && ind.kind !== 'sem_avaliacao' ? ind.pct : null, indispCarteiraPct: cart.indisp.pct, indispRatio: ind && ind.kind !== 'sem_avaliacao' ? ind.ratio : null,
     intimVencidas: lateIntims.length ? { n: lateIntims.length, maisAntigaDias: -lateIntims[0].dd, parte: cxPartyName(lateIntims[0].i) } : null,
     cdasAlarme: s.prescA || 0,
     revisaoAtrasadaDias: rs.overdue && rs.daysLeft != null ? -rs.daysLeft : null,
@@ -3767,11 +3793,12 @@ function EditionClaudeOpOverview(p) {
     {s ? <CxResumo text={resumo} className="cx-rs-op" /> : null}
     {s ? <CxKpiStrip n={4} dense={false} className="cpair">
       <CxKpiCard label="Dívida total" value={cxMoneyShort(s.total)} desc={cxPl(s.debts, 'CDA', 'CDAs') + (opCartShare !== null ? ' · ' + opCartShare + '% da carteira' : '')} onClick={() => p.onTab('dividas')}
-        pair={{ label: 'Indisponibilidades', value: s.indispHasValue ? cxMoneyShort(indisp) : s.indispLabel, note: s.indispCount ? cxPl(s.indispCount, 'bem', 'bens') : 'nenhum bem', onClick: s.indispCount ? () => p.onTab('bens') : null }} />
-      <CxKpiCard label="Garantido (CDA)" value={cxMoneyShort(s.guar)} tip="CDAs com status Garantida"
-        side={opPct !== null ? <span className="cx-kc-ring"><CxRing pct={opPct} size={44} stroke={6} label={opPct + '% garantido'} /></span> : null}
-        desc={<>{(opPct !== null ? opPct : 0) + '% da dívida'}{opPct !== null && cart.pct !== null && opPct !== cart.pct ? <span className={'cx-dl ' + (opPct < cart.pct ? 'down bad' : 'up good')} style={{ marginLeft: 8 }}>{(opPct < cart.pct ? '−' : '+') + Math.abs(opPct - cart.pct) + ' p.p. vs. carteira'}</span> : null}</>}
-        pair={{ label: 'Cobertura', value: s.covPct != null ? s.covPct + '%' : '—', note: 'pelos incidentes', tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' }} />
+        pair={{ label: 'Cobertura', value: s.coverageGrand > 0 ? s.covPct + '%' : '—', note: 'pelos incidentes', tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' }} />
+      <CxKpiCard label="Indisponibilidade" value={ind.kind === 'sem_bens' ? 'Sem bens' : ind.kind === 'sem_avaliacao' ? 'Sem avaliação' : cxMoneyShort(ind.totalVal)} onClick={() => p.onTab('bens')}
+        tip={[CX_INDISP_RING, indSplit, ind.semValorN ? cxPl(ind.semValorN, 'bem sem avaliação', 'bens sem avaliação') : ''].filter(Boolean).join(' · ')}
+        side={ind.pct !== null ? <span className="cx-kc-ring"><CxRing pct={ind.pct} size={44} stroke={6} label={(ind.over ? indispRatioText(ind.ratio) : ind.pct + '% da dívida') + ' com bens indisponíveis'} /></span> : null}
+        desc={ind.kind === 'sem_bens' ? 'nenhum bem indisponível' : ind.kind === 'sem_avaliacao' ? cxPl(ind.n, 'bem', 'bens') + ' sem valor lançado' : <>{indispRatioText(ind.ratio) || cxPl(ind.n, 'bem', 'bens')}{indDelta ? <span className={'cx-dl ' + indDelta.dir + ' ' + indDelta.tone} style={{ marginLeft: 8 }}>{indDelta.txt}</span> : null}</>}
+        pair={{ label: 'Garantido (CDA)', value: cxMoneyShort(s.guar), note: opPct !== null ? opPct + '% da dívida' : 'sem dívida', tip: 'CDAs com status Garantida', onClick: () => p.onTab('dividas') }} />
       <CxKpiCard label="Prescrição · CDAs" value={s.prescA} tone={s.prescA ? 'violet' : ''} desc="nos grupos urgentes" onClick={p.onOpenPrazos}
         pair={{ label: 'Processos em alerta', value: s.prescExec, tone: s.prescExec ? 'violet' : '', note: 'de ' + cxPl(opExecCount, 'processo', 'processos') + ' · crítico, alerta ou vencido', onClick: () => p.onTab('prescricao_v2') }} />
       <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
@@ -4493,6 +4520,7 @@ function EditionClaudeOpHeader(p) {
   const sum = [];
   if (s) {
     sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
+    if (s.indisp && s.indisp.kind === 'valor') sum.push(<span key="ix" title={cxIndispSplit(s.indisp)}><b>{cxMoneyShort(s.indisp.totalVal)}</b> indisponível{indispRatioText(s.indisp.ratio) ? ' · ' + indispRatioText(s.indisp.ratio) : ''}</span>);
     sum.push(<span key="g">{s.total ? Math.round(s.guar / s.total * 100) : 0}% garantido</span>);
     sum.push(<span key="c">{cxPl(s.debts, 'CDA', 'CDAs')}</span>);
     sum.push(<span key="e">{cxPl(s.execs, 'processo', 'processos')}</span>);
@@ -4678,9 +4706,10 @@ function EditionClaudeAcompanhar(p) {
 }
 
 /* ═════════════════════ Painel da carteira ═════════════════════ */
-/* Mesmas opções e rótulos da ordenação do Painel clássico (estado carteiraSort do app). */
+/* Mesmas opções e rótulos da ordenação do Painel clássico (estado carteiraSort do app), mais 'indisp_asc' (só Prumo;
+   o app volta a 'valor_desc' ao sair do Prumo). */
 const CX_PANEL_SORTS = [
-  ['Financeiro', [['valor_desc', 'Maior valor de crédito'], ['valor_asc', 'Menor valor de crédito'], ['cobertura_asc', 'Menor cobertura de garantia']]],
+  ['Financeiro', [['valor_desc', 'Maior valor de crédito'], ['valor_asc', 'Menor valor de crédito'], ['indisp_asc', 'Menor indisponibilidade'], ['cobertura_asc', 'Menor cobertura de garantia']]],
   ['Risco e urgência', [['presc', 'Maior risco de prescrição'], ['intims', 'Mais intimações abertas'], ['tasks', 'Mais tarefas pendentes']]],
   ['Atividade', [['acesso_recente', 'Acessadas recentemente'], ['revisao_atrasada', 'Revisão mais atrasada']]],
   ['Estratégico', [['idpj', 'Mais IDPJs e cautelares'], ['nome', 'Nome (A a Z)']]],
@@ -4688,7 +4717,7 @@ const CX_PANEL_SORTS = [
 const CX_PANEL_GROUPS = [[1, 'Urgentes'], [2, 'A conferir'], [3, 'A completar'], [4, 'Em acompanhamento'], [5, 'Ainda impossível'], [6, 'Consumadas']];
 function cxPanelAnalytics(data, prazosByDebt) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada');
-  const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
+  const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, assets: [], ind: null, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
   (data.debts || []).forEach(d => {
     const x = by.get(d.operationId); if (!x || d.status === 'extinta') return;
     x.debtsCount++; x.totalValue += d.value || 0;
@@ -4697,7 +4726,12 @@ function cxPanelAnalytics(data, prazosByDebt) {
     if (g === 1 || g === 2) x.prescRisk++;
   });
   (data.executions || []).forEach(e => { const x = by.get(e.operationId); if (!x) return; x.execsCount++; if (e.processTag === 'idpj') x.idpjCount++; if (e.processTag === 'cautelar_fiscal') x.cautelarCount++; });
-  (data.assets || []).forEach(a => { const x = by.get(a.operationId); if (x) x.assetsCount++; });
+  (data.assets || []).forEach(a => {
+    const x = by.get(a.operationId); if (!x) return;
+    x.assetsCount++;
+    x.assets.push(a);
+  });
+  by.forEach(x => { x.ind = indispStats(x.assets, x.totalValue); });
   (data.intimations || []).forEach(i => {
     const x = by.get(i.operationId); if (!x || !intimIsOpenWork(i)) return;
     x.openIntims++;
@@ -4710,6 +4744,7 @@ function cxPanelAnalytics(data, prazosByDebt) {
 }
 function cxPanelSortFn(k) {
   const cov = (o) => (o.totalValue > 0 ? o.guaranteedValue / o.totalValue : 1);
+  const ind = (o) => (o.ind && o.ind.ratio !== null ? o.ind.ratio : 1);
   const fns = {
     valor_desc: (a, b) => b.totalValue - a.totalValue,
     valor_asc: (a, b) => a.totalValue - b.totalValue,
@@ -4717,6 +4752,7 @@ function cxPanelSortFn(k) {
     intims: (a, b) => b.openIntims - a.openIntims || b.totalValue - a.totalValue,
     tasks: (a, b) => b.openTasks - a.openTasks || b.totalValue - a.totalValue,
     cobertura_asc: (a, b) => cov(a) - cov(b),
+    indisp_asc: (a, b) => ind(a) - ind(b) || b.totalValue - a.totalValue,
     acesso_recente: (a, b) => (a.daysSinceAccess === null ? 99999 : a.daysSinceAccess) - (b.daysSinceAccess === null ? 99999 : b.daysSinceAccess),
     revisao_atrasada: (a, b) => (cxRS(a.op).daysLeft ?? 99999) - (cxRS(b.op).daysLeft ?? 99999),
     nome: (a, b) => (a.op.name || '').localeCompare(b.op.name || '', 'pt-BR'),
@@ -4763,9 +4799,9 @@ function EditionClaudePainel(p) {
   const kpiCredito = liveDebts.reduce((s, d) => s + (d.value || 0), 0);
   const kpiGarantido = liveDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const pctGar = kpiCredito > 0 ? Math.round(kpiGarantido / kpiCredito * 100) : 0;
+  const kpiInd = indispStats(data.assets || [], kpiCredito);
   const totalCredito = rows.reduce((s, o) => s + o.totalValue, 0);
-  const totalGarantido = rows.reduce((s, o) => s + o.guaranteedValue, 0);
-  const pctGarAtivas = totalCredito > 0 ? Math.round(totalGarantido / totalCredito * 100) : 0;
+  const totalInd = indispStats(rows.flatMap(o => o.assets), totalCredito);
   const nExecs = (data.executions || []).length;
   const openIntims = (data.intimations || []).filter(x => intimIsOpenWork(x));
   const lateIntims = openIntims.filter(x => { const dd = daysUntil(x.dateDeadline); return dd !== null && dd < 0; }).length;
@@ -4781,18 +4817,19 @@ function EditionClaudePainel(p) {
     prazo: (data.intimations || []).filter(x => intimPrazoNaAgenda(x) && inWeek(x.dateDeadline)).length,
     tarefa: (data.tasks || []).filter(tk => tk.dueDate && cxTaskOpen(tk) && inWeek(tk.dueDate)).length,
   };
-  const colSort = (k, extra) => ({ onClick: () => p.setSort(k), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.setSort(k); } }, tabIndex: 0, className: 'cx-th-sort' + (sort === k ? ' on' : '') + (extra ? ' ' + extra : ''), 'aria-sort': sort === k ? (k === 'valor_asc' || k === 'cobertura_asc' || k === 'nome' || k === 'acesso_recente' || k === 'revisao_atrasada' ? 'ascending' : 'descending') : undefined });
+  const colSort = (k, extra) => ({ onClick: () => p.setSort(k), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.setSort(k); } }, tabIndex: 0, className: 'cx-th-sort' + (sort === k ? ' on' : '') + (extra ? ' ' + extra : ''), 'aria-sort': sort === k ? (k === 'valor_asc' || k === 'cobertura_asc' || k === 'indisp_asc' || k === 'nome' || k === 'acesso_recente' || k === 'revisao_atrasada' ? 'ascending' : 'descending') : undefined });
   if (!(data.operations || []).length) return <div className="cx cx-page"><div className="cx-page-h"><div><h1>Painel</h1><p>Crie a primeira operação para ver a carteira em números.</p></div><div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNewOp}><CxIcon n="plus" s={14} />Nova operação</button></div></div></div>;
   return <div className="cx cx-page cx-page-wide">
     <div className="cx-page-h">
-      <div><h1>Painel</h1><p>A carteira inteira em números: onde está o crédito, quanto está garantido e onde está o risco. Clique numa operação para abri-la.</p></div>
+      <div><h1>Painel</h1><p>A carteira inteira em números: onde está o crédito, quanto dele tem bens indisponíveis e onde está o risco. Clique numa operação para abri-la.</p></div>
     </div>
     <CxKpiStrip n={5} className="bare cx-ks-sp">
       <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(kpiCredito)}
         desc={cxPl(liveDebts.length, 'CDA', 'CDAs') + ' · ' + cxPl(rows.length, 'operação ativa', 'operações ativas') + ((data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : '') + ' · ' + cxPl(nExecs, 'processo', 'processos')} />
-      <CxKpiCard label="Garantido" value={pctGar} unit="%" tip={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}
-        side={<span className="cx-meter cx-kc-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>}
-        desc={cxMoneyShort(kpiGarantido) + ' em CDAs garantidas'} />
+      <CxKpiCard label="Indisponível" value={kpiInd.pct === null ? '—' : kpiInd.over ? Math.round(kpiInd.ratio * 10) / 10 : kpiInd.pct} unit={kpiInd.pct === null ? '' : kpiInd.over ? '×' : '%'}
+        tip={[CX_INDISP_RING, cxIndispSplit(kpiInd), CX_INDISP_DUP].filter(Boolean).join(' · ')}
+        side={kpiInd.pct !== null ? <span className="cx-kc-ring"><CxRing pct={kpiInd.pct} size={44} stroke={6} label={cxIndispPctTxt(kpiInd) + ' da dívida indisponível'} /></span> : null}
+        desc={cxMoneyShort(kpiInd.totalVal) + ' indisponível · ' + pctGar + '% garantido'} />
       <CxKpiCard label="Risco prescricional" value={riskN} unit={riskN === 1 ? 'CDA' : 'CDAs'} tone={riskN ? 'violet' : ''} onClick={p.onOpenPrazos} tip="Mesmos números da tela Prazos extintivos (grupos 1 e 2)"
         desc={riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
       <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}
@@ -4805,7 +4842,7 @@ function EditionClaudePainel(p) {
       <div className="cx-card-h">
         <CxFoldTitle k="ops" folded={folded} onToggle={toggleFold}>Operações</CxFoldTitle><span className="cx-muted cx-small">{sortLabel} · {cxPl(rows.length, 'ativa', 'ativas')}</span>
         {!folded.has('ops') && <div className="cx-aside">
-          <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Garantido<i className="cx-lg-n" />Sem garantia</span>
+          <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Indisponível<i className="cx-lg-n" />Descoberta</span>
           <label className="cx-sel"><span className="cx-pre">Ordenar</span>
             <select id="cx-panel-sort" value={sort} onChange={e => p.setSort(e.target.value)} aria-label="Ordenar operações" style={{ paddingLeft: '72px' }}>
               {CX_PANEL_SORTS.map(g => <optgroup key={g[0]} label={g[0]}>{g[1].map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}</optgroup>)}
@@ -4817,7 +4854,7 @@ function EditionClaudePainel(p) {
           <thead><tr>
             <th scope="col" {...colSort('nome')}>Operação</th>
             <th scope="col" {...colSort('valor_desc')}>Crédito</th>
-            <th scope="col" {...colSort('cobertura_asc', 'num')}>Garantia</th>
+            <th scope="col" {...colSort('indisp_asc', 'num')} title="Parte da dívida coberta por bens com indisponibilidade, ativa ou requerida">Indisponível</th>
             <th scope="col" {...colSort('presc', 'num')} title="CDAs nos grupos 1 e 2 da tela Prazos extintivos">Prescrição</th>
             <th scope="col" {...colSort('intims', 'num')}>Intimações</th>
             <th scope="col" {...colSort('tasks', 'num')}>Tarefas</th>
@@ -4827,15 +4864,16 @@ function EditionClaudePainel(p) {
           <tbody>{shownOps.map((o, i) => {
             const pctW = o.totalValue / maxV * 100;
             const gPct = o.totalValue > 0 ? o.guaranteedValue / o.totalValue * 100 : 0;
+            const iPct = o.ind.pct === null ? 0 : o.ind.pct;
             const rs = cxRS(o.op);
             return <tr key={o.op.id} className="click" onClick={() => p.onOpenOp(o.op.id)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) p.onOpenOp(o.op.id); }}>
               <td><span className="cx-op-cell"><span className="cx-panel-rank">{i + 1}</span><CxOpSquare op={o.op} /><span className="cx-ell" title={o.op.name}>{cxOpName(o.op)}</span>{cxOpPrioTag(o.op)}</span>
                 <span className="cx-panel-sub">{cxPl(o.debtsCount, 'CDA', 'CDAs')} · {o.execsCount} proc. · {cxPl(o.assetsCount, 'bem', 'bens')}</span></td>
-              <td className="cx-panel-bar-td" title={'Crédito ' + fmtCur(o.totalValue) + ' · garantido ' + fmtCur(o.guaranteedValue) + ' (' + Math.round(gPct) + '%)'}>
+              <td className="cx-panel-bar-td" title={'Crédito ' + fmtCur(o.totalValue) + ' · ' + (cxIndispSplit(o.ind) || 'sem bens indisponíveis com valor') + ' (' + cxIndispPctTxt(o.ind) + ') · garantido ' + Math.round(gPct) + '%'}>
                 <span className="cx-panel-val">{cxMoneyShort(o.totalValue)}</span>
-                <span className="cx-panel-bar" style={{ width: Math.max(2, pctW) + '%' }}>{o.guaranteedValue > 0 ? <i className="g" style={{ width: gPct + '%' }} /> : null}{gPct < 100 ? <i className="n" /> : null}</span>
+                <span className="cx-panel-bar" style={{ width: Math.max(2, pctW) + '%' }}>{iPct > 0 ? <i className="g" style={{ width: iPct + '%' }} /> : null}{iPct < 100 ? <i className="n" /> : null}</span>
               </td>
-              <td className="num"><span className={'cx-pct' + (o.totalValue > 0 && gPct < 25 ? ' cx-orange-t' : '')}>{o.totalValue > 0 ? Math.round(gPct) + '%' : '—'}</span></td>
+              <td className="num"><span className={'cx-pct' + (o.totalValue > 0 && iPct < 25 ? ' cx-orange-t' : '')}>{o.totalValue > 0 ? cxIndispPctTxt(o.ind) : '—'}</span></td>
               <td className="num">{o.prescRisk ? <span className="cx-violet-t cx-mono">{o.prescRisk}</span> : <span className="cx-muted">—</span>}</td>
               <td className="num">{o.openIntims ? <span className="cx-mono">{o.openIntims}{o.lateIntims ? <span className="cx-red-t"> · {o.lateIntims} venc.</span> : null}</span> : <span className="cx-muted">—</span>}</td>
               <td className="num">{o.openTasks ? <span className="cx-mono">{o.openTasks}</span> : <span className="cx-muted">—</span>}</td>
@@ -4851,7 +4889,7 @@ function EditionClaudePainel(p) {
           <tfoot><tr>
             <td>Total das ativas</td>
             <td><span className="cx-panel-val">{cxMoneyShort(totalCredito)}</span></td>
-            <td className="num">{pctGarAtivas}%</td>
+            <td className="num" title={CX_INDISP_DUP}>{totalCredito > 0 ? cxIndispPctTxt(totalInd) : '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.prescRisk, 0) || '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.openIntims, 0) || '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.openTasks, 0) || '—'}</td>

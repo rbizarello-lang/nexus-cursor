@@ -5132,6 +5132,8 @@ function App() {
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [procPersonFilterOpen, setProcPersonFilterOpen] = useState(false);
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
+  // 'indisp_asc' só existe no Painel do Nexus Prumo; o Painel clássico/Beta não conhece essa chave.
+  useEffect(() => { if (!isClaude && carteiraSort === 'indisp_asc') setCarteiraSort('valor_desc'); }, [isClaude, carteiraSort]);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [procCdaQuery, setProcCdaQuery] = useState('');
   // Popup da régua do panorama: estado próprio (não passa por useTransition de toggleGroup).
@@ -6065,7 +6067,7 @@ function App() {
     const indispLabel = constrictedAssets.length === 0 ? 'Sem bens' : constrictedWithValue.length === 0 ? 'Sem avaliação' : fmtCur(constrictedTotal);
     const indispHasValue = constrictedWithValue.length > 0;
     const cov = computeIncidentCoverage(execs, debts);
-    return { total, guar, unexec, prescA, prescG1, prescG1Vencido, prescG3, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, taskGlobalN, taskOpOnlyN, indispLabel, indispHasValue, indispCount: constrictedAssets.length, covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
+    return { total, guar, unexec, prescA, prescG1, prescG1Vencido, prescG3, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, taskGlobalN, taskOpOnlyN, indispLabel, indispHasValue, indispCount: constrictedAssets.length, indisp: indispStats(assets, total), covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
   }, [activeOp, data, prescLookup, prazosByDebt, isDemo]);
 
 
