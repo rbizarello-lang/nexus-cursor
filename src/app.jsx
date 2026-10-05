@@ -10774,6 +10774,7 @@ function App() {
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
       onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
       onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
+      sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, pending: !!(autoSyncEnabled && dirtyRef.current), onPush: cloudPush }}
       onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
     {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
@@ -11001,8 +11002,9 @@ function App() {
       {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)} backLabel={cxBackLabel} onBack={cxGoBack}
         onSearch={() => { setGlobalSearch(true); setGsQuery(''); }}
         lastOp={cxReturnOp} onOpenLastOp={() => { if (cxReturnOp && !(viewMode === 'operation' && activeOpId === cxReturnOp.id)) cxOpenOp(cxReturnOp.id); }}
-        sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}
         onToggleSettings={() => setShowSettings(!showSettings)} settingsPanel={renderSettingsPanel()} />}
+
+      {isClaude && isGAS && cloudStatus === 'error' && <CxSyncErrorBanner msg={cloudMsg} onRetry={cloudPush} />}
 
       {(() => {
         if (isClaude && viewMode === 'hoje') return null; // o Hoje da edição Claude já mostra a audiência próxima

@@ -444,6 +444,14 @@ function CxToastHost() {
   return <div className="cx-toast" role="status"><CxIcon n="tick" s={14} />{msg}</div>;
 }
 
+/* Estado da sincronização com a Planilha (rodapé do menu e faixa de erro). */
+function cxSyncInfo(s) {
+  const txt = s.status === 'syncing' ? 'Sincronizando…' : s.status === 'error' ? 'Erro na sincronização' : s.lastSync ? 'Planilha · ' + s.lastSync : 'Planilha';
+  const color = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
+  const title = (s.msg ? s.msg + ' · ' : '') + 'Clique para salvar na Planilha agora' + (s.pending ? ' (há alterações não salvas)' : '');
+  return { txt, color, title };
+}
+
 /* ═════════════════════ Menu lateral ═════════════════════ */
 function EditionClaudeSidebar(p) {
   const { data, viewMode, activeOpId, activeTab, counts, opMeta } = p;
@@ -560,15 +568,17 @@ function EditionClaudeSidebar(p) {
     <div className="cx-side-foot">
       <span>Nexus Prumo</span>
       <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
+      {p.sync && p.sync.isGAS ? (() => { const si = cxSyncInfo(p.sync); return <button type="button" className="cx-side-sync" onClick={p.sync.onPush} title={si.title} aria-label={si.txt + (p.sync.pending ? ' · pendente' : '') + '. Salvar na Planilha agora'}>
+        <span className="cx-dot" style={{ background: si.color }} />
+        <span className="cx-side-sync-t cx-ell">{si.txt}</span>
+        {p.sync.pending ? <span className="cx-side-sync-p">· pend.</span> : null}
+      </button>; })() : null}
     </div>
   </aside>;
 }
 
 /* ═════════════════════ Barra superior ═════════════════════ */
 function EditionClaudeTopbar(p) {
-  const s = p.sync || {};
-  const syncTxt = s.status === 'syncing' ? 'Sincronizando…' : s.status === 'error' ? 'Erro na sincronização' : s.lastSync ? 'Planilha · ' + s.lastSync : 'Planilha';
-  const syncColor = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
     {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span><span className="cx-back-t">&nbsp;Voltar</span></button> : null}
@@ -577,7 +587,6 @@ function EditionClaudeTopbar(p) {
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
     </div>
     <div className="cx-top-r">
-      {s.isGAS ? <button type="button" className="cx-sync" onClick={s.onPush} title={(s.msg ? s.msg + ' · ' : '') + 'Clique para salvar na Planilha agora'}><span className="cx-dot" style={{ background: syncColor }} />{syncTxt}</button> : null}
       <button type="button" className="cx-search" onClick={p.onSearch} aria-label="Buscar"><CxIcon n="search" s={14} /><span className="cx-t">Buscar processo, CDA…</span><kbd className="cx-kbd">Ctrl K</kbd></button>
       {p.lastOp ? <button type="button" className="cx-last-op" onClick={p.onOpenLastOp} title={'Voltar para ' + p.lastOp.name}>{p.lastOp.name}</button> : null}
       <div className="cx-settings-anchor">
@@ -586,6 +595,16 @@ function EditionClaudeTopbar(p) {
       </div>
     </div>
   </header>;
+}
+
+/* Faixa de erro de sincronização: uma falha ao salvar pode significar edições perdidas. */
+function CxSyncErrorBanner({ msg, onRetry }) {
+  return <div className="cx cx-banner cx-banner-err" role="alert">
+    <CxIcon n="alert" s={14} />
+    <b>Não foi possível salvar na Planilha</b>
+    {msg ? <span className="cx-ell">{msg}</span> : null}
+    <button type="button" className="cx-banner-act" onClick={onRetry}>Tentar agora</button>
+  </div>;
 }
 
 /* Aviso de audiência em até 48h (substitui a faixa vermelha do clássico nesta edição). */
