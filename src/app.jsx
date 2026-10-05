@@ -3123,7 +3123,8 @@ function App() {
           else if (/[?&]edition=claude\b/.test(window.location.search || '')) { edition = 'claude'; bootstrapped = true; }
         }
       } catch {}
-      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', uiEdition: edition, processViewModel: 'D', prazosFilters: s.prazosFilters, prazosDeskMode: s.prazosDeskMode === 'lista' ? 'lista' : 'mesa' };
+      const next = { zoom: s.zoom || 100, font: s.font || '', theme: THEMES_OK.includes(th) ? th : 'theme-mar', uiEdition: edition, processViewModel: 'D', prazosFilters: s.prazosFilters, prazosDeskMode: s.prazosDeskMode === 'lista' ? 'lista' : 'mesa', cxTheme: cxThemeKey(s.cxTheme) };
+      if (Array.isArray(s.esteiraTemplate)) next.esteiraTemplate = s.esteiraTemplate;
       if ((bootstrapped && s.uiEdition !== edition) || themeMigrated || s.theme !== next.theme) {
         try { localStorage.setItem('nexus_settings', JSON.stringify({ ...s, ...next })); } catch {}
       }
@@ -3143,7 +3144,10 @@ function App() {
     return () => { ['font-inter', 'font-outfit', 'font-source'].forEach(c => root.classList.remove(c)); };
   }, [appSettings.font]);
 
-  const [activeTab, setActiveTab] = useState('notas');
+  const [activeTabRaw, setActiveTab] = useState('notas');
+  // Nexus Prumo: a antiga aba "Briefing" ('notas') foi para dentro da Visão geral ('visao'); no Prumo 'notas' é só um apelido
+  // (busca global, "levar ao panorama", histórico, links). Clássico e Beta seguem com 'notas' exatamente como antes.
+  const activeTab = (isClaude && activeTabRaw === 'notas') ? 'visao' : activeTabRaw;
   const [panoFocusId, setPanoFocusId] = useState(null); // card aberto na faixa do Briefing
   const [agendaWeekStart, setAgendaWeekStart] = useState(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -5131,6 +5135,8 @@ function App() {
   const [cdaPersonFilter, setCdaPersonFilter] = useState('all');
   const [procPersonFilterOpen, setProcPersonFilterOpen] = useState(false);
   const [carteiraSort, setCarteiraSort] = useState('valor_desc');
+  // 'indisp_asc' só existe no Painel do Nexus Prumo; o Painel clássico/Beta não conhece essa chave.
+  useEffect(() => { if (!isClaude && carteiraSort === 'indisp_asc') setCarteiraSort('valor_desc'); }, [isClaude, carteiraSort]);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [procCdaQuery, setProcCdaQuery] = useState('');
   // Popup da régua do panorama: estado próprio (não passa por useTransition de toggleGroup).
@@ -6064,7 +6070,7 @@ function App() {
     const indispLabel = constrictedAssets.length === 0 ? 'Sem bens' : constrictedWithValue.length === 0 ? 'Sem avaliação' : fmtCur(constrictedTotal);
     const indispHasValue = constrictedWithValue.length > 0;
     const cov = computeIncidentCoverage(execs, debts);
-    return { total, guar, unexec, prescA, prescG1, prescG1Vencido, prescG3, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, taskGlobalN, taskOpOnlyN, indispLabel, indispHasValue, indispCount: constrictedAssets.length, covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
+    return { total, guar, unexec, prescA, prescG1, prescG1Vencido, prescG3, prescExec, debts: debts.length, execs: execs.length, measures: measures.length, assets: assets.length, people: people.length, openIntims, overdueIntims, openTasks, overdueTasks, taskGlobalN, taskOpOnlyN, indispLabel, indispHasValue, indispCount: constrictedAssets.length, indisp: indispStats(assets, total), covPct: cov.pct, coveredTotal: cov.coveredTotal, coverageGrand: cov.grand };
   }, [activeOp, data, prescLookup, prazosByDebt, isDemo]);
 
 
@@ -6092,16 +6098,7 @@ function App() {
       const opTasks = (data.tasks || []).filter(t => t.operationId === opId && t.status !== 'concluida' && t.status !== 'cancelada');
       const opIntims = (data.intimations || []).filter(x => x.operationId === opId && !x.responseAction);
 
-      // Nexus Prumo: aba "Briefing" tem componente próprio (src/edition-claude.jsx).
-      // Clássico e Beta continuam com o painel abaixo, sem nenhuma mudança.
-      if (isClaude) {
-        return <EditionClaudeBriefing op={activeOp} data={data} opId={opId}
-          opDebts={opDebts} opExecs={opExecs} opAssets={opAssets} opTasks={opTasks} opIntims={opIntims}
-          upsert={upsert} setData={setData} setModal={setModal} setActiveTab={setActiveTab}
-          onOpenIntim={(id) => setCxDrawerId(id)} prescLookup={prescLookup}
-          onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
-          onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : 'narrativa'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }} />;
-      }
+      // Clássico e Beta: painel do Briefing abaixo. (No Prumo esta aba não existe: 'notas' é apelido de 'visao' — ver activeTab.)
 
       const activeDebts = opDebts.filter(d => d.status !== 'extinta');
       const totalVal = activeDebts.reduce((s,d) => s + (d.value||0), 0);
@@ -9244,7 +9241,7 @@ function App() {
       : (modal.type === 'create' ? 'Novo(a) ' : 'Editar ') + ({operation:'Operação',person:'Pessoa',debt:'Inscrição',execution:'Execução',measure:'Medida',asset:'Bem',document:'Documento',prescriptionEvent:'Evento Prescricional',intimation:'Intimação',task:'Tarefa',stickyNote:'Anotação',watch:'Acompanhamento',hearing:'Audiência',model:'Modelo'}[modal.entityType]||''))
     : '';
 
-  const tabList = isClaude ? ['visao','notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'] : ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
+  const tabList = isClaude ? ['visao','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'] : ['notas','pessoas','dividas','prescricao_v2','bens','tarefas','importar','docs'];
   const tabLabels = { visao:'Visão geral', notas:'Briefing', pessoas:'Pessoas', dividas:'Inscrições', prescricao_v2:'Processos e Prescrição', bens:'Bens', tarefas:'Tarefas', importar:'Importar', docs:'Arquivos' };
   React.useEffect(() => {
     // Abas removidas (grafo, insights, timeline, Processos avulso) → Inscrições + Processos e Prescrição
@@ -9346,12 +9343,18 @@ function App() {
     <div className="settings-group">
       <div className="settings-label">Fonte</div>
       <div className="settings-options cx-font-opts">
-        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>Public Sans</button>
+        <button className={`settings-opt ${appSettings.font===''?'active':''}`} onClick={() => updateSetting('font','')}>{isClaude ? 'Geist' : 'Public Sans'}</button>
         <button className={`settings-opt ${appSettings.font==='font-inter'?'active':''}`} onClick={() => updateSetting('font','font-inter')}>Inter</button>
         <button className={`settings-opt ${appSettings.font==='font-outfit'?'active':''}`} onClick={() => updateSetting('font','font-outfit')}>Outfit</button>
         <button className={`settings-opt ${appSettings.font==='font-source'?'active':''}`} onClick={() => updateSetting('font','font-source')}>Source Sans</button>
       </div>
     </div>
+    {isClaude && <div className="settings-group">
+      <div className="settings-label">Tema</div>
+      <div className="settings-options cx-edition-opts">
+        {CX_THEMES.map(t => <button key={t.key || 'ardosia'} className={`settings-opt ${cxThemeKey(appSettings.cxTheme)===t.key?'active':''}`} onClick={() => updateSetting('cxTheme', t.key)}>{t.label}</button>)}
+      </div>
+    </div>}
     {!isClaude && <div className="settings-group">
       <div className="settings-label">{isDemo ? 'Aparência' : 'Tema'}</div>
       <div className="settings-options">
@@ -10764,7 +10767,7 @@ function App() {
   const cxLateIntims = isClaude ? (data.intimations || []).filter(x => !x.responseAction && x.status !== 'analisado' && daysUntil(x.dateDeadline) !== null && daysUntil(x.dateDeadline) < 0).length : 0;
 
 
-  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude' : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
+  return (<div className={`app-layout ${sidebarCollapsed?'sidebar-collapsed':''} ${isDemo?'edition-demo':''} ${isClaude ? 'theme-claro edition-claude ' + cxThemeClass(appSettings.cxTheme) : appSettings.theme} ${isClaude && cxSideOpen ? 'cx-side-open' : ''} ${isClaude && cxSideCollapsed ? 'cx-side-collapsed' : ''} ${appSettings.font||''}`} style={appSettings.zoom !== 100 ? {zoom: appSettings.zoom/100} : undefined}>
     {isClaude && <EditionClaudeSidebar data={data} viewMode={viewMode} activeOpId={activeOpId} activeTab={activeTab} opMeta={sidebarOpMeta}
       classFilter={opClassFilter} setClassFilter={setOpClassFilter}
       collapsed={cxSideCollapsed} onToggleCollapsed={() => setCxSideCollapsed(!cxSideCollapsed)}
@@ -10773,6 +10776,7 @@ function App() {
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
       onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
       onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
+      sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, pending: !!(autoSyncEnabled && dirtyRef.current), onPush: cloudPush }}
       onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
     {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
@@ -11000,8 +11004,9 @@ function App() {
       {isClaude && <EditionClaudeTopbar crumbs={cxCrumbs} onMenu={() => setCxSideOpen(true)} backLabel={cxBackLabel} onBack={cxGoBack}
         onSearch={() => { setGlobalSearch(true); setGsQuery(''); }}
         lastOp={cxReturnOp} onOpenLastOp={() => { if (cxReturnOp && !(viewMode === 'operation' && activeOpId === cxReturnOp.id)) cxOpenOp(cxReturnOp.id); }}
-        sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, onPush: cloudPush }}
         onToggleSettings={() => setShowSettings(!showSettings)} settingsPanel={renderSettingsPanel()} />}
+
+      {isClaude && isGAS && cloudStatus === 'error' && <CxSyncErrorBanner msg={cloudMsg} onRetry={cloudPush} />}
 
       {(() => {
         if (isClaude && viewMode === 'hoje') return null; // o Hoje da edição Claude já mostra a audiência próxima
@@ -12410,7 +12415,9 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)}
         onOpenPrazos={() => { setPrazosFilters({ operationId: activeOp.id, personId: 'all' }); setPrazosDeskMode('mesa'); cxGo('prazos'); }}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
-        onOpenTimeline={() => { setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
+        onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
+        setData={setData} setModal={setModal} prescLookup={prescLookup}
+        onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : mode === 'narrativa' ? 'narrativa' : 'panorama'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
       </>}
       {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
@@ -13619,7 +13626,7 @@ function RichNoteEditor({ initialHtml, placeholder, draftRef, autoFocus, colors 
       <button type="button" className="rn-btn" title="Remover marca-texto" onClick={() => exec('hiliteColor', 'transparent')}>⌫</button>
       {colors && <>
         <span className="rn-sep"></span>
-        {RN_TEXT_COLORS.map(([c, t]) => <button key={c} type="button" className="rn-btn rn-tc" style={{color:c,fontWeight:700,borderBottom:`2px solid ${c}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>)}
+        {RN_TEXT_COLORS.map(([c, t]) => { const dc = mapRichTextColor(c); return <button key={c} type="button" className="rn-btn rn-tc" style={{color:dc,fontWeight:700,borderBottom:`2px solid ${dc}`,borderRadius:0}} title={t} aria-label={t} onClick={() => exec('foreColor', c)}>A</button>; })}
       </>}
       <span className="rn-sep"></span>
       <button type="button" className="rn-btn" title="Lista com marcadores" onClick={() => exec('insertUnorderedList')}>•≡</button>
@@ -14217,7 +14224,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </div>
         <div className="op-color-grid">
           {OP_COLOR_SWATCHES.map(([c, label]) => (
-            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:c}} title={label} aria-label={label} onClick={() => set('color', c)} />
+            <button key={c} type="button" className={'op-color-sw' + (cur === c ? ' on' : '')} style={{background:cxMapOpColor(c)}} title={label} aria-label={label} onClick={() => set('color', c)} />
           ))}
         </div>
         <span style={{fontSize:9,color:'var(--text-muted)'}}>Cor do quadradinho da operação no menu, no cabeçalho e nas listas do Nexus Prumo. Em automática, segue parcelamento/prioridade da operação.</span>

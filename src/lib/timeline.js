@@ -562,7 +562,7 @@ export function tlPhaseTrail({ stages, hearings, todayIso } = {}) {
     if (!st) return;
     if (st.multi && st.has && (st.recursos || []).length) {
       st.recursos.forEach((r, i) => raw.push({ id: st.key + '#' + i, key: st.key, label: st.label + (r.parte === 'adversa' ? ' (parte adversa)' : ''), has: true, d: toDayKey(r.d) || '', out: r.out || '', outLabel: r.outLabel || '', text: [r.proc ? 'Proc. ' + r.proc : '', r.texto || ''].filter(Boolean).join(' · '), ev: '', parte: r.parte || '' }));
-    } else raw.push({ id: st.key, key: st.key, label: st.label, has: !!st.has, d: toDayKey(st.d) || '', out: st.out || '', outLabel: st.outLabel || '', text: st.text || '', ev: st.ev || '', parte: '' });
+    } else raw.push({ id: st.key, key: st.key, label: st.label, has: !!st.has, d: toDayKey(st.d) || '', out: st.out || '', outLabel: st.outLabel || '', text: st.text || '', textHtml: st.textHtml || '', ev: st.ev || '', parte: '' });
   });
   const lastDoneIdx = (() => { let k = -1; raw.forEach((r, i) => { if (r.has && (!r.d || r.d <= today)) k = i; }); return k; })();
   /* Registro sem data e sem desfecho depois da última fase datada = o que se espera ("Decisão final — aguardando…"). */
