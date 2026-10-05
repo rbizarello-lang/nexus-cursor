@@ -4534,17 +4534,25 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-tl-rng { font: 500 10.5px var(--cx-mono); letter-spacing: 0.04em; color: var(--cx-ink-3); margin-right: 4px; }
 .cx-tl-sum { display: flex; flex-wrap: wrap; gap: 4px 22px; padding: 8px 14px; margin-bottom: 10px; border: 1px solid var(--cx-line); border-radius: 8px; background: var(--cx-surface-2); font-size: 12.5px; color: var(--cx-ink-2); }
 .cx-tl-sum b { color: var(--cx-ink); font-weight: 600; }
-.cx-tl-cap { position: absolute; top: 4px; font: 500 9.5px var(--cx-mono); letter-spacing: 0.06em; color: var(--cx-ink-3); white-space: nowrap; }
-.cx-tl-cap.foc { color: var(--cx-accent); font-weight: 600; }
+.cx-tl-cap { position: absolute; top: 4px; font: 400 9.5px var(--cx-mono); letter-spacing: 0.06em; color: var(--cx-ink-3); opacity: 0.85; white-space: nowrap; }
+.cx-tl-cap.foc { color: var(--cx-accent); font-weight: 600; opacity: 1; }
 .cx-tl-major.zn { font-weight: 400; font-size: 10.5px; color: var(--cx-ink-3); }
-.cx-tl-zone { position: absolute; bottom: 0; background: color-mix(in srgb, var(--cx-ink-3) 6%, transparent); pointer-events: none; }
+.cx-tl-zone { position: absolute; bottom: 0; background: color-mix(in srgb, var(--cx-ink-3) 4%, transparent); pointer-events: none; }
+/* Zona comprimida: tracejado fino rente à base da régua */
+.cx-tl-zl { position: absolute; bottom: 1px; height: 0; border-top: 1px dashed color-mix(in srgb, var(--cx-ink-3) 55%, transparent); pointer-events: none; }
 .cx-tl-shade.hol { background: color-mix(in srgb, var(--cx-red) 9%, transparent); }
 .cx-tl-grid.zt { background: color-mix(in srgb, var(--cx-line) 80%, transparent); }
-.cx-tl-brk { position: absolute; bottom: 0; z-index: 2; background: repeating-linear-gradient(135deg, var(--cx-surface-2) 0 4px, color-mix(in srgb, var(--cx-ink-3) 24%, var(--cx-surface-2)) 4px 6px); border-left: 1px solid var(--cx-line-strong); border-right: 1px solid var(--cx-line-strong); cursor: help; }
-.cx-tl-brk.sq { z-index: 0; pointer-events: none; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--cx-ink-3) 14%, transparent) 5px 6px); border: 0; }
+.cx-tl-brk, .cx-tl-brk-k { position: relative; display: inline-block; width: 12px; height: 12px; flex: none; }
+.cx-tl-brk { position: absolute; top: 32px; pointer-events: none; }
+.cx-tl-brk::before, .cx-tl-brk::after, .cx-tl-brk-k::before, .cx-tl-brk-k::after { content: ''; position: absolute; top: 0; width: 1px; height: 12px; background: var(--cx-ink-3); transform: rotate(24deg); }
+.cx-tl-brk::before, .cx-tl-brk-k::before { left: 3px; }
+.cx-tl-brk::after, .cx-tl-brk-k::after { left: 7px; }
+/* Guia pontilhada da quebra: da régua até o fim do quadro, por baixo das barras */
+.cx-tl-brk-g { position: absolute; bottom: 0; z-index: 0; width: 0; border-left: 1px dotted color-mix(in srgb, var(--cx-ink-3) 35%, transparent); pointer-events: none; }
+/* Vão espremido: pontilhado de 2px rente à base da régua */
+.cx-tl-sqb { position: absolute; bottom: 0; height: 0; border-bottom: 2px dotted color-mix(in srgb, var(--cx-ink-3) 60%, transparent); pointer-events: none; }
 .cx-tl-brk-hit { position: absolute; z-index: 3; height: 22px; cursor: help; }
-.cx-tl-brk-l { position: absolute; top: 37px; z-index: 3; text-align: center; font: 500 9px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; pointer-events: none; }
-.cx-tl-brk-k { background: repeating-linear-gradient(135deg, var(--cx-surface-2) 0 3px, color-mix(in srgb, var(--cx-ink-3) 28%, var(--cx-surface-2)) 3px 5px); border: 1px solid var(--cx-line-strong); }
+.cx-tl-brk-l { position: absolute; top: 44px; z-index: 3; text-align: center; font: 400 9px/9px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; pointer-events: none; }
 .cx-tl-bar.thin { height: 8px; border-radius: 4px; padding: 0; background: color-mix(in srgb, var(--c) 32%, var(--cx-surface)); border-color: color-mix(in srgb, var(--c) 55%, transparent); }
 .cx-tl-win { position: absolute; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--c) 35%, var(--cx-surface)); border: 1px solid color-mix(in srgb, var(--c) 65%, transparent); cursor: pointer; z-index: 1; }
 .cx-tl-band { position: absolute; height: 12px; background: repeating-linear-gradient(90deg, var(--cx-violet) 0 5px, transparent 5px 8px) 0 50% / 100% 2px no-repeat; opacity: 0.85; z-index: 0; cursor: help; }

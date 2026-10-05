@@ -2637,7 +2637,7 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
       <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano</span>
       <span><i className="cx-lg-sw cx-tl-seg inter" />Contagem de 5 anos</span>
       <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento</span>
-      <span><i className="cx-lg-sw cx-tl-brk-k" />Quebra do eixo</span>
+      <span><i className="cx-tl-brk-k" aria-hidden="true" />Quebra do eixo</span>
       <span className="cx-tl-leg-out"><i className="cx-tl-oc" style={{ background: 'var(--cx-green)' }} />favorável<i className="cx-tl-oc" style={{ background: 'var(--cx-red)' }} />desfavorável<i className="cx-tl-oc" style={{ background: 'var(--cx-yellow)' }} />pendente</span>
     </div>
     <div className="cx-tl" {...tip.bind}>
@@ -2645,25 +2645,31 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
       <div className="cx-tl-r" ref={rRef}>
         <div className="cx-tl-cv" style={{ width: CW, height: H }}>
           <div className="cx-tl-axis" style={{ height: CX_TL_AXIS }}>
+            {S.pastW ? <span className="cx-tl-zl" style={{ left: 0, width: S.pastW }} /> : null}
+            {S.futW ? <span className="cx-tl-zl" style={{ left: S.pastW + S.focusW, width: S.futW }} /> : null}
             {S.pastW >= 120 ? <span className="cx-tl-cap" style={{ left: 6 }}>PASSADO · COMPRIMIDO</span> : null}
             <span className="cx-tl-cap foc" style={{ left: S.pastW + 6 }}>FOCO · {st.w === 365 ? '1 ANO' : st.w + ' DIAS'} · {rangeTxt}</span>
             {S.futW >= 120 ? <span className="cx-tl-cap" style={{ right: 6 }}>FUTURO · COMPRIMIDO</span> : null}
             {majors.map((m, i) => <span key={'M' + i} className="cx-tl-major" style={{ left: m.x }}>{mLab(m)}</span>)}
             {fa.ticks.filter(tk => !nearToday(tk.x)).map((tk, i) => <span key={'T' + i} className={'cx-tl-tick' + (tk.we ? ' we' : '')} style={{ left: tk.x }}>{tk.text}</span>)}
             {zp.labels.concat(zu.labels).map((lb, i) => <span key={'Z' + i} className="cx-tl-major zn" style={{ left: lb.x }}>{lb.text}</span>)}
+            {brkAll.map((b, i) => {
+              const mid = (b.x0 + b.x1) / 2, hw = Math.max(22, b.x1 - b.x0);
+              return <React.Fragment key={'br' + i}>
+                {b.sq ? <span className="cx-tl-sqb" style={{ left: b.x0, width: Math.max(2, b.x1 - b.x0) }} /> : <span className="cx-tl-brk" style={{ left: mid - 6 }} />}
+                <span className="cx-tl-brk-hit" data-tl={'brk|' + i} style={{ left: mid - hw / 2, width: hw, top: CX_TL_AXIS - 22 }} />
+                {!b.sq && b.showLabel ? <span className="cx-tl-brk-l" style={{ left: mid - Math.max(22, b.x1 - b.x0) / 2, width: Math.max(22, b.x1 - b.x0) }}>{b.label}</span> : null}
+              </React.Fragment>;
+            })}
           </div>
           {S.pastW ? <span className="cx-tl-zone" style={{ left: 0, width: S.pastW, top: CX_TL_AXIS }} /> : null}
           {S.futW ? <span className="cx-tl-zone" style={{ left: S.pastW + S.focusW, width: S.futW, top: CX_TL_AXIS }} /> : null}
           {fa.shade.map((s, i) => <span key={'sh' + i} className={'cx-tl-shade' + (s.holiday ? ' hol' : '')} style={{ left: s.x, width: s.w }} />)}
           {fa.grid.map((g, i) => <span key={'g' + i} className={'cx-tl-grid' + (g.strong ? ' strong' : '')} style={{ left: g.x }} />)}
           {zp.ticks.concat(zu.ticks).map((tk, i) => <span key={'zt' + i} className="cx-tl-grid strong zt" style={{ left: tk.x }} />)}
+          {brkAll.filter(b => !b.sq).map((b, i) => <span key={'bg' + i} className="cx-tl-brk-g" style={{ left: Math.round((b.x0 + b.x1) / 2), top: CX_TL_AXIS }} />)}
           {sections.map((v, k) => right(v, k))}
           <svg className="cx-tl-svg" width={CW} height={H}>{links.map((l, k) => { const d = 'M' + l.x + ' ' + l.ya + ' C ' + (l.x - 16) + ' ' + l.ya + ', ' + (l.x - 16) + ' ' + l.yb + ', ' + l.x + ' ' + l.yb; return <g key={k} data-tl={l.l.id}><path d={d} className={'cx-tl-link' + (l.l.type === 'cover' ? ' cover' : '')} /><path d={d} className="cx-tl-link-hit" /><circle cx={l.x} cy={l.yb} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>; })}</svg>
-          {brkAll.map((b, i) => <React.Fragment key={'br' + i}>
-            <span className={'cx-tl-brk' + (b.sq ? ' sq' : '')} data-tl={b.sq ? undefined : 'brk|' + i} style={{ left: b.x0, width: b.x1 - b.x0, top: CX_TL_AXIS - 22 }} />
-            {b.sq ? <span className="cx-tl-brk-hit" data-tl={'brk|' + i} style={{ left: b.x0, width: b.x1 - b.x0, top: CX_TL_AXIS - 22 }} /> : null}
-            {b.showLabel ? <span className="cx-tl-brk-l" style={{ left: b.x0, width: b.x1 - b.x0 }}>{b.label}</span> : null}
-          </React.Fragment>)}
           <div className="cx-tl-today" style={{ left: x0 }}><span>Hoje</span></div>
         </div>
       </div>
