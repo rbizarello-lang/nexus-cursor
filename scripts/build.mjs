@@ -32,6 +32,7 @@ const richTextPath = path.join(root, 'src', 'lib', 'rich-text.js');
 const atuacoesPath = path.join(root, 'src', 'lib', 'atuacoes.js');
 const hojePath = path.join(root, 'src', 'lib', 'hoje.js');
 const timelinePath = path.join(root, 'src', 'lib', 'timeline.js');
+const themesPath = path.join(root, 'src', 'lib', 'themes.js');
 const shellPath = path.join(root, 'src', 'Nexus.shell.html');
 const outPath = path.join(root, 'Nexus.html');
 const outDemoPath = path.join(root, 'Nexus.demo.html');
@@ -153,14 +154,20 @@ const jsx = [
   unwrapModule(fs.readFileSync(atuacoesPath, 'utf8')),
   '/* --- src/lib/hoje.js --- */',
   unwrapModule(fs.readFileSync(hojePath, 'utf8')),
+  '/* --- src/lib/indisp.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'indisp.js'), 'utf8')),
   '/* --- src/lib/timeline.js --- */',
   unwrapModule(fs.readFileSync(timelinePath, 'utf8')),
+  '/* --- src/lib/themes.js --- */',
+  unwrapModule(fs.readFileSync(themesPath, 'utf8')),
   '/* --- src/lib/clocks.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'clocks.js'), 'utf8')),
   '/* --- src/lib/narrativa.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'narrativa.js'), 'utf8')),
   '/* --- src/lib/frentes.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'frentes.js'), 'utf8')),
+  '/* --- src/lib/fold.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'fold.js'), 'utf8')),
   '/* --- src/lib/navhist.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'navhist.js'), 'utf8')),
   '/* --- src/edition-claude.jsx --- */',

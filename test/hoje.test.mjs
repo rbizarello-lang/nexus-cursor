@@ -206,6 +206,25 @@ describe('Resumo da Visão geral da operação', () => {
     assert.equal(resumoPlain(resumoOperacao({ garantiaPct: null, carteiraPct: 24, cdasAlarme: 1, revisaoAtrasadaDias: 1 })), '1 CDA no alarme de prescrição. Revisão atrasada há 1 dia.');
     assert.equal(resumoOperacao({ audiencia: { dias: 9, tipo: 'una', iso: '2026-10-10' } }), '');
   });
+
+  it('indisponibilidade: razão de 1× ou mais abre o Resumo e dispensa a comparação com a carteira', () => {
+    const txt = resumoOperacao({ indispRatio: 2.6, indispPct: 100, indispCarteiraPct: 59, garantiaPct: 71, carteiraPct: 24 });
+    assert.equal(resumoPlain(txt), 'Bens indisponíveis cobrem 2,6× a dívida. Garantia de 71%, acima da média da carteira (24%).');
+    assert.equal(resumoPartes(txt).filter(x => x.b)[0].t, '2,6×');
+  });
+
+  it('indisponibilidade: 5 p.p. ou mais longe da carteira, antes da garantia', () => {
+    const baixo = resumoOperacao({ indispRatio: 0.47, indispPct: 47, indispCarteiraPct: 59, garantiaPct: 18, carteiraPct: 24 });
+    assert.equal(resumoPlain(baixo), 'Indisponibilidade de 47% da dívida, abaixo da média da carteira (59%). Garantia de 18%, abaixo da média da carteira (24%).');
+    assert.equal(resumoPlain(resumoOperacao({ indispRatio: 0.8, indispPct: 80, indispCarteiraPct: 59 })), 'Indisponibilidade de 80% da dívida, acima da média da carteira (59%).');
+  });
+
+  it('indisponibilidade: diferença pequena ou sem comparação não entra (garantia segue igual)', () => {
+    assert.equal(resumoOperacao({ indispRatio: 0.62, indispPct: 62, indispCarteiraPct: 59 }), '');
+    assert.equal(resumoOperacao({ indispRatio: 0.2, indispPct: 20, indispCarteiraPct: null }), '');
+    assert.equal(resumoOperacao({ indispRatio: null, indispPct: null, indispCarteiraPct: 59 }), '');
+    assert.equal(resumoPlain(resumoOperacao({ indispPct: 55, indispCarteiraPct: 59, garantiaPct: 71, carteiraPct: 24 })), 'Garantia de 71%, acima da média da carteira (24%).');
+  });
 });
 
 describe('Precisa de atenção', () => {

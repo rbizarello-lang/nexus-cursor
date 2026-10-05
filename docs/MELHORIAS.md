@@ -154,6 +154,23 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   Linha do tempo, visão dos Prazos extintivos e das Inscrições, Intimações lista/foco). Botão na barra superior
   (some quando não há para onde voltar) e atalho Alt+←; voltar fecha gavetas abertas. Não restaura filtros, rolagem
   nem o dia focado da Agenda.
+- **Nexus Prumo — indisponibilidade, Visão geral única, temas escuros** (05/10/2026) — só no Prumo; Clássico e Beta intactos.
+  - Indisponibilidade (bens com indisponibilidade ativa + requerida) é a métrica principal ligada ao anel, em
+    Visão geral, cabeçalho da operação, Hoje, Carteira, Painel e Resumo (`src/lib/indisp.js`). "Garantido (CDA)"
+    passa a texto secundário. A soma da carteira não deduplica bem lançado em duas operações (aviso na dica).
+  - Visão geral e Briefing fundidos numa aba ("Visão geral"): Leitura da operação → "O que vem"
+    (Horizonte | Narrativa | Mapa de frentes) → coluna principal (Intimações, Frentes processuais, Atuações,
+    Diário) + coluna lateral (Prazos extintivos, Agenda, Checklists, Lembretes, Fontes). `'notas'` é apelido de
+    `'visao'` no Prumo.
+  - Cartões recolhíveis com um padrão só (`CxFoldCard`, `cxUseFold`, estado em `nexus.cxFold`, `src/lib/fold.js`)
+    e "Recolher tudo · Expandir tudo"; 24 px entre cartões.
+  - Ordem única nas abas da operação: números → filtros → conteúdo. Eixo comprimido do Panorama discreto ("//").
+  - Aviso "Planilha · HH:MM" no rodapé do menu lateral; erro de sincronização vira faixa vermelha com "Tentar agora".
+  - Texto dos eventos (Frentes processuais e ficha do processo) com parágrafos; "Formatar" abre o editor rico com
+    "Organizar parágrafos". Campo opcional `textoHtml` no registro da fase; `texto` simples sempre atualizado
+    (se editado no Clássico, volta o texto simples).
+  - Temas Noite e Grafite (⚙ → Tema, chave `cxTheme`), com testes de tokens e contraste WCAG. Fonte do ⚙ passou a
+    valer no Prumo; `esteiraTemplate` não some mais ao recarregar.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---

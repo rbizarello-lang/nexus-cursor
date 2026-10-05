@@ -160,11 +160,15 @@ export function resumoCarga(mapa, audiencia = null) {
 
 /**
  * Resumo da Visão geral da operação (regras fixas; cada trecho só entra se valer):
+ *  indisponibilidade (bens indisponíveis cobrem a dívida 1× ou mais; ou 5 p.p. ou mais longe da média da carteira) ·
  *  garantia contra a média da carteira (diferença de 5 p.p. ou mais) · intimação vencida (a mais antiga e a
  *  parte) · CDAs no alarme · revisão atrasada · audiência marcada (em até 7 dias).
  * @param {object} i
  * @param {number|null} i.garantiaPct % garantido da operação (null se sem dívida)
  * @param {number|null} i.carteiraPct % garantido da carteira
+ * @param {number|null} [i.indispPct] % da dívida coberto por bens indisponíveis (ativa + requerida) da operação
+ * @param {number|null} [i.indispCarteiraPct] o mesmo, da carteira
+ * @param {number|null} [i.indispRatio] valor indisponível / dívida da operação (sem teto; ≥ 1 = a dívida inteira)
  * @param {{n:number, maisAntigaDias:number, parte?:string}|null} i.intimVencidas
  * @param {number} i.cdasAlarme CDAs da operação nos grupos urgentes
  * @param {number|null} i.revisaoAtrasadaDias dias de atraso (null se em dia)
@@ -172,6 +176,12 @@ export function resumoCarga(mapa, audiencia = null) {
  */
 export function resumoOperacao(i) {
   const out = [];
+  if (i.indispRatio != null && i.indispRatio >= 1) {
+    out.push('Bens indisponíveis cobrem **' + (Math.round(i.indispRatio * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×** a dívida.');
+  } else if (i.indispPct != null && i.indispCarteiraPct != null) {
+    const difI = i.indispPct - i.indispCarteiraPct;
+    if (Math.abs(difI) >= RESUMO_GARANTIA_PP) out.push('Indisponibilidade de **' + i.indispPct + '%** da dívida, ' + (difI < 0 ? 'abaixo' : 'acima') + ' da média da carteira (' + i.indispCarteiraPct + '%).');
+  }
   if (i.garantiaPct != null && i.carteiraPct != null) {
     const dif = i.garantiaPct - i.carteiraPct;
     if (Math.abs(dif) >= RESUMO_GARANTIA_PP) out.push('Garantia de **' + i.garantiaPct + '%**, ' + (dif < 0 ? 'abaixo' : 'acima') + ' da média da carteira (' + i.carteiraPct + '%).');
