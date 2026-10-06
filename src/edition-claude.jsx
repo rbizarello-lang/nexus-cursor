@@ -31,6 +31,8 @@ const CX_ICONS = {
   chevL: '<path d="m15 18-6-6 6-6"/>',
   chevD: '<path d="m6 9 6 6 6-6"/>',
   chevU: '<path d="m18 15-6-6-6 6"/>',
+  expandAll: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  collapseAll: '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>',
@@ -1549,14 +1551,20 @@ function CxPecaChip({ intim, upsert }) {
   }
   return <button type="button" className="cx-chip cx-peca-add" onClick={() => setEditing(true)}><CxIcon n="plus" s={11} />link da peça</button>;
 }
-function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
+/* Estado dos blocos recolhíveis da gaveta (persistido). Fica na gaveta para o botão "Expandir/Recolher tudo" do cabeçalho. */
+function useCxDrawerBlocks() {
+  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
+  const toggleBlock = React.useCallback((key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; }), []);
+  const setAllBlocks = React.useCallback((open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; }), []);
+  return { blocks, toggleBlock, setAllBlocks, allOpen: Object.keys(CX_BLK_DEFAULTS).every(k => blocks[k]) };
+}
+function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
   const { data, opsById, prazosByDebt } = a;
   const op = opsById.get(intim.operationId);
   const notes = cxNotes(intim);
   const [nt, setNt] = React.useState('');
-  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
-  const toggleBlock = (key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; });
-  const setAllBlocks = (open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; });
+  const ownBlocks = useCxDrawerBlocks();
+  const { blocks, toggleBlock, setAllBlocks } = blocksCtl || ownBlocks;
   const resolved = !!intim.responseAction;
   const set = (patch) => a.upsert('intimations', { ...intim, ...patch });
   const exec = (data.executions || []).find(e => sameProc(e.processNumber, intim.processNumber) && (!intim.operationId || e.operationId === intim.operationId))
@@ -1583,11 +1591,11 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const template = a.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE;
 
   return <div>
-    <div className="cx-blk-toggle-all">
+    {!blocksCtl ? <div className="cx-blk-toggle-all">
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(true)}>Expandir tudo</button>
       <span className="cx-muted">·</span>
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(false)}>Recolher tudo</button>
-    </div>
+    </div> : null}
     <div className="cx-d-chips">
       <CxOpTag op={op} onOpen={a.onOpenOp} />
       <span className="cx-chip"><CxStatusIcon s={resolved ? 'analisado' : intim.status} />{resolved ? 'Resolvida' : (CX_ST[intim.status] || {}).l || intim.status}</span>
@@ -1708,6 +1716,7 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
   const intim = (a.data.intimations || []).find(x => x.id === intimId);
   const [showRespond, setShowRespond] = React.useState(false);
   const bodyRef = React.useRef(null);
+  const blocksCtl = useCxDrawerBlocks();
   React.useEffect(() => { setShowRespond(false); if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [intimId]);
   React.useEffect(() => {
     const onKey = (e) => {
@@ -1730,13 +1739,18 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer" role="dialog" aria-modal="true" aria-label={'Intimação · ' + cxPartyName(intim)}>
       <div className="cx-dr-top">
-        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span><b>{op ? cxOpName(op) : 'Sem operação'}</b></div>
+        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span>
+          {intim.processNumber
+            ? <CxNumCopy value={intim.processNumber}><b className="cx-crumb-proc"><CxProc num={intim.processNumber} /><span className="cx-crumb-copy" aria-hidden="true"><CxIcon n="copy" s={13} /></span></b></CxNumCopy>
+            : <b>{op ? cxOpName(op) : 'Sem operação'}</b>}
+        </div>
+        <button type="button" className="cx-icon-btn" onClick={() => blocksCtl.setAllBlocks(!blocksCtl.allOpen)} title={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'} aria-label={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'}><CxIcon n={blocksCtl.allOpen ? 'collapseAll' : 'expandAll'} /></button>
         {idx >= 0 ? <span className="cx-mono cx-muted cx-small">{idx + 1} de {order.length}</span> : null}
         <button type="button" className="cx-icon-btn" disabled={idx <= 0} onClick={() => a.onOpenIntim(order[idx - 1])} title="Anterior (K)" aria-label="Anterior"><CxIcon n="chevU" /></button>
         <button type="button" className="cx-icon-btn" disabled={idx < 0 || idx >= order.length - 1} onClick={() => a.onOpenIntim(order[idx + 1])} title="Próxima (J)" aria-label="Próxima"><CxIcon n="chevD" /></button>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
-      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} /></div>
+      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} blocksCtl={blocksCtl} /></div>
       {!resolved && !showRespond ? <div className="cx-dr-foot"><CxDetailActions intim={intim} a={a} onRespond={() => setShowRespond(true)} /></div> : null}
       {resolved ? <div className="cx-dr-foot"><span className="cx-muted cx-small">Resolvida. Para mudar a atuação, edite a intimação.</span><span className="cx-sp" /><button type="button" className="cx-btn" onClick={() => a.onEditFull(intim)}><CxIcon n="edit" s={14} />Editar</button></div> : null}
     </aside>
@@ -2831,20 +2845,41 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
   const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '', debtIds: debtIds || null }), [data, prazosRadar, prescLookup, opId, debtIds, todayIso]);
   const [sims, setSims] = React.useState({});
   const [simErr, setSimErr] = React.useState({});
-  const [fontTick, setFontTick] = React.useState(0);
-  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  const [calSel, setCalSel] = React.useState(null);
   React.useEffect(() => { setSims({}); setSimErr({}); }, [opId, data]);
+  React.useEffect(() => { setCalSel(null); }, [opId]);
   const clocks = React.useMemo(() => clkSort(res.clocks.map(c => (sims[c.id] ? clkApplySim(c, sims[c.id], todayIso) : c))), [res, sims, todayIso]);
   const kpis = React.useMemo(() => clkKpis(clocks, todayIso), [clocks, todayIso]);
   const strip = React.useMemo(() => clkStrip(clocks, todayIso), [clocks, todayIso]);
   const byId = React.useMemo(() => { const m = new Map(); clocks.forEach(c => m.set(c.id, c)); return m; }, [clocks]);
+  const cal = React.useMemo(() => clkQuarterBins(strip.points, todayIso), [strip, todayIso]);
+  /* Células não vazias do calendário, por chave ('over' | 'term|2030-Q3' | 'piso|2030-Q3'): rótulo, pontos e recorte. */
+  const calCells = React.useMemo(() => {
+    const m = new Map();
+    if (cal.overdue.points.length) m.set('over', { lane: 'over', label: 'Vencidos', short: 'Vencidos', cell: cal.overdue, bucket: { lane: 'over' } });
+    cal.cols.forEach(c => ['term', 'piso'].forEach(lane => {
+      if (!c[lane].points.length) return;
+      m.set(lane + '|' + c.key, { lane, label: c.label + (lane === 'piso' ? ' · pisos' : ' · termos'), short: c.label + (lane === 'piso' ? ' · pisos' : ''), cell: c[lane], bucket: { lane, from: c.from, to: c.to } });
+    }));
+    return m;
+  }, [cal]);
+  React.useEffect(() => { if (calSel && !calCells.has(calSel)) setCalSel(null); }, [calCells, calSel]);
+  const selCell = calSel ? calCells.get(calSel) || null : null;
   const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('cal|') === 0) {
+      const x = calCells.get(key.slice(4)); if (!x) return null;
+      const pts = x.cell.points;
+      const lines = pts.slice(0, 8).map(p => String(p.number).slice(-9) + (p.n > 1 ? ' +' + (p.n - 1) : '') + ' · ' + cxDM(p.d) + '/' + p.d.slice(2, 4) + ' · ' + cxMoneyShort(p.val) + ' · ' + (p.kind === 'piso' ? 'piso' : 'termo'));
+      if (pts.length > 8) { const rest = pts.slice(8); lines.push('+' + rest.length + (rest.length === 1 ? ' relógio' : ' relógios') + ' (' + cxPl(rest.reduce((a, p) => a + (p.n || 1), 0), 'CDA', 'CDAs') + ')'); }
+      lines.push(calSel === key.slice(4) ? 'Clique para limpar o filtro' : 'Clique para filtrar os relógios');
+      return { when: x.label, title: cxPl(x.cell.cdas, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cell.value), lines, tone: x.lane === 'over' ? 'late' : '' };
+    }
     const c = byId.get(key.replace(/^clk\|/, '')); if (!c) return null;
     const d = c.kind === 'piso' ? c.floor : c.term;
     const g = CLK_GROUPS.find(x => x.key === c.group);
     const dd = d ? daysUntil(d) : null;
     return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [(embedded ? '' : cxOpName({ name: c.opName }) + ' · ') + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
-  }, [byId, embedded]));
+  }, [byId, embedded, calCells, calSel]));
   const open = (c) => {
     if (c.n > 1 && c.executionId && onOpenProc) onOpenProc(c.executionId);
     else onOpenCda && onOpenCda({ id: c.leadId, operationId: c.operationId });
@@ -2856,19 +2891,23 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     setSimErr(prev => { const n = { ...prev }; delete n[c.id]; return n; });
     setSims(prev => ({ ...prev, [c.id]: out }));
   };
-  /* ── calendário de termos ── */
-  const W = 1100, X0 = 24, X1 = 1066, MY = 108;
-  const total = Math.max(1, daysBetween(strip.from, strip.to));
-  const xo = (iso) => X0 + Math.max(0, daysBetween(strip.from, iso)) / total * (X1 - X0);
-  const ptTxt = (p) => String(p.number).slice(-9) + ' · ' + (p.kind === 'piso' ? 'piso ' : '') + cxDM(p.d) + '/' + p.d.slice(2, 4) + (p.n > 1 ? ' +' + (p.n - 1) : '');
-  const overdueN = strip.overdue;
-  const overdueTxt = overdueN ? cxPl(overdueN, 'termo já vencido', 'termos já vencidos') : '';
-  const lay = React.useMemo(() => {
-    const items = strip.points.filter(p => p.d >= strip.from).map((p, i) => ({ id: p.id, x: xo(p.d), w: cxTlMeasure(ptTxt(p), 10.5) + 6, prio: i + 1 }));
-    if (strip.overdue) items.push({ id: '__overdue__', x: X0, w: cxTlMeasure(overdueTxt, 10.5) + 6, prio: 0 });
-    return tlLayoutLabels(items, { minX: X0 - 8, maxX: W - 6, levels: 4, pad: 6, gap: 8 });
-  }, [strip, fontTick]);
-  const placed = new Map(lay.placed.map(p => [p.id, p]));
+  /* ── calendário de termos (faixas por trimestre) ── */
+  const calNext = React.useMemo(() => clkNextDates(strip.points, todayIso, 3), [strip, todayIso]);
+  const calShort = (v) => { v = Number(v) || 0; if (v <= 0) return '—'; if (v >= 1e9) return (Math.round(v / 1e8) / 10).toLocaleString('pt-BR') + ' bi'; if (v >= 995000) { const x = v / 1e6; return (x >= 10 ? String(Math.round(x)) : (Math.round(x * 10) / 10).toLocaleString('pt-BR')) + ' mi'; } if (v >= 1000) return Math.round(v / 1000).toLocaleString('pt-BR') + ' mil'; return 'R$ ' + Math.round(v); };
+  const calPick = (k) => setCalSel(prev => (prev === k ? null : k));
+  const calClear = () => { const k = calSel; setCalSel(null); if (k) { const el = document.querySelector('[data-calk="' + k + '"]'); if (el) el.focus(); } };
+  const calCellBtn = (k, col, row, mark) => {
+    const x = calCells.get(k); if (!x) return null;
+    const on = calSel === k, c = x.cell;
+    return <button key={k} type="button" className={'cx-cal-cc g-' + c.group + (x.lane === 'over' ? ' venc' : '') + (on ? ' sel' : '')} style={{ gridColumn: col, gridRow: row }} data-tl={'cal|' + k} data-calk={k} aria-pressed={on}
+      aria-label={x.label + ': ' + cxPl(c.cdas, 'CDA', 'CDAs') + ', ' + cxMoneyShort(c.value) + (on ? '. Clique para limpar o filtro.' : '. Clique para filtrar os relógios.')} onClick={() => calPick(k)}>
+      {x.lane === 'over' ? <span className="t0">Vencidos</span> : null}
+      <span className="t1"><CxTlGlyph kind="presc" c="var(--c)" hollow={x.lane === 'piso'} s={x.lane === 'over' ? 12 : 11} />{c.cdas}{x.lane === 'over' ? <span className="t2i"> · {calShort(c.value)}</span> : null}</span>
+      {x.lane === 'over' ? null : <span className="t2">{calShort(c.value)}</span>}
+    </button>;
+  };
+  const calOverW = cal.overdue.points.length ? 96 : 74;
+  const calMinW = 50 + calOverW + cal.cols.length * (cal.gran === 'q' ? 36 : cal.gran === 'h' ? 44 : 46);
   const legend = <div className="cx-tl-legend cx-clk-leg">
     <span className="cx-tl-leg-h">Leitura</span>
     <span><i className="cx-lg-sw cx-clk-sw fill" />Tempo decorrido</span>
@@ -2878,7 +2917,8 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     <span><i className="cx-lg-sw cx-clk-sw cyan" />Piso: só há risco depois de novo marco</span>
     <span><CxTlGlyph kind="presc" c="var(--cx-violet)" s={14} />termo<CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={14} />piso</span>
   </div>;
-  const groups = CLK_GROUPS.map(g => ({ g, rows: clocks.filter(c => c.group === g.key) })).filter(x => x.rows.length);
+  const shown = selCell ? clocks.filter(c => clkBucketMatch(c, selCell.bucket, todayIso)) : clocks;
+  const groups = CLK_GROUPS.map(g => ({ g, rows: shown.filter(c => c.group === g.key) })).filter(x => x.rows.length);
   const mon = (v) => cxMoneyShort(v);
   const empty = !clocks.length;
   return <div className={'cx-clk' + (embedded ? ' emb' : '')} {...tip.bind}>
@@ -2894,31 +2934,41 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
         <CxKpiCard label="Sem relógio ativo · piso" value={kpis.piso.cdas ? mon(kpis.piso.value) : '—'} tone="cyan"
           desc={kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'} />
       </CxKpiStrip>
-      <section className="cx-card cx-clk-strip" aria-label="Calendário dos termos">
-        <svg viewBox={'0 0 ' + W + ' 138'} role="img" aria-label="Calendário dos termos de prescrição">
-          <text x={X0} y="13" className="cx-clk-cap">CALENDÁRIO DOS TERMOS · HOJE → {strip.to.slice(0, 4)} · hexágono cheio = termo, vazado = piso</text>
-          <line x1={X0} x2={X1} y1={MY + 8} y2={MY + 8} stroke="var(--cx-line-strong)" />
-          {strip.years.map(y => { const x = xo(y === +strip.from.slice(0, 4) ? strip.from : y + '-01-01'); return <g key={y}><line x1={x} x2={x} y1={MY + 4} y2={MY + 12} stroke="var(--cx-line-strong)" /><text x={x + 4} y={MY + 26} className="cx-clk-yr">{y}</text></g>; })}
-          {strip.points.filter(p => p.d >= strip.from).map(p => {
-            const pl = placed.get(p.id);
-            const x = xo(p.d), col = p.kind === 'piso' ? 'var(--cx-cyan)' : cxClkTone(p.group);
-            return <g key={p.id}>
-              {pl ? <><line x1={x} x2={x} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" />
-                <text x={pl.anchor === 'end' ? pl.x1 - 2 : pl.x0 + 2} y={MY - 16 - pl.level * 15} textAnchor={pl.anchor} className={'cx-clk-pl' + (p.kind === 'piso' ? ' piso' : '')}>{ptTxt(p)}</text></> : null}
-              <g transform={'translate(' + (x - 8) + ',' + (MY - 8) + ')'} data-tl={'clk|' + p.id} className="cx-clk-pt" tabIndex={0} role="button" aria-label={'CDA ' + p.number + ' · ' + fmtDate(p.d)} onClick={() => { const c = byId.get(p.id); if (c) open(c); }} onKeyDown={e => { if (e.key === 'Enter') { const c = byId.get(p.id); if (c) open(c); } }}>
-                <rect x="-4" y="-4" width="24" height="24" fill="transparent" />
-                <CxTlGlyph kind="presc" c={col} hollow={p.kind === 'piso'} s={16} />
-              </g>
-            </g>;
-          })}
-          {overdueN ? (() => { const pl = placed.get('__overdue__'); return <g>
-            {pl ? <><line x1={X0} x2={X0} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" /><text x={pl.x0 + 2} y={MY - 16 - pl.level * 15} className="cx-clk-pl late">{overdueTxt}</text></> : null}
-            <g transform={'translate(' + (X0 - 8) + ',' + (MY - 8) + ')'}><CxTlGlyph kind="presc" c="var(--cx-red)" s={16} /></g>
-          </g>; })() : null}
-          <line x1={X0} x2={X0} y1="20" y2={MY + 8} stroke="var(--cx-accent)" strokeWidth="1.5" />
-          <text x={X0 + 5} y="30" className="cx-clk-hj">HOJE</text>
-        </svg>
-        {lay.dropped.length ? <div className="cx-clk-drop">+{lay.dropped.length} sem rótulo (passe o mouse no hexágono)</div> : null}
+      <section className="cx-card cx-clk-strip cx-cal" aria-label="Calendário dos termos">
+        <div className="cx-cal-h">
+          <div><h3>Calendário dos termos</h3><span className="cx-cal-sub">{cxPl(cal.total.cdas, 'CDA', 'CDAs')} · {cxMoneyShort(cal.total.value)}{cal.gran === 'h' ? ' · por semestre' : cal.gran === 'y' ? ' · por ano' : ''}</span></div>
+          <div className="cx-cal-leg" aria-hidden="true">
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" s={13} />termo</span>
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" hollow s={13} />piso</span>
+            <span className="sep" />
+            <span><i style={{ '--c': 'var(--cx-red)' }} />até 90 dias</span>
+            <span><i style={{ '--c': 'var(--cx-orange)' }} />até 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-yellow)' }} />mais de 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-cyan)' }} />piso</span>
+          </div>
+        </div>
+        <div className="cx-cal-sc">
+          <div className="cx-cal-grid" role="group" aria-label="Termos e pisos por faixa de tempo" style={{ gridTemplateColumns: '50px ' + calOverW + 'px repeat(' + cal.cols.length + ', minmax(0, 1fr))', minWidth: calMinW }}>
+            <div className="cx-cal-lbg" style={{ gridRow: 2 }} /><div className="cx-cal-lbg" style={{ gridRow: 3 }} />
+            <div className="cx-cal-ll" style={{ gridRow: 2 }}>Termos</div><div className="cx-cal-ll" style={{ gridRow: 3 }}>Pisos</div>
+            <div className="cx-cal-hl">HOJE · {cxDM(todayIso)}</div>
+            {cal.years.map((y, i) => <React.Fragment key={y.year}>
+              <div className="cx-cal-yl" style={{ gridColumn: (3 + y.start) + ' / span ' + y.span, gridRow: 1 }}>{y.year}</div>
+              {i > 0 ? <div className="cx-cal-ys" style={{ gridColumn: 3 + y.start, gridRow: '1 / 5' }} /> : null}
+            </React.Fragment>)}
+            <div className="cx-cal-hoje" style={{ gridColumn: 3, gridRow: '1 / 5' }} />
+            {calCells.has('over') ? calCellBtn('over', 2, 2) : <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 2 }} />}
+            <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 3 }} />
+            {cal.cols.map((c, i) => ['term', 'piso'].map((lane, li) => {
+              const k = lane + '|' + c.key;
+              return calCells.has(k) ? calCellBtn(k, 3 + i, 2 + li) : <span key={k} className="cx-cal-dot" style={{ gridColumn: 3 + i, gridRow: 2 + li }} />;
+            }))}
+            {cal.gran === 'y' ? null : cal.cols.map((c, i) => <div key={'q' + c.key} className="cx-cal-ql" style={{ gridColumn: 3 + i, gridRow: 4 }}>{c.short}</div>)}
+          </div>
+        </div>
+        {calNext.length ? <p className="cx-cal-next">Próximos termos: {calNext.map((x, i) => <React.Fragment key={x.d + x.kind}>{i ? ' · ' : ''}<b className={x.kind === 'piso' ? 'piso' : ''}>{cxDM(x.d)}/{x.d.slice(2, 4)}</b> {x.kind === 'piso' ? <span className="piso">piso </span> : null}{String(x.number).slice(-9)}{x.others > 0 ? ' +' + x.others : ''}</React.Fragment>)}</p> : null}
+        <div className="cx-cal-f" aria-live="polite">{selCell ? <span className="cx-cal-fchip">Filtrando: <b>{selCell.short}</b><span className="n"> · {cxPl(selCell.cell.cdas, 'CDA', 'CDAs')}</span><button type="button" aria-label="Limpar filtro do calendário" onClick={calClear}>×</button></span> : null}</div>
+        {cal.skipped ? <p className="cx-cal-note">{cxPl(cal.skipped, 'piso já passou e não aparece', 'pisos já passaram e não aparecem')} no calendário; segue nas linhas abaixo.</p> : null}
       </section>
       {groups.map(({ g, rows }) => <section key={g.key} aria-label={g.label}>
         <div className="cx-clk-g"><i style={{ background: cxClkTone(g.key) }} />{g.label}<span className="ln" /><span>{rows.length}</span></div>
