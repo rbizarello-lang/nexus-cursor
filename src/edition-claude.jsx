@@ -6497,7 +6497,9 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          {execHasOpenIntim(g.exec, data) ? <span className="cx-pt-intim" title="Intimação aberta" aria-label="Intimação aberta" /> : null}
+          {apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
@@ -6570,6 +6572,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-num">
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
           <CxNumCopy value={h.exec.processNumber}><span className="cx-mono">{h.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          {execHasOpenIntim(h.exec, data) ? <span className="cx-pt-intim" title="Intimação aberta" aria-label="Intimação aberta" /> : null}
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
         </td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
