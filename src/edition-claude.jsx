@@ -5742,13 +5742,13 @@ function CxBfChecklists({ op, upsert }) {
 
 /* ─── Sinais (mesmos desenhos/cores/ordem do ProcRowSymbols — app.jsx) ─── */
 const CX_SIG_DEFS = [
+  { k: 'task', label: 'Tarefa aberta' },
+  { k: 'intim', label: 'Intimação aberta' },
   { k: 'star', label: 'Relevante' },
   { k: 'pin', label: 'Meu acervo' },
   { k: 'watch', label: 'Acompanhar' },
   { k: 'copy', label: 'Cópia na pasta' },
   { k: 'lock', label: 'Constrição' },
-  { k: 'task', label: 'Tarefa aberta' },
-  { k: 'intim', label: 'Intimação aberta' },
 ];
 const CX_SIG_FIELD = { star: 'isRelevant', pin: 'meuAcervo', watch: 'acompanhar', copy: 'copiaNaPasta' };
 function cxSigFlags(exec, data) {
@@ -5763,14 +5763,14 @@ function cxSigFlags(exec, data) {
     intim: execHasOpenIntim(exec, data),
   };
 }
-function CxSigGlyph({ k }) {
+function CxSigGlyph({ k, tone }) {
   switch (k) {
     case 'star': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z" /></svg>;
     case 'pin': return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 11.2 12 4.2l8.5 7" /><path d="M6 10.6V19.5h12V10.6" /><path d="M10 19.5v-5h4v5" /></svg>;
     case 'watch': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z" /></svg>;
     case 'copy': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z" /></svg>;
     case 'lock': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z" /></svg>;
-    case 'task': return <span className="cx-sig-dot cx-sig-dot-task" aria-hidden="true" />;
+    case 'task': return <span className={'cx-sig-dot cx-sig-dot-task' + (tone === 'hi' ? ' cx-sig-dot-task-hi' : '')} aria-hidden="true" />;
     case 'intim': return <span className="cx-sig-dot cx-sig-dot-intim" aria-hidden="true" />;
     default: return null;
   }
@@ -6027,7 +6027,7 @@ function EditionClaudeProcDrawer(p) {
         </div>}
         {e && (sig.lock || openTasks.length > 0 || openIntims.length > 0) && <div className="cx-pd-sigauto">
           {sig.lock && <span className="cx-pd-auto"><CxSigGlyph k="lock" />Constrição{linkedAssets.length ? `: ${linkedAssets.length} ${linkedAssets.length === 1 ? 'bem' : 'bens'} (${[...new Set(linkedAssets.map(a => a.source).filter(Boolean))].join(', ') || '—'})` : ''}</span>}
-          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
+          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" tone={openTasks.some(t => t.priority === 'urgente' || t.priority === 'alta') ? 'hi' : 'lo'} />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
           {openIntims.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'intimation', initial: openIntims[0] })}><CxSigGlyph k="intim" />{openIntims.length} {openIntims.length === 1 ? 'intimação' : 'intimações'}{openIntims[0].dateDeadline ? ' · prazo ' + fmtDate(openIntims[0].dateDeadline) : ''}</button>}
         </div>}
         {e && <dl className="cx-pd-facts">
@@ -6548,7 +6548,6 @@ function EditionClaudeProcessos(p) {
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
           <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>
-          {execHasOpenIntim(g.exec, data) ? <span className="cx-pt-intim" title="Intimação aberta" aria-label="Intimação aberta" /> : null}
           {apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
@@ -6622,7 +6621,6 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-num">
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
           <CxNumCopy value={h.exec.processNumber}><span className="cx-mono">{h.exec.processNumber || 'S/N'}</span></CxNumCopy>
-          {execHasOpenIntim(h.exec, data) ? <span className="cx-pt-intim" title="Intimação aberta" aria-label="Intimação aberta" /> : null}
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
         </td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}

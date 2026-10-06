@@ -924,14 +924,29 @@ function execShowsConstriction(exec, data) {
   return !!(exec && (exec.hasConstriction || execHasLinkedConstriction(exec, data)));
 }
 
+function taskMatchesExec(exec, t) {
+  return t
+    && t.status !== 'concluida' && t.status !== 'cancelada'
+    && sameProc(t.processNumber, exec.processNumber)
+    && (!exec.operationId || !t.operationId || t.operationId === exec.operationId);
+}
+
 /** Tarefa em aberto já ligada ao processo pelo nº CNJ (`processNumber`), como no alerta do card. */
 function execHasOpenTask(exec, data) {
   if (!exec || !normProc(exec.processNumber)) return false;
-  return (data?.tasks || []).some(t =>
-    t.status !== 'concluida' && t.status !== 'cancelada'
-    && sameProc(t.processNumber, exec.processNumber)
-    && (!exec.operationId || !t.operationId || t.operationId === exec.operationId)
-  );
+  return (data?.tasks || []).some(t => taskMatchesExec(exec, t));
+}
+
+/** Cor da bola de tarefa: alta ou urgente fica vermelha; média ou baixa, amarela. A mais grave vence. */
+function execOpenTaskTone(exec, data) {
+  if (!exec || !normProc(exec.processNumber)) return null;
+  let low = false;
+  for (const t of (data?.tasks || [])) {
+    if (!taskMatchesExec(exec, t)) continue;
+    if (t.priority === 'urgente' || t.priority === 'alta') return 'hi';
+    low = true;
+  }
+  return low ? 'lo' : null;
 }
 
 /** Intimação na caixa de entrada ativa (`intimIsOpenWork`), pelo mesmo nº CNJ. */
@@ -976,7 +991,7 @@ function markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal
   }
 }
 
-/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação).
+/** Ícones discretos na linha (Tarefa · Intimação · Relevante · Meu acervo · Acompanhar · Cópia · Constrição).
  *  `fixed`: apresentação do Prumo — cada sinal ocupa sempre a mesma casa (7 posições fixas), vazia quando ausente. */
 function ProcRowSymbols({ exec, data, fixed = false }) {
   if (!exec) return null;
@@ -985,15 +1000,28 @@ function ProcRowSymbols({ exec, data, fixed = false }) {
   const showWatch = !!exec.acompanhar;
   const showCopy = !!exec.copiaNaPasta;
   const showLock = execShowsConstriction(exec, data);
-  const showTask = execHasOpenTask(exec, data);
+  const taskTone = execOpenTaskTone(exec, data);
   const showIntim = execHasOpenIntim(exec, data);
-  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
+  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !taskTone && !showIntim) return null;
   const copyTip = exec.copiaNaPastaDate
     ? `Cópia na pasta · ${fmtDate(exec.copiaNaPastaDate)}`
     : 'Cópia na pasta';
+  const taskTip = taskTone === 'hi' ? 'Tarefa de alta importância' : 'Tarefa';
   const empty = <i className="proc-row-sym-empty" aria-hidden="true" />;
   return (
     <span className={'proc-row-syms' + (fixed ? ' proc-row-syms-fixed' : '')} onClick={ev => ev.stopPropagation()}>
+      {taskTone ? (
+        <span className="proc-row-sym has-tip" title={taskTip} aria-label={taskTip}>
+          <i className={'proc-row-dot proc-row-dot-task' + (taskTone === 'hi' ? ' proc-row-dot-task-hi' : '')} aria-hidden="true" />
+          <span className="tip-content">{taskTip}</span>
+        </span>
+      ) : (fixed ? empty : null)}
+      {showIntim ? (
+        <span className="proc-row-sym has-tip" title="Intimação aberta" aria-label="Intimação aberta">
+          <i className="proc-row-dot proc-row-dot-intim" aria-hidden="true" />
+          <span className="tip-content">Intimação aberta</span>
+        </span>
+      ) : (fixed ? empty : null)}
       {showStar ? (
         <span className="proc-row-sym proc-row-sym-star has-tip" title="Relevante" aria-label="Relevante">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -1034,16 +1062,6 @@ function ProcRowSymbols({ exec, data, fixed = false }) {
             <path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/>
           </svg>
           <span className="tip-content">Constrição</span>
-        </span>
-      ) : (fixed ? empty : null)}
-      {showTask ? (
-        <span className="proc-row-dot proc-row-dot-task has-tip" title="Tarefa" aria-label="Tarefa">
-          <span className="tip-content">Tarefa</span>
-        </span>
-      ) : (fixed ? empty : null)}
-      {showIntim ? (
-        <span className="proc-row-dot proc-row-dot-intim has-tip" title="Intimação aberta" aria-label="Intimação aberta">
-          <span className="tip-content">Intimação aberta</span>
         </span>
       ) : (fixed ? empty : null)}
     </span>

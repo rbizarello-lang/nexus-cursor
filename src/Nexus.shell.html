@@ -3045,6 +3045,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   flex-shrink: 0;
 }
 .app-layout:not(.edition-claude) .proc-row-dot-task { background: var(--yellow); }
+.app-layout:not(.edition-claude) .proc-row-dot-task-hi { background: var(--red); }
 .app-layout:not(.edition-claude) .proc-row-dot-intim { background: var(--blue); }
 .demo-proc-table-row { cursor: pointer; }
 .demo-proc-table-row:hover td { background: color-mix(in srgb, var(--accent, #9a6b3a) 6%, transparent); }
@@ -5694,16 +5695,18 @@ span.cx-bf-stp.ghost { display: inline-flex; flex-direction: row; align-items: f
    EditionClaudeCdaDrawer (ficha própria da CDA), EditionClaudeProcessos. */
 
 /* Sinais: coluna de posição fixa (7 casas), mesmos desenhos/cores/ordem da Beta. */
-.app-layout.edition-claude .proc-row-syms-fixed { display: inline-flex; align-items: center; gap: 6px; min-width: 108px; }
+.app-layout.edition-claude .proc-row-syms-fixed { display: inline-flex; align-items: center; gap: 6px; min-width: 134px; }
 .app-layout.edition-claude .proc-row-sym-empty { display: inline-block; width: 14px; height: 14px; flex-shrink: 0; }
 .app-layout.edition-claude .proc-row-sym { color: var(--cx-ink-3); opacity: 0.9; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .app-layout.edition-claude .proc-row-sym svg { display: block; width: 14px; height: 14px; }
 .app-layout.edition-claude .proc-row-sym.proc-row-sym-star { color: var(--cx-accent); opacity: 1; }
-.app-layout.edition-claude .proc-row-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.app-layout.edition-claude .proc-row-dot { display: block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .app-layout.edition-claude .proc-row-dot-task { background: var(--cx-yellow); }
+.app-layout.edition-claude .proc-row-dot-task-hi { background: var(--cx-red); }
 .app-layout.edition-claude .proc-row-dot-intim { background: var(--cx-blue); }
 .cx-sig-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .cx-sig-dot-task { background: var(--cx-yellow); }
+.cx-sig-dot-task-hi { background: var(--cx-red); }
 .cx-sig-dot-intim { background: var(--cx-blue); }
 
 /* Barra de filtros pelos 7 sinais */
@@ -5936,7 +5939,6 @@ table.cx-pt { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cx-pt th.cx-pt-r { text-align: right; }
 .cx-pt-num { white-space: nowrap; }
 .cx-pt-apc { margin-left: 6px; font-size: 10.5px; color: var(--cx-ink-3); }
-.cx-pt-intim { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--cx-blue); vertical-align: middle; flex: none; }
 .cx-pt-presc { white-space: nowrap; font-size: 11.5px; }
 .cx-pt-presc.risk-critical { color: var(--cx-red); font-weight: 600; }
 .cx-pt-presc.risk-warning { color: var(--cx-orange); }
