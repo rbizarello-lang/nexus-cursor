@@ -55,10 +55,10 @@ describe('BLOQUEIO NEGOCIACAO importado como parcelamento', () => {
     assert.match(occ.effect, /sem pausa/);
   });
 
-  it('antes da regra, o mesmo cadastro pausava até hoje (termo 2032)', () => {
+  it('com adesão confirmada, o parcelamento segue vigente (a rescisão implícita não tem fonte)', () => {
     const r = inter(historico().map(e => (e.id === 'a4' ? bloqueio({ adesaoConfirmada: true }) : e)));
     assert.equal(r.phase, 'suspenso');
-    assert.equal(r.diesAdQuem, '2032-09-28');
+    assert.equal(r.diesAdQuem, null);
     assert.equal(r.band.cedo.diesAdQuem, '2031-09-18');
     assert.deepEqual(r.checks.filter(c => /BLOQUEIO NEGOCIACAO/.test(c)), []);
   });
