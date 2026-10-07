@@ -50,7 +50,9 @@ export const PRESC_EVENT_TYPES = {
   info_dissolucao_irregular: { label: 'Dissolução irregular (indício)', category: 'info', color: 'var(--text-muted)', desc: 'Certidão ou ato que indica dissolução irregular da empresa. Usado no prazo informativo de redirecionamento (Tema 444/STJ).' },
   info_pedido_redirecionamento: { label: 'Pedido de redirecionamento', category: 'info', color: 'var(--text-muted)', desc: 'Pedido de redirecionamento ao sócio ou responsável. Informativo.' },
   info_outro: { label: 'Outro evento', category: 'info', color: 'var(--text-muted)', desc: 'Registro informativo sem efeito no cômputo.' },
-  info_bloqueio_negociacao: { label: 'Bloqueio para negociação (registro)', category: 'info', color: 'var(--text-muted)', desc: 'Ocorrência SIDA “BLOQUEIO NEGOCIACAO” (consolidação da Lei 11.941 e reaberturas). Não é adesão: registro sem pausa nem interrupção. Eventos antigos importados como parcelamento a partir dela valem como este até você confirmar que houve adesão.' }
+  info_bloqueio_negociacao: { label: 'Bloqueio para negociação (registro)', category: 'info', color: 'var(--text-muted)', desc: 'Ocorrência SIDA “BLOQUEIO NEGOCIACAO” (consolidação da Lei 11.941 e reaberturas). Não é adesão: registro sem pausa nem interrupção. Eventos antigos importados como parcelamento a partir dela valem como este até você confirmar que houve adesão.' },
+  info_indicacao_parcelamento: { label: 'Indicação para parcelamento (indício)', category: 'info', color: 'var(--text-muted)', desc: 'Debcad “INDICADO P/INCLUSÃO” (fase 760, pré-parcelamento). Indício, sem adesão nem consolidação: não interrompe nem pausa. A indicação pode ser rotina da PGFN; só o ato do devedor interrompe (Súmula 653/STJ). Para contar como adesão, informe a prova do pedido do devedor (recibo do SISPAR ou do e-CAC).' },
+  info_rescisao_sem_fonte: { label: 'Rescisão sem fonte (registro)', category: 'info', color: 'var(--text-muted)', desc: 'Rescisão deduzida pelo importador antigo a partir do início do parcelamento seguinte (“Rescindido (implícito)”). Não consta de documento: registro sem efeito no cálculo até você informar a fonte.' }
 };
 
 /**
@@ -137,6 +139,7 @@ export const PRESC_EVENT_FAMILIES = [
       { type: 'susp_falencia', label: 'Recuperação judicial (não suspende)' },
       { type: 'info_dissolucao_irregular', label: 'Dissolução irregular (indício)' },
       { type: 'info_pedido_redirecionamento', label: 'Pedido de redirecionamento' },
+      { type: 'info_indicacao_parcelamento', label: 'Indicação para parcelamento (indício)' },
       { type: 'info_outro', label: 'Outro registro' }
     ]
   }
@@ -149,7 +152,7 @@ export function familyOfPrescEvent(type) {
 
 export const PARC_RESTART_ONE_PLUS_FIVE = '1+5';
 export const PARC_RESTART_FIVE_ONLY = '5';
-export const RULE_VERSION = '2026.10a';
+export const RULE_VERSION = '2026.10b';
 
 /** Constrição na própria EF: interrompe a intercorrente. */
 export const EF_CONSTRICTION_TYPES = new Set(['int_penhora', 'int_arresto', 'int_sisbajud', 'int_cnib']);
@@ -230,16 +233,84 @@ export function isBloqueioNegociacaoEvent(ev) {
   return BLOQUEIO_NEGOCIACAO_RE.test(String(ev.notes || ''));
 }
 
-/** Cópia do evento de bloqueio como registro. `_bloqueioNegociacao` guarda o tipo gravado. */
+/**
+ * Debcad “INDICADO P/INCLUSÃO PARC…” (fase 760, pré-parcelamento) é indício, não adesão.
+ * O importador anterior a 07/10/2026 o gravava como parcelamento em vigor, com a data de
+ * registro no lugar da data da fase. O motor lê esses eventos como registro, sem pausa nem
+ * interrupção. Só conta como adesão com `adesaoConfirmada` e a prova do pedido do devedor
+ * (`provaAtoDevedor`: recibo do SISPAR ou do e-CAC).
+ */
+export const INDICACAO_PARCELAMENTO_TYPE = 'info_indicacao_parcelamento';
+const INDICACAO_PARCELAMENTO_RE = /INDICAD[OA]\s*P\s*\/?\s*INCLUS|PR[EÉ]\s*-?\s*PARCELAMENTO/i;
+
+export function hasProvaAtoDevedor(ev) {
+  return !!(ev && ev.adesaoConfirmada && String(ev.provaAtoDevedor || '').trim());
+}
+
+export function isIndicacaoParcelamentoEvent(ev) {
+  if (!ev) return false;
+  if (ev._indicacaoParcelamento || ev.type === INDICACAO_PARCELAMENTO_TYPE) return true;
+  if (hasProvaAtoDevedor(ev)) return false;
+  const t = normalizePrescEventType(ev.type);
+  if (!isAdesaoType(t) && t !== 'int_pedido_parcelamento') return false;
+  if (/^\s*Fase\s*760\b/i.test(String(ev.processRef || ''))) return true;
+  return INDICACAO_PARCELAMENTO_RE.test(String(ev.notes || ''));
+}
+
+/**
+ * Rescisão deduzida pelo importador antigo do início do parcelamento seguinte
+ * (“Rescindido (implícito)”). Sem fonte: o motor a lê como registro.
+ * `fonteConfirmada` desfaz a leitura.
+ */
+export const RESCISAO_SEM_FONTE_TYPE = 'info_rescisao_sem_fonte';
+const RESCISAO_IMPLICITA_RE = /Rescindido\s*\(impl[ií]cito\)/i;
+
+export function isRescisaoSemFonteEvent(ev) {
+  if (!ev) return false;
+  if (ev._rescisaoSemFonte || ev.type === RESCISAO_SEM_FONTE_TYPE) return true;
+  if (ev.fonteConfirmada) return false;
+  if (normalizePrescEventType(ev.type) !== 'int_rescisao_parcelamento') return false;
+  return RESCISAO_IMPLICITA_RE.test(String(ev.notes || ''));
+}
+
+/** Parcelamento cuja data de fim veio da rescisão implícita: o fim não tem fonte. */
+function storedEndSemFonte(ev) {
+  return !!(ev && asIso(ev.endDate) && !ev.fonteConfirmada && isAdesaoType(ev.type)
+    && RESCISAO_IMPLICITA_RE.test(String(ev.notes || '')));
+}
+
+/** Data de fim gravada e com fonte (a rescisão implícita não conta). */
+function storedEndOf(ev) {
+  return storedEndSemFonte(ev) ? '' : asIso(ev && ev.endDate);
+}
+
+/** Fim de um registro (indicação) só quando não veio da rescisão implícita. */
+function registroEndOf(ev) {
+  if (!ev || ev.fonteConfirmada) return asIso(ev && ev.endDate);
+  return RESCISAO_IMPLICITA_RE.test(String(ev.notes || '')) ? '' : asIso(ev.endDate);
+}
+
+/** Cópia do evento lido como registro (bloqueio, indicação, rescisão sem fonte). A chave `_…` guarda o tipo gravado. */
 function asRegistroSeBloqueio(ev) {
-  if (!ev || ev._bloqueioNegociacao || !isBloqueioNegociacaoEvent(ev)) return ev;
-  return { ...ev, type: BLOQUEIO_NEGOCIACAO_TYPE, _bloqueioNegociacao: normalizePrescEventType(ev.type) };
+  if (!ev || ev._bloqueioNegociacao || ev._indicacaoParcelamento || ev._rescisaoSemFonte) return ev;
+  if (isBloqueioNegociacaoEvent(ev)) {
+    return { ...ev, type: BLOQUEIO_NEGOCIACAO_TYPE, _bloqueioNegociacao: normalizePrescEventType(ev.type) };
+  }
+  if (ev.type !== INDICACAO_PARCELAMENTO_TYPE && isIndicacaoParcelamentoEvent(ev)) {
+    return { ...ev, type: INDICACAO_PARCELAMENTO_TYPE, _indicacaoParcelamento: normalizePrescEventType(ev.type) };
+  }
+  if (ev.type !== RESCISAO_SEM_FONTE_TYPE && isRescisaoSemFonteEvent(ev)) {
+    return { ...ev, type: RESCISAO_SEM_FONTE_TYPE, _rescisaoSemFonte: normalizePrescEventType(ev.type) };
+  }
+  return ev;
 }
 
 /** Evento como gravado (o formulário edita o tipo original, não o registro derivado). */
 export function prescEventAsStored(ev) {
-  if (!ev || !ev._bloqueioNegociacao) return ev;
-  const { _bloqueioNegociacao: type, ...rest } = ev;
+  if (!ev) return ev;
+  const key = ['_bloqueioNegociacao', '_indicacaoParcelamento', '_rescisaoSemFonte'].find(k => ev[k]);
+  if (!key) return ev;
+  const { [key]: type, ...rest } = ev;
   return typeof type === 'string' ? { ...rest, type } : rest;
 }
 
@@ -263,7 +334,9 @@ export const BAND_MOTIVOS = {
   A4: { kind: 'tese', texto: 'Falência: a data cedo não conta a pausa.' },
   A5: { kind: 'dado', texto: 'Pausa sem data de fim: a data cedo presume que acabou na última conferência.' },
   A6: { kind: 'dado', texto: 'Parcelamento vigente: a data cedo presume rescisão logo após a última conferência.' },
+  A7: { kind: 'dado', texto: 'Parcelamento sem encerramento com fonte: a data cedo não conta pausa; a tarde a estende até a adesão seguinte. Falta a rescisão ou exclusão.' },
   B1: { kind: 'tese', texto: 'Ciência eletrônica: cedo na disponibilização; tarde na abertura ou no 10º dia.' },
+  B4: { kind: 'tese', texto: 'Ciência da não localização: cedo na devolução do AR negativo; tarde na intimação da Fazenda.' },
   B2: { kind: 'dado', texto: 'Só há a decisão de suspensão do art. 40: a ciência pode ser anterior. Falta a certidão.' },
   B3: { kind: 'dado', texto: 'Só há o arquivamento: cedo arquivamento + 5 anos; tarde + 6 anos. Falta a ciência.' },
   C1: { kind: 'dado', texto: 'Constituição definitiva não informada: cedo pelo vencimento ou período de apuração; tarde pela inscrição.' },
@@ -308,7 +381,7 @@ export function constituicaoDefinitiva(debt) {
 
 function bandPoint(x) {
   if (!x) return null;
-  return { diesAdQuem: x.diesAdQuem || null, daysLeft: x.daysLeft != null ? x.daysLeft : null, phase: x.phase || null };
+  return { diesAdQuem: x.diesAdQuem || null, daysLeft: x.daysLeft != null ? x.daysLeft : null, phase: x.phase || null, detail: x.detail || '', afterConsumption: x.afterConsumption || [] };
 }
 
 /** Faixa cedo–tarde. Nula quando as duas leituras coincidem (selo “calculado”). */
@@ -400,7 +473,7 @@ export function openPauseEvents(cdaEvents, asOf) {
     const meta = PRESC_EVENT_TYPES[t];
     if (!meta || meta.category !== 'suspensiva') continue;
     if (t === 'susp_art40' || t === IDPJ_CONSTRICTION_TYPE || isBloqueioNegociacaoEvent(e)) continue;
-    if (asIso(e.endDate) || (isAdesaoType(t) && inferred.has(e.id))) continue;
+    if (storedEndOf(e) || (isAdesaoType(t) && inferred.has(e.id))) continue;
     out.push({
       id: e.id,
       type: t,
@@ -727,15 +800,15 @@ function pausedAt(iso, pauses) {
  */
 export function inferParcelamentoEnds(cdaEvents) {
   const parcs = (cdaEvents || [])
-    .filter(e => isAdesaoType(e.type) && asIso(e.date) && !isBloqueioNegociacaoEvent(e))
+    .filter(e => isAdesaoType(e.type) && asIso(e.date) && !isBloqueioNegociacaoEvent(e) && !isIndicacaoParcelamentoEvent(e))
     .sort((a, b) => asIso(a.date).localeCompare(asIso(b.date)) || String(a.id || '').localeCompare(String(b.id || '')));
   const rescisoes = (cdaEvents || [])
-    .filter(e => normalizePrescEventType(e.type) === 'int_rescisao_parcelamento' && asIso(e.date) && !isBloqueioNegociacaoEvent(e))
+    .filter(e => normalizePrescEventType(e.type) === 'int_rescisao_parcelamento' && asIso(e.date) && !isBloqueioNegociacaoEvent(e) && !isRescisaoSemFonteEvent(e))
     .map(e => asIso(e.date))
     .sort();
   const inferred = new Map();
   for (let i = 0; i < parcs.length; i++) {
-    if (asIso(parcs[i].endDate)) continue;
+    if (storedEndOf(parcs[i])) continue;
     const start = asIso(parcs[i].date);
     const nextStart = parcs[i + 1] ? asIso(parcs[i + 1].date) : '';
     const nextParc = nextStart && nextStart > start ? nextStart : '';
@@ -748,7 +821,7 @@ export function inferParcelamentoEnds(cdaEvents) {
 
 function resolvedSuspEnd(evt, asOfIso, inferredEnds) {
   const type = normalizePrescEventType(evt.type);
-  const stored = asIso(evt.endDate);
+  const stored = storedEndOf(evt);
   const inferred = (!stored && isAdesaoType(type)) ? inferredEnds.get(evt.id) : null;
   const rawEnd = stored || (inferred && inferred.end) || '';
   const end = rawEnd || asOfIso;
@@ -766,7 +839,7 @@ function resolvedSuspEnd(evt, asOfIso, inferredEnds) {
 function inadimplementoPorRescisao(cdaEvents) {
   const map = new Map();
   for (const e of cdaEvents || []) {
-    if (normalizePrescEventType(e.type) !== 'int_rescisao_parcelamento') continue;
+    if (normalizePrescEventType(e.type) !== 'int_rescisao_parcelamento' || isRescisaoSemFonteEvent(e)) continue;
     const d = asIso(e.date);
     const inad = asIso(e.defaultDate);
     if (d && inad && inad < d) map.set(d, inad);
@@ -797,6 +870,11 @@ function scenarioSuspEnd(evt, asOfIso, inferredEnds, scenario, motivos, inadByRe
     if (inad && inad > start && inad < r.rawEnd) {
       addMotivo(motivos, 'A1');
       return { ...r, rawEnd: inad, end: inad, ongoing: inad > asOfIso };
+    }
+    // Fim deduzido só da adesão seguinte, sem rescisão com fonte: a leitura cedo não estende a pausa.
+    if (r.inferred && r.inferred.reason === 'adesao_seguinte') {
+      addMotivo(motivos, 'A7');
+      return { ...r, rawEnd: start, end: start, ongoing: false, semFonte: true };
     }
     return r;
   }
@@ -916,6 +994,22 @@ function noteDuplicateConstriction(cdaEvents, gaps) {
 
 function memPush(memory, date, label, effect) {
   memory.push({ date, event: label, effect });
+}
+
+/** Texto do registro sem efeito (indicação, rescisão sem fonte), com as duas datas. */
+function registroSemEfeitoText(evt) {
+  const t = normalizePrescEventType(evt && evt.type);
+  const d = asIso(evt && evt.date);
+  const reg = asIso(evt && evt.registeredAt);
+  const regTxt = reg && reg !== d ? ` Fato em ${fmtDate(d)}; registrado em ${fmtDate(reg)}.` : '';
+  if (t === INDICACAO_PARCELAMENTO_TYPE) {
+    const fim = registroEndOf(evt);
+    return `Indício, sem adesão nem consolidação: não interrompe nem pausa.${regTxt}${fim ? ` Encerrado em ${fmtDate(fim)} (não inclusão).` : ' Sem desfecho no relatório.'} Sem prova de pedido do devedor (Súmula 653/STJ exige ato do devedor).`;
+  }
+  if (t === RESCISAO_SEM_FONTE_TYPE) {
+    return 'Rescisão deduzida do início do parcelamento seguinte, sem documento: sem efeito no cálculo.';
+  }
+  return '';
 }
 
 /**
@@ -1120,9 +1214,10 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
       if (isAdesaoType(type)) {
         effect = 'Interrompe o originário (Súmula 653) e suspende enquanto vigente.';
         if (inferred) {
-          const how = inferred.reason === 'rescisao' ? 'rescisão posterior' : 'adesão seguinte';
-          effect = `Interrompe o originário (Súmula 653) e suspende enquanto vigente. Sem cessação no cadastro — suspensão encerrada pela ${how} em ${fmtDate(inferred.end)}.`;
-        } else if (!asIso(evt.endDate)) {
+          effect = inferred.reason === 'rescisao'
+            ? `Interrompe o originário (Súmula 653) e suspende enquanto vigente. Sem cessação no cadastro — suspensão encerrada pela rescisão posterior em ${fmtDate(inferred.end)}.`
+            : `Interrompe o originário (Súmula 653) e suspende enquanto vigente. Sem rescisão com fonte — a leitura tarde estende a pausa até a adesão seguinte (${fmtDate(inferred.end)}); a cedo não conta pausa.`;
+        } else if (!storedEndOf(evt)) {
           effect = 'Interrompe o originário (Súmula 653) e suspende enquanto vigente.';
         }
       } else if (type === 'int_pedido_parcelamento') {
@@ -1140,7 +1235,9 @@ function computeOriginario({ debt, exec = null, cdaEvents, asOfIso, informed, me
       memPush(memory, from, meta.label, effect);
       timeline.push({ ...evt, effect, phase: 'originario' });
     } else if (meta.category === 'info') {
-      timeline.push({ ...evt, effect: meta.desc, phase: 'originario' });
+      const semEfeito = registroSemEfeitoText(evt);
+      if (semEfeito) memPush(memory, efetivacao, meta.label, semEfeito);
+      timeline.push({ ...evt, effect: semEfeito || meta.desc, phase: 'originario' });
     }
   }
 
@@ -1380,7 +1477,9 @@ const CASE_FACT = {
   info_dissolucao_irregular: 'Dissolução irregular (indício)',
   info_pedido_redirecionamento: 'Pedido de redirecionamento',
   info_outro: 'Outro registro',
-  info_bloqueio_negociacao: 'Bloqueio para negociação'
+  info_bloqueio_negociacao: 'Bloqueio para negociação',
+  info_indicacao_parcelamento: 'Indicação para parcelamento',
+  info_rescisao_sem_fonte: 'Rescisão sem fonte'
 };
 
 function occurrenceSource(ev, incidents) {
@@ -1415,6 +1514,11 @@ function occurrenceEffect(type, ev, r) {
   if (DECLARED_INTERRUPT_TYPES.has(t)) return 'interrompe; o prazo de 5 anos recomeça';
   if (t === 'susp_falencia') return 'registro; a recuperação judicial não pausa o prazo';
   if (t === BLOQUEIO_NEGOCIACAO_TYPE) return 'registro; bloqueio para negociação não é adesão — sem pausa';
+  if (t === INDICACAO_PARCELAMENTO_TYPE) {
+    const fim = registroEndOf(ev);
+    return `indício, sem adesão — não interrompe nem pausa${fim ? '; encerrado em ' + fmtDate(fim) : ''}`;
+  }
+  if (t === RESCISAO_SEM_FONTE_TYPE) return 'registro; rescisão sem documento — sem efeito no prazo';
   if (t === 'susp_falencia_decretada') return 'pausa só na data tarde; a data cedo ignora a pausa';
   if (t === 'info_dissolucao_irregular' || t === 'info_pedido_redirecionamento') return 'registro para o prazo de redirecionamento';
   if (t === 'int_protesto_extrajudicial') {
@@ -1669,7 +1773,63 @@ function buildCadastroChecks(r, ctx) {
     }
   }
   checks.push(...bloqueioNegociacaoChecks(ctx.cdaEvents));
+  checks.push(...indicacaoParcelamentoChecks(ctx.cdaEvents));
+  const ar = arReturnCheck(ctx.cdaEvents);
+  if (ar) checks.push(ar);
+  const div = debcadDivergenceCheck(ctx.debt, ctx.exec);
+  if (div) checks.push(div);
   return checks;
+}
+
+/** Indicação para parcelamento e rescisão sem fonte: o cálculo os lê como registro. */
+function indicacaoParcelamentoChecks(cdaEvents) {
+  const events = cdaEvents || [];
+  const out = [];
+  for (const ev of events) {
+    if (!ev) continue;
+    const d = asIso(ev.date);
+    if (normalizePrescEventType(ev.type) === INDICACAO_PARCELAMENTO_TYPE) {
+      const fim = registroEndOf(ev);
+      const reg = asIso(ev.registeredAt);
+      out.push(`Indicação para parcelamento${d ? ` de ${fmtDate(d)}` : ''}${reg && reg !== d ? ` (registrada em ${fmtDate(reg)})` : ''}${fim ? `, encerrada em ${fmtDate(fim)}` : ''}: indício, fora do cálculo. Só conta como adesão com a prova do pedido do devedor (recibo do SISPAR ou do e-CAC).`
+        + (ev._indicacaoParcelamento ? ' O evento foi importado como parcelamento, com a data de registro: reimporte o Debcad para gravar a data da fase e a não inclusão; se houve adesão, edite-o e informe a prova.' : ''));
+    } else if (ev._rescisaoSemFonte) {
+      const coberto = !!d && events.some(x => x && x._bloqueioNegociacao && asIso(x.date) === d);
+      if (!coberto) {
+        out.push(`Rescisão de ${d ? fmtDate(d) : 'data não informada'} deduzida do início do parcelamento seguinte, sem documento: fora do cálculo. Lance a rescisão ou exclusão real com a data do documento.`);
+      }
+    }
+  }
+  return out;
+}
+
+/** AR negativo devolvido antes da ciência lançada: pede a intimação da Fazenda. */
+function arReturnCheck(cdaEvents) {
+  for (const ev of cdaEvents || []) {
+    const meta = ev && PRESC_EVENT_TYPES[normalizePrescEventType(ev.type)];
+    if (!meta || meta.category !== 'marco') continue;
+    const ar = asIso(ev.arReturnDate);
+    const d = asIso(ev.date);
+    if (ar && d && ar < d) {
+      return `AR negativo devolvido em ${fmtDate(ar)}; ciência da Fazenda lançada em ${fmtDate(d)}. A data cedo conta da devolução do AR. Conferir nos autos a intimação da Fazenda sobre a devolução.`;
+    }
+  }
+  return '';
+}
+
+/** Ajuizamento do Nexus diferente do relatório Debcad importado na inscrição. */
+function debcadDivergenceCheck(debt, exec) {
+  const dg = debt && debt.debcad && debt.debcad.dadosGerais;
+  if (!dg || !exec) return '';
+  const aj = (debt.debcad.ajuizamentos || [])[0] || {};
+  const debcadProt = asIso(dg.protocolDate) || asIso(aj.protocolDate);
+  const nexusProt = asIso(exec.protocolDate);
+  const procDebcad = dg.processNumber || aj.processNumber || '';
+  if (procDebcad && exec.processNumber && !sameProc(procDebcad, exec.processNumber)) return '';
+  if (debcadProt && nexusProt && debcadProt !== nexusProt) {
+    return `Ajuizamento diverge do Debcad: Nexus ${fmtDate(nexusProt)}, Debcad ${fmtDate(debcadProt)}. Conferir a data de protocolo nos autos.`;
+  }
+  return '';
 }
 
 /** Conferência dos eventos importados como parcelamento a partir de BLOQUEIO NEGOCIACAO. */
@@ -1680,7 +1840,7 @@ function bloqueioNegociacaoChecks(cdaEvents) {
     if (!ev || !ev._bloqueioNegociacao || ev._bloqueioNegociacao === 'int_rescisao_parcelamento') continue;
     const d = asIso(ev.date);
     const implicita = !!d && events.some(x => x && !x._bloqueioNegociacao
-      && normalizePrescEventType(x.type) === 'int_rescisao_parcelamento'
+      && (x._rescisaoSemFonte || normalizePrescEventType(x.type) === 'int_rescisao_parcelamento')
       && asIso(x.date) === d && /impl[ií]cit/i.test(String(x.notes || '')));
     out.push(`Evento importado como parcelamento a partir de BLOQUEIO NEGOCIACAO${d ? ` (${fmtDate(d)})` : ''} — confira. O cálculo o trata como registro, sem pausa.`
       + (implicita ? ' A rescisão do parcelamento anterior nessa data também foi deduzida do bloqueio.' : '')
@@ -1742,7 +1902,7 @@ function buildRulesApplied(r, ctx) {
       const t = normalizePrescEventType(e.type);
       return isAdesaoType(t) || t === 'int_rescisao_parcelamento' || t === 'int_pedido_parcelamento';
     })) rules.add('R5');
-    if (r.phase === 'suspenso' && ((r.timeline || []).some(e => isAdesaoType(e.type) && !asIso(e.endDate))
+    if (r.phase === 'suspenso' && ((r.timeline || []).some(e => isAdesaoType(e.type) && !storedEndOf(e))
       || (ctx.debt && (ctx.debt.status === 'parcelada' || ctx.debt.status === 'negociada_sispar')))) rules.add('R6');
     if ((r.incidents || ctx.incidents || []).length) rules.add('R7');
     if (r.bounds && r.bounds.floor) rules.add('R8');
@@ -1839,12 +1999,14 @@ function sealIntercorrente(r, ctx) {
   if (phase === 'nao_iniciado') status = 'indeterminado';
   if (phase === 'interrompido') status = 'interrompido';
 
-  if (bounds.floor && !memory.some(m => m.event === 'Piso operacional')) {
+  // Referências operacionais ficam fora da linha do tempo: não são fatos nem marcos.
+  const operational = [];
+  if (bounds.floor) {
     const kind = bounds.floorAnchor && FLOOR_ANCHOR_LABEL[bounds.floorAnchor.kind];
-    memPush(memory, bounds.floor, 'Piso operacional', `Não é marco. Acompanhar a partir desta data${kind ? ' (' + kind + ' + 6 anos)' : ''}.`);
+    operational.push({ date: bounds.floor, event: 'Não pode ter prescrito antes de', effect: `${kind ? kind + ' + 1 ano + 5 anos' : 'ato mais recente + 1 ano + 5 anos'}. Alerta de acompanhamento; não é marco nem termo.` });
   }
-  if (bounds.ceiling && !memory.some(m => m.event === 'Teto operacional')) {
-    memPush(memory, bounds.ceiling, 'Teto operacional', 'Arquivamento datado + 6 anos (data tarde). A data cedo é arquivamento + 5 anos. Não é dies a quo do Tema 566.');
+  if (bounds.ceiling) {
+    operational.push({ date: bounds.ceiling, event: 'Não deveria passar de', effect: 'Arquivamento datado + 6 anos (data tarde); a data cedo é arquivamento + 5 anos. Alerta de acompanhamento; não é dies a quo do Tema 566.' });
   }
 
   const out = {
@@ -1857,6 +2019,7 @@ function sealIntercorrente(r, ctx) {
     detail,
     gaps,
     memory,
+    operational,
     flags: nextFlags,
     bounds,
     cycleKind: cycleKind || null,
@@ -1865,6 +2028,7 @@ function sealIntercorrente(r, ctx) {
     forecastDate: forecast || '',
     informedConflict: !!(informed && diesAdQuem && informed !== diesAdQuem && cycleStarted),
     estimated: !!r.estimated,
+    afterConsumption: ctx.afterConsumption || [],
     incidents: r.incidents || ctx.incidents || [],
     pendingPetitions: pendingPetitions || r.pendingPetitions || []
   };
@@ -1918,10 +2082,26 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
     cycleKind: parcMode && parcRestartAt && !interrupted ? 'politica_parc' : (marco || interrupted ? 'art40' : null),
     parcRestartMode: restartMode,
     restartKind,
-    incidents
+    incidents,
+    afterConsumption
   });
 
   noteDuplicateConstriction(loopEvents, gaps);
+
+  // Prazo já consumado antes do ato: adesão, pedido ou rescisão posterior não o reabrem (art. 156, V, CTN).
+  const consumedBefore = (iso) => {
+    if (interrupted || parcOngoing) return null;
+    const restart = parcMode && parcRestartAt;
+    if (!marco && !restart) return null;
+    const end = intercorrenteWindowEnd({ marco, parcRestartAt: restart ? parcRestartAt : null, pauses, beforeIso: iso, mode: restartMode });
+    return end && end < iso ? end : null;
+  };
+  const afterConsumption = [];
+  const noteAfterConsumption = (evt, iso, label, end) => {
+    afterConsumption.push({ date: iso, label });
+    memPush(memory, iso, label, `Posterior à consumação em ${fmtDate(end)}: não reabre o prazo (o crédito prescrito se extingue — art. 156, V, CTN).`);
+    timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'consumado' });
+  };
 
   for (const evt of loopEvents) {
     const type = normalizePrescEventType(evt.type);
@@ -1952,12 +2132,19 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
 
     if (meta.category === 'marco') {
       let marcoDate = efetivacao;
+      const arDate = asIso(evt.arReturnDate);
       if (scenario === 'cedo') {
         const disp = asIso(evt.availableDate);
         if (disp && disp < efetivacao) {
           marcoDate = disp;
           addMotivo(motivos, 'B1');
         }
+        if (arDate && arDate < marcoDate) {
+          marcoDate = arDate;
+          addMotivo(motivos, 'B4');
+        }
+      } else if (arDate && arDate < efetivacao && !gaps.some(g => /devolução do AR/.test(g))) {
+        gaps.push(`Devolução do AR negativo em ${fmtDate(arDate)} e ciência da Fazenda em ${fmtDate(efetivacao)}. A leitura cedo conta o ano de suspensão da devolução do AR (tese do executado); a tarde, da intimação (Tema 566). Sem intimação da Fazenda, a nulidade depende de prejuízo (Tema 570): conferir a intimação nos autos.`);
       }
       if (parcOngoing) {
         memPush(memory, marcoDate, meta.label, 'Ciência na vigência do parcelamento — não inaugura o ciclo do art. 40 enquanto a exigibilidade está suspensa (art. 151, VI).');
@@ -1983,8 +2170,10 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
       interruptAt = null;
       tooLate = false;
       memPush(memory, marcoDate, meta.label, marcoDate !== efetivacao
-        ? 'Leitura cedo: a ciência conta da disponibilização da intimação. Inicia suspensão de 1 ano (art. 40 LEF / Tema 566).'
-        : 'Inicia suspensão de 1 ano (art. 40 LEF / Tema 566).');
+        ? (arDate && marcoDate === arDate
+          ? 'Leitura cedo: a ciência conta da devolução do AR negativo. Inicia suspensão de 1 ano (art. 40 LEF / Tema 566).'
+          : 'Leitura cedo: a ciência conta da disponibilização da intimação. Inicia suspensão de 1 ano (art. 40 LEF / Tema 566).')
+        : `Inicia suspensão de 1 ano (art. 40 LEF / Tema 566).${arDate && arDate < efetivacao ? ` AR negativo devolvido em ${fmtDate(arDate)}.` : ''}`);
       timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'suspensao_art40' });
       continue;
     }
@@ -2061,6 +2250,11 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
     }
 
     if (type === 'int_rescisao_parcelamento') {
+      const consumedR = consumedBefore(efetivacao);
+      if (consumedR) {
+        noteAfterConsumption(evt, efetivacao, meta.label, consumedR);
+        continue;
+      }
       noteParcRule();
       let at = efetivacao;
       if (scenario === 'cedo') {
@@ -2087,6 +2281,11 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
 
     if (type === 'int_pedido_parcelamento' || DECLARED_INTERRUPT_TYPES.has(type)) {
       const kind = type === 'int_pedido_parcelamento' ? 'pedido' : 'declarado';
+      const consumedP = consumedBefore(efetivacao);
+      if (consumedP) {
+        noteAfterConsumption(evt, efetivacao, meta.label, consumedP);
+        continue;
+      }
       if (parcOngoing) {
         memPush(memory, efetivacao, meta.label, 'Na vigência do parcelamento o prazo não corre; o ato não muda a contagem.');
         timeline.push({ ...evt, effect: memory[memory.length - 1].effect, phase: 'suspenso' });
@@ -2126,6 +2325,11 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
     }
 
     if (isAdesaoType(type)) {
+      const consumedA = consumedBefore(efetivacao);
+      if (consumedA) {
+        noteAfterConsumption(evt, efetivacao, meta.label, consumedA);
+        continue;
+      }
       noteParcRule();
       const resolved = scenarioSuspEnd(evt, asOfIso, inferredEnds, scenario, motivos, inadByResc);
       const inferred = inferredEnds.get(evt.id);
@@ -2146,7 +2350,11 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
       const until = resolved.rawEnd ? fmtDate(resolved.rawEnd) : 'hoje';
       const inferTag = resolved.presumed
         ? ' (leitura cedo: rescisão presumida logo após a última conferência)'
-        : (inferred ? ` (cessação inferida — ${inferred.reason === 'rescisao' ? 'rescisão posterior' : 'adesão seguinte'})` : '');
+        : resolved.semFonte
+          ? ' (leitura cedo: sem rescisão com fonte, não se conta pausa)'
+          : (inferred ? (inferred.reason === 'rescisao'
+            ? ' (cessação pela rescisão posterior)'
+            : ' (sem rescisão com fonte; estendido até a adesão seguinte — conferir o encerramento)') : '');
       const modoTxt = restartMode === PARC_RESTART_FIVE_ONLY ? 'só 5 anos' : '1 ano + 5 anos';
       memPush(memory, efetivacao, meta.label, resolved.ongoing
         ? `INTERROMPE a intercorrente (art. 174, p.ú., IV CTN; Súmula 653) e suspende a exigibilidade enquanto vigente (art. 151, VI). Após a rescisão, ciclo pós-parcelamento (política): ${modoTxt}.`
@@ -2171,6 +2379,12 @@ function computeIntercorrente({ debt, exec, cdaEvents, asOfIso, informed, foreca
       continue;
     }
 
+    const semEfeito = registroSemEfeitoText(evt);
+    if (semEfeito) {
+      memPush(memory, efetivacao, meta.label, semEfeito);
+      timeline.push({ ...evt, effect: semEfeito, phase: marco || parcMode ? 'prescricao_correndo' : 'pre_marco' });
+      continue;
+    }
     timeline.push({ ...evt, effect: meta.desc || 'Registro informativo', phase: marco || parcMode ? 'prescricao_correndo' : 'pre_marco' });
   }
 
@@ -2716,7 +2930,7 @@ export function buildPrescRulerModel(seg, asOf) {
     if (!meta || meta.category !== 'suspensiva' || t === 'susp_art40' || t === IDPJ_CONSTRICTION_TYPE) continue;
     const from = asIso(ev.requestDate) || asIso(ev.date);
     if (!from || from > today) continue;
-    const end = asIso(ev.endDate);
+    const end = storedEndOf(ev);
     pauses.push({ from, to: end && end < today ? end : today, open: !end, label: meta.label });
   }
   const dates = [seg.diesAQuo, termo, today, band && band.cedo && band.cedo.diesAdQuem, band && band.tarde && band.tarde.diesAdQuem,
@@ -3089,7 +3303,7 @@ function parcelamentoVigentePorEvento(related, asOfIso) {
     if (isAdesaoType(t)) {
       if (d > lastAdesao) lastAdesao = d;
       const inferredEnd = inferred.get(ev.id);
-      const end = asIso(ev.endDate) || (inferredEnd && inferredEnd.end) || '';
+      const end = storedEndOf(ev) || (inferredEnd && inferredEnd.end) || '';
       if (!end || end > asOfIso) open = true;
     }
   }
@@ -4153,7 +4367,35 @@ function reportSection(lines, roman, key, result) {
   (result.memory || []).forEach(m => {
     lines.push(`${n++}. ${m.date ? fmtDate(m.date) + ' — ' : ''}${m.event}: ${m.effect}`);
   });
-  if (result.detail) lines.push(`Conclusão: ${result.detail}`);
+  const band = result.band;
+  if (result.detail) lines.push(band ? `Conclusão (leitura tarde — tese da União): ${result.detail}` : `Conclusão: ${result.detail}`);
+  if (band) {
+    const termo = (p) => (p && p.diesAdQuem ? fmtDate(p.diesAdQuem) : (p && p.phase === 'suspenso' ? 'prazo pausado' : 'sem termo'));
+    lines.push('Leituras (o resultado depende da premissa; nenhuma é fato):');
+    lines.push(`  • Cedo (mais desfavorável à União; dá o alarme): ${termo(band.cedo)}.${band.cedo && band.cedo.detail ? ' ' + band.cedo.detail : ''}`);
+    const naoSalvam = (band.cedo && band.cedo.afterConsumption) || [];
+    if (naoSalvam.length) {
+      lines.push(`    Nesta leitura não salvam a execução (posteriores à consumação): ${naoSalvam.map(x => `${x.label} de ${fmtDate(x.date)}`).join('; ')}.`);
+    }
+    lines.push(`  • Tarde (tese da União): ${termo(band.tarde)}.`);
+    (band.motivos || []).forEach(m => lines.push(`  • ${m.kind === 'dado' ? 'Falta dado' : 'Divergência de tese'} (${m.code}): ${m.texto}`));
+    if ((band.motivos || []).some(m => m.code === 'A1' || m.code === 'A2') && result.parcRestartMode !== PARC_RESTART_FIVE_ONLY) {
+      lines.push('  • O 1 ano + 5 anos depois da rescisão é política interna (equiparação ao art. 40); a contagem conservadora é 5 anos.');
+    }
+  }
+  const regs = (result.timeline || []).filter(e => e && asIso(e.registeredAt) && asIso(e.date) && asIso(e.registeredAt) !== asIso(e.date));
+  if (regs.length) {
+    lines.push('Datas de registro (o cálculo usa a data do fato):');
+    regs.forEach(e => {
+      const t = normalizePrescEventType(e.type);
+      const label = (PRESC_EVENT_TYPES[t] && PRESC_EVENT_TYPES[t].label) || t;
+      lines.push(`  • ${label}: fato em ${fmtDate(e.date)}; registrado em ${fmtDate(e.registeredAt)}.`);
+    });
+  }
+  if ((result.operational || []).length) {
+    lines.push('Referências operacionais (alertas de acompanhamento; não são marcos):');
+    result.operational.forEach(o => lines.push(`  • ${o.date ? fmtDate(o.date) + ' — ' : ''}${o.event}: ${o.effect}`));
+  }
   (result.flags || []).forEach(f => {
     if (f === PRESC_FLAGS.PEDIDO_SEM_DESFECHO) lines.push('🔴 Pedido na janela 1+5 sem resultado lançado — não declarar consumada.');
   });

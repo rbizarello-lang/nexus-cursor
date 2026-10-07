@@ -813,7 +813,7 @@ describe('Fase 1 — C1 a C7', () => {
       debt: cda(),
       executions: [ef()],
       events: [
-        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2010-01-01' },
+        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2014-01-01' },
         { id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2018-01-01' }
       ],
       asOf: ASOF
@@ -821,6 +821,21 @@ describe('Fase 1 — C1 a C7', () => {
     assert.equal(r.estimated, false);
     assert.equal(r.phase, 'suspenso');
     assert.notEqual(r.status, 'prescrito');
+  });
+
+  it('C2b: adesão depois da consumação não reabre o prazo', () => {
+    const r = computePrescription({
+      debt: cda(),
+      executions: [ef()],
+      events: [
+        { id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2010-01-01' },
+        { id: 'p', executionId: 'e1', type: 'susp_parcelamento', date: '2018-01-01' }
+      ],
+      asOf: ASOF
+    });
+    assert.equal(r.phase, 'consumado');
+    assert.equal(r.diesAdQuem, '2016-01-01');
+    assert.ok((r.memory || []).some(m => m.date === '2018-01-01' && /Posterior à consumação em 01\/01\/2016/.test(m.effect)));
   });
 
   it('C4: incidente é atributo; cenário duplo; conferência sem constrição', () => {

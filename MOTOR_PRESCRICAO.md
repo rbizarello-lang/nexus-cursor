@@ -1,6 +1,6 @@
 # Regras de prazos
 
-**Versão** `2026.10a` · 28 set 2026 · `ruleVersion: 2026.10a`
+**Versão** `2026.10b` · 7 out 2026 · `ruleVersion: 2026.10b`
 
 Este texto diz **como o Nexus conta**. A tela da inscrição fala o caso; as bases legais ficam aqui e aparecem, discretas, ao passar o mouse. Na dúvida, o app **prefere alarmar** a deixar o prazo vencer em silêncio, sem encher a fila de avisos.
 
@@ -18,7 +18,9 @@ O selo **calculado** só aparece quando as duas coincidem; senão o selo é **fa
 - **Faixa de tese** (divergência de leitura): a providência é processual. Vai ao grupo 1 quando a data cedo entra na janela de 90 dias.
 - **Faixa de dado** (falta um fato): a providência é documental. Vira **pedido de dado** (grupo 3) quando a data cedo entra na janela; passada a data cedo, sobe ao grupo 2. Só vai à aba Consumada quando a data tarde também passou.
 
-Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4), pausa sem fim (A5), parcelamento vigente (A6), ciência eletrônica (B1), só a decisão de suspensão (B2), só o arquivamento (B3), constituição não informada (C1) e decadência (D3).
+Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4), pausa sem fim (A5), parcelamento vigente (A6), parcelamento sem encerramento com fonte (A7), ciência eletrônica (B1), só a decisão de suspensão (B2), só o arquivamento (B3), devolução do AR (B4), constituição não informada (C1) e decadência (D3).
+
+A memória técnica imprime as duas leituras lado a lado, com os motivos. A conclusão da leitura tarde vem rotulada como tese da União, porque depende da premissa.
 
 ---
 
@@ -42,7 +44,13 @@ Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4)
 
 **Exemplo.** Intimação disponibilizada em 05/03/2020 e aberta em 15/03/2020: data cedo 05/03/2026; data tarde 15/03/2026. Sem abertura, o formulário grava o 10º dia.
 
-**Na tela.** Intercorrente: “sem ciência lançada” enquanto não há ciência. O formulário do fato tem dois campos: disponibilização e abertura (ou 10º dia).
+**AR negativo.** O marco aceita a data da devolução do AR negativo (juntada). A data cedo conta o ano de suspensão dessa data (tese do executado); a tarde, da intimação da Fazenda (Tema 566). Sem intimação da Fazenda sobre a devolução, a nulidade depende de prejuízo (Tema 570); Conferir pede a intimação.
+
+**Prazo consumado não reabre.** Adesão, pedido de parcelamento ou rescisão posteriores à consumação não reabrem o prazo: o crédito prescrito se extingue (art. 156, V, do CTN). A constrição já seguia essa regra.
+
+**Exemplo (AR).** AR negativo devolvido em 19/05/2014 e ciência da Fazenda em 2020: data cedo 19/05/2020, e a adesão de 2023 não salva a execução nessa leitura; data tarde pela ciência de 2020, e a adesão de 2023 interrompe.
+
+**Na tela.** Intercorrente: “sem ciência lançada” enquanto não há ciência. O formulário do fato tem três campos: disponibilização, abertura (ou 10º dia) e devolução do AR negativo.
 
 ---
 
@@ -80,7 +88,15 @@ Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4)
 
 **Bloqueio para negociação não é adesão.** A ocorrência SIDA “BLOQUEIO NEGOCIACAO” (consolidação da Lei 11.941 e reaberturas das Leis 12.865 e 12.996) só registra o bloqueio. O importador anterior a 19/09/2026 a gravava como parcelamento em vigor e encerrava o parcelamento anterior na mesma data. O motor lê esses eventos como registro, sem pausa nem interrupção, e a inscrição pede conferência. Se houve adesão de fato, marque “houve adesão” no evento. Exemplo: adesão à Lei 11.941 em 03/12/2009, rescindida em 02/07/2011, com bloqueio na mesma data: intercorrente consumada em 02/07/2017 (cedo 02/07/2016), e não pausada até hoje.
 
-**Na tela.** Ocorrência de adesão e de rescisão. O formulário da rescisão pede o inadimplemento. A memória técnica traz a base legal; a coluna não fala “política”. O bloqueio aparece como “Bloqueio para negociação”, com o aviso em “Conferir nos autos”.
+**Indicação para parcelamento não é adesão.** No Debcad, “INDICADO P/INCLUSÃO PARC…” (fase 760, pré-parcelamento) é indício: não há adesão nem consolidação, e a indicação pode ser rotina da PGFN. O ato do credor não interrompe (Súmula 653 exige ato do devedor). O importador grava a indicação como registro, com a data da fase, a data de registro e o encerramento pela linha “NÃO INCLUÍDO”. Eventos antigos importados como parcelamento a partir da fase 760 valem como registro. Para contar como adesão ou pedido, marque “houve pedido do devedor” e informe a prova (recibo do SISPAR ou do e-CAC); sem a prova, fica fora do cálculo.
+
+**Data do fato, não do registro.** O Debcad traz a “Data Fase” (fato) e a “Data Informação” (registro). O cálculo usa a data da fase; o evento guarda as duas, e a memória técnica mostra as duas. A reimportação corrige a data dos eventos gravados com a data de registro.
+
+**Cada parcelamento termina pelo próprio evento.** Rescisão, exclusão ou não inclusão. O importador anterior a 07/10/2026 encerrava um parcelamento no início do seguinte e criava uma “Rescisão (implícita)” sem documento. A rescisão implícita vira registro, sem efeito. Parcelamento sem encerramento com fonte: a data tarde estende a pausa até a adesão seguinte; a cedo não conta pausa (motivo A7).
+
+**Exemplo (Debcad).** Fase 760 de 21/08/2014, registrada em 12/06/2016, e “NÃO INCLU. EM PARC ESP L.12996/14” em 26/08/2016: indício, encerrado em 26/08/2016, sem efeito no prazo. Adesão em 14/03/2023 e rescisão em 12/10/2024: data tarde 12/10/2030 (1 ano + 5 anos); data cedo 12/10/2029 (5 anos), e ambas condicionadas à ciência lançada.
+
+**Na tela.** Ocorrência de adesão e de rescisão. O formulário da rescisão pede o inadimplemento. A indicação aparece como “Indicação para parcelamento”, com o aviso em “Conferir nos autos”. A memória técnica traz a base legal; a coluna não fala “política”. O bloqueio aparece como “Bloqueio para negociação”, com o aviso em “Conferir nos autos”.
 
 ---
 
@@ -116,7 +132,7 @@ Os motivos de faixa: rescisão (A1), pedido de parcelamento (A2), falência (A4)
 
 **Exemplo.** Citação em 01/03/2020 → não pode ter prescrito antes de 01/03/2026.
 
-**Na tela.** Bloco Estimativas: “Não pode ter prescrito antes de dd/mm/aaaa — [fato] + 1 ano + 5 anos.” Grupo 5 enquanto essa data ainda não chegou.
+**Na tela.** Bloco Estimativas: “Não pode ter prescrito antes de dd/mm/aaaa — [fato] + 1 ano + 5 anos.” Grupo 5 enquanto essa data ainda não chegou. Na memória técnica, essa data fica fora da linha do tempo, em “Referências operacionais”, como alerta: não é marco.
 
 ---
 
@@ -231,6 +247,8 @@ O vermelho é da faixa do grupo, não de um ícone no texto.
 ---
 
 ## Histórico das regras
+
+- **2026.10b** (7 out 2026) — Debcad: indicação para parcelamento (fase 760) é indício e registro, encerrado pela não inclusão; só conta com a prova do pedido do devedor. Data da fase no lugar da data de registro, e as duas guardadas. Cada parcelamento termina pelo próprio evento; a rescisão implícita vira registro; sem encerramento com fonte, a data cedo não conta pausa (A7). Marco com devolução do AR negativo (B4). Adesão, pedido ou rescisão posterior à consumação não reabre o prazo. Memória técnica com as duas leituras e as referências operacionais (piso e teto) fora da linha do tempo. Conferir aponta divergência entre o ajuizamento do Nexus e o do Debcad.
 
 - **2026.10a** (28 set 2026) — Bloqueio para negociação (SIDA) deixa de valer como adesão: eventos importados como parcelamento a partir de “BLOQUEIO NEGOCIACAO” viram registro, sem pausa, com aviso de conferência; “houve adesão” no evento desfaz a leitura. Salvar esse evento não marca a CDA como parcelada.
 - **2026.10** (26 set 2026) — Duas datas por prazo (cedo e tarde), com o alarme pela cedo. Rescisão pelo inadimplemento na data cedo; pedido de parcelamento sem deferimento e transação; reconhecimento declarado interrompe a intercorrente. Recuperação judicial não pausa; falência só na data tarde. Pausa sem fim e parcelamento vigente presumem o fim na última conferência (“ainda vale”). Ciência eletrônica pela disponibilização; suspensão do art. 40 e arquivamento com data cedo. Constrição no incidente vale como interrupção, com aviso no card aos 5 anos. Penhora antiga em lista própria. Constituição pela modalidade; decadência em faixa; regra anterior à LC 118. Janela de 90 dias, sem teto na Mesa, fila agrupada por execução. Cálculo prevalece sobre a análise importada. Ordinária de CDA ajuizada só na coluna. Garantida só à mão. Régua do tempo nas telas. Redirecionamento informativo.

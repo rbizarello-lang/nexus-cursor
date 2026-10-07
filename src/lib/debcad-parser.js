@@ -90,6 +90,7 @@ function emptyRecord() {
     protestos: [],
     ajuizamentos: [],
     parcelamentos: [],
+    indicacoesParcelamento: [],
   };
 }
 
@@ -318,41 +319,86 @@ function parseAjuizamentos(lines) {
   return [{ processNumber: nJud, protocolDate: protVal, juizo, raw: joined }];
 }
 
-function buildParcelamentos(history) {
-  if (!history.length) return [];
-  const ADESAO = ['733', '760', '779', '770', '775'];
-  const RESCISAO = ['797', '792'];
-  const sortedHist = [...history]
-    .filter((h) => h.code !== '999')
-    .sort((a, b) => ((a.dateInfo || a.date) || '').localeCompare((b.dateInfo || b.date) || ''));
-  const parcelamentos = [];
+/**
+ * Classifica a fase pelo status, não por palavra-chave solta.
+ * - indicacao: "INDICADO P/INCLUSÃO" ou fase 760 (pré-parcelamento). Indício, sem adesão: não interrompe.
+ * - nao_inclusao: "NÃO INCLUÍDO" encerra a indicação.
+ * - adesao: inclusão, opção, negociação no SISPAR (ato do devedor).
+ * - rescisao: rescisão ou exclusão do parcelamento.
+ */
+export function classifyDebcadPhase(h) {
+  if (!h) return null;
+  const txt = foldKey(`${h.desc || ''} ${h.obs || ''}`);
+  if (/\bN[AÃ]O\s*INCLU/.test(txt)) return 'nao_inclusao';
+  // Linha de Atualizações: só a não inclusão interessa (encerra a indicação).
+  if (h.code === '999') return null;
+  if (h.code === '760' || /INDICAD[OA]\s*P\s*\/?\s*INCLUS/.test(txt) || /PRE\s*-?\s*PARCELAMENTO/.test(txt)) return 'indicacao';
+  if (h.code === '797' || h.code === '792') return 'rescisao';
+  if (h.code === '731') return 'reativacao';
+  if (['733', '779', '770', '775'].includes(h.code)) return 'adesao';
+  return null;
+}
+
+/**
+ * Parcelamentos e indicações a partir do histórico.
+ * Data do fato = "Data Fase" (1ª coluna de data); a "Data Informação" é só o registro.
+ * Cada parcelamento termina pelo próprio evento (rescisão ou exclusão). Uma nova adesão
+ * não encerra a anterior: sem rescisão no relatório, o encerramento fica em aberto.
+ */
+function buildParcelamentosEIndicacoes(history, updates = []) {
+  const out = { parcelamentos: [], indicacoes: [] };
+  if (!history.length) return out;
+  const fato = (h) => h.date || h.dateInfo || '';
+  const registro = (h) => h.dateInfo || h.date || '';
+  const naoInclusaoUpd = (updates || [])
+    .filter((u) => u && u.date && /\bN[AÃ]O\s*INCLU/.test(foldKey(u.obs)))
+    .map((u) => ({ code: '999', desc: u.obs, obs: u.obs, date: u.date, dateInfo: u.date }));
+  const sortedHist = [...history, ...naoInclusaoUpd]
+    .filter((h) => h.code !== '999' || classifyDebcadPhase(h) === 'nao_inclusao')
+    .sort((a, b) => fato(a).localeCompare(fato(b)) || registro(a).localeCompare(registro(b)));
   let cur = null;
+  let ind = null;
   for (const h of sortedHist) {
-    if (ADESAO.includes(h.code)) {
-      if (cur && cur.adesao === (h.dateInfo || h.date)) continue;
-      if (cur) {
-        cur.encerramento = h.dateInfo || h.date;
-        cur.situacao = 'Rescindido (implícito)';
-        parcelamentos.push(cur);
+    const kind = classifyDebcadPhase(h);
+    if (kind === 'indicacao') {
+      if (ind && ind.data === fato(h)) continue;
+      if (ind) out.indicacoes.push(ind);
+      ind = { data: fato(h), registro: registro(h), desc: h.desc, tipo: `Fase ${h.code}`, situacao: 'Sem desfecho no relatório', obs: h.obs || '' };
+    } else if (kind === 'nao_inclusao') {
+      if (ind) {
+        ind.encerramento = fato(h);
+        ind.encerramentoRegistro = registro(h);
+        ind.situacao = 'Não incluído';
+        ind.encerramentoDesc = h.desc || h.obs || '';
+        out.indicacoes.push(ind);
+        ind = null;
       }
-      cur = { adesao: h.dateInfo || h.date, modalidade: h.desc, tipo: `Fase ${h.code}`, situacao: 'Em vigor', obs: h.obs || '' };
-    } else if (h.code === '731') {
+    } else if (kind === 'adesao') {
+      if (cur && cur.adesao === fato(h)) continue;
+      if (cur) {
+        cur.situacao = 'Encerramento não informado';
+        out.parcelamentos.push(cur);
+      }
+      cur = { adesao: fato(h), adesaoRegistro: registro(h), modalidade: h.desc, tipo: `Fase ${h.code}`, situacao: 'Em vigor', obs: h.obs || '' };
+    } else if (kind === 'reativacao') {
       if (!cur) {
-        cur = { adesao: h.dateInfo || h.date, modalidade: h.desc, tipo: 'Fase 731 (reativação)', situacao: 'Em vigor', obs: h.obs || '' };
+        cur = { adesao: fato(h), adesaoRegistro: registro(h), modalidade: h.desc, tipo: 'Fase 731 (reativação)', situacao: 'Em vigor', obs: h.obs || '' };
       } else {
-        cur.deferimento = h.dateInfo || h.date;
+        cur.deferimento = fato(h);
       }
-    } else if (RESCISAO.includes(h.code)) {
+    } else if (kind === 'rescisao') {
       if (cur) {
-        cur.encerramento = h.dateInfo || h.date;
+        cur.encerramento = fato(h);
+        cur.encerramentoRegistro = registro(h);
         cur.situacao = h.obs?.includes('C PAG') ? 'Rescindido c/ pagamento' : h.obs?.includes('S PAG') || h.obs?.includes('S/PAG') ? 'Rescindido s/ pagamento' : 'Rescindido';
-        parcelamentos.push(cur);
+        out.parcelamentos.push(cur);
         cur = null;
       }
     }
   }
-  if (cur) parcelamentos.push(cur);
-  return parcelamentos;
+  if (cur) out.parcelamentos.push(cur);
+  if (ind) out.indicacoes.push(ind);
+  return out;
 }
 
 function mergeUpdatesIntoHistory(rec) {
@@ -399,7 +445,9 @@ function parseOneRecord(lines) {
   rec.protestos = parseProtestos(buckets.protestos);
   rec.ajuizamentos = parseAjuizamentos(buckets.ajuizamento);
   mergeUpdatesIntoHistory(rec);
-  rec.parcelamentos = buildParcelamentos(rec.history);
+  const parc = buildParcelamentosEIndicacoes(rec.history, rec.updates);
+  rec.parcelamentos = parc.parcelamentos;
+  rec.indicacoesParcelamento = parc.indicacoes;
   return rec;
 }
 

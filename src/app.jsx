@@ -3371,8 +3371,9 @@ function App() {
             const histCount = (rec.history || []).filter(h => h.code !== '999').length;
             const updCount = (rec.updates || []).length;
             const parcCount = (rec.parcelamentos || []).length;
+            const indCount = (rec.indicacoesParcelamento || []).length;
             const protCount = (rec.protestos || []).length;
-            logs.push(`📄 Debcad ${rec.cdaNumber}: ${histCount} fase(s) no Histórico, ${updCount} atualização(ões), ${protCount} protesto(s), ${parcCount} parcelamento(s) detectado(s)`);
+            logs.push(`📄 Debcad ${rec.cdaNumber}: ${histCount} fase(s) no Histórico, ${updCount} atualização(ões), ${protCount} protesto(s), ${parcCount} parcelamento(s) detectado(s)${indCount ? `, ${indCount} indicação(ões) p/ parcelamento (indício)` : ''}`);
           }
         } else {
           const protN = records.reduce((s, r) => s + (r.protestos || []).length, 0);
@@ -3543,6 +3544,9 @@ function App() {
               const mergedExec = { ...linkedExec };
               let execTouched = false;
               if (!linkedExec.protocolDate) { mergedExec.protocolDate = rec.protocolDate; execTouched = true; }
+              else if (linkedExec.protocolDate !== rec.protocolDate) {
+                logs.push(`  ⚠️ CDA ${rec.cdaNumber}: ajuizamento diverge — Nexus ${fmtDate(linkedExec.protocolDate)}, Debcad ${fmtDate(rec.protocolDate)}. Mantido o do Nexus; conferir nos autos.`);
+              }
               if (rec.juizo && !linkedExec.court) { mergedExec.court = rec.juizo; execTouched = true; }
               if (execTouched) upsert('executions', mergedExec);
             }
@@ -3577,7 +3581,14 @@ function App() {
 
               // Case 1: Normal parcelamento with adesão (and possibly rescisão)
               if (parc.adesao) {
-                const dup = existingEvents.find(pe => pe.type === 'susp_parcelamento' && pe.date === parc.adesao && !isBloqueioNegociacaoEvent(pe));
+                const sameAdesao = (pe) => pe.date === parc.adesao || (!isSIDA && parc.adesaoRegistro && parc.adesaoRegistro !== parc.adesao && pe.date === parc.adesaoRegistro);
+                let dup = existingEvents.find(pe => pe.type === 'susp_parcelamento' && sameAdesao(pe) && !isBloqueioNegociacaoEvent(pe) && !isIndicacaoParcelamentoEvent(pe));
+                // Importação anterior gravou a data de registro: corrige para a data da fase (fato).
+                if (dup && dup.date !== parc.adesao) {
+                  dup = { ...dup, date: parc.adesao, registeredAt: parc.adesaoRegistro, updatedAt: new Date().toISOString() };
+                  upsert('prescriptionEvents', dup);
+                  logs.push(`  📅 Parc. CDA ${rec.cdaNumber}: data corrigida para a da fase ${fmtDate(parc.adesao)} (registro em ${fmtDate(parc.adesaoRegistro)})`);
+                }
                 if (dup) {
                   // If existing event has no endDate but we now have rescisão, update it
                   if (parc.encerramento && !dup.endDate) {
@@ -3599,6 +3610,7 @@ function App() {
                   cdaId: existing.id,
                   type: 'susp_parcelamento',
                   date: parc.adesao,
+                  ...(parc.adesaoRegistro && parc.adesaoRegistro !== parc.adesao ? { registeredAt: parc.adesaoRegistro } : {}),
                   endDate: parc.encerramento || '',
                   ...(parc.encerramento ? {} : { verifiedAt: new Date().toISOString().slice(0, 10) }),
                   legalBasis: 'Art. 174, p.ú., IV CTN + Art. 151, VI CTN (extraído do ' + (isSIDA ? 'SIDA' : 'Debcad') + ')',
@@ -3645,13 +3657,21 @@ function App() {
             for (const parc of rec.parcelamentos) {
               if (isSIDA && !shouldEmitSidaParcelamentoEvents(parc)) continue;
               if (!parc.encerramento) continue;
-              const dupResc = existingEvents.find(pe => pe.type === 'int_rescisao_parcelamento' && pe.date === parc.encerramento);
-              if (dupResc) continue;
+              const dupResc = existingEvents.find(pe => pe.type === 'int_rescisao_parcelamento' && (pe.date === parc.encerramento
+                || (!isSIDA && parc.encerramentoRegistro && parc.encerramentoRegistro !== parc.encerramento && pe.date === parc.encerramentoRegistro)));
+              if (dupResc) {
+                if (dupResc.date !== parc.encerramento) {
+                  upsert('prescriptionEvents', { ...dupResc, date: parc.encerramento, registeredAt: parc.encerramentoRegistro, updatedAt: new Date().toISOString() });
+                  logs.push(`  🔴 Rescisão parc. CDA ${rec.cdaNumber}: data corrigida para a da fase ${fmtDate(parc.encerramento)} (registro em ${fmtDate(parc.encerramentoRegistro)})`);
+                }
+                continue;
+              }
               const rescEvent = {
                 id: uid(),
                 cdaId: existing.id,
                 type: 'int_rescisao_parcelamento',
                 date: parc.encerramento,
+                ...(parc.encerramentoRegistro && parc.encerramentoRegistro !== parc.encerramento ? { registeredAt: parc.encerramentoRegistro } : {}),
                 legalBasis: 'Rescisão de parcelamento — exigibilidade restabelecida. Prazo prescricional reinicia (art. 174, p.ú., IV CTN)',
                 processRef: parc.tipo || '',
                 notes: `${parc.situacao || 'Rescindido'} · ${parc.modalidade || 'Parcelamento'}${parc.adesao ? ' · Adesão: ' + fmtDate(parc.adesao) : ''}${parc.obs ? ' · ' + truncate(parc.obs, 60) : ''}`,
@@ -3661,6 +3681,42 @@ function App() {
               upsert('prescriptionEvents', rescEvent);
               eventsCreated++;
               logs.push(`  🔴 Rescisão parc. CDA ${rec.cdaNumber}: ${fmtDate(parc.encerramento)} — evento separado (prazo reinicia)`);
+            }
+          }
+
+          // ─── Debcad: indicação para parcelamento (fase 760) é indício, não adesão ───
+          // Grava registro sem efeito, com a data da fase e a de registro. Converte o evento
+          // que a importação anterior gravou como parcelamento (salvo adesão provada).
+          if (!isSIDA && (rec.indicacoesParcelamento || []).length) {
+            const existingEvents = (data.prescriptionEvents || []).filter(pe => pe.cdaId === existing.id || (pe.batchCdaIds && pe.batchCdaIds.includes(existing.id)));
+            for (const ind of rec.indicacoesParcelamento) {
+              if (!ind.data) continue;
+              const regTxt = ind.registro && ind.registro !== ind.data ? `, registrada em ${fmtDate(ind.registro)}` : '';
+              const fimTxt = ind.encerramento ? ` · ${ind.situacao || 'Não incluído'} em ${fmtDate(ind.encerramento)}` : ' · Sem desfecho no relatório';
+              const payload = {
+                type: 'info_indicacao_parcelamento',
+                date: ind.data,
+                endDate: ind.encerramento || '',
+                ...(ind.registro && ind.registro !== ind.data ? { registeredAt: ind.registro } : {}),
+                processRef: ind.tipo || 'Fase 760',
+                legalBasis: 'Indício (Debcad) — sem adesão nem consolidação; não interrompe sem ato do devedor (Súmula 653/STJ)',
+                notes: `${ind.desc || 'Indicação para parcelamento'} · Fase em ${fmtDate(ind.data)}${regTxt}${fimTxt}${ind.obs ? ' · ' + truncate(ind.obs, 80) : ''}`,
+                source: 'debcad',
+                updatedAt: new Date().toISOString()
+              };
+              const prior = existingEvents.find(pe => isIndicacaoParcelamentoEvent(pe) && !hasProvaAtoDevedor(pe) && (pe.date === ind.data || (ind.registro && pe.date === ind.registro)));
+              if (prior) {
+                if (prior.type !== payload.type || prior.date !== payload.date || (prior.endDate || '') !== payload.endDate) {
+                  upsert('prescriptionEvents', { ...prior, ...payload });
+                  eventsCreated++;
+                  logs.push(`  ⚪ Indicação p/ parcelamento CDA ${rec.cdaNumber}: ${fmtDate(ind.data)}${ind.encerramento ? ' → não incluída em ' + fmtDate(ind.encerramento) : ''} — registro, não interrompe (evento anterior corrigido)`);
+                }
+                continue;
+              }
+              if (existingEvents.some(pe => hasProvaAtoDevedor(pe) && pe.date === ind.data)) continue;
+              upsert('prescriptionEvents', { id: uid(), cdaId: existing.id, ...payload, createdAt: new Date().toISOString() });
+              eventsCreated++;
+              logs.push(`  ⚪ Indicação p/ parcelamento CDA ${rec.cdaNumber}: ${fmtDate(ind.data)}${ind.encerramento ? ' → não incluída em ' + fmtDate(ind.encerramento) : ''} — registro, não interrompe`);
             }
           }
 
@@ -4710,6 +4766,8 @@ function App() {
       delete cleanEntity._focusDate;
       delete cleanEntity._focusField;
       delete cleanEntity._bloqueioNegociacao;
+      delete cleanEntity._indicacaoParcelamento;
+      delete cleanEntity._rescisaoSemFonte;
     }
     if (type === 'debt') delete cleanEntity._focusField;
     // ─── ETAPA 5: Propagação de status de processo → CDAs vinculadas ───
@@ -4806,7 +4864,7 @@ function App() {
             susp_admin: 'suspensa_admin',
           };
           // Bloqueio para negociação não é adesão: não marca a CDA como parcelada.
-          const newStatus = isBloqueioNegociacaoEvent(cleanEntity) ? '' : statusMap[cleanEntity.type];
+          const newStatus = (isBloqueioNegociacaoEvent(cleanEntity) || isIndicacaoParcelamentoEvent(cleanEntity)) ? '' : statusMap[cleanEntity.type];
           if (newStatus) {
             setData(prev => ({
               ...prev,
@@ -14939,7 +14997,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       <div className="form-row">
         {needsRequestDate && (
           <div className="form-group"><label>Data do pedido</label><input type="date" value={form.requestDate||''} onChange={e=>set('requestDate',e.target.value)} />
-            <span style={{fontSize:9,color:'var(--text-muted)'}}>Protocolo da petição que requereu a constrição. O efeito retroage a esta data. Se vazio, grava igual à efetivação.</span></div>
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>{CITACAO_ALIASES.has(form.type) ? 'Protocolo da petição que requereu a citação frutífera.' : 'Protocolo da petição que requereu a constrição.'} O efeito retroage a esta data. Se vazio, grava igual à efetivação.</span></div>
         )}
         {selectedType?.category === 'marco' && (
           <div className="form-group"><label>Disponibilização da intimação</label><input type="date" value={form.availableDate||''} onChange={e => {
@@ -14949,6 +15007,13 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
               if (v && (!form.date || form.date === prevAuto)) set('date', addCalendarDays(v, 10));
             }} />
             <span style={{fontSize:9,color:'var(--text-muted)'}}>Data cedo. Sem abertura, a ciência é o 10º dia ({form.availableDate ? fmtDate(addCalendarDays(form.availableDate, 10)) : 'disponibilização + 10'}).</span></div>
+        )}
+        {selectedType?.category === 'marco' && (
+          <div className="form-group"><label>Devolução do AR negativo (juntada)</label><input type="date" value={form.arReturnDate||''} onChange={e=>set('arReturnDate', e.target.value)} />
+            <span style={{fontSize:9,color:'var(--text-muted)'}}>Se houver. A data cedo conta o ano de suspensão da devolução do AR; a tarde, da intimação da Fazenda.</span>
+            {form.arReturnDate && form.date && form.arReturnDate > form.date && (
+              <span style={{display:'block',fontSize:9,color:'var(--red)',marginTop:2}}>A devolução do AR não pode ser posterior à ciência.</span>
+            )}</div>
         )}
         <div className="form-group"><label>{needsRequestDate ? (isDemo && destIsIncident ? 'Constrição efetiva' : 'Constrição efetiva') : (selectedType?.category === 'marco' ? 'Abertura da intimação (ou 10º dia)' : 'Data do Evento')}</label><input type="date" data-focus="date" value={form.date||''} onChange={e=>set('date',e.target.value)} />
           {needsRequestDate && <span style={{fontSize:9,color:'var(--text-muted)'}}>Data em que a constrição se concretizou. Sem ela o efeito não se aplica.</span>}
@@ -14990,6 +15055,20 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             Houve adesão de fato — contar como parcelamento
           </label>
           <span style={{fontSize:9,color:'var(--text-muted)'}}>Desmarcado, o cálculo trata o evento como registro, sem pausa: bloqueio para negociação (consolidação da Lei 11.941 e reaberturas) não é adesão.</span></div>
+      )}
+      {(isAdesaoType(form.type) || form.type === 'int_pedido_parcelamento') && isIndicacaoParcelamentoEvent({ ...form, adesaoConfirmada: false }) && (
+        <div className="form-group"><label>Veio de “INDICADO P/INCLUSÃO” (Debcad)</label>
+          <label style={{display:'flex',gap:8,alignItems:'center',textTransform:'none',letterSpacing:0,fontSize:12,color:'var(--text-primary)',cursor:'pointer'}}>
+            <input type="checkbox" style={{width:'auto',margin:0}} checked={!!form.adesaoConfirmada} onChange={e=>set('adesaoConfirmada', e.target.checked)} />
+            Houve pedido do devedor — contar como {form.type === 'int_pedido_parcelamento' ? 'pedido' : 'adesão'}
+          </label>
+          {form.adesaoConfirmada && (
+            <input style={{marginTop:6}} value={form.provaAtoDevedor||''} onChange={e=>set('provaAtoDevedor', e.target.value)} placeholder="Prova do pedido: recibo SISPAR nº …, e-CAC, evento dos autos" />
+          )}
+          <span style={{fontSize:9,color:'var(--text-muted)'}}>Indicação é indício e pode ser rotina da PGFN. Sem a prova do pedido do devedor, o cálculo trata o evento como registro, sem interrupção nem pausa.</span></div>
+      )}
+      {form.registeredAt && form.registeredAt !== form.date && (
+        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8}}>Data do fato {fmtDate(form.date)} · registrada no sistema em {fmtDate(form.registeredAt)}. O cálculo usa a data do fato.</div>
       )}
       <div className="form-group"><label>Fundamentação Legal</label>
         <input value={form.legalBasis||''} onChange={e=>set('legalBasis',e.target.value)} placeholder="Ex: Art. 174, p.ú., I, CTN — Art. 40, §1º, LEF" />
