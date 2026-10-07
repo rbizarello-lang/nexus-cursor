@@ -538,6 +538,8 @@ function EditionClaudeSidebar(p) {
   const clsMeta = cls !== 'all' && cls !== 'encerrada' ? OP_CLASSIFICATIONS[resolveOpClassKey(cls) || cls] : null;
   const pick = (k) => { setCls(k); setMenu(false); };
   const closedOpen = showClosed || cls === 'encerrada';
+  const substOpenCount = substOp ? (data.intimations || []).filter(x => x.operationId === substOp.id && cxIsOpen(x)).length : 0;
+  const showSubst = !!(substOp && cls === 'all' && (!q || cxNorm('em substituição').includes(q)));
   const item = (vm, icon, label, extra, onClick) => {
     const on = viewMode === vm;
     return <button key={vm} type="button" className={'cx-nav-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} title={label} onClick={onClick || (() => p.onNav(vm))}>
@@ -593,11 +595,6 @@ function EditionClaudeSidebar(p) {
         {item('painel', 'chart', 'Painel')}
         <button type="button" className="cx-nav-item" title="Importar eproc" onClick={p.onImportEproc}><CxIcon n="upload" /><span className="cx-lbl">Importar eproc</span></button>
       </nav>
-      {substOp ? <button type="button" className={'cx-nav-item cx-nav-subst' + (viewMode === 'operation' && activeOpId === substOp.id ? ' on' : '')} title="EM SUBSTITUIÇÃO" onClick={() => p.onOpenOp(substOp.id)}>
-        <CxOpSquare op={substOp} title="EM SUBSTITUIÇÃO" />
-        <span className="cx-lbl">EM SUBSTITUIÇÃO</span>
-        {(() => { const n = (data.intimations || []).filter(x => x.operationId === substOp.id && cxIsOpen(x)).length; return n ? <span className="cx-count">{n}</span> : null; })()}
-      </button> : null}
       <div className="cx-nav-sec"><span>Operações</span><button type="button" className="cx-icon-btn cx-sm" title="Nova operação" aria-label="Nova operação" onClick={p.onNewOp}><CxIcon n="plus" s={14} /></button></div>
       {ops.length ? <div className="cx-side-tools" ref={menuRef}>
         <label className="cx-side-filter">
@@ -620,7 +617,12 @@ function EditionClaudeSidebar(p) {
       </div> : null}
       <nav className="cx-nav">
         {active.map(renderOp)}
-        {!p.collapsed && active.length === 0 && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
+        {showSubst ? <button type="button" className={'cx-nav-item cx-nav-op' + (viewMode === 'operation' && activeOpId === substOp.id ? ' on' : '')} title="EM SUBSTITUIÇÃO" onClick={() => p.onOpenOp(substOp.id)}>
+          <CxOpSquare op={substOp} title="EM SUBSTITUIÇÃO" />
+          <span className="cx-lbl">EM SUBSTITUIÇÃO</span>
+          {substOpenCount ? <span className="cx-count">{substOpenCount}</span> : null}
+        </button> : null}
+        {!p.collapsed && active.length === 0 && !showSubst && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
         {!p.collapsed && closed.length && cls !== 'encerrada' ? <button type="button" className="cx-nav-item cx-nav-closed" onClick={() => setShowClosed(v => !v)}><span className="cx-chev" style={{ transform: showClosed ? 'rotate(90deg)' : 'none' }}><CxIcon n="chevR" s={12} /></span><span className="cx-lbl">Encerradas</span><span className="cx-count">{closed.length}</span></button> : null}
         {!p.collapsed && closedOpen ? closed.map(renderOp) : null}
       </nav>
