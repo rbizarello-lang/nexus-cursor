@@ -612,6 +612,9 @@ const applyMigrations = (parsed) => {
     const alive = { intimation: new Set((merged.intimations||[]).map(i => i.id)), task: new Set((merged.tasks||[]).map(t => t.id)), hearing: new Set((merged.hearings||[]).map(h => h.id)) };
     merged.desk = merged.desk.filter(x => x && alive[x.type] && alive[x.type].has(x.id));
   }
+  if (!Array.isArray(merged.operations)) merged.operations = [];
+  if (!merged.operations.some(isSubstituicaoOp)) merged.operations.push(substituicaoOpRecord());
+  else merged.operations = merged.operations.map(o => isSubstituicaoOp(o) ? { ...substituicaoOpRecord(), ...o, id: SUBSTITUICAO_OP_ID, kind: 'substituicao', name: 'EM SUBSTITUIÇÃO', status: 'ativa' } : o);
   if (!merged.calendar) merged.calendar = { extraHolidays: [] };
   if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
@@ -702,6 +705,18 @@ function intimIsClosed(x) {
 function intimIsOpenWork(x) {
   if (!x || intimIsClosed(x)) return false;
   return x.status !== 'analisado';
+}
+/** Edição de verdade na intimação (objeto, operação, notas, situação…). Ignora o próprio marcador de importação. */
+function intimFieldsChanged(before, incoming) {
+  if (!before) return true;
+  const skip = { updatedAt: 1, createdAt: 1, _importFlag: 1, _importFlagAt: 1 };
+  const keys = new Set([...Object.keys(before), ...Object.keys(incoming || {})]);
+  for (const k of keys) {
+    if (skip[k]) continue;
+    const next = k in (incoming || {}) ? incoming[k] : before[k];
+    if (JSON.stringify(before[k] ?? null) !== JSON.stringify(next ?? null)) return true;
+  }
+  return false;
 }
 const intimPrazoNaAgenda = (x) => {
   if (!x || intimIsClosed(x)) return false;
@@ -3945,7 +3960,7 @@ function App() {
                   merged._importFlag = 'updated';
                   merged._importFlagAt = new Date().toISOString();
                 }
-                upsert('intimations', merged);
+                upsert('intimations', merged, { keepImportFlag: true });
                 updCount++;
                 logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
               } else {
@@ -3967,7 +3982,7 @@ function App() {
                 unlinkedCount++;
                 logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
               }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
+              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true });
               newCount++;
               if (!toDayKey(intim.dateDeadline)) logs.push(`⚠️ Sem prazo final: ${intim.processNumber} — não entra na agenda/e-mail até preencher Final Prazo`);
             }
@@ -4419,7 +4434,7 @@ function App() {
     if (col === 'measures') return `Medida ${truncate(e.description || e.subtype || e.id, 40)}`;
     return e.id;
   };
-  const upsert = (col, entity) => {
+  const upsert = (col, entity, opts) => {
     if (!col) return;
     setData(prev => {
       const list = prev[col] || [];
@@ -4439,7 +4454,13 @@ function App() {
         });
       }
       // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
-      const toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      let toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      // Marcador Novo/Atualizada: sai em qualquer edição de verdade. Abrir e só consultar não grava.
+      // A importação do eproc passa keepImportFlag para continuar marcando nova ou atualizada.
+      if (col === 'intimations' && !(opts && opts.keepImportFlag)) {
+        const before = idx >= 0 ? list[idx] : null;
+        if (!before || intimFieldsChanged(before, entity)) toSave = { ...toSave, _importFlag: null, _importFlagAt: null };
+      }
       const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...toSave, updatedAt: now } : e) : [...list, { ...toSave, createdAt: now, updatedAt: now }];
       let newPrev = { ...prev, [col]: updated };
       if (logEntries.length > 0) {
@@ -4617,6 +4638,7 @@ function App() {
     return parts.length ? `\n\nSerão excluídos JUNTO (em cascata):\n${parts.join('\n')}` : '';
   };
   const remove = (col, id) => {
+    if (col === 'operations' && isSubstituicaoOp((data.operations || []).find(o => o.id === id))) return;
     const cas = computeCascade(data, col, id);
     if (!confirm(`Confirma exclusão?${cascadeSummary(cas, col)}`)) return;
     pushUndo(`Exclusão de registro (${col})`);
@@ -6147,6 +6169,9 @@ function App() {
   const renderTab = () => {
     if (!activeOp) return null;
     const opId = activeOp.id;
+    if (isSubstituicaoOp(activeOp) && activeTab !== 'docs') {
+      return <EditionClaudeSubstituicao data={data} op={activeOp} opsById={opsById} onOpen={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} />;
+    }
 
     if (activeTab === 'notas') {
       const notes = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
@@ -9378,7 +9403,7 @@ function App() {
     if (isDemo) setViewMode('hoje');
     alert('✅ Dados demo resetados (5 operações fictícias).');
   };
-  const openIntimsCount = (data.intimations || []).filter(x => intimIsOpenWork(x)).length;
+  const openIntimsCount = (data.intimations || []).filter(x => intimIsOpenWork(x) && !intimDaSubstituicao(x)).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
   const deskCount = (data.desk || []).length;
   const watchCount = (data.watchlist || []).filter(w => w.status !== 'encerrado').length;
@@ -10702,7 +10727,10 @@ function App() {
     setCxSideOpen(false);
     setCxTlOp(null);
     if (opId) setCxReturnOpId(opId);
-    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(tab || 'visao'); });
+    const op = (data.operations || []).find(o => o.id === opId);
+    let nextTab = tab || (isSubstituicaoOp(op) ? 'subst' : 'visao');
+    if (isSubstituicaoOp(op) && nextTab !== 'docs') nextTab = 'subst';
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(nextTab); });
     setTimeout(() => touchOperationAccess(opId), 800);
   };
   const cxReturnOp = (() => {
@@ -12482,7 +12510,7 @@ function App() {
       {viewMode === 'operation' && !activeOp && (
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
-      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <>
+      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && !isSubstituicaoOp(activeOp) && <>
         {cxOpHeaderEl}
         <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
         prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
@@ -12495,9 +12523,9 @@ function App() {
         onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : mode === 'narrativa' ? 'narrativa' : 'panorama'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
       </>}
-      {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
+      {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao' && !isSubstituicaoOp(activeOp)) && <>
         {cxOpHeaderEl}
-        {!isClaude && <>
+        {!isClaude && !isSubstituicaoOp(activeOp) && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
             <h2>{activeOp.name}</h2>
@@ -14217,8 +14245,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       delete payload.obs1;
       delete payload.obs2;
     }
-    // O marcador Novo/Atualizada do último import só sai ao registrar a atuação.
-    // Editar objeto, vincular operação, notas ou classificação não apaga.
+    // O marcador Novo/Atualizada sai aqui se algum campo mudou (upsert compara com o que já está gravado).
     onSave(payload);
   };
   const del = () => onDelete && onDelete(form.id);

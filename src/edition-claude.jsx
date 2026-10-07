@@ -103,6 +103,23 @@ const CX_DIF = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const CX_HEARING = { instrucao: 'Audiência de instrução', conciliacao: 'Audiência de conciliação', una: 'Audiência una', justificacao: 'Audiência de justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 const CX_OP_COLORS = ['var(--cx-op1)', 'var(--cx-op2)', 'var(--cx-op3)', 'var(--cx-op4)', 'var(--cx-op5)', 'var(--cx-op6)'];
 const CX_OP_TABS = [['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const SUBSTITUICAO_OP_ID = 'op-substituicao';
+function isSubstituicaoOp(op) {
+  return !!(op && (op.id === SUBSTITUICAO_OP_ID || op.kind === 'substituicao'));
+}
+function intimDaSubstituicao(x) {
+  return !!(x && x.operationId === SUBSTITUICAO_OP_ID);
+}
+function substituicaoOpRecord() {
+  return {
+    id: SUBSTITUICAO_OP_ID,
+    name: 'EM SUBSTITUIÇÃO',
+    description: 'Feitos no lugar de outro procurador.',
+    status: 'ativa',
+    kind: 'substituicao',
+    createdAt: '2026-10-06T00:00:00.000Z'
+  };
+}
 /* Partes e Bens são abas independentes (antes, uma aba só com seletor interno). */
 /* 'notas' (antiga aba Briefing) virou parte da Visão geral: no Prumo é só um apelido de 'visao'. */
 function cxTabOn(activeTab, key) { return activeTab === key || (key === 'visao' && activeTab === 'notas'); }
@@ -509,7 +526,8 @@ function EditionClaudeSidebar(p) {
     document.addEventListener('keydown', onKey);
     return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [menu]);
-  const ops = (data.operations || []).slice().sort(sortOpsByName);
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
+  const substOp = (data.operations || []).find(isSubstituicaoOp);
   const q = cxNorm(filter.trim());
   const match = (o) => (!q || cxNorm(o.name + ' ' + (o.description || '')).includes(q)) && opMatchesClassFilter(o, cls);
   const active = ops.filter(o => o.status !== 'encerrada' && match(o));
@@ -575,6 +593,11 @@ function EditionClaudeSidebar(p) {
         {item('painel', 'chart', 'Painel')}
         <button type="button" className="cx-nav-item" title="Importar eproc" onClick={p.onImportEproc}><CxIcon n="upload" /><span className="cx-lbl">Importar eproc</span></button>
       </nav>
+      {substOp ? <button type="button" className={'cx-nav-item cx-nav-subst' + (viewMode === 'operation' && activeOpId === substOp.id ? ' on' : '')} title="EM SUBSTITUIÇÃO" onClick={() => p.onOpenOp(substOp.id)}>
+        <CxOpSquare op={substOp} title="EM SUBSTITUIÇÃO" />
+        <span className="cx-lbl">EM SUBSTITUIÇÃO</span>
+        {(() => { const n = (data.intimations || []).filter(x => x.operationId === substOp.id && cxIsOpen(x)).length; return n ? <span className="cx-count">{n}</span> : null; })()}
+      </button> : null}
       <div className="cx-nav-sec"><span>Operações</span><button type="button" className="cx-icon-btn cx-sm" title="Nova operação" aria-label="Nova operação" onClick={p.onNewOp}><CxIcon n="plus" s={14} /></button></div>
       {ops.length ? <div className="cx-side-tools" ref={menuRef}>
         <label className="cx-side-filter">
@@ -660,6 +683,7 @@ function cxBuildQueue(data, prazosByDebt, opsById) {
   const q = [];
   const opName = (id) => (opsById.get(id) || {}).name || '';
   (data.intimations || []).forEach(x => {
+    if (intimDaSubstituicao(x)) return;
     if (x.responseAction) {
       const at = x.responseAction.respondedAt;
       const dd = at ? daysUntil(at) : null;
@@ -689,7 +713,7 @@ function cxBuildQueue(data, prazosByDebt, opsById) {
 function cxContinueQueue(data) {
   const out = [];
   (data.intimations || []).forEach(x => {
-    if (!cxIsOpen(x)) return;
+    if (intimDaSubstituicao(x) || !cxIsOpen(x)) return;
     const info = esteiraResumeInfo(x.esteira);
     if (!info) return;
     out.push({ key: 'i' + x.id, intim: x, info, due: daysUntil(x.dateDeadline), iso: x.dateDeadline, title: cxPartyName(x), updatedAt: x.esteira.updatedAt });
@@ -817,7 +841,7 @@ function EditionClaudeHoje(p) {
   const setCargaW = (v) => { setCargaWS(v); cxLsSet('nexus_cx_carga_weeks', String(v)); };
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
   const continueQueue = React.useMemo(() => cxContinueQueue(data), [data]);
-  const intims = data.intimations || [];
+  const intims = (data.intimations || []).filter(x => !intimDaSubstituicao(x));
   const open = intims.filter(cxIsOpen);
   const tribCounts = cxTribCounts(intims);
   const late = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d < 0; });
@@ -827,7 +851,7 @@ function EditionClaudeHoje(p) {
   const n1 = (t[1] && t[1].n) || 0;
   // O valor do cartão soma só o grupo 1 (vencido ou iminente).
   const riskVal = (t[1] && t[1].value) || 0;
-  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada');
+  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
   const activeDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
   const guarTotal = activeDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
@@ -837,11 +861,11 @@ function EditionClaudeHoje(p) {
   const atuacoes = atuacoesSemana(intims, todayIso);
   const janela = janelaPrazos(open, todayIso);
   const termo = proximoTermo(prazosRadar.rows, todayIso);
-  const cargaIts = React.useMemo(() => cargaItens(data, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
+  const cargaIts = React.useMemo(() => cargaItens({ ...data, intimations: (data.intimations || []).filter(x => !intimDaSubstituicao(x)) }, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
   const mapa = React.useMemo(() => cargaMapa(cargaIts, { today: todayIso, weeks: cargaW }), [cargaIts, todayIso, cargaW]);
   const nextAud = cargaIts.filter(x => x.kind === 'h' && x.dd >= 0).sort((a, b) => a.dd - b.dd || String(a.iso).localeCompare(String(b.iso)))[0];
   const resumoCargaTxt = resumoCarga(mapa, nextAud ? { dias: nextAud.dd, time: nextAud.ref.time || '' } : null);
-  const atencao = React.useMemo(() => atencaoItens({ rows: prazosRadar.rows, operations: data.operations, reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
+  const atencao = React.useMemo(() => atencaoItens({ rows: prazosRadar.rows, operations: (data.operations || []).filter(o => !isSubstituicaoOp(o)), reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
 
   // Entradas por dia útil (data de envio do eproc), últimos 14 dias úteis
   const intake = React.useMemo(() => {
@@ -1130,6 +1154,23 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
     </div>
   </div>;
 }
+function EditionClaudeSubstituicao({ data, op, opsById, onOpen, onOpenOp }) {
+  const items = (data.intimations || []).filter(x => x.operationId === op.id);
+  const abertas = items.filter(cxIsOpen);
+  const resolvidas = items.filter(x => !cxIsOpen(x));
+  if (!items.length) {
+    return <div className="cx cx-page"><div className="cx-page-h"><div><h1>Processos</h1><p>Nenhuma intimação ainda.</p></div></div>
+      <div className="cx-empty-row" style={{ borderTop: 0 }}>Na ficha da intimação, em Operação vinculada, escolha EM SUBSTITUIÇÃO.</div></div>;
+  }
+  const groups = [
+    { key: 'ab', label: 'Abertas', items: abertas, icon: <CxStatusIcon s="pendente_analise" />, closedDefault: false },
+    { key: 'rs', label: 'Resolvidas', items: resolvidas, icon: <CxStatusIcon s="analisado" />, closedDefault: true }
+  ];
+  return <div className="cx cx-page">
+    <div className="cx-page-h"><div><h1>Processos</h1><p>{cxPl(abertas.length, 'aberta', 'abertas')} · {cxPl(resolvidas.length, 'resolvida', 'resolvidas')}. O card é o mesmo da aba Intimações.</p></div></div>
+    <CxIntimList items={items} groups={groups} sort="atencao" onOpen={onOpen} onOpenOp={onOpenOp} opsById={opsById} />
+  </div>;
+}
 function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText }) {
   const [closed, setClosed] = React.useState({});
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
@@ -1207,7 +1248,7 @@ function EditionClaudeIntimacoes(p) {
   const [sort, setSortS] = React.useState(() => lsGet('nexus_cx_sort', 'atencao'));
   const setGroupBy = (v) => { setGroupByS(v); try { localStorage.setItem('nexus_cx_group', v); } catch (e) { /* ignore */ } };
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_sort', v); } catch (e) { /* ignore */ } };
-  const all = data.intimations || [];
+  const all = (data.intimations || []).filter(x => !intimDaSubstituicao(x));
   const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && all.some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const opIds = [...new Set(all.map(x => x.operationId).filter(Boolean))];
   const opOptions = [['all', 'Todas'], ['none', 'Sem operação']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
@@ -1929,7 +1970,7 @@ function EditionClaudeCarteira(p) {
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
-  const ops = data.operations || [];
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o));
   /* Pulso de 120 dias de cada operação ativa (M6-A): um cxBuildTimeline por operação, só quando os dados mudam. */
   const pulses = React.useMemo(() => {
     const m = new Map();
@@ -2737,7 +2778,7 @@ const CX_TL_DESC = {
 const CX_TL_MODE_STORE = 'nexus_cx_tl_mode';
 function cxTlLoadMode() { const m = cxLs(CX_TL_MODE_STORE, 'panorama'); return CX_TL_VIEWS[m] ? m : 'panorama'; }
 function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc, onOpenTask }) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
   const [mode, setModeS] = React.useState(cxTlLoadMode);
   const setMode = (m) => { setModeS(m); cxLsSet(CX_TL_MODE_STORE, m); };
@@ -4686,10 +4727,28 @@ function EditionClaudeMesa(p) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
-  const rs = cxRS(op);
+  const rs = isSubstituicaoOp(op) ? { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' } : cxRS(op);
   const cls = getOpClassifications(op);
   const [intimDrawer, setIntimDrawer] = React.useState(false);
   const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
+  if (isSubstituicaoOp(op)) {
+    const onProc = activeTab !== 'docs';
+    return <div className="cx cx-oph">
+      <div className="cx-oph-top">
+        <div className="cx-minw0 cx-oph-main">
+          <div className="cx-oph-name">
+            <CxOpSquare op={op} size={14} className="cx-sq-lg" />
+            <h1 className="cx-ell" title={op.name}>{op.name}</h1>
+          </div>
+        </div>
+      </div>
+      <div className="cx-oph-sum"><span>Feitos no lugar de outro procurador. Não entra na carteira.</span></div>
+      <nav className="cx-optabs cx-oph-tabs" aria-label="Abas de EM SUBSTITUIÇÃO">
+        <button type="button" className={onProc ? 'on' : ''} aria-current={onProc ? 'page' : undefined} onClick={() => { if (!onProc) p.onTab('subst'); }}>Processos</button>
+        <button type="button" className={activeTab === 'docs' ? 'on' : ''} aria-current={activeTab === 'docs' ? 'page' : undefined} onClick={() => { if (activeTab !== 'docs') p.onTab('docs'); }}>Arquivos</button>
+      </nav>
+    </div>;
+  }
   const sum = [];
   if (s) {
     sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
@@ -4889,7 +4948,7 @@ const CX_PANEL_SORTS = [
 ];
 const CX_PANEL_GROUPS = [[1, 'Urgentes'], [2, 'A conferir'], [3, 'A completar'], [4, 'Em acompanhamento'], [5, 'Ainda impossível'], [6, 'Consumadas']];
 function cxPanelAnalytics(data, prazosByDebt) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada');
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
   const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, assets: [], ind: null, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
   (data.debts || []).forEach(d => {
     const x = by.get(d.operationId); if (!x || d.status === 'extinta') return;

@@ -129,7 +129,7 @@ export function clkSort(clocks) {
  */
 export function clkBuild({ data, rows, silenced, lookup, today, opId, debtIds } = {}) {
   const t = toDayKey(today) || localIso(new Date());
-  const ops = new Map((data && data.operations || []).filter(o => o && o.status !== 'encerrada').map(o => [o.id, o]));
+  const ops = new Map((data && data.operations || []).filter(o => o && o.status !== 'encerrada' && o.kind !== 'substituicao' && o.id !== 'op-substituicao').map(o => [o.id, o]));
   const people = new Map(((data && data.people) || []).filter(p => p && p.id).map(p => [p.id, p]));
   const rowBy = new Map((rows || []).filter(Boolean).map(r => [r.id, r]));
   const silBy = new Map((silenced || []).filter(Boolean).map(s => [s.debtId, s]));
