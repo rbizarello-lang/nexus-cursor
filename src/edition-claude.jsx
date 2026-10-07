@@ -31,6 +31,8 @@ const CX_ICONS = {
   chevL: '<path d="m15 18-6-6 6-6"/>',
   chevD: '<path d="m6 9 6 6 6-6"/>',
   chevU: '<path d="m18 15-6-6-6 6"/>',
+  expandAll: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  collapseAll: '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>',
@@ -59,6 +61,29 @@ function CxIcon({ n, s = 16, className = '', style }) {
   return <svg className={'cx-i ' + className} width={s} height={s} viewBox="0 0 24 24" aria-hidden="true" style={style} dangerouslySetInnerHTML={{ __html: CX_ICONS[n] || '' }} />;
 }
 
+function DocsPieceGlyph() {
+  return <svg className="nx-piece-glyph" width="15" height="15" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#4285F4" d="M37 45H11a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h19l10 10v29a3 3 0 0 1-3 3z" />
+    <path fill="#A8C7FA" d="M30 3v9a1 1 0 0 0 1 1h9z" />
+    <path fill="#fff" d="M15 23h18v2.2H15zm0 5h18v2.2H15zm0 5h12v2.2H15z" />
+  </svg>;
+}
+
+/** Texto da nota de atuação e, se houver peça, o ícone que abre o documento. */
+function AtuacaoNoteView({ text, url }) {
+  return <>
+    {text}
+    {url ? <>{' / Peça: '}<a className="nx-piece-link" href={url} target="_blank" rel="noopener noreferrer" title="Abrir peça" aria-label="Abrir peça" onClick={e => e.stopPropagation()}><DocsPieceGlyph /></a></> : null}
+  </>;
+}
+
+function renderProcessNote(note, linkify) {
+  const raw = typeof note === 'string' ? note : ((note && (note.text || note.content || note.body)) || '');
+  const atu = presentAtuacaoProcessNote(raw);
+  if (atu) return <AtuacaoNoteView text={atu.text} url={atu.url} />;
+  return linkify ? linkify(raw) : raw;
+}
+
 /* ─── Helpers de leitura (não gravam nada) ─── */
 const CX_DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const CX_DOW_L = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -78,6 +103,23 @@ const CX_DIF = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const CX_HEARING = { instrucao: 'Audiência de instrução', conciliacao: 'Audiência de conciliação', una: 'Audiência una', justificacao: 'Audiência de justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 const CX_OP_COLORS = ['var(--cx-op1)', 'var(--cx-op2)', 'var(--cx-op3)', 'var(--cx-op4)', 'var(--cx-op5)', 'var(--cx-op6)'];
 const CX_OP_TABS = [['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const SUBSTITUICAO_OP_ID = 'op-substituicao';
+function isSubstituicaoOp(op) {
+  return !!(op && (op.id === SUBSTITUICAO_OP_ID || op.kind === 'substituicao'));
+}
+function intimDaSubstituicao(x) {
+  return !!(x && x.operationId === SUBSTITUICAO_OP_ID);
+}
+function substituicaoOpRecord() {
+  return {
+    id: SUBSTITUICAO_OP_ID,
+    name: 'EM SUBSTITUIÇÃO',
+    description: 'Feitos no lugar de outro procurador.',
+    status: 'ativa',
+    kind: 'substituicao',
+    createdAt: '2026-10-06T00:00:00.000Z'
+  };
+}
 /* Partes e Bens são abas independentes (antes, uma aba só com seletor interno). */
 /* 'notas' (antiga aba Briefing) virou parte da Visão geral: no Prumo é só um apelido de 'visao'. */
 function cxTabOn(activeTab, key) { return activeTab === key || (key === 'visao' && activeTab === 'notas'); }
@@ -484,7 +526,8 @@ function EditionClaudeSidebar(p) {
     document.addEventListener('keydown', onKey);
     return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [menu]);
-  const ops = (data.operations || []).slice().sort(sortOpsByName);
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
+  const substOp = (data.operations || []).find(isSubstituicaoOp);
   const q = cxNorm(filter.trim());
   const match = (o) => (!q || cxNorm(o.name + ' ' + (o.description || '')).includes(q)) && opMatchesClassFilter(o, cls);
   const active = ops.filter(o => o.status !== 'encerrada' && match(o));
@@ -495,6 +538,8 @@ function EditionClaudeSidebar(p) {
   const clsMeta = cls !== 'all' && cls !== 'encerrada' ? OP_CLASSIFICATIONS[resolveOpClassKey(cls) || cls] : null;
   const pick = (k) => { setCls(k); setMenu(false); };
   const closedOpen = showClosed || cls === 'encerrada';
+  const substOpenCount = substOp ? (data.intimations || []).filter(x => x.operationId === substOp.id && cxIsOpen(x)).length : 0;
+  const showSubst = !!(substOp && cls === 'all' && (!q || cxNorm('em substituição').includes(q)));
   const item = (vm, icon, label, extra, onClick) => {
     const on = viewMode === vm;
     return <button key={vm} type="button" className={'cx-nav-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} title={label} onClick={onClick || (() => p.onNav(vm))}>
@@ -572,14 +617,19 @@ function EditionClaudeSidebar(p) {
       </div> : null}
       <nav className="cx-nav">
         {active.map(renderOp)}
-        {!p.collapsed && active.length === 0 && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
+        {showSubst ? <button type="button" className={'cx-nav-item cx-nav-op' + (viewMode === 'operation' && activeOpId === substOp.id ? ' on' : '')} title="EM SUBSTITUIÇÃO" onClick={() => p.onOpenOp(substOp.id)}>
+          <CxOpSquare op={substOp} title="EM SUBSTITUIÇÃO" />
+          <span className="cx-lbl">EM SUBSTITUIÇÃO</span>
+          {substOpenCount ? <span className="cx-count">{substOpenCount}</span> : null}
+        </button> : null}
+        {!p.collapsed && active.length === 0 && !showSubst && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
         {!p.collapsed && closed.length && cls !== 'encerrada' ? <button type="button" className="cx-nav-item cx-nav-closed" onClick={() => setShowClosed(v => !v)}><span className="cx-chev" style={{ transform: showClosed ? 'rotate(90deg)' : 'none' }}><CxIcon n="chevR" s={12} /></span><span className="cx-lbl">Encerradas</span><span className="cx-count">{closed.length}</span></button> : null}
         {!p.collapsed && closedOpen ? closed.map(renderOp) : null}
       </nav>
     </div>
     <div className="cx-side-foot">
       <span>Nexus Prumo</span>
-      <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
+      <button type="button" className="cx-link-btn" onClick={p.onCloudPull} title="Trazer o JSON salvo no Drive e substituir os dados desta tela">Carregar da Planilha</button>
       {p.sync && p.sync.isGAS ? (() => { const si = cxSyncInfo(p.sync); return <button type="button" className="cx-side-sync" onClick={p.sync.onPush} title={si.title} aria-label={si.txt + (p.sync.pending ? ' · pendente' : '') + '. Salvar na Planilha agora'}>
         <span className="cx-dot" style={{ background: si.color }} />
         <span className="cx-side-sync-t cx-ell">{si.txt}</span>
@@ -593,7 +643,7 @@ function EditionClaudeSidebar(p) {
 function EditionClaudeTopbar(p) {
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
-    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span><span className="cx-back-t">&nbsp;Voltar</span></button> : null}
+    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span></button> : null}
     <div className="cx-crumb">
       <span>NEXUS</span>
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
@@ -802,7 +852,7 @@ function EditionClaudeHoje(p) {
   const n1 = (t[1] && t[1].n) || 0;
   // O valor do cartão soma só o grupo 1 (vencido ou iminente).
   const riskVal = (t[1] && t[1].value) || 0;
-  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada');
+  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
   const activeDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
   const guarTotal = activeDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
@@ -816,7 +866,7 @@ function EditionClaudeHoje(p) {
   const mapa = React.useMemo(() => cargaMapa(cargaIts, { today: todayIso, weeks: cargaW }), [cargaIts, todayIso, cargaW]);
   const nextAud = cargaIts.filter(x => x.kind === 'h' && x.dd >= 0).sort((a, b) => a.dd - b.dd || String(a.iso).localeCompare(String(b.iso)))[0];
   const resumoCargaTxt = resumoCarga(mapa, nextAud ? { dias: nextAud.dd, time: nextAud.ref.time || '' } : null);
-  const atencao = React.useMemo(() => atencaoItens({ rows: prazosRadar.rows, operations: data.operations, reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
+  const atencao = React.useMemo(() => atencaoItens({ rows: prazosRadar.rows, operations: (data.operations || []).filter(o => !isSubstituicaoOp(o)), reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
 
   // Entradas por dia útil (data de envio do eproc), últimos 14 dias úteis
   const intake = React.useMemo(() => {
@@ -1105,6 +1155,23 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
     </div>
   </div>;
 }
+function EditionClaudeSubstituicao({ data, op, opsById, onOpen, onOpenOp }) {
+  const items = (data.intimations || []).filter(x => x.operationId === op.id);
+  const abertas = items.filter(cxIsOpen);
+  const resolvidas = items.filter(x => !cxIsOpen(x));
+  if (!items.length) {
+    return <div className="cx cx-page"><div className="cx-page-h"><div><h1>Processos</h1><p>Nenhuma intimação ainda.</p></div></div>
+      <div className="cx-empty-row" style={{ borderTop: 0 }}>Na ficha da intimação, em Operação vinculada, escolha EM SUBSTITUIÇÃO.</div></div>;
+  }
+  const groups = [
+    { key: 'ab', label: 'Abertas', items: abertas, icon: <CxStatusIcon s="pendente_analise" />, closedDefault: false },
+    { key: 'rs', label: 'Resolvidas', items: resolvidas, icon: <CxStatusIcon s="analisado" />, closedDefault: true }
+  ];
+  return <div className="cx cx-page">
+    <div className="cx-page-h"><div><h1>Processos</h1><p>{cxPl(abertas.length, 'aberta', 'abertas')} · {cxPl(resolvidas.length, 'resolvida', 'resolvidas')}. O card é o mesmo da aba Intimações.</p></div></div>
+    <CxIntimList items={items} groups={groups} sort="atencao" onOpen={onOpen} onOpenOp={onOpenOp} opsById={opsById} />
+  </div>;
+}
 function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText }) {
   const [closed, setClosed] = React.useState({});
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
@@ -1210,6 +1277,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       <div className="cx-acts">
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
+        <button type="button" className="cx-btn" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
       </div>
     </div>
@@ -1224,7 +1292,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       {view === 'quadro'
         ? <CxBoard items={filtered.filter(cxIsActive)} sort={sort} onOpen={p.onOpenIntim} opsById={opsById} onSetStatus={(id, s) => { const x = all.find(i => i.id === id); if (x && x.status !== s) { p.upsert('intimations', { ...x, status: s }); cxNotify('Situação: ' + CX_ST[s].l); } }} />
-        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Importe o XLS do eproc para começar.'} />}
+        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Use Nova intimação ou importe o XLS do eproc.'} />}
     </>}
   </div>;
 }
@@ -1395,14 +1463,17 @@ function cxLoadDrawerBlocks() {
   return { ...CX_BLK_DEFAULTS };
 }
 function cxSaveDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function CxBlock({ title, summary, count, open, onToggle, children }) {
+function CxBlock({ title, summary, count, open, onToggle, aside, children }) {
   return <div className="cx-blk">
-    <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
-      <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
-      <span className="cx-blk-t">{title}</span>
-      {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
-      {count != null ? <span className="cx-blk-n">{count}</span> : null}
-    </button>
+    <div className="cx-blk-bar">
+      <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
+        <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+        <span className="cx-blk-t">{title}</span>
+        {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
+        {count != null ? <span className="cx-blk-n">{count}</span> : null}
+      </button>
+      {aside || null}
+    </div>
     {open ? <div className="cx-blk-b">{children}</div> : null}
   </div>;
 }
@@ -1522,14 +1593,20 @@ function CxPecaChip({ intim, upsert }) {
   }
   return <button type="button" className="cx-chip cx-peca-add" onClick={() => setEditing(true)}><CxIcon n="plus" s={11} />link da peça</button>;
 }
-function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
+/* Estado dos blocos recolhíveis da gaveta (persistido). Fica na gaveta para o botão "Expandir/Recolher tudo" do cabeçalho. */
+function useCxDrawerBlocks() {
+  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
+  const toggleBlock = React.useCallback((key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; }), []);
+  const setAllBlocks = React.useCallback((open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; }), []);
+  return { blocks, toggleBlock, setAllBlocks, allOpen: Object.keys(CX_BLK_DEFAULTS).every(k => blocks[k]) };
+}
+function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
   const { data, opsById, prazosByDebt } = a;
   const op = opsById.get(intim.operationId);
   const notes = cxNotes(intim);
   const [nt, setNt] = React.useState('');
-  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
-  const toggleBlock = (key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; });
-  const setAllBlocks = (open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; });
+  const ownBlocks = useCxDrawerBlocks();
+  const { blocks, toggleBlock, setAllBlocks } = blocksCtl || ownBlocks;
   const resolved = !!intim.responseAction;
   const set = (patch) => a.upsert('intimations', { ...intim, ...patch });
   const exec = (data.executions || []).find(e => sameProc(e.processNumber, intim.processNumber) && (!intim.operationId || e.operationId === intim.operationId))
@@ -1556,11 +1633,11 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const template = a.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE;
 
   return <div>
-    <div className="cx-blk-toggle-all">
+    {!blocksCtl ? <div className="cx-blk-toggle-all">
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(true)}>Expandir tudo</button>
       <span className="cx-muted">·</span>
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(false)}>Recolher tudo</button>
-    </div>
+    </div> : null}
     <div className="cx-d-chips">
       <CxOpTag op={op} onOpen={a.onOpenOp} />
       <span className="cx-chip"><CxStatusIcon s={resolved ? 'analisado' : intim.status} />{resolved ? 'Resolvida' : (CX_ST[intim.status] || {}).l || intim.status}</span>
@@ -1617,6 +1694,15 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
         <div className="cx-gram-f"><span>Importância</span><CxSeg label="Importância" value={impK} onChange={v => set({ priority: v })} options={[['baixa', 'Baixa'], ['normal', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Complexidade</span><CxSeg label="Complexidade" value={difK} onChange={v => set({ difficulty: v })} options={[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Marcação</span><button type="button" className={'cx-urg-t' + (urg ? ' on' : '')} aria-pressed={urg} onClick={() => set(urg ? { urgent: false, priority: (intim.priority === 'urgente' || intim.priority === 'urgent') ? 'alta' : intim.priority } : { urgent: true })}><CxIcon n="flag" s={13} />Urgente</button></div>
+        <div className="cx-gram-f cx-gram-status"><span>Situação</span><div className="cx-gram-status-b">
+          {intim.status === 'em_analise'
+            ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
+            : intim.status !== 'analise_concluida'
+              ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
+              : null}
+          <button type="button" className="cx-btn sm" onClick={() => set({ status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' })}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
+          <button type="button" className="cx-btn sm" onClick={() => { set({ status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
+        </div></div>
       </div>}
     </CxBlock>
 
@@ -1662,13 +1748,6 @@ function CxDetailActions({ intim, a, onRespond, compact }) {
   const onDesk = a.isOnDesk('intimation', intim.id);
   return <>
     <button type="button" className="cx-btn primary" onClick={onRespond}><CxIcon n="send" s={14} />Registrar atuação{compact ? <kbd className="cx-kbd">R</kbd> : null}</button>
-    {intim.status === 'em_analise'
-      ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
-      : intim.status !== 'analise_concluida'
-        ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
-        : null}
-    <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' }); }}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
-    <button type="button" className="cx-btn ghost" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
     <span className="cx-sp" />
     <button type="button" className={'cx-icon-btn' + (onDesk ? ' on' : '')} onClick={() => { a.toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); cxNotify(onDesk ? 'Removida da Mesa' : 'Enviada para a Mesa'); }} title={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'} aria-label={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'}><CxIcon n="desk" /></button>
     <button type="button" className="cx-icon-btn" onClick={() => a.onWatch(intim)} title="Acompanhar este processo" aria-label="Acompanhar este processo"><CxIcon n="eye" /></button>
@@ -1679,6 +1758,7 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
   const intim = (a.data.intimations || []).find(x => x.id === intimId);
   const [showRespond, setShowRespond] = React.useState(false);
   const bodyRef = React.useRef(null);
+  const blocksCtl = useCxDrawerBlocks();
   React.useEffect(() => { setShowRespond(false); if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [intimId]);
   React.useEffect(() => {
     const onKey = (e) => {
@@ -1701,13 +1781,18 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer" role="dialog" aria-modal="true" aria-label={'Intimação · ' + cxPartyName(intim)}>
       <div className="cx-dr-top">
-        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span><b>{op ? cxOpName(op) : 'Sem operação'}</b></div>
+        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span>
+          {intim.processNumber
+            ? <CxNumCopy value={intim.processNumber}><b className="cx-crumb-proc"><CxProc num={intim.processNumber} /><span className="cx-crumb-copy" aria-hidden="true"><CxIcon n="copy" s={13} /></span></b></CxNumCopy>
+            : <b>{op ? cxOpName(op) : 'Sem operação'}</b>}
+        </div>
+        <button type="button" className="cx-icon-btn" onClick={() => blocksCtl.setAllBlocks(!blocksCtl.allOpen)} title={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'} aria-label={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'}><CxIcon n={blocksCtl.allOpen ? 'collapseAll' : 'expandAll'} /></button>
         {idx >= 0 ? <span className="cx-mono cx-muted cx-small">{idx + 1} de {order.length}</span> : null}
         <button type="button" className="cx-icon-btn" disabled={idx <= 0} onClick={() => a.onOpenIntim(order[idx - 1])} title="Anterior (K)" aria-label="Anterior"><CxIcon n="chevU" /></button>
         <button type="button" className="cx-icon-btn" disabled={idx < 0 || idx >= order.length - 1} onClick={() => a.onOpenIntim(order[idx + 1])} title="Próxima (J)" aria-label="Próxima"><CxIcon n="chevD" /></button>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
-      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} /></div>
+      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} blocksCtl={blocksCtl} /></div>
       {!resolved && !showRespond ? <div className="cx-dr-foot"><CxDetailActions intim={intim} a={a} onRespond={() => setShowRespond(true)} /></div> : null}
       {resolved ? <div className="cx-dr-foot"><span className="cx-muted cx-small">Resolvida. Para mudar a atuação, edite a intimação.</span><span className="cx-sp" /><button type="button" className="cx-btn" onClick={() => a.onEditFull(intim)}><CxIcon n="edit" s={14} />Editar</button></div> : null}
     </aside>
@@ -1886,7 +1971,7 @@ function EditionClaudeCarteira(p) {
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
-  const ops = data.operations || [];
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o));
   /* Pulso de 120 dias de cada operação ativa (M6-A): um cxBuildTimeline por operação, só quando os dados mudam. */
   const pulses = React.useMemo(() => {
     const m = new Map();
@@ -1995,6 +2080,7 @@ function cxExecTag(e) {
   if (e.processTag === 'idpj') return 'IDPJ';
   if (e.processTag === 'cautelar_fiscal') return 'MCF';
   if (e.processTag === 'central') return 'CENTRAL';
+  if (e.processTag === 'peticao_incidente_ef') return 'INC';
   const c = cxNorm(e.className);
   if (c.includes('embargos')) return 'EMB';
   if (c.includes('agravo') || c.includes('apela') || c.includes('recurso')) return 'REC';
@@ -2007,7 +2093,7 @@ function cxTagColor(e) {
   const t = cxExecTag(e);
   if (t === 'EMB' || t === 'EXC') return 'var(--cx-orange)';
   if (t === 'REC') return 'var(--cx-blue)';
-  if (t === 'EF') return 'var(--cx-cyan)';
+  if (t === 'EF' || t === 'INC') return 'var(--cx-cyan)';
   return 'var(--cx-ink-3)';
 }
 function cxEvColor(type) {
@@ -2109,7 +2195,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: (r.outcome === 'provido' && isRecursoAdverso(r)) ? 'var(--cx-red)' : cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
       else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', sk: k, kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
     });
     const seen = new Set();
@@ -2693,7 +2779,7 @@ const CX_TL_DESC = {
 const CX_TL_MODE_STORE = 'nexus_cx_tl_mode';
 function cxTlLoadMode() { const m = cxLs(CX_TL_MODE_STORE, 'panorama'); return CX_TL_VIEWS[m] ? m : 'panorama'; }
 function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc, onOpenTask }) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
   const [mode, setModeS] = React.useState(cxTlLoadMode);
   const setMode = (m) => { setModeS(m); cxLsSet(CX_TL_MODE_STORE, m); };
@@ -2801,20 +2887,41 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
   const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '', debtIds: debtIds || null }), [data, prazosRadar, prescLookup, opId, debtIds, todayIso]);
   const [sims, setSims] = React.useState({});
   const [simErr, setSimErr] = React.useState({});
-  const [fontTick, setFontTick] = React.useState(0);
-  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  const [calSel, setCalSel] = React.useState(null);
   React.useEffect(() => { setSims({}); setSimErr({}); }, [opId, data]);
+  React.useEffect(() => { setCalSel(null); }, [opId]);
   const clocks = React.useMemo(() => clkSort(res.clocks.map(c => (sims[c.id] ? clkApplySim(c, sims[c.id], todayIso) : c))), [res, sims, todayIso]);
   const kpis = React.useMemo(() => clkKpis(clocks, todayIso), [clocks, todayIso]);
   const strip = React.useMemo(() => clkStrip(clocks, todayIso), [clocks, todayIso]);
   const byId = React.useMemo(() => { const m = new Map(); clocks.forEach(c => m.set(c.id, c)); return m; }, [clocks]);
+  const cal = React.useMemo(() => clkQuarterBins(strip.points, todayIso), [strip, todayIso]);
+  /* Células não vazias do calendário, por chave ('over' | 'term|2030-Q3' | 'piso|2030-Q3'): rótulo, pontos e recorte. */
+  const calCells = React.useMemo(() => {
+    const m = new Map();
+    if (cal.overdue.points.length) m.set('over', { lane: 'over', label: 'Vencidos', short: 'Vencidos', cell: cal.overdue, bucket: { lane: 'over' } });
+    cal.cols.forEach(c => ['term', 'piso'].forEach(lane => {
+      if (!c[lane].points.length) return;
+      m.set(lane + '|' + c.key, { lane, label: c.label + (lane === 'piso' ? ' · pisos' : ' · termos'), short: c.label + (lane === 'piso' ? ' · pisos' : ''), cell: c[lane], bucket: { lane, from: c.from, to: c.to } });
+    }));
+    return m;
+  }, [cal]);
+  React.useEffect(() => { if (calSel && !calCells.has(calSel)) setCalSel(null); }, [calCells, calSel]);
+  const selCell = calSel ? calCells.get(calSel) || null : null;
   const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('cal|') === 0) {
+      const x = calCells.get(key.slice(4)); if (!x) return null;
+      const pts = x.cell.points;
+      const lines = pts.slice(0, 8).map(p => String(p.number).slice(-9) + (p.n > 1 ? ' +' + (p.n - 1) : '') + ' · ' + cxDM(p.d) + '/' + p.d.slice(2, 4) + ' · ' + cxMoneyShort(p.val) + ' · ' + (p.kind === 'piso' ? 'piso' : 'termo'));
+      if (pts.length > 8) { const rest = pts.slice(8); lines.push('+' + rest.length + (rest.length === 1 ? ' relógio' : ' relógios') + ' (' + cxPl(rest.reduce((a, p) => a + (p.n || 1), 0), 'CDA', 'CDAs') + ')'); }
+      lines.push(calSel === key.slice(4) ? 'Clique para limpar o filtro' : 'Clique para filtrar os relógios');
+      return { when: x.label, title: cxPl(x.cell.cdas, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cell.value), lines, tone: x.lane === 'over' ? 'late' : '' };
+    }
     const c = byId.get(key.replace(/^clk\|/, '')); if (!c) return null;
     const d = c.kind === 'piso' ? c.floor : c.term;
     const g = CLK_GROUPS.find(x => x.key === c.group);
     const dd = d ? daysUntil(d) : null;
     return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [(embedded ? '' : cxOpName({ name: c.opName }) + ' · ') + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
-  }, [byId, embedded]));
+  }, [byId, embedded, calCells, calSel]));
   const open = (c) => {
     if (c.n > 1 && c.executionId && onOpenProc) onOpenProc(c.executionId);
     else onOpenCda && onOpenCda({ id: c.leadId, operationId: c.operationId });
@@ -2826,19 +2933,23 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     setSimErr(prev => { const n = { ...prev }; delete n[c.id]; return n; });
     setSims(prev => ({ ...prev, [c.id]: out }));
   };
-  /* ── calendário de termos ── */
-  const W = 1100, X0 = 24, X1 = 1066, MY = 108;
-  const total = Math.max(1, daysBetween(strip.from, strip.to));
-  const xo = (iso) => X0 + Math.max(0, daysBetween(strip.from, iso)) / total * (X1 - X0);
-  const ptTxt = (p) => String(p.number).slice(-9) + ' · ' + (p.kind === 'piso' ? 'piso ' : '') + cxDM(p.d) + '/' + p.d.slice(2, 4) + (p.n > 1 ? ' +' + (p.n - 1) : '');
-  const overdueN = strip.overdue;
-  const overdueTxt = overdueN ? cxPl(overdueN, 'termo já vencido', 'termos já vencidos') : '';
-  const lay = React.useMemo(() => {
-    const items = strip.points.filter(p => p.d >= strip.from).map((p, i) => ({ id: p.id, x: xo(p.d), w: cxTlMeasure(ptTxt(p), 10.5) + 6, prio: i + 1 }));
-    if (strip.overdue) items.push({ id: '__overdue__', x: X0, w: cxTlMeasure(overdueTxt, 10.5) + 6, prio: 0 });
-    return tlLayoutLabels(items, { minX: X0 - 8, maxX: W - 6, levels: 4, pad: 6, gap: 8 });
-  }, [strip, fontTick]);
-  const placed = new Map(lay.placed.map(p => [p.id, p]));
+  /* ── calendário de termos (faixas por trimestre) ── */
+  const calNext = React.useMemo(() => clkNextDates(strip.points, todayIso, 3), [strip, todayIso]);
+  const calShort = (v) => { v = Number(v) || 0; if (v <= 0) return '—'; if (v >= 1e9) return (Math.round(v / 1e8) / 10).toLocaleString('pt-BR') + ' bi'; if (v >= 995000) { const x = v / 1e6; return (x >= 10 ? String(Math.round(x)) : (Math.round(x * 10) / 10).toLocaleString('pt-BR')) + ' mi'; } if (v >= 1000) return Math.round(v / 1000).toLocaleString('pt-BR') + ' mil'; return 'R$ ' + Math.round(v); };
+  const calPick = (k) => setCalSel(prev => (prev === k ? null : k));
+  const calClear = () => { const k = calSel; setCalSel(null); if (k) { const el = document.querySelector('[data-calk="' + k + '"]'); if (el) el.focus(); } };
+  const calCellBtn = (k, col, row, mark) => {
+    const x = calCells.get(k); if (!x) return null;
+    const on = calSel === k, c = x.cell;
+    return <button key={k} type="button" className={'cx-cal-cc g-' + c.group + (x.lane === 'over' ? ' venc' : '') + (on ? ' sel' : '')} style={{ gridColumn: col, gridRow: row }} data-tl={'cal|' + k} data-calk={k} aria-pressed={on}
+      aria-label={x.label + ': ' + cxPl(c.cdas, 'CDA', 'CDAs') + ', ' + cxMoneyShort(c.value) + (on ? '. Clique para limpar o filtro.' : '. Clique para filtrar os relógios.')} onClick={() => calPick(k)}>
+      {x.lane === 'over' ? <span className="t0">Vencidos</span> : null}
+      <span className="t1"><CxTlGlyph kind="presc" c="var(--c)" hollow={x.lane === 'piso'} s={x.lane === 'over' ? 12 : 11} />{c.cdas}{x.lane === 'over' ? <span className="t2i"> · {calShort(c.value)}</span> : null}</span>
+      {x.lane === 'over' ? null : <span className="t2">{calShort(c.value)}</span>}
+    </button>;
+  };
+  const calOverW = cal.overdue.points.length ? 96 : 74;
+  const calMinW = 50 + calOverW + cal.cols.length * (cal.gran === 'q' ? 36 : cal.gran === 'h' ? 44 : 46);
   const legend = <div className="cx-tl-legend cx-clk-leg">
     <span className="cx-tl-leg-h">Leitura</span>
     <span><i className="cx-lg-sw cx-clk-sw fill" />Tempo decorrido</span>
@@ -2848,7 +2959,8 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     <span><i className="cx-lg-sw cx-clk-sw cyan" />Piso: só há risco depois de novo marco</span>
     <span><CxTlGlyph kind="presc" c="var(--cx-violet)" s={14} />termo<CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={14} />piso</span>
   </div>;
-  const groups = CLK_GROUPS.map(g => ({ g, rows: clocks.filter(c => c.group === g.key) })).filter(x => x.rows.length);
+  const shown = selCell ? clocks.filter(c => clkBucketMatch(c, selCell.bucket, todayIso)) : clocks;
+  const groups = CLK_GROUPS.map(g => ({ g, rows: shown.filter(c => c.group === g.key) })).filter(x => x.rows.length);
   const mon = (v) => cxMoneyShort(v);
   const empty = !clocks.length;
   return <div className={'cx-clk' + (embedded ? ' emb' : '')} {...tip.bind}>
@@ -2864,31 +2976,41 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
         <CxKpiCard label="Sem relógio ativo · piso" value={kpis.piso.cdas ? mon(kpis.piso.value) : '—'} tone="cyan"
           desc={kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'} />
       </CxKpiStrip>
-      <section className="cx-card cx-clk-strip" aria-label="Calendário dos termos">
-        <svg viewBox={'0 0 ' + W + ' 138'} role="img" aria-label="Calendário dos termos de prescrição">
-          <text x={X0} y="13" className="cx-clk-cap">CALENDÁRIO DOS TERMOS · HOJE → {strip.to.slice(0, 4)} · hexágono cheio = termo, vazado = piso</text>
-          <line x1={X0} x2={X1} y1={MY + 8} y2={MY + 8} stroke="var(--cx-line-strong)" />
-          {strip.years.map(y => { const x = xo(y === +strip.from.slice(0, 4) ? strip.from : y + '-01-01'); return <g key={y}><line x1={x} x2={x} y1={MY + 4} y2={MY + 12} stroke="var(--cx-line-strong)" /><text x={x + 4} y={MY + 26} className="cx-clk-yr">{y}</text></g>; })}
-          {strip.points.filter(p => p.d >= strip.from).map(p => {
-            const pl = placed.get(p.id);
-            const x = xo(p.d), col = p.kind === 'piso' ? 'var(--cx-cyan)' : cxClkTone(p.group);
-            return <g key={p.id}>
-              {pl ? <><line x1={x} x2={x} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" />
-                <text x={pl.anchor === 'end' ? pl.x1 - 2 : pl.x0 + 2} y={MY - 16 - pl.level * 15} textAnchor={pl.anchor} className={'cx-clk-pl' + (p.kind === 'piso' ? ' piso' : '')}>{ptTxt(p)}</text></> : null}
-              <g transform={'translate(' + (x - 8) + ',' + (MY - 8) + ')'} data-tl={'clk|' + p.id} className="cx-clk-pt" tabIndex={0} role="button" aria-label={'CDA ' + p.number + ' · ' + fmtDate(p.d)} onClick={() => { const c = byId.get(p.id); if (c) open(c); }} onKeyDown={e => { if (e.key === 'Enter') { const c = byId.get(p.id); if (c) open(c); } }}>
-                <rect x="-4" y="-4" width="24" height="24" fill="transparent" />
-                <CxTlGlyph kind="presc" c={col} hollow={p.kind === 'piso'} s={16} />
-              </g>
-            </g>;
-          })}
-          {overdueN ? (() => { const pl = placed.get('__overdue__'); return <g>
-            {pl ? <><line x1={X0} x2={X0} y1={MY - 16 - pl.level * 15 + 3} y2={MY - 7} stroke="var(--cx-line-strong)" /><text x={pl.x0 + 2} y={MY - 16 - pl.level * 15} className="cx-clk-pl late">{overdueTxt}</text></> : null}
-            <g transform={'translate(' + (X0 - 8) + ',' + (MY - 8) + ')'}><CxTlGlyph kind="presc" c="var(--cx-red)" s={16} /></g>
-          </g>; })() : null}
-          <line x1={X0} x2={X0} y1="20" y2={MY + 8} stroke="var(--cx-accent)" strokeWidth="1.5" />
-          <text x={X0 + 5} y="30" className="cx-clk-hj">HOJE</text>
-        </svg>
-        {lay.dropped.length ? <div className="cx-clk-drop">+{lay.dropped.length} sem rótulo (passe o mouse no hexágono)</div> : null}
+      <section className="cx-card cx-clk-strip cx-cal" aria-label="Calendário dos termos">
+        <div className="cx-cal-h">
+          <div><h3>Calendário dos termos</h3><span className="cx-cal-sub">{cxPl(cal.total.cdas, 'CDA', 'CDAs')} · {cxMoneyShort(cal.total.value)}{cal.gran === 'h' ? ' · por semestre' : cal.gran === 'y' ? ' · por ano' : ''}</span></div>
+          <div className="cx-cal-leg" aria-hidden="true">
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" s={13} />termo</span>
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" hollow s={13} />piso</span>
+            <span className="sep" />
+            <span><i style={{ '--c': 'var(--cx-red)' }} />até 90 dias</span>
+            <span><i style={{ '--c': 'var(--cx-orange)' }} />até 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-yellow)' }} />mais de 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-cyan)' }} />piso</span>
+          </div>
+        </div>
+        <div className="cx-cal-sc">
+          <div className="cx-cal-grid" role="group" aria-label="Termos e pisos por faixa de tempo" style={{ gridTemplateColumns: '50px ' + calOverW + 'px repeat(' + cal.cols.length + ', minmax(0, 1fr))', minWidth: calMinW }}>
+            <div className="cx-cal-lbg" style={{ gridRow: 2 }} /><div className="cx-cal-lbg" style={{ gridRow: 3 }} />
+            <div className="cx-cal-ll" style={{ gridRow: 2 }}>Termos</div><div className="cx-cal-ll" style={{ gridRow: 3 }}>Pisos</div>
+            <div className="cx-cal-hl">HOJE · {cxDM(todayIso)}</div>
+            {cal.years.map((y, i) => <React.Fragment key={y.year}>
+              <div className="cx-cal-yl" style={{ gridColumn: (3 + y.start) + ' / span ' + y.span, gridRow: 1 }}>{y.year}</div>
+              {i > 0 ? <div className="cx-cal-ys" style={{ gridColumn: 3 + y.start, gridRow: '1 / 5' }} /> : null}
+            </React.Fragment>)}
+            <div className="cx-cal-hoje" style={{ gridColumn: 3, gridRow: '1 / 5' }} />
+            {calCells.has('over') ? calCellBtn('over', 2, 2) : <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 2 }} />}
+            <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 3 }} />
+            {cal.cols.map((c, i) => ['term', 'piso'].map((lane, li) => {
+              const k = lane + '|' + c.key;
+              return calCells.has(k) ? calCellBtn(k, 3 + i, 2 + li) : <span key={k} className="cx-cal-dot" style={{ gridColumn: 3 + i, gridRow: 2 + li }} />;
+            }))}
+            {cal.gran === 'y' ? null : cal.cols.map((c, i) => <div key={'q' + c.key} className="cx-cal-ql" style={{ gridColumn: 3 + i, gridRow: 4 }}>{c.short}</div>)}
+          </div>
+        </div>
+        {calNext.length ? <p className="cx-cal-next">Próximos termos: {calNext.map((x, i) => <React.Fragment key={x.d + x.kind}>{i ? ' · ' : ''}<b className={x.kind === 'piso' ? 'piso' : ''}>{cxDM(x.d)}/{x.d.slice(2, 4)}</b> {x.kind === 'piso' ? <span className="piso">piso </span> : null}{String(x.number).slice(-9)}{x.others > 0 ? ' +' + x.others : ''}</React.Fragment>)}</p> : null}
+        <div className="cx-cal-f" aria-live="polite">{selCell ? <span className="cx-cal-fchip">Filtrando: <b>{selCell.short}</b><span className="n"> · {cxPl(selCell.cell.cdas, 'CDA', 'CDAs')}</span><button type="button" aria-label="Limpar filtro do calendário" onClick={calClear}>×</button></span> : null}</div>
+        {cal.skipped ? <p className="cx-cal-note">{cxPl(cal.skipped, 'piso já passou e não aparece', 'pisos já passaram e não aparecem')} no calendário; segue nas linhas abaixo.</p> : null}
       </section>
       {groups.map(({ g, rows }) => <section key={g.key} aria-label={g.label}>
         <div className="cx-clk-g"><i style={{ background: cxClkTone(g.key) }} />{g.label}<span className="ln" /><span>{rows.length}</span></div>
@@ -4606,10 +4728,28 @@ function EditionClaudeMesa(p) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
-  const rs = cxRS(op);
+  const rs = isSubstituicaoOp(op) ? { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' } : cxRS(op);
   const cls = getOpClassifications(op);
   const [intimDrawer, setIntimDrawer] = React.useState(false);
   const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
+  if (isSubstituicaoOp(op)) {
+    const onProc = activeTab !== 'docs';
+    return <div className="cx cx-oph">
+      <div className="cx-oph-top">
+        <div className="cx-minw0 cx-oph-main">
+          <div className="cx-oph-name">
+            <CxOpSquare op={op} size={14} className="cx-sq-lg" />
+            <h1 className="cx-ell" title={op.name}>{op.name}</h1>
+          </div>
+        </div>
+      </div>
+      <div className="cx-oph-sum"><span>Feitos no lugar de outro procurador. Não entra na carteira.</span></div>
+      <nav className="cx-optabs cx-oph-tabs" aria-label="Abas de EM SUBSTITUIÇÃO">
+        <button type="button" className={onProc ? 'on' : ''} aria-current={onProc ? 'page' : undefined} onClick={() => { if (!onProc) p.onTab('subst'); }}>Processos</button>
+        <button type="button" className={activeTab === 'docs' ? 'on' : ''} aria-current={activeTab === 'docs' ? 'page' : undefined} onClick={() => { if (activeTab !== 'docs') p.onTab('docs'); }}>Arquivos</button>
+      </nav>
+    </div>;
+  }
   const sum = [];
   if (s) {
     sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
@@ -4643,7 +4783,7 @@ function EditionClaudeOpHeader(p) {
     {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
     <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
       <button type="button" className={cxTabOn(activeTab, 'visao') ? 'on' : ''} aria-current={cxTabOn(activeTab, 'visao') ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, 'visao')) p.onTab('visao'); }}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
+      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}</button>)}
     </nav>
   </div>;
 }
@@ -4809,7 +4949,7 @@ const CX_PANEL_SORTS = [
 ];
 const CX_PANEL_GROUPS = [[1, 'Urgentes'], [2, 'A conferir'], [3, 'A completar'], [4, 'Em acompanhamento'], [5, 'Ainda impossível'], [6, 'Consumadas']];
 function cxPanelAnalytics(data, prazosByDebt) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada');
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
   const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, assets: [], ind: null, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
   (data.debts || []).forEach(d => {
     const x = by.get(d.operationId); if (!x || d.status === 'extinta') return;
@@ -5120,14 +5260,16 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
 
-  const openNew = () => { setDraftType('observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
+  const [pinNext, setPinNext] = React.useState(false);
+  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); setDraftType((opts && opts.type) || 'observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
   const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      setPinNext(false);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
         ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
@@ -5140,8 +5282,13 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
 
   React.useEffect(() => {
     if (!editRequestId) return;
-    const en = entries.find(e => e.id === editRequestId);
-    if (en) openEdit(en);
+    if (editRequestId === 'new') {
+      openNew({ pin: true, type: 'estrategia' });
+      setTimeout(() => { const el = document.querySelector('.cx-bf-diary'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 40);
+    } else {
+      const en = entries.find(e => e.id === editRequestId);
+      if (en) openEdit(en);
+    }
     if (onEditConsumed) onEditConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequestId]);
@@ -5159,7 +5306,7 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
       </select>
       <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
       <span className="cx-sp" />
-      <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
+      <button type="button" className="cx-btn sm ghost" onClick={() => { setComposer(null); setPinNext(false); }}>Cancelar</button>
       <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? '+ Adicionar' : 'Salvar'}</button>
     </div>
     <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
@@ -5249,7 +5396,13 @@ function CxBfLead({ op, onEdit }) {
   const pinned = entries.filter(e => e && e.pinned);
   const highlight = pickHighlightEntry(entries);
   const otherPinned = highlight ? pinned.filter(e => e.id !== highlight.id) : [];
-  if (!highlight) return null;
+  if (!highlight) return (
+    <section className="cx-card cx-bf-lead">
+      <div className="cx-bf-lead-empty">
+        <button type="button" className="cx-bf-ic" title="Editar a leitura" aria-label="Editar a leitura" onClick={() => onEdit('new')}><CxIcon n="edit" s={13} /></button>
+      </div>
+    </section>
+  );
   return (
     <section className="cx-card cx-bf-lead">
         <div className="cx-bf-lead-hd">
@@ -5426,6 +5579,22 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
               const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
               const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
               const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
+              const editNote = (idx, raw) => {
+                const atu = presentAtuacaoProcessNote(raw);
+                const seed = atu ? atu.text : String(raw || '');
+                const t = prompt('Editar nota:', seed);
+                if (t == null) return;
+                const next = t.trim();
+                if (!next) return;
+                let stored = next;
+                if (atu && atu.url) {
+                  const body = next.replace(/^Registro de atuação:\s*/, '').trim();
+                  stored = (body ? `Registro de atuação: ${body}` : 'Registro de atuação') + ` / Peça: ${atu.url}`;
+                }
+                const arr = rawNotes.slice();
+                arr[idx] = stored;
+                setNotes(arr);
+              };
               return (
                 <div className="cx-bf-work">
                   <div className="cx-bf-editphase-wrap">
@@ -5466,14 +5635,17 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
                     </button>
                   </div>
                   <CxBlock title="Notas" count={cardNotes.length} open={fold.isOpen('notas')} onToggle={() => fold.toggle('notas')}
-                    summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
-                    <div className="cx-bf-work-k">
-                      <span>Notas do processo</span><span className="cx-sp" />
-                      <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
-                    </div>
+                    summary={cardNotes.length ? (presentAtuacaoProcessNote(cardNotes[cardNotes.length - 1].n)?.text || cardNotes[cardNotes.length - 1].n) : 'Nenhuma nota'}
+                    aside={<button type="button" className="cx-bf-ic" title="Adicionar nota" aria-label="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>}>
                     {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                      <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
-                    )) : <div className="cx-empty-note">Nenhuma nota.</div>}
+                      <div key={idx} className="cx-bf-note">
+                        <span>{renderProcessNote(n)}</span>
+                        <span className="cx-bf-note-acts">
+                          <button type="button" className="cx-bf-ic" title="Editar nota" aria-label="Editar nota" onClick={() => editNote(idx, n)}><CxIcon n="edit" s={11} /></button>
+                          <button type="button" className="cx-bf-ic" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button>
+                        </span>
+                      </div>
+                    )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
                   </CxBlock>
                   <CxBlock title="EFs cobertas" count={fr.covered.length} open={fold.isOpen('efs')} onToggle={() => fold.toggle('efs')}
                     summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
@@ -5501,15 +5673,19 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
           </div>
         );
       })}
-      {semIncidenteEFs.length > 0 && (
+      {semIncidenteEFs.length > 0 && (() => {
+        const semOpen = isLaneOpen('sem-incidente');
+        return (
         <div className="cx-bf-lane quiet">
-          <div className="cx-bf-lane-h">
+          <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={semOpen}
+            onClick={() => toggleLane('sem-incidente')} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane('sem-incidente'); }}>
+            <span className="cx-chev cx-bf-lane-chev"><CxIcon n={semOpen ? 'chevD' : 'chevR'} s={13} /></span>
             <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
             <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
             <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
             <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
           </div>
-          <div className="cx-bf-quiet-list">
+          {semOpen && <div className="cx-bf-quiet-list">
             {semIncidenteEFs.map(ef => (
               <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
                 <span className="cx-mono">{ef.processNumber || '—'}</span>
@@ -5517,9 +5693,10 @@ function CxBfFronts({ op, opExecs, opDebts, upsert, setModal, onOpenTab }) {
                 <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
               </button>
             ))}
-          </div>
+          </div>}
         </div>
-      )}
+        );
+      })()}
       </div>
     </CxFoldCard>
   );
@@ -5625,13 +5802,13 @@ function CxBfChecklists({ op, upsert }) {
 
 /* ─── Sinais (mesmos desenhos/cores/ordem do ProcRowSymbols — app.jsx) ─── */
 const CX_SIG_DEFS = [
+  { k: 'task', label: 'Tarefa aberta' },
+  { k: 'intim', label: 'Intimação aberta' },
   { k: 'star', label: 'Relevante' },
   { k: 'pin', label: 'Meu acervo' },
   { k: 'watch', label: 'Acompanhar' },
   { k: 'copy', label: 'Cópia na pasta' },
   { k: 'lock', label: 'Constrição' },
-  { k: 'task', label: 'Tarefa aberta' },
-  { k: 'intim', label: 'Intimação aberta' },
 ];
 const CX_SIG_FIELD = { star: 'isRelevant', pin: 'meuAcervo', watch: 'acompanhar', copy: 'copiaNaPasta' };
 function cxSigFlags(exec, data) {
@@ -5646,14 +5823,14 @@ function cxSigFlags(exec, data) {
     intim: execHasOpenIntim(exec, data),
   };
 }
-function CxSigGlyph({ k }) {
+function CxSigGlyph({ k, tone }) {
   switch (k) {
     case 'star': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z" /></svg>;
     case 'pin': return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 11.2 12 4.2l8.5 7" /><path d="M6 10.6V19.5h12V10.6" /><path d="M10 19.5v-5h4v5" /></svg>;
     case 'watch': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z" /></svg>;
     case 'copy': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z" /></svg>;
     case 'lock': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z" /></svg>;
-    case 'task': return <span className="cx-sig-dot cx-sig-dot-task" aria-hidden="true" />;
+    case 'task': return <span className={'cx-sig-dot cx-sig-dot-task' + (tone === 'hi' ? ' cx-sig-dot-task-hi' : '')} aria-hidden="true" />;
     case 'intim': return <span className="cx-sig-dot cx-sig-dot-intim" aria-hidden="true" />;
     default: return null;
   }
@@ -5678,6 +5855,7 @@ function cxProcKind(exec) {
   if (exec.processTag === 'idpj') return { label: 'IDPJ', cls: 'idpj' };
   if (exec.processTag === 'cautelar_fiscal') return { label: 'MCF', cls: 'idpj' };
   if (exec.processTag === 'central') return { label: 'Central', cls: 'cen' };
+  if (exec.processTag === 'peticao_incidente_ef') return { label: 'Incidente', cls: 'ef' };
   if (isExecucaoFiscalClass(exec)) return { label: 'EF', cls: 'ef' };
   const bucket = otherProcBucket(exec);
   if (bucket === 'recursos') return { label: (otherSpecies(exec).code || 'Recurso'), cls: 'rec' };
@@ -5909,7 +6087,7 @@ function EditionClaudeProcDrawer(p) {
         </div>}
         {e && (sig.lock || openTasks.length > 0 || openIntims.length > 0) && <div className="cx-pd-sigauto">
           {sig.lock && <span className="cx-pd-auto"><CxSigGlyph k="lock" />Constrição{linkedAssets.length ? `: ${linkedAssets.length} ${linkedAssets.length === 1 ? 'bem' : 'bens'} (${[...new Set(linkedAssets.map(a => a.source).filter(Boolean))].join(', ') || '—'})` : ''}</span>}
-          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
+          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" tone={openTasks.some(t => t.priority === 'urgente' || t.priority === 'alta') ? 'hi' : 'lo'} />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
           {openIntims.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'intimation', initial: openIntims[0] })}><CxSigGlyph k="intim" />{openIntims.length} {openIntims.length === 1 ? 'intimação' : 'intimações'}{openIntims[0].dateDeadline ? ' · prazo ' + fmtDate(openIntims[0].dateDeadline) : ''}</button>}
         </div>}
         {e && <dl className="cx-pd-facts">
@@ -6394,6 +6572,7 @@ function EditionClaudeProcessos(p) {
   const incValue = [...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const semVincValue = uncoveredVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
+  const naHeaderValue = unlinkedCdas.reduce((s, d) => s + (d.value || 0), 0);
   const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
 
   // Só uma ficha por vez: abrir a do processo fecha a da CDA e vice-versa.
@@ -6428,7 +6607,8 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          {apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
@@ -6615,7 +6795,7 @@ function EditionClaudeProcessos(p) {
         </CxFoldCard>
 
         <CxFoldCard id="na" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-na" title="CDAs não ajuizadas" count={unlinkedCdas.length} sub="· sem processo"
-          summary={unlinkedCdas.length ? fmtCur(naValue) : 'nenhuma'}>
+          summary={unlinkedCdas.length ? fmtCur(naHeaderValue) : 'nenhuma'}>
           {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead first="Inscrição" blank /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
             {unlinkedVisible.length > 0 && (() => {

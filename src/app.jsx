@@ -13,6 +13,7 @@ import {
 import {
   appendAtuacaoNoteToExecution,
   buildAtuacaoProcessNote,
+  presentAtuacaoProcessNote,
   clusterDuplicateExecutions,
   countExecutionReferences,
   getExecutionMergeConflicts,
@@ -611,6 +612,9 @@ const applyMigrations = (parsed) => {
     const alive = { intimation: new Set((merged.intimations||[]).map(i => i.id)), task: new Set((merged.tasks||[]).map(t => t.id)), hearing: new Set((merged.hearings||[]).map(h => h.id)) };
     merged.desk = merged.desk.filter(x => x && alive[x.type] && alive[x.type].has(x.id));
   }
+  if (!Array.isArray(merged.operations)) merged.operations = [];
+  if (!merged.operations.some(isSubstituicaoOp)) merged.operations.push(substituicaoOpRecord());
+  else merged.operations = merged.operations.map(o => isSubstituicaoOp(o) ? { ...substituicaoOpRecord(), ...o, id: SUBSTITUICAO_OP_ID, kind: 'substituicao', name: 'EM SUBSTITUIÇÃO', status: 'ativa' } : o);
   if (!merged.calendar) merged.calendar = { extraHolidays: [] };
   if (!Array.isArray(merged.calendar.extraHolidays)) merged.calendar.extraHolidays = [];
   merged.prescriptionEvents = migratePrescriptionEvents(merged.prescriptionEvents || []);
@@ -701,6 +705,18 @@ function intimIsClosed(x) {
 function intimIsOpenWork(x) {
   if (!x || intimIsClosed(x)) return false;
   return x.status !== 'analisado';
+}
+/** Edição de verdade na intimação (objeto, operação, notas, situação…). Ignora o próprio marcador de importação. */
+function intimFieldsChanged(before, incoming) {
+  if (!before) return true;
+  const skip = { updatedAt: 1, createdAt: 1, _importFlag: 1, _importFlagAt: 1 };
+  const keys = new Set([...Object.keys(before), ...Object.keys(incoming || {})]);
+  for (const k of keys) {
+    if (skip[k]) continue;
+    const next = k in (incoming || {}) ? incoming[k] : before[k];
+    if (JSON.stringify(before[k] ?? null) !== JSON.stringify(next ?? null)) return true;
+  }
+  return false;
 }
 const intimPrazoNaAgenda = (x) => {
   if (!x || intimIsClosed(x)) return false;
@@ -844,9 +860,22 @@ function efBandKey(exec) {
   return 'ativa';
 }
 
-/** Classe é Execução Fiscal (card superior). Exige o vocábulo no início da classe. */
+/** Natureza: petição cível que corre como incidente de uma execução fiscal. A classe continua livre. */
+function isPeticaoIncidenteEf(e) {
+  return !!e && e.processTag === 'peticao_incidente_ef';
+}
+
+/** Execução fiscal pela classe, sem o incidente que só recebe o mesmo tratamento. */
+function isRealExecucaoFiscal(e) {
+  if (!e || isPeticaoIncidenteEf(e)) return false;
+  const cn = (e.className || '').toLowerCase().trim();
+  return /^execu[çc][ãa]o\s+fiscal\b/.test(cn);
+}
+
+/** Tratada como execução fiscal: a classe começa com “Execução Fiscal”, ou a natureza é o incidente em execução fiscal. */
 function isExecucaoFiscalClass(e) {
   if (!e) return false;
+  if (isPeticaoIncidenteEf(e)) return true;
   const cn = (e.className || '').toLowerCase().trim();
   // "Execução Fiscal", "Execução Fiscal Previdenciária", "Execução Fiscal (SIDA)", etc.
   // Não inclui "Embargos à Execução Fiscal" nem "Cumprimento de Sentença".
@@ -863,10 +892,13 @@ function isCentralProcess(e) {
   return !!e && e.processTag === 'central';
 }
 
-/** EF que o usuário escolheu exibir no Panorama, sem ser IDPJ/cautelar/central. */
+/** EF que o usuário escolheu exibir no Panorama, sem ser IDPJ/cautelar/central.
+ *  O incidente em execução fiscal entra por padrão e só sai se o usuário retirar. */
 function isUserPanoramaEf(e) {
-  return !!e && !!e.inPanorama && isExecucaoFiscalClass(e) && !isHubProcess(e)
-    && e.status !== 'extinta' && e.status !== 'arquivada';
+  if (!e || !isExecucaoFiscalClass(e) || isHubProcess(e)) return false;
+  if (e.status === 'extinta' || e.status === 'arquivada') return false;
+  if (isPeticaoIncidenteEf(e)) return e.inPanorama !== false;
+  return !!e.inPanorama;
 }
 
 /** Card de panorama no estilo da execução (régua da EF + valor próprio + apensos). */
@@ -907,14 +939,29 @@ function execShowsConstriction(exec, data) {
   return !!(exec && (exec.hasConstriction || execHasLinkedConstriction(exec, data)));
 }
 
+function taskMatchesExec(exec, t) {
+  return t
+    && t.status !== 'concluida' && t.status !== 'cancelada'
+    && sameProc(t.processNumber, exec.processNumber)
+    && (!exec.operationId || !t.operationId || t.operationId === exec.operationId);
+}
+
 /** Tarefa em aberto já ligada ao processo pelo nº CNJ (`processNumber`), como no alerta do card. */
 function execHasOpenTask(exec, data) {
   if (!exec || !normProc(exec.processNumber)) return false;
-  return (data?.tasks || []).some(t =>
-    t.status !== 'concluida' && t.status !== 'cancelada'
-    && sameProc(t.processNumber, exec.processNumber)
-    && (!exec.operationId || !t.operationId || t.operationId === exec.operationId)
-  );
+  return (data?.tasks || []).some(t => taskMatchesExec(exec, t));
+}
+
+/** Cor da bola de tarefa: alta ou urgente fica vermelha; média ou baixa, amarela. A mais grave vence. */
+function execOpenTaskTone(exec, data) {
+  if (!exec || !normProc(exec.processNumber)) return null;
+  let low = false;
+  for (const t of (data?.tasks || [])) {
+    if (!taskMatchesExec(exec, t)) continue;
+    if (t.priority === 'urgente' || t.priority === 'alta') return 'hi';
+    low = true;
+  }
+  return low ? 'lo' : null;
 }
 
 /** Intimação na caixa de entrada ativa (`intimIsOpenWork`), pelo mesmo nº CNJ. */
@@ -959,7 +1006,7 @@ function markCdaAguardando(d, { selectedCDAs, setSelectedCDAs, setData, setModal
   }
 }
 
-/** Ícones discretos na linha (Relevante · Meu acervo · Acompanhar · Cópia · Constrição · Tarefa · Intimação).
+/** Ícones discretos na linha (Tarefa · Intimação · Relevante · Meu acervo · Acompanhar · Cópia · Constrição).
  *  `fixed`: apresentação do Prumo — cada sinal ocupa sempre a mesma casa (7 posições fixas), vazia quando ausente. */
 function ProcRowSymbols({ exec, data, fixed = false }) {
   if (!exec) return null;
@@ -968,15 +1015,28 @@ function ProcRowSymbols({ exec, data, fixed = false }) {
   const showWatch = !!exec.acompanhar;
   const showCopy = !!exec.copiaNaPasta;
   const showLock = execShowsConstriction(exec, data);
-  const showTask = execHasOpenTask(exec, data);
+  const taskTone = execOpenTaskTone(exec, data);
   const showIntim = execHasOpenIntim(exec, data);
-  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !showTask && !showIntim) return null;
+  if (!fixed && !showStar && !showPin && !showWatch && !showCopy && !showLock && !taskTone && !showIntim) return null;
   const copyTip = exec.copiaNaPastaDate
     ? `Cópia na pasta · ${fmtDate(exec.copiaNaPastaDate)}`
     : 'Cópia na pasta';
+  const taskTip = taskTone === 'hi' ? 'Tarefa de alta importância' : 'Tarefa';
   const empty = <i className="proc-row-sym-empty" aria-hidden="true" />;
   return (
     <span className={'proc-row-syms' + (fixed ? ' proc-row-syms-fixed' : '')} onClick={ev => ev.stopPropagation()}>
+      {taskTone ? (
+        <span className="proc-row-sym has-tip" title={taskTip} aria-label={taskTip}>
+          <i className={'proc-row-dot proc-row-dot-task' + (taskTone === 'hi' ? ' proc-row-dot-task-hi' : '')} aria-hidden="true" />
+          <span className="tip-content">{taskTip}</span>
+        </span>
+      ) : (fixed ? empty : null)}
+      {showIntim ? (
+        <span className="proc-row-sym has-tip" title="Intimação aberta" aria-label="Intimação aberta">
+          <i className="proc-row-dot proc-row-dot-intim" aria-hidden="true" />
+          <span className="tip-content">Intimação aberta</span>
+        </span>
+      ) : (fixed ? empty : null)}
       {showStar ? (
         <span className="proc-row-sym proc-row-sym-star has-tip" title="Relevante" aria-label="Relevante">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -1017,16 +1077,6 @@ function ProcRowSymbols({ exec, data, fixed = false }) {
             <path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/>
           </svg>
           <span className="tip-content">Constrição</span>
-        </span>
-      ) : (fixed ? empty : null)}
-      {showTask ? (
-        <span className="proc-row-dot proc-row-dot-task has-tip" title="Tarefa" aria-label="Tarefa">
-          <span className="tip-content">Tarefa</span>
-        </span>
-      ) : (fixed ? empty : null)}
-      {showIntim ? (
-        <span className="proc-row-dot proc-row-dot-intim has-tip" title="Intimação aberta" aria-label="Intimação aberta">
-          <span className="tip-content">Intimação aberta</span>
         </span>
       ) : (fixed ? empty : null)}
     </span>
@@ -1332,7 +1382,7 @@ function countPrazosActiveFilters(pf) {
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
 // Process tag labels (used across Processos and Proc & Presc² tabs)
-const tagLabels = { idpj: '🔴 IDPJ', cautelar_fiscal: '🟠 Cautelar Fiscal', central: '◆ Central' };
+const tagLabels = { idpj: '🔴 IDPJ', cautelar_fiscal: '🟠 Cautelar Fiscal', central: '◆ Central', peticao_incidente_ef: 'Petição Cível - Incidente em EF' };
 
 // Review intervals — cadência de acompanhamento por operação
 const REVIEW_INTERVALS = {
@@ -1435,12 +1485,14 @@ const getRecursos = (rec) => {
     : [];
   return raw.map(r => ({ parte: 'nossa', ...r }));
 };
-// Cor da fase de recurso: pendente = amarelo; algum não provido = vermelho; todos providos = verde.
-// "Provido" vale tanto para o nosso recurso quanto para o da parte adversa.
+// Cor da fase de recurso: pendente = amarelo.
+// Nosso recurso provido = verde; não provido = vermelho.
+// Recurso da parte adversa provido = vermelho (desfavorável à Fazenda).
 const recursoColor = (recs) => {
   if (!recs.length) return 'var(--text-muted)';
   if (recs.some(r => r.outcome === 'pendente' || !r.outcome)) return 'var(--yellow)';
   if (recs.some(r => r.outcome === 'nao_provido')) return 'var(--red)';
+  if (recs.some(r => r.outcome === 'provido' && isRecursoAdverso(r))) return 'var(--red)';
   return 'var(--green)';
 };
 const stageRecColor = (rec) => !rec ? 'var(--text-muted)' : outcomeColor(rec.outcome);
@@ -1519,6 +1571,7 @@ const badgeFor = (ip) => {
   if (tag === 'idpj') return { label: 'IDPJ', color: 'var(--red)', bg: 'rgba(244,63,94,0.2)', unit: 'EF', title: 'Incidente de desconsideração', tagClass: '' };
   if (tag === 'cautelar_fiscal') return { label: 'MCF', color: 'var(--yellow)', bg: 'rgba(245,158,11,0.2)', unit: 'EF', title: 'Medida cautelar fiscal', tagClass: 'tag-mcf' };
   if (tag === 'central') return { label: '◆ Central', color: 'var(--purple)', bg: 'rgba(122,139,163,0.2)', unit: 'apenso', title: 'Execução de destaque', tagClass: 'tag-central' };
+  if (tag === 'peticao_incidente_ef') return { label: 'Incidente', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Petição cível — incidente em execução fiscal', tagClass: 'tag-pano-ef' };
   return { label: 'EF', color: 'var(--cyan)', bg: 'rgba(34,211,238,0.2)', unit: 'apenso', title: 'Execução fiscal', tagClass: 'tag-pano-ef' };
 };
 // Meta compacta de uma fase (info curta ao lado da bolinha na régua)
@@ -1548,7 +1601,7 @@ const renderStageHtmlV2 = (briefing, exec, esc) => {
     const isMulti = !!sd.multiRecurso;
     const rs = isMulti ? getRecursos(rec) : [];
     const col = isMulti
-      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido') ? '#c03040' : '#207848')
+      ? (rs.some(r => r.outcome === 'pendente' || !r.outcome) ? '#a06020' : rs.some(r => r.outcome === 'nao_provido' || (r.outcome === 'provido' && isRecursoAdverso(r))) ? '#c03040' : '#207848')
       : (rec.outcome === 'favoravel' || rec.outcome === 'provido') ? '#207848' : (rec.outcome === 'desfavoravel' || rec.outcome === 'nao_provido') ? '#c03040' : '#2860b0';
     let det;
     if (isMulti) {
@@ -2814,6 +2867,9 @@ function formRequiredError(entityType, form) {
   if (entityType === 'operation' && !t(form.name)) {
     return 'Informe o nome da operação.';
   }
+  if (entityType === 'execution' && isPeticaoIncidenteEf(form) && !t(form.parentExecutionId)) {
+    return 'Escolha a execução fiscal à qual esta petição está acoplada.';
+  }
   return '';
 }
 
@@ -3352,7 +3408,7 @@ function App() {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
-    let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0;
+    let cdaUpdated = 0, cdaNotFound = 0, eventsCreated = 0, personsCreated = 0, respCreated = 0, respSkippedOrig = 0;
     const parsedFiles = [];
 
     for (const file of files) {
@@ -3871,8 +3927,15 @@ function App() {
                 upsert('people', crPerson);
               }
               const respKey = `${existing.id}|${crPerson.id}|coresponsavel_legal`;
-              if (!knownResp.has(respKey)) {
-                addResponsibility(existing.id, crPerson.id, 'coresponsavel_legal', `Inclusão SIDA em ${fmtDate(cr.date)}`);
+              const jaOriginario = knownResp.has(`${existing.id}|${crPerson.id}|originario`) || existing.personId === crPerson.id;
+              if (jaOriginario) {
+                const skipKey = `${existing.id}|${crPerson.id}|skip-orig`;
+                if (!knownResp.has(skipKey)) {
+                  knownResp.add(skipKey);
+                  respSkippedOrig++;
+                }
+              } else if (!knownResp.has(respKey)) {
+                addResponsibility(existing.id, crPerson.id, 'coresponsavel_legal', `Inclusão SIDA em ${fmtDate(cr.date)}`, { silent: true });
                 knownResp.add(respKey);
                 respCreated++;
               }
@@ -3884,7 +3947,12 @@ function App() {
       }
     }
 
-    logs.push(`\n📊 ${cdaUpdated} CDA(s) complementada(s) · ${eventsCreated} evento(s) prescricional(is) criado(s)${cdaNotFound > 0 ? ` · ${cdaNotFound} CDA(s) não encontrada(s)` : ''}${personsCreated > 0 ? ` · ${personsCreated} corresponsável(eis) criado(s)` : ''}${respCreated > 0 ? ` · ${respCreated} vínculo(s) de corresponsabilidade adicionado(s)` : ''}`);
+    const skippedOrigTxt = respSkippedOrig > 0
+      ? (respSkippedOrig === 1
+        ? ' · 1 vez a pessoa já era o devedor da inscrição e não entrou como corresponsável'
+        : ` · ${respSkippedOrig} vezes a pessoa já era o devedor da inscrição e não entrou como corresponsável`)
+      : '';
+    logs.push(`\n📊 ${cdaUpdated} CDA(s) complementada(s) · ${eventsCreated} evento(s) prescricional(is) criado(s)${cdaNotFound > 0 ? ` · ${cdaNotFound} CDA(s) não encontrada(s)` : ''}${personsCreated > 0 ? ` · ${personsCreated} corresponsável(eis) criado(s)` : ''}${respCreated > 0 ? ` · ${respCreated} vínculo(s) de corresponsabilidade adicionado(s)` : ''}${skippedOrigTxt}`);
     // Determine type by file name pattern
     const fileNames = Array.from(e.target.files || []).map(f => f.name);
     const hasSIDA = fileNames.some(n => /sida/i.test(n));
@@ -3948,7 +4016,7 @@ function App() {
                   merged._importFlag = 'updated';
                   merged._importFlagAt = new Date().toISOString();
                 }
-                upsert('intimations', merged);
+                upsert('intimations', merged, { keepImportFlag: true });
                 updCount++;
                 logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
               } else {
@@ -3970,7 +4038,7 @@ function App() {
                 unlinkedCount++;
                 logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
               }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() });
+              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true });
               newCount++;
               if (!toDayKey(intim.dateDeadline)) logs.push(`⚠️ Sem prazo final: ${intim.processNumber} — não entra na agenda/e-mail até preencher Final Prazo`);
             }
@@ -4422,7 +4490,7 @@ function App() {
     if (col === 'measures') return `Medida ${truncate(e.description || e.subtype || e.id, 40)}`;
     return e.id;
   };
-  const upsert = (col, entity) => {
+  const upsert = (col, entity, opts) => {
     if (!col) return;
     setData(prev => {
       const list = prev[col] || [];
@@ -4442,7 +4510,13 @@ function App() {
         });
       }
       // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
-      const toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      let toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
+      // Marcador Novo/Atualizada: sai em qualquer edição de verdade. Abrir e só consultar não grava.
+      // A importação do eproc passa keepImportFlag para continuar marcando nova ou atualizada.
+      if (col === 'intimations' && !(opts && opts.keepImportFlag)) {
+        const before = idx >= 0 ? list[idx] : null;
+        if (!before || intimFieldsChanged(before, entity)) toSave = { ...toSave, _importFlag: null, _importFlagAt: null };
+      }
       const updated = idx >= 0 ? list.map(e => e.id === entity.id ? { ...e, ...toSave, updatedAt: now } : e) : [...list, { ...toSave, createdAt: now, updatedAt: now }];
       let newPrev = { ...prev, [col]: updated };
       if (logEntries.length > 0) {
@@ -4532,19 +4606,21 @@ function App() {
     });
   };
 
-  // Add corresponsabilidade link
-  const addResponsibility = (cdaId, personId, role, basis = '') => {
+  // Add corresponsabilidade link. silent: importação em lote — não abre caixa; só ignora o vínculo.
+  const addResponsibility = (cdaId, personId, role, basis = '', opts) => {
+    const silent = !!(opts && opts.silent);
     setData(prev => {
       const existing = (prev.links.cdaResponsibilities || []).filter(r => r.cdaId === cdaId && r.personId === personId);
       // Avoid exact duplicate (same role)
       if (existing.some(r => r.role === role)) return prev;
       // Prevent any other role if person is already originário (originário é exclusivo)
       if (existing.some(r => r.role === 'originario')) {
-        alert('Esta pessoa já é o devedor originário desta CDA. Não é possível adicioná-la também como corresponsável.');
+        if (!silent) alert('Esta pessoa já é o devedor originário desta CDA. Não é possível adicioná-la também como corresponsável.');
         return prev;
       }
       // If trying to add as originário but person already has another role, alert
       if (role === 'originario' && existing.length > 0) {
+        if (silent) return prev;
         if (!confirm('Esta pessoa já tem outro papel nesta CDA. Promovê-la a originária irá remover os papéis anteriores. Continuar?')) return prev;
         return {...prev, links: {...prev.links, cdaResponsibilities: [
           ...(prev.links.cdaResponsibilities || []).filter(r => !(r.cdaId === cdaId && r.personId === personId)),
@@ -4618,6 +4694,7 @@ function App() {
     return parts.length ? `\n\nSerão excluídos JUNTO (em cascata):\n${parts.join('\n')}` : '';
   };
   const remove = (col, id) => {
+    if (col === 'operations' && isSubstituicaoOp((data.operations || []).find(o => o.id === id))) return;
     const cas = computeCascade(data, col, id);
     if (!confirm(`Confirma exclusão?${cascadeSummary(cas, col)}`)) return;
     pushUndo(`Exclusão de registro (${col})`);
@@ -4741,6 +4818,13 @@ function App() {
       const numberChanged = !previous || !sameProc(previous.processNumber, cleanEntity.processNumber);
       if (collision && numberChanged) {
         alert(`Já existe o processo ${collision.processNumber || cleanEntity.processNumber} nesta operação.\n\nO novo cadastro foi bloqueado para evitar duplicidade. Abra o registro existente ou use Diagnóstico → Processos cadastrados em duplicidade para consolidar dados legados.`);
+        return;
+      }
+    }
+    if (type === 'execution' && isPeticaoIncidenteEf(cleanEntity)) {
+      const parent = (data.executions || []).find(ex => ex.id === cleanEntity.parentExecutionId);
+      if (!parent || parent.operationId !== cleanEntity.operationId || !isRealExecucaoFiscal(parent)) {
+        alert('Petição Cível - Incidente em Execução Fiscal precisa estar acoplada a uma execução fiscal desta operação.');
         return;
       }
     }
@@ -5362,6 +5446,8 @@ function App() {
   }, [data.people]);
   const linkify = (text) => {
     if (!text || typeof text !== 'string') return text;
+    const atuacao = presentAtuacaoProcessNote(text);
+    if (atuacao) return <AtuacaoNoteView text={atuacao.text} url={atuacao.url} />;
     // Regex for: URL, process number, CNPJ, CPF
     const pattern = /(https?:\/\/[^\s<]+[^\s<.,;:!?)}\]'"])|(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})|(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})|(\d{3}\.\d{3}\.\d{3}-\d{2})/g;
     const parts = [];
@@ -6141,6 +6227,9 @@ function App() {
   const renderTab = () => {
     if (!activeOp) return null;
     const opId = activeOp.id;
+    if (isSubstituicaoOp(activeOp) && activeTab !== 'docs') {
+      return <EditionClaudeSubstituicao data={data} op={activeOp} opsById={opsById} onOpen={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} />;
+    }
 
     if (activeTab === 'notas') {
       const notes = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
@@ -6371,7 +6460,7 @@ function App() {
         {(() => {
               const coverage = computeIncidentCoverage(opExecs, opDebts);
               const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
-              const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+              const keepCoveredEF = (e) => e && !isIncidentProcess(e) && !isPeticaoIncidenteEf(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
               const sortEFsArquivadasLast = (arr) => [...(arr || [])].sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
               const execById = Object.fromEntries(opExecs.map(e => [e.id, e]));
               const efsByIncident = {};
@@ -7917,7 +8006,7 @@ function App() {
                   {group.cdas.length > 0 && <input type="checkbox" checked={groupAllSelected} onChange={() => selectGroup2(group.cdas)} title="Selecionar todas as CDAs do processo" />}
                   <div className="process-meta">
                     {isDemo ? (<>
-                      {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                      {isApenso && <span className="proc-meta-chip">{isPeticaoIncidenteEf(e) ? 'Incidente' : 'Apenso'}</span>}
                       {myApensosGroups.length > 0 && <Ficha k="Apensos">{myApensosGroups.length}</Ficha>}
                       {isTagged && <Ficha k="Classe" tone="accent">{tagLabels[e.processTag]||e.processTag}</Ficha>}
                       {isLinkedToIDPJ2 && !isTagged && <Ficha k="Vínculo">IDPJ</Ficha>}
@@ -7927,7 +8016,7 @@ function App() {
                       {procAlerts.intims.length > 0 && <Ficha k="Intimações" tone={procAlerts.overdueIntim ? 'overdue' : ''}>{procAlerts.intims.length}</Ficha>}
                       {procAlerts.tasks.length > 0 && <Ficha k="Tarefas" tone={procAlerts.overdueTask ? 'overdue' : ''}>{procAlerts.tasks.length}</Ficha>}
                     </>) : (<>
-                    {isApenso && <span className="proc-meta-chip">Apenso</span>}
+                    {isApenso && <span className="proc-meta-chip">{isPeticaoIncidenteEf(e) ? 'Incidente' : 'Apenso'}</span>}
                     {myApensosGroups.length > 0 && <span className="proc-meta-chip">{myApensosGroups.length} apenso(s)</span>}
                     {isTagged && <strong className="proc-meta-chip">{tagLabels[e.processTag]||e.processTag}</strong>}
                     {isLinkedToIDPJ2 && !isTagged && <span className="proc-meta-chip">Vinculada a IDPJ</span>}
@@ -8192,6 +8281,7 @@ function App() {
           return out;
         };
         const apensoBadge = <span className="apenso-badge" title="Apenso a outra execução fiscal">Apenso</span>;
+        const incidenteBadge = <span className="apenso-badge" title="Petição cível — incidente em execução fiscal, acoplado a uma execução">Incidente</span>;
         const effectiveHubId = hubs.some(h => h.exec.id === selectedProcHubId)
           ? selectedProcHubId
           : (hubs[0]?.exec.id || null);
@@ -8437,6 +8527,7 @@ function App() {
             const species = g.type === 'exec' ? otherSpecies(g.exec) : null;
             const childApensos = (!isOthers && !skipNested && g.type === 'exec' && !nested) ? apensosOf(g.exec.id) : [];
             const isRelevant = g.type === 'exec' && !!g.exec.isRelevant;
+            const isIncidenteRow = g.type === 'exec' && isPeticaoIncidenteEf(g.exec);
             const isStandaloneApenso = !nested && !isOthers && g.type === 'exec' && relatedParent
               && isExecucaoFiscalClass(relatedParent) && !isHubProcess(relatedParent);
             return (
@@ -8446,19 +8537,26 @@ function App() {
                   <td className={`mono proc-num-col${nested ? ' proc-apenso-cell' : ''}`}>
                     {nested && <span className="proc-apenso-mark" aria-hidden="true">↳</span>}
                     {g.type === 'unlinked' ? 'CDAs sem processo' : <ProcNum exec={g.exec} />}
-                    {(nested || isStandaloneApenso) && apensoBadge}
+                    {(nested || isStandaloneApenso) && (isIncidenteRow ? incidenteBadge : apensoBadge)}
                     {isStandaloneApenso && (
-                      <span className="proc-apenso-parent-ref" title={`Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
-                        (apenso de <ProcNum exec={relatedParent} maxLen={18} />)
+                      <span className="proc-apenso-parent-ref" title={isIncidenteRow ? `Acoplado à execução ${relatedParent.processNumber || ''}` : `Apenso aos autos principais: ${relatedParent.processNumber || ''}`}>
+                        ({isIncidenteRow ? 'da execução' : 'apenso de'} <ProcNum exec={relatedParent} maxLen={18} />)
                       </span>
                     )}
                     {g.type === 'exec' && dupBadge(g.exec.id)}
                     {!isOthers && g.type === 'exec' && relatedChips(g.exec.id, 'siglas')}
-                    {!isOthers && childApensos.length > 0 && (
-                      <span className="apenso-count" title={`${childApensos.length} apenso(s)`}>
-                        {childApensos.length} apenso{childApensos.length === 1 ? '' : 's'}
-                      </span>
-                    )}
+                    {!isOthers && childApensos.length > 0 && (() => {
+                      const nInc = childApensos.filter(ap => isPeticaoIncidenteEf(ap.exec)).length;
+                      const nAp = childApensos.length - nInc;
+                      const parts = [];
+                      if (nAp) parts.push(`${nAp} apenso${nAp === 1 ? '' : 's'}`);
+                      if (nInc) parts.push(`${nInc} incidente${nInc === 1 ? '' : 's'}`);
+                      return (
+                        <span className="apenso-count" title={parts.join(' · ')}>
+                          {parts.join(' · ')}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="proc-syms-col">{g.type === 'exec' ? <ProcRowSymbols exec={g.exec} data={data} fixed={isClaude} /> : null}</td>
                   <td className="proc-status-col">{g.type === 'unlinked' ? 'Não ajuizadas' : statusBadge(g.exec)}</td>
@@ -10687,7 +10785,10 @@ function App() {
     setCxSideOpen(false);
     setCxTlOp(null);
     if (opId) setCxReturnOpId(opId);
-    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(tab || 'visao'); });
+    const op = (data.operations || []).find(o => o.id === opId);
+    let nextTab = tab || (isSubstituicaoOp(op) ? 'subst' : 'visao');
+    if (isSubstituicaoOp(op) && nextTab !== 'docs') nextTab = 'subst';
+    startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab(nextTab); });
     setTimeout(() => touchOperationAccess(opId), 800);
   };
   const cxReturnOp = (() => {
@@ -10834,8 +10935,9 @@ function App() {
       onSearch={() => { setCxSideOpen(false); setGlobalSearch(true); setGsQuery(''); }}
       onImportEproc={() => { setCxSideOpen(false); eprocInputRef.current?.click(); }}
       onNewOp={() => setModal({ type: 'create', entityType: 'operation', initial: {} })}
+      onCloudPull={cloudPull}
       sync={{ isGAS, status: cloudStatus, lastSync: cxSyncTime, msg: cloudMsg, pending: !!(autoSyncEnabled && dirtyRef.current), onPush: cloudPush }}
-      onSwitchClassic={() => switchEdition('classic')} onClose={() => setCxSideOpen(false)} />}
+      onClose={() => setCxSideOpen(false)} />}
     {isClaude && <div className="cx-side-scrim" onClick={() => setCxSideOpen(false)} />}
     <div className={`sidebar ${sidebarCollapsed?'collapsed':''}`}>
       <div className="sidebar-header">
@@ -11109,7 +11211,8 @@ function App() {
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
         drawerId={cxDrawerId} onOpenIntim={(id) => setCxDrawerId(id)} onOpenOp={(id) => cxOpenOp(id)} upsert={upsert}
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
-        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
+        detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()}
+        onNewIntim={() => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } })} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} pf={prazosFilters} setPf={setPrazosFilters}
         a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}
@@ -12465,7 +12568,7 @@ function App() {
       {viewMode === 'operation' && !activeOp && (
         <div className="welcome-screen"><h2>NEXUS</h2><p>Selecione uma operação na barra lateral.</p></div>
       )}
-      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && <>
+      {viewMode === 'operation' && activeOp && isClaude && activeTab === 'visao' && !isSubstituicaoOp(activeOp) && <>
         {cxOpHeaderEl}
         <div className="cx-scroll"><EditionClaudeOpOverview data={data} op={activeOp} opStats={opStats}
         prazosRadar={prazosRadar} prescLookup={prescLookup} upsert={upsert}
@@ -12478,9 +12581,9 @@ function App() {
         onOpenTimeline={(mode) => { cxLsSet('nexus_cx_tl_mode', mode === 'frentes' ? 'frentes' : mode === 'narrativa' ? 'narrativa' : 'panorama'); setCxTlOp(activeOp.id); cxGo('cx_timeline'); }}
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} /></div>
       </>}
-      {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao') && <>
+      {viewMode === 'operation' && activeOp && !(isClaude && activeTab === 'visao' && !isSubstituicaoOp(activeOp)) && <>
         {cxOpHeaderEl}
-        {!isClaude && <>
+        {!isClaude && !isSubstituicaoOp(activeOp) && <>
         <div className="main-header">
           <div style={{flex:1,minWidth:0}}>
             <h2>{activeOp.name}</h2>
@@ -13753,7 +13856,7 @@ function StagePopup({ sd, rec, onCommit, onDelete, onAddNote, onClose }) {
   const rmR = (ri) => setRecursos(rs => rs.filter((_,j) => j!==ri));
   const parteBtn = (r, ri, pk, pl) => {
     const on = (r.parte || 'nossa') === pk;
-    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — provido também fica verde' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
+    return <button key={pk} type="button" onClick={() => updR(ri, { parte: pk })} title={pk === 'adversa' ? 'Recurso da parte adversa — se provido, o sinal fica vermelho' : 'Nosso recurso'} style={{flex:1,fontSize:9,padding:'3px 4px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?'var(--text-secondary)':'var(--border)'}`,background:on?'var(--bg-elevated)':'transparent',color:on?'var(--text-primary)':'var(--text-secondary)',fontWeight:on?700:400}}>{pl}</button>;
   };
   const hasData = isMulti ? recursos.length > 0 : (textOnly ? !!texto.trim() : (!!date || !!evento || !!texto.trim() || !!outcome || isCustom));
   const field = { width:'100%',fontSize:11,padding:'5px 7px',background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,boxSizing:'border-box' };
@@ -14200,12 +14303,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       delete payload.obs1;
       delete payload.obs2;
     }
-    // Clear import flag when user interacts (saves/edits) — the intimation has been "treated"
-    // Must set to null (not delete) because upsert does {...old, ...new} merge
-    if (entityType === 'intimation') {
-      payload._importFlag = null;
-      payload._importFlagAt = null;
-    }
+    // O marcador Novo/Atualizada sai aqui se algum campo mudou (upsert compara com o que já está gravado).
     onSave(payload);
   };
   const del = () => onDelete && onDelete(form.id);
@@ -14487,6 +14585,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
           <option value="idpj">🔴 IDPJ — Incidente de Desconsideração</option>
           <option value="cautelar_fiscal">🟠 Medida Cautelar Fiscal</option>
           <option value="central">◆ Processo Central da Operação</option>
+          <option value="peticao_incidente_ef">Petição Cível - Incidente em Execução Fiscal</option>
         </select>
       </div>
       <div className="form-group"><label>Status</label><select value={form.status||'ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(EXEC_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
@@ -14548,7 +14647,20 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </button>
       </div>
     )}
-    {isExecucaoFiscalClass(form) && !isHubProcess(form) && (
+    {isPeticaoIncidenteEf(form) && (
+      <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
+          {form.inPanorama !== false
+            ? 'Este incidente aparece no Panorama, no mesmo formato de uma execução. Retirar some só da faixa — o cadastro continua na lista das execuções.'
+            : 'Este incidente está fora do Panorama. O processo segue na lista das execuções, acoplado à de origem.'}
+        </span>
+        <button type="button" className="btn-secondary btn-xs" style={{flexShrink:0}}
+          onClick={() => onSave({ ...form, inPanorama: form.inPanorama === false, _openPanorama: form.inPanorama === false })}>
+          {form.inPanorama !== false ? 'Retirar do panorama' : 'Exibir no panorama'}
+        </button>
+      </div>
+    )}
+    {isExecucaoFiscalClass(form) && !isHubProcess(form) && !isPeticaoIncidenteEf(form) && (
       <div style={{padding:10,background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:'var(--text-secondary)',flex:1,minWidth:180}}>
           {form.inPanorama
@@ -14587,17 +14699,20 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
       const cn = (form.className || '').toLowerCase();
       const isEmbargo = /embargo/.test(cn);
       const isRecurso = /agravo|apela[çc][ãa]o|recurso(?!.*execu)|reclama[çc][ãa]o constitucional|mandado de seguran[çc]a/.test(cn);
-      const kind = isEmbargo ? 'embargo' : isRecurso ? 'recurso' : 'apenso';
-      const sectionLabel = kind === 'embargo' ? '🔗 Execução Embargada' : kind === 'recurso' ? '🔗 Processo de Origem do Recurso' : '📎 Apensamento';
-      const fieldLabel = kind === 'embargo' ? 'Execução Fiscal embargada' : kind === 'recurso' ? 'Processo recorrido (EF, IDPJ, Cautelar ou outro)' : 'Apensado a (principal)';
-      const emptyLabel = kind === 'embargo' ? '— Selecione a EF embargada —' : kind === 'recurso' ? '— Selecione o processo de origem —' : '— Não é apenso (processo independente ou principal) —';
-      const dateLabel = kind === 'embargo' ? 'Data de oposição' : kind === 'recurso' ? 'Data de interposição' : 'Data do apensamento';
-      const helpTip = kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos e Prescrição.'
+      const kind = isPeticaoIncidenteEf(form) ? 'acoplado' : isEmbargo ? 'embargo' : isRecurso ? 'recurso' : 'apenso';
+      const sectionLabel = kind === 'acoplado' ? '🔗 Execução de origem' : kind === 'embargo' ? '🔗 Execução Embargada' : kind === 'recurso' ? '🔗 Processo de Origem do Recurso' : '📎 Apensamento';
+      const fieldLabel = kind === 'acoplado' ? 'Acoplado à execução fiscal' : kind === 'embargo' ? 'Execução Fiscal embargada' : kind === 'recurso' ? 'Processo recorrido (EF, IDPJ, Cautelar ou outro)' : 'Apensado a (principal)';
+      const dateLabel = kind === 'acoplado' ? 'Data do vínculo' : kind === 'embargo' ? 'Data de oposição' : kind === 'recurso' ? 'Data de interposição' : 'Data do apensamento';
+      const helpTip = kind === 'acoplado' ? 'Esta petição é tratada como execução e fica sempre ligada a uma execução fiscal. Na lista de Processos e Prescrição, aparece indentada sob ela.'
+        : kind === 'embargo' ? 'Vincule este embargo à Execução Fiscal que está sendo embargada. Ao vincular, o embargo aparece indentado sob a EF na aba Processos e Prescrição.'
         : kind === 'recurso' ? 'Vincule este recurso ao processo de origem — pode ser uma Execução Fiscal, um IDPJ, uma Cautelar Fiscal ou outro processo. Ao vincular, o recurso aparece indentado sob o processo de origem na aba Processos e Prescrição.'
         : 'Quando uma execução fiscal é apensada a outra, o prosseguimento ocorre nos autos do principal. Atos interruptivos da prescrição praticados no principal estendem-se aos apensos automaticamente.';
       // Options: for embargo/recurso, allow any other process (EFs, IDPJs, Cautelares, Centrais, etc.)
       // For regular apensamento, only show top-level EFs as before.
-      const availableParents = kind === 'apenso'
+      // O incidente em execução fiscal só pode acoplar a uma execução fiscal de verdade.
+      const availableParents = kind === 'acoplado'
+        ? opExecs.filter(ex => ex.id !== form.id && isRealExecucaoFiscal(ex))
+        : kind === 'apenso'
         ? opExecs.filter(ex => !ex.parentExecutionId && ex.id !== form.id)
         : opExecs.filter(ex => ex.id !== form.id);
       // Group options by type for readability when it's recurso/embargo
@@ -14628,7 +14743,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             {/* Searchable process selector */}
             {(() => {
               const [searchTerm, setSearchTerm] = React.useState('');
-              const allOptions = kind === 'apenso' ? availableParents : groupOrder.filter(g => grouped[g]).flatMap(g => grouped[g]);
+              const allOptions = (kind === 'apenso' || kind === 'acoplado') ? availableParents : groupOrder.filter(g => grouped[g]).flatMap(g => grouped[g]);
               const filtered = searchTerm.length >= 2 ? allOptions.filter(ex => (ex.processNumber||'').includes(searchTerm) || (ex.court||'').toLowerCase().includes(searchTerm.toLowerCase()) || (ex.className||'').toLowerCase().includes(searchTerm.toLowerCase())) : allOptions;
               const current = form.parentExecutionId ? allOptions.find(ex => ex.id === form.parentExecutionId) : null;
               return (<div style={{position:'relative'}}>
@@ -14641,7 +14756,7 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
                 ) : (
                   <div>
                     <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                      placeholder={`Buscar entre ${allOptions.length} processos...`}
+                      placeholder={kind === 'acoplado' ? 'Buscar a execução fiscal de origem...' : `Buscar entre ${allOptions.length} processos...`}
                       style={{width:'100%',fontSize:11,padding:'5px 8px',background:'var(--bg-deep)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:3,boxSizing:'border-box'}} />
                     {searchTerm.length >= 2 && filtered.length > 0 && (
                       <div style={{position:'absolute',top:'100%',left:0,right:0,maxHeight:200,overflowY:'auto',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:3,zIndex:20,boxShadow:'0 4px 12px rgba(0,0,0,0.4)'}}>
@@ -14666,6 +14781,9 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <input type="date" value={form.apensadoEm||''} onChange={e=>set('apensadoEm',e.target.value)} />
           </div>}
         </div>
+        {kind === 'acoplado' && !form.parentExecutionId && (
+          <div style={{fontSize:11,color:'var(--red)',marginTop:6}}>Escolha a execução fiscal. Sem esse vínculo o cadastro não é salvo.</div>
+        )}
         {!form.parentExecutionId && form.id && (() => {
           const children = opExecs.filter(ex => ex.parentExecutionId === form.id);
           if (children.length === 0) return null;
@@ -14674,8 +14792,8 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
             <ul style={{marginTop:4,marginLeft:16,fontSize:10}}>
               {children.map(a => {
                 const acn = (a.className||'').toLowerCase();
-                const aKind = /embargo/.test(acn) ? 'embargo' : /agravo|apela|recurso|mandado/.test(acn) ? 'recurso' : 'apenso';
-                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}><ProcNum exec={a} /> <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
+                const aKind = a.processTag === 'peticao_incidente_ef' ? 'incidente' : /embargo/.test(acn) ? 'embargo' : /agravo|apela|recurso|mandado/.test(acn) ? 'recurso' : 'apenso';
+                return <li key={a.id} style={{fontFamily:'var(--font-mono)'}}><ProcNum exec={a} /> <span style={{fontSize:9,color:'var(--text-muted)',fontFamily:'var(--font-sans)'}}>— {aKind === 'incidente' ? 'incidente em execução fiscal' : aKind === 'embargo' ? 'embargo' : aKind === 'recurso' ? 'recurso' : 'apenso'}{a.className?` · ${a.className}`:''}</span></li>;
               })}
             </ul>
           </div>;

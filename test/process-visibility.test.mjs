@@ -22,9 +22,10 @@ function extractFunction(name) {
 }
 
 const normProc = value => String(value || '').replace(/\D/g, '');
-const isExecucaoFiscalClass = execution => /^execu[çc][ãa]o\s+fiscal\b/.test((execution?.className || '').toLowerCase().trim());
-const isHubProcess = execution => !!execution && ['idpj', 'cautelar_fiscal', 'central'].includes(execution.processTag);
-const isOtherProcClass = execution => !!execution && !isHubProcess(execution) && !isExecucaoFiscalClass(execution);
+const classHelpers = new Function(
+  `${extractFunction('isPeticaoIncidenteEf')}\n${extractFunction('isRealExecucaoFiscal')}\n${extractFunction('isExecucaoFiscalClass')}\n${extractFunction('isHubProcess')}\n${extractFunction('isOtherProcClass')}\nreturn { isExecucaoFiscalClass, isHubProcess, isOtherProcClass };`
+)();
+const { isExecucaoFiscalClass, isHubProcess, isOtherProcClass } = classHelpers;
 const sortArquivadasLast = groups => [...(groups || [])].sort((a, b) => (a?.exec?.status === 'arquivada' ? 1 : 0) - (b?.exec?.status === 'arquivada' ? 1 : 0));
 
 const factory = new Function(
@@ -124,6 +125,19 @@ describe('partição visual de Processos e Prescrição', () => {
     assert.deepEqual(representedIds(classified), new Set(['apl', 'ai', 'emb', 'et', 'ed', 'cs', 'epe']));
   });
 
+  it('petição cível incidente fica entre as execuções, acoplada à de origem', () => {
+    const executions = [
+      { id: 'ef', processNumber: '50012345620234047001', className: 'Execução Fiscal', status: 'ativa' },
+      { id: 'inc', processNumber: '50099999920244047009', className: 'Petição Cível', processTag: 'peticao_incidente_ef', status: 'ativa', parentExecutionId: 'ef' },
+    ];
+    const classified = classifyProcGroups(buildCdaGroups(executions, []), executions);
+    assert.equal(classified.others.some(g => g.exec.id === 'inc'), false);
+    assert.equal(classified.uncoveredEFs.some(g => g.exec.id === 'ef'), true);
+    assert.equal((classified.apensosByParent.ef || []).some(g => g.exec.id === 'inc'), true);
+    assert.equal(classified.uncoveredEFs.some(g => g.exec.id === 'inc'), false);
+    assert.equal(representedIds(classified).has('inc'), true);
+  });
+
   it('central sem apenso fiscal não mostra execuções abrangidas', () => {
     const executions = [
       { id: 'c', processNumber: '50077778820224047002', className: 'Execução Fiscal', processTag: 'central', status: 'ativa' },
@@ -135,7 +149,7 @@ describe('partição visual de Processos e Prescrição', () => {
 });
 
 const panoHelpers = new Function(
-  `${extractFunction('isExecucaoFiscalClass')}\n${extractFunction('isHubProcess')}\n${extractFunction('isCentralProcess')}\n${extractFunction('isUserPanoramaEf')}\n${extractFunction('isEfStylePanoramaCard')}\nreturn { isUserPanoramaEf, isEfStylePanoramaCard, isHubProcess };`
+  `${extractFunction('isPeticaoIncidenteEf')}\n${extractFunction('isExecucaoFiscalClass')}\n${extractFunction('isHubProcess')}\n${extractFunction('isCentralProcess')}\n${extractFunction('isUserPanoramaEf')}\n${extractFunction('isEfStylePanoramaCard')}\nreturn { isUserPanoramaEf, isEfStylePanoramaCard, isHubProcess };`
 )();
 
 describe('execução fiscal no panorama sem marca de hub', () => {
@@ -155,6 +169,14 @@ describe('execução fiscal no panorama sem marca de hub', () => {
     const ef = { id: 'e1', className: 'Execução Fiscal', processTag: 'central', inPanorama: true, status: 'ativa' };
     assert.equal(panoHelpers.isUserPanoramaEf(ef), false);
     assert.equal(panoHelpers.isEfStylePanoramaCard(ef), true);
+  });
+
+  it('petição cível incidente entra no panorama por padrão e sai se o usuário retirar', () => {
+    const inc = { id: 'i', className: 'Petição Cível', processTag: 'peticao_incidente_ef', status: 'ativa' };
+    assert.equal(panoHelpers.isUserPanoramaEf(inc), true);
+    assert.equal(panoHelpers.isEfStylePanoramaCard(inc), true);
+    assert.equal(panoHelpers.isHubProcess(inc), false);
+    assert.equal(panoHelpers.isUserPanoramaEf({ ...inc, inPanorama: false }), false);
   });
 });
 

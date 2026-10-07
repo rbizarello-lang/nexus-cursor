@@ -129,7 +129,7 @@ export function clkSort(clocks) {
  */
 export function clkBuild({ data, rows, silenced, lookup, today, opId, debtIds } = {}) {
   const t = toDayKey(today) || localIso(new Date());
-  const ops = new Map((data && data.operations || []).filter(o => o && o.status !== 'encerrada').map(o => [o.id, o]));
+  const ops = new Map((data && data.operations || []).filter(o => o && o.status !== 'encerrada' && o.kind !== 'substituicao' && o.id !== 'op-substituicao').map(o => [o.id, o]));
   const people = new Map(((data && data.people) || []).filter(p => p && p.id).map(p => [p.id, p]));
   const rowBy = new Map((rows || []).filter(Boolean).map(r => [r.id, r]));
   const silBy = new Map((silenced || []).filter(Boolean).map(s => [s.debtId, s]));
@@ -220,15 +220,16 @@ export function clkKpis(clocks, todayIso) {
 }
 
 /**
- * Pontos do calendário de termos (hoje → último termo/piso): { id, d, kind: 'term'|'piso', group, label }.
+ * Pontos do calendário de termos (hoje → último termo/piso): { id, d, kind: 'term'|'piso', group, n, number, val }
+ * (`n` = CDAs do relógio, `val` = valor somado).
  * `to` é o fim do eixo (último ponto, arredondado para o fim do ano), `from` é hoje.
  */
 export function clkStrip(clocks, todayIso) {
   const t = toDayKey(todayIso) || localIso(new Date());
   const pts = [];
   (clocks || []).forEach(c => {
-    if ((c.kind === 'orig' || c.kind === 'inter') && c.term) pts.push({ id: c.id, d: c.term, kind: 'term', group: c.group, n: c.n, number: c.leadNumber });
-    else if (c.kind === 'piso' && c.floor) pts.push({ id: c.id, d: c.floor, kind: 'piso', group: c.group, n: c.n, number: c.leadNumber });
+    if ((c.kind === 'orig' || c.kind === 'inter') && c.term) pts.push({ id: c.id, d: c.term, kind: 'term', group: c.group, n: c.n, number: c.leadNumber, val: Number(c.value) || 0 });
+    else if (c.kind === 'piso' && c.floor) pts.push({ id: c.id, d: c.floor, kind: 'piso', group: c.group, n: c.n, number: c.leadNumber, val: Number(c.value) || 0 });
   });
   pts.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
   const last = pts.length ? pts[pts.length - 1].d : t;
@@ -237,6 +238,100 @@ export function clkStrip(clocks, todayIso) {
   const to = toYear + '-12-31';
   const overdue = pts.filter(p => p.d < t);
   return { from, to, points: pts, overdue: overdue.length, years: Array.from({ length: toYear - +t.slice(0, 4) + 1 }, (_, i) => +t.slice(0, 4) + i) };
+}
+
+/* ── Calendário por faixas (trimestres) ─────────────────────────────────────────────────────────────────────────
+ * `clkQuarterBins` agrupa os pontos de `clkStrip` em células (faixas de tempo) × duas pistas (termos e pisos):
+ * soma CDAs (`n`) e valor (`val`) e guarda o grupo mais urgente (crit > alerta > corre > piso). Termos já vencidos
+ * (d < hoje) viram a célula "Vencidos"; pisos que já passaram ficam de fora (`skipped`) — não são prazo vencido.
+ * Granularidade: trimestres do trimestre de hoje até o fim do último ano; se passar de `maxCols` (24) colunas, semestres;
+ * se ainda passar, anos. */
+export const CLK_CAL_MAX_COLS = 24;
+const CLK_GROUP_RANK = { crit: 0, alerta: 1, corre: 2, piso: 3 };
+const clkPad2 = (n) => String(n).padStart(2, '0');
+const clkPtSort = (a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : a.kind !== b.kind ? (a.kind === 'term' ? -1 : 1) : String(a.number) < String(b.number) ? -1 : String(a.number) > String(b.number) ? 1 : 0);
+
+/** Grupo mais urgente de uma lista de pontos ('piso' se vazia). */
+export function clkTopGroup(points) {
+  let best = 'piso';
+  (points || []).forEach(p => { if ((CLK_GROUP_RANK[p.group] ?? 9) < (CLK_GROUP_RANK[best] ?? 9)) best = p.group; });
+  return best;
+}
+const clkCell = (pts, forceGroup) => {
+  const points = pts.slice().sort(clkPtSort);
+  return { cdas: points.reduce((s, p) => s + (p.n || 1), 0), value: points.reduce((s, p) => s + (Number(p.val) || 0), 0), group: forceGroup || (points.length ? clkTopGroup(points) : ''), points };
+};
+
+export function clkQuarterBins(points, todayIso, opts = {}) {
+  const t = toDayKey(todayIso) || localIso(new Date());
+  const max = opts.maxCols || CLK_CAL_MAX_COLS;
+  const all = points || [];
+  const ty = +t.slice(0, 4), tm = +t.slice(5, 7);
+  const tq = Math.floor((tm - 1) / 3), th = tm <= 6 ? 0 : 1;
+  const lastPt = all.reduce((m, p) => (p.d > m ? p.d : m), t);
+  const lastY = Math.max(opts.toYear || 0, ty + 1, +lastPt.slice(0, 4));
+  const nQ = (lastY - ty) * 4 + (4 - tq);
+  const nH = (lastY - ty) * 2 + (2 - th);
+  const gran = nQ <= max ? 'q' : nH <= max ? 'h' : 'y';
+  const per = gran === 'q' ? 3 : gran === 'h' ? 6 : 12;
+  const count = gran === 'q' ? nQ : gran === 'h' ? nH : lastY - ty + 1;
+  const cols = [];
+  const byKey = new Map();
+  for (let i = 0; i < count; i++) {
+    let year, idx;
+    if (gran === 'q') { year = ty + Math.floor((tq + i) / 4); idx = (tq + i) % 4; }
+    else if (gran === 'h') { year = ty + Math.floor((th + i) / 2); idx = (th + i) % 2; }
+    else { year = ty + i; idx = 0; }
+    const m0 = idx * per + 1, m1 = m0 + per - 1;
+    const first = year + '-' + clkPad2(m0) + '-01';
+    const last = year + '-' + clkPad2(m1) + '-' + clkPad2(new Date(Date.UTC(year, m1, 0)).getUTCDate());
+    const n = idx + 1;
+    const key = gran === 'q' ? year + '-Q' + n : gran === 'h' ? year + '-H' + n : String(year);
+    const label = gran === 'q' ? n + 'º tri ' + year : gran === 'h' ? n + 'º sem ' + year : String(year);
+    const col = { key, year, q: n, from: first < t ? t : first, to: last, label, short: gran === 'y' ? '' : n + 'º', term: null, piso: null };
+    cols.push(col);
+    byKey.set(key, { col, term: [], piso: [] });
+  }
+  const keyOf = (d) => {
+    const y = +d.slice(0, 4), m = +d.slice(5, 7);
+    return gran === 'q' ? y + '-Q' + (Math.floor((m - 1) / 3) + 1) : gran === 'h' ? y + '-H' + (m <= 6 ? 1 : 2) : String(y);
+  };
+  const over = [];
+  let skipped = 0;
+  all.forEach(p => {
+    if (!p || !p.d) return;
+    if (p.d < t) { if (p.kind === 'term') over.push(p); else skipped++; return; }
+    const b = byKey.get(keyOf(p.d));
+    if (b) b[p.kind === 'piso' ? 'piso' : 'term'].push(p);
+  });
+  cols.forEach(c => { const b = byKey.get(c.key); c.term = clkCell(b.term); c.piso = clkCell(b.piso); });
+  const years = [];
+  cols.forEach((c, i) => { const l = years[years.length - 1]; if (l && l.year === c.year) l.span++; else years.push({ year: c.year, start: i, span: 1 }); });
+  const overdue = clkCell(over, 'crit');
+  const tot = cols.reduce((a, c) => ({ cdas: a.cdas + c.term.cdas + c.piso.cdas, value: a.value + c.term.value + c.piso.value }), { cdas: overdue.cdas, value: overdue.value });
+  return { gran, overdue, cols, years, skipped, total: tot };
+}
+
+/** O relógio pertence à célula? bucket = { lane: 'over' | 'term' | 'piso', from, to } (de `clkQuarterBins`). */
+export function clkBucketMatch(clock, bucket, todayIso) {
+  if (!clock || !bucket) return true;
+  const t = toDayKey(todayIso) || localIso(new Date());
+  if (bucket.lane === 'piso') return clock.kind === 'piso' && !!clock.floor && clock.floor >= bucket.from && clock.floor <= bucket.to;
+  if (!((clock.kind === 'orig' || clock.kind === 'inter') && clock.term)) return false;
+  if (bucket.lane === 'over') return clock.term < t;
+  return clock.term >= bucket.from && clock.term <= bucket.to;
+}
+
+/** Próximas datas (termo ou piso, a partir de hoje), com as do mesmo dia e tipo juntas: [{ d, kind, number, cdas, others }]. */
+export function clkNextDates(points, todayIso, limit = 3) {
+  const t = toDayKey(todayIso) || localIso(new Date());
+  const out = [];
+  (points || []).filter(p => p && p.d >= t).sort(clkPtSort).forEach(p => {
+    const l = out[out.length - 1];
+    if (l && l.d === p.d && l.kind === p.kind) { l.cdas += p.n || 1; l.others = l.cdas - 1; return; }
+    out.push({ d: p.d, kind: p.kind, number: p.number, cdas: p.n || 1, others: (p.n || 1) - 1 });
+  });
+  return out.slice(0, limit);
 }
 
 /** Posição (0..1) de `iso` entre `a` e `b`, truncada. */
