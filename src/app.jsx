@@ -9461,7 +9461,7 @@ function App() {
     if (isDemo) setViewMode('hoje');
     alert('✅ Dados demo resetados (5 operações fictícias).');
   };
-  const openIntimsCount = (data.intimations || []).filter(x => intimIsOpenWork(x) && !intimDaSubstituicao(x)).length;
+  const openIntimsCount = (data.intimations || []).filter(x => intimIsOpenWork(x)).length;
   const openTasksCount = (data.tasks || []).filter(t => t.status !== 'concluida' && t.status !== 'cancelada').length;
   const deskCount = (data.desk || []).length;
   const watchCount = (data.watchlist || []).filter(w => w.status !== 'encerrado').length;

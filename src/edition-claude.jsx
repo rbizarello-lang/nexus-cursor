@@ -685,7 +685,6 @@ function cxBuildQueue(data, prazosByDebt, opsById) {
   const q = [];
   const opName = (id) => (opsById.get(id) || {}).name || '';
   (data.intimations || []).forEach(x => {
-    if (intimDaSubstituicao(x)) return;
     if (x.responseAction) {
       const at = x.responseAction.respondedAt;
       const dd = at ? daysUntil(at) : null;
@@ -715,7 +714,7 @@ function cxBuildQueue(data, prazosByDebt, opsById) {
 function cxContinueQueue(data) {
   const out = [];
   (data.intimations || []).forEach(x => {
-    if (intimDaSubstituicao(x) || !cxIsOpen(x)) return;
+    if (!cxIsOpen(x)) return;
     const info = esteiraResumeInfo(x.esteira);
     if (!info) return;
     out.push({ key: 'i' + x.id, intim: x, info, due: daysUntil(x.dateDeadline), iso: x.dateDeadline, title: cxPartyName(x), updatedAt: x.esteira.updatedAt });
@@ -843,7 +842,7 @@ function EditionClaudeHoje(p) {
   const setCargaW = (v) => { setCargaWS(v); cxLsSet('nexus_cx_carga_weeks', String(v)); };
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
   const continueQueue = React.useMemo(() => cxContinueQueue(data), [data]);
-  const intims = (data.intimations || []).filter(x => !intimDaSubstituicao(x));
+  const intims = data.intimations || [];
   const open = intims.filter(cxIsOpen);
   const tribCounts = cxTribCounts(intims);
   const late = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d < 0; });
@@ -863,7 +862,7 @@ function EditionClaudeHoje(p) {
   const atuacoes = atuacoesSemana(intims, todayIso);
   const janela = janelaPrazos(open, todayIso);
   const termo = proximoTermo(prazosRadar.rows, todayIso);
-  const cargaIts = React.useMemo(() => cargaItens({ ...data, intimations: (data.intimations || []).filter(x => !intimDaSubstituicao(x)) }, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
+  const cargaIts = React.useMemo(() => cargaItens(data, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
   const mapa = React.useMemo(() => cargaMapa(cargaIts, { today: todayIso, weeks: cargaW }), [cargaIts, todayIso, cargaW]);
   const nextAud = cargaIts.filter(x => x.kind === 'h' && x.dd >= 0).sort((a, b) => a.dd - b.dd || String(a.iso).localeCompare(String(b.iso)))[0];
   const resumoCargaTxt = resumoCarga(mapa, nextAud ? { dias: nextAud.dd, time: nextAud.ref.time || '' } : null);
@@ -1250,7 +1249,7 @@ function EditionClaudeIntimacoes(p) {
   const [sort, setSortS] = React.useState(() => lsGet('nexus_cx_sort', 'atencao'));
   const setGroupBy = (v) => { setGroupByS(v); try { localStorage.setItem('nexus_cx_group', v); } catch (e) { /* ignore */ } };
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_sort', v); } catch (e) { /* ignore */ } };
-  const all = (data.intimations || []).filter(x => !intimDaSubstituicao(x));
+  const all = data.intimations || [];
   const opF = (opFRaw === 'all' || opFRaw === 'none' || (opsById.has(opFRaw) && all.some(x => x.operationId === opFRaw))) ? opFRaw : 'all';
   const opIds = [...new Set(all.map(x => x.operationId).filter(Boolean))];
   const opOptions = [['all', 'Todas'], ['none', 'Sem operação']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
