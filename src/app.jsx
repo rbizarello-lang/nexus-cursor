@@ -4315,11 +4315,18 @@ function App() {
           dirtyRef.current = false;
         })
         .withFailureHandler((err) => {
-          setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + err.message);
+          console.error('saveNexusData', err);
+          setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + ((err && err.message) || String(err) || 'falha de comunicação com o Google'));
         })
         .saveNexusData((() => {
           try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
-          return JSON.stringify(data);
+          const json = JSON.stringify(data);
+          // Envia em gzip+base64: o JSON cru passou de 20 MB e o google.script.run
+          // passou a recusar com 400. O servidor descompacta e grava o JSON legível.
+          if (typeof pako !== 'undefined' && pako.gzip) {
+            try { return 'GZB64:' + btoa(bytesToBinaryString(pako.gzip(json))); } catch (e) { console.error('gzip payload', e); }
+          }
+          return json;
         })(), lastPushRevRef.current, !!opts._force);
       return;
     }

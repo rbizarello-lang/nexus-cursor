@@ -237,6 +237,16 @@ function getRemoteMtime() {
  * force: true só após o usuário confirmar sobrescrita explícita.
  * A comparação ocorre DENTRO do lock — não há janela entre checagem e escrita.
  */
+var GZIP_PAYLOAD_PREFIX = 'GZB64:';
+
+/** O cliente envia o JSON em gzip+base64 (o banco passou de 20 MB e o google.script.run recusava com 400). */
+function decodeSavePayload_(payload) {
+  var s = String(payload == null ? '' : payload);
+  if (s.indexOf(GZIP_PAYLOAD_PREFIX) !== 0) return s;
+  var bytes = Utilities.base64Decode(s.slice(GZIP_PAYLOAD_PREFIX.length));
+  return Utilities.ungzip(Utilities.newBlob(bytes, 'application/x-gzip')).getDataAsString('UTF-8');
+}
+
 function saveNexusData(jsonString, expectedRev, force) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
@@ -244,6 +254,11 @@ function saveNexusData(jsonString, expectedRev, force) {
   }
 
   try {
+    try {
+      jsonString = decodeSavePayload_(jsonString);
+    } catch (decErr) {
+      return { success: false, error: 'Falha ao descompactar — arquivo NÃO foi sobrescrito. ' + decErr.message };
+    }
     try {
       JSON.parse(jsonString);
     } catch (parseErr) {
