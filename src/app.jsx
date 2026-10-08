@@ -3589,7 +3589,7 @@ function App() {
 
           if (touched) {
             merged.updatedAt = new Date().toISOString();
-            upsert('debts', merged);
+            upsert('debts', merged, { source: 'importacao' });
             cdaUpdated++;
           }
 
@@ -3604,7 +3604,7 @@ function App() {
                 logs.push(`  ⚠️ CDA ${rec.cdaNumber}: ajuizamento diverge — Nexus ${fmtDate(linkedExec.protocolDate)}, Debcad ${fmtDate(rec.protocolDate)}. Mantido o do Nexus; conferir nos autos.`);
               }
               if (rec.juizo && !linkedExec.court) { mergedExec.court = rec.juizo; execTouched = true; }
-              if (execTouched) upsert('executions', mergedExec);
+              if (execTouched) upsert('executions', mergedExec, { source: 'importacao' });
             }
           }
 
@@ -4016,7 +4016,7 @@ function App() {
                   merged._importFlag = 'updated';
                   merged._importFlagAt = new Date().toISOString();
                 }
-                upsert('intimations', merged, { keepImportFlag: true });
+                upsert('intimations', merged, { keepImportFlag: true, source: 'importacao' });
                 updCount++;
                 logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
               } else {
@@ -4038,7 +4038,7 @@ function App() {
                 unlinkedCount++;
                 logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
               }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true });
+              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true, source: 'importacao' });
               newCount++;
               if (!toDayKey(intim.dateDeadline)) logs.push(`⚠️ Sem prazo final: ${intim.processNumber} — não entra na agenda/e-mail até preencher Final Prazo`);
             }
@@ -4504,18 +4504,9 @@ function App() {
       const idx = list.findIndex(e => e.id === entity.id);
       const now = new Date().toISOString();
       // ─── CHANGE LOG: diffa campos auditáveis em edições (não em criações) ───
-      let logEntries = [];
-      if (idx >= 0 && AUDIT_FIELDS[col]) {
-        const before = list[idx];
-        AUDIT_FIELDS[col].forEach(f => {
-          if (!(f in entity)) return; // campo não tocado neste save
-          const a = before[f], b = entity[f];
-          const norm = (v) => Array.isArray(v) ? v.join(',') : (v === undefined || v === null ? '' : String(v));
-          if (norm(a) !== norm(b)) {
-            logEntries.push({ id: uid(), date: now, col, entityId: entity.id, ref: _entityRef(col, { ...before, ...entity }), operationId: entity.operationId || before.operationId || '', field: f, from: norm(a) || '(vazio)', to: norm(b) || '(vazio)' });
-          }
-        });
-      }
+      const logEntries = (idx >= 0 && AUDIT_FIELDS[col])
+        ? buildChangeLogEntries({ col, before: list[idx], entity, now, source: opts && opts.source, auditFields: AUDIT_FIELDS[col], refFn: _entityRef, uid })
+        : [];
       // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
       let toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
       // Marcador Novo/Atualizada: sai em qualquer edição de verdade. Abrir e só consultar não grava.
@@ -5132,7 +5123,7 @@ function App() {
                 if (linkedHolderId && !existsAsset.holderId) { updated.holderId = linkedHolderId; assetTouched = true; }
                 if (assetTouched) {
                   updated.updatedAt = new Date().toISOString();
-                  upsert('assets', updated);
+                  upsert('assets', updated, { source: 'importacao' });
                   logs.push(`ℹ️ Bem atualizado (merge): ${a.description}${a.registry?` [${a.registry}]`:''}`);
                 } else {
                   logs.push(`ℹ️ Bem já existe (sem mudanças): ${a.description}${a.registry?` [${a.registry}]`:''}`);
@@ -5153,7 +5144,7 @@ function App() {
                 notes: finalNotes,
                 analyticsRegistered: false
               };
-              upsert('assets', newAsset);
+              upsert('assets', newAsset, { source: 'importacao' });
               importCount++;
               logs.push(`✅ Bem importado: ${a.description}${a.registry?` [${a.registry}]`:''}${linkedHolderId ? ' (vinculado a titular)' : a._titularDoc ? ' ⚠ titular não cadastrado' : ''}`);
             });
@@ -5186,7 +5177,7 @@ function App() {
               res.debts.forEach(d => {
                 const existingDebt = data.debts.find(dd => dd.operationId === activeOpId && dd.cdaNumber === d.cdaNumber);
                 if (!existingDebt) {
-                  upsert('debts', { ...d, id: uid(), operationId: activeOpId, personId });
+                  upsert('debts', { ...d, id: uid(), operationId: activeOpId, personId }, { source: 'importacao' });
                   importCount++;
                 } else {
                   // Merge: update system fields, preserve user data
@@ -5197,7 +5188,7 @@ function App() {
                   if (d.processNumber && d.processNumber !== existingDebt.processNumber) { merged.processNumber = d.processNumber; changed = true; }
                   if (d.inscriptionDate && !existingDebt.inscriptionDate) { merged.inscriptionDate = d.inscriptionDate; changed = true; }
                   if (changed) {
-                    upsert('debts', merged);
+                    upsert('debts', merged, { source: 'importacao' });
                     logs.push(`🔄 CDA atualizada: ${d.cdaNumber}`);
                   } else {
                     logs.push(`ℹ️ CDA sem alteração: ${d.cdaNumber}`);
@@ -5528,7 +5519,7 @@ function App() {
       }
     });
     res.assets.forEach(a => {
-      upsert('assets', { ...a, id: uid(), operationId: activeOpId });
+      upsert('assets', { ...a, id: uid(), operationId: activeOpId }, { source: 'importacao' });
       logs.push(`✅ Bem: ${a.description}`);
       count++;
     });
@@ -5555,7 +5546,7 @@ function App() {
       if (exists) {
         logs.push(`ℹ️ Já existe (registro ${a.registry}): ${exists.description}`);
       } else {
-        upsert('assets', { ...a, id: uid() });
+        upsert('assets', { ...a, id: uid() }, { source: 'importacao' });
         const holderName = a.holderId ? data.people.find(p => p.id === a.holderId)?.name : a.holderDoc;
         logs.push(`✅ ${ASSET_SUBTYPES[a.subtype] || a.subtype}: ${a.description}${a.registry ? ` [${a.registry}]` : ''}${holderName ? ` — ${holderName}` : ''}${a.source ? ` (${a.source})` : ''}`);
         count++;
@@ -5670,86 +5661,11 @@ function App() {
       const wholeOp = !!period.wholeOp;
       const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
       const toIso = wholeOp ? todayIso : (period.to || todayIso);
-      const inPeriod = (iso) => { const k = toDayKey(iso); return !!k && k >= fromIso && k <= toIso; };
-      const events = [];
-      opIntimsAll.forEach(x => {
-        const respAt = x.responseAction && x.responseAction.respondedAt;
-        const d = respAt ? toDayKey(respAt) : '';
-        if (!d || !inPeriod(d)) return;
-        const a = x.responseAction || {};
-        const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
-      });
-      // Atuações proativas (execution.proactiveActions): entram como as respostas a intimações — só o resumo (o texto da peça não vai).
-      opExecs.forEach(ex => (Array.isArray(ex.proactiveActions) ? ex.proactiveActions : []).forEach(a => {
-        const d = a && (toDayKey(a.date) || toDayKey(a.createdAt));
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Atuação', text: `Atuação proativa${a.summary ? ' — ' + a.summary : ''}`, mono: ex.processNumber || '' });
-      }));
-      opDocuments.forEach(doc => {
-        const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Peça', text: doc.title || doc.type || 'Documento', mono: doc.processNumber || '' });
-      });
-      opExecs.forEach(ex => {
-        const recs = getStageRecords(briefing, ex.id);
-        Object.keys(recs).forEach(k => {
-          const rec = recs[k];
-          if (!rec || !rec.date) return;
-          const d = toDayKey(rec.date);
-          if (!d || !inPeriod(d)) return;
-          const STG = isEfStylePanoramaCard(ex) ? CENTRAL_STAGES : PROCESS_STAGES;
-          const sd = resolveStageDef(STG, k, rec);
-          const isFree = !STG[k];
-          events.push({ date: d, dateLabel: fmtDate(d), kind: isFree ? 'Fase' : 'Fase', text: `${isFree ? 'Evento livre: ' : ''}${sd.label}${rec.texto ? ' — ' + rec.texto : ''}`, mono: ex.processNumber || '' });
-        });
-      });
-      (data.prescriptionEvents || []).forEach(pe => {
-        if (!pe || pe.operationId !== opId) return;
-        const d = pe.date ? toDayKey(pe.date) : '';
-        if (!d || !inPeriod(d)) return;
-        const debt = opDebts.find(x => x.id === pe.debtId);
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Evento lançado: ${pe.type || 'evento'}${debt ? ' · CDA ' + (debt.cdaNumber || debt.id) : ''}` });
-      });
-      opDebts.forEach(dbt => {
-        if (!dbt.prescriptionHandledAt) return;
-        const d = toDayKey(dbt.prescriptionHandledAt);
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Prescrição tratada — CDA ${dbt.cdaNumber || dbt.id}` });
-      });
-      getBriefingEntries(briefing).forEach(en => {
-        const d = en.eventDate ? toDayKey(en.eventDate) : (en.createdAt ? toDayKey(en.createdAt) : '');
-        if (!d || !inPeriod(d)) return;
-        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-        const plain = String(en.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Diário', text: `${t.label}: ${truncate(plain, 140)}` });
-      });
-      opReminders.forEach(rm => {
-        const d = toDayKey(rm.createdAt || rm.updatedAt);
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Lembrete', text: truncate(rm.content || '', 140) });
-      });
-      opHearings.forEach(h => {
-        if (h.status !== 'realizada') return;
-        const d = h.date ? toDayKey(h.date) : '';
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Audiência', text: `Realizada — ${CX_HEARING[h.hearingType] || 'Audiência'}${h.parties ? ': ' + h.parties : ''}`, mono: h.processNumber || '' });
-      });
-      const taskLabelByCol = { status: 'Status', dueDate: 'Vencimento' };
-      opChangeLog.forEach(le => {
-        const d = le.date ? toDayKey(le.date) : '';
-        if (!d || !inPeriod(d)) return;
-        if (le.col === 'tasks' && le.field === 'status' && le.to === 'concluida') {
-          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Tarefa', text: `Concluída: ${le.ref || ''}` });
-        } else if (le.col === 'assets' && le.field === 'status') {
-          const toLabel = (ASSET_STATUSES[le.to] || {}).label || le.to;
-          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Constrição', text: `${le.ref || 'Bem'} → ${toLabel}` });
-        } else if ((le.col === 'executions' || le.col === 'debts') && le.field === 'status') {
-          const map = le.col === 'executions' ? EXEC_STATUSES : DEBT_STATUSES;
-          const toLabel = (map[le.to] || {}).label || le.to;
-          events.push({ date: d, dateLabel: fmtDate(d), kind: le.col === 'executions' ? 'Fase' : 'Prescrição', text: `${le.ref || ''} → ${toLabel}` });
-        }
-      });
+      const events = collectOperationEvents({
+        op, opDebts, opExecs, opAssets, opIntimsAll, opDocuments, opHearings, opReminders, opChangeLog, briefing,
+        prescriptionEvents: data.prescriptionEvents || [],
+        deps: { getStageRecords, resolveStageDef, isEfStylePanoramaCard, PROCESS_STAGES, CENTRAL_STAGES, getBriefingEntries, BRIEFING_ENTRY_TYPES, CX_HEARING, ASSET_STATUSES, EXEC_STATUSES, DEBT_STATUSES },
+      }, { fromIso, toIso });
       const periodLabel = wholeOp ? `desde o início da operação até ${fmtDate(todayIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
       return {
         model, op: reportOp, sections, generatedAtLabel, periodLabel,
@@ -12978,7 +12894,7 @@ function App() {
                   <span style={{color:'var(--text-muted)',fontSize:9,fontFamily:'var(--font-mono)'}}>{new Date(le.date).toLocaleString('pt-BR')}</span>
                 </div>
                 <div style={{color:'var(--text-secondary)',marginTop:2}}>
-                  {fieldLabels[le.field] || le.field}: <span style={{color:'var(--text-muted)',textDecoration:'line-through'}}>{truncate(le.from, 40)}</span> → <span style={{color:'var(--gold)',fontWeight:600}}>{truncate(le.to, 40)}</span>
+                  {fieldLabels[le.field] || le.field}{le.source === 'importacao' && <span title="Alteração feita por importação" style={{marginLeft:6,fontSize:9,padding:'0 5px',borderRadius:999,border:'1px solid var(--border)',color:'var(--text-muted)'}}>importação</span>}: <span style={{color:'var(--text-muted)',textDecoration:'line-through'}}>{truncate(le.from, 40)}</span> → <span style={{color:'var(--gold)',fontWeight:600}}>{truncate(le.to, 40)}</span>
                   {op && <span style={{color:'var(--text-muted)',fontSize:9}}> · {op.name}</span>}
                 </div>
               </div>);

@@ -146,6 +146,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(agendaPath, 'utf8')),
   '/* --- src/lib/report.js --- */',
   unwrapModule(fs.readFileSync(reportPath, 'utf8')),
+  '/* --- src/lib/accounting.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'accounting.js'), 'utf8')),
   '/* --- src/lib/esteira.js --- */',
   unwrapModule(fs.readFileSync(esteiraPath, 'utf8')),
   '/* --- src/lib/rich-text.js --- */',

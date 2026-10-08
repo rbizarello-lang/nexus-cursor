@@ -19,6 +19,7 @@ var BACKUP_WEEK_PREFIX = 'nexus_backup_week_';
 var BACKUP_KEEP_DAYS = 14;
 var BACKUP_KEEP_WEEKS = 8;
 var LOG_SHEET_NAME = 'NEXUS_Log';
+var LOG_MAX_ROWS = 500;
 
 function doGet(e) {
   var action = e && e.parameter ? e.parameter.action : null;
@@ -300,12 +301,19 @@ function saveNexusData(jsonString, expectedRev, force) {
     }
 
     // Log na planilha (aba dedicada — não a aba ativa)
-    var sheet = getLogSheet_();
-    var nextRow = Math.min(sheet.getLastRow() + 1, 200);
-    if (nextRow < 2) nextRow = 2;
-    sheet.getRange('A1').setValue('NEXUS Data → ' + DATA_FILENAME + ' (' + (jsonString.length / 1024).toFixed(1) + ' KB)');
-    sheet.getRange('A' + nextRow).setValue(new Date().toLocaleString('pt-BR'));
-    sheet.getRange('B' + nextRow).setValue((jsonString.length / 1024).toFixed(1) + ' KB');
+    // Falha no log nunca derruba o save (arquivo já gravado)
+    try {
+      var sheet = getLogSheet_();
+      sheet.getRange('A1').setValue('NEXUS Data → ' + DATA_FILENAME + ' (' + (jsonString.length / 1024).toFixed(1) + ' KB)');
+      var nextRow = Math.max(sheet.getLastRow() + 1, 2);
+      sheet.getRange('A' + nextRow).setValue(new Date().toLocaleString('pt-BR'));
+      sheet.getRange('B' + nextRow).setValue((jsonString.length / 1024).toFixed(1) + ' KB');
+      // Mantém só os últimos LOG_MAX_ROWS registros (abaixo do cabeçalho)
+      var excedente = sheet.getLastRow() - 1 - LOG_MAX_ROWS;
+      if (excedente > 0) sheet.deleteRows(2, excedente);
+    } catch (logErr) {
+      Logger.log('Log planilha: ' + logErr.message);
+    }
 
     return {
       success: true,
