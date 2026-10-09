@@ -34,6 +34,8 @@ import {
   filterMesaItems,
   filterMesaCards,
   mesaCedoCount,
+  mesaDecadenciaItems,
+  mesaDecadenciaOf,
   mesaHasCut,
   mesaActiveFilters,
   mesaRemovePatch,
@@ -1028,5 +1030,46 @@ describe('Mesa — fase 3: texto «Foi para»', () => {
     assert.equal(mesaDestText(by, ['zz'], {}), '');
     assert.equal(mesaCardName('antigas'), 'Consumadas antigas');
     assert.equal(mesaDestText(new Map([['a', { card: 'vigiar' }], ['b', { card: 'vigiar' }]]), ['a', 'b'], { a: 'fato', b: 'fato' }), 'Foram para «Só vigiar».');
+  });
+});
+
+describe('Mesa — decisão 8: seção Decadência (só consulta)', () => {
+  const T = '2026-10-09';
+  const mk = (id, over = {}) => ({ debt: { id, cdaNumber: 'C' + id, operationId: 'o1', value: 100, ...over }, debtId: id, value: over.value != null ? over.value : 100, card: 'vigiar' });
+  const items = [
+    mk('sem'),
+    mk('cons', { launchMode: 'oficio', taxPeriodEnd: '2010-12-31', constitutionDate: '2020-01-01', value: 500 }),
+    mk('ok', { launchMode: 'oficio', taxPeriodEnd: '2022-12-31', constitutionDate: '2023-06-01' }),
+    mk('risco', { launchMode: 'oficio', taxPeriodEnd: '2010-12-31', inscriptionDate: '2020-01-01', value: 900 }),
+    mk('decl', { launchMode: 'declarado', taxPeriodEnd: '2015-12-31' }),
+    mk('cons2', { launchMode: 'oficio', taxPeriodEnd: '2010-12-31', constitutionDate: '2021-01-01', value: 800 })
+  ];
+  it('separa «a conferir» e «sem dados»; obstada e declarada ficam de fora', () => {
+    const r = mesaDecadenciaItems({ items, today: T });
+    assert.deepEqual(r.conferir.map(e => e.debtId), ['cons2', 'cons', 'risco']);
+    assert.deepEqual(r.semDados.map(e => e.debtId), ['sem']);
+    assert.equal(r.n, 4);
+  });
+  it('campo a editar e texto sem jargão', () => {
+    const r = mesaDecadenciaItems({ items, today: T });
+    assert.equal(r.semDados[0].focus, 'taxPeriodEnd');
+    assert.ok(r.conferir.every(e => e.focus === 'constitutionDate'));
+    r.conferir.concat(r.semDados).forEach(e => {
+      assert.ok(e.text.length > 0);
+      assert.doesNotMatch(e.text, /S[uú]mula|Tema \d|\(\s*\)/);
+    });
+    assert.match(r.conferir.find(e => e.debtId === 'risco').text, /verificar/i);
+  });
+  it('não altera os itens nem os totais dos cartões; lista vazia dá zero', () => {
+    const before = JSON.stringify(items);
+    mesaDecadenciaItems({ items, today: T });
+    assert.equal(JSON.stringify(items), before);
+    assert.deepEqual(mesaDecadenciaItems({ items: [], today: T }), { conferir: [], semDados: [], n: 0 });
+    assert.deepEqual(mesaDecadenciaItems({ today: T }), { conferir: [], semDados: [], n: 0 });
+  });
+  it('memoriza por CDA e data', () => {
+    const d = items[1].debt;
+    assert.strictEqual(mesaDecadenciaOf(d, T), mesaDecadenciaOf(d, T));
+    assert.notStrictEqual(mesaDecadenciaOf(d, T), mesaDecadenciaOf(d, '2026-10-10'));
   });
 });

@@ -7806,7 +7806,7 @@ function App() {
                   <Copyable value={d.cdaNumber}>{d.cdaNumber || 'CDA'}</Copyable></div><div className="ec-sub">{d.system?`${d.system}`:''}{d.system && d.tribute?' · ':''}{d.tribute||''}</div></div>
                   <div style={{display:'flex',gap:4,alignItems:'center'}}>
                     <span className={`badge ${st.badge||''}`}>{st.label||d.status}</span>
-                    {deca && (deca.status === 'consumada' || deca.status === 'risco') && <span className={`badge ${deca.status === 'consumada' ? 'badge-red' : 'badge-yellow'} has-tip`} style={{fontSize:8}}>Decad.<span className="tip-content">{deca.detail}</span></span>}
+                    {deca && (deca.status === 'consumada' || deca.status === 'risco') && <span className="badge badge-muted-strong has-tip" style={{fontSize:8}}>Decad.<span className="tip-content">Decadência: só consulta, não gera aviso. {deca.detail}</span></span>}
                     {isAjuizada ? <span className="badge badge-green has-tip" style={{fontSize:8}} title="Ajuizada">AJ<span className="tip-content">CDA ajuizada — vinculada a uma execução fiscal.</span></span> : <span className="badge badge-red has-tip" style={{fontSize:8}} title="Não ajuizada">NÃO AJ<span className="tip-content">CDA ainda não ajuizada — apenas inscrita em dívida ativa.</span></span>}
                     {procStatusAlert && <span className="has-tip" style={{fontSize:9,padding:'2px 6px',borderRadius:3,fontWeight:700,background:procStatusAlert.processStatus==='extinta'?'rgba(122,139,163,0.2)':'rgba(59,130,246,0.2)',color:procStatusAlert.processStatus==='extinta'?'var(--purple)':'var(--blue)'}}>⚠ Proc. {procStatusAlert.processStatus==='extinta'?'extinto':'arquivado'}<span className="tip-content">{procStatusAlert.label}<br/>Verificar se a CDA também deve ser marcada como extinta/baixada.</span></span>}
                   </div></div>
@@ -10277,6 +10277,8 @@ function App() {
     setOpen: setMesaOpen,
     fiscalExecsOf: mesaFiscalExecsOf,
     openCda: (r) => openCdaInscricoes(r, { scrollCols: true }),
+    // Decadência (só consulta e edição): abre a ficha da CDA já no campo a corrigir.
+    editCda: (debt, field) => setModal({ type: 'edit', entityType: 'debt', initial: { ...debt, _focusField: field || '' } }),
     openEvent: (r, extra) => openPrescEventForRow(r, extra),
     ops: {
       fato: mesaDoFato, tratar: mesaDoTratar, destratar: mesaDoDestratar, adiar: mesaDoAdiar, ajuizar: mesaDoAjuizar,
@@ -10418,6 +10420,8 @@ function App() {
     const fctx = { personIds, personOf, opNameOf, prescLookup };
     const fl = filterMesaCards(mc, pf, fctx);
     const by = fl.by, tot = fl.totals;
+    // Decadência (decisão 8): mesmo universo (operação, pessoa, busca, valor); natureza e marcações não se aplicam.
+    const decaDec = mesaSec ? null : mesaDecadenciaItems({ items: filterMesaItems(mc.items, { ...pf, nat: '', cedoTarde: false, idpj: false }, fctx), today: mz.today });
     const mesaJoin = !!pf.juntar;
     const chips = mesaActiveFilters(pf, { opName: opNameOf(pf.operationId), personName: (peopleById.get(pf.personId) || {}).name });
     const nPanel = chips.filter(c => c.panel).length;
@@ -10525,6 +10529,7 @@ function App() {
         <MesaFeitoStrip mz={mz} ui="classic" />
         {MESA_CARDS.map(section)}
         {(!anyItem || (mesaSec && !by[mesaSec].length)) && <section className="mesa-block"><p className="mesa-empty">Nenhuma CDA neste recorte.</p></section>}
+        {!mesaSec && <MesaDecadencia dec={decaDec} mz={mz} ui="classic" opNameOf={opNameOf} personOf={personOf} />}
         <MesaBatchBar items={fl.items.filter(it => mesaSel.has(it.debtId))} mz={mz} ui="classic" />
         </div>
       </div>
@@ -14650,6 +14655,88 @@ function MesaActs({ item, mz, ui, skipPrimary }) {
     <button type="button" className={B.sec} data-act="abrir" onClick={() => mz.openCda(r)}>Abrir</button>
   </>;
 }
+/** Decisão 8 — seção «Decadência» no fim da Mesa: só consulta e edição. Sem cartão, sem número no topo,
+ *  fora de todo total; cinza em tudo. dec = mesaDecadenciaItems(...). */
+function MesaDecadencia({ dec, mz, ui, opNameOf, personOf }) {
+  const cx = ui === 'cx';
+  const B = mzfBtn(ui);
+  const [open, setOpen] = useState(false);
+  const [lim, setLim] = useState({ c: 40, s: 40 });
+  if (!dec || !dec.n) return null;
+  const PAGE = 40;
+  const lead = 'Só consulta e edição; nunca gera aviso.';
+  const row = (e) => {
+    const d = e.item.debt;
+    const r = { id: d.id, operationId: d.operationId, processNumber: d.processNumber, cdaNumber: d.cdaNumber };
+    const opName = String(opNameOf(d.operationId) || '').replace(/^Opera[çc][ãa]o\s+/i, '');
+    const person = personOf(d);
+    const acts = <>
+      <button type="button" className={B.sec} data-act="deca-editar" title={e.status === 'sem_dados' ? 'Abre a ficha no período de apuração' : 'Abre a ficha na constituição definitiva'} onClick={() => mz.editCda(d, e.focus)}>Editar</button>
+      <button type="button" className={B.sec} data-act="abrir" onClick={() => mz.openCda(r)}>Abrir</button>
+    </>;
+    return cx ? (
+      <div key={e.debtId} className="cx-mesa-row cx-mesa-lite mz-deca-row" data-cda-id={e.debtId}>
+        <div className="cx-mesa-main">
+          <div className="cx-mesa-id"><span className="cx-mono cx-mesa-cda">{d.cdaNumber || 'S/N'}</span></div>
+          <div className="cx-mesa-why">{e.text}</div>
+          <div className="cx-mesa-meta">
+            {opName ? <span className="cx-op-tag"><CxOpSquare opId={d.operationId} /><span className="cx-ell">{opName}</span></span> : null}
+            {d.processNumber ? <CxProc num={d.processNumber} /> : <span className="cx-muted">sem processo</span>}
+            {person ? <span className="cx-ell cx-muted">{person}</span> : null}
+          </div>
+        </div>
+        <div className="cx-mesa-side"><span className="cx-mesa-val">{fmtCur(e.item.value || 0)}</span></div>
+        <div className="cx-mesa-acts">{acts}</div>
+      </div>
+    ) : (
+      <div key={e.debtId} className="mesa-row mesa-lite mz-deca-row" data-cda-id={e.debtId}>
+        <div className="mesa-row-main">
+          <span className="mesa-cda">{d.cdaNumber || 'S/N'}</span>
+          <span className="mesa-proc">{d.processNumber ? <ProcNum value={d.processNumber} /> : 'sem processo'}</span>
+          <span className="mesa-why">{e.text}</span>
+          {opName && <span className="mesa-proc" title="Operação">{opName}</span>}
+          {person && <span className="mesa-proc" title="Devedor">{person}</span>}
+          <span className="mesa-side"><span className="mesa-val">{fmtCur(e.item.value || 0)}</span></span>
+        </div>
+        <div className="mesa-row-actions">{acts}</div>
+      </div>
+    );
+  };
+  const group = (key, label, list) => {
+    if (!list.length) return null;
+    const n = lim[key];
+    const rest = list.length - n;
+    return <>
+      <div className={(cx ? 'cx-pz-gh' : 'mz-gh') + ' mz-deca-gh'}>{label}<span className={cx ? 'cx-n' : 'mz-n'}>{list.length}</span></div>
+      {list.slice(0, n).map(row)}
+      {rest > 0 ? (cx
+        ? <button type="button" className="cx-pz-more" onClick={() => setLim(m => ({ ...m, [key]: n + PAGE }))}>Mostrar mais {Math.min(PAGE, rest)} de {rest} restantes<CxIcon n="chevD" s={13} /></button>
+        : <button type="button" className="mz-more" onClick={() => setLim(m => ({ ...m, [key]: n + PAGE }))}>Mostrar mais {Math.min(PAGE, rest)} de {rest} restantes ▾</button>) : null}
+    </>;
+  };
+  const body = <>
+    <p className={cx ? 'cx-pz-deca-lead' : 'mesa-empty mz-deca-lead'}>{lead} Cada CDA continua no cartão do seu prazo; a decadência é uma coluna de toda CDA e não entra em nenhuma soma.</p>
+    {group('c', 'A conferir', dec.conferir)}
+    {group('s', 'Sem dados para calcular', dec.semDados)}
+  </>;
+  return cx ? (
+    <section className="cx-card cx-pz-deca" id="cx-pz-sec-decadencia">
+      <button type="button" className="cx-pz-fold" onClick={() => setOpen(v => !v)} aria-expanded={open} title={lead}>
+        <span className="cx-caret" style={{ transform: open ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
+        <b>Decadência</b><span className="cx-pz-fold-s">só consulta e edição; nunca gera aviso</span>
+      </button>
+      {open ? body : null}
+    </section>
+  ) : (
+    <section className="mesa-block mz-deca" id="mz-sec-decadencia">
+      <button type="button" className="mz-fold" onClick={() => setOpen(v => !v)} aria-expanded={open} title={lead}>
+        <span className="mz-caret">{open ? '▾' : '▸'}</span>
+        <b>Decadência</b><span className="mz-fold-s">só consulta e edição; nunca gera aviso</span>
+      </button>
+      {open ? body : null}
+    </section>
+  );
+}
 /** Formulário aberto na própria linha, se for esta a CDA. */
 function MesaInline({ item, mz, ui }) {
   const o = mz.open;
@@ -15128,16 +15215,16 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
         </label>
         <div className="form-row-3" style={{marginBottom:0}}>
           <div className="form-group"><label>Modalidade de lançamento</label>
-            <select value={form.launchMode||''} onChange={e=>set('launchMode',e.target.value)} style={{fontSize:11}}>
+            <select data-focus="launchMode" value={form.launchMode||''} onChange={e=>set('launchMode',e.target.value)} style={{fontSize:11}}>
               <option value="">Não informada</option>
               {Object.entries(LAUNCH_MODES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div className="form-group"><label>{form.launchMode==='vicio_formal'?'Decisão anulatória definitiva':'Fim do período de apuração'}</label>
-            <input type="date" value={form.taxPeriodEnd||''} onChange={e=>set('taxPeriodEnd',e.target.value)} />
+            <input data-focus="taxPeriodEnd" type="date" value={form.taxPeriodEnd||''} onChange={e=>set('taxPeriodEnd',e.target.value)} />
           </div>
           <div className="form-group"><label>Constituição definitiva (se conhecida)</label>
-            <input type="date" value={form.constitutionDate||''} onChange={e=>set('constitutionDate',e.target.value)} />
+            <input data-focus="constitutionDate" type="date" value={form.constitutionDate||''} onChange={e=>set('constitutionDate',e.target.value)} />
           </div>
         </div>
         <div className="form-row-3" style={{marginBottom:0}}>

@@ -4479,6 +4479,8 @@ function EditionClaudePrazos(p) {
   const fctx = { personIds, personOf, opNameOf: (id) => { const o = opsById.get(id); return (o && o.name) || ''; }, prescLookup: a.presc };
   const fl = filterMesaCards(mc, pf, fctx);
   const by = fl.by, tot = fl.totals;
+  // Decadência (decisão 8): mesmo universo (operação, pessoa, busca, valor); natureza e marcações não se aplicam.
+  const decaDec = (view === 'relogios' || sec) ? null : mesaDecadenciaItems({ items: filterMesaItems(mc.items, { ...pf, nat: '', cedoTarde: false, idpj: false }, fctx), today });
   const cedoN = painel ? mesaCedoCount(mc, pf, fctx) : 0;
   const chips = mesaActiveFilters(pf, { opName: pf.operationId && opsById.get(pf.operationId) ? cxOpName(opsById.get(pf.operationId)) : '', personName: (peopleById.get(pf.personId) || {}).name });
   const nPanel = chips.filter(c => c.panel).length;
@@ -4556,6 +4558,7 @@ function EditionClaudePrazos(p) {
     <MesaFeitoStrip mz={a.mz} ui="cx" />
     {MESA_CARDS.map(section)}
     {!anyItem || (sec && !by[sec].length) ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA neste recorte.</div></div> : null}
+    {!sec ? <MesaDecadencia dec={decaDec} mz={a.mz} ui="cx" opNameOf={opNameOf} personOf={personOf} /> : null}
     <MesaBatchBar items={fl.items.filter(it => a.mz.sel.has(it.debtId))} mz={a.mz} ui="cx" />
 
     <div className="cx-pz-legend">
@@ -6824,7 +6827,7 @@ function EditionClaudeProcDrawer(p) {
    da ficha do processo, aba CDAs). Só leitura do motor de prescrição existente — nenhum
    cálculo novo aqui. Pronta para reuso pela futura aba Inscrições (props explícitas). */
 
-/** Três contagens empilhadas (decadência/ordinária/intercorrente), a mais grave primeiro —
+/** Três contagens empilhadas (intercorrente/ordinária/decadência, a ordem da Mesa; decadência por último) —
  *  mesmo cálculo que a aba CDAs da ficha do processo já fazia inline; extraído para reuso. */
 function CxCdaPrescStack({ debt, data, togglePrescCheck, setData }) {
   const tl = computeCdaLegalTimeline({ debt, executions: data.executions, events: data.prescriptionEvents || [] });
@@ -6835,10 +6838,9 @@ function CxCdaPrescStack({ debt, data, togglePrescCheck, setData }) {
     setData(prev => ({ ...prev, prescriptionEvents: (prev.prescriptionEvents || []).map(ev => ev.id === eventId ? { ...ev, verifiedAt: today, updatedAt: now } : ev) }));
     cxNotify('Pausa conferida hoje');
   } : undefined;
-  const segKeys = ['decadencia', 'ordinaria', 'intercorrente'].filter(k => tl[k]);
-  const ordered = tl.worst && tl.worst.key && segKeys.includes(tl.worst.key)
-    ? [tl.worst.key, ...segKeys.filter(k => k !== tl.worst.key)]
-    : segKeys;
+  // Mesma ordem da Mesa: intercorrente se a CDA está ajuizada, senão ordinária; a decadência vem por último
+  // (só consulta). O «pior» do motor não manda na ordem da tela.
+  const ordered = (tl.exec ? ['intercorrente', 'ordinaria', 'decadencia'] : ['ordinaria', 'intercorrente', 'decadencia']).filter(k => tl[k]);
   return <div className="cx-pd-cda-stack">
     {ordered.map((k, i) => <CdaPrescColumns key={k} timeline={{ [k]: tl[k], exec: tl.exec }} debt={debt} onToggleCheck={togglePrescCheck} onOpenRules={() => { }} onConfirmPause={i === 0 ? confirmPause : undefined} isDemo={false} />)}
   </div>;
@@ -7619,7 +7621,7 @@ function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, d
     <td className="cx-inc-resp"><ResponsibilityChips cdaId={d.id} data={data} onClickPerson={() => { }} /></td>
     <td className="cx-pt-st">
       <span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || d.status || '—'}</span>
-      {deca && (deca.status === 'consumada' || deca.status === 'risco') ? <span className={'cx-tag ' + (deca.status === 'consumada' ? 'red' : 'orange')} title={deca.detail}>Decad.</span> : null}
+      {deca && (deca.status === 'consumada' || deca.status === 'risco') ? <span className="cx-tag" title={'Decadência: só consulta, não gera aviso. ' + deca.detail}>Decad.</span> : null}
       {procStatusAlert ? <span className="cx-tag orange" title={procStatusAlert.label}>⚠ Proc. {procStatusAlert.processStatus === 'extinta' ? 'extinto' : 'arquivado'}</span> : null}
     </td>
     <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>

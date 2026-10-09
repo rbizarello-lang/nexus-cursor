@@ -7,6 +7,7 @@ import {
   PENHORA_ANALISE_VALIDADE,
   PRESC_SNOOZE_REASONS,
   collectEventsForCda,
+  computeDecadencia,
   createPrescLookup,
   penhoraAntigaInfo,
   snoozeLimitDays
@@ -1283,4 +1284,62 @@ export function mesaDadoCampos(field) {
   return field === 'constituicao'
     ? [['dueDate', 'Vencimento'], ['constitutionDate', 'Constituição definitiva']]
     : [['prescriptionDate', 'Data de prescrição (ficha)'], ['inscriptionDate', 'Inscrição em dívida ativa'], ['dueDate', 'Vencimento'], ['constitutionDate', 'Constituição definitiva']];
+}
+
+/* ───────────────────────── Decisão 8 · seção «Decadência» ─────────────────────────
+ * Só consulta e edição: sem cartão, sem número no topo, fora de todo total e contador.
+ * Cada CDA continua no cartão do seu prazo; a decadência é uma coluna de toda CDA, não um conjunto. */
+
+const DECADENCIA_CACHE = new WeakMap();
+
+/** Decadência da CDA (computeDecadencia), memorizada por objeto da CDA e data: a carteira real tem ~3.600. */
+export function mesaDecadenciaOf(debt, todayIso) {
+  if (!debt) return null;
+  const hit = DECADENCIA_CACHE.get(debt);
+  if (hit && hit.asOf === todayIso) return hit.dec;
+  const dec = computeDecadencia(debt, todayIso);
+  DECADENCIA_CACHE.set(debt, { asOf: todayIso, dec });
+  return dec;
+}
+
+/** Texto neutro da situação da decadência (sem número de Tema ou súmula, sem sobras de parênteses). */
+export function mesaDecadenciaText(dec) {
+  if (!dec) return '';
+  // No «risco» o resumo do motor fala em «prazo em curso»; o detalhe é o que diz o que conferir.
+  const raw = dec.status === 'risco' ? (dec.detail || dec.summary) : (dec.summary || dec.detail);
+  return betaSafeUiText(raw).replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * CDAs da Mesa cuja decadência pede conferência ou não pôde ser calculada.
+ * items: itens de buildMesaCards já filtrados (operação, pessoa, busca e valor).
+ * Devolve { conferir, semDados, n }: «A conferir» (consumada ou risco) e «Sem dados para calcular».
+ * Cada entrada: { item, debtId, status, dec, text, focus } — focus é o campo da ficha a editar.
+ * O cálculo é só dos itens recebidos. Não altera os cartões nem os totais.
+ */
+export function mesaDecadenciaItems({ items, today, decadenciaOf } = {}) {
+  const of = decadenciaOf || ((d) => mesaDecadenciaOf(d, today));
+  const conferir = [];
+  const semDados = [];
+  (items || []).forEach(item => {
+    const debt = item && item.debt;
+    if (!debt) return;
+    const dec = of(debt);
+    if (!dec) return;
+    const status = dec.status;
+    if (status !== 'consumada' && status !== 'risco' && status !== 'sem_dados') return;
+    const entry = {
+      item, debtId: item.debtId, status, dec,
+      text: mesaDecadenciaText(dec),
+      focus: status === 'sem_dados' ? 'taxPeriodEnd' : 'constitutionDate'
+    };
+    (status === 'sem_dados' ? semDados : conferir).push(entry);
+  });
+  const rank = (e) => (e.status === 'consumada' ? 0 : 1);
+  const cmp = (a, b) => (rank(a) - rank(b))
+    || ((Number(b.item.value) || 0) - (Number(a.item.value) || 0))
+    || String(a.item.debt.cdaNumber || '').localeCompare(String(b.item.debt.cdaNumber || ''), 'pt-BR');
+  conferir.sort(cmp);
+  semDados.sort(cmp);
+  return { conferir, semDados, n: conferir.length + semDados.length };
 }
