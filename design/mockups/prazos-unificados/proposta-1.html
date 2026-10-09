@@ -45,7 +45,7 @@
   #proposta-1 .p1-eixo-sub { font-size: 12px; color: var(--nx-ink-3); }
   #proposta-1 .p1-axis { --w1: 1.3fr; --w2: 1.2fr; --w3: 2fr; --w4: 1.1fr; --w5: 0.9fr; --w6: 0.85fr; display: grid; grid-template-columns: var(--p1-gut) minmax(0, var(--w1)) minmax(0, var(--w2)) minmax(0, var(--w3)) minmax(0, var(--w4)) minmax(0, var(--w5)) minmax(0, var(--w6)); background: var(--nx-surface); transition: grid-template-columns 0.25s; }
   #proposta-1 .p1-gut { display: flex; flex-direction: column; min-width: 0; background: var(--nx-surface); }
-  #proposta-1 .p1-gh { height: 104px; border-bottom: 1px solid var(--nx-line); display: flex; align-items: flex-end; padding: 0 8px 8px 12px; font: 600 9.5px var(--nx-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--nx-ink-3); line-height: 1.3; }
+  #proposta-1 .p1-gh { height: 120px; border-bottom: 1px solid var(--nx-line); display: flex; align-items: flex-end; padding: 0 8px 8px 12px; font: 600 9.5px var(--nx-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--nx-ink-3); line-height: 1.3; }
   #proposta-1 .p1-gl { display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--nx-line); font-size: 11.5px; line-height: 1.3; }
   #proposta-1 .p1-gl b { font-weight: 600; font-size: 12px; }
   #proposta-1 .p1-gl span { color: var(--nx-ink-3); font-size: 11px; }
@@ -53,13 +53,13 @@
   #proposta-1 .p1-gl.B { height: 72px; }
   #proposta-1 .p1-gu { height: 24px; }
   #proposta-1 .p1-zone { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--nx-line); background: var(--zs); position: relative; }
-  #proposta-1 .p1-zh { display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; height: 104px; padding: 9px 10px 8px 12px; background: transparent; box-shadow: none; border: 0; border-top: 3px solid var(--zc); border-bottom: 1px solid var(--nx-line); text-align: left; cursor: pointer; min-width: 0; position: relative; }
+  #proposta-1 .p1-zh { display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; height: 120px; padding: 9px 10px 8px 12px; background: transparent; box-shadow: none; border: 0; border-top: 3px solid var(--zc); border-bottom: 1px solid var(--nx-line); text-align: left; cursor: pointer; min-width: 0; position: relative; }
   #proposta-1 .p1-curto { display: none; }
   #proposta-1 .p1-axis.has-lupa .p1-zone:not(.is-lupa) .p1-zh { padding-left: 8px; padding-right: 4px; }
   #proposta-1 .p1-axis.has-lupa .p1-zone:not(.is-lupa) .p1-zh .nx-stat-l:not(.p1-curto) { display: none; }
   #proposta-1 .p1-axis.has-lupa .p1-zone:not(.is-lupa) .p1-zh .p1-curto { display: block; font-size: 10.5px; }
   #proposta-1 .p1-zh:hover { background: color-mix(in srgb, var(--zc) 8%, transparent); }
-  #proposta-1 .p1-zh .nx-stat-l { color: var(--nx-ink); font-weight: 600; font-size: 11.5px; }
+  #proposta-1 .p1-zh .nx-stat-l { color: var(--nx-ink); font-weight: 600; font-size: 11.5px; white-space: normal; line-height: 1.25; }
   #proposta-1 .p1-zh .nx-stat-n { font-size: 26px; margin-top: 2px; }
   #proposta-1 .p1-zh .nx-stat-v { font-size: 12px; font-weight: 500; }
   #proposta-1 .p1-zh.is-active { background: color-mix(in srgb, var(--zc) 12%, var(--nx-surface)); }
@@ -139,7 +139,10 @@
   #proposta-1 .p1-gt { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
   #proposta-1 .p1-gt small { font-weight: 400; font-size: 11.5px; color: var(--nx-ink-3); }
   #proposta-1 .p1-gsub { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; color: var(--nx-ink-3); width: 100%; padding-left: 20px; margin-top: -2px; }
-  #proposta-1 .nx-row-side .nx-date + .nx-date { display: none; }
+  #proposta-1 .nx-row:not(.is-tese) .nx-row-side .nx-date + .nx-date { display: none; }
+  #proposta-1 .nx-seg-ctl { flex-wrap: wrap; max-width: 100%; }
+  #proposta-1 .p1-lane-cap { position: absolute; left: 6px; top: 6px; z-index: 2; max-width: calc(100% - 12px); font: 500 9.5px var(--nx-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--nx-orange); pointer-events: none; }
+  #proposta-1 .p1-step.is-later.z1::before { background: var(--nx-orange-soft); color: var(--nx-orange); }
   #proposta-1 .nx-row.dense .nx-row-side { flex-direction: column; }
   #proposta-1 .nx-row.p1-hl { box-shadow: inset 0 0 0 2px var(--nx-accent); background: color-mix(in srgb, var(--nx-accent-soft) 70%, var(--nx-surface)); }
   #proposta-1 .p1-chev { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; flex: none; color: var(--nx-ink-3); cursor: pointer; }
@@ -155,7 +158,7 @@
   #proposta-1 .p1-sub { margin: 0; border: 1px solid var(--nx-line); border-radius: var(--nx-r); overflow: hidden; background: var(--nx-surface); }
   #proposta-1 .p1-sub .nx-row:first-child { border-top: 0; }
   #proposta-1 .p1-sub .nx-row { padding-top: 7px; padding-bottom: 7px; }
-  #proposta-1 .p1-mini { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.85fr); border: 1px solid var(--nx-line); border-radius: var(--nx-r); overflow: hidden; background: var(--nx-surface); }
+  #proposta-1 .p1-mini { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 1.8fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.15fr); border: 1px solid var(--nx-line); border-radius: var(--nx-r); overflow: hidden; background: var(--nx-surface); }
   #proposta-1 .p1-mini-z { position: relative; height: 46px; background: var(--zs); border-left: 1px solid var(--nx-line); border-top: 3px solid var(--zc); opacity: 0.55; font: 500 9.5px var(--nx-mono); color: var(--nx-ink-3); padding: 3px 0 0 5px; white-space: nowrap; overflow: hidden; }
   #proposta-1 .p1-mini-z:first-child { border-left: 0; }
   #proposta-1 .p1-mini-z.on { opacity: 1; color: var(--nx-ink); font-weight: 600; }
@@ -204,6 +207,7 @@
     #proposta-1 .p1-zh .nx-stat-s { margin-left: auto; }
     #proposta-1 .p1-lane { display: flex; flex-wrap: wrap; gap: 8px 8px; height: auto !important; min-height: 0; padding: 4px 12px 10px; border-bottom: 0; background: transparent !important; }
     #proposta-1 .p1-lane::after { display: none !important; }
+    #proposta-1 .p1-lane-cap { position: static; flex: 1 1 100%; max-width: none; }
     #proposta-1 .p1-lane:not(:has(.p1-pin, .p1-bar)) { display: none; }
     #proposta-1 .p1-lane.B:has(.p1-pin, .p1-bar)::before { content: "só vigiar"; flex: 1 1 100%; font: 500 9.5px var(--nx-mono); color: var(--nx-blue); text-transform: uppercase; letter-spacing: 0.06em; }
     #proposta-1 .p1-bk, #proposta-1 .p1-bk.wide { display: contents; }
@@ -246,7 +250,7 @@
       </div>
       <label class="nx-sel"><span>Certeza</span><select id="p1-cert" aria-label="Certeza do prazo"><option value="">Todas</option><option value="calculado">Calculado</option><option value="faixa">Cedo–tarde</option><option value="dado">Falta dado</option><option value="analisar">Analisar</option></select></label>
     </div>
-    <div class="p1-resumo">      <button type="button" class="nx-fchip" id="p1-f-abr" aria-pressed="false">Abrangidas (IDPJ)</button>      <button type="button" class="nx-fchip" id="p1-f-grande" aria-pressed="false">De R$ 1 mi para cima</button><span id="p1-resumo"></span><button type="button" class="nx-fchip" id="p1-f-sim" aria-pressed="false" title="Mostra o eixo com centenas de CDAs sintéticas para ver como a agregação se comporta">Simular carteira grande</button></div>
+    <div class="p1-resumo">      <button type="button" class="nx-fchip" id="p1-f-abr" aria-pressed="false">Abrangidas (IDPJ)</button>      <button type="button" class="nx-fchip" id="p1-f-grande" aria-pressed="false">De R$ 1 mi para cima</button><span id="p1-resumo"></span><button type="button" class="nx-fchip" id="p1-f-sim" aria-pressed="false" title="Demonstração: mostra o eixo com centenas de CDAs sintéticas para ver como a agregação se comporta. Não é recurso da tela.">Demonstração: carteira grande</button></div>
   </div>
 
   <section id="p1-primeiro" aria-label="O que fazer primeiro"></section>
@@ -264,9 +268,9 @@
   <section class="nx-card p1-como" id="p1-como" aria-label="Como ler esta tela">
     <h2>Como ler esta tela</h2>
     <ol>
-      <li><b>Da esquerda para a direita.</b> O que já passou (confira o cálculo) → o que está no limite hoje → o que vence em 90 dias → depois. A lista abaixo do eixo segue a mesma ordem; o primeiro da lista é o mais atrasado.</li>
-      <li><b>Cada número do eixo é um trecho do relógio e todos somam sobre as mesmas CDAs:</b> uma CDA nunca está em dois trechos. Consumadas há mais de 6 meses, tratadas, adiadas, silenciadas e decadência ficam fora do relógio e não alarmam.</li>
-      <li><b>Linha de cima = há o que fazer; linha de baixo = só vigiar.</b> Bolinha redonda = execução já ajuizada; quadrada = falta ajuizar; tamanho = valor; número = CDAs do mesmo processo. Clique num trecho para ampliá-lo.</li>
+      <li><b>Da esquerda para a direita.</b> Consumadas há pouco (só conferir) → cedo venceu, tarde não → vence em 90 dias → depois. A lista abaixo do eixo segue a mesma ordem. O «1º que pede você» é o mais próximo de perder o crédito entre os que ainda se salvam.</li>
+      <li><b>Cada número do eixo é um trecho do relógio e todos somam sobre as mesmas CDAs:</b> uma CDA nunca está em dois trechos. Consumadas antigas, tratadas, adiadas e silenciadas ficam fora do relógio e não alarmam. A decadência é só consulta e nem entra na conta.</li>
+      <li><b>Linha de cima = pedem você; linha de baixo = só vigiar.</b> Bolinha redonda = execução já ajuizada; quadrada = falta ajuizar; tamanho = valor; número = CDAs do mesmo processo. Clique num trecho para ampliá-lo.</li>
     </ol>
   </section>
 
@@ -287,18 +291,18 @@
 
   /* ───────── os seis trechos do relógio ───────── */
   var ZONAS = [
-    { z: 1, nome: 'Venceu há até 6 meses', curto: 'Já venceu', nota: 'conferir o cálculo', n: 6, tom: 'orange',
-      dica: 'A data tarde também já passou, há no máximo 6 meses (consumada recente). O cálculo pode estar errado: confira nos autos antes de aceitar.' },
+    { z: 1, nome: 'Consumadas há pouco', curto: 'Há pouco', nota: 'só conferir o cálculo', n: 6, tom: 'orange',
+      dica: 'A data tarde também já passou, há no máximo 6 meses. O cálculo pode estar errado: confira nos autos antes de aceitar. Não é ação: é conferência.' },
     { z: 2, nome: 'Cedo venceu, tarde não', curto: 'Hoje', nota: 'ainda se pode salvar', n: 1, tom: 'red',
-      dica: 'A leitura mais desfavorável (data cedo) já venceu, mas a data tarde (tese da União) ainda não chegou, ou falta o dado que a fecharia. É onde o tempo está correndo agora.' },
+      dica: 'A leitura mais desfavorável (data cedo) já venceu, mas a data tarde ainda não chegou. É onde o tempo está correndo agora. As bolinhas seguem a data tarde, da mais próxima (esquerda) à mais distante.' },
     { z: 3, nome: 'Vence em 90 dias', curto: '90 dias', nota: '', n: 13, tom: 'orange', dica: 'A data cedo cai entre amanhã e daqui a 90 dias.' },
     { z: 4, nome: 'De 90 dias a 1 ano', curto: '1 ano', nota: '', n: 10, tom: 'yellow', dica: 'A data cedo cai depois de 90 dias e até 1 ano.' },
     { z: 5, nome: 'Depois de 1 ano', curto: 'Depois', nota: 'sem pressa', n: 4, tom: 'blue', dica: 'A data cedo cai a mais de 1 ano. Em geral, só acompanhar.' },
-    { z: 6, nome: 'Sem data', curto: 'Sem data', nota: 'nada a contar', n: 1, tom: 'muted', dica: 'Não há data para contar (falta protocolo ou análise caso a caso).' }
+    { z: 6, nome: 'Sem prazo calculável', curto: 'Sem prazo', nota: 'nada a contar', n: 1, tom: 'muted', dica: 'Não há prazo para contar: penhora antiga (análise caso a caso), CDA sem dados ou data que é só o registro de um fato, não um prazo.' }
   ];
-  var PESOS = [1.3, 1.2, 2, 1.1, 0.9, 0.85];
+  var PESOS = [1.3, 1.2, 1.8, 1.1, 0.9, 1.15];
 
-  var S0 = function () { return { op: '', q: '', nat: '', cert: '', abr: false, grande: false, sim: false, zona: 0, bk: null, sel: {}, aberto: { 'nx-01': true }, forms: { 'nx-01': 'exec' }, gaveta: 'nx-09', gForm: 'exec', aba: 'consumadas', tempo: 'todas', aviso: '', simDados: null }; };
+  var S0 = function () { return { op: '', q: '', nat: '', cert: '', abr: false, grande: false, sim: false, zona: 0, bk: null, sel: {}, aberto: { 'nx-01': true }, forms: { 'nx-01': 'exec' }, gaveta: 'nx-13', gForm: 'exec', aba: 'consumadas', tempo: 'todas', aviso: '', simDados: null }; };
   var S = S0();
 
   /* ───────── utilitários ───────── */
@@ -323,12 +327,13 @@
   function zona(r) {
     if (r.consumadaHa != null && r.consumadaHa <= 180) return 1;
     if (r.diasRestantes == null) return 6;
+    if (NX.semPrazo(r) && r.diasRestantes <= 0) return 6;   // data que não é prazo (penhora antiga, evento): nunca «cedo venceu»
     if (r.diasRestantes <= 0) return 2;
     if (r.diasRestantes <= 90) return 3;
     if (r.diasRestantes <= 365) return 4;
     return 5;
   }
-  function lane(r) { return r.fila === 'vigiar' ? 'B' : 'A'; }   // A: há o que fazer · B: só vigiar
+  function lane(r) { return r.fila === 'conferir' ? 'C' : r.fila === 'vigiar' ? 'B' : 'A'; }   // A: pedem você · B: só vigiar · C: consumadas há pouco (só conferir)
   function bucket(r, z) {
     switch (z) {
       case 1: return clamp(Math.floor((180 - r.consumadaHa) / 30), 0, 5);
@@ -371,12 +376,16 @@
     }
     return true;
   }
+  // Data que ordena dentro do trecho: a cedo; no trecho «cedo venceu, tarde não», a tarde (sem tarde, por último).
+  function chaveData(r) {
+    if (r.consumadaHa != null && r.consumadaHa <= 180) return addDias(HOJE, -r.consumadaHa);
+    if (NX.tese(r)) return r.termoTarde || '9999-12-31';
+    return r.termoCedo || '9999';
+  }
   function ordem(a, b) {
-    var la = lane(a) === 'A' ? 0 : 1, lb = lane(b) === 'A' ? 0 : 1;
+    var L = { A: 0, C: 1, B: 2 }, la = L[lane(a)], lb = L[lane(b)];
     if (la !== lb) return la - lb;
-    var da = a.termoCedo || '9999', db = b.termoCedo || '9999';
-    if (a.consumadaHa != null && a.consumadaHa <= 180) { da = addDias(HOJE, -a.consumadaHa); }
-    if (b.consumadaHa != null && b.consumadaHa <= 180) { db = addDias(HOJE, -b.consumadaHa); }
+    var da = chaveData(a), db = chaveData(b);
     if (da !== db) return da < db ? -1 : 1;
     return b.valor - a.valor;
   }
@@ -419,6 +428,7 @@
     if (z === 3) onde += ', semana de ' + dm(dataDoBucket(3, b));
     if (z === 4) onde += ', ' + MES[+dataDoBucket(4, b).slice(5, 7) - 1] + '/' + dataDoBucket(4, b).slice(2, 4);
     if (z === 1) onde += ', consumada há ' + NX.fmtDuracao(r.consumadaHa);
+    if (z === 2) onde += ', tarde ' + (r.termoTarde ? 'em ' + NX.fmtData(r.termoTarde) : 'sem termo');
     return h + '<div class="p1-mini-note">' + esc(onde) + (r.termoCedo ? ' · cedo ' + NX.fmtData(r.termoCedo) : '') + '.</div>';
   }
   function conferirHTML(r) {
@@ -465,7 +475,6 @@
   function ajusteLinha(html, r) {
     var z = destino(r) === 'relogio' ? zona(r) : 0;
     if (z) html = html.replace('</div><div class="nx-row-who">', posHTML(r) + '</div><div class="nx-row-who">');
-    if (z === 2) html = html.replace(/(<span class="nx-when [a-z]+">)([^<]*)(<\/span>)/, '$1cedo venceu $2$3');
     return html;
   }
   function chevHTML(key, aberto) { return '<button type="button" class="p1-chev" data-exp="' + key + '" aria-expanded="' + !!aberto + '" aria-label="Ver detalhes"><i></i></button>'; }
@@ -492,13 +501,13 @@
   function linhaMulti(u) {
     var r = u[0], key = r.id, aberto = !!S.aberto[key], op = NX.op(r.operacao), q = NX.quando(r), tom = NX.tom(r);
     var z = destino(r) === 'relogio' ? zona(r) : 0, venc = r.fila === 'agir' && r.diasRestantes != null && r.diasRestantes < 0;
-    var cls = 'nx-row nx-c-' + tom + (venc ? ' is-venc is-strong' : '') + (r.fila !== 'agir' && r.fila !== 'conferir' ? ' is-quiet' : '') + (aberto ? ' is-open' : '') + (selecionada(u) ? ' is-selected' : '') + (aberto ? '' : ' dense');
+    var cls = 'nx-row nx-c-' + tom + (NX.tese(r) ? ' is-tese' : '') + (venc ? ' is-venc is-strong' : '') + (r.fila !== 'agir' && r.fila !== 'conferir' ? ' is-quiet' : '') + (aberto ? ' is-open' : '') + (selecionada(u) ? ' is-selected' : '') + (aberto ? '' : ' dense');
     var h = '<article class="' + cls + '" data-ids="' + ids(u).join(' ') + '" data-fila="' + r.fila + '"><div class="nx-row-main"><div class="nx-row-id">' +
       '<input type="checkbox" class="nx-checkbox" data-sel aria-label="Selecionar as ' + u.length + ' CDAs"' + (selecionada(u) ? ' checked' : '') + '>' + chevHTML(key, aberto) +
       '<span class="nx-chip t-gray">' + u.length + ' CDAs · mesma situação</span>' + NX.chipsHTML(r).replace(/<span class="nx-chip situacao">.*?<\/span>/, '') + (z ? posHTML(r) : '') + '</div>' +
       '<div class="nx-row-who"><span class="nx-devedor">' + esc(r.devedor) + '</span><span class="nx-op"><i class="nx-sq" style="--c:' + op.cor + '"></i><span class="nx-ell">' + esc(op.curto) + '</span></span><span class="nx-proc">' + r.processo + '</span></div>' +
       '<p class="nx-row-why">' + esc(r.situacao) + '</p></div>' +
-      '<div class="nx-row-side"><span class="nx-when ' + q.tom + '">' + esc((z === 2 ? 'cedo venceu ' : '') + q.principal) + '</span>' + q.linhas.map(function (l) { return '<span class="nx-date">' + esc(l) + '</span>'; }).join('') + '<span class="nx-val">' + R$(NX.soma(u)) + ' (soma)</span></div>' +
+      '<div class="nx-row-side"><span class="nx-when ' + q.tom + '">' + esc(q.principal) + '</span>' + q.linhas.map(function (l) { return '<span class="nx-date">' + esc(l) + '</span>'; }).join('') + '<span class="nx-val">' + R$(NX.soma(u)) + ' (soma)</span></div>' +
       '<div class="nx-row-acts">' + (r.acao && r.fila !== 'vigiar' ? '<button type="button" class="nx-btn sm primary" data-acao="exec" data-id="' + r.id + '">' + esc(r.acao.rotulo) + ' nas ' + u.length + '</button>' : '') +
       '<button type="button" class="nx-btn sm" data-acao="abrir" data-id="' + r.id + '">Abrir</button>' + (r.fila === 'agir' ? '<button type="button" class="nx-btn sm quiet" data-acao="adiar" data-id="' + r.id + '">Adiar as ' + u.length + '…</button>' : '') + '</div></article>';
     return h + (aberto ? expandidoHTML(u, 'row') : '');
@@ -516,21 +525,22 @@
     h += '<p class="nx-muted" style="font-size:12.5px">Comece pela esquerda do relógio e siga para a direita: a lista abaixo está na ordem do tempo — do mais atrasado ao mais distante, e, no empate, o maior valor.</p>';
     if (primeiros.length) {
       var u = primeiros[0], r = u[0];
-      h += '<div class="p1-first"><div class="p1-first-t"><span class="nx-chip t-gray sm">1º da lista</span><span class="nx-cda">' + r.cda + (u.length > 1 ? ' +' + (u.length - 1) : '') + '</span><b>' + esc(r.devedor) + '</b></div><div>' + esc(r.acao ? r.acao.rotulo : 'Conferir') + ': ' + esc(r.situacao.split('. ')[0]) + '.</div><div><button type="button" class="nx-btn sm" data-ir="' + r.id + '">Ir para a linha</button></div></div>';
+      h += '<div class="p1-first"><div class="p1-first-t"><span class="nx-chip t-gray sm">1º que pede você</span><span class="nx-cda">' + r.cda + (u.length > 1 ? ' +' + (u.length - 1) : '') + '</span><b>' + esc(r.devedor) + '</b></div><div>' + esc(r.acao ? r.acao.rotulo : 'Conferir') + ': ' + esc(r.situacao.split('. ')[0]) + '.</div><div><button type="button" class="nx-btn sm" data-ir="' + r.id + '">Ir para a linha</button></div></div>';
     } else h += '<div class="p1-first">Nada pede ação sua com os filtros atuais.</div>';
     h += '</div><div class="p1-steps">';
     var frases = {
-      1: function (n) { return 'Conferir o cálculo de ' + plural(n, 'consumada recente', 'consumadas recentes') + ' (até 6 meses)'; },
       2: function (n) { return 'Resolver ' + plural(n, 'CDA em que', 'CDAs em que') + ' a data cedo já venceu e a tarde não'; },
       3: function (n) { return 'Agir ' + (n === 1 ? 'na CDA que vence' : 'nas ' + n + ' CDAs que vencem') + ' em 90 dias'; }
     };
-    [1, 2, 3].forEach(function (z) {
+    [2, 3].forEach(function (z) {
       var li = v.z[z].filter(agir); if (!li.length) return;
       var prox = z === 3 ? ' · a 1ª em ' + dm(li.map(function (r) { return r.termoCedo; }).sort()[0]) : '';
       h += '<button type="button" class="p1-step z' + z + '" data-zona="' + z + '"><span>' + frases[z](li.length) + prox + '</span><span class="p1-step-v">' + R$c(NX.soma(li)) + '</span></button>';
     });
-    var depois = [4, 5, 6].reduce(function (s, z) { return s + v.z[z].length; }, 0);
-    if (depois) h += '<div class="p1-step is-later"><span>Depois: ' + plural(depois, 'CDA mais adiante', 'CDAs mais adiante') + ' — só acompanhar o relógio</span><span class="p1-step-v">' + R$c(NX.soma([4, 5, 6].reduce(function (a, z) { return a.concat(v.z[z]); }, []))) + '</span></div>';
+    var consum = v.z[1];
+    if (consum.length) h += '<button type="button" class="p1-step is-later z1" data-zona="1"><span>Também: conferir o cálculo de ' + plural(consum.length, 'consumada há pouco', 'consumadas há pouco') + ' (até 6 meses)</span><span class="p1-step-v">' + R$c(NX.soma(consum)) + '</span></button>';
+    var dep = [4, 5, 6].reduce(function (a, z) { return a.concat(v.z[z]); }, []), depA = dep.filter(agir).length;
+    if (dep.length) h += '<div class="p1-step is-later"><span>Depois: ' + plural(dep.length, 'CDA mais adiante', 'CDAs mais adiante') + ' (' + (depA ? depA + ' com ação' : 'só acompanhar') + ')</span><span class="p1-step-v">' + R$c(NX.soma(dep)) + '</span></div>';
     host.innerHTML = h + '</div></div>';
   }
 
@@ -547,7 +557,7 @@
   function pinHTML(p, Z) {
     var r = p.itens[0], n = p.itens.length, tam = p.valor >= 1e6 ? 20 : p.valor >= 2.5e5 ? 16 : 12;
     var tom = r.fila === 'vigiar' ? 'blue' : NX.tom(r), q = NX.quando(r);
-    var rot = Z.z === 1 ? dm(addDias(HOJE, -r.consumadaHa)) : (r.termoCedo ? dm(r.termoCedo) : '');
+    var rot = Z.z === 1 ? dm(addDias(HOJE, -r.consumadaHa)) : Z.z === 2 ? (r.termoTarde ? 'tarde ' + NX.fmtDataCurta(r.termoTarde) : 'sem tarde') : (r.termoCedo ? dm(r.termoCedo) : '');
     var tit = r.cda + (n > 1 ? ' e mais ' + (n - 1) : '') + ' · ' + r.devedor + ' · ' + R$(p.valor);
     return '<button type="button" class="p1-pin ' + (r.natureza === 'ordinaria' ? 'ord' : 'int') + ' t-' + tom + ' z' + Z.z + '" style="--s:' + tam + 'px" data-pin="' + ids(p.itens).join(' ') + '" title="' + esc(tit) + '" aria-label="' + esc(tit) + '">' + (n > 1 ? n : '') + '<span class="p1-pin-l">' + rot + '</span></button>';
   }
@@ -557,7 +567,7 @@
     itens.forEach(function (r) { bks[bucket(r, Z.z)].push(r); });
     bks.forEach(function (b) { maxN = Math.max(maxN, b.length); });
     if (Z.z === 2) max = ln === 'A' ? 4 : 2;
-    var h = '<div class="p1-lane ' + ln + '" style="--n:' + Z.n + '">';
+    var h = '<div class="p1-lane ' + ln + '" style="--n:' + Z.n + '">' + (Z.z === 1 && ln === 'A' && itens.length ? '<span class="p1-lane-cap">só conferir</span>' : '');
     bks.forEach(function (lista, i) {
       var pins = pinsDe(lista);
       h += '<div class="p1-bk' + (Z.z === 2 ? ' wide' : '') + '" data-z="' + Z.z + '" data-k="' + i + '">';
@@ -581,31 +591,31 @@
     return Z.nota;
   }
   function renderEixo(v) {
-    var host = $('#p1-eixo'), nA = v.rel.filter(function (r) { return lane(r) === 'A'; }).length, nB = v.rel.length - nA;
+    var host = $('#p1-eixo'), listaA = v.rel.filter(function (r) { return lane(r) === 'A'; }), nA = listaA.length, nB = v.rel.filter(function (r) { return lane(r) === 'B'; }).length, nC = v.rel.length - nA - nB;
     var pesos = ZONAS.map(function (Z, i) { return S.zona ? (Z.z === S.zona ? 6 : 0.6) : PESOS[i]; });
     var estilo = pesos.map(function (p, i) { return '--w' + (i + 1) + ':' + p + 'fr'; }).join(';');
     var h = '<div class="nx-card-h"><h2>Relógio da carteira</h2><span class="p1-eixo-sub">cada coluna é uma ' + (S.zona ? 'fatia do trecho ampliado' : 'semana, um mês ou um ano') + '; cada bolinha é um processo (ou uma CDA sem processo)</span><span class="nx-sp"></span>';
     if (S.zona) h += '<span class="nx-chip t-gray">Ampliando: ' + esc(ZONAS[S.zona - 1].nome) + (S.bk ? ' · coluna filtrada' : '') + '</span><button type="button" class="nx-btn sm" data-zona="0">Ver tudo</button>';
-    else h += '<span class="nx-small nx-muted"><b class="nx-num" style="color:var(--nx-ink)">' + plural(v.rel.length, 'CDA', 'CDAs') + '</b> no relógio · ' + R$c(NX.soma(v.rel)) + '</span>';
+    else h += '<span class="nx-small nx-muted"><b class="nx-num" style="color:var(--nx-ink)">' + plural(nA, 'CDA pede você', 'CDAs pedem você') + '</b> · ' + R$c(NX.soma(listaA)) + ' · ' + nB + ' só vigiar · ' + plural(nC, 'consumada há pouco', 'consumadas há pouco') + '</span>';
     h += '</div><div class="p1-axis' + (S.zona ? ' has-lupa' : '') + '" style="' + estilo + '">';
-    h += '<div class="p1-gut"><div class="p1-gh">Os números são os trechos</div><div class="p1-gl A"><b>Há o que fazer</b><span>' + plural(nA, 'CDA', 'CDAs') + '</span></div><div class="p1-gl B"><b>Só vigiar</b><span>' + plural(nB, 'CDA', 'CDAs') + '</span></div><div class="p1-gu"></div></div>';
+    h += '<div class="p1-gut"><div class="p1-gh">Os números são os trechos</div><div class="p1-gl A"><b>Pedem você</b><span>' + plural(nA, 'CDA', 'CDAs') + (nC ? ' (+ ' + nC + ' a conferir)' : '') + '</span></div><div class="p1-gl B"><b>Só vigiar</b><span>' + plural(nB, 'CDA', 'CDAs') + '</span></div><div class="p1-gu"></div></div>';
     ZONAS.forEach(function (Z) {
-      var li = v.z[Z.z], a = li.filter(function (r) { return lane(r) === 'A'; }), b = li.filter(function (r) { return lane(r) === 'B'; });
+      var li = v.z[Z.z], a = li.filter(function (r) { return lane(r) !== 'B'; }), b = li.filter(function (r) { return lane(r) === 'B'; });
       h += '<div class="p1-zone z' + Z.z + (S.zona === Z.z ? ' is-lupa' : '') + '" data-z="' + Z.z + '">' +
         '<button type="button" class="nx-stat p1-zh ' + Z.tom + (S.zona === Z.z ? ' is-active' : '') + '" data-zona="' + (S.zona === Z.z ? 0 : Z.z) + '" aria-pressed="' + (S.zona === Z.z) + '" title="' + esc(Z.dica + (S.zona === Z.z ? ' Clique para voltar a ver tudo.' : ' Clique para ampliar este trecho e listar só as CDAs dele.')) + '">' +
         '<span class="nx-stat-l">' + Z.nome + '</span><span class="nx-stat-l p1-curto">' + Z.curto + '</span><span class="nx-stat-n">' + li.length + '</span><span class="nx-stat-v">' + (li.length ? R$c(NX.soma(li)) : '—') + '</span><span class="nx-stat-s">' + esc(notaZona(Z)) + '</span></button>' +
         laneHTML(Z, 'A', a) + laneHTML(Z, 'B', b) + unitsHTML(Z) + '</div>';
     });
     h += '</div>';
-    var F = v.fora, nf = F.consumada.length + F.tratada.length + F.adiada.length + F.silenciada.length + F.decadencia.length;
-    h += '<div class="nx-card-f"><div class="p1-leg"><span><i class="ci"></i>execução ajuizada</span><span><i class="sq"></i>falta ajuizar</span><span><i class="ring"></i>já consumada</span><span><i class="hat"></i>cedo venceu, tarde não</span><span>tamanho = valor · número = CDAs do processo</span></div>';
-    if (S.sim) h += '<div class="p1-fora-pills"><span class="p1-fora-t">Simulação visual</span><span class="nx-muted nx-small">' + plural(v.rel.length, 'CDA sintética', 'CDAs sintéticas') + ' só no eixo. Coluna com mais de 3 processos vira barra (altura = quantidade); clique na barra para ampliar. A lista e a gaveta ficam fora da simulação.</span></div>';
+    var F = v.fora, nf = F.consumada.length + F.tratada.length + F.adiada.length + F.silenciada.length;
+    h += '<div class="nx-card-f"><div class="p1-leg"><span><i class="ci"></i>execução ajuizada</span><span><i class="sq"></i>falta ajuizar</span><span><i class="ring"></i>consumada há pouco</span><span><i class="hat"></i>cedo venceu, tarde não</span><span>tamanho = valor · número = CDAs do processo</span></div>';
+    if (S.sim) h += '<div class="p1-fora-pills"><span class="p1-fora-t">Demonstração visual</span><span class="nx-muted nx-small">' + plural(v.rel.length, 'CDA sintética', 'CDAs sintéticas') + ' só no eixo. Coluna com mais de 3 processos vira barra (altura = quantidade); clique na barra para ampliar. A lista e a gaveta ficam fora da simulação.</span></div>';
     else {
       h += '<div class="p1-fora-pills"><span class="p1-fora-t">Fora do relógio, sem alarme</span>';
-      [['consumadas', 'Consumadas antigas', F.consumada], ['tratadas', 'Tratadas', F.tratada], ['adiadas', 'Adiadas', F.adiada], ['silenciadas', 'Silenciadas', F.silenciada], ['decadencia', 'Decadência (consulta)', F.decadencia]].forEach(function (x) {
+      [['consumadas', 'Consumadas antigas', F.consumada], ['tratadas', 'Tratadas', F.tratada], ['adiadas', 'Adiadas', F.adiada], ['silenciadas', 'Só vigiar (silenciadas)', F.silenciada]].forEach(function (x) {
         h += '<button type="button" class="nx-fchip" data-aba="' + x[0] + '">' + x[1] + ' <span class="nx-n">' + x[2].length + '</span></button>';
       });
-      h += '<span class="p1-conf" title="Cada CDA está num lugar só: ou num trecho do relógio, ou fora dele.">Conferência: <b>' + v.rel.length + '</b> no relógio + <b>' + nf + '</b> fora = <b>' + (v.rel.length + nf) + '</b> CDAs' + (S.op || S.q || S.nat || S.cert || S.abr || S.grande ? ' (com os filtros)' : '') + '</span></div>';
+      h += '<span class="p1-conf" title="Cada CDA está num lugar só: ou num trecho do relógio, ou fora dele.">Conferência: <b>' + v.rel.length + '</b> no relógio + <b>' + nf + '</b> fora = <b>' + (v.rel.length + nf) + '</b> CDAs' + (S.op || S.q || S.nat || S.cert || S.abr || S.grande ? ' (com os filtros)' : '') + '. A decadência (' + F.decadencia.length + ') é só consulta e fica fora da conta: <button type="button" class="p1-btnlink" data-aba="decadencia">ver a consulta</button>.</span></div>';
     }
     host.innerHTML = h + '</div>';
   }
@@ -617,8 +627,8 @@
   }
   function renderLista(v) {
     var host = $('#p1-fila');
-    if (S.sim) { host.innerHTML = '<div class="nx-card p1-sim-note"><b>Simulação visual ativa.</b> Com centenas de CDAs, a lista abaixo do eixo seria a mesma do exemplo, só que filtrada pelo trecho ou pela coluna que você ampliou. Desligue a simulação para voltar ao exemplo de ' + D.length + ' CDAs.</div>'; return; }
-    var h = '<div class="nx-sub-h"><h2>Lista na ordem do relógio</h2><span class="nx-muted nx-small">Mesma ordem do relógio, da esquerda para a direita. Dentro de cada trecho: pela data cedo; empate, o maior valor.</span></div>';
+    if (S.sim) { host.innerHTML = '<div class="nx-card p1-sim-note"><b>Demonstração ativa (não é recurso da tela).</b> Com centenas de CDAs, a lista abaixo do eixo seria a mesma do exemplo, só que filtrada pelo trecho ou pela coluna que você ampliou. Desligue a simulação para voltar ao exemplo de ' + D.length + ' CDAs.</div>'; return; }
+    var h = '<div class="nx-sub-h"><h2>Lista na ordem do relógio</h2><span class="nx-muted nx-small">Mesma ordem do relógio, da esquerda para a direita. Dentro de cada trecho: pela data cedo (em «Cedo venceu, tarde não», pela data tarde); empate, o maior valor.</span></div>';
     if (S.aviso) h += '<div class="nx-notice green p1-aviso">' + S.aviso + '</div>';
     if (S.zona || S.bk) {
       var Zs = ZONAS[S.zona - 1];
@@ -629,15 +639,15 @@
       if (S.zona && Z.z !== S.zona) return;
       var li = filtraBucket(v.z[Z.z]); if (!li.length) return;
       algum = true;
-      var a = li.filter(function (r) { return lane(r) === 'A'; }).length, b = li.length - a;
+      var a = li.filter(function (r) { return lane(r) === 'A'; }).length, b = li.filter(function (r) { return lane(r) === 'B'; }).length;
       var avisos = [];
-      if (Z.z === 1) avisos.push('Destaque moderado: o cálculo diz que já consumou, mas pode estar errado. Estas CDAs estão <b>contadas só aqui</b> e aparecem também, para referência, em «Consumadas»; não somam duas vezes.');
-      if (Z.z === 2) avisos.push('A leitura mais desfavorável (data cedo) já venceu; a data tarde é a tese da União. Ainda se salva — o que falta é um dado ou um ato.');
+      if (Z.z === 1) avisos.push('Destaque moderado: o cálculo diz que já consumou, mas pode estar errado. Não é ação, é conferência. Estas CDAs estão <b>contadas só aqui</b> e aparecem também, para referência, em «Consumadas antigas › Consumadas há pouco»; não somam duas vezes.');
+      if (Z.z === 2) avisos.push('A data cedo já venceu; a tarde não. Em «Cedo–tarde», a data tarde é a tese da União. Em «Falta dado», a tarde depende do dado que falta. Em qualquer caso ainda se salva. Ordem: pela data tarde mais próxima.');
       if (Z.z === 5) avisos.push('Só vigiar: nenhuma providência agora. Voltam a alarmar se um fato novo mudar o prazo ou quando a data cedo chegar a 90 dias.');
       if (Z.z === 6) avisos.push('Sem data para contar. Penhora antiga pede análise caso a caso; sem protocolo não há como calcular.');
       var corpo = unidades(li).map(unidadeHTML).join('');
       var g = NX.grupoHTML({ titulo: '<span class="p1-gt">' + Z.nome + '<small>' + esc(Z.z === 3 ? 'cedo até ' + NX.fmtDataCurta(addDias(HOJE, 90)) : Z.z === 4 ? 'cedo até ' + NX.fmtDataCurta(addDias(HOJE, 365)) : Z.nota) + '</small></span>',
-        n: plural(li.length, 'CDA', 'CDAs') + ' · ' + a + ' com ação' + (b ? ' · ' + b + ' só vigiar' : ''), valor: NX.soma(li), avisos: avisos, corpo: corpo, id: 'g-z' + Z.z });
+        n: plural(li.length, 'CDA', 'CDAs') + (Z.z === 1 ? ' · só conferir' : ' · ' + a + (a === 1 ? ' pede você' : ' pedem você')) + (b ? ' · ' + b + ' só vigiar' : ''), valor: NX.soma(li), avisos: avisos, corpo: corpo, id: 'p1-g-z' + Z.z });
       g = g.replace('<section class="nx-group', '<section class="nx-group z' + Z.z).replace(/<div class="nx-notice">/g, '<div class="nx-notice ' + ({ 1: 'orange', 2: 'red', 5: 'blue', 6: 'gray' }[Z.z] || 'orange') + '">');
       h += g;
     });
@@ -670,19 +680,20 @@
     var h = '<aside class="nx-drawer docked" aria-label="Detalhe da CDA"><div class="nx-drawer-top"><span class="nx-ell">Prazos <span class="nx-muted">›</span> ' + (r.processo ? '<span class="nx-proc">' + r.processo + '</span>' : 'sem processo') + '</span><span class="nx-sp"></span><button type="button" class="nx-btn quiet icon" data-g-fechar aria-label="Fechar">&times;</button></div><div class="nx-drawer-body">';
     h += '<div><div class="nx-chips">' + NX.chipsHTML(r) + '</div><h3 class="nx-d-title">' + esc(r.devedor) + '</h3><div class="nx-d-sub"><span class="nx-cda">' + r.cda + '</span> · <span class="nx-op" style="display:inline-flex"><i class="nx-sq" style="--c:' + op.cor + '"></i>' + esc(op.nome) + '</span></div></div>';
     h += '<div class="nx-sec"><div class="nx-sec-h">Situação</div><p class="nx-row-why">' + esc(r.situacao) + '</p>' + (r.abrangidaPor ? '<div class="nx-notice">Abrangida pelo ' + esc(r.abrangidaPor) + '.</div>' : '') +
+      (NX.derivada(r) ? '<div class="nx-notice gray">Ordinária fora dos 90 dias: o cálculo atual ainda não cria aviso para ela. Aparece aqui por escolha e não pode ser adiada.</div>' : '') +
       (irmas.length ? '<div class="nx-notice blue">Mesmo processo, mesma situação: ' + irmas.map(function (x) { return '<span class="nx-cda">' + x.cda + '</span> (' + R$c(x.valor) + ')'; }).join(', ') + '. A ação pode valer para todas.</div>' : '') + '</div>';
     // ação no lugar
     var botoes = '';
     if (r.acao && tipoAcao !== 'conferir_autos') botoes += '<button type="button" class="nx-btn sm' + (f === 'exec' ? ' primary' : '') + '" data-g="exec">' + esc(r.acao.rotulo) + '</button>';
     botoes += '<button type="button" class="nx-btn sm' + (f === 'fato' ? ' primary' : '') + '" data-g="fato">Lançar fato…</button>';
-    if (r.fila === 'agir' || r.fila === 'conferir' || r.fila === 'vigiar') botoes += '<button type="button" class="nx-btn sm' + (f === 'adiar' ? ' primary' : '') + '" data-g="adiar">Adiar…</button>';
+    if ((r.fila === 'agir' || r.fila === 'conferir' || r.fila === 'vigiar') && !NX.derivada(r)) botoes += '<button type="button" class="nx-btn sm' + (f === 'adiar' ? ' primary' : '') + '" data-g="adiar">Adiar…</button>';
     botoes += '<button type="button" class="nx-btn sm' + (f === 'tratar' ? ' primary' : '') + '" data-g="tratar">Tratar…</button>';
     var corpoForm = '';
     if (f === 'exec' && (!r.acao || tipoAcao === 'conferir_autos')) corpoForm = '<div class="nx-hint">Sem lançamento a fazer: confira nos autos (lista abaixo) e, se algo mudar o prazo, use «Lançar fato».</div>';
     else if (f === 'exec' && tipoAcao === 'confirmar_vigencia') corpoForm = '<div class="nx-inline-form"><span class="nx-hint" style="flex-basis:auto;flex:1">Grava a conferência de hoje (' + NX.fmtData(HOJE) + ') na pausa. Um clique, sem formulário.</span><div class="nx-inline-form-acts"><button type="button" class="nx-btn sm primary" data-um="' + r.id + '">Ainda vale</button></div></div>';
     else corpoForm = formHTML(u, f, 'gaveta');
     h += '<div class="nx-sec"><div class="nx-sec-h">Fazer agora, aqui mesmo</div><div class="p1-acts-g">' + botoes + '</div>' + corpoForm + '</div>';
-    h += '<dl class="nx-props"><dt>Valor</dt><dd class="nx-num">' + R$(r.valor) + '</dd><dt>Prazo</dt><dd><span class="nx-when ' + q.tom + '">' + esc((z === 2 ? 'cedo venceu ' : '') + q.principal) + '</span></dd><dt>Datas</dt><dd class="nx-mono">' + (r.termoCedo ? 'cedo ' + NX.fmtData(r.termoCedo) : '—') + (r.termoTarde && r.termoTarde !== r.termoCedo ? '<br>tarde ' + NX.fmtData(r.termoTarde) : (r.termoCedo && !r.termoTarde ? '<br>tarde sem termo' : '')) + '</dd>' +
+    h += '<dl class="nx-props"><dt>Valor</dt><dd class="nx-num">' + R$(r.valor) + '</dd><dt>Prazo</dt><dd><span class="nx-when ' + q.tom + '">' + esc(q.principal) + '</span></dd><dt>Datas</dt><dd class="nx-mono">' + (r.termoCedo ? 'cedo ' + NX.fmtData(r.termoCedo) : '—') + (r.termoTarde && r.termoTarde !== r.termoCedo ? '<br>tarde ' + NX.fmtData(r.termoTarde) : (r.termoCedo && !r.termoTarde ? '<br>tarde sem termo' : '')) + '</dd>' +
       '<dt>Relógio</dt><dd>' + (z ? esc(ZONAS[z - 1].nome) : 'Fora do relógio (' + ({ decadencia: 'decadência', tratada: 'tratada', adiada: 'adiada', consumada: 'consumada antiga', silenciada: 'silenciada' }[dest] || dest) + ')') + '</dd><dt>Certeza</dt><dd>' + esc(NX.ROTULOS.certezaDica[r.certeza]) + '</dd></dl>';
     if (z) h += '<div class="nx-sec"><div class="nx-sec-h">Onde está no relógio</div>' + miniAxisHTML(r) + '</div>';
     if (r.regua) h += '<div class="nx-sec"><div class="nx-sec-h">Régua do prazo</div>' + NX.reguaHTML(r, {}) + '</div>';
@@ -698,27 +709,27 @@
     var host = $('#p1-fora'), F = v.fora;
     if (S.sim) { host.innerHTML = ''; host.hidden = true; return; }
     host.hidden = false;
-    var abas = [['consumadas', 'Consumadas', F.consumada.length, F.consumada.length + ' antigas'], ['tratadas', 'Tratadas', F.tratada.length], ['adiadas', 'Adiadas', F.adiada.length], ['silenciadas', 'Silenciadas', F.silenciada.length], ['decadencia', 'Decadência', F.decadencia.length]];
+    var abas = [['consumadas', 'Consumadas antigas', F.consumada.length], ['tratadas', 'Tratadas', F.tratada.length], ['adiadas', 'Adiadas', F.adiada.length], ['silenciadas', 'Só vigiar (silenciadas)', F.silenciada.length], ['decadencia', 'Decadência (consulta)', F.decadencia.length]];
     var h = '<div class="nx-card-h"><h2>Fora do relógio</h2><span class="nx-muted nx-small">não alarmam; ficam aqui para consulta, soma e edição</span></div><div class="nx-tabs" role="tablist" style="padding:0 8px">';
-    abas.forEach(function (a) { h += '<button type="button" role="tab" data-aba="' + a[0] + '" aria-selected="' + (S.aba === a[0]) + '"' + (S.aba === a[0] ? ' class="on"' : '') + '>' + a[1] + ' <span class="nx-n">' + a[2] + (a[0] === 'consumadas' && v.z[1].length ? ' + ' + v.z[1].length + ' recentes' : '') + '</span></button>'; });
+    abas.forEach(function (a) { h += '<button type="button" role="tab" data-aba="' + a[0] + '" aria-selected="' + (S.aba === a[0]) + '"' + (S.aba === a[0] ? ' class="on"' : '') + '>' + a[1] + ' <span class="nx-n">' + a[2] + (a[0] === 'consumadas' && v.z[1].length ? ' + ' + v.z[1].length + ' há pouco' : '') + '</span></button>'; });
     h += '</div><div class="p1-fora-b">';
     var lista = function (itens, opts) { return itens.length ? '<div class="p1-lista">' + itens.map(function (r) { return ajusteLinha(NX.linhaHTML(r, opts || { dense: true, regua: false }), r); }).join('') + '</div>' : '<div class="nx-empty plain"><div class="nx-empty-t">Nada aqui' + (S.op || S.q || S.nat || S.cert || S.abr || S.grande ? ' com estes filtros' : '') + '</div></div>'; };
     if (S.aba === 'consumadas') {
       var rec = v.z[1], ant = F.consumada.slice().sort(function (a, b) { return a.consumadaHa - b.consumadaHa; });
       var lim = { todas: [0, 1e9], ate1: [0, 365], de1a5: [366, 1826], mais5: [1827, 1e9] }[S.tempo];
       var antF = ant.filter(function (r) { return r.consumadaHa >= lim[0] && r.consumadaHa <= lim[1]; });
-      h += '<div class="nx-notice gray">Consumadas não alarmam. As de até 6 meses já estão contadas no relógio (trecho «Venceu há até 6 meses») e aparecem aqui só como referência: não somam de novo.</div>';
-      h += '<div class="nx-sub-h"><h3>Recentes (até 6 meses)</h3><span class="nx-n">' + rec.length + ' · ' + R$(NX.soma(rec)) + '</span><span class="nx-chip t-orange sm">contadas no relógio</span>' + (rec.length ? '<button type="button" class="p1-btnlink" data-zona="1">ver no eixo</button>' : '') + '</div>';
+      h += '<div class="nx-notice gray">Consumadas antigas não alarmam. As consumadas há pouco (até 6 meses) já estão contadas no relógio (trecho «Consumadas há pouco») e aparecem aqui só como referência: não somam de novo.</div>';
+      h += '<div class="nx-sub-h"><h3>Consumadas há pouco (até 6 meses)</h3><span class="nx-n">' + rec.length + ' · ' + R$(NX.soma(rec)) + '</span><span class="nx-chip t-orange sm">contadas no relógio</span>' + (rec.length ? '<button type="button" class="p1-btnlink" data-zona="1">ver no eixo</button>' : '') + '</div>';
       h += lista(rec.slice().sort(ordem), { dense: true, regua: false, acoes: false });
-      h += '<div class="nx-sub-h"><h3>Antigas (mais de 6 meses)</h3><span class="nx-n">' + antF.length + ' · ' + R$(NX.soma(antF)) + '</span><span class="nx-sp"></span><div class="nx-seg-ctl" id="p1-tempo">' +
+      h += '<div class="nx-sub-h"><h3>Consumadas antigas (mais de 6 meses)</h3><span class="nx-n">' + antF.length + ' · ' + R$(NX.soma(antF)) + '</span><span class="nx-sp"></span><div class="nx-seg-ctl" id="p1-tempo">' +
         [['todas', 'Todas'], ['ate1', 'Até 1 ano'], ['de1a5', '1 a 5 anos'], ['mais5', 'Mais de 5 anos']].map(function (x) { return '<button type="button" data-tempo="' + x[0] + '"' + (S.tempo === x[0] ? ' class="on"' : '') + '>' + x[1] + '</button>'; }).join('') + '</div></div>';
       h += lista(antF, { dense: true, regua: false });
     } else if (S.aba === 'tratadas') {
-      h += '<div class="nx-notice green">Prescrição já apontada ao juízo ou reconhecida. Saem do relógio; as «aguardando reconhecimento» têm lembrete de revisão.</div><div class="nx-sub-h"><h3>Tratadas</h3><span class="nx-n">' + F.tratada.length + ' · ' + R$(NX.soma(F.tratada)) + '</span></div>' + lista(F.tratada);
+      h += '<div class="nx-notice green">Prescrição já apontada ao juízo ou reconhecida. Saem do relógio; as «aguardando reconhecimento» têm lembrete de revisão em 60 dias. Se o lembrete vencer, a CDA continua aqui, com a marca vermelha (decisão a tomar: voltar como ação?).</div><div class="nx-sub-h"><h3>Tratadas</h3><span class="nx-n">' + F.tratada.length + ' · ' + R$(NX.soma(F.tratada)) + '</span></div>' + lista(F.tratada);
     } else if (S.aba === 'adiadas') {
       h += '<div class="nx-notice orange">Adiadas saem da fila até a data que você escolheu. Voltam antes se entrar fato novo ou se o prazo piorar.</div><div class="nx-sub-h"><h3>Adiadas</h3><span class="nx-n">' + F.adiada.length + ' · ' + R$(NX.soma(F.adiada)) + '</span></div>' + lista(F.adiada.slice().sort(function (a, b) { return a.adiada.ate < b.adiada.ate ? -1 : 1; }));
     } else if (S.aba === 'silenciadas') {
-      h += '<div class="nx-notice blue">Silenciadas por parcelamento vigente ou porque ainda não podem ter prescrito. Voltam ao relógio sozinhas na data indicada.</div><div class="nx-sub-h"><h3>Silenciadas</h3><span class="nx-n">' + F.silenciada.length + ' · ' + R$(NX.soma(F.silenciada)) + '</span></div>' + lista(F.silenciada);
+      h += '<div class="nx-notice blue">Silenciadas por parcelamento vigente ou porque ainda não podem ter prescrito. Voltam ao relógio sozinhas na data indicada.</div><div class="nx-sub-h"><h3>Só vigiar (silenciadas)</h3><span class="nx-n">' + F.silenciada.length + ' · ' + R$(NX.soma(F.silenciada)) + '</span></div>' + lista(F.silenciada);
     } else {
       h += '<div class="nx-notice gray">Decadência não gera aviso, nem contador, nem lugar no relógio. Fica aqui só para consultar e editar os dados.</div><div class="nx-sub-h"><h3>Decadência</h3><span class="nx-n">' + F.decadencia.length + ' CDAs</span></div>' + lista(F.decadencia);
     }

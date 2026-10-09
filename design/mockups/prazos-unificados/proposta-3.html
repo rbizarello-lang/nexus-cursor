@@ -10,6 +10,8 @@
   #proposta-3 .p3-hoje { font: 500 11.5px var(--nx-mono); color: var(--nx-accent); background: var(--nx-accent-soft); border-radius: 5px; padding: 3px 7px; }
   #proposta-3 .p3-filtros-wrap { display: flex; flex-direction: column; gap: 8px; }
   #proposta-3 .p3-ftoggle { display: none; }
+  #proposta-3 .nx-page-acts { min-width: 0; max-width: 100%; }
+  #proposta-3 .nx-page-acts .nx-chip { white-space: normal; height: auto; min-height: 22px; line-height: 1.35; padding-block: 2px; }
   #proposta-3 .p3-filtros .nx-sel select { max-width: 170px; }
   #proposta-3 .p3-filtros .nx-search { width: 200px; }
   #proposta-3 .p3-seg { padding-right: 3px; }
@@ -39,8 +41,14 @@
   #proposta-3 .p3-cart-eq { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: baseline; font-size: 12.5px; color: var(--nx-ink-2); }
   #proposta-3 .p3-cart-eq b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--c, var(--nx-ink)); }
   #proposta-3 .p3-cart-eq .p3-op { color: var(--nx-ink-3); }
-  #proposta-3 .p3-cart-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; padding: 12px 14px 4px; align-items: start; }
-  #proposta-3 .p3-cart-fora { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  #proposta-3 .p3-cart-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 12px 14px 4px; align-items: start; }
+  #proposta-3 .p3-cart-fora { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 4px; }
+  #proposta-3 .p3-dobra > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 7px 2px; cursor: pointer; list-style: none; font-size: 12.5px; }
+  #proposta-3 .p3-dobra > summary::-webkit-details-marker { display: none; }
+  #proposta-3 .p3-dobra > summary::before { content: ""; align-self: center; width: 6px; height: 6px; border-right: 1.75px solid var(--nx-ink-3); border-bottom: 1.75px solid var(--nx-ink-3); transform: rotate(-45deg); transition: transform 0.15s; flex: none; margin-right: 2px; }
+  #proposta-3 .p3-dobra[open] > summary::before { transform: rotate(45deg); }
+  #proposta-3 .p3-dobra > summary b { font-weight: 600; }
+  #proposta-3 .p3-dobra > div { margin: 2px 0 8px; }
   #proposta-3 .p3-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   #proposta-3 .p3-col-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
   #proposta-3 .p3-col-h h3 { font-size: 12.5px; font-weight: 600; }
@@ -66,7 +74,7 @@
   #proposta-3 .p3-ladder .p3-tot.p3-cell:hover { background: var(--nx-surface-2); }
   #proposta-3 .p3-ladder .p3-tot.p3-cell b { color: var(--nx-ink); }
 
-  #proposta-3 .p3-fora { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  #proposta-3 .p3-fora { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   #proposta-3 .p3-fora-i { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border: 1px solid var(--nx-line); border-left: 3px solid var(--c, var(--nx-line-strong)); border-radius: var(--nx-r); background: var(--nx-surface); text-align: left; min-width: 0; }
   #proposta-3 button.p3-fora-i { cursor: pointer; }
   #proposta-3 button.p3-fora-i:hover { background: var(--nx-hover); }
@@ -141,6 +149,11 @@
   #proposta-3 .p3-drawer { max-width: 100%; }
   #proposta-3 .p3-drawer .nx-drawer-body { gap: 16px; }
   #proposta-3 .p3-drawer .p3-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  #proposta-3 .p3-rels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  #proposta-3 .p3-rel { border: 1px solid var(--nx-line); border-radius: var(--nx-r); padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; background: var(--nx-surface-2); font-size: 11.5px; color: var(--nx-ink-3); line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
+  #proposta-3 .p3-rel.on { background: var(--nx-surface); border-color: var(--nx-accent); box-shadow: inset 0 0 0 1px var(--nx-accent); color: var(--nx-ink); }
+  #proposta-3 .p3-rel .nx-chip { align-self: flex-start; }
+  #proposta-3 .p3-rel b { font-weight: 600; }
   #proposta-3 .p3-drawer .nx-props { grid-template-columns: 100px minmax(0, 1fr); }
   #proposta-3 .p3-apl .nx-check:has(input:checked) { background: var(--nx-accent-soft); border-color: color-mix(in srgb, var(--nx-accent) 35%, var(--nx-line)); }
   #proposta-3 .p3-apl .nx-check:has(input:checked) > span { color: var(--nx-ink); text-decoration: none; }
@@ -197,6 +210,7 @@
     #proposta-3 .p3-tabs-wrap .nx-tabs > button { padding: 0 2px; gap: 3px; font-size: 11.5px; }
     #proposta-3 .p3-badge { min-width: 15px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
     #proposta-3 .p3-more { grid-template-columns: minmax(0, 1fr); }
+    #proposta-3 .p3-rels { grid-template-columns: minmax(0, 1fr); }
     #proposta-3 .p3-cons-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     #proposta-3 .p3-cons-stats .nx-stat-s { white-space: normal; }
     #proposta-3 .p3-tool-s { flex: 1 1 100%; }
@@ -235,7 +249,7 @@
 
   <section class="nx-card p3-comece" aria-labelledby="p3-comece-t">
     <div class="p3-sec-h"><h2 id="p3-comece-t">Comece por aqui</h2>
-      <span class="nx-muted nx-small">Ordem única: degrau da escada (da esquerda para a direita), depois a data cedo mais próxima, depois o maior valor. Vale para ordinária e intercorrente.</span></div>
+      <span class="nx-muted nx-small">Ordem única: degrau da escada, depois a data cedo mais próxima (em «Cedo venceu, tarde não», a data tarde mais próxima), depois o maior valor.</span></div>
     <div class="p3-top-l" id="p3-top"></div>
     <div id="p3-top-rec"></div>
   </section>
@@ -247,14 +261,12 @@
         <div class="p3-col-h"><h3 id="p3-cart-t">Escada de risco</h3><span class="nx-muted nx-small">o que ainda pode ser salvo, pela data cedo · clique numa caixa para ir direto a ela</span></div>
         <div class="p3-ladder" id="p3-ladder"></div>
       </div>
-      <div class="p3-col">
-        <div class="p3-col-h"><h3>Por operação</h3><span class="nx-muted nx-small">clique para filtrar</span></div>
-        <div class="p3-ops" id="p3-ops"></div>
-      </div>
     </div>
     <div class="p3-cart-fora">
-      <div class="p3-col-h"><h3>Fora da escada</h3><span class="nx-muted nx-small">adiadas, consumado e decadência: nunca entram na escada, cada CDA só está numa caixa</span></div>
-      <div class="p3-fora" id="p3-fora"></div>
+      <details class="p3-dobra" id="p3-d-ops"><summary><b>Por operação</b><span class="nx-muted nx-small">quanto pede você em cada operação · clique numa linha para filtrar</span></summary>
+        <div class="p3-ops" id="p3-ops"></div></details>
+      <details class="p3-dobra" id="p3-d-fora"><summary><b>Fora da escada</b><span class="nx-muted nx-small" id="p3-fora-s"></span></summary>
+        <div class="p3-fora" id="p3-fora"></div></details>
     </div>
   </section>
 
@@ -291,26 +303,26 @@
 
   /* ───────── vocabulário desta proposta ───────── */
   var RUNGS = [
-    { id: 'cedo', rot: 'Cedo já passou', curto: 'Cedo já passou', tom: 'red', exp: 'A data cedo já passou, mas ainda não está consumado: é onde ainda se salva pela tese da União.' },
+    { id: 'cedo', rot: 'Cedo venceu, tarde não', curto: 'Cedo venceu', tom: 'red', exp: 'A data cedo já venceu e a tarde não: ainda se salva. Ordem: pela data tarde mais próxima.' },
     { id: 'd90', rot: 'Vence em 90 dias', curto: 'Em 90 dias', tom: 'orange', exp: 'A data cedo cai nos próximos 90 dias.' },
     { id: 'a1', rot: 'Até 1 ano', curto: 'Até 1 ano', tom: 'yellow', exp: 'Entre 91 dias e 1 ano: fora da janela, mas já no horizonte.' },
     { id: 'dep', rot: 'Depois', curto: 'Depois', tom: 'gray', exp: 'Mais de 1 ano pela frente.' },
-    { id: 'sem', rot: 'Sem data', curto: 'Sem data', tom: 'gray', exp: 'Falta dado ou fato para dar uma data ao prazo.' }
+    { id: 'sem', rot: 'Sem prazo calculável', curto: 'Sem prazo', tom: 'gray', exp: 'Não há prazo para contar: penhora antiga, falta de dados ou data que é só o registro de um fato.' }
   ];
   var RUNG = {}; RUNGS.forEach(function (g, i) { RUNG[g.id] = g; g.i = i; });
   var TABN = { ord: 'Ordinária', inter: 'Intercorrente', cons: 'Consumadas', decad: 'Decadência' };
   var TABDESC = {
     ord: 'Só o que falta ajuizar. A única providência aqui é ajuizar a execução antes de se completarem os 5 anos.',
     inter: 'CDAs já ajuizadas. Primeiro o que dá para fazer, na escada de risco; depois o que é só vigiar.',
-    cons: 'Prazo já vencido. As consumadas há até 6 meses pedem conferência do cálculo; as antigas ficam só no registro, sem alarme.',
+    cons: 'Prazo já vencido. As consumadas há pouco (até 6 meses) pedem conferência do cálculo; as antigas ficam só no registro, sem alarme. As tratadas ficam em «Já tratadas», nas abas Ordinária e Intercorrente.',
     decad: 'Só consulta e edição. A decadência não gera aviso, contador nem e-mail.'
   };
-  var NOMECX = { agir: 'Pede você', vigiar: 'Só vigiar', adiada: 'Adiada', recente: 'Consumada recente', antiga: 'Consumada antiga', tratada: 'Tratada', decad: 'Decadência' };
+  var NOMECX = { agir: 'Pedem você', vigiar: 'Só vigiar', adiada: 'Adiada', recente: 'Consumada há pouco', antiga: 'Consumada antiga', tratada: 'Tratada', decad: 'Decadência' };
 
   var state = {
     tab: 'inter', agrupar: 'risco', op: '', q: '', abr: 'todas', cert: '', vmin: 0,
     secoes: {}, mais: { 'nx-16': true }, forms: {}, sel: {},
-    gav: { key: 'nx-09', on: mq.matches, form: 'acao' }, filtrosAbertos: false
+    gav: { key: 'nx-14', on: mq.matches, form: 'acao' }, filtrosAbertos: false
   };
 
   /* ───────── classificação (camada de exibição; só lê campos que o motor já devolve) ───────── */
@@ -325,6 +337,7 @@
   function degrau(r) {
     var d = r.diasRestantes;
     if (d == null) return 'sem';
+    if (NX.semPrazo(r) && d <= 0) return 'sem';   // data que não é prazo: nunca «cedo venceu»
     if (d <= 0) return 'cedo';
     if (d <= 90) return 'd90';
     if (d <= 365) return 'a1';
@@ -333,7 +346,7 @@
   function aba(r) {
     var c = caixa(r);
     if (c === 'decad') return 'decad';
-    if (c === 'recente' || c === 'antiga' || c === 'tratada') return 'cons';
+    if (c === 'recente' || c === 'antiga') return 'cons';
     return r.natureza === 'ordinaria' ? 'ord' : 'inter';
   }
   function passa(r, ignorarOp) {
@@ -374,7 +387,7 @@
     var ks = condKey(lead), cdas = D.filter(function (x) { return condKey(x) === ks; }).sort(function (a, b) { return b.valor - a.valor; });
     return { key: cdas[0].id, lead: cdas[0], cdas: cdas, valor: soma(cdas) };
   }
-  function dd(it) { var d = it.lead.diasRestantes; return d == null ? 1e9 : d; }
+  function dd(it) { var r = it.lead; if (NX.tese(r)) return NX.chaveTese(r); var d = r.diasRestantes; return d == null ? 1e9 : d; }   // «cedo venceu, tarde não»: vale a data tarde (sem tarde, por último)
   function cmpItem(a, b) {
     var ra = RUNG[degrau(a.lead)].i, rb = RUNG[degrau(b.lead)].i;
     if (ra !== rb) return ra - rb;
@@ -403,7 +416,7 @@
     var venc = cx === 'agir' && r.diasRestantes != null && r.diasRestantes <= 0;
     var quieta = !(cx === 'agir' || cx === 'recente');
     var aberta = !!state.mais[r.id];
-    var cls = 'nx-row p3-row nx-c-' + tom + (venc ? ' is-venc' : '') + ((venc || (cx === 'agir' && tom === 'orange') || cx === 'recente') ? ' is-strong' : '') + (quieta ? ' is-quiet' : '') + (aberta ? ' is-open' : '') + (state.gav.on && state.gav.key === r.id && aba(r) === state.tab ? ' is-selected' : '') + (ctx.denso ? ' dense' : '');
+    var cls = 'nx-row p3-row nx-c-' + tom + (NX.tese(r) ? ' is-tese' : '') + (venc ? ' is-venc' : '') + ((venc || (cx === 'agir' && tom === 'orange') || cx === 'recente') ? ' is-strong' : '') + (quieta ? ' is-quiet' : '') + (aberta ? ' is-open' : '') + (state.gav.on && state.gav.key === r.id && aba(r) === state.tab ? ' is-selected' : '') + (ctx.denso ? ' dense' : '');
     var h = '<article class="' + cls + '" data-key="' + r.id + '"><div class="nx-row-main"><div class="nx-row-id">';
     if (cx === 'agir') h += '<input type="checkbox" class="nx-checkbox" data-sel="' + r.id + '"' + (state.sel[r.id] ? ' checked' : '') + ' aria-label="Selecionar ' + esc(r.devedor) + '">';
     h += '<span class="nx-cda">' + r.cda + '</span>';
@@ -434,7 +447,7 @@
       h += '<button type="button" class="nx-btn sm" data-ac="editar" data-key="' + r.id + '">Editar dados</button>';
     }
     h += '<button type="button" class="nx-btn sm quiet p3-det" data-ac="mais" data-key="' + r.id + '" aria-expanded="' + aberta + '"><span class="nx-chev"></span>Detalhes</button>';
-    if (cx === 'agir') h += '<button type="button" class="nx-btn sm quiet" data-ac="adiar" data-key="' + r.id + '">Adiar…</button>';
+    if (cx === 'agir' && !NX.derivada(r)) h += '<button type="button" class="nx-btn sm quiet" data-ac="adiar" data-key="' + r.id + '">Adiar…</button>';
     h += '<button type="button" class="nx-btn sm quiet" data-ac="gaveta" data-key="' + r.id + '">Abrir</button>';
     return h + '</div>';
   }
@@ -518,7 +531,7 @@
   }
 
   /* ───────── grupos e degraus ───────── */
-  function gid(s) { return 'g-' + s.replace(/[^a-z0-9]+/gi, '-'); }
+  function gid(s) { return 'p3-g-' + s.replace(/[^a-z0-9]+/gi, '-'); }
   function grupoOp(g, id, ctx) {
     var op = NX.op(g.chave), abr = g.itens.filter(function (it) { return it.lead.abrangidaPor; }), avisos = [];
     if (abr.length) avisos.push('Abrangida pelo <b>' + esc(abr[0].lead.abrangidaPor) + '</b>: a constrição no incidente vale como penhora da execução. ' + ncdas(abr) + (ncdas(abr) === 1 ? ' CDA deste grupo.' : ' CDAs deste grupo.'));
@@ -575,36 +588,41 @@
     if (vo.length) h += dobra('vigiarOrd', 'Só vigiar', vo, 'ordinária com mais de 1 ano pela frente: ainda não pede ajuizamento', listaEscada(vo, 'vigiarOrd'), !cs.agirOrd.length);
     var ad = cs.adiada.filter(function (r) { return r.natureza === 'ordinaria'; });
     if (ad.length) h += dobra('adiadas:ord', 'Adiadas', ad, 'fora do alarme até a data marcada', adiadasHTML(ad));
+    var tr = cs.tratada.filter(function (r) { return r.natureza === 'ordinaria'; });
+    if (tr.length) h += dobra('tratadas:ord', 'Já tratadas', tr, 'prescrição apontada ou reconhecida; fora de qualquer alarme', adiadasHTML(tr, true));
     return h;
   }
   function mainInter(cs) {
-    var h = toolbar(cs.agirInt, 'CDAs com o que fazer');
-    h += '<div class="p3-sec-title"><h3>Há o que fazer</h3><span class="nx-muted nx-small">lançar fato ou ciência, confirmar vigência, conferir uma faixa vencida</span></div>';
+    var h = toolbar(cs.agirInt, 'CDAs que pedem você');
+    h += '<div class="p3-sec-title"><h3>Pedem você</h3><span class="nx-muted nx-small">lançar fato ou ciência, confirmar vigência, conferir quando a data cedo já venceu</span></div>';
     h += cs.agirInt.length ? listaEscada(cs.agirInt, 'agir') : vazio('Nada pede você neste recorte', 'Veja abaixo o que é só vigiar.');
     var vi = cs.vigiar.filter(function (r) { return r.natureza !== 'ordinaria'; });
     if (vi.length) h += dobra('vigiarInt', 'Só vigiar', vi, 'sem ação agora: ciclo encerrado, parcelamento vigente, IDPJ, penhora antiga', '<p class="p3-sem-acao">Nada a fazer agora e nenhum alarme. Cada CDA volta sozinha à escada quando o prazo se aproximar ou entrar fato novo.</p>' + listaEscada(vi, 'vigiarInt'), !cs.agirInt.length);
     var ad = cs.adiada.filter(function (r) { return r.natureza !== 'ordinaria'; });
     if (ad.length) h += dobra('adiadas:inter', 'Adiadas', ad, 'fora do alarme até a data marcada', adiadasHTML(ad));
+    var tr = cs.tratada.filter(function (r) { return r.natureza !== 'ordinaria'; });
+    if (tr.length) h += dobra('tratadas:inter', 'Já tratadas', tr, 'prescrição apontada ou reconhecida; fora de qualquer alarme', adiadasHTML(tr, true));
     return h;
   }
-  function adiadasHTML(l) {
-    return '<div class="nx-group"><div class="nx-group-body">' + condensar(l).sort(function (a, b) { return NX.parse(a.lead.adiada.ate) - NX.parse(b.lead.adiada.ate); }).map(function (it) { return linha(it, { op: true, denso: true }); }).join('') + '</div></div>';
+  function adiadasHTML(l, tratadas) {
+    var its = condensar(l);
+    if (!tratadas) its.sort(function (a, b) { return NX.parse(a.lead.adiada.ate) - NX.parse(b.lead.adiada.ate); });
+    return '<div class="nx-group"><div class="nx-group-body">' + its.map(function (it) { return linha(it, { op: true, denso: true }); }).join('') + '</div></div>';
   }
   function statTile(l, tom, rot, lista, sub) { return '<div class="nx-stat ' + tom + '"><span class="nx-stat-l">' + rot + '</span><span class="nx-stat-n">' + n(lista) + '</span><span class="nx-stat-v">' + curta(soma(lista)) + '</span><span class="nx-stat-s">' + sub + '</span></div>'; }
   function mainCons(cs) {
-    var rec = cs.recente, ant = cs.antiga, tra = cs.tratada, todas = rec.concat(ant, tra);
-    var h = '<div class="p3-tool"><span class="p3-tool-s"><b>' + n(todas) + '</b> consumadas · ' + moeda(soma(todas)) + '</span><span class="nx-sp"></span><button type="button" class="nx-btn sm" data-ac="exportar-cons">Exportar consumadas (CSV)</button></div>';
-    h += '<div class="nx-stats p3-cons-stats">' + statTile(0, 'orange', 'Recentes', rec, 'há até 6 meses · conferir') + statTile(0, 'muted', 'Antigas', ant, 'só registro') + statTile(0, 'green', 'Já tratadas', tra, 'aguardam decisão ou baixa') + '</div>';
-    h += '<div class="p3-sec-title"><h3>Recentes</h3><span class="nx-muted nx-small">consumadas há até 6 meses</span></div>';
+    var rec = cs.recente, ant = cs.antiga, todas = rec.concat(ant);
+    var h = '<div class="p3-tool"><span class="p3-tool-s"><b>' + n(todas) + '</b> consumadas · ' + n(rec) + ' a conferir · ' + moeda(soma(todas)) + '</span><span class="nx-sp"></span><button type="button" class="nx-btn sm" data-ac="exportar-cons">Exportar consumadas (CSV)</button></div>';
+    h += '<div class="nx-stats p3-cons-stats">' + statTile(0, 'muted', 'Consumadas', todas, n(rec) + ' a conferir · ' + n(ant) + ' antigas') + statTile(0, 'orange', 'Consumadas há pouco', rec, 'até 6 meses · conferir') + statTile(0, 'muted', 'Consumadas antigas', ant, 'só registro') + '</div>';
+    h += '<div class="nx-notice gray">As tratadas (prescrição apontada ao juízo ou reconhecida) não entram em «Consumadas»: ficam em «Já tratadas», nas abas Ordinária e Intercorrente.</div>';
+    h += '<div class="p3-sec-title"><h3>Consumadas há pouco</h3><span class="nx-muted nx-small">consumadas há até 6 meses</span></div>';
     h += '<div class="nx-notice orange">O cálculo pode estar errado. Antes de aceitar a consumação, confira nos autos se algum fato interrompeu o prazo e o cálculo não viu.</div>';
     h += rec.length ? '<div class="nx-groups p3-gs"><div class="nx-group"><div class="nx-group-body">' + condensar(rec).sort(function (a, b) { return a.lead.consumadaHa - b.lead.consumadaHa; }).map(function (it) { return linha(it, { op: true, nat: true }); }).join('') + '</div></div></div>' : vazio('Nenhuma consumada recente neste recorte', 'Nada a conferir agora.');
-    h += '<div class="p3-sec-title"><h3>Antigas</h3><span class="nx-muted nx-small">consumadas há mais de 6 meses · só registro, sem alarme · soma por operação no título de cada grupo</span></div>';
+    h += '<div class="p3-sec-title"><h3>Consumadas antigas</h3><span class="nx-muted nx-small">consumadas há mais de 6 meses · só registro, sem alarme · soma por operação no título de cada grupo</span></div>';
     h += ant.length ? '<div class="nx-groups p3-gs">' + agruparPor(condensar(ant), function (it) { return it.lead.operacao; }).map(function (g) {
       var op = NX.op(g.chave), id = gid('antigas' + g.chave);
       return NX.grupoHTML({ id: id, titulo: '<i class="nx-sq" style="--c:' + op.cor + ';display:inline-block;margin-right:6px"></i>' + esc(op.nome), n: g.n, valor: g.valor, colapsado: state.secoes[id] === false, corpo: g.itens.map(function (it) { return linha(it, { denso: true, nat: true }); }).join('') });
     }).join('') + '</div>' : vazio('Nenhuma consumada antiga neste recorte', 'Mude os filtros para ver o registro.');
-    h += '<div class="p3-sec-title"><h3>Já tratadas</h3><span class="nx-muted nx-small">prescrição apontada ou reconhecida · fora de qualquer alarme</span></div>';
-    h += tra.length ? '<div class="nx-group"><div class="nx-group-body">' + condensar(tra).map(function (it) { return linha(it, { op: true, denso: true, nat: true }); }).join('') + '</div></div>' : vazio('Nenhuma CDA tratada neste recorte', 'Nada aguardando decisão ou baixa.');
     return h;
   }
   function mainDecad(cs) {
@@ -623,7 +641,7 @@
       else if (t === 'confirmar_vigencia') o.push({ k: 'vigencia', rot: 'Ainda vale · conferido hoje', p: true, um: true });
       else if (t === 'conferir_autos') o.push({ k: 'conferido', rot: 'Marcar conferido hoje', p: true, um: true });
       if (r.natureza === 'intercorrente' && t !== 'criar_evento') o.push({ k: 'fato', rot: 'Lançar fato' });
-      o.push({ k: 'adiar', rot: 'Adiar…' });
+      if (!NX.derivada(r)) o.push({ k: 'adiar', rot: 'Adiar…' });
     } else if (cx === 'recente') {
       o.push({ k: 'conferido', rot: 'Consumação confirmada', p: true, um: true }); o.push({ k: 'fato', rot: 'Lançar fato que o cálculo não viu' }); o.push({ k: 'tratar', rot: 'Tratar…' });
     } else if (cx === 'vigiar') {
@@ -634,6 +652,16 @@
     return o;
   }
   function formPadrao(it) { var o = opcoes(it).filter(function (x) { return x.p && !x.um; })[0]; return o ? o.k : null; }
+  function relogiosHTML(r) {
+    var aj = !!r.processo, ativo = function (k) { return r.natureza === k; };
+    var dt = (r.termoCedo ? 'cedo ' + NX.fmtData(r.termoCedo) : '') + (r.termoTarde && r.termoTarde !== r.termoCedo ? ' · tarde ' + NX.fmtData(r.termoTarde) : (r.termoCedo && r.termoTarde ? ' (termo único)' : ''));
+    var cols = [
+      ['decadencia', 'Decadência', ativo('decadencia') ? '<b>' + esc(r.fase) + '</b><br>Só consulta; nunca avisa.' : 'Só consulta e edição. Nunca avisa.'],
+      ['ordinaria', 'Ordinária', ativo('ordinaria') ? '<b>' + esc(r.fase) + '</b><br>' + esc(dt) : (aj ? 'CDA ajuizada: interrompida pela propositura. Sem alarme.' : 'Sem dado destacado.')],
+      ['intercorrente', 'Intercorrente', ativo('intercorrente') ? '<b>' + esc(r.fase) + '</b><br>' + (dt ? esc(dt) : 'sem data') : (aj ? 'Sem dado destacado.' : 'Só começa depois do ajuizamento.')]
+    ];
+    return '<div class="p3-rels">' + cols.map(function (c) { return '<div class="p3-rel' + (ativo(c[0]) ? ' on' : '') + '"><span class="nx-chip ' + c[0] + ' sm">' + c[1] + '</span><span>' + c[2] + '</span></div>'; }).join('') + '</div>';
+  }
   function gavVisivel() {
     var g = state.gav; if (!g.on) return null;
     var it = itemDe(g.key); if (!it) return null;
@@ -645,7 +673,8 @@
     var r = it.lead, nn = it.cdas.length, cx = caixa(r), op = NX.op(r.operacao), opts = opcoes(it);
     var h = '<aside class="nx-drawer p3-drawer" aria-label="Detalhe da CDA"><div class="nx-drawer-top"><span class="nx-ell">' + TABN[aba(r)] + ' <span class="nx-muted">›</span> ' + (r.processo ? '<span class="nx-proc">' + r.processo + '</span>' : 'sem processo') + '</span><span class="nx-sp"></span><button type="button" class="nx-btn quiet icon" data-ac="gfechar" aria-label="Fechar">&times;</button></div><div class="nx-drawer-body">';
     h += '<div><div class="nx-chips">' + NX.chipsHTML(r) + '</div><h3 class="nx-d-title">' + esc(r.devedor) + '</h3><div class="nx-d-sub"><span class="nx-cda">' + r.cda + '</span>' + (nn > 1 ? ' <span class="nx-muted">+ ' + (nn - 1) + (nn === 2 ? ' CDA' : ' CDAs') + ' do mesmo processo</span>' : '') + ' · ' + opTag(r).replace('class="nx-op"', 'class="nx-op" style="display:inline-flex"') + '</div></div>';
-    h += '<div class="nx-sec"><div class="nx-sec-h">Situação</div><p class="nx-row-why">' + esc(r.situacao) + '</p>' + (r.abrangidaPor ? '<div class="nx-notice">Abrangida pelo ' + esc(r.abrangidaPor) + '.</div>' : '') + (nn > 1 ? '<div class="nx-notice gray">Mesma situação em ' + nn + ' CDAs deste processo. A ação vale para as que você marcar.</div>' : '') + '</div>';
+    h += '<div class="nx-sec"><div class="nx-sec-h">Situação</div><p class="nx-row-why">' + esc(r.situacao) + '</p>' + (r.abrangidaPor ? '<div class="nx-notice">Abrangida pelo ' + esc(r.abrangidaPor) + '.</div>' : '') + (nn > 1 ? '<div class="nx-notice gray">Mesma situação em ' + nn + ' CDAs deste processo. A ação vale para as que você marcar.</div>' : '') + (NX.derivada(r) ? '<div class="nx-notice gray">Ordinária fora dos 90 dias: o cálculo atual ainda não cria aviso para ela. Aparece aqui por escolha e não pode ser adiada.</div>' : '') + '</div>';
+    h += '<div class="nx-sec"><div class="nx-sec-h">Os três relógios da CDA</div>' + relogiosHTML(r) + '</div>';
     if (opts.length) {
       h += '<div class="nx-sec"><div class="nx-sec-h">' + (cx === 'decad' ? 'Editar aqui' : 'Agir aqui') + '</div><div class="p3-opts">' + opts.map(function (o) {
         return '<button type="button" class="nx-btn sm' + (o.p ? ' primary' : '') + (g.form === o.k ? ' secondary' : '') + '" data-ac="gform" data-kind="' + o.k + '">' + esc(o.rot + (nn > 1 && (o.k === 'acao' || o.k === 'adiar') ? ' · ' + nn + ' CDAs' : '')) + '</button>';
@@ -667,19 +696,19 @@
       return '<button type="button" class="p3-top nx-c-' + tom + '" data-ac="ir" data-key="' + r.id + '"><span class="p3-rank">' + (i + 1) + '</span><span class="p3-top-t nx-ell">' + esc(r.devedor) + '</span><span class="p3-top-m">' + TABN[aba(r)] + ' · ' + esc(NX.op(r.operacao).curto) + (nn > 1 ? ' · ' + nn + ' CDAs' : '') + '</span><span class="p3-top-r"><b class="nx-when ' + q.tom + '">' + esc(q.principal) + '</b><span>' + esc(q.linhas[0] || '') + '</span><span>' + moeda(it.valor) + '</span></span></button>';
     }).join('') : '<div class="nx-muted" style="grid-column:1/-1">Nada pede você neste recorte.</div>';
     var rec = cs.recente;
-    $('#p3-top-rec').innerHTML = rec.length ? '<div class="nx-notice orange">Também: <b>' + rec.length + (rec.length === 1 ? ' consumada' : ' consumadas') + ' há até 6 meses</b> (' + curta(soma(rec)) + '). O cálculo pode estar errado: <a href="#" data-ac="aba" data-tab="cons">conferir na aba Consumadas</a>.</div>' : '';
+    $('#p3-top-rec').innerHTML = rec.length ? '<div class="nx-notice orange">Também: <b>' + rec.length + (rec.length === 1 ? ' consumada' : ' consumadas') + ' há pouco (até 6 meses)</b> (' + curta(soma(rec)) + '). O cálculo pode estar errado: <a href="#" data-ac="aba" data-tab="cons">conferir na aba Consumadas</a>.</div>' : '';
   }
   function renderCarteira(cs, b) {
-    var cons = cs.recente.concat(cs.antiga, cs.tratada), agir = cs.agirOrd.concat(cs.agirInt);
+    var cons = cs.recente.concat(cs.antiga), tra = cs.tratada, agir = cs.agirOrd.concat(cs.agirInt);
     var pz = b.filter(function (r) { return caixa(r) !== 'decad'; }), ops = {}; pz.forEach(function (r) { ops[r.operacao] = 1; });
     var parte = function (l, tom, rot, um) { return '<b style="--c:var(--nx-' + tom + ')">' + l + '</b> ' + (l === 1 && um ? um : rot); };
     $('#p3-cart-h').innerHTML = '<div class="p3-cart-big"><b>' + pz.length + '</b> CDAs com prazo de prescrição · <b>' + Object.keys(ops).length + '</b> ' + (Object.keys(ops).length === 1 ? 'operação' : 'operações') + (state.op || Object.keys(ops).length < window.NX_OPERACOES.length ? ' <span class="nx-muted">(de ' + window.NX_OPERACOES.length + ')</span>' : '') + ' · <b>' + curta(soma(pz)) + '</b></div>' +
-      '<div class="p3-cart-eq">' + parte(n(agir), 'red', 'pedem você', 'pede você') + ' <span class="p3-op">+</span> ' + parte(n(cs.vigiar), 'blue', 'só vigiar') + ' <span class="p3-op">+</span> ' + parte(n(cs.adiada), 'orange', 'adiadas', 'adiada') + ' <span class="p3-op">+</span> ' + parte(n(cons), 'gray', 'consumadas', 'consumada') + ' <span class="p3-op">=</span> <b>' + pz.length + '</b> <span class="p3-op">· decadência (' + n(cs.decad) + ') é só consulta e fica fora da conta</span></div>';
+      '<div class="p3-cart-eq">' + parte(n(agir), 'red', 'pedem você', 'pede você') + ' <span class="p3-op">+</span> ' + parte(n(cs.vigiar), 'blue', 'só vigiar') + ' <span class="p3-op">+</span> ' + parte(n(cs.adiada), 'orange', 'adiadas', 'adiada') + ' <span class="p3-op">+</span> ' + parte(n(cons), 'gray', 'consumadas', 'consumada') + (n(cs.recente) ? ' <span class="nx-muted">(' + n(cs.recente) + ' a conferir)</span>' : '') + ' <span class="p3-op">+</span> ' + parte(n(tra), 'green', 'já tratadas', 'já tratada') + ' <span class="p3-op">=</span> <b>' + pz.length + '</b> <span class="p3-op">· decadência (' + n(cs.decad) + ') é só consulta e fica fora da conta</span></div>';
 
     var vigOrd = cs.vigiar.filter(function (r) { return r.natureza === 'ordinaria'; }), vigInt = cs.vigiar.filter(function (r) { return r.natureza !== 'ordinaria'; });
     var linhasEsc = [{ rot: 'Ordinária', sub: 'falta ajuizar', l: cs.agirOrd, tab: 'ord', sec: 'agir' }];
     if (vigOrd.length) linhasEsc.push({ rot: 'Ordinária', sub: 'só vigiar', l: vigOrd, tab: 'ord', sec: 'vigiarOrd' });
-    linhasEsc.push({ rot: 'Intercorrente', sub: 'há o que fazer', l: cs.agirInt, tab: 'inter', sec: 'agir' }, { rot: 'Intercorrente', sub: 'só vigiar', l: vigInt, tab: 'inter', sec: 'vigiarInt' });
+    linhasEsc.push({ rot: 'Intercorrente', sub: 'pedem você', l: cs.agirInt, tab: 'inter', sec: 'agir' }, { rot: 'Intercorrente', sub: 'só vigiar', l: vigInt, tab: 'inter', sec: 'vigiarInt' });
     var h = '<div class="p3-lh p3-lh0"></div>' + RUNGS.map(function (g) { return '<div class="p3-lh nx-c-' + g.tom + '"><i></i>' + g.curto + '</div>'; }).join('');
     var tot = {};
     linhasEsc.forEach(function (ln) {
@@ -694,30 +723,31 @@
     $('#p3-ladder').innerHTML = h;
 
     var ad = cs.adiada, volta = ad.map(function (r) { return r.adiada.ate; }).sort();
+    $('#p3-fora-s').textContent = n(ad) + (n(ad) === 1 ? ' adiada' : ' adiadas') + ' · ' + n(cons) + (n(cons) === 1 ? ' consumada' : ' consumadas') + ' · ' + n(tra) + (n(tra) === 1 ? ' já tratada' : ' já tratadas') + ' · decadência (só consulta)';
     var fora = function (tom, rot, l, sub, ac, calmo) { return '<' + (ac ? 'button type="button" ' + ac : 'div') + ' class="p3-fora-i' + (calmo ? ' calmo' : '') + ' nx-c-' + tom + '"><span class="l">' + rot + '</span><span class="n">' + n(l) + '</span><span class="v">' + (n(l) ? curta(soma(l)) + ' · ' + sub : 'nenhuma') + '</span></' + (ac ? 'button' : 'div') + '>'; };
     $('#p3-fora').innerHTML = fora('orange', 'Adiadas', ad, volta.length ? 'voltam ' + NX.fmtDataCurta(volta[0]).slice(0, 5) + (volta.length > 1 ? ' a ' + NX.fmtDataCurta(volta[volta.length - 1]).slice(0, 5) : '') : '', n(ad) ? 'data-ac="adiadas"' : '') +
-      fora('orange', 'Consumadas recentes', cs.recente, 'conferir o cálculo', n(cs.recente) ? 'data-ac="aba" data-tab="cons"' : '') +
-      fora('gray', 'Consumadas antigas', cs.antiga, 'só registro', n(cs.antiga) ? 'data-ac="aba" data-tab="cons"' : '') +
-      fora('green', 'Já tratadas', cs.tratada, 'aguardam decisão', n(cs.tratada) ? 'data-ac="aba" data-tab="cons"' : '') +
-      fora('gray', 'Decadência', cs.decad, 'só consulta', n(cs.decad) ? 'data-ac="aba" data-tab="decad"' : '', true);
+      fora('orange', 'Consumadas', cons, n(cs.recente) + ' a conferir · ' + n(cs.antiga) + ' antigas', n(cons) ? 'data-ac="aba" data-tab="cons"' : '') +
+      fora('green', 'Já tratadas', tra, 'aguardam decisão ou baixa', n(tra) ? 'data-ac="tratadas"' : '') +
+      (n(cs.decad) ? '<button type="button" data-ac="aba" data-tab="decad" class="p3-fora-i calmo nx-c-gray"><span class="l">Decadência</span><span class="n" style="font-size:13px;line-height:1.7">consulta</span><span class="v">só leitura e edição · fora da conta</span></button>' : '');
 
     var bo = base(true), oh = '<div class="p3-oprow h"><span>Operação</span><span>Pedem você</span><span>Consumado</span><span class="nx-prox">Próximo prazo</span></div>';
     var totAg = [], totCo = [];
     window.NX_OPERACOES.forEach(function (o) {
-      var l = bo.filter(function (r) { return r.operacao === o.nome; }), c = caixas(l), ag = c.agirOrd.concat(c.agirInt), co = c.recente.concat(c.antiga, c.tratada);
+      var l = bo.filter(function (r) { return r.operacao === o.nome; }), c = caixas(l), ag = c.agirOrd.concat(c.agirInt), co = c.recente.concat(c.antiga);
       totAg = totAg.concat(ag); totCo = totCo.concat(co);
-      var dmin = ag.length ? Math.min.apply(null, ag.map(function (r) { return r.diasRestantes == null ? 1e9 : r.diasRestantes; })) : null;
-      oh += '<button type="button" class="p3-oprow' + (state.op === o.nome ? ' is-on' : '') + '" data-ac="op" data-op="' + esc(o.nome) + '"><span class="nx-op"><i class="nx-sq" style="--c:' + o.cor + '"></i><span class="nx-ell">' + esc(o.curto) + '</span></span><span class="num' + (ag.length ? '' : ' zero') + '">' + (ag.length ? '<b>' + ag.length + '</b> · ' + curta(soma(ag)) : '–') + '</span><span class="num">' + (co.length ? curta(soma(co)) : '–') + '</span><span class="num nx-prox">' + (dmin == null ? '–' : dmin >= 1e9 ? 'sem data' : NX.fmtDias(dmin)) + '</span></button>';
+      var lider = ag.length ? condensar(ag).sort(cmpItem)[0].lead : null;
+      var prox = lider == null ? null : lider.diasRestantes == null ? 'sem data' : NX.quando(lider).principal;
+      oh += '<button type="button" class="p3-oprow' + (state.op === o.nome ? ' is-on' : '') + '" data-ac="op" data-op="' + esc(o.nome) + '"><span class="nx-op"><i class="nx-sq" style="--c:' + o.cor + '"></i><span class="nx-ell">' + esc(o.curto) + '</span></span><span class="num' + (ag.length ? '' : ' zero') + '">' + (ag.length ? '<b>' + ag.length + '</b> · ' + curta(soma(ag)) : '–') + '</span><span class="num">' + (co.length ? curta(soma(co)) : '–') + '</span><span class="num nx-prox">' + (prox == null ? '–' : esc(prox)) + '</span></button>';
     });
     oh += '<div class="p3-oprow tot"><span>Carteira</span><span class="num">' + (totAg.length ? totAg.length + ' · ' + curta(soma(totAg)) : '–') + '</span><span class="num">' + curta(soma(totCo)) + '</span><span class="nx-prox"></span></div>';
     $('#p3-ops').innerHTML = oh;
   }
 
   function renderTabs(cs) {
-    var badges = { ord: n(cs.agirOrd), inter: n(cs.agirInt), cons: n(cs.recente) };
-    var tt = { ord: 'CDAs que ainda precisam ser ajuizadas', inter: 'CDAs ajuizadas com algo a fazer', cons: 'consumadas há até 6 meses, para conferir' };
+    var badges = { ord: n(cs.agirOrd), inter: n(cs.agirInt), cons: n(cs.recente) + n(cs.antiga) };
+    var tt = { ord: 'CDAs que ainda precisam ser ajuizadas', inter: 'CDAs ajuizadas que pedem você', cons: 'consumadas (' + n(cs.recente) + ' há pouco, para conferir; ' + n(cs.antiga) + ' antigas)' };
     $('#p3-tabs').innerHTML = ['ord', 'inter', 'cons', 'decad'].map(function (t) {
-      var extra = t === 'decad' ? '<span class="p3-tabnote">só consulta</span>' : '<span class="p3-badge' + (badges[t] ? (t === 'cons' ? ' orange' : '') : ' zero') + ' nx-tip down" tabindex="-1" data-tip="' + badges[t] + ' ' + tt[t] + '">' + badges[t] + '</span>';
+      var extra = t === 'decad' ? '<span class="p3-tabnote">só consulta</span>' : t === 'cons' ? '<span class="p3-badge' + (n(cs.recente) ? ' orange' : ' zero') + ' nx-tip down" tabindex="-1" data-tip="' + tt.cons + '">' + badges.cons + '</span><span class="p3-tabnote">' + n(cs.recente) + ' a conferir</span>' : '<span class="p3-badge' + (badges[t] ? (t === 'cons' ? ' orange' : '') : ' zero') + ' nx-tip down" tabindex="-1" data-tip="' + badges[t] + ' ' + tt[t] + '">' + badges[t] + '</span>';
       return '<button type="button" role="tab" data-ac="aba" data-tab="' + t + '" aria-selected="' + (state.tab === t) + '">' + TABN[t] + extra + '</button>';
     }).join('');
     $('#p3-tabdesc').textContent = TABDESC[state.tab];
@@ -755,11 +785,11 @@
     s.innerHTML = '<span><b>Filtrando:</b> ' + t.join(' · ') + '</span><span>mostrando <b>' + b.length + ' de ' + bAll + ' CDAs</b> · ' + moeda(soma(b)) + ' · todos os números da página seguem este recorte</span><button type="button" class="nx-btn sm quiet" data-ac="limpar">Limpar filtros</button>';
   }
   function renderLer(cs, b) {
-    var ag = n(cs.agirOrd) + n(cs.agirInt), cons = n(cs.recente) + n(cs.antiga) + n(cs.tratada), pz = ag + n(cs.vigiar) + n(cs.adiada) + cons;
+    var ag = n(cs.agirOrd) + n(cs.agirInt), cons = n(cs.recente) + n(cs.antiga), tra = n(cs.tratada), pz = ag + n(cs.vigiar) + n(cs.adiada) + cons + tra;
     $('#p3-ler').innerHTML =
-      '<li><span><b>Cada CDA conta uma só vez.</b> ' + ag + ' pedem você + ' + n(cs.vigiar) + ' só vigiar + ' + n(cs.adiada) + ' adiadas + ' + cons + ' consumadas = ' + pz + ' CDAs com prazo de prescrição. A decadência (' + n(cs.decad) + ') é só consulta e não entra na conta. Todos os números seguem os filtros; só a tabela por operação ignora o filtro de operação, para você poder trocar.</span></li>' +
-      '<li><span><b>A ordem é uma só.</b> Leia a escada da esquerda para a direita: cedo já passou, 90 dias, 1 ano, depois, sem data. Dentro do degrau, a data cedo mais próxima e, no empate, o maior valor. A operação só agrupa; para ver por operação, processo ou valor, troque o “Agrupar por”.</span></li>' +
-      '<li><span><b>Só pede você o que ainda pode ser salvo e tem o que fazer.</b> Vigiar, adiadas, consumadas antigas e decadência ficam em silêncio. Consumadas há até 6 meses pedem apenas que você confira o cálculo, na aba Consumadas.</span></li>';
+      '<li><span><b>Cada CDA conta uma só vez.</b> ' + ag + ' pedem você + ' + n(cs.vigiar) + ' só vigiar + ' + n(cs.adiada) + ' adiadas + ' + cons + ' consumadas + ' + tra + ' já tratadas = ' + pz + ' CDAs com prazo de prescrição. A decadência (' + n(cs.decad) + ') é só consulta e não entra na conta. Todos os números seguem os filtros; só a tabela por operação ignora o filtro de operação, para você poder trocar.</span></li>' +
+      '<li><span><b>A ordem é uma só.</b> Leia a escada da esquerda para a direita: cedo venceu e tarde não, 90 dias, 1 ano, depois, sem prazo calculável. Dentro do degrau, a data cedo mais próxima (em «Cedo venceu, tarde não», a data tarde mais próxima) e, no empate, o maior valor. A operação só agrupa; para ver por operação, processo ou valor, troque o “Agrupar por”.</span></li>' +
+      '<li><span><b>Só pede você o que ainda pode ser salvo e tem o que fazer.</b> Vigiar, adiadas, consumadas antigas, tratadas e decadência ficam em silêncio. Consumadas há pouco (até 6 meses) pedem apenas que você confira o cálculo, na aba Consumadas.</span></li>';
   }
   function render() {
     var bAll = D.length, b = base(), cs = caixas(b);
@@ -788,14 +818,8 @@
     state.gav = { key: it.key, on: true, form: form !== undefined ? form : formPadrao(it) };
     render();
   }
-  function csv(list, nome) {
-    var cab = ['CDA', 'Devedor', 'Operação', 'Processo', 'Natureza', 'Caixa', 'Degrau da escada', 'Data cedo', 'Data tarde', 'Valor', 'Certeza', 'Abrangida por'];
-    var linhas = list.map(function (r) { var cx = caixa(r); return [r.cda, r.devedor, r.operacao, r.processo || '', NX.ROTULOS.natureza[r.natureza], NOMECX[cx], (cx === 'agir' || cx === 'vigiar') ? RUNG[degrau(r)].rot : '', r.termoCedo || '', r.termoTarde || '', String(r.valor).replace('.', ','), NX.ROTULOS.certeza[r.certeza], r.abrangidaPor || '']; });
-    var txt = [cab].concat(linhas).map(function (l) { return l.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(';'); }).join('\r\n');
-    try {
-      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + txt], { type: 'text/csv;charset=utf-8' })); a.download = nome; root.appendChild(a); a.click(); root.removeChild(a);
-      toast('Exportado: ' + nome + ' (' + list.length + ' CDAs, no recorte atual).');
-    } catch (e) { toast('Exportar não está disponível neste navegador.'); }
+  function csv(list, nome) {   // simulação: nada é baixado
+    toast('Simulação: exportaria ' + list.length + (list.length === 1 ? ' CDA' : ' CDAs') + ' para «' + nome + '» (CSV), no recorte atual.');
   }
   function executaUm(kind, it) {
     var hojeBr = NX.fmtData(HOJE);
@@ -819,6 +843,7 @@
       state.tab = a.dataset.tab; state.agrupar = 'risco'; if (/^vigiar/.test(a.dataset.sec)) state.secoes[a.dataset.sec] = true;
       render(); var alvo = $('[data-rung="' + a.dataset.sec + ':' + a.dataset.deg + '"]'); if (alvo) { alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); alvo.classList.add('p3-flash'); setTimeout(function () { alvo.classList.remove('p3-flash'); }, 1800); } return;
     }
+    if (ac === 'tratadas') { var pt = base().filter(function (r) { return caixa(r) === 'tratada'; })[0]; if (pt) { var sf = pt.natureza === 'ordinaria' ? 'ord' : 'inter'; state.tab = aba(pt); state.secoes['tratadas:' + sf] = true; render(); var ft = $('[data-fold="tratadas:' + sf + '"]'); if (ft) ft.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return; }
     if (ac === 'adiadas') { var p = base().filter(function (r) { return caixa(r) === 'adiada'; })[0]; if (p) { state.tab = aba(p); state.secoes['adiadas:' + (p.natureza === 'ordinaria' ? 'ord' : 'inter')] = true; render(); var f = $('[data-fold="adiadas:' + (p.natureza === 'ordinaria' ? 'ord' : 'inter') + '"]'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return; }
     if (ac === 'op') { state.op = state.op === a.dataset.op ? '' : a.dataset.op; $('#p3-f-op').value = state.op; render(); return; }
     if (ac === 'limpar') { state.op = ''; state.q = ''; state.abr = 'todas'; state.cert = ''; state.vmin = 0; $('#p3-f-op').value = ''; $('#p3-f-q').value = ''; $('#p3-f-cert').value = ''; $('#p3-f-valor').value = '0'; render(); return; }
@@ -844,7 +869,7 @@
     }
     if (ac === 'ficha') { toast('Abriria a ficha da CDA na operação (fora do mockup).'); return; }
     if (ac === 'exportar-tudo') { csv(base(), 'carteira-prazos.csv'); return; }
-    if (ac === 'exportar-cons') { csv(base().filter(function (r) { var c = caixa(r); return c === 'recente' || c === 'antiga' || c === 'tratada'; }), 'consumadas.csv'); return; }
+    if (ac === 'exportar-cons') { csv(base().filter(function (r) { var c = caixa(r); return c === 'recente' || c === 'antiga'; }), 'consumadas.csv'); return; }
     if (ac === 'lote-limpar') { state.sel = {}; render(); return; }
     if (ac === 'lote-exportar') { csv(Object.keys(state.sel).filter(function (k) { return state.sel[k]; }).map(itemDe).filter(Boolean).reduce(function (s, x) { return s.concat(x.cdas); }, []), 'selecao.csv'); return; }
     if (ac === 'lote-adiar') { toast('Abriria o formulário de adiamento para todas as selecionadas (simulação).'); return; }
@@ -878,9 +903,13 @@
   $('#p3-f-cert').addEventListener('change', function (e) { state.cert = e.target.value; render(); });
   $('#p3-f-valor').addEventListener('change', function (e) { state.vmin = +e.target.value; render(); });
   $('#p3-ftoggle').addEventListener('click', function () { state.filtrosAbertos = !state.filtrosAbertos; $('#p3-filtros').classList.toggle('is-open', state.filtrosAbertos); this.setAttribute('aria-expanded', String(state.filtrosAbertos)); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.gav.on && !mq.matches) { state.gav.on = false; render(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.gav.on && !mq.matches && root.offsetParent !== null) { state.gav.on = false; render(); } });
 
   /* ───────── início ───────── */
+  (function () {   // aba inicial = a do primeiro item de «Comece por aqui»
+    var cs0 = caixas(base()), its0 = condensar(cs0.agirOrd.concat(cs0.agirInt)).sort(cmpItem);
+    if (its0.length) state.tab = aba(its0[0].lead);
+  })();
   $('#p3-hoje').textContent = 'hoje (fixo): ' + NX.fmtData(HOJE);
   $('#p3-f-op').innerHTML = '<option value="">Todas</option>' + window.NX_OPERACOES.map(function (o) { return '<option value="' + esc(o.nome) + '">' + esc(o.curto) + '</option>'; }).join('');
   $('#p3-f-cert').innerHTML = '<option value="">Todas</option>' + ['calculado', 'faixa', 'dado', 'analisar'].map(function (c) { return '<option value="' + c + '">' + NX.ROTULOS.certeza[c] + '</option>'; }).join('');

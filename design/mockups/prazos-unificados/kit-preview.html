@@ -309,13 +309,13 @@
     return '<form class="nx-inline-form" data-form="' + r.id + '">' + c + '<div class="nx-inline-form-acts"><button type="button" class="nx-btn sm quiet" data-form-x="cancelar">Cancelar</button><button type="submit" class="nx-btn sm primary">' + ok + '</button></div><span class="nx-hint">' + hint + '</span></form>';
   }
   function renderFormsDemo() {
-    var demos = [['ajuizar', 'nx-01', null], ['lancar_ciencia', 'nx-09', null], ['adiar', 'nx-13', 'adiar']];
+    var demos = [['ajuizar', 'nx-01', null], ['lancar_ciencia', 'nx-14', null], ['adiar', 'nx-13', 'adiar']];
     $('#kp-forms').innerHTML = demos.map(function (d) { var r = byId(d[1]); return '<div class="nx-card nx-card-b"><div class="kp-label">' + (d[2] === 'adiar' ? 'Adiar' : NX.ROTULOS.acao[d[0]]) + '</div>' + formHTML(r, d[2]) + '</div>'; }).join('');
   }
 
   /* ── réguas ── */
   function renderReguas() {
-    var ids = ['nx-16', 'nx-12', 'nx-20', 'nx-09', 'nx-19', 'nx-07', 'nx-05'];
+    var ids = ['nx-16', 'nx-12', 'nx-20', 'nx-14', 'nx-19', 'nx-07', 'nx-05'];
     $('#kp-reguas').innerHTML = ids.map(function (id) {
       var r = byId(id);
       return '<div class="nx-card kp-ruler-card"><h3><span class="nx-cda">' + r.cda + '</span><span class="nx-muted" style="font-weight:400">' + NX.esc(r.fase) + '</span></h3>' + NX.reguaHTML(r, {}) +

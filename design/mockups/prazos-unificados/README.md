@@ -4,9 +4,21 @@ Kit para desenhar propostas de layout da tela única de prazos extintivos do NEX
 
 | Arquivo | Para quê |
 |---|---|
+| `index.html` | **Página comparativa final** (abas Resumo · Proposta 1 · Proposta 2 · Proposta 3 · Comparativo · Decisões suas), com `base.css`, `dados.js` e os três mockups embutidos. Gerada; não editar à mão |
+| `proposta-1.html` | Mockup standalone da Proposta 1 · Relógio |
+| `proposta-2.html` | Mockup standalone da Proposta 2 · Fila de trabalho |
+| `proposta-3.html` | Mockup standalone da Proposta 3 · Carteira por natureza |
 | `base.css` | Tokens (`--nx-*`, só em `.nx-mock`, fundo claro fixo) e componentes `nx-*` |
 | `dados.js` | `NX_HOJE = '2026-10-09'`, `NX_OPERACOES`, `NX_DADOS` (30 CDAs) e utilitários `NX.*` |
 | `kit-preview.html` | Todos os componentes com os dados; copie a marcação e os trechos de JS de lá |
+
+## Como abrir `index.html`
+
+- Localmente: dê duplo clique em `index.html` (ou arraste para o navegador). Funciona offline, exceto as fontes do Google, que caem para a fonte do sistema. Não precisa de servidor, build nem `npm`.
+- Formato: o arquivo é um fragmento de página (começa em `<title>` e `<style>`, sem `doctype`, `html`, `head` nem `body`), que é o que a publicação como artefato espera e envolve. Aberto direto, o navegador usa o modo de compatibilidade; o visual muda pouco.
+- Abas: cada aba tem um token no endereço (`#resumo`, `#relogio`, `#fila`, `#carteira`, `#comparativo`, `#decisoes`); por exemplo, `index.html#carteira` abre direto a Proposta 3.
+- Como é gerado: `index.html` junta `base.css` (sem o `@import`), `dados.js`, o CSS, o `<main>` e o JS de cada `proposta-N.html`, mais o texto da página. O script de montagem não faz parte do repositório; ao mudar um mockup, regenere o `index.html` (a página e os arquivos avulsos têm de ficar iguais).
+- Os três mockups convivem na mesma página: CSS todo sob `#proposta-N`, JS em IIFE, ids com prefixo `pN-`, `dados.js` idempotente.
 
 ## Regra para as propostas
 
@@ -29,7 +41,7 @@ Cada proposta é um arquivo `proposta-N.html` standalone, na mesma pasta:
 </body></html>
 ```
 
-- Para fundir as três numa página: nada de seletor solto, de `:root`, `html`, `body` ou `*` dentro do `<style>`; nomes de `@keyframes`, ids e variáveis próprias levam prefixo `pN-`. Não redefina `--nx-*` em `:root`; ajuste dentro de `#proposta-N`.
+- Para fundir as três numa página (já feito em `index.html`): nada de seletor solto, de `:root`, `html`, `body` ou `*` dentro do `<style>` (a única exceção é a linha `html, body { margin: 0; background: ... }` do arquivo avulso, que a montagem retira); nomes de `@keyframes`, ids e variáveis próprias levam prefixo `pN-`. Não redefina `--nx-*` em `:root`; ajuste dentro de `#proposta-N`.
 - Especificidade do kit é baixa de propósito: `#proposta-N .nx-row { ... }` sempre vence.
 - Mobile: 390px sem rolagem horizontal (`.nx-mock` corta `overflow-x`; confira com o detector do preview).
 - Quem altera registros (adiar, tratar) deve usar `const dados = NX.copia()`; `NX_DADOS` é compartilhado.
@@ -52,7 +64,9 @@ Cada proposta é um arquivo `proposta-N.html` standalone, na mesma pasta:
 
 ## Dados (dados.js)
 
-Cada CDA em `NX_DADOS`: `id cda devedor operacao valor processo abrangidaPor natureza fase situacao termoCedo termoTarde diasRestantes certeza podeSalvar acao{tipo,rotulo,umClique} conferir[] eventos[{data,fato,efeito}] consumadaHa silenciadaAte adiada{ate,motivo,desde} tratada{tipo,rotulo,desde} regua{inicio,fim,segmentos[{de,ate,tipo,rotulo?}],marcas[{data,rotulo,tipo}]}` e, além do pedido, **`fila`** (sugestão de agrupamento: `agir conferir vigiar registro adiada tratada impossivel`; 13/2/5/5/2/2/1). Dicionário completo no cabeçalho do arquivo. Datas ISO; `diasRestantes` é de hoje até a data cedo (negativo = vencido, `null` = sem contagem); `regua` pode ser `null`.
+Cada CDA em `NX_DADOS`: `id cda devedor operacao valor processo abrangidaPor natureza fase situacao termoCedo termoTarde diasRestantes certeza podeSalvar acao{tipo,rotulo,umClique} conferir[] eventos[{data,fato,efeito}] consumadaHa silenciadaAte adiada{ate,motivo,desde} tratada{tipo,rotulo,desde} regua{inicio,fim,segmentos[{de,ate,tipo,rotulo?}],marcas[{data,rotulo,tipo}]}` e, além do pedido, **`fila`** (sugestão de agrupamento: `agir conferir vigiar registro adiada tratada impossivel`; 11/2/7/5/2/2/1). Campo opcional **`divergencia`** (`true` = a análise importada diverge do cálculo; a certeza continua a do cálculo, com selo à parte). Dicionário completo no cabeçalho do arquivo. Datas ISO; `diasRestantes` é de hoje até a data cedo (negativo = vencido, `null` = sem contagem); `regua` pode ser `null`.
+
+Regras de exibição compartilhadas (só leem os campos acima): `NX.semPrazo(r)` (a data é «não antes de» ou registro de um fato, não prazo: nunca vai para «vencido»/«cedo venceu»; vai para «Sem prazo calculável»), `NX.derivada(r)` (ordinária não ajuizada a mais de 90 dias: selo «Fora dos 90 dias», sem «Adiar…»), `NX.tese(r)` + `NX.chaveTese(r)` («Cedo venceu, tarde não»: ordena pela data tarde, sem tarde por último; o relógio principal é «tarde em …»), `NX.lembreteVencido(r)` (aguardando reconhecimento com o lembrete de 60 dias vencido).
 
 Utilitários: `NX.fmtData` `fmtDataCurta` `fmtMoeda` `fmtMoedaCurta` `dias` `fmtDias` `fmtDuracao` `tomDias` `esc` · `NX.op(nome)` `soma` `agrupar(lista, fn)` `da(fila)` `copia` `adiamentoVencido` · `NX.tom(r)` `quando(r)` · HTML pronto: `NX.chipsHTML(r)` `reguaHTML(r,{mini})` `linhaHTML(r,{selecionavel,sel,dense,cols,regua,acoes})` `grupoHTML({titulo,n,valor,avisos,corpo,colapsado,flat})` · vocabulário `NX.ROTULOS` `FILAS` `MOTIVOS_ADIAMENTO`.
 

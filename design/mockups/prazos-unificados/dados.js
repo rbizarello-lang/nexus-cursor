@@ -25,6 +25,7 @@
      certeza       'faixa' | 'dado' | 'analisar' | 'calculado'
      podeSalvar    true = a ação cabe num formulário inline (tudo o que precisa já está na tela);
                    false = antes é preciso consultar os autos ou abrir a ficha completa
+     divergencia   (opcional) true = a análise importada diverge do cálculo; vale o cálculo (selo à parte, a certeza continua a do cálculo)
      acao          null ou { tipo, rotulo, umClique }  (umClique: grava sem pedir nenhum dado)
      conferir      [texto]  — "conferir nos autos"
      eventos       [{ data, fato, efeito }]  — cronológico
@@ -384,24 +385,25 @@
     processo: "5002871-40.2016.4.04.7001",
     abrangidaPor: null,
     natureza: "intercorrente",
-    fase: "Falta ciência após a penhora",
-    fila: "agir",
-    situacao: "Houve penhora em 12/03/2020 e nenhuma ciência lançada depois. O limite de 1 + 5 anos contado da penhora chegou em 12/03/2026; sem a ciência, o cálculo não fecha.",
-    termoCedo: "2026-03-12",
+    fase: "Penhora antiga",
+    fila: "vigiar",
+    situacao: "Penhora há mais de 6 anos (12/03/2020), sem outro fato lançado. Análise caso a caso: houve nova ciência de insuficiência depois dela?",
+    termoCedo: null,
     termoTarde: null,
-    diasRestantes: -211,
-    certeza: "dado",
-    podeSalvar: true,
-    acao: { tipo: "lancar_ciencia", rotulo: "Lançar ciência", umClique: false },
+    diasRestantes: null,
+    certeza: "analisar",
+    podeSalvar: false,
+    acao: null,
     conferir: [
-      "Data em que a Fazenda tomou ciência da insuficiência da penhora (intimação eletrônica de 30/03/2020?)",
+      "Houve nova intimação da Fazenda sobre a insuficiência da penhora depois de 12/03/2020? (a de 30/03/2020 pode ser a ciência)",
       "O imóvel penhorado segue constrito (matrícula atualizada)?"
     ],
     eventos: [
       { data: "2016-03-14", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
       { data: "2016-11-22", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária; ainda não conta o intercorrente" },
       { data: "2020-03-12", fato: "Penhora de imóvel (matrícula 14.882), valor insuficiente", efeito: "Encerra o ciclo. Nova inércia exige nova ciência" },
-      { data: "2020-03-30", fato: "Intimação eletrônica da Fazenda sobre o resultado da penhora (disponibilizada)", efeito: "Pode ser a ciência; ainda não lançada" }
+      { data: "2020-03-30", fato: "Intimação eletrônica da Fazenda sobre o resultado da penhora (disponibilizada)", efeito: "Pode ser a ciência; ainda não lançada" },
+      { data: "2026-03-12", fato: "Seis anos da penhora sem outro fato", efeito: "A CDA entra na lista \"Penhora antiga: analisar\"" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
@@ -411,12 +413,11 @@
       inicio: "2016-03-14", fim: "2027-04-20",
       segmentos: [
         { de: "2016-03-14", ate: "2020-03-12", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
-        { de: "2020-03-12", ate: "2026-03-12", tipo: "correndo", rotulo: "Limite operacional: penhora + 1 + 5 anos" }
+        { de: "2020-03-12", ate: "2026-10-09", tipo: "aguardando", rotulo: "Ciclo encerrado: aguarda nova ciência" }
       ],
       marcas: [
         { data: "2020-03-12", rotulo: "Penhora: ciclo encerrado", tipo: "ciclo" },
         { data: "2020-03-30", rotulo: "Intimação eletrônica (possível ciência)", tipo: "fato" },
-        { data: "2026-03-12", rotulo: "Limite: penhora + 1 + 5 anos", tipo: "cedo" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" }
       ]
     }
@@ -430,24 +431,25 @@
     processo: "5002871-40.2016.4.04.7001",
     abrangidaPor: null,
     natureza: "intercorrente",
-    fase: "Falta ciência após a penhora",
-    fila: "agir",
-    situacao: "Houve penhora em 12/03/2020 e nenhuma ciência lançada depois. O limite de 1 + 5 anos contado da penhora chegou em 12/03/2026; sem a ciência, o cálculo não fecha.",
-    termoCedo: "2026-03-12",
+    fase: "Penhora antiga",
+    fila: "vigiar",
+    situacao: "Penhora há mais de 6 anos (12/03/2020), sem outro fato lançado. Análise caso a caso: houve nova ciência de insuficiência depois dela?",
+    termoCedo: null,
     termoTarde: null,
-    diasRestantes: -211,
-    certeza: "dado",
-    podeSalvar: true,
-    acao: { tipo: "lancar_ciencia", rotulo: "Lançar ciência", umClique: false },
+    diasRestantes: null,
+    certeza: "analisar",
+    podeSalvar: false,
+    acao: null,
     conferir: [
-      "Data em que a Fazenda tomou ciência da insuficiência da penhora (intimação eletrônica de 30/03/2020?)",
+      "Houve nova intimação da Fazenda sobre a insuficiência da penhora depois de 12/03/2020? (a de 30/03/2020 pode ser a ciência)",
       "O imóvel penhorado segue constrito (matrícula atualizada)?"
     ],
     eventos: [
       { data: "2016-03-14", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
       { data: "2016-11-22", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária; ainda não conta o intercorrente" },
       { data: "2020-03-12", fato: "Penhora de imóvel (matrícula 14.882), valor insuficiente", efeito: "Encerra o ciclo. Nova inércia exige nova ciência" },
-      { data: "2020-03-30", fato: "Intimação eletrônica da Fazenda sobre o resultado da penhora (disponibilizada)", efeito: "Pode ser a ciência; ainda não lançada" }
+      { data: "2020-03-30", fato: "Intimação eletrônica da Fazenda sobre o resultado da penhora (disponibilizada)", efeito: "Pode ser a ciência; ainda não lançada" },
+      { data: "2026-03-12", fato: "Seis anos da penhora sem outro fato", efeito: "A CDA entra na lista \"Penhora antiga: analisar\"" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
@@ -457,12 +459,11 @@
       inicio: "2016-03-14", fim: "2027-04-20",
       segmentos: [
         { de: "2016-03-14", ate: "2020-03-12", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
-        { de: "2020-03-12", ate: "2026-03-12", tipo: "correndo", rotulo: "Limite operacional: penhora + 1 + 5 anos" }
+        { de: "2020-03-12", ate: "2026-10-09", tipo: "aguardando", rotulo: "Ciclo encerrado: aguarda nova ciência" }
       ],
       marcas: [
         { data: "2020-03-12", rotulo: "Penhora: ciclo encerrado", tipo: "ciclo" },
         { data: "2020-03-30", rotulo: "Intimação eletrônica (possível ciência)", tipo: "fato" },
-        { data: "2026-03-12", rotulo: "Limite: penhora + 1 + 5 anos", tipo: "cedo" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" }
       ]
     }
@@ -527,7 +528,7 @@
     termoCedo: "2026-12-02",
     termoTarde: "2026-12-02",
     diasRestantes: 54,
-    certeza: "dado",
+    certeza: "calculado",
     podeSalvar: false,
     acao: { tipo: "criar_evento", rotulo: "Lançar resultado do pedido", umClique: false },
     conferir: [
@@ -667,7 +668,8 @@
     termoCedo: "2026-11-23",
     termoTarde: "2026-11-23",
     diasRestantes: 45,
-    certeza: "analisar",
+    certeza: "calculado",
+    divergencia: true,
     podeSalvar: false,
     acao: { tipo: "criar_evento", rotulo: "Lançar o fato que encerrou o ciclo", umClique: false },
     conferir: [
@@ -704,46 +706,46 @@
     devedor: "Supermercados Nova Aliança Ltda",
     operacao: "Operação Maré Vazante",
     valor: 742390,
-    processo: "5005550-12.2015.4.04.7003",
+    processo: "0010345-12.1999.4.04.7003",
     abrangidaPor: null,
     natureza: "intercorrente",
     fase: "Rescisão de parcelamento",
     fila: "agir",
-    situacao: "Pela leitura mais desfavorável (data cedo, 12/04/2026), o prazo já venceu. A data tarde (30/07/2027) é a tese da União.",
-    termoCedo: "2026-04-12",
-    termoTarde: "2027-07-30",
-    diasRestantes: -180,
+    situacao: "Pela leitura mais desfavorável (data cedo, 27/04/2006), o prazo já venceu há 20 anos. A data tarde (09/03/2028) é a tese da União.",
+    termoCedo: "2006-04-27",
+    termoTarde: "2028-03-09",
+    diasRestantes: -7470,
     certeza: "faixa",
     podeSalvar: false,
     acao: { tipo: "conferir_autos", rotulo: "Conferir nos autos", umClique: false },
     conferir: [
       "Data da última parcela paga (inadimplemento) no extrato do parcelamento",
-      "Data da exclusão formal publicada (30/07/2021)",
-      "Algum ato da Fazenda depois de 30/07/2021?"
+      "Data da exclusão formal publicada (09/03/2022)",
+      "Algum ato da Fazenda depois de 09/03/2022?"
     ],
     eventos: [
-      { data: "2015-05-22", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
-      { data: "2016-01-18", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária" },
-      { data: "2017-02-08", fato: "Adesão a parcelamento", efeito: "Interrompe e pausa o prazo" },
-      { data: "2021-04-12", fato: "Última parcela paga (inadimplemento)", efeito: "Marco da data cedo (+ 5 anos)" },
-      { data: "2021-07-30", fato: "Exclusão do parcelamento (rescisão formal)", efeito: "Marco da data tarde (+ 1 + 5 anos)" }
+      { data: "1999-10-04", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
+      { data: "2000-03-21", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária" },
+      { data: "2000-04-10", fato: "Adesão a parcelamento", efeito: "Interrompe e pausa o prazo" },
+      { data: "2001-04-27", fato: "Última parcela paga (inadimplemento)", efeito: "Marco da data cedo (+ 5 anos)" },
+      { data: "2022-03-09", fato: "Exclusão do parcelamento (rescisão formal)", efeito: "Marco da data tarde (+ 1 + 5 anos)" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
     adiada: null,
     tratada: null,
     regua: {
-      inicio: "2015-05-22", fim: "2028-03-08",
+      inicio: "1999-10-04", fim: "2028-11-30",
       segmentos: [
-        { de: "2015-05-22", ate: "2017-02-08", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
-        { de: "2017-02-08", ate: "2021-04-12", tipo: "pausa", rotulo: "Parcelamento vigente" },
-        { de: "2021-04-12", ate: "2026-04-12", tipo: "correndo", rotulo: "5 anos após o inadimplemento" }
+        { de: "1999-10-04", ate: "2000-04-10", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
+        { de: "2000-04-10", ate: "2001-04-27", tipo: "pausa", rotulo: "Parcelamento vigente" },
+        { de: "2001-04-27", ate: "2006-04-27", tipo: "correndo", rotulo: "5 anos após o inadimplemento" }
       ],
       marcas: [
-        { data: "2021-07-30", rotulo: "Exclusão do parcelamento", tipo: "fato" },
-        { data: "2026-04-12", rotulo: "Data cedo", tipo: "cedo" },
+        { data: "2006-04-27", rotulo: "Data cedo", tipo: "cedo" },
+        { data: "2022-03-09", rotulo: "Exclusão do parcelamento", tipo: "fato" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" },
-        { data: "2027-07-30", rotulo: "Data tarde (tese da União)", tipo: "tarde" }
+        { data: "2028-03-09", rotulo: "Data tarde (tese da União)", tipo: "tarde" }
       ]
     }
   },
@@ -758,7 +760,7 @@
     natureza: "intercorrente",
     fase: "Rescisão de parcelamento",
     fila: "agir",
-    situacao: "A data cedo cai nos próximos 90 dias (14/12/2026). Peticionar antes dela; a data tarde (14/12/2027) é a tese da União.",
+    situacao: "A data cedo cai nos próximos 90 dias (14/12/2026). Peticionar antes dela; a data tarde (14/12/2027) é a tese da União. O adiamento por garantia em análise venceu em 06/10/2026.",
     termoCedo: "2026-12-14",
     termoTarde: "2027-12-14",
     diasRestantes: 66,
@@ -773,11 +775,12 @@
       { data: "2016-08-03", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
       { data: "2017-03-15", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária" },
       { data: "2018-09-10", fato: "Adesão a parcelamento", efeito: "Interrompe e pausa o prazo" },
-      { data: "2021-12-14", fato: "Rescisão do parcelamento, sem data de inadimplemento lançada", efeito: "Data cedo = rescisão + 5 anos; data tarde = + 1 + 5 anos" }
+      { data: "2021-12-14", fato: "Rescisão do parcelamento, sem data de inadimplemento lançada", efeito: "Data cedo = rescisão + 5 anos; data tarde = + 1 + 5 anos" },
+      { data: "2026-09-22", fato: "Adiado até 06/10/2026: garantia em análise", efeito: "O adiamento venceu; o item voltou à fila" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
-    adiada: null,
+    adiada: { ate: "2026-10-06", motivo: "Garantia em análise", desde: "2026-09-22" },
     tratada: null,
     regua: {
       inicio: "2016-08-03", fim: "2028-07-08",
@@ -1134,11 +1137,11 @@
       { data: "2019-08-05", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
       { data: "2020-02-18", fato: "Citação por edital", efeito: "Interrompe a ordinária" },
       { data: "2021-12-10", fato: "Arquivamento provisório (art. 40, § 2º), sem ciência lançada", efeito: "Só o arquivamento: data cedo + 5 anos; data tarde + 6 anos" },
-      { data: "2026-10-05", fato: "Adiado até 21/10/2026: aguardando certidão", efeito: "Sai da fila e volta na data marcada" }
+      { data: "2026-10-05", fato: "Adiado até 12/10/2026: aguardando certidão", efeito: "Sai da fila e volta na data marcada" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
-    adiada: { ate: "2026-10-21", motivo: "Aguardando certidão", desde: "2026-10-05" },
+    adiada: { ate: "2026-10-12", motivo: "Aguardando certidão", desde: "2026-10-05" },
     tratada: null,
     regua: {
       inicio: "2019-08-05", fim: "2028-05-10",
@@ -1156,47 +1159,46 @@
   },
   {
     id: "nx-26",
-    cda: "80.6.15.009981-50",
-    devedor: "J. R. Almeida Comércio de Combustíveis Ltda",
-    operacao: "Operação Rota Fria",
-    valor: 59870,
-    processo: "5002950-07.2016.4.04.7007",
+    cda: "90.7.18.010449-14",
+    devedor: "Laticínios Campos Gerais Ltda",
+    operacao: "Operação Veredas",
+    valor: 96320.4,
+    processo: "5006120-31.2019.4.04.7001",
     abrangidaPor: null,
     natureza: "intercorrente",
     fase: "Só o arquivamento datado",
     fila: "agir",
-    situacao: "Só há o arquivamento datado de 11/11/2021, sem ciência lançada. A data cedo é 11/11/2026 e a tarde 11/11/2027. O adiamento por garantia em análise venceu em 06/10/2026.",
-    termoCedo: "2026-11-11",
-    termoTarde: "2027-11-11",
-    diasRestantes: 33,
+    situacao: "Só há o arquivamento datado de 10/12/2021, sem ciência lançada. A data cedo é 10/12/2026 (arquivamento + 5 anos) e a tarde 10/12/2027 (+ 1 + 5 anos). Lance a ciência para fechar a data.",
+    termoCedo: "2026-12-10",
+    termoTarde: "2027-12-10",
+    diasRestantes: 62,
     certeza: "dado",
     podeSalvar: false,
     acao: { tipo: "lancar_ciencia", rotulo: "Lançar a data da ciência", umClique: false },
     conferir: [
       "Certidão de intimação da Fazenda sobre a suspensão (art. 40)",
-      "A garantia oferecida pelo devedor foi aceita?"
+      "Despacho que suspendeu a execução antes do arquivamento"
     ],
     eventos: [
-      { data: "2016-03-30", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
-      { data: "2016-11-09", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária" },
-      { data: "2021-11-11", fato: "Arquivamento provisório (art. 40, § 2º), sem ciência lançada", efeito: "Só o arquivamento: data cedo + 5 anos; data tarde + 6 anos" },
-      { data: "2026-09-21", fato: "Adiado até 06/10/2026: garantia em análise", efeito: "O adiamento venceu; o item voltou à fila" }
+      { data: "2019-08-05", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
+      { data: "2020-02-18", fato: "Citação por edital", efeito: "Interrompe a ordinária" },
+      { data: "2021-12-10", fato: "Arquivamento provisório (art. 40, § 2º), sem ciência lançada", efeito: "Só o arquivamento: data cedo + 5 anos; data tarde + 6 anos" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
-    adiada: { ate: "2026-10-06", motivo: "Garantia em análise", desde: "2026-09-21" },
+    adiada: null,
     tratada: null,
     regua: {
-      inicio: "2016-03-30", fim: "2028-06-10",
+      inicio: "2019-08-05", fim: "2028-05-10",
       segmentos: [
-        { de: "2016-03-30", ate: "2021-11-11", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
-        { de: "2021-11-11", ate: "2026-11-11", tipo: "correndo", rotulo: "5 anos após o arquivamento" }
+        { de: "2019-08-05", ate: "2021-12-10", tipo: "aguardando", rotulo: "Sem ciência: sem relógio" },
+        { de: "2021-12-10", ate: "2026-12-10", tipo: "correndo", rotulo: "5 anos após o arquivamento" }
       ],
       marcas: [
-        { data: "2021-11-11", rotulo: "Arquivamento", tipo: "fato" },
+        { data: "2021-12-10", rotulo: "Arquivamento", tipo: "fato" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" },
-        { data: "2026-11-11", rotulo: "Data cedo", tipo: "cedo" },
-        { data: "2027-11-11", rotulo: "Data tarde (tese da União)", tipo: "tarde" }
+        { data: "2026-12-10", rotulo: "Data cedo", tipo: "cedo" },
+        { data: "2027-12-10", rotulo: "Data tarde (tese da União)", tipo: "tarde" }
       ]
     }
   },
@@ -1211,7 +1213,7 @@
     natureza: "intercorrente",
     fase: "Aguardando reconhecimento",
     fila: "tratada",
-    situacao: "A prescrição já foi apontada em 14/09/2026 e aguarda decisão judicial. Sem alarme; lembrete em 13/11/2026.",
+    situacao: "A prescrição foi apontada em 05/08/2026 e aguarda decisão judicial. O lembrete de 60 dias venceu em 04/10/2026: vale cobrar a decisão.",
     termoCedo: "2026-03-18",
     termoTarde: "2026-03-18",
     diasRestantes: -205,
@@ -1223,12 +1225,12 @@
       { data: "2013-04-15", fato: "Ajuizamento da execução fiscal", efeito: "Sem efeito no intercorrente" },
       { data: "2014-01-20", fato: "Citação do devedor (AR positivo)", efeito: "Interrompe a ordinária" },
       { data: "2020-03-18", fato: "Ciência da Fazenda: devedor sem bens (art. 40)", efeito: "Começa o ano de suspensão" },
-      { data: "2026-09-14", fato: "Fazenda aponta a prescrição intercorrente em petição", efeito: "Aguarda decisão judicial; lembrete em 60 dias" }
+      { data: "2026-08-05", fato: "Fazenda aponta a prescrição intercorrente em petição", efeito: "Aguarda decisão judicial; lembrete em 60 dias (venceu em 04/10/2026)" }
     ],
     consumadaHa: 205,
-    silenciadaAte: "2026-11-13",
+    silenciadaAte: "2026-10-04",
     adiada: null,
-    tratada: { tipo: "aguardando_reconhecimento", rotulo: "Aguardando reconhecimento", desde: "2026-09-14" },
+    tratada: { tipo: "aguardando_reconhecimento", rotulo: "Aguardando reconhecimento", desde: "2026-08-05" },
     regua: {
       inicio: "2013-04-15", fim: "2027-06-12",
       segmentos: [
@@ -1238,7 +1240,7 @@
       ],
       marcas: [
         { data: "2026-03-18", rotulo: "Termo", tipo: "termo" },
-        { data: "2026-09-14", rotulo: "Prescrição apontada", tipo: "fato" },
+        { data: "2026-08-05", rotulo: "Prescrição apontada", tipo: "fato" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" }
       ]
     }
@@ -1336,10 +1338,10 @@
     natureza: "ordinaria",
     fase: "Não ajuizada",
     fila: "adiada",
-    situacao: "Os 5 anos para ajuizar vencem em 05/03/2027. A petição inicial foi protocolada em 02/10/2026 e aguarda distribuição.",
-    termoCedo: "2027-03-05",
-    termoTarde: "2027-03-05",
-    diasRestantes: 147,
+    situacao: "Os 5 anos para ajuizar vencem em 22/12/2026. A petição inicial foi protocolada em 02/10/2026 e aguarda distribuição.",
+    termoCedo: "2026-12-22",
+    termoTarde: "2026-12-22",
+    diasRestantes: 74,
     certeza: "calculado",
     podeSalvar: true,
     acao: { tipo: "ajuizar", rotulo: "Ajuizar execução", umClique: false },
@@ -1347,23 +1349,23 @@
       "A petição inicial foi distribuída? Anotar o número do processo"
     ],
     eventos: [
-      { data: "2022-03-05", fato: "Declaração entregue (DCTF): constituição definitiva", efeito: "Começa a correr o prazo de 5 anos para ajuizar" },
-      { data: "2022-08-17", fato: "Inscrição em dívida ativa", efeito: "Sem efeito no prazo" },
-      { data: "2026-10-02", fato: "Petição inicial protocolada, aguardando distribuição", efeito: "Adiado até 24/10/2026: peça protocolada" }
+      { data: "2021-12-22", fato: "Declaração entregue (DCTF): constituição definitiva", efeito: "Começa a correr o prazo de 5 anos para ajuizar" },
+      { data: "2022-05-17", fato: "Inscrição em dívida ativa", efeito: "Sem efeito no prazo" },
+      { data: "2026-10-02", fato: "Petição inicial protocolada, aguardando distribuição", efeito: "Adiado até 16/10/2026: peça protocolada" }
     ],
     consumadaHa: null,
     silenciadaAte: null,
-    adiada: { ate: "2026-10-24", motivo: "Peça protocolada", desde: "2026-10-02" },
+    adiada: { ate: "2026-10-16", motivo: "Peça protocolada", desde: "2026-10-02" },
     tratada: null,
     regua: {
-      inicio: "2022-03-05", fim: "2027-06-04",
+      inicio: "2021-12-22", fim: "2027-03-23",
       segmentos: [
-        { de: "2022-03-05", ate: "2027-03-05", tipo: "correndo", rotulo: "Prazo de 5 anos para ajuizar" }
+        { de: "2021-12-22", ate: "2026-12-22", tipo: "correndo", rotulo: "Prazo de 5 anos para ajuizar" }
       ],
       marcas: [
         { data: "2026-10-02", rotulo: "Petição inicial protocolada", tipo: "fato" },
         { data: "2026-10-09", rotulo: "Hoje", tipo: "hoje" },
-        { data: "2027-03-05", rotulo: "Termo", tipo: "termo" }
+        { data: "2026-12-22", rotulo: "Termo", tipo: "termo" }
       ]
     }
   }
@@ -1387,10 +1389,10 @@
   };
   NX.MOTIVOS_ADIAMENTO = ['Aguardando certidão', 'Peça protocolada', 'Garantia em análise', 'Não priorizar agora', 'Outro'];
   NX.FILAS = [
-    { id: 'agir', rotulo: 'Precisa de você', tom: 'red', descricao: 'Há providência a tomar: ajuizar, lançar fato ou ciência, confirmar vigência ou conferir uma faixa já vencida.' },
-    { id: 'conferir', rotulo: 'Conferir o cálculo', tom: 'orange', descricao: 'Consumada há pouco (até 6 meses): o cálculo pode estar errado. Conferir nos autos.' },
+    { id: 'agir', rotulo: 'Pedem você', tom: 'red', descricao: 'Há providência a tomar: ajuizar, lançar fato ou ciência, confirmar vigência ou conferir quando a data cedo já venceu.' },
+    { id: 'conferir', rotulo: 'Consumadas há pouco', tom: 'orange', descricao: 'Consumadas há até 6 meses: o cálculo pode estar errado. Conferir nos autos. É conferência, não ação.' },
     { id: 'vigiar', rotulo: 'Só vigiar', tom: 'blue', descricao: 'Ciclo encerrado, parcelamento vigente, IDPJ com constrição ou penhora antiga. Sem ação agora.' },
-    { id: 'registro', rotulo: 'Só registro', tom: 'gray', descricao: 'Decadência e consumadas antigas. Nunca alarmam.' },
+    { id: 'registro', rotulo: 'Só registro', tom: 'gray', descricao: 'Decadência e consumadas antigas. Nunca alarmam; a decadência fica fora da conta.' },
     { id: 'adiada', rotulo: 'Adiadas', tom: 'orange', descricao: 'Fora da fila com motivo e data para voltar.' },
     { id: 'tratada', rotulo: 'Tratadas', tom: 'green', descricao: 'Prescrição apontada ou reconhecida, aguardando decisão ou baixa.' },
     { id: 'impossivel', rotulo: 'Ainda impossível', tom: 'gray', descricao: 'Ainda não pode ter prescrito: o piso de 1 + 5 anos não chegou.' }
@@ -1480,6 +1482,21 @@
   NX.copia = function () { return JSON.parse(JSON.stringify(w.NX_DADOS)); };
   NX.adiamentoVencido = function (r) { return !!(r.adiada && NX.dias(r.adiada.ate) <= 0); };
 
+  /* ───────── regras de exibição compartilhadas pelas três propostas (derivadas só dos campos acima) ───────── */
+  // Kinds cuja data NÃO é prazo ("não antes de" ou data do evento): nunca vão para "vencido" nem para "cedo venceu".
+  NX.semPrazo = function (r) { return /Penhora antiga|Ciclo encerrado|Interrompida via IDPJ|Parcelamento vigente|Ainda impossível/.test(r.fase || ''); };
+  // Ordinária não ajuizada com mais de 90 dias pela frente: o motor ainda não cria linha para ela; entra por derivação (decisão 3).
+  NX.derivada = function (r) { return r.natureza === 'ordinaria' && !r.processo && r.consumadaHa == null && !r.tratada && r.diasRestantes != null && r.diasRestantes > 90; };
+  // "Cedo venceu, tarde não": a data cedo passou, a tarde (tese da União) ainda não ou não existe. Ainda se salva.
+  NX.tese = function (r) {
+    return r.natureza !== 'decadencia' && !NX.semPrazo(r) && r.consumadaHa == null && !r.tratada && r.termoCedo != null &&
+      r.diasRestantes != null && r.diasRestantes <= 0 && (!r.termoTarde || NX.dias(r.termoTarde) > 0);
+  };
+  // Ordem dentro desse bloco: pela data tarde (a mais próxima primeiro); sem data tarde por último.
+  NX.chaveTese = function (r) { return r.termoTarde ? NX.dias(r.termoTarde) : 1e9; };
+  // Lembrete de 60 dias do "aguardando reconhecimento" já vencido.
+  NX.lembreteVencido = function (r) { return !!(r.tratada && r.tratada.tipo === 'aguardando_reconhecimento' && r.silenciadaAte && NX.dias(r.silenciadaAte) <= 0); };
+
   /* ───────── apresentação ───────── */
   // Cor da linha (trilho e prazo): red vencido · orange janela de 90 dias · yellow resto da fila · blue vigiar · green tratada · gray registro.
   NX.tom = function (r) {
@@ -1502,6 +1519,11 @@
     if (r.silenciadaAte && (r.fila === 'vigiar' || r.fila === 'impossivel')) {
       return { principal: 'silenciada', tom: 'muted', linhas: ['volta em ' + NX.fmtData(r.silenciadaAte)] };
     }
+    if (NX.tese(r)) {
+      var dt = tarde ? NX.dias(tarde) : null;
+      return { principal: dt != null ? 'tarde ' + NX.fmtDias(dt) : 'tarde sem termo', tom: 'red',
+        linhas: [dt != null ? 'tarde ' + NX.fmtData(tarde) : 'sem data da tarde', 'cedo venceu ' + NX.fmtDias(r.diasRestantes)] };
+    }
     var linhas = [];
     if (cedo && tarde && cedo !== tarde) linhas = ['cedo ' + NX.fmtData(cedo), 'tarde ' + NX.fmtData(tarde)];
     else if (cedo && tarde) linhas = ['termo ' + NX.fmtData(cedo)];
@@ -1515,13 +1537,15 @@
     var R = NX.ROTULOS, h = '';
     h += '<span class="nx-chip ' + r.natureza + '">' + R.natureza[r.natureza] + '</span>';
     h += '<span class="nx-chip ' + r.certeza + ' nx-tip" tabindex="0" data-tip="' + NX.esc(R.certezaDica[r.certeza]) + '">' + R.certeza[r.certeza] + '</span>';
-    if (r.fase) h += '<span class="nx-chip situacao">' + NX.esc(r.fase) + '</span>';
+    if (r.fase) h += '<span class="nx-chip situacao' + (r.divergencia ? ' t-red' : '') + '">' + NX.esc(r.fase) + '</span>';
+    if (NX.derivada(r)) h += '<span class="nx-chip situacao nx-tip" tabindex="0" data-tip="Ordinária não ajuizada, com mais de 90 dias pela frente. O cálculo atual só cria aviso a partir de 90 dias; aqui ela aparece por escolha. Adiar não vale para ela.">Fora dos 90 dias</span>';
     if (r.abrangidaPor) h += '<span class="nx-chip abrangida nx-tip" tabindex="0" data-tip="Execução abrangida por incidente: a constrição no incidente vale como penhora."><b>IDPJ</b> ' + NX.esc(r.abrangidaPor.replace(/^IDPJ\s*/, '')) + '</span>';
     if (r.adiada) {
       var venc = NX.adiamentoVencido(r);
       h += '<span class="nx-chip adiada' + (venc ? ' t-red' : '') + '">' + (venc ? 'Adiamento venceu em ' : 'Adiada até ') + NX.fmtDataCurta(r.adiada.ate) + ' · ' + NX.esc(r.adiada.motivo) + '</span>';
     }
     if (r.tratada) h += '<span class="nx-chip tratada">' + NX.esc(r.tratada.rotulo) + '</span>';
+    if (NX.lembreteVencido(r)) h += '<span class="nx-chip t-red sm">Lembrete venceu em ' + NX.fmtDataCurta(r.silenciadaAte) + '</span>';
     if (r.silenciadaAte && !r.tratada && r.fila !== 'adiada') h += '<span class="nx-chip silenciada">Silenciada até ' + NX.fmtDataCurta(r.silenciadaAte) + '</span>';
     return h;
   };
@@ -1576,7 +1600,7 @@
     var venc = r.fila === 'agir' && r.diasRestantes != null && r.diasRestantes < 0;
     var quieta = r.fila !== 'agir' && r.fila !== 'conferir';
     var cls = 'nx-row nx-c-' + tom + (venc ? ' is-venc' : '') + ((venc || (r.fila === 'agir' && tom === 'orange')) ? ' is-strong' : '') + (quieta ? ' is-quiet' : '') +
-      (opts.dense ? ' dense' : '') + (opts.cols ? ' cols' : '') + (opts.sel ? ' is-selected' : '') + (opts.aberta ? ' is-open' : '');
+      (NX.tese(r) ? ' is-tese' : '') + (opts.dense ? ' dense' : '') + (opts.cols ? ' cols' : '') + (opts.sel ? ' is-selected' : '') + (opts.aberta ? ' is-open' : '');
     var h = '<article class="' + cls + '" data-id="' + r.id + '" data-fila="' + r.fila + '"><div class="nx-row-main"><div class="nx-row-id">';
     if (opts.selecionavel) h += '<input type="checkbox" class="nx-checkbox" data-sel aria-label="Selecionar ' + NX.esc(r.cda) + '"' + (opts.sel ? ' checked' : '') + '>';
     h += '<span class="nx-cda">' + r.cda + '</span>' + NX.chipsHTML(r) + '</div>';
@@ -1594,7 +1618,7 @@
         h += '<button type="button" class="nx-btn sm' + (r.fila === 'adiada' ? '' : ' primary') + '" data-acao="exec" data-id="' + r.id + '"' + (r.acao.umClique ? ' title="Um clique: grava na hora"' : '') + '>' + NX.esc(r.acao.rotulo) + '</button>';
       }
       h += '<button type="button" class="nx-btn sm" data-acao="abrir" data-id="' + r.id + '">Abrir</button>';
-      if (r.fila === 'agir' || r.fila === 'conferir') h += '<button type="button" class="nx-btn sm quiet" data-acao="adiar" data-id="' + r.id + '">Adiar…</button>';
+      if ((r.fila === 'agir' || r.fila === 'conferir') && !NX.derivada(r)) h += '<button type="button" class="nx-btn sm quiet" data-acao="adiar" data-id="' + r.id + '">Adiar…</button>';
       h += '</div>';
     }
     return h + '</article>';
