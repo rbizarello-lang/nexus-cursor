@@ -6214,6 +6214,8 @@ function App() {
     ];
     return (
       <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação" wide={isBase}>
+        {/* Base do relatório: opções à esquerda, prévia à direita (empilha em tela estreita) */}
+        <div style={isBase ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, alignItems: 'start' } : { display: 'grid', gap: 12 }}>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{op.name}</div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -6249,20 +6251,6 @@ function App() {
                       <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{f.processes} processo(s) · {f.count} fato(s) no período</span>
                     </label>
                   ))}
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', fontSize: 12, display: 'grid', gap: 3 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12.5 }}>Estrutura do Google Doc · {bc.total} registro(s)</div>
-                    {[['1. Visão geral da operação', bc.sections.s1, 'processo(s)'], ['2. Por frente processual', bc.sections.s2, 'fato(s)'], ['3. Quadro de decisões judiciais', bc.sections.s3, ''], ['4. Quadro de constrições e valores', bc.sections.s4, ''], ['5. Quadro de providências e peças', bc.sections.s5, ''], ['6. Cronologia completa (anexo)', bc.sections.s6, '']].map(([t, n, u]) => (
-                      <div key={t} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{t}</span><span style={{ color: 'var(--text-muted)' }}>{n}{u ? ' ' + u : ''}</span></div>
-                    ))}
-                    <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Planilha: aba Cronologia ({bc.sections.s6} linhas) e aba Constrições ({bc.sections.s4}).</div>
-                  </div>
-                  {reportBase.busy && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Gerando no Google Drive… pode levar alguns segundos.</div>}
-                  {reportBase.err && <div style={{ fontSize: 12, color: 'var(--red, #c2323d)' }}>{reportBase.err}</div>}
-                  {reportBase.links.length > 0 && (
-                    <div style={{ fontSize: 12, display: 'grid', gap: 2 }}>
-                      {reportBase.links.map(l => <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}: abrir</a>)}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -6277,8 +6265,37 @@ function App() {
               </div>
             </div>
           )}
+        </div>
+          {isBase && (
+            <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>Prévia do que entra</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[[bc.total, 'registros'], [bc.sections.s1, 'processos'], [bc.sections.s4, 'constrições']].map(([n, l]) => (
+                  <div key={l} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '8px 10px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{n}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', fontSize: 12, display: 'grid', gap: 3 }}>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>Estrutura do Google Doc</div>
+                {[['1. Visão geral da operação', bc.sections.s1, 'processo(s)'], ['2. Por frente processual', bc.sections.s2, 'fato(s)'], ['3. Quadro de decisões judiciais', bc.sections.s3, ''], ['4. Quadro de constrições e valores', bc.sections.s4, ''], ['5. Quadro de providências e peças', bc.sections.s5, ''], ['6. Cronologia completa (anexo)', bc.sections.s6, '']].map(([t, n, u]) => (
+                  <div key={t} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{t}</span><span style={{ color: 'var(--text-muted)' }}>{n}{u ? ' ' + u : ''}</span></div>
+                ))}
+                <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Planilha: aba Cronologia ({bc.sections.s6} linhas) e aba Constrições ({bc.sections.s4}).</div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Os números mudam com o período e as frentes marcadas.</div>
+              {reportBase.busy && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Gerando no Google Drive… pode levar alguns segundos.</div>}
+              {reportBase.err && <div style={{ fontSize: 12, color: 'var(--red, #c2323d)' }}>{reportBase.err}</div>}
+              {reportBase.links.length > 0 && (
+                <div style={{ fontSize: 12, display: 'grid', gap: 2 }}>
+                  {reportBase.links.map(l => <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}: abrir</a>)}
+                </div>
+              )}
+            </div>
+          )}
           {isBase ? (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
               <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
               <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseHtml(op, reportPeriod, baseOff)}>Baixar prévia (HTML)</button>
               <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseCsv(op, reportPeriod, baseOff)}>Baixar cronologia (CSV)</button>
