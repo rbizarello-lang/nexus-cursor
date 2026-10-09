@@ -42,6 +42,8 @@ Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commit
 - Fase 1 (Prumo): feita — `buildMesaCards` em `src/lib/prazos-mesa.js` (testes em `test/prazos-mesa.test.mjs`) e Mesa do Prumo em cartões (`EditionClaudePrazos`).
 - Fase 2 (Painel de Filtros): feita nas três Mesas — `filterMesaItems`/`filterMesaCards` em `src/lib/prazos-mesa.js`; campos `nat`, `cedoTarde`, `idpj`, `minVal`, `juntar` em `prazosFilters`. Decisão 13 completada: contadores por operação/pessoa (ponto da barra lateral, "Presc. CDA", ⏱, Carteira, Partes, Inscrições, Visão geral) contam `mesaIsAction` (fileira 1).
 
+- Fase 3 (edição no lugar, lote, Desfazer, Ajuizar): feita nas três Mesas. Funções puras em `src/lib/prazos-mesa.js` (`mesaPrimaryAction`, `captureUndo`/`applyUndo`, `mesaPlanAjuizar`, `mesaDestText`, `mesaBatchCan`…); componentes compartilhados `MesaForm`, `MesaActs`, `MesaFeitoStrip`, `MesaBatchBar` em `src/app.jsx` (classes `mzf-*`, variáveis por edição); gravações do app em `mesaDo*` (usam `upsert`/`handleSave`). Pendência da fase 1 fechada: análise de penhora vigente cai com fato datado posterior.
+
 ## Arquivos
 - `00-brief.md` pedido, premissas e regras comuns · `01-superficies.md` inventário das telas atuais · `02-motor-vocabulario.md` o que o motor devolve · `03-verificacao.md` parecer do revisor, comparativo e correções.
 - Mockups em `design/mockups/prazos-unificados/` (README.md explica o kit).

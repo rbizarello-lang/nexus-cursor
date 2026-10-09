@@ -39,6 +39,22 @@ import {
   mesaRemovePatch,
   mesaResetPatch,
   mesaClearAllPatch,
+  MESA_TRATAR_FORMAS,
+  mesaCanSnooze,
+  mesaCanTratar,
+  mesaPrimaryAction,
+  captureUndo,
+  applyUndo,
+  mesaFormatCnj,
+  mesaCnjCheck,
+  mesaPlanAjuizar,
+  mesaCardName,
+  mesaDestText,
+  mesaCdaCount,
+  mesaSelectionTotals,
+  mesaBatchCan,
+  mesaSnoozeMaxFor,
+  mesaDadoCampos,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -757,5 +773,260 @@ describe('Mesa — filtros (fase 2)', () => {
     const reset = { ...f, ...mesaResetPatch() };
     assert.equal(reset.juntar, true, 'o reinício por navegação não mexe na exibição');
     assert.equal(mesaHasCut(reset), false);
+  });
+});
+
+describe('Mesa — fase 3: análise de penhora e fato posterior', () => {
+  const TODAY = '2026-09-17';
+  const OP = { id: 'op1', name: 'Op', status: 'ativa' };
+  const penhoraResult = (constr) => ({
+    segment: 'intercorrente', phase: 'interrompido', interruptVia: 'int_penhora', interruptAt: constr, interruptEffAt: constr
+  });
+  const mk = ({ debts, executions = [], events = [] }) => buildMesaCards({
+    data: { debts, operations: [OP], executions, prescriptionEvents: events },
+    radar: { rows: debts.map(d => ({ id: d.id, group: 4, value: 100, prescKind: 'vigiar_interrompido', prescSegment: 'intercorrente', action: { type: 'nenhuma' } })), silenced: [] },
+    prescLookup: () => penhoraResult('2020-01-01'),
+    today: TODAY
+  });
+  const debt = (id, over = {}) => ({ id, operationId: 'op1', status: 'ativa', value: 100, processNumber: '5000001-00.2020.4.04.7000', ...over });
+
+  it('cada CDA olha só os fatos que lhe dizem respeito', () => {
+    const ex = { id: 'ex1', operationId: 'op1', processNumber: '5000001-00.2020.4.04.7000', processTag: 'normal' };
+    const out = mk({
+      debts: [debt('a', { penhoraAnalise: { at: '2026-03-01' } }), debt('b', { penhoraAnalise: { at: '2026-03-01' } })],
+      executions: [ex],
+      events: [
+        { id: 'e1', cdaId: 'b', type: 'info_outro', date: '2026-05-10' },
+        { id: 'e2', executionId: 'ex1', type: 'info_outro', date: '2025-12-31' }
+      ]
+    });
+    assert.equal(out.byDebt.get('a').card, 'vigiar');
+    assert.equal(out.byDebt.get('b').card, 'sempressa');
+  });
+
+  it('fato anterior à análise não derruba; posterior derruba', () => {
+    const ex = { id: 'ex1', operationId: 'op1', processNumber: '5000001-00.2020.4.04.7000', processTag: 'normal' };
+    const before = mk({ debts: [debt('a', { penhoraAnalise: { at: '2026-03-01' } })], executions: [ex], events: [{ id: 'e', executionId: 'ex1', type: 'info_outro', date: '2025-12-31' }] });
+    assert.equal(before.byDebt.get('a').card, 'vigiar');
+    const after = mk({ debts: [debt('a', { penhoraAnalise: { at: '2026-03-01' } })], executions: [ex], events: [{ id: 'e', executionId: 'ex1', type: 'info_outro', date: '2026-05-10' }] });
+    assert.equal(after.byDebt.get('a').card, 'sempressa');
+    const onCda = mk({ debts: [debt('a', { penhoraAnalise: { at: '2026-03-01' } })], executions: [ex], events: [{ id: 'e', cdaId: 'a', type: 'info_outro', date: '2026-05-10' }] });
+    assert.equal(onCda.byDebt.get('a').card, 'sempressa');
+    const sameDay = mk({ debts: [debt('a', { penhoraAnalise: { at: '2026-03-01' } })], executions: [ex], events: [{ id: 'e', cdaId: 'a', type: 'info_outro', date: '2026-03-01' }] });
+    assert.equal(sameDay.byDebt.get('a').card, 'vigiar', 'mesmo dia não é posterior');
+  });
+});
+
+describe('Mesa — fase 3: ação principal por cartão', () => {
+  const it_ = (card, row, over = {}) => ({ debtId: 'x', card, row, debt: { id: 'x' }, value: 10, ...over });
+  const r = (action, over = {}) => ({ id: 'x', group: 3, prescKind: 'pedido_dado', action, ...over });
+
+  it('um verbo por cartão', () => {
+    assert.deepEqual(mesaPrimaryAction(it_('ajuizar', null)), { kind: 'ajuizar', label: 'Ajuizei — informar processo' });
+    assert.deepEqual(mesaPrimaryAction(it_('fato', r({ type: 'lancar_ciencia' }))), { kind: 'fato', label: 'Lançar ciência', type: 'marco_sem_bens' });
+    assert.deepEqual(mesaPrimaryAction(it_('fato', r({ type: 'criar_evento', eventType: 'susp_parcelamento' }))), { kind: 'fato', label: 'Lançar fato', type: 'susp_parcelamento' });
+    assert.deepEqual(mesaPrimaryAction(it_('fato', r({ type: 'conferir_autos' }))), { kind: 'fato', label: 'Lançar fato', type: '' });
+    assert.deepEqual(mesaPrimaryAction(it_('vigencia', r({ type: 'confirmar_vigencia' }))), { kind: 'vigencia', label: 'Ainda vale' });
+    assert.equal(mesaPrimaryAction(it_('vigencia', null)), null);
+    assert.equal(mesaPrimaryAction(it_('dado', r({ type: 'vincular_ef' }))).kind, 'vincular');
+    assert.equal(mesaPrimaryAction(it_('dado', r({ type: 'corrigir_ficha', field: 'constituicao' }))).field, 'constituicao');
+    assert.equal(mesaPrimaryAction(it_('dado', null)).label, 'Informar dado');
+    assert.equal(mesaPrimaryAction(it_('calculo', r({ type: 'nenhuma' }))).label, 'Conferir');
+    assert.equal(mesaPrimaryAction(it_('adiadas', null)).kind, 'reabrir');
+    assert.equal(mesaPrimaryAction(it_('tratadas', null)).label, 'Desfazer tratamento');
+    assert.equal(mesaPrimaryAction(it_('vigiar', r({ type: 'nenhuma' }))), null);
+  });
+
+  it('conferir sem pressa: penhora marca analisada; IDPJ e «não antes de» lançam fato', () => {
+    assert.equal(mesaPrimaryAction(it_('sempressa', r({ type: 'analisar_penhora' }, { prescKind: 'penhora_antiga' }))).kind, 'analisar');
+    assert.equal(mesaPrimaryAction(it_('sempressa', r({ type: 'nenhuma' }, { prescKind: 'vigiar_interrompido' }))).kind, 'analisar');
+    assert.equal(mesaPrimaryAction(it_('sempressa', r({ type: 'nenhuma' }, { prescKind: 'vigiar_interrompido', idpjNotice: { active: true } }))).kind, 'fato');
+    assert.equal(mesaPrimaryAction(it_('sempressa', r({ type: 'nenhuma' }, { prescKind: 'residual_alta' }))).kind, 'fato');
+  });
+
+  it('quem pode adiar e tratar', () => {
+    assert.equal(mesaCanSnooze(it_('fato', r({}))), true);
+    assert.equal(mesaCanSnooze(it_('fato', null)), false, 'sem linha do radar não há grupo para o teto');
+    ['antigas', 'tratadas', 'adiadas'].forEach(c => assert.equal(mesaCanSnooze(it_(c, r({}))), false, c));
+    assert.equal(mesaCanTratar(it_('antigas', null)), true);
+    assert.equal(mesaCanTratar(it_('tratadas', null)), false);
+    assert.equal(mesaCanTratar(it_('adiadas', null)), false);
+    assert.deepEqual(MESA_TRATAR_FORMAS.map(f => f[0]), ['aguardando_reconhecimento', 'declarada', 'analisada_nao_consumada', 'extinta']);
+  });
+
+  it('lote: só vale a ação que cabe em todos', () => {
+    const a = it_('ajuizar', r({}));
+    const b = it_('fato', r({}));
+    const c = it_('antigas', r({}));
+    assert.deepEqual(mesaBatchCan([a, a]), { adiar: true, tratar: true, fato: true, ajuizar: true });
+    assert.equal(mesaBatchCan([a, b]).ajuizar, false);
+    assert.equal(mesaBatchCan([a, c]).adiar, false);
+    assert.equal(mesaBatchCan([it_('tratadas', null)]).tratar, false);
+    assert.deepEqual(mesaBatchCan([]), { adiar: false, tratar: false, fato: false, ajuizar: false });
+    assert.deepEqual(mesaSelectionTotals([{ value: 10 }, { value: 5.5 }]), { n: 2, value: 15.5 });
+    assert.equal(mesaCdaCount(1), '1 CDA');
+    assert.equal(mesaCdaCount(3), '3 CDAs');
+  });
+
+  it('teto do adiamento do lote é o menor entre os grupos; sem linha vale o grupo 4', () => {
+    assert.equal(mesaSnoozeMaxFor([{ row: { group: 1 } }, { row: { group: 6 } }], '2026-09-18'), '2026-10-02');
+    assert.equal(mesaSnoozeMaxFor([{ row: { group: 3 } }, { row: { group: 1 } }], '2026-09-18'), '2026-09-25');
+    assert.equal(mesaSnoozeMaxFor([{}], '2026-09-18'), '2026-10-18');
+    assert.deepEqual(mesaDadoCampos('constituicao').map(c => c[0]), ['dueDate', 'constitutionDate']);
+    assert.equal(mesaDadoCampos('ficha')[0][0], 'prescriptionDate');
+  });
+});
+
+describe('Mesa — fase 3: Desfazer', () => {
+  const base = () => ({
+    debts: [{ id: 'd1', operationId: 'op', processNumber: '', updatedAt: '2026-01-01T00:00:00Z' }, { id: 'd2', operationId: 'op', processNumber: '123', updatedAt: '2026-01-01T00:00:00Z' }, { id: 'd3', operationId: 'op' }],
+    executions: [{ id: 'ex0', operationId: 'op', processNumber: '9' }],
+    prescriptionEvents: [{ id: 'ev0', cdaId: 'd3', type: 'info_outro', date: '2026-01-01', verifiedAt: '' }]
+  });
+
+  it('captura o estado e marca como null o que ainda não existe', () => {
+    const snap = captureUndo(base(), { debtIds: ['d1'], executionIds: ['exNovo', 'ex0'], eventIds: ['evNovo'] }, '2026-09-17T10:00:00Z');
+    assert.equal(snap.debts.d1.id, 'd1');
+    assert.equal(snap.executions.exNovo, null);
+    assert.equal(snap.executions.ex0.processNumber, '9');
+    assert.equal(snap.prescriptionEvents.evNovo, null);
+    assert.deepEqual(snap.knownEventIds, ['ev0']);
+    assert.equal(snap.at, '2026-09-17T10:00:00Z');
+  });
+
+  it('o snapshot é cópia: mudar o data depois não o altera', () => {
+    const d = base();
+    const snap = captureUndo(d, { debtIds: ['d1'] });
+    d.debts[0].processNumber = 'MUDOU';
+    assert.equal(snap.debts.d1.processNumber, '');
+  });
+
+  it('desfaz Ajuizar: restaura processNumber, remove a execução criada, não toca no resto', () => {
+    const before = base();
+    const snap = captureUndo(before, { debtIds: ['d1', 'd2'], executionIds: ['exNovo'] }, '2026-09-17T10:00:00Z');
+    // ação + uma edição alheia depois (d3 e um evento novo de outra origem)
+    const after = {
+      ...before,
+      debts: before.debts.map(d => d.id === 'd1' || d.id === 'd2' ? { ...d, processNumber: 'NOVO', updatedAt: '2026-09-17T10:00:01Z' } : (d.id === 'd3' ? { ...d, value: 777 } : d)),
+      executions: [...before.executions, { id: 'exNovo', operationId: 'op', processNumber: 'NOVO' }],
+      prescriptionEvents: [...before.prescriptionEvents, { id: 'evAlheio', cdaId: 'd3', type: 'info_outro' }]
+    };
+    const out = applyUndo(after, snap, { executionIds: ['exNovo'] }, '2026-09-17T10:05:00Z');
+    assert.equal(out.debts.find(d => d.id === 'd1').processNumber, '');
+    assert.equal(out.debts.find(d => d.id === 'd2').processNumber, '123');
+    assert.equal(out.debts.find(d => d.id === 'd1').updatedAt, '2026-09-17T10:05:00Z', 'a volta conta como edição nova');
+    assert.equal(out.debts.find(d => d.id === 'd3').value, 777, 'outra CDA não é tocada');
+    assert.deepEqual(out.executions.map(e => e.id), ['ex0']);
+    assert.deepEqual(out.prescriptionEvents.map(e => e.id), ['ev0', 'evAlheio']);
+  });
+
+  it('desfaz evento lançado (e os propagados), restaura o evento conferido', () => {
+    const before = base();
+    const snap = captureUndo(before, { debtIds: ['d1'], eventIds: ['evNovo', 'ev0'] }, '2026-09-17T10:00:00Z');
+    const after = {
+      ...before,
+      debts: before.debts.map(d => d.id === 'd1' ? { ...d, status: 'parcelada' } : d),
+      prescriptionEvents: [
+        { ...before.prescriptionEvents[0], verifiedAt: '2026-09-17' },
+        { id: 'evNovo', cdaId: 'd1', type: 'susp_parcelamento', createdAt: '2026-09-17T10:00:00Z' },
+        { id: 'evProp', executionId: 'ex0', _inheritedFromParent: 'ex0', createdAt: '2026-09-17T10:00:00Z' },
+        { id: 'evAntigo', executionId: 'ex0', _inheritedFromParent: 'ex0', createdAt: '2026-01-01T00:00:00Z' }
+      ]
+    };
+    const known = captureUndo({ ...before, prescriptionEvents: [...before.prescriptionEvents, { id: 'evAntigo' }] }, {}).knownEventIds;
+    snap.knownEventIds = known;
+    const out = applyUndo(after, snap, { eventIds: ['evNovo'] }, '2026-09-17T10:05:00Z');
+    assert.equal(out.debts.find(d => d.id === 'd1').status, undefined);
+    assert.deepEqual(out.prescriptionEvents.map(e => e.id), ['ev0', 'evAntigo']);
+    assert.equal(out.prescriptionEvents[0].verifiedAt, '');
+  });
+
+  it('sem snapshot devolve o data como veio', () => {
+    const d = base();
+    assert.equal(applyUndo(d, null), d);
+  });
+});
+
+describe('Mesa — fase 3: Ajuizar', () => {
+  const data = () => ({
+    debts: [
+      { id: 'a', operationId: 'op1', processNumber: '' },
+      { id: 'b', operationId: 'op1' },
+      { id: 'c', operationId: 'op2' }
+    ],
+    executions: [
+      { id: 'ef', operationId: 'op1', processNumber: '5001234-56.2023.4.04.7001', className: 'Execução Fiscal', processTag: 'normal' },
+      { id: 'idpj', operationId: 'op1', processNumber: '5009876-11.2024.4.04.7001', className: 'Incidente', processTag: 'idpj' },
+      { id: 'efOutra', operationId: 'op2', processNumber: '5001234-56.2023.4.04.7001', processTag: 'normal' }
+    ]
+  });
+
+  it('formata e valida o CNJ só com aviso', () => {
+    assert.equal(mesaFormatCnj('50012345620234047001'), '5001234-56.2023.4.04.7001');
+    assert.equal(mesaFormatCnj('  123/2024 '), '123/2024');
+    assert.equal(mesaCnjCheck('').level, '');
+    assert.equal(mesaCnjCheck('123/2024').level, 'warn');
+    assert.match(mesaCnjCheck('123/2024').msg, /20 dígitos/);
+    // DV correto: 0000001-95.2020.8.26.0100 (calculado pela regra mod 97)
+    const body = '0000001' + '2020' + '8' + '26' + '0100';
+    let rem = 0; for (const ch of body + '00') rem = (rem * 10 + (+ch)) % 97;
+    const dv = String(98 - rem).padStart(2, '0');
+    const good = '0000001' + dv + '2020' + '8' + '26' + '0100';
+    assert.equal(mesaCnjCheck(good).level, 'ok');
+    const bad = '0000001' + String((+dv + 1) % 100).padStart(2, '0') + '2020' + '8' + '26' + '0100';
+    assert.equal(mesaCnjCheck(bad).level, 'warn');
+    assert.match(mesaCnjCheck(bad).msg, /verificador/);
+  });
+
+  it('cria a execução quando o número é novo (e guarda o processNumber anterior)', () => {
+    const p = mesaPlanAjuizar({ data: data(), debtIds: ['a', 'b'], processNumber: '5000001-00.2026.4.04.7000', date: '2026-09-17', court: ' 1ª Vara ', newExecId: 'nova' });
+    assert.equal(p.ok, true);
+    assert.equal(p.linkExecutionId, '');
+    assert.deepEqual(p.execution, { id: 'nova', operationId: 'op1', processNumber: '5000001-00.2026.4.04.7000', className: 'Execução Fiscal', court: '1ª Vara', processTag: 'normal', status: 'ativa', protocolDate: '2026-09-17' });
+    assert.deepEqual(p.prev, { a: '', b: '' });
+    assert.deepEqual(p.debtIds, ['a', 'b']);
+  });
+
+  it('só vincula quando já há execução fiscal com o mesmo número (qualquer máscara)', () => {
+    const p = mesaPlanAjuizar({ data: data(), debtIds: ['a'], processNumber: '50012345620234047001', date: '2026-09-17', newExecId: 'nova' });
+    assert.equal(p.ok, true);
+    assert.equal(p.execution, null);
+    assert.equal(p.linkExecutionId, 'ef');
+    assert.equal(p.processNumber, '5001234-56.2023.4.04.7001');
+  });
+
+  it('só olha execuções da mesma operação', () => {
+    const p = mesaPlanAjuizar({ data: data(), debtIds: ['c'], processNumber: '5001234-56.2023.4.04.7001', date: '2026-09-17', newExecId: 'nova' });
+    assert.equal(p.linkExecutionId, 'efOutra');
+    const q = mesaPlanAjuizar({ data: data(), debtIds: ['a'], processNumber: '5001234-56.2023.4.04.7001', date: '2026-09-17', newExecId: 'nova' });
+    assert.equal(q.linkExecutionId, 'ef');
+  });
+
+  it('bloqueia: sem número, sem data, sem CDA, operações diferentes, número de incidente', () => {
+    const d = data();
+    assert.match(mesaPlanAjuizar({ data: d, debtIds: ['a'], processNumber: ' ', date: '2026-09-17' }).error, /número do processo/);
+    assert.match(mesaPlanAjuizar({ data: d, debtIds: ['a'], processNumber: '1', date: '' }).error, /data/);
+    assert.match(mesaPlanAjuizar({ data: d, debtIds: [], processNumber: '1', date: '2026-09-17' }).error, /Nenhuma CDA/);
+    assert.match(mesaPlanAjuizar({ data: d, debtIds: ['a', 'c'], processNumber: '1', date: '2026-09-17' }).error, /operações diferentes/);
+    assert.match(mesaPlanAjuizar({ data: d, debtIds: ['a'], processNumber: '5009876-11.2024.4.04.7001', date: '2026-09-17' }).error, /incidente/);
+  });
+
+  it('número fora do formato CNJ avisa mas não bloqueia', () => {
+    const p = mesaPlanAjuizar({ data: data(), debtIds: ['a'], processNumber: '123/2026', date: '2026-09-17', newExecId: 'n' });
+    assert.equal(p.ok, true);
+    assert.equal(p.cnj.level, 'warn');
+  });
+});
+
+describe('Mesa — fase 3: texto «Foi para»', () => {
+  const by = new Map([['a', { card: 'sempressa' }], ['b', { card: 'vigiar' }], ['c', { card: 'ajuizar' }]]);
+  it('um item que mudou, um que ficou, vários', () => {
+    assert.equal(mesaDestText(by, ['a'], { a: 'fato' }), 'Foi para «Conferir sem pressa».');
+    assert.equal(mesaDestText(by, ['c'], { c: 'ajuizar' }), 'Continua em «Ajuizar».');
+    assert.equal(mesaDestText(by, ['a', 'b'], { a: 'fato', b: 'fato' }), 'Foram para «Conferir sem pressa» (1) e «Só vigiar» (1).');
+    assert.equal(mesaDestText(by, ['a', 'b'], { a: 'sempressa', b: 'vigiar' }), 'Continuam em «Conferir sem pressa» (1) e «Só vigiar» (1).');
+    assert.equal(mesaDestText(by, ['zz'], {}), '');
+    assert.equal(mesaCardName('antigas'), 'Consumadas antigas');
+    assert.equal(mesaDestText(new Map([['a', { card: 'vigiar' }], ['b', { card: 'vigiar' }]]), ['a', 'b'], { a: 'fato', b: 'fato' }), 'Foram para «Só vigiar».');
   });
 });

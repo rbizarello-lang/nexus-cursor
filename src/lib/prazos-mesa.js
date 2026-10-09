@@ -2,10 +2,11 @@
  * Mesa de trabalho dos prazos (edição Beta).
  * Funções puras: seleção da fila, selos, frases da linha da CDA, texto sem jargão.
  */
-import { addCalendarDays, addCalendarYears, daysBetween, daysUntil, fmtDate } from './dates.js';
+import { addCalendarDays, addCalendarYears, daysBetween, daysUntil, fmtDate, normProc, sameProc, toDayKey } from './dates.js';
 import {
   PENHORA_ANALISE_VALIDADE,
   PRESC_SNOOZE_REASONS,
+  collectEventsForCda,
   createPrescLookup,
   penhoraAntigaInfo,
   snoozeLimitDays
@@ -474,11 +475,23 @@ const MESA_DEADLINE_KINDS = new Set([
 ]);
 const MESA_PARC_SILENCE = new Set(['parcelamento_vigente', 'parcelada_ficha']);
 
-function mesaPenhoraAnaliseVigente(debt, todayIso) {
-  const at = debt && debt.penhoraAnalise && debt.penhoraAnalise.at;
+/**
+ * Análise de penhora vigente: menos de 365 dias E nenhum fato datado depois dela na CDA ou na execução
+ * (mesma regra do motor, penhoraAnaliseVigente). `data` traz executions e prescriptionEvents.
+ */
+function mesaPenhoraAnaliseVigente(debt, todayIso, data) {
+  const at = toDayKey(debt && debt.penhoraAnalise && debt.penhoraAnalise.at);
   if (!at) return false;
-  const n = daysBetween(at, todayIso);
-  return n < PENHORA_ANALISE_VALIDADE;
+  if (!(daysBetween(at, todayIso) < PENHORA_ANALISE_VALIDADE)) return false;
+  let related = [];
+  try {
+    related = collectEventsForCda(debt, (data && data.executions) || [], (data && data.prescriptionEvents) || []).events || [];
+  } catch (e) { related = []; }
+  for (const ev of related) {
+    const d = toDayKey(ev && ev.date) || toDayKey(ev && ev.requestDate);
+    if (d && d > at) return false;
+  }
+  return true;
 }
 
 function mesaSafeLookup(prescLookup, debt) {
@@ -486,7 +499,7 @@ function mesaSafeLookup(prescLookup, debt) {
 }
 
 /** Cartão de uma linha do radar (regras 3 a 9). Devolve { card, prescResult? }. */
-function mesaCardOfRow(row, debt, prescLookup, todayIso) {
+function mesaCardOfRow(row, debt, prescLookup, todayIso, data) {
   const kind = row.prescKind || row.kind;
   const act = (row.action && row.action.type) || '';
   let prescResult;
@@ -498,7 +511,7 @@ function mesaCardOfRow(row, debt, prescLookup, todayIso) {
     const pen = prescResult ? penhoraAntigaInfo(prescResult, todayIso) : null;
     if (pen && pen.constrictionDate
       && addCalendarYears(pen.constrictionDate, PENHORA_SEM_PRESSA_ANOS) <= todayIso
-      && !mesaPenhoraAnaliseVigente(debt, todayIso)) {
+      && !mesaPenhoraAnaliseVigente(debt, todayIso, data)) {
       return { card: 'sempressa', prescResult };
     }
   }
@@ -646,7 +659,7 @@ export function buildMesaCards({ data, radar, prescLookup, today } = {}) {
       // Adiamento furado ou vencido: a CDA tem linha e ainda guarda o adiamento.
       item.snoozeExpired = !!(row && debt.prescSnooze);
       if (row) {
-        const res = mesaCardOfRow(row, debt, lookup, todayIso);
+        const res = mesaCardOfRow(row, debt, lookup, todayIso, data);
         item.card = res.card;
         if (res.prescResult) item.prescResult = res.prescResult;
         const pos = mesaPosition(row, todayIso);
@@ -1010,4 +1023,264 @@ export function mesaResetPatch() {
 /** «Limpar tudo» do painel: zera os cortes e a exibição. */
 export function mesaClearAllPatch() {
   return { ...MESA_FILTER_DEFAULTS };
+}
+
+/* ───────────────────────── Fase 3 · Edição no lugar, lote, Desfazer e Ajuizar ─────────────────────────
+ * Funções puras de apoio. As gravações ficam no app (setData/upsert/handleSave); aqui só ficam o que
+ * pode ser testado sem tela: ação principal por cartão, Desfazer, plano do Ajuizar, textos da faixa «Feito». */
+
+/** Formas de tratar a prescrição (mesmos valores da ficha da CDA). */
+export const MESA_TRATAR_FORMAS = [
+  ['aguardando_reconhecimento', 'Prescrita — aguardando reconhecimento judicial'],
+  ['declarada', 'Declarada e baixada no processo'],
+  ['analisada_nao_consumada', 'Analisada — não houve prescrição'],
+  ['extinta', 'Extinta por prescrição']
+];
+
+/** Cartões em que a CDA não pode ser adiada / tratada. */
+const MESA_SEM_ADIAR = new Set(['antigas', 'tratadas', 'adiadas']);
+const MESA_SEM_TRATAR = new Set(['tratadas', 'adiadas']);
+
+/** Item que aceita Adiar… (tem linha do radar para dar o grupo e não está em registro/adiada/tratada). */
+export function mesaCanSnooze(item) {
+  return !!(item && item.row && !MESA_SEM_ADIAR.has(item.card));
+}
+/** Item que aceita Tratar…. */
+export function mesaCanTratar(item) {
+  return !!(item && !MESA_SEM_TRATAR.has(item.card));
+}
+
+/**
+ * Botão primário da linha, pelo verbo do cartão. Devolve { kind, label, type? } ou null.
+ * kind: ajuizar · fato · vigencia · vincular · dado · conferir · analisar · reabrir · destratar.
+ */
+export function mesaPrimaryAction(item) {
+  if (!item) return null;
+  const r = item.row;
+  const act = (r && r.action && r.action.type) || '';
+  const kind = r && (r.prescKind || r.kind);
+  const fato = () => {
+    if (act === 'lancar_ciencia') return { kind: 'fato', label: 'Lançar ciência', type: 'marco_sem_bens' };
+    return { kind: 'fato', label: 'Lançar fato', type: act === 'criar_evento' ? (r.action.eventType || '') : '' };
+  };
+  switch (item.card) {
+    case 'ajuizar': return { kind: 'ajuizar', label: 'Ajuizei — informar processo' };
+    case 'fato': return fato();
+    case 'vigencia': return r ? { kind: 'vigencia', label: 'Ainda vale' } : null;
+    case 'dado':
+      if (act === 'vincular_ef') return { kind: 'vincular', label: 'Vincular EF' };
+      return { kind: 'dado', label: 'Informar dado', field: (act === 'corrigir_ficha' && r.action.field === 'constituicao') ? 'constituicao' : 'ficha' };
+    case 'calculo': return { kind: 'conferir', label: 'Conferir' };
+    case 'sempressa': {
+      const penhora = act === 'analisar_penhora' || kind === 'penhora_antiga'
+        || (kind === 'vigiar_interrompido' && !(r && r.idpjNotice && r.idpjNotice.active));
+      return penhora ? { kind: 'analisar', label: 'Marcar analisada' } : { kind: 'fato', label: 'Lançar fato', type: '' };
+    }
+    case 'adiadas': return { kind: 'reabrir', label: 'Reabrir agora' };
+    case 'tratadas': return { kind: 'destratar', label: 'Desfazer tratamento' };
+    default: return null;
+  }
+}
+
+/* ── Desfazer ── */
+
+function mesaClone(v) {
+  return v == null ? v : JSON.parse(JSON.stringify(v));
+}
+
+/**
+ * Guarda o estado das entidades que uma ação vai tocar, ANTES de gravar. Entidade que ainda não existe
+ * (será criada pela ação) fica como null. Guarda também os ids de eventos/execuções existentes, para
+ * reconhecer o que a ação criou além do previsto (eventos propagados aos apensos e às EFs do incidente).
+ */
+export function captureUndo(data, { debtIds = [], executionIds = [], eventIds = [] } = {}, nowIso) {
+  const d = data || {};
+  const pick = (col, ids) => {
+    const by = new Map(((d[col]) || []).filter(e => e && e.id).map(e => [e.id, e]));
+    const out = {};
+    (ids || []).forEach(id => { out[id] = by.has(id) ? mesaClone(by.get(id)) : null; });
+    return out;
+  };
+  return {
+    at: nowIso || new Date().toISOString(),
+    debts: pick('debts', debtIds),
+    executions: pick('executions', executionIds),
+    prescriptionEvents: pick('prescriptionEvents', eventIds),
+    knownExecutionIds: ((d.executions) || []).map(e => e && e.id).filter(Boolean),
+    knownEventIds: ((d.prescriptionEvents) || []).map(e => e && e.id).filter(Boolean)
+  };
+}
+
+/**
+ * Desfaz só o que a ação tocou: restaura as entidades guardadas (com updatedAt novo, para a nuvem
+ * enxergar a volta como edição recente), remove as criadas (null no snapshot ou listadas em `created`)
+ * e os eventos propagados que a ação gerou. Não mexe no resto do data.
+ */
+export function applyUndo(data, snap, created, nowIso) {
+  if (!data || !snap) return data;
+  const now = nowIso || new Date().toISOString();
+  const c = created || {};
+  const next = { ...data };
+  const restore = (col, saved, dropIds) => {
+    const drop = new Set(dropIds || []);
+    Object.keys(saved || {}).forEach(id => { if (saved[id] == null) drop.add(id); });
+    next[col] = ((data[col]) || []).flatMap(e => {
+      if (!e) return [e];
+      if (drop.has(e.id)) return [];
+      if (saved && Object.prototype.hasOwnProperty.call(saved, e.id) && saved[e.id] != null) {
+        return [{ ...mesaClone(saved[e.id]), updatedAt: now }];
+      }
+      return [e];
+    });
+  };
+  restore('debts', snap.debts, []);
+  restore('executions', snap.executions, c.executionIds);
+  const knownEv = new Set(snap.knownEventIds || []);
+  const propagated = ((data.prescriptionEvents) || []).filter(e => e && !knownEv.has(e.id)
+    && (e._inheritedFromParent || e._inheritedFromIDPJ) && String(e.createdAt || '') >= String(snap.at || '')).map(e => e.id);
+  restore('prescriptionEvents', snap.prescriptionEvents, [...(c.eventIds || []), ...propagated]);
+  return next;
+}
+
+/* ── Ajuizar ── */
+
+/** Dígito verificador CNJ (Res. 65/2008). null se não tem 20 dígitos. */
+function mesaCnjDv(digits) {
+  if (digits.length !== 20) return null;
+  const mod97 = (str) => { let r = 0; for (const ch of str) r = (r * 10 + (ch.charCodeAt(0) - 48)) % 97; return r; };
+  const calc = 98 - mod97(digits.slice(0, 7) + digits.slice(9) + '00');
+  return String(calc).padStart(2, '0') === digits.slice(7, 9);
+}
+
+/** NNNNNNN-DD.AAAA.J.TR.OOOO se tiver 20 dígitos; senão o texto como veio (sem espaços nas pontas). */
+export function mesaFormatCnj(text) {
+  const t = String(text == null ? '' : text).trim();
+  const d = t.replace(/\D/g, '');
+  if (d.length !== 20) return t;
+  return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+}
+
+/** Validação leve do número do processo: só avisa, nunca bloqueia. { level: ''|'ok'|'warn', msg }. */
+export function mesaCnjCheck(text) {
+  const d = String(text == null ? '' : text).replace(/\D/g, '');
+  if (!d) return { level: '', msg: '' };
+  if (d.length !== 20) return { level: 'warn', msg: 'Fora do formato CNJ (20 dígitos). Confira; pode gravar assim mesmo.' };
+  if (mesaCnjDv(d) === false) return { level: 'warn', msg: 'Dígito verificador CNJ não confere. Confira o número; pode gravar assim mesmo.' };
+  return { level: 'ok', msg: '' };
+}
+
+/**
+ * Plano do Ajuizar (decisão 14): nº do processo + data do ajuizamento (+ vara) em uma ou várias CDAs.
+ * Se já existe execução fiscal com o mesmo número na operação, só vincula; senão devolve a execução a criar.
+ * { ok:false, error } ou { ok:true, operationId, debtIds, processNumber, date, court, execution|null, linkExecutionId, prev, cnj }.
+ * `newExecId` é o id (gerado pelo app) da execução nova.
+ */
+export function mesaPlanAjuizar({ data, debtIds, processNumber, date, court, newExecId } = {}) {
+  const proc = mesaFormatCnj(processNumber);
+  if (!normProc(proc)) return { ok: false, error: 'Informe o número do processo.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return { ok: false, error: 'Informe a data do ajuizamento.' };
+  const byId = new Map(((data && data.debts) || []).filter(d => d && d.id).map(d => [d.id, d]));
+  const debts = [...new Set(debtIds || [])].map(id => byId.get(id)).filter(Boolean);
+  if (!debts.length) return { ok: false, error: 'Nenhuma CDA para ajuizar.' };
+  const ops = new Set(debts.map(d => d.operationId || ''));
+  if (ops.size > 1) return { ok: false, error: 'As CDAs são de operações diferentes. Ajuíze uma operação por vez.' };
+  const operationId = debts[0].operationId || '';
+  const same = ((data && data.executions) || []).filter(e => e && (e.operationId || '') === operationId && sameProc(e.processNumber, proc));
+  const fiscal = same.find(e => e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal');
+  if (!fiscal && same.length) {
+    return { ok: false, error: 'Este número já está cadastrado na operação como incidente (IDPJ ou cautelar). Informe o número da execução fiscal.' };
+  }
+  const prev = {};
+  debts.forEach(d => { prev[d.id] = d.processNumber || ''; });
+  const vara = String(court || '').trim();
+  return {
+    ok: true,
+    operationId,
+    debtIds: debts.map(d => d.id),
+    processNumber: proc,
+    date,
+    court: vara,
+    linkExecutionId: fiscal ? fiscal.id : '',
+    execution: fiscal ? null : {
+      id: newExecId,
+      operationId,
+      processNumber: proc,
+      className: 'Execução Fiscal',
+      court: vara,
+      processTag: 'normal',
+      status: 'ativa',
+      protocolDate: date
+    },
+    prev,
+    cnj: mesaCnjCheck(proc)
+  };
+}
+
+/* ── Faixa «Feito» ── */
+
+export function mesaCardName(id) {
+  const c = MESA_CARDS.find(x => x.id === id);
+  return c ? c.nome : '';
+}
+
+/**
+ * «Foi para «X»» a partir dos itens recalculados. from: { debtId: cartão de origem }.
+ * Mesmo cartão = «Continua em «X»». Vários destinos: «Foram para «A» (2) e «B» (1)».
+ */
+export function mesaDestText(byDebt, debtIds, from) {
+  const counts = new Map();
+  let moved = false;
+  (debtIds || []).forEach(id => {
+    const it = byDebt && byDebt.get(id);
+    if (!it) return;
+    counts.set(it.card, (counts.get(it.card) || 0) + 1);
+    if (!from || from[id] !== it.card) moved = true;
+  });
+  if (!counts.size) return '';
+  const many = (debtIds || []).length > 1;
+  const names = [...counts.entries()].map(([card, n]) => '«' + mesaCardName(card) + '»' + (counts.size > 1 ? ' (' + n + ')' : ''));
+  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] : names[0];
+  const verb = moved ? (many ? 'Foram para ' : 'Foi para ') : (many ? 'Continuam em ' : 'Continua em ');
+  return verb + list + '.';
+}
+
+/** «3 CDAs» / «1 CDA». */
+export function mesaCdaCount(n) {
+  return n + (n === 1 ? ' CDA' : ' CDAs');
+}
+
+/** Soma de valores e quantidade de uma seleção, para a barra de lote: { n, value }. */
+export function mesaSelectionTotals(items) {
+  let value = 0;
+  (items || []).forEach(it => { value += Number(it && it.value) || 0; });
+  return { n: (items || []).length, value };
+}
+
+/** Quais ações do lote valem para todos os itens selecionados. */
+export function mesaBatchCan(items) {
+  const l = items || [];
+  return {
+    adiar: l.length > 0 && l.every(mesaCanSnooze),
+    tratar: l.length > 0 && l.every(mesaCanTratar),
+    fato: l.length > 0 && l.every(it => it.card !== 'tratadas'),
+    ajuizar: l.length > 0 && l.every(it => it.card === 'ajuizar')
+  };
+}
+
+/** Data máxima do adiamento de um conjunto de itens: o menor teto entre os grupos (sem linha = grupo 4). */
+export function mesaSnoozeMaxFor(items, todayIso) {
+  let max = '';
+  (items || []).forEach(it => {
+    const g = (it && it.row && it.row.group) || 4;
+    const m = snoozeMaxUntil(g, todayIso);
+    if (!max || m < max) max = m;
+  });
+  return max || snoozeMaxUntil(4, todayIso);
+}
+
+/** Campos do «Informar dado» na linha: [campo, rótulo]. */
+export function mesaDadoCampos(field) {
+  return field === 'constituicao'
+    ? [['dueDate', 'Vencimento'], ['constitutionDate', 'Constituição definitiva']]
+    : [['prescriptionDate', 'Data de prescrição (ficha)'], ['inscriptionDate', 'Inscrição em dívida ativa'], ['dueDate', 'Vencimento'], ['constitutionDate', 'Constituição definitiva']];
 }

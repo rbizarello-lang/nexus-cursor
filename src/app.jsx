@@ -3188,11 +3188,12 @@ function App() {
   const [mesaOpenMap, setMesaOpenMap] = useState({});
   const [mesaLimMap, setMesaLimMap] = useState({});
   const [mesaPainel, setMesaPainel] = useState(false);
-  const [mesaSnoozeId, setMesaSnoozeId] = useState(null);
-  const [mesaSnoozeReason, setMesaSnoozeReason] = useState('aguardando_certidao');
-  const [mesaSnoozeUntil, setMesaSnoozeUntil] = useState('');
-  const [mesaSnoozeNote, setMesaSnoozeNote] = useState('');
   const [mesaParcDraft, setMesaParcDraft] = useState({});
+  // Fase 3: faixa «Feito» (com Desfazer), seleção em lote e formulário aberto na linha. Estado local da Mesa:
+  // some ao sair da tela (efeito mais abaixo, depois de viewMode e prazosDeskMode).
+  const [mesaFeitos, setMesaFeitos] = useState([]);
+  const [mesaSel, setMesaSel] = useState(() => new Set());
+  const [mesaOpen, setMesaOpen] = useState(null); // { id: debtId | '*' (lote), kind }
   const [prazosFilterOpen, setPrazosFilterOpen] = useState(false);
   const [art40Form, setArt40Form] = useState(null);
   const cdaScrollColsRef = useRef(false);
@@ -4640,9 +4641,11 @@ function App() {
     const colMap = { operation: 'operations', person: 'people', debt: 'debts', execution: 'executions', asset: 'assets', document: 'documents', prescriptionEvent: 'prescriptionEvents', intimation: 'intimations', task: 'tasks', stickyNote: 'stickyNotes', watch: 'watchlist', hearing: 'hearings', model: 'models' };
     const wantsWatch = entity._openWatch;
     const wantsPanorama = entity._openPanorama;
+    const quiet = !!entity._quiet; // gravação pela Mesa (faixa «Feito»): sem o aviso «Salvo»
     const cleanEntity = { ...entity };
     delete cleanEntity._openWatch;
     delete cleanEntity._openPanorama;
+    delete cleanEntity._quiet;
     if (type === 'execution' && cleanEntity.processNumber) {
       const previous = data.executions.find(ex => ex.id === cleanEntity.id);
       const collision = data.executions.find(ex => {
@@ -4859,7 +4862,7 @@ function App() {
       else if (type === 'task') showToast('Tarefa salva');
       else if (type === 'debt') showToast('CDA salva');
       else if (type === 'operation') showToast('Operação salva');
-      else showToast('Salvo');
+      else if (!quiet) showToast('Salvo');
     }
     if (wantsPanorama && type === 'execution') {
       setActiveTab('notas');
@@ -9548,98 +9551,179 @@ function App() {
       openPauseEvents(cdaEvents, today).forEach(p => { if (!p.inherited) ids.add(p.id); });
     }
     if (!ids.size) { openCdaInscricoes(r, { scrollCols: true }); return; }
+    const snap = captureUndo(data, { debtIds: [r.id], eventIds: [...ids] });
     setData(prev => ({
       ...prev,
       prescriptionEvents: (prev.prescriptionEvents || []).map(ev => ids.has(ev.id) ? { ...ev, verifiedAt: today, updatedAt: now } : ev)
     }));
+    mesaRegisterFeito([r.id], 'Vigência confirmada: a pausa continua valendo (conferida hoje).', snap);
+    setMesaOpen(null);
     showToast('Pausa conferida hoje');
   };
-  const markPenhoraAnalisada = (r) => {
-    const nota = window.prompt('Penhora antiga analisada. Registre a conclusão (opcional):', '');
-    if (nota === null) return;
+  // ─── Mesa de prazos · fase 3: gravações com faixa «Feito» e Desfazer ───
+  // Toda ação da Mesa guarda antes o estado das entidades que toca (captureUndo) e registra uma faixa
+  // «Feito»; Desfazer restaura só elas (applyUndo). As gravações passam por upsert/handleSave, como nos formulários.
+  const mesaItemOf = (id) => mesaCards.byDebt.get(id) || null;
+  const mesaRegisterFeito = (debtIds, text, snap, created) => {
+    const from = {};
+    debtIds.forEach(id => { const it = mesaItemOf(id); if (it) from[id] = it.card; });
+    setMesaFeitos(prev => [{ id: uid(), text, debtIds, from, snap, created: created || {} }, ...prev].slice(0, 12));
+  };
+  const mesaUndoFeito = (feitoId) => {
+    const idx = mesaFeitos.findIndex(f => f.id === feitoId);
+    if (idx < 0) return;
+    const f = mesaFeitos[idx];
+    // Ações mais novas sobre as mesmas CDAs partem do estado que esta criou: desfazem-se primeiro.
+    const ids = new Set(f.debtIds);
+    const chain = mesaFeitos.slice(0, idx).filter(g => g.debtIds.some(id => ids.has(id))).concat([f]);
+    const now = new Date().toISOString();
+    setData(prev => chain.reduce((acc, g) => applyUndo(acc, g.snap, g.created, now), prev));
+    const gone = new Set(chain.map(g => g.id));
+    setMesaFeitos(prev => prev.filter(g => !gone.has(g.id)));
+    showToast(chain.length > 1 ? 'Desfeito (' + chain.length + ' ações)' : 'Desfeito');
+  };
+  const mesaDismissFeito = (feitoId) => setMesaFeitos(prev => prev.filter(f => f.id !== feitoId));
+  const mesaToggleSel = (id) => setMesaSel(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const mesaSelMany = (ids, on) => setMesaSel(prev => { const n = new Set(prev); ids.forEach(id => { if (on) n.add(id); else n.delete(id); }); return n; });
+  const mesaClearSel = () => setMesaSel(new Set());
+  const mesaDone = () => { setMesaOpen(null); setMesaSel(new Set()); };
+  const mesaExecIdOf = (debt, row) => {
+    if (row && row.executionId) return row.executionId;
+    if (!debt || !debt.processNumber) return '';
+    const ex = (data.executions || []).find(e => e.operationId === debt.operationId && sameProc(e.processNumber, debt.processNumber) && e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal');
+    return ex ? ex.id : '';
+  };
+  const mesaDoFato = (items, f) => {
+    if (!items.length || !f.type || !f.date) return { ok: false, error: 'Informe o fato e a data.' };
+    const meta = PRESC_EVENT_TYPES[f.type];
+    const note = String(f.note || '').trim();
+    const byOp = new Map();
+    items.forEach(it => { const k = it.debt.operationId || ''; if (!byOp.has(k)) byOp.set(k, []); byOp.get(k).push(it); });
+    const evIds = [];
+    const plans = [...byOp.entries()].map(([operationId, list]) => {
+      const id = uid();
+      evIds.push(id);
+      const single = items.length === 1;
+      return {
+        id, type: f.type, date: f.date, operationId, _quiet: true,
+        ...(note ? { notes: note } : {}),
+        ...(single ? { cdaId: list[0].debtId, executionId: mesaExecIdOf(list[0].debt, list[0].row) } : { batchCdaIds: list.map(it => it.debtId) })
+      };
+    });
+    const ids = items.map(it => it.debtId);
+    const snap = captureUndo(data, { debtIds: ids, eventIds: evIds });
+    plans.forEach(ev => handleSave('prescriptionEvent', ev));
+    mesaRegisterFeito(ids, 'Fato lançado' + (items.length > 1 ? ' em ' + mesaCdaCount(items.length) : '') + ': ' + (meta ? meta.label : f.type) + ', ' + fmtDate(f.date) + '.', snap, { eventIds: evIds });
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaDoTratar = (items, f) => {
+    if (!items.length || !f.type) return { ok: false, error: 'Escolha a forma do tratamento.' };
+    const date = f.date || localIso(new Date());
+    const ids = items.map(it => it.debtId);
+    const snap = captureUndo(data, { debtIds: ids });
+    ids.forEach(id => upsert('debts', { id, prescriptionHandled: true, prescriptionHandledType: f.type, prescriptionHandledAt: date }));
+    const forma = (MESA_TRATAR_FORMAS.find(x => x[0] === f.type) || [])[1] || f.type;
+    mesaRegisterFeito(ids, (items.length > 1 ? mesaCdaCount(items.length) + ' tratadas' : 'Prescrição tratada') + ': ' + forma + ', ' + fmtDate(date) + '.', snap);
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaDoDestratar = (item) => {
+    const snap = captureUndo(data, { debtIds: [item.debtId] });
+    upsert('debts', { id: item.debtId, prescriptionHandled: false });
+    mesaRegisterFeito([item.debtId], 'Tratamento desfeito: a CDA volta a ser calculada.', snap);
+    return { ok: true };
+  };
+  const mesaDoAdiar = (items, f) => {
+    if (!items.length || !f.reason || !f.until) return { ok: false, error: 'Informe o motivo e a data.' };
+    const note = String(f.note || '').trim();
+    if (f.reason === 'outro' && !note) return { ok: false, error: 'Descreva o motivo para adiar.' };
     const today = localIso(new Date());
     const now = new Date().toISOString();
+    const ids = items.map(it => it.debtId);
+    const snap = captureUndo(data, { debtIds: ids });
+    const plan = new Map();
+    items.forEach(it => {
+      const group = (it.row && it.row.group) || 4;
+      const max = snoozeMaxUntil(group, today);
+      plan.set(it.debtId, { until: f.until > max ? max : f.until, group });
+    });
     setData(prev => ({
       ...prev,
-      debts: (prev.debts || []).map(d => d.id === r.id ? { ...d, penhoraAnalise: { at: today, nota: String(nota || '').trim() }, updatedAt: now } : d)
-    }));
-    showToast('Marcada como analisada. Volta à lista com fato novo ou em 1 ano.');
-  };
-  const applyMesaAction = (r) => {
-    if (!r || !r.action) return;
-    const t = r.action.type;
-    if (t === 'criar_evento') {
-      openPrescEventForRow(r, { type: r.action.eventType });
-      return;
-    }
-    if (t === 'confirmar_vigencia') {
-      confirmPauseStillValid(r);
-      return;
-    }
-    if (t === 'analisar_penhora') {
-      markPenhoraAnalisada(r);
-      return;
-    }
-    if (t === 'lancar_ciencia') {
-      openPrescEventForRow(r, { type: 'marco_sem_bens' });
-      return;
-    }
-    if (t === 'vincular_ef' || t === 'corrigir_ficha') {
-      const debt = (data.debts || []).find(d => d.id === r.id);
-      if (!debt) return;
-      if (r.operationId) setActiveOpId(r.operationId);
-      setModal({
-        type: 'edit',
-        entityType: 'debt',
-        initial: { ...debt, _focusField: t === 'vincular_ef' ? 'processNumber' : (r.action.field === 'constituicao' ? 'dueDate' : 'prescriptionDate') }
-      });
-      return;
-    }
-    openCdaInscricoes(r, { scrollCols: true });
-  };
-  const applyPrescSnooze = (r, reason, until, note) => {
-    if (!r || !reason || !until) return;
-    if (reason === 'outro' && !(note && String(note).trim())) {
-      showToast('Descreva o motivo para adiar');
-      return;
-    }
-    const today = localIso(new Date());
-    const max = snoozeMaxUntil(r.group, today);
-    const untilSafe = until > max ? max : until;
-    const now = new Date().toISOString();
-    setData(prev => ({
-      ...prev,
-      debts: (prev.debts || []).map(d => d.id === r.id ? {
+      debts: (prev.debts || []).map(d => plan.has(d.id) ? {
         ...d,
-        prescSnooze: { until: untilSafe, reason, at: today, group: r.group, note: reason === 'outro' ? String(note).trim() : undefined },
+        prescSnooze: { until: plan.get(d.id).until, reason: f.reason, at: today, group: plan.get(d.id).group, note: f.reason === 'outro' ? note : undefined },
         updatedAt: now
       } : d)
     }));
-    setMesaSnoozeId(null);
-    setMesaSnoozeNote('');
-    showToast('Adiada até ' + fmtDate(untilSafe));
+    const untils = [...new Set([...plan.values()].map(x => x.until))].sort();
+    mesaRegisterFeito(ids, (items.length > 1 ? mesaCdaCount(items.length) + ' adiadas' : 'Adiada') + ' até ' + fmtDate(untils[0]) + (untils.length > 1 ? ' (ou antes, pelo teto de cada grupo)' : '') + ': ' + (PRESC_SNOOZE_REASONS[f.reason] || f.reason) + '.', snap);
+    mesaDone();
+    return { ok: true };
   };
+  const mesaDoAjuizar = (items, f) => {
+    const plan = mesaPlanAjuizar({ data, debtIds: items.map(it => it.debtId), processNumber: f.proc, date: f.date, court: f.court, newExecId: uid() });
+    if (!plan.ok) return plan;
+    const snap = captureUndo(data, { debtIds: plan.debtIds, executionIds: plan.execution ? [plan.execution.id] : [] });
+    if (plan.execution) upsert('executions', plan.execution);
+    plan.debtIds.forEach(id => upsert('debts', { id, processNumber: plan.processNumber }));
+    const para = plan.debtIds.length > 1 ? ' para ' + mesaCdaCount(plan.debtIds.length) : '';
+    const text = plan.execution
+      ? 'Execução registrada (processo ' + plan.processNumber + ') em ' + fmtDate(plan.date) + para + '. A ordinária parou de correr.'
+      : 'CDA vinculada à execução já cadastrada (processo ' + plan.processNumber + ')' + para + '. A ordinária parou de correr.';
+    mesaRegisterFeito(plan.debtIds, text, snap, { executionIds: plan.execution ? [plan.execution.id] : [] });
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaDoAnalisada = (item, nota) => {
+    const snap = captureUndo(data, { debtIds: [item.debtId] });
+    upsert('debts', { id: item.debtId, penhoraAnalise: { at: localIso(new Date()), nota: String(nota || '').trim() } });
+    mesaRegisterFeito([item.debtId], 'Penhora marcada como analisada. Volta à lista com fato novo ou em 1 ano.', snap);
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaDoDado = (item, f) => {
+    if (!f.field || !f.date) return { ok: false, error: 'Informe a data.' };
+    const snap = captureUndo(data, { debtIds: [item.debtId] });
+    upsert('debts', { id: item.debtId, [f.field]: f.date });
+    mesaRegisterFeito([item.debtId], 'Dado informado: ' + ((mesaDadoCampos('ficha').find(c => c[0] === f.field) || [])[1] || f.field) + ', ' + fmtDate(f.date) + '.', snap);
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaDoVincular = (item, f) => {
+    if (!f.proc) return { ok: false, error: 'Escolha a execução fiscal.' };
+    const snap = captureUndo(data, { debtIds: [item.debtId] });
+    upsert('debts', { id: item.debtId, processNumber: f.proc });
+    mesaRegisterFeito([item.debtId], 'CDA vinculada à execução fiscal (processo ' + f.proc + ').', snap);
+    mesaDone();
+    return { ok: true };
+  };
+  const mesaFiscalExecsOf = (opId) => (data.executions || []).filter(e => e.operationId === opId && e.processTag !== 'idpj' && e.processTag !== 'cautelar_fiscal' && e.processNumber);
   const clearPrescSnooze = (debtId) => {
     if (!debtId) return;
+    const snap = captureUndo(data, { debtIds: [debtId] });
     const now = new Date().toISOString();
     setData(prev => ({
       ...prev,
       debts: (prev.debts || []).map(d => d.id === debtId ? { ...d, prescSnooze: null, updatedAt: now } : d)
     }));
-    showToast('Reaberta na mesa');
+    mesaRegisterFeito([debtId], 'Adiamento removido: a CDA voltou à Mesa.', snap);
   };
   const createInlineParcelamento = (r, date) => {
     if (!r || !date) return;
+    const evId = uid();
+    const snap = captureUndo(data, { debtIds: [r.id], eventIds: [evId] });
     handleSave('prescriptionEvent', {
-      id: uid(),
+      id: evId,
       type: 'susp_parcelamento',
       date,
       cdaId: r.id,
       executionId: r.executionId || '',
-      operationId: r.operationId
+      operationId: r.operationId,
+      _quiet: true
     });
     setMesaParcDraft(prev => ({ ...prev, [r.id]: '' }));
-    showToast('Adesão lançada');
+    mesaRegisterFeito([r.id], 'Adesão ao parcelamento lançada em ' + fmtDate(date) + '.', snap, { eventIds: [evId] });
   };
   const commitArt40Form = () => {
     if (!art40Form || !art40Form.date) {
@@ -9665,39 +9749,43 @@ function App() {
   const MESA_PAGE = 150;
   const prazosDeskMode = appSettings.prazosDeskMode === 'lista' ? 'lista' : 'mesa';
   const setPrazosDeskMode = (mode) => updateSetting('prazosDeskMode', mode === 'lista' ? 'lista' : 'mesa');
+  // A faixa «Feito», a seleção e o formulário aberto vivem só enquanto a Mesa está na tela.
+  const mesaNaTela = viewMode === 'prazos' && prazosDeskMode === 'mesa';
+  useEffect(() => {
+    if (mesaNaTela) return;
+    setMesaFeitos(f => (f.length ? [] : f));
+    setMesaSel(s => (s.size ? new Set() : s));
+    setMesaOpen(o => (o ? null : o));
+  }, [mesaNaTela]);
+  // Tudo o que as linhas da Mesa (clássico, Beta e Prumo) precisam para editar no lugar, em lote e desfazer.
+  const mz = {
+    today: localIso(new Date()),
+    byDebt: mesaCards.byDebt,
+    feitos: mesaFeitos.map(f => ({ id: f.id, text: f.text, dest: mesaDestText(mesaCards.byDebt, f.debtIds, f.from) })),
+    undo: mesaUndoFeito,
+    dismiss: mesaDismissFeito,
+    sel: mesaSel,
+    toggleSel: mesaToggleSel,
+    selMany: mesaSelMany,
+    clearSel: mesaClearSel,
+    open: mesaOpen,
+    setOpen: setMesaOpen,
+    fiscalExecsOf: mesaFiscalExecsOf,
+    openCda: (r) => openCdaInscricoes(r, { scrollCols: true }),
+    openEvent: (r, extra) => openPrescEventForRow(r, extra),
+    ops: {
+      fato: mesaDoFato, tratar: mesaDoTratar, destratar: mesaDoDestratar, adiar: mesaDoAdiar, ajuizar: mesaDoAjuizar,
+      analisada: mesaDoAnalisada, dado: mesaDoDado, vincular: mesaDoVincular,
+      vigencia: (item) => item.row && confirmPauseStillValid(item.row),
+      reabrir: (item) => clearPrescSnooze(item.debtId)
+    }
+  };
   const renderPrazosMesaToggle = () => (
     <div className="prazos-toggle mesa-mode-toggle">
       <button type="button" className={prazosDeskMode === 'mesa' ? 'active' : ''} onClick={() => setPrazosDeskMode('mesa')}>Mesa de prazos</button>
       <button type="button" className={prazosDeskMode === 'lista' ? 'active' : ''} onClick={() => setPrazosDeskMode('lista')}>Lista</button>
     </div>
   );
-  const renderMesaSnoozePopover = (r) => {
-    if (!r || mesaSnoozeId !== r.id) return null;
-    const today = localIso(new Date());
-    const max = snoozeMaxUntil(r.group, today);
-    return (
-      <div className="mesa-snooze" onClick={ev => ev.stopPropagation()}>
-        <label>Motivo
-          <select value={mesaSnoozeReason} onChange={e => setMesaSnoozeReason(e.target.value)}>
-            {Object.entries(PRESC_SNOOZE_REASONS).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
-          </select>
-        </label>
-        <label>Válido até
-          <input type="date" min={today} max={max} value={mesaSnoozeUntil || max}
-            onChange={e => setMesaSnoozeUntil(e.target.value)} />
-        </label>
-        {mesaSnoozeReason === 'outro' && (
-          <label>Descreva
-            <input value={mesaSnoozeNote} onChange={e => setMesaSnoozeNote(e.target.value)} placeholder="Obrigatório para Outro" />
-          </label>
-        )}
-        <div className="mesa-snooze-actions">
-          <button type="button" className="btn-primary btn-xs" onClick={() => applyPrescSnooze(r, mesaSnoozeReason, mesaSnoozeUntil || max, mesaSnoozeNote)}>Adiar</button>
-          <button type="button" className="btn-secondary btn-xs" onClick={() => setMesaSnoozeId(null)}>Cancelar</button>
-        </div>
-      </div>
-    );
-  };
   const renderMesaRow = (r, item) => {
     const debt = (item && item.debt) || (data.debts || []).find(d => d.id === r.id);
     const today = localIso(new Date());
@@ -9711,8 +9799,9 @@ function App() {
     const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : null;
     const venc = isG1Vencido(r) && !antiga && !tardeNao;
     return (
-      <div key={r.id} className={`mesa-row g${r.group}${venc ? ' g1-vencido' : ''}${ck && ck.gray ? ' longe' : ''}`}>
+      <div key={r.id} className={`mesa-row g${r.group}${venc ? ' g1-vencido' : ''}${ck && ck.gray ? ' longe' : ''}${mz.sel.has(r.id) ? ' sel' : ''}`}>
         <div className="mesa-row-main">
+          <MesaCk item={item} mz={mz} />
           {isDemo
             ? <Ficha k="CDA" tone="accent"><span className="mesa-cda">{r.cdaNumber || 'S/N'}</span></Ficha>
             : <span className="mesa-cda">{r.cdaNumber || 'S/N'}</span>}
@@ -9743,26 +9832,9 @@ function App() {
           </div>
         )}
         <div className="mesa-row-actions">
-          <button type="button" className="btn-secondary btn-xs" onClick={() => openPrescEventForRow(r)}>Evento</button>
-          <button type="button" className="btn-secondary btn-xs" onClick={() => openCdaInscricoes(r, { scrollCols: true })}>Abrir</button>
-          <button type="button" className="btn-secondary btn-xs" onClick={() => applyMesaAction({ ...r, action: { type: 'conferir_autos' } })}>Conferir</button>
-          {!(item && (item.card === 'antigas' || item.card === 'tratadas')) && (
-            <span className="mesa-snooze-wrap">
-              <button type="button" className="btn-secondary btn-xs" onClick={() => {
-                setMesaSnoozeId(r.id);
-                setMesaSnoozeReason('aguardando_certidao');
-                setMesaSnoozeUntil(snoozeMaxUntil(r.group, today));
-                setMesaSnoozeNote('');
-              }}>Adiar…</button>
-            </span>
-          )}
-          {r.action && r.action.type && r.action.type !== 'nenhuma' && r.action.type !== 'conferir_autos' && !isParc && (
-            <button type="button" className="btn-primary btn-xs" onClick={() => applyMesaAction(r)}>
-              {r.action.type === 'criar_evento' ? 'Lançar fato' : r.action.type === 'vincular_ef' ? 'Vincular EF' : r.action.type === 'corrigir_ficha' ? (r.action.field === 'constituicao' ? 'Informar datas' : 'Corrigir ficha') : r.action.type === 'lancar_ciencia' ? 'Lançar ciência' : r.action.type === 'confirmar_vigencia' ? 'Ainda vale' : r.action.type === 'analisar_penhora' ? 'Marcar analisada' : 'Agir'}
-            </button>
-          )}
+          <MesaActs item={item} mz={mz} ui="classic" skipPrimary={isParc} />
         </div>
-        {renderMesaSnoozePopover(r)}
+        <MesaInline item={item} mz={mz} ui="classic" />
       </div>
     );
   };
@@ -9802,8 +9874,9 @@ function App() {
     const d = item.debt;
     const li = mesaLiteInfo(item, sil, localIso(new Date()));
     return (
-      <div key={item.debtId} className={'mesa-row mesa-lite' + (item.ajuizarLonge ? ' longe' : '')}>
+      <div key={item.debtId} className={'mesa-row mesa-lite' + (item.ajuizarLonge ? ' longe' : '') + (mz.sel.has(item.debtId) ? ' sel' : '')}>
         <div className="mesa-row-main">
+          <MesaCk item={item} mz={mz} />
           {isDemo
             ? <Ficha k="CDA" tone="accent"><span className="mesa-cda">{d.cdaNumber || 'S/N'}</span></Ficha>
             : <span className="mesa-cda">{d.cdaNumber || 'S/N'}</span>}
@@ -9818,9 +9891,9 @@ function App() {
           </span>
         </div>
         <div className="mesa-row-actions">
-          {li.reopen && <button type="button" className="btn-primary btn-xs" onClick={() => clearPrescSnooze(d.id)}>Reabrir agora</button>}
-          <button type="button" className="btn-secondary btn-xs" onClick={() => openCdaInscricoes(d, { scrollCols: true })}>Abrir</button>
+          <MesaActs item={item} mz={mz} ui="classic" />
         </div>
+        <MesaInline item={item} mz={mz} ui="classic" />
       </div>
     );
   };
@@ -9894,6 +9967,7 @@ function App() {
             <span className="mz-fold-s">{fmtCur(t.value + t.valueLonge)}{c.id === 'ajuizar' && t.nLonge ? ' · +' + t.nLonge + ' entre 60 e 180 dias' : ''}</span>
           </button>
           {open && <>
+            <MesaSecBar items={list} mz={mz} />
             {renderList(principal)}
             {longeL.length > 0 && <div className="mz-gh">Entre 60 e 180 dias<span className="mz-n">{t.nLonge}</span></div>}
             {longeL.length > 0 && renderList(longeL)}
@@ -9943,8 +10017,10 @@ function App() {
           <div className="mz-row2">{MESA_CARDS.filter(c => c.fileira === 2).map(card)}</div>
         </div>
         <p className="mz-hint">Cada CDA aparece uma só vez, na seção da providência que ela pede. Clique num cartão para ver só aquela seção; clique de novo para voltar a todas.</p>
+        <MesaFeitoStrip mz={mz} ui="classic" />
         {MESA_CARDS.map(section)}
         {(!anyItem || (mesaSec && !by[mesaSec].length)) && <section className="mesa-block"><p className="mesa-empty">Nenhuma CDA neste recorte.</p></section>}
+        <MesaBatchBar items={fl.items.filter(it => mesaSel.has(it.debtId))} mz={mz} ui="classic" />
         </div>
       </div>
     );
@@ -10966,7 +11042,7 @@ function App() {
         detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()} /></div>}
       {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
       {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} mesaCards={mesaCards} initialSec={cxMesaInitSec} onInitialSecConsumed={() => setCxMesaInitSec('')} pf={prazosFilters} setPf={setPrazosFilters}
-        a={{ applyAction: applyMesaAction, openEvent: (r) => openPrescEventForRow(r), openCda: (r) => openCdaInscricoes(r, { scrollCols: true }), snooze: applyPrescSnooze, clearSnooze: clearPrescSnooze, inlineParc: createInlineParcelamento, presc: prescLookup }}
+        a={{ inlineParc: createInlineParcelamento, presc: prescLookup, mz }}
         onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
         onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup}
@@ -13812,6 +13888,208 @@ function MesaFiltrosPanel({ pf, setPf, cedoN, onClose }) {
         <button type="button" className="btn-primary btn-xs" onClick={onClose}>Fechar</button>
       </div>
     </section>
+  );
+}
+/* ───────── Mesa de prazos · fase 3: edição no lugar, lote e faixa «Feito» ─────────
+ * Componentes compartilhados pelas três Mesas (Prumo, clássico e Beta). `mz` vem do App (ver `const mz`);
+ * `ui` = 'cx' (Prumo) ou 'classic'. Só a aparência muda: classes mzf-* com variáveis por edição. */
+function mzfBtn(ui) {
+  return ui === 'cx'
+    ? { pri: 'cx-btn sm primary', sec: 'cx-btn sm', gh: 'cx-btn sm ghost' }
+    : { pri: 'btn-primary btn-xs', sec: 'btn-secondary btn-xs', gh: 'btn-secondary btn-xs' };
+}
+/** Faixa verde «Feito» com Desfazer e ×. As mais novas em cima, no máximo 5. */
+function MesaFeitoStrip({ mz, ui }) {
+  const list = (mz.feitos || []).slice(0, 5);
+  if (!list.length) return null;
+  const B = mzfBtn(ui);
+  return (
+    <div className="mzf mzf-feitos" role="status" aria-live="polite">
+      {list.map(f => (
+        <div key={f.id} className="mzf-feito">
+          <span className="mzf-feito-t"><b>Feito.</b> {f.text}{f.dest ? ' ' + f.dest : ''}</span>
+          <button type="button" className={B.sec + ' mzf-undo'} onClick={() => mz.undo(f.id)}>Desfazer</button>
+          <button type="button" className="mzf-x" aria-label="Dispensar aviso" title="Dispensar" onClick={() => mz.dismiss(f.id)}>&times;</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+/** Caixa de seleção da linha (lote). */
+function MesaCk({ item, mz }) {
+  const d = item.debt || {};
+  return <input type="checkbox" className="mzf-ck" checked={mz.sel.has(item.debtId)} onChange={() => mz.toggleSel(item.debtId)}
+    onClick={e => e.stopPropagation()} aria-label={'Selecionar a CDA ' + (d.cdaNumber || 'S/N')} />;
+}
+/** «Selecionar a seção» no alto de cada seção aberta. */
+function MesaSecBar({ items, mz }) {
+  const ids = items.map(it => it.debtId);
+  const n = ids.filter(id => mz.sel.has(id)).length;
+  const all = ids.length > 0 && n === ids.length;
+  return (
+    <label className="mzf mzf-secbar">
+      <input type="checkbox" checked={all} ref={el => { if (el) el.indeterminate = n > 0 && !all; }} onChange={e => mz.selMany(ids, e.target.checked)} />
+      <span>Selecionar a seção ({ids.length}){n > 0 && !all ? ' · ' + n + ' marcadas' : ''}</span>
+    </label>
+  );
+}
+/** Botões da linha: o verbo do cartão, Tratar…, Adiar…, Evento, Abrir. */
+function MesaActs({ item, mz, ui, skipPrimary }) {
+  const B = mzfBtn(ui);
+  const pa = skipPrimary ? null : mesaPrimaryAction(item);
+  const isOpen = (k) => !!(mz.open && mz.open.id === item.debtId && mz.open.kind === k);
+  const toggle = (k) => mz.setOpen(isOpen(k) ? null : { id: item.debtId, kind: k });
+  const r = item.row || { id: item.debtId, operationId: item.debt.operationId, processNumber: item.debt.processNumber, cdaNumber: item.debt.cdaNumber };
+  const primary = () => {
+    if (!pa) return;
+    if (pa.kind === 'conferir') mz.openCda(r);
+    else if (pa.kind === 'vigencia') mz.ops.vigencia(item);
+    else if (pa.kind === 'reabrir') mz.ops.reabrir(item);
+    else if (pa.kind === 'destratar') mz.ops.destratar(item);
+    else toggle(pa.kind);
+  }; 
+  const inline = pa && ['ajuizar', 'fato', 'vincular', 'dado', 'analisar'].includes(pa.kind);
+  return <>
+    {pa ? <button type="button" className={B.pri} data-act={pa.kind} aria-expanded={inline ? isOpen(pa.kind) : undefined} onClick={primary}>{pa.label}</button> : null}
+    {mesaCanTratar(item) ? <button type="button" className={B.gh} data-act="tratar" aria-expanded={isOpen('tratar')} onClick={() => toggle('tratar')}>Tratar…</button> : null}
+    {mesaCanSnooze(item) ? <button type="button" className={B.gh} data-act="adiar" aria-expanded={isOpen('adiar')} onClick={() => toggle('adiar')}>Adiar…</button> : null}
+    {item.row ? <button type="button" className={B.sec} data-act="evento" onClick={() => mz.openEvent(item.row)}>Evento</button> : null}
+    <button type="button" className={B.sec} data-act="abrir" onClick={() => mz.openCda(r)}>Abrir</button>
+  </>;
+}
+/** Formulário aberto na própria linha, se for esta a CDA. */
+function MesaInline({ item, mz, ui }) {
+  const o = mz.open;
+  if (!o || o.id !== item.debtId) return null;
+  const pa = mesaPrimaryAction(item);
+  return <MesaForm key={item.debtId + o.kind} items={[item]} kind={o.kind} mz={mz} ui={ui}
+    type0={pa && pa.kind === 'fato' ? pa.type : ''} field0={pa && pa.kind === 'dado' ? pa.field : 'ficha'} />;
+}
+/** Campos mínimos de cada ação, para uma CDA ou para o lote. */
+function MesaForm({ items, kind, mz, ui, type0, field0, batch }) {
+  const B = mzfBtn(ui);
+  const today = mz.today;
+  const first = items[0];
+  const many = items.length > 1;
+  const maxSnooze = mesaSnoozeMaxFor(items, today);
+  const [err, setErr] = useState('');
+  const [type, setType] = useState(type0 || '');
+  const [date, setDate] = useState(today);
+  const [note, setNote] = useState('');
+  const [forma, setForma] = useState('aguardando_reconhecimento');
+  const [reason, setReason] = useState('aguardando_certidao');
+  const [until, setUntil] = useState(maxSnooze);
+  const [proc, setProc] = useState('');
+  const [court, setCourt] = useState('');
+  const campos = mesaDadoCampos(field0);
+  const [campo, setCampo] = useState(campos[0][0]);
+  const execs = kind === 'vincular' ? mz.fiscalExecsOf(first.debt.operationId) : [];
+  const [vinc, setVinc] = useState('');
+  const cnj = kind === 'ajuizar' ? mesaCnjCheck(proc) : { level: '', msg: '' };
+  const idp = (k) => 'mzf-' + kind + '-' + k + (batch ? '-lote' : '-' + first.debtId);
+  const run = () => {
+    let res;
+    if (kind === 'fato') res = mz.ops.fato(items, { type, date, note });
+    else if (kind === 'tratar') res = mz.ops.tratar(items, { type: forma, date });
+    else if (kind === 'adiar') res = mz.ops.adiar(items, { reason, until, note });
+    else if (kind === 'ajuizar') res = mz.ops.ajuizar(items, { proc, date, court });
+    else if (kind === 'analisar') res = mz.ops.analisada(first, note);
+    else if (kind === 'dado') res = mz.ops.dado(first, { field: campo, date });
+    else if (kind === 'vincular') res = mz.ops.vincular(first, { proc: vinc });
+    if (res && !res.ok) setErr(res.error || 'Não foi possível gravar.');
+  };
+  const close = () => mz.setOpen(null);
+  const fld = (label, el, cls) => <label className={'mzf-f' + (cls ? ' ' + cls : '')}><span>{label}</span>{el}</label>;
+  const dateEl = (id, extra) => <input id={idp(id)} name="data" type="date" value={date} onChange={e => setDate(e.target.value)} {...(extra || {})} />;
+  const noteEl = (label, ph, req) => fld(label, <input id={idp('nota')} name="nota" value={note} placeholder={ph} onChange={e => setNote(e.target.value)} required={!!req} />, 'wide');
+  let body = null;
+  let okLabel = 'Gravar';
+  if (kind === 'fato') {
+    okLabel = 'Lançar fato';
+    body = <>
+      {fld('Fato', <select id={idp('tipo')} name="tipo" value={type} onChange={e => setType(e.target.value)}>
+        <option value="">Escolha o fato…</option>
+        {PRESC_EVENT_FAMILIES.map(f => <optgroup key={f.id} label={f.label}>{f.variants.map(v => <option key={v.type} value={v.type}>{v.label}</option>)}</optgroup>)}
+      </select>, 'grow')}
+      {fld('Data do fato', dateEl('data'))}
+      {noteEl('Nota (opcional)', 'Evento, folha, o que ficou decidido')}
+    </>;
+  } else if (kind === 'tratar') {
+    okLabel = 'Marcar como tratada';
+    body = <>
+      {fld('Forma', <select id={idp('forma')} name="forma" value={forma} onChange={e => setForma(e.target.value)}>{MESA_TRATAR_FORMAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>, 'grow')}
+      {fld('Data do tratamento', dateEl('data'))}
+    </>;
+  } else if (kind === 'adiar') {
+    okLabel = 'Adiar';
+    body = <>
+      {fld('Motivo', <select id={idp('motivo')} name="motivo" value={reason} onChange={e => setReason(e.target.value)}>{Object.entries(PRESC_SNOOZE_REASONS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>)}
+      {fld('Volta à mesa em', <input id={idp('ate')} name="ate" type="date" min={today} max={maxSnooze} value={until} onChange={e => setUntil(e.target.value)} />)}
+      {reason === 'outro' ? noteEl('Descreva (obrigatório)', 'Por que adiar', true) : null}
+      <span className="mzf-hint">Limite {many ? 'do lote' : 'deste grupo'}: até {fmtDate(maxSnooze)}. Volta antes se entrar fato novo ou o grupo piorar.</span>
+    </>;
+  } else if (kind === 'ajuizar') {
+    okLabel = many ? 'Registrar ajuizamento (' + items.length + ' CDAs)' : 'Registrar ajuizamento';
+    body = <>
+      {fld('Nº do processo', <input id={idp('proc')} name="processo" className="mzf-mono" value={proc} placeholder="0000000-00.0000.0.00.0000" autoComplete="off" onChange={e => setProc(e.target.value)} />, 'grow')}
+      {fld('Data do ajuizamento', dateEl('data', { max: today }))}
+      {fld('Vara (opcional)', <input id={idp('vara')} name="vara" value={court} placeholder="1ª Vara Federal de …" onChange={e => setCourt(e.target.value)} />, 'grow')}
+      {cnj.level === 'warn' ? <span className="mzf-warn" role="alert">{cnj.msg}</span> : null}
+      <span className="mzf-hint">{many ? 'Vale para as ' + items.length + ' CDAs marcadas. ' : ''}Se já existir execução fiscal com esse número na operação, a CDA só é vinculada; senão a execução é criada.</span>
+    </>;
+  } else if (kind === 'analisar') {
+    okLabel = 'Marcar analisada';
+    body = noteEl('Conclusão da análise (opcional)', 'Penhora antiga analisada: o que se concluiu');
+  } else if (kind === 'dado') {
+    okLabel = 'Gravar dado';
+    body = <>
+      {fld('Dado', <select id={idp('campo')} name="campo" value={campo} onChange={e => setCampo(e.target.value)}>{campos.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>)}
+      {fld('Data', <input id={idp('data')} name="data" type="date" value={date} onChange={e => setDate(e.target.value)} />)}
+      <span className="mzf-hint">Mais campos da ficha: use «Abrir».</span>
+    </>;
+  } else if (kind === 'vincular') {
+    okLabel = 'Vincular';
+    body = execs.length
+      ? fld('Execução fiscal', <select id={idp('ef')} name="execucao" value={vinc} onChange={e => setVinc(e.target.value)}>
+        <option value="">Escolha a execução…</option>
+        {execs.map(e => <option key={e.id} value={e.processNumber}>{e.processNumber}{e.court ? ' — ' + e.court : ''}</option>)}
+      </select>, 'grow')
+      : <span className="mzf-hint">Esta operação ainda não tem execução fiscal cadastrada. Cadastre-a em «Abrir» ou, se acabou de ajuizar, use o botão «Ajuizei».</span>;
+  }
+  return (
+    <form className={'mzf mzf-form' + (batch ? ' batch' : '')} data-mzf={kind} onSubmit={e => { e.preventDefault(); run(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}>
+      <div className="mzf-fields">{body}</div>
+      {err ? <div className="mzf-err" role="alert">{err}</div> : null}
+      <div className="mzf-acts">
+        <button type="submit" className={B.pri} disabled={kind === 'vincular' && !execs.length}>{okLabel}</button>
+        <button type="button" className={B.gh} onClick={close}>Cancelar</button>
+        {kind === 'fato' && !many ? <button type="button" className={B.gh + ' mzf-more'} onClick={() => mz.openEvent(first.row || { id: first.debtId, operationId: first.debt.operationId }, { type })}>Mais campos…</button> : null}
+      </div>
+    </form>
+  );
+}
+/** Barra de lote fixa no rodapé: N CDAs · R$ e as ações que valem para todas. */
+function MesaBatchBar({ items, mz, ui }) {
+  if (!items.length) return null;
+  const B = mzfBtn(ui);
+  const can = mesaBatchCan(items);
+  const t = mesaSelectionTotals(items);
+  const kind = mz.open && mz.open.id === '*' ? mz.open.kind : '';
+  const toggle = (k) => mz.setOpen(kind === k ? null : { id: '*', kind: k });
+  const btn = (k, label, ok, why) => <button type="button" className={B.sec} data-batch={k} disabled={!ok} aria-expanded={kind === k} title={ok ? undefined : why} onClick={() => toggle(k)}>{label}</button>;
+  return (
+    <div className="mzf mzf-batch" role="region" aria-label="Ações em lote">
+      {kind ? <MesaForm key={kind + items.length} items={items} kind={kind} mz={mz} ui={ui} batch /> : null}
+      <div className="mzf-batch-bar">
+        <span className="mzf-batch-n"><b>{mesaCdaCount(t.n)}</b> · {fmtCur(t.value)}</span>
+        <span className="mzf-sp" />
+        {btn('adiar', 'Adiar…', can.adiar, 'Só vale para CDAs com linha de prazo, fora de Adiadas, Tratadas e Consumadas antigas.')}
+        {btn('tratar', 'Tratar…', can.tratar, 'CDAs já tratadas ou adiadas não entram.')}
+        {btn('fato', 'Lançar fato', can.fato, 'CDAs tratadas não recebem fato.')}
+        {can.ajuizar ? btn('ajuizar', 'Ajuizar', true, '') : null}
+        <button type="button" className={B.gh} data-batch="limpar" onClick={() => { mz.clearSel(); mz.setOpen(null); }}>Limpar seleção</button>
+      </div>
+    </div>
   );
 }
 function PersonSubtabs({ data, opId, currentFilter, onChange, mode }) {

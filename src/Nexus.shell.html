@@ -1251,7 +1251,7 @@ button:disabled:hover, button[disabled]:hover { background: inherit; }
 .prazos-counter.g3 .prazos-counter-n { color: var(--yellow); }
 .prazos-counter.g6 .prazos-counter-n { color: var(--text-muted); }
 .prazos-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
-.prazos-toolbar select, .prazos-toolbar input { width: auto; }
+.prazos-toolbar select, .prazos-toolbar input { width: auto; max-width: 100%; min-width: 0; }
 .prazos-toolbar-roomy { gap: 12px 16px; }
 .prazos-filter-wrap { position: relative; }
 .prazos-filter-btn.has-filters { border-color: var(--accent); color: var(--text-primary); }
@@ -3915,6 +3915,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   .mz-row1, .mz-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mz-card-n { font-size: 22px; min-width: 20px; }
   .mz-fold-s { display: none; }
+  .mz-card, .mz-card-t { min-width: 0; }
+  .mz-card-l, .mz-card-s, .mz-card-g { overflow-wrap: anywhere; }
 }
 .mesa-toolbar { margin-bottom: 14px; }
 .mesa-mode-toggle { margin-right: 8px; }
@@ -3949,10 +3951,42 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .mesa-inline-parc { display: flex; align-items: center; gap: 8px; }
 .mesa-inline-parc input { width: auto; }
 .mesa-inline-hint { font-size: 10px; color: var(--text-muted); }
-.mesa-snooze-wrap { display: inline-flex; }
-.mesa-snooze { width: min(300px, 100%); padding: 10px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 8px; }
-.mesa-snooze label { font-size: 10px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px; }
-.mesa-snooze-actions { display: flex; gap: 6px; }
+/* ── Mesa de prazos · fase 3: edição no lugar, lote e faixa «Feito» (uma estrutura; variáveis por edição) ── */
+.mzf { --f-bg: var(--bg-elevated); --f-card: var(--bg-card); --f-in: var(--bg-input); --f-line: var(--border); --f-ink: var(--text-primary); --f-ink2: var(--text-secondary); --f-ink3: var(--text-muted); --f-acc: var(--accent); --f-green: var(--green); --f-red: var(--red); --f-red-soft: var(--red-dim); --f-orange: var(--orange); --f-mono: var(--font-mono); --f-r: var(--radius); }
+.cx .mzf { --f-bg: var(--cx-surface-2); --f-card: var(--cx-surface); --f-in: var(--cx-surface); --f-line: var(--cx-line); --f-ink: var(--cx-ink); --f-ink2: var(--cx-ink-2); --f-ink3: var(--cx-ink-3); --f-acc: var(--cx-accent); --f-green: var(--cx-green); --f-red: var(--cx-red); --f-red-soft: var(--cx-red-soft); --f-orange: var(--cx-orange); --f-mono: var(--cx-mono); --f-r: 8px; }
+.mzf-feitos { position: sticky; top: 0; z-index: 6; display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.mzf-feito { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid color-mix(in srgb, var(--f-green) 45%, var(--f-line)); border-left: 4px solid var(--f-green); border-radius: var(--f-r); background: color-mix(in srgb, var(--f-green) 14%, var(--f-card)); color: var(--f-ink); font-size: 12.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.16); }
+.mzf-feito-t { flex: 1 1 auto; min-width: 0; line-height: 1.4; }
+.mzf-feito-t b { color: var(--f-green); font-weight: 700; }
+.mzf-undo { flex: none; }
+.mzf-x { flex: none; width: 26px; height: 26px; padding: 0 0 2px; display: grid; place-items: center; background: transparent; border: 0; border-radius: 13px; color: var(--f-ink3); font-size: 19px; line-height: 1; cursor: pointer; }
+.mzf-x:hover { background: color-mix(in srgb, var(--f-ink) 10%, transparent); color: var(--f-ink); }
+input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; margin: 0 4px 0 0; padding: 0; flex: none; accent-color: var(--f-acc); cursor: pointer; align-self: center; }
+.mzf-secbar { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-top: 1px solid var(--f-line); font-size: 11.5px; color: var(--f-ink3); cursor: pointer; }
+.mzf-secbar:hover { color: var(--f-ink); }
+.mesa-row.sel { background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+.mzf-form { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; padding: 11px 12px; border: 1px solid var(--f-line); border-radius: var(--f-r); background: var(--f-bg); }
+.mzf-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
+.mzf-f { display: flex; flex-direction: column; gap: 4px; flex: 0 1 190px; min-width: 150px; font-size: 11px; color: var(--f-ink3); font-family: inherit; }
+.mzf-f.grow { flex: 1 1 260px; }
+.mzf-f.wide { flex: 1 1 100%; }
+.mzf .mzf-f input, .mzf .mzf-f select { width: 100%; height: 30px; padding: 0 9px; font-size: 12.5px; background: var(--f-in); color: var(--f-ink); border: 1px solid var(--f-line); border-radius: var(--f-r); }
+.mzf .mzf-f input:focus, .mzf .mzf-f select:focus { border-color: var(--f-acc); outline: none; }
+.mzf .mzf-f input.mzf-mono { font-family: var(--f-mono); letter-spacing: 0.01em; }
+.mzf-hint { flex: 1 1 100%; font-size: 11px; line-height: 1.35; color: var(--f-ink3); }
+.mzf-warn { flex: 1 1 100%; font-size: 11.5px; line-height: 1.35; color: var(--f-orange); }
+.mzf-err { font-size: 12px; color: var(--f-red); background: var(--f-red-soft); border-radius: 6px; padding: 6px 9px; }
+.mzf-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mzf-batch { position: sticky; bottom: 0; z-index: 7; max-height: 72vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin: 14px 0 0; padding: 10px 12px; background: var(--f-card); border: 1px solid var(--f-line); border-radius: var(--f-r) var(--f-r) 0 0; box-shadow: 0 -6px 20px rgba(0,0,0,0.26); }
+.mzf-batch-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mzf-batch-n { font-size: 12.5px; color: var(--f-ink); }
+.mzf-sp { flex: 1 1 8px; }
+@media (max-width: 640px) {
+  .mzf-f, .mzf-f.grow { flex: 1 1 100%; min-width: 0; }
+  .mzf-feito { flex-wrap: wrap; padding-right: 8px; }
+  .mzf-feito-t { flex-basis: 100%; }
+  .mzf-sp { display: none; }
+}
 .edition-demo .cda-actions-sticky { position: sticky; top: 0; z-index: 2; background: var(--bg-card); padding: 6px 0 8px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
 .edition-demo .entity-card .ec-row { gap: 6px; }
 .edition-demo .process-risk.g1-vencido strong { color: var(--red); }
@@ -4654,6 +4688,7 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-mesa-row.g1::before { opacity: 1; }
 .cx-mesa-row.venc { background: color-mix(in srgb, var(--cx-red-soft) 55%, var(--cx-surface)); }
 .cx-mesa-row .cx-gnum { color: var(--c); }
+.cx-mesa-row.sel { background: color-mix(in srgb, var(--cx-accent) 9%, var(--cx-surface)); }
 .cx-mesa-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .cx-mesa-id { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .cx-mesa-cda { font-size: 12.5px; font-weight: 500; color: var(--cx-ink); }
@@ -4679,13 +4714,6 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-mesa-acts { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cx-mesa-parc { display: inline-flex; align-items: center; gap: 6px; }
 .cx-mesa-parc .cx-input { height: 26px; width: 150px; font-size: 12px; }
-.cx-snooze { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; padding: 11px 12px; border: 1px solid var(--cx-line-strong); border-radius: 8px; background: var(--cx-surface-2); }
-.cx-snooze label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--cx-ink-3); }
-.cx-snooze .cx-input { height: 28px; width: auto; min-width: 170px; font-size: 12.5px; }
-.cx-snooze-note { flex: 1 1 220px; }
-.cx-snooze-note .cx-input { width: 100%; }
-.cx-snooze-hint { flex: 1 1 100%; font-size: 11.5px; color: var(--cx-ink-3); }
-.cx-snooze-acts { margin-left: auto; display: flex; gap: 6px; }
 .cx-sil-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--cx-line); font-size: 12.5px; }
 .cx-sil-why { color: var(--cx-ink-2); }
 .cx-sil-until { font-size: 11.5px; color: var(--cx-ink-3); white-space: nowrap; }

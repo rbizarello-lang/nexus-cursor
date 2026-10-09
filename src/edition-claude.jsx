@@ -1550,7 +1550,6 @@ const CX_CERT_TIP = {
   dado: 'Falta um fato para fechar a data. A data cedo mostra o risco se ele não vier.',
   analisar: 'Penhora ou bloqueio antigo: análise caso a caso.',
 };
-const CX_ACT_LABEL = { criar_evento: 'Lançar fato', vincular_ef: 'Vincular EF', corrigir_ficha: 'Corrigir ficha', lancar_ciencia: 'Lançar ciência', confirmar_vigencia: 'Ainda vale', analisar_penhora: 'Marcar analisada' };
 /** Linhas da Mesa agrupadas por execução (intercorrente) ou por CDA (ordinária), com as notas do processo. */
 function cxMesaGroups(list, notesByProc, render) {
   return groupMesaRows(list).map(g => {
@@ -2099,12 +2098,10 @@ function EditionClaudeOpOverview(p) {
 
 /* ═════════════════════ Prazos extintivos — Mesa ═════════════════════ */
 function CxMesaRow({ r, debt, a, item }) {
-  const [snooze, setSnooze] = React.useState(null);
   const [parc, setParc] = React.useState('');
   const cert = mesaCertainty(r);
   const isParc = r.action && r.action.type === 'criar_evento' && r.action.eventType === 'susp_parcelamento';
-  const act = r.action && r.action.type;
-  const actLabel = CX_ACT_LABEL[act] || 'Agir';
+  const mz = a.mz;
   const today = localIso(new Date());
   // Com o item da Mesa por cartões: a data de posição só é prazo quando dateIsDeadline; nunca «há N anos» num piso.
   const snLabel = item ? mesaSnoozeLabel(item, today) : (debt && debt.prescSnooze ? 'o adiamento venceu' : '');
@@ -2116,9 +2113,10 @@ function CxMesaRow({ r, debt, a, item }) {
   const seg = r.prescSegment || r.clock;
   const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : seg === 'decadencia' ? 'Decadência' : null;
   const vencido = isG1Vencido(r) && !antiga;
-  return <div className={'cx-mesa-row g' + r.group + (vencido && !tardeNao ? ' venc' : '')} style={{ '--c': CX_GROUP_C[r.group] }}>
+  return <div className={'cx-mesa-row g' + r.group + (vencido && !tardeNao ? ' venc' : '') + (mz.sel.has(r.id) ? ' sel' : '')} style={{ '--c': CX_GROUP_C[r.group] }}>
     <div className="cx-mesa-main">
       <div className="cx-mesa-id">
+        <MesaCk item={item} mz={mz} />
         <span className="cx-gnum" title={'Grupo ' + r.group + ' · ' + (PRAZOS_GROUP_LABELS[r.group] || '')}>{r.group}</span>
         <span className="cx-mono cx-mesa-cda">{r.cdaNumber || 'S/N'}</span>
         <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span>
@@ -2142,23 +2140,13 @@ function CxMesaRow({ r, debt, a, item }) {
       <span className="cx-mesa-val">{fmtCur(r.value || 0)}</span>
     </div>
     <div className="cx-mesa-acts">
-      {act && act !== 'nenhuma' && act !== 'conferir_autos' && !isParc ? <button type="button" className="cx-btn sm primary" onClick={() => a.applyAction(r)}>{actLabel}</button> : null}
+      <MesaActs item={item} mz={mz} ui="cx" skipPrimary={isParc} />
       {isParc ? <span className="cx-mesa-parc">
         <input id={'cx-parc-' + r.id} type="date" className="cx-input" value={parc} onChange={e => setParc(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && parc) a.inlineParc(r, parc); }} aria-label="Data da adesão ao parcelamento" />
         <button type="button" className="cx-btn sm primary" disabled={!parc} onClick={() => { a.inlineParc(r, parc); setParc(''); }}>Lançar adesão</button>
       </span> : null}
-      <button type="button" className="cx-btn sm" onClick={() => a.openEvent(r)}>Evento</button>
-      <button type="button" className="cx-btn sm" onClick={() => a.openCda(r)}>Abrir</button>
-      <button type="button" className="cx-btn sm ghost" onClick={() => a.applyAction({ ...r, action: { type: 'conferir_autos' } })}>Conferir</button>
-      {item && (item.card === 'antigas' || item.card === 'tratadas') ? null : <button type="button" className="cx-btn sm ghost" onClick={() => setSnooze(snooze ? null : { reason: 'aguardando_certidao', until: snoozeMaxUntil(r.group, today), note: '' })} aria-expanded={!!snooze}>Adiar…</button>}
     </div>
-    {snooze ? <form className="cx-snooze" onSubmit={e => { e.preventDefault(); if (snooze.reason === 'outro' && !snooze.note.trim()) return; a.snooze(r, snooze.reason, snooze.until, snooze.note); setSnooze(null); }}>
-      <label>Motivo<select id={'cx-sz-r-' + r.id} className="cx-input" value={snooze.reason} onChange={e => setSnooze({ ...snooze, reason: e.target.value })}>{Object.entries(PRESC_SNOOZE_REASONS).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}</select></label>
-      <label>Volta à mesa em<input id={'cx-sz-u-' + r.id} type="date" className="cx-input" min={today} max={snoozeMaxUntil(r.group, today)} value={snooze.until} onChange={e => setSnooze({ ...snooze, until: e.target.value })} /></label>
-      {snooze.reason === 'outro' ? <label className="cx-snooze-note">Descreva (obrigatório)<input id={'cx-sz-n-' + r.id} className="cx-input" value={snooze.note} onChange={e => setSnooze({ ...snooze, note: e.target.value })} placeholder="Por que adiar" autoFocus /></label> : null}
-      <span className="cx-snooze-hint">Limite deste grupo: {snoozeLimitDays(r.group)} dias. Volta antes se entrar fato novo ou o grupo piorar.</span>
-      <span className="cx-snooze-acts"><button type="button" className="cx-btn sm ghost" onClick={() => setSnooze(null)}>Cancelar</button><button type="submit" className="cx-btn sm primary" disabled={snooze.reason === 'outro' && !snooze.note.trim()}>Adiar</button></span>
-    </form> : null}
+    <MesaInline item={item} mz={mz} ui="cx" />
   </div>;
 }
 const CX_PZ_TONE = MESA_CARD_TONE;
@@ -2189,11 +2177,13 @@ function CxMesaStrip({ mc, onOpen, mini }) {
 /** Item da Mesa sem linha do radar (tratadas, adiadas, ordinária derivada, sem dados, parcelada). */
 function CxMesaLite({ item, a, opName, personName, sil }) {
   const d = item.debt;
+  const mz = a.mz;
   const today = localIso(new Date());
   const li = mesaLiteInfo(item, sil, today);
-  return <div className={'cx-mesa-row cx-mesa-lite' + (item.ajuizarLonge ? ' longe' : '')}>
+  return <div className={'cx-mesa-row cx-mesa-lite' + (item.ajuizarLonge ? ' longe' : '') + (mz.sel.has(item.debtId) ? ' sel' : '')}>
     <div className="cx-mesa-main">
       <div className="cx-mesa-id">
+        <MesaCk item={item} mz={mz} />
         <span className="cx-mono cx-mesa-cda">{d.cdaNumber || 'S/N'}</span>
         {li.chips.map((c, i) => <span key={i} className="cx-tag" title={i === 1 ? 'A ordinária só entra na lista de alarmes a até 90 dias do prazo; esta ainda está fora.' : undefined}>{c}</span>)}
       </div>
@@ -2209,9 +2199,9 @@ function CxMesaLite({ item, a, opName, personName, sil }) {
       <span className="cx-mesa-val">{fmtCur(item.value || 0)}</span>
     </div>
     <div className="cx-mesa-acts">
-      {li.reopen ? <button type="button" className="cx-btn sm primary" onClick={() => a.clearSnooze(d.id)}>Reabrir agora</button> : null}
-      <button type="button" className="cx-btn sm" onClick={() => a.openCda(d)}>Abrir</button>
+      <MesaActs item={item} mz={mz} ui="cx" />
     </div>
+    <MesaInline item={item} mz={mz} ui="cx" />
   </div>;
 }
 /* Painel de Filtros da Mesa (decisão 7): natureza, marcações, valor mínimo e exibição. Tudo em prazosFilters. */
@@ -2299,6 +2289,7 @@ function EditionClaudePrazos(p) {
         <span className="cx-pz-fold-s">{cxMoneyShort(sumV)}{c.id === 'ajuizar' && t.nLonge ? ' · +' + t.nLonge + ' entre 60 e 180 dias' : ''}</span>
       </button>
       {open ? <>
+        <MesaSecBar items={list} mz={a.mz} />
         {renderList(principal)}
         {longeL.length ? <div className="cx-pz-gh longe">Entre 60 e 180 dias<span className="cx-n">{t.nLonge}</span></div> : null}
         {longeL.length ? renderList(longeL) : null}
@@ -2329,8 +2320,10 @@ function EditionClaudePrazos(p) {
     {chips.length ? <div className="cx-pz-chips" id="cx-pz-chips" aria-live="polite">{chips.map(c => <span key={c.k} className="cx-pz-fc"><span title={c.t}>{c.t}</span><button type="button" data-chip={c.k} onClick={() => setPf(mesaRemovePatch(c.k))} aria-label={'Remover filtro: ' + c.t}>&times;</button></span>)}</div> : null}
     {hasCut ? <div className="cx-pz-mostrando" id="cx-pz-mostrando">Mostrando <b>{fl.n}</b> de <b>{mc.items.length}</b> CDAs<span className="cx-sp" /><button type="button" className="cx-btn sm ghost" id="cx-pz-limpar" onClick={() => setPf(mesaClearAllPatch())}>Limpar</button></div> : null}
 
+    <MesaFeitoStrip mz={a.mz} ui="cx" />
     {MESA_CARDS.map(section)}
     {!anyItem || (sec && !by[sec].length) ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA neste recorte.</div></div> : null}
+    <MesaBatchBar items={fl.items.filter(it => a.mz.sel.has(it.debtId))} mz={a.mz} ui="cx" />
 
     <div className="cx-pz-legend">
       <span><span className="cx-cert calculado">Calculado</span>{CX_CERT_TIP.calculado}</span>
