@@ -20,6 +20,12 @@ import {
   AJUIZAR_JANELA,
   PENHORA_SEM_PRESSA_ANOS,
   buildMesaCards,
+  mesaTotalsOf,
+  mesaActionCount,
+  mesaIsAction,
+  mesaItemClock,
+  mesaSnoozeLabel,
+  mesaLiteInfo,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -508,5 +514,100 @@ describe('Mesa — cartões (fase 1): uma CDA, um cartão', () => {
     assert.equal(out.byDebt.get('tr').card, 'tratadas');
     assert.equal(out.byDebt.get('snz').card, 'adiadas');
     assert.equal(out.totals.ajuizar.n, out.byCard.ajuizar.filter(i => !i.ajuizarLonge).length);
+  });
+});
+
+describe('mesaActionCount / mesaTotalsOf', () => {
+  it('soma só a fileira 1 e deixa de fora o Ajuizar longe', () => {
+    const totals = {
+      calculo: { n: 2, value: 20 },
+      ajuizar: { n: 3, value: 30, nLonge: 9, valueLonge: 900 },
+      fato: { n: 4, value: 40 },
+      vigencia: { n: 1, value: 10 },
+      dado: { n: 5, value: 50 },
+      sempressa: { n: 100, value: 1000 },
+      vigiar: { n: 100, value: 1000 },
+      adiadas: { n: 100, value: 1000 },
+      tratadas: { n: 100, value: 1000 },
+      antigas: { n: 100, value: 1000 }
+    };
+    assert.deepEqual(mesaActionCount(totals), { n: 15, value: 150 });
+    assert.deepEqual(mesaActionCount({}), { n: 0, value: 0 });
+    assert.deepEqual(mesaActionCount(null), { n: 0, value: 0 });
+  });
+
+  it('mesaTotalsOf refaz os totais de qualquer subconjunto de itens', () => {
+    const items = [
+      { card: 'ajuizar', ajuizarLonge: false, value: 10 },
+      { card: 'ajuizar', ajuizarLonge: true, value: 5 },
+      { card: 'dado', ajuizarLonge: false, value: 7 },
+      { card: 'tratadas', value: 1 }
+    ];
+    const t = mesaTotalsOf(items);
+    assert.deepEqual(t.ajuizar, { n: 1, value: 10, nLonge: 1, valueLonge: 5 });
+    assert.deepEqual(t.dado, { n: 1, value: 7 });
+    assert.deepEqual(t.calculo, { n: 0, value: 0 });
+    assert.deepEqual(mesaActionCount(t), { n: 2, value: 17 });
+  });
+
+  it('com buildMesaCards: mesaTotalsOf(items) = totals', () => {
+    const data = { operations: [{ id: 'op1', name: 'Op' }], debts: [{ id: 'a', operationId: 'op1', status: 'ativa', value: 10, inscriptionDate: '' }], executions: [], prescriptionEvents: [], people: [] };
+    const asOf = '2026-09-17';
+    const lookup = createPrescLookup(data.debts, data.executions, data.prescriptionEvents, asOf);
+    const radar = buildPrazosRadar(data, asOf, lookup, { policy: 'v2' });
+    const out = buildMesaCards({ data, radar, prescLookup: lookup, today: asOf });
+    assert.deepEqual(mesaTotalsOf(out.items), out.totals);
+  });
+});
+
+describe('Mesa — relógio e linhas das listas', () => {
+  const T = '2026-09-17';
+  it('mesaIsAction: fileira 1, sem o Ajuizar de 60 a 180 dias', () => {
+    assert.equal(mesaIsAction({ card: 'fato' }), true);
+    assert.equal(mesaIsAction({ card: 'ajuizar', ajuizarLonge: false }), true);
+    assert.equal(mesaIsAction({ card: 'ajuizar', ajuizarLonge: true }), false);
+    assert.equal(mesaIsAction({ card: 'vigiar' }), false);
+    assert.equal(mesaIsAction(null), false);
+  });
+
+  it('relógio: cedo venceu/tarde não, consumada antiga, data que não é prazo e prazo comum', () => {
+    const tarde = mesaItemClock({ row: { bandTarde: '2026-12-26', keyDate: '2026-01-01' }, cedoVencidaTardeNao: true, dateIsDeadline: true }, T);
+    assert.match(tarde.text, /^tarde em /);
+    assert.equal(tarde.date, '26/12/2026');
+    const semTarde = mesaItemClock({ row: {}, cedoVencidaTardeNao: true, dateIsDeadline: true }, T);
+    assert.equal(semTarde.text, 'sem data tarde');
+    const antiga = mesaItemClock({ card: 'antigas', row: { prescDate: '2020-03-01', prescDays: -2400 }, dateIsDeadline: true }, T);
+    assert.equal(antiga.text, 'consumada');
+    assert.equal(antiga.date, '01/03/2020');
+    const piso = mesaItemClock({ card: 'sempressa', row: { keyLabel: 'não antes de 01/01/2019', keyDate: '2019-01-01', prescDays: -2800 }, dateIsDeadline: false }, T);
+    assert.equal(piso.plain, true);
+    assert.equal(piso.text, 'não antes de 01/01/2019');
+    assert.doesNotMatch(piso.text, /há \d+ anos/);
+    const prazo = mesaItemClock({ card: 'ajuizar', row: { prescDays: 100, keyDate: '2026-12-26' }, dateIsDeadline: true, ajuizarLonge: true }, T);
+    assert.equal(prazo.text, '100d');
+    assert.equal(prazo.gray, true);
+    assert.equal(mesaItemClock({ row: null }, T), null);
+  });
+
+  it('chip de adiamento vencido', () => {
+    const it = (until) => ({ snoozeExpired: true, debt: { prescSnooze: { until } } });
+    assert.equal(mesaSnoozeLabel(it('2026-09-01'), T), 'adiada até 01/09/2026 (venceu)');
+    assert.equal(mesaSnoozeLabel(it('2026-10-01'), T), 'adiamento furado (era até 01/10/2026)');
+    assert.equal(mesaSnoozeLabel({ snoozeExpired: false, debt: {} }, T), '');
+  });
+
+  it('linha simples: tratada, adiada, derivada, sem dados', () => {
+    const tr = mesaLiteInfo({ card: 'tratadas', debt: { prescriptionHandledType: 'declarada' }, handledAt: '2026-05-02' }, null, T);
+    assert.equal(tr.why, 'Declarada');
+    assert.equal(tr.date, '02/05/2026');
+    assert.equal(tr.reopen, false);
+    const ad = mesaLiteInfo({ card: 'adiadas', debt: { prescSnooze: { reason: 'peca_protocolada' } }, until: '2026-10-05' }, null, T);
+    assert.equal(ad.when, 'volta em 05/10');
+    assert.equal(ad.reopen, true);
+    const dv = mesaLiteInfo({ card: 'ajuizar', derived: true, ajuizarLonge: true, sortDate: '2026-12-26', debt: {} }, null, T);
+    assert.deepEqual(dv.chips, ['Ordinária', 'fora dos 90 dias']);
+    assert.equal(dv.whenGray, true);
+    assert.match(dv.when, /^em /);
+    assert.equal(mesaLiteInfo({ card: 'dado', debt: {} }, null, T).why, 'Sem dados para calcular');
   });
 });

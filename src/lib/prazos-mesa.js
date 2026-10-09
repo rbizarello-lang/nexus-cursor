@@ -714,3 +714,137 @@ export function buildMesaCards({ data, radar, prescLookup, today } = {}) {
 
   return { items, byCard, totals, byDebt };
 }
+
+/** Totais por cartão a partir de uma lista de itens (por exemplo, já filtrada por operação, pessoa ou busca). */
+export function mesaTotalsOf(items) {
+  const totals = {};
+  MESA_CARDS.forEach(c => { totals[c.id] = { n: 0, value: 0 }; });
+  totals.ajuizar.nLonge = 0;
+  totals.ajuizar.valueLonge = 0;
+  (items || []).forEach(it => {
+    const t = totals[it.card];
+    if (!t) return;
+    if (it.card === 'ajuizar' && it.ajuizarLonge) {
+      t.nLonge++;
+      t.valueLonge += it.value;
+    } else {
+      t.n++;
+      t.value += it.value;
+    }
+  });
+  return totals;
+}
+
+/**
+ * Número único «pede você» fora da Mesa (badge do menu, Hoje, Painel): soma da fileira 1
+ * (Conferir o cálculo + Ajuizar até 60 dias + Lançar fato + Confirmar vigência + Completar dado).
+ * O «entre 60 e 180 dias» do Ajuizar (cinza) não entra.
+ */
+export function mesaActionCount(totals) {
+  let n = 0;
+  let value = 0;
+  MESA_CARDS.forEach(c => {
+    if (c.fileira !== 1) return;
+    const t = totals && totals[c.id];
+    if (!t) return;
+    n += Number(t.n) || 0;
+    value += Number(t.value) || 0;
+  });
+  return { n, value };
+}
+
+/** Cartão e tom (cor) dos cartões da fileira 1; a fileira 2 é sempre neutra. */
+export const MESA_CARD_TONE = { calculo: 'orange', ajuizar: 'red', fato: 'orange', vigencia: 'blue', dado: 'neutral' };
+export const MESA_HANDLED_LABEL = {
+  aguardando_reconhecimento: 'Aguardando reconhecimento',
+  declarada: 'Declarada',
+  analisada_nao_consumada: 'Analisada — não houve prescrição',
+  extinta: 'Extinta',
+  reconhecida: 'Reconhecida'
+};
+
+/** Item que conta no número único «pede você» (fileira 1, sem o Ajuizar de 60 a 180 dias). */
+export function mesaIsAction(item) {
+  if (!item) return false;
+  const c = MESA_CARDS.find(x => x.id === item.card);
+  return !!c && c.fileira === 1 && !(item.card === 'ajuizar' && item.ajuizarLonge);
+}
+
+function mesaDM(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? m[3] + '/' + m[2] : '—';
+}
+
+/**
+ * Relógio da linha com radar: texto grande, data de apoio e tom.
+ * Nunca «há N anos» para data que não é prazo; consumada antiga mostra «consumada» + data.
+ * Devolve { text, date, plain, gray, late }.
+ */
+export function mesaItemClock(item, todayIso) {
+  const r = item && item.row;
+  if (!r) return null;
+  if (item.cedoVencidaTardeNao) {
+    const dias = r.bandTarde ? daysUntil(r.bandTarde, todayIso) : null;
+    return {
+      text: dias != null ? 'tarde em ' + formatPrescHorizon(dias) : 'sem data tarde',
+      date: r.bandTarde ? fmtDate(r.bandTarde) : '',
+      plain: false, gray: false, late: false
+    };
+  }
+  if (item.card === 'antigas') {
+    const d = r.prescDate || r.keyDate || '';
+    return { text: 'consumada', date: d ? fmtDate(d) : '', plain: false, gray: false, late: false };
+  }
+  if (!item.dateIsDeadline) {
+    return { text: r.keyLabel || (r.keyDate ? fmtDate(r.keyDate) : '—'), date: '', plain: true, gray: false, late: false };
+  }
+  const text = formatPrescHorizon(r.prescDays);
+  return {
+    text: text || (r.keyDate ? fmtDate(r.keyDate) : '—'),
+    date: text && r.keyDate ? (r.bandHit ? r.keyLabel : fmtDate(r.keyDate)) : '',
+    plain: false,
+    gray: !!item.ajuizarLonge,
+    late: isG1Vencido(r)
+  };
+}
+
+/** Chip de adiamento que perdeu a vez («adiada até dd/mm/aaaa (venceu)»); vazio se não se aplica. */
+export function mesaSnoozeLabel(item, todayIso) {
+  if (!item || !item.snoozeExpired) return '';
+  const until = (item.debt && item.debt.prescSnooze && item.debt.prescSnooze.until) || '';
+  if (until && until > todayIso) return 'adiamento furado (era até ' + fmtDate(until) + ')';
+  return until ? 'adiada até ' + fmtDate(until) + ' (venceu)' : 'adiada (venceu)';
+}
+
+/**
+ * Linha simples de item sem linha do radar (tratadas, adiadas, ordinária derivada, parcelada, sem dados).
+ * Devolve { why, date, when, whenGray, chips:[texto], reopen }.
+ */
+export function mesaLiteInfo(item, sil, todayIso) {
+  const d = (item && item.debt) || {};
+  const out = { why: '', date: '', when: '', whenGray: false, chips: [], reopen: false };
+  if (item.card === 'tratadas') {
+    const t = (item.row && item.row.prescKind === 'aguardando_reconhecimento' && !d.prescriptionHandledType)
+      ? 'aguardando_reconhecimento' : d.prescriptionHandledType;
+    out.why = MESA_HANDLED_LABEL[t] || 'Tratada';
+    out.date = item.handledAt ? fmtDate(item.handledAt) : '';
+  } else if (item.card === 'adiadas') {
+    const sz = d.prescSnooze || {};
+    out.why = PRESC_SNOOZE_REASONS[sz.reason] || (sil && PRESC_SNOOZE_REASONS[sil.reason]) || (sil && sil.label) || 'Adiada';
+    out.when = item.until ? 'volta em ' + mesaDM(item.until) : '';
+    out.reopen = true;
+  } else if (item.derived) {
+    out.chips = ['Ordinária', 'fora dos 90 dias'];
+    out.why = 'Ordinária ainda não ajuizada' + (item.sortDate ? ' · data-alvo ' + fmtDate(item.sortDate) : '');
+    const dias = item.sortDate ? daysUntil(item.sortDate, todayIso) : null;
+    out.when = dias != null ? 'em ' + formatPrescHorizon(dias) : '';
+    out.whenGray = !!item.ajuizarLonge;
+  } else if (item.card === 'dado') {
+    out.why = 'Sem dados para calcular';
+  } else if (sil && (sil.reason === 'parcelamento_vigente' || sil.reason === 'parcelada_ficha')) {
+    out.why = sil.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : 'Parcelada na ficha';
+  } else {
+    out.why = betaSafeUiText((item.prescResult && (item.prescResult.summary || item.prescResult.detail)) || '') || 'Sem alarme';
+  }
+  return out;
+}

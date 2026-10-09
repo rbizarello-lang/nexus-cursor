@@ -561,10 +561,11 @@ function EditionClaudeHoje(p) {
   const late = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d < 0; });
   const today = open.filter(x => daysUntil(x.dateDeadline) === 0);
   const next5 = open.filter(x => { const d = daysUntil(x.dateDeadline); return d !== null && d >= 0 && d <= 5; });
-  const t = prazosRadar.totals || {};
-  const n1 = (t[1] && t[1].n) || 0;
-  // O valor do cartão soma só o grupo 1 (vencido ou iminente).
-  const riskVal = (t[1] && t[1].value) || 0;
+  // Número único dos prazos extintivos: soma da fileira 1 da Mesa (a mesma do menu).
+  const mc = p.mesaCards;
+  const mesaAct = React.useMemo(() => mesaActionCount(mc.totals), [mc]);
+  const n1 = mesaAct.n;
+  const riskVal = mesaAct.value;
   const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada');
   const activeDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
@@ -636,7 +637,7 @@ function EditionClaudeHoje(p) {
     <p className="cx-lede">
       Na sua fila: {lede.length === 2 ? [lede[0], ' e ', lede[1]] : lede}
       {hearing ? <>. {cxCap(hearing.title.split(' · ')[0].toLowerCase())} <b>{hearing.due === 0 ? 'hoje' : hearing.due === 1 ? 'amanhã' : 'em ' + hearing.due + ' dias'}{hearing.hearing.time ? ', ' + hearing.hearing.time : ''}</b></> : null}
-      {n1 ? <>. {n1 === 1 ? '1 CDA está' : n1 + ' CDAs estão'} no grupo urgente de prescrição</> : null}.
+      {n1 ? <>. {n1 === 1 ? '1 CDA pede' : n1 + ' CDAs pedem'} providência na Mesa de prazos</> : null}.
     </p>
 
     <div className="cx-kpis">
@@ -652,10 +653,10 @@ function EditionClaudeHoje(p) {
         <span className="cx-kpi-v">{next5.length}</span>
         <span className="cx-kpi-s orange">{next5.filter(x => intimImpKey(x) === 'alta').length} de importância alta</span>
       </button>
-      <button type="button" className="cx-kpi" onClick={() => p.openPrazos(1)}>
+      <button type="button" className="cx-kpi" onClick={() => p.onOpenMesa('')} title="Mesmo número do menu: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado">
         <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Prazos extintivos</span>
-        <span className="cx-kpi-v">{n1}<small>urgentes</small></span>
-        <span className="cx-kpi-s violet">{riskVal ? cxMoneyShort(riskVal) + ' urgente' : 'Situação controlada'}</span>
+        <span className="cx-kpi-v">{n1}<small>{n1 === 1 ? 'CDA' : 'CDAs'}</small></span>
+        <span className="cx-kpi-s violet">{n1 ? cxMoneyShort(riskVal) + ' pedem providência' : 'Situação controlada'}</span>
       </button>
       <button type="button" className="cx-kpi" onClick={() => p.onNav('operacoes')}>
         <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
@@ -693,6 +694,11 @@ function EditionClaudeHoje(p) {
             <span className="cx-q-due">{x.doneIso ? <CxDue doneIso={x.doneIso} /> : <CxDue iso={x.iso} dd={x.due} />}</span>
           </button>) : <div className="cx-empty-row">{tab === 'vencidos' ? 'Nenhum prazo vencido.' : tab === 'feitos' ? 'Nenhuma atuação registrada nos últimos 7 dias.' : 'Nada para os próximos 7 dias.'}</div>}
           {shown.length > 12 ? <div className="cx-more">+{shown.length - 12} na lista completa</div> : null}
+        </section>
+
+        <section className="cx-card" aria-labelledby="cx-h-pz">
+          <div className="cx-card-h"><h2 id="cx-h-pz">Prazos extintivos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onOpenMesa('')}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
+          <div className="cx-pz-embed"><CxMesaStrip mc={mc} mini onOpen={p.onOpenMesa} /></div>
         </section>
 
         <section className="cx-card" aria-labelledby="cx-h-cart">
@@ -2101,19 +2107,13 @@ function CxMesaRow({ r, debt, a, item }) {
   const act = r.action && r.action.type;
   const actLabel = CX_ACT_LABEL[act] || 'Agir';
   const today = localIso(new Date());
-  const expired = item ? !!item.snoozeExpired : !!(debt && debt.prescSnooze);
-  const snUntil = (debt && debt.prescSnooze && debt.prescSnooze.until) || '';
-  const snLabel = !item ? 'o adiamento venceu'
-    : snUntil && snUntil > today ? 'adiamento furado (era até ' + fmtDate(snUntil) + ')'
-    : snUntil ? 'adiada até ' + fmtDate(snUntil) + ' (venceu)' : 'adiada (venceu)';
   // Com o item da Mesa por cartões: a data de posição só é prazo quando dateIsDeadline; nunca «há N anos» num piso.
+  const snLabel = item ? mesaSnoozeLabel(item, today) : (debt && debt.prescSnooze ? 'o adiamento venceu' : '');
   const tardeNao = !!(item && item.cedoVencidaTardeNao);
-  const noDeadline = !!(item && !item.dateIsDeadline && !tardeNao);
-  const longe = !!(item && item.ajuizarLonge);
+  const ck = item ? mesaItemClock(item, today) : null;
+  const noDeadline = !!(ck && ck.plain);
   const antiga = !!(item && item.card === 'antigas');
-  const tardeDias = tardeNao && r.bandTarde ? daysUntil(r.bandTarde, today) : null;
-  const horizon = tardeNao ? (tardeDias != null ? 'tarde em ' + formatPrescHorizon(tardeDias) : 'sem data tarde')
-    : noDeadline ? '' : antiga ? 'consumada' : formatPrescHorizon(r.prescDays);
+  const horizon = ck ? (ck.plain ? '' : ck.text) : formatPrescHorizon(r.prescDays);
   const seg = r.prescSegment || r.clock;
   const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : seg === 'decadencia' ? 'Decadência' : null;
   const vencido = isG1Vencido(r) && !antiga;
@@ -2125,7 +2125,7 @@ function CxMesaRow({ r, debt, a, item }) {
         <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span>
         {clock ? <span className="cx-tag">{clock}</span> : null}
         {tardeNao ? <span className="cx-tag orange" title="A data cedo já passou; a data tarde (tese da União) ainda não.">cedo venceu, tarde não</span> : null}
-        {expired ? <span className="cx-tag orange">{snLabel}</span> : null}
+        {snLabel ? <span className="cx-tag orange">{snLabel}</span> : null}
       </div>
       <div className="cx-mesa-why" title={r.basis || undefined}>{betaSafeUiText(r.why || r.prescLabel || r.summary || '') || 'Prazo em acompanhamento.'}</div>
       {debt && a.presc ? <PrescBandRuler seg={a.presc(debt)} mini /> : null}
@@ -2137,10 +2137,9 @@ function CxMesaRow({ r, debt, a, item }) {
     </div>
     <div className="cx-mesa-side">
       {noDeadline
-        ? <span className="cx-mesa-when txt" title={r.basis || undefined}>{r.keyLabel || (r.keyDate ? fmtDate(r.keyDate) : '—')}</span>
-        : <span className={'cx-mesa-when' + (vencido && !tardeNao ? ' red' : '') + (longe ? ' gray' : '')}>{horizon || (r.keyDate ? cxDM(r.keyDate) : '—')}</span>}
-      {tardeNao && r.bandTarde ? <span className="cx-mesa-date" title={r.basis || undefined}>{fmtDate(r.bandTarde)}</span> : null}
-      {!tardeNao && !noDeadline && r.keyDate && horizon ? <span className="cx-mesa-date" title={r.basis || undefined}>{r.bandHit ? r.keyLabel : fmtDate(r.keyDate)}</span> : null}
+        ? <span className="cx-mesa-when txt" title={r.basis || undefined}>{ck.text}</span>
+        : <span className={'cx-mesa-when' + (vencido && !tardeNao ? ' red' : '') + (ck && ck.gray ? ' gray' : '')}>{horizon || (r.keyDate ? cxDM(r.keyDate) : '—')}</span>}
+      {ck && ck.date ? <span className="cx-mesa-date" title={r.basis || undefined}>{ck.date}</span> : null}
       <span className="cx-mesa-val">{fmtCur(r.value || 0)}</span>
     </div>
     <div className="cx-mesa-acts">
@@ -2163,42 +2162,43 @@ function CxMesaRow({ r, debt, a, item }) {
     </form> : null}
   </div>;
 }
-const CX_PZ_TONE = { calculo: 'orange', ajuizar: 'red', fato: 'orange', vigencia: 'blue', dado: 'neutral' };
-const CX_HANDLED_LABEL = { aguardando_reconhecimento: 'Aguardando reconhecimento', declarada: 'Declarada', analisada_nao_consumada: 'Analisada — não houve prescrição', extinta: 'Extinta', reconhecida: 'Reconhecida' };
+const CX_PZ_TONE = MESA_CARD_TONE;
 const CX_PZ_PAGE = 150;
+/** Cartão da Mesa (usado na própria Mesa, no Hoje e no Painel). `on` undefined = cartão só de atalho. */
+function CxMesaCard({ c, t, on, disabled, onClick }) {
+  const zero = t.n === 0, only = c.id === 'ajuizar' && zero && t.nLonge > 0;
+  const sub = t.n ? cxMoneyShort(t.value) : (only ? 'nenhuma nos 60 dias' : 'nenhum agora');
+  return <button type="button" className={'cx-pz-card ' + (c.fileira === 1 ? CX_PZ_TONE[c.id] : 'neutral') + (on ? ' on' : '') + (zero ? ' zero' : '') + (only ? ' longe' : '')}
+    title={c.tip} aria-pressed={on === undefined ? undefined : !!on} disabled={disabled} onClick={onClick}>
+    <span className="cx-pz-card-n">{t.n}</span>
+    <span className="cx-pz-card-t">
+      <span className="cx-pz-card-l">{c.nome}</span>
+      <span className="cx-pz-card-s">{sub}</span>
+      {c.id === 'ajuizar' ? <span className="cx-pz-card-g"><b>+{t.nLonge}</b> entre 60 e 180 dias</span> : null}
+    </span>
+  </button>;
+}
+/** Cartões da Mesa como atalho (Hoje, Painel): fileira 1 em destaque, fileira 2 discreta. Clique abre a Mesa na seção. */
+function CxMesaStrip({ mc, onOpen, mini }) {
+  const t = mc.totals;
+  const one = (c) => <CxMesaCard key={c.id} c={c} t={t[c.id]} disabled={t[c.id].n + (t[c.id].nLonge || 0) === 0} onClick={() => onOpen(c.id)} />;
+  return <div className={'cx-pz-cards' + (mini ? ' mini' : '')} role="group" aria-label="Prazos extintivos por providência">
+    <div className="cx-pz-row1">{MESA_CARDS.filter(c => c.fileira === 1).map(one)}</div>
+    <div className="cx-pz-row2">{MESA_CARDS.filter(c => c.fileira === 2).map(one)}</div>
+  </div>;
+}
 /** Item da Mesa sem linha do radar (tratadas, adiadas, ordinária derivada, sem dados, parcelada). */
 function CxMesaLite({ item, a, opName, personName, sil }) {
   const d = item.debt;
   const today = localIso(new Date());
-  let chips = null, why = '', when = null, date = '', reopen = false;
-  if (item.card === 'tratadas') {
-    const t = (item.row && item.row.prescKind === 'aguardando_reconhecimento' && !d.prescriptionHandledType) ? 'aguardando_reconhecimento' : d.prescriptionHandledType;
-    why = CX_HANDLED_LABEL[t] || 'Tratada';
-    date = item.handledAt ? fmtDate(item.handledAt) : '';
-  } else if (item.card === 'adiadas') {
-    const sz = d.prescSnooze || {};
-    why = PRESC_SNOOZE_REASONS[sz.reason] || (sil && PRESC_SNOOZE_REASONS[sil.reason]) || (sil && sil.label) || 'Adiada';
-    when = item.until ? 'volta em ' + cxDM(item.until) : null;
-    reopen = true;
-  } else if (item.derived) {
-    chips = <><span className="cx-tag">Ordinária</span><span className="cx-tag" title="A ordinária só entra na lista de alarmes a até 90 dias do prazo; esta ainda está fora.">fora dos 90 dias</span></>;
-    why = 'Ordinária ainda não ajuizada' + (item.sortDate ? ' · data-alvo ' + fmtDate(item.sortDate) : '');
-    const dias = item.sortDate ? daysUntil(item.sortDate, today) : null;
-    when = dias != null ? 'em ' + formatPrescHorizon(dias) : null;
-  } else if (item.card === 'dado') {
-    why = 'Sem dados para calcular';
-  } else if (sil && (sil.reason === 'parcelamento_vigente' || sil.reason === 'parcelada_ficha')) {
-    why = sil.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : 'Parcelada na ficha';
-  } else {
-    why = betaSafeUiText((item.prescResult && (item.prescResult.summary || item.prescResult.detail)) || '') || 'Sem alarme';
-  }
+  const li = mesaLiteInfo(item, sil, today);
   return <div className={'cx-mesa-row cx-mesa-lite' + (item.ajuizarLonge ? ' longe' : '')}>
     <div className="cx-mesa-main">
       <div className="cx-mesa-id">
         <span className="cx-mono cx-mesa-cda">{d.cdaNumber || 'S/N'}</span>
-        {chips}
+        {li.chips.map((c, i) => <span key={i} className="cx-tag" title={i === 1 ? 'A ordinária só entra na lista de alarmes a até 90 dias do prazo; esta ainda está fora.' : undefined}>{c}</span>)}
       </div>
-      <div className="cx-mesa-why">{why}{date ? ' · ' + date : ''}</div>
+      <div className="cx-mesa-why">{li.why}{li.date ? ' · ' + li.date : ''}</div>
       <div className="cx-mesa-meta">
         {opName ? <span className="cx-op-tag"><CxOpSquare opId={d.operationId} /><span className="cx-ell">{String(opName).replace(/^Opera[çc][ãa]o\s+/i, '')}</span></span> : null}
         {d.processNumber ? <CxProc num={d.processNumber} /> : <span className="cx-muted">sem processo</span>}
@@ -2206,24 +2206,25 @@ function CxMesaLite({ item, a, opName, personName, sil }) {
       </div>
     </div>
     <div className="cx-mesa-side">
-      {when ? <span className={'cx-mesa-when txt' + (item.ajuizarLonge ? ' gray' : '')}>{when}</span> : null}
+      {li.when ? <span className={'cx-mesa-when txt' + (li.whenGray ? ' gray' : '')}>{li.when}</span> : null}
       <span className="cx-mesa-val">{fmtCur(item.value || 0)}</span>
     </div>
     <div className="cx-mesa-acts">
-      {reopen ? <button type="button" className="cx-btn sm primary" onClick={() => a.clearSnooze(d.id)}>Reabrir agora</button> : null}
+      {li.reopen ? <button type="button" className="cx-btn sm primary" onClick={() => a.clearSnooze(d.id)}>Reabrir agora</button> : null}
       <button type="button" className="cx-btn sm" onClick={() => a.openCda(d)}>Abrir</button>
     </div>
   </div>;
 }
 function EditionClaudePrazos(p) {
   const { data, prazosRadar, pf, setPf, a } = p;
-  const [sec, setSec] = React.useState('');
+  const [sec, setSec] = React.useState(p.initialSec || '');
+  React.useEffect(() => { if (p.initialSec && p.onInitialSecConsumed) p.onInitialSecConsumed(); }, []);
   const [openMap, setOpenMap] = React.useState({});
   const [limMap, setLimMap] = React.useState({});
   const [join, setJoin] = React.useState(false);
   const today = localIso(new Date());
   const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
-  const mc = React.useMemo(() => buildMesaCards({ data, radar: prazosRadar, prescLookup: a.presc, today }), [data, prazosRadar, a.presc, today]);
+  const mc = React.useMemo(() => p.mesaCards || buildMesaCards({ data, radar: prazosRadar, prescLookup: a.presc, today }), [p.mesaCards, data, prazosRadar, a.presc, today]);
   const peopleById = React.useMemo(() => new Map((data.people || []).map(x => [x.id, x])), [data.people]);
   const opsById = React.useMemo(() => new Map((data.operations || []).map(o => [o.id, o])), [data.operations]);
   const silById = React.useMemo(() => { const m = new Map(); (prazosRadar.silenced || []).forEach(x => { if (x && x.debtId && !m.has(x.debtId)) m.set(x.debtId, x); }); return m; }, [prazosRadar.silenced]);
@@ -2244,38 +2245,23 @@ function EditionClaudePrazos(p) {
     }
     return true;
   };
-  const by = {}, tot = {};
-  MESA_CARDS.forEach(c => { by[c.id] = mc.byCard[c.id].filter(keep); tot[c.id] = { n: 0, value: 0, nLonge: 0, valueLonge: 0 }; });
-  MESA_CARDS.forEach(c => by[c.id].forEach(it => {
-    const t = tot[c.id];
-    if (c.id === 'ajuizar' && it.ajuizarLonge) { t.nLonge++; t.valueLonge += it.value; } else { t.n++; t.value += it.value; }
-  }));
+  const by = {};
+  MESA_CARDS.forEach(c => { by[c.id] = mc.byCard[c.id].filter(keep); });
+  const tot = mesaTotalsOf(MESA_CARDS.flatMap(c => by[c.id]));
   const notesByProc = new Map();
   (prazosRadar.processNotes || []).forEach(n => { const k = normProc(n.processNumber); if (!k) return; if (!notesByProc.has(k)) notesByProc.set(k, []); notesByProc.get(k).push(n); });
   const isOpen = (c) => sec === c.id || (sec === '' && (openMap[c.id] != null ? openMap[c.id] : c.fileira === 1));
   const toggleOpen = (c) => setOpenMap(m => ({ ...m, [c.id]: !isOpen(c) }));
   const pick = (id) => setSec(cur => cur === id ? '' : id);
-  const card = (c) => {
-    const t = tot[c.id], zero = t.n === 0, only = c.id === 'ajuizar' && zero && t.nLonge > 0;
-    const sub = t.n ? cxMoneyShort(t.value) : (only ? 'nenhuma nos 60 dias' : 'nenhum agora');
-    const empty = by[c.id].length === 0;
-    return <button key={c.id} type="button" className={'cx-pz-card ' + (c.fileira === 1 ? CX_PZ_TONE[c.id] : 'neutral') + (sec === c.id ? ' on' : '') + (zero ? ' zero' : '') + (only ? ' longe' : '')}
-      title={c.tip} aria-pressed={sec === c.id} disabled={empty && sec !== c.id} onClick={() => pick(c.id)}>
-      <span className="cx-pz-card-n">{t.n}</span>
-      <span className="cx-pz-card-t">
-        <span className="cx-pz-card-l">{c.nome}</span>
-        <span className="cx-pz-card-s">{sub}</span>
-        {c.id === 'ajuizar' ? <span className="cx-pz-card-g"><b>+{t.nLonge}</b> entre 60 e 180 dias</span> : null}
-      </span>
-    </button>;
-  };
-  const renderItem = (it) => it.row
+  const card = (c) => <CxMesaCard key={c.id} c={c} t={tot[c.id]} on={sec === c.id} disabled={by[c.id].length === 0 && sec !== c.id} onClick={() => pick(c.id)} />;
+  const hasLine = (it) => !!it.row && it.card !== 'tratadas';
+  const renderItem = (it) => hasLine(it)
     ? <CxMesaRow key={it.debtId} r={it.row} debt={it.debt} a={a} item={it} />
     : <CxMesaLite key={it.debtId} item={it} a={a} opName={opNameOf(it.debt.operationId)} personName={personOf(it.debt)} sil={silById.get(it.debtId)} />;
   const renderList = (list) => {
     if (!join) return list.map(renderItem);
-    const withRow = list.filter(it => it.row), byId = new Map(withRow.map(it => [it.debtId, it]));
-    return cxMesaGroups(withRow.map(it => it.row), notesByProc, r => renderItem(byId.get(r.id))).concat(list.filter(it => !it.row).map(renderItem));
+    const withRow = list.filter(hasLine), byId = new Map(withRow.map(it => [it.debtId, it]));
+    return cxMesaGroups(withRow.map(it => it.row), notesByProc, r => renderItem(byId.get(r.id))).concat(list.filter(it => !hasLine(it)).map(renderItem));
   };
   const section = (c) => {
     const list = by[c.id];
@@ -3004,16 +2990,14 @@ const CX_PANEL_SORTS = [
   ['Atividade', [['acesso_recente', 'Acessadas recentemente'], ['revisao_atrasada', 'Revisão mais atrasada']]],
   ['Estratégico', [['idpj', 'Mais IDPJs e cautelares'], ['nome', 'Nome (A a Z)']]],
 ];
-const CX_PANEL_GROUPS = [[1, 'Urgentes'], [2, 'A conferir'], [3, 'A completar'], [4, 'Em acompanhamento'], [5, 'Ainda impossível'], [6, 'Consumadas']];
-function cxPanelAnalytics(data, prazosByDebt) {
+function cxPanelAnalytics(data, prazosByDebt, mesaCards) {
   const ops = (data.operations || []).filter(o => o.status !== 'encerrada');
   const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
   (data.debts || []).forEach(d => {
     const x = by.get(d.operationId); if (!x || d.status === 'extinta') return;
     x.debtsCount++; x.totalValue += d.value || 0;
     if (d.status === 'garantida') x.guaranteedValue += d.value || 0;
-    const g = (prazosByDebt.get(d.id) || {}).group;
-    if (g === 1 || g === 2) x.prescRisk++;
+    if (mesaCards ? mesaIsAction(mesaCards.byDebt.get(d.id)) : [1, 2].includes((prazosByDebt.get(d.id) || {}).group)) x.prescRisk++;
   });
   (data.executions || []).forEach(e => { const x = by.get(e.operationId); if (!x) return; x.execsCount++; if (e.processTag === 'idpj') x.idpjCount++; if (e.processTag === 'cautelar_fiscal') x.cautelarCount++; });
   (data.assets || []).forEach(a => { const x = by.get(a.operationId); if (x) x.assetsCount++; });
@@ -3065,8 +3049,8 @@ function CxFoldTitle({ k, folded, onToggle, children }) {
   </button>;
 }
 function EditionClaudePainel(p) {
-  const { data, prazosRadar, prazosByDebt } = p;
-  const rows = React.useMemo(() => cxPanelAnalytics(data, prazosByDebt), [data, prazosByDebt]);
+  const { data, prazosRadar, prazosByDebt, mesaCards } = p;
+  const rows = React.useMemo(() => cxPanelAnalytics(data, prazosByDebt, mesaCards), [data, prazosByDebt, mesaCards]);
   const [folded, toggleFold] = cxUsePanelFold();
   const [allOps, setAllOps] = React.useState(false);
   const sort = p.sort || 'valor_desc';
@@ -3074,9 +3058,6 @@ function EditionClaudePainel(p) {
   const shownOps = allOps ? sorted : sorted.slice(0, CX_PANEL_OPS_LIMIT);
   const hiddenOps = sorted.length - shownOps.length;
   const sortLabel = (CX_PANEL_SORTS.flatMap(g => g[1]).find(o => o[0] === sort) || [null, ''])[1];
-  const t = prazosRadar.totals || {};
-  const gN = (g) => (t[g] && t[g].n) || 0;
-  const gV = (g) => (t[g] && t[g].value) || 0;
   // Indicadores: mesmo escopo do Painel clássico (todas as CDAs não extintas); a tabela cobre as operações ativas.
   const liveDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const kpiCredito = liveDebts.reduce((s, d) => s + (d.value || 0), 0);
@@ -3088,7 +3069,7 @@ function EditionClaudePainel(p) {
   const nExecs = (data.executions || []).length;
   const openIntims = (data.intimations || []).filter(x => intimIsOpenWork(x));
   const lateIntims = openIntims.filter(x => { const dd = daysUntil(x.dateDeadline); return dd !== null && dd < 0; }).length;
-  const riskN = gN(1) + gN(2), riskV = gV(1) + gV(2);
+  const { n: riskN, value: riskV } = mesaActionCount(mesaCards.totals);
   const due = rows.map(o => ({ op: o.op, rs: cxRS(o.op) })).filter(o => o.rs.overdue).sort((a, b) => a.rs.daysLeft - b.rs.daysLeft);
   const maxV = Math.max(1, ...rows.map(o => o.totalValue));
   // Próximos 7 dias: o mesmo recorte da Agenda
@@ -3118,10 +3099,10 @@ function EditionClaudePainel(p) {
         <span className="cx-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>
         <span className="cx-kpi-s">{cxMoneyShort(kpiGarantido)} em CDAs garantidas</span>
       </div>
-      <button type="button" className="cx-kpi" onClick={p.onOpenPrazos} title="Mesmos números da tela Prazos extintivos (grupos 1 e 2)">
+      <button type="button" className="cx-kpi" onClick={p.onOpenPrazos} title="Mesmo número do menu e da Mesa de prazos: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado">
         <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Risco prescricional</span>
         <span className="cx-kpi-v">{riskN}<small>{riskN === 1 ? 'CDA' : 'CDAs'}</small></span>
-        <span className={'cx-kpi-s' + (riskN ? ' violet' : '')}>{riskN ? cxMoneyShort(riskV) + ' em risco' : 'situação controlada'}</span>
+        <span className={'cx-kpi-s' + (riskN ? ' violet' : '')}>{riskN ? cxMoneyShort(riskV) + ' pedem providência' : 'situação controlada'}</span>
       </button>
       <button type="button" className="cx-kpi" onClick={p.onOpenIntims}>
         <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
@@ -3152,7 +3133,7 @@ function EditionClaudePainel(p) {
             <th scope="col" {...colSort('nome')}>Operação</th>
             <th scope="col" {...colSort('valor_desc')}>Crédito</th>
             <th scope="col" {...colSort('cobertura_asc', 'num')}>Garantia</th>
-            <th scope="col" {...colSort('presc', 'num')} title="CDAs nos grupos 1 e 2 da tela Prazos extintivos">Prescrição</th>
+            <th scope="col" {...colSort('presc', 'num')} title="CDAs que pedem providência na Mesa de prazos (fileira de cima dos cartões)">Prescrição</th>
             <th scope="col" {...colSort('intims', 'num')}>Intimações</th>
             <th scope="col" {...colSort('tasks', 'num')}>Tarefas</th>
             <th scope="col" {...colSort('idpj', 'num')} title="IDPJs e cautelares fiscais">IDPJ · MCF</th>
@@ -3196,15 +3177,12 @@ function EditionClaudePainel(p) {
       </div>}
     </section>
 
-    <div className="cx-panel-grid">
-      <section className="cx-card">
-        <div className="cx-card-h"><CxFoldTitle k="presc" folded={folded} onToggle={toggleFold}>Prescrição na carteira</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
-        {!folded.has('presc') && <><div className="cx-panel-groups">{CX_PANEL_GROUPS.map(([g, l]) => <button key={g} type="button" className="cx-panel-g" onClick={() => p.onOpenGroup(g)} title={'Abrir a lista completa filtrada: ' + l}>
-          <span className="cx-gnum" style={{ '--c': CX_GROUP_C[g] || 'var(--cx-ink-3)' }}>{g}</span><span className="cx-lbl">{l}</span>
-          <span className="cx-mono cx-panel-gn">{gN(g)}</span><span className="cx-muted cx-small cx-panel-gv">{gV(g) ? cxMoneyShort(gV(g)) : ''}</span>
-        </button>)}</div>
-        <div className="cx-more">Mesmos números da tela Prazos extintivos. Clique num grupo para ver a lista.</div></>}
-      </section>
+    <section className="cx-card cx-panel-presc">
+      <div className="cx-card-h"><CxFoldTitle k="presc" folded={folded} onToggle={toggleFold}>Prescrição na carteira</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onOpenMesa('')}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
+      {!folded.has('presc') && <><div className="cx-pz-embed"><CxMesaStrip mc={mesaCards} onOpen={p.onOpenMesa} /></div>
+      <div className="cx-more">Mesmos cartões da Mesa de prazos. Clique num cartão para abrir a seção.</div></>}
+    </section>
+    <div className="cx-panel-grid two">
       <section className="cx-card" id="cx-panel-rev">
         <div className="cx-card-h"><CxFoldTitle k="rev" folded={folded} onToggle={toggleFold}>Revisões devidas</CxFoldTitle><div className="cx-aside"><span className="cx-count">{due.length}</span></div></div>
         {folded.has('rev') ? null : due.length ? due.map(o => <div key={o.op.id} className="cx-panel-rev">
