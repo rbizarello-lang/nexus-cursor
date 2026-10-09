@@ -21,7 +21,7 @@ export function tokens(body) {
   return map;
 }
 
-// Tokens que não são cor: fontes e dimensões ficam no bloco base e valem para qualquer tema.
+// Tokens que não são cor: fontes, escala tipográfica (--cx-fs-*) e dimensões ficam no bloco base e valem para qualquer tema.
 const NOT_COLOUR = new Set(['--cx-font', '--cx-mono', '--cx-ctl-h', '--cx-sbw', '--font-display', '--font-ui', '--font-body', '--font-mono']);
 
 const ardosia = tokens(ruleBody('.app-layout.edition-claude'));
@@ -40,7 +40,7 @@ describe('tokens dos temas escuros do Prumo', () => {
     describe('tema ' + k, () => {
       const dark = tokens(ruleBody('.app-layout.edition-claude.cx-theme-' + k));
       it('redefine todos os tokens de cor do Ardósia (--cx-* e clássicos)', () => {
-        const missing = [...ardosia.keys()].filter(t => !NOT_COLOUR.has(t) && !dark.has(t));
+        const missing = [...ardosia.keys()].filter(t => !NOT_COLOUR.has(t) && !t.startsWith('--cx-fs-') && !dark.has(t));
         assert.deepEqual(missing, []);
       });
       it('declara color-scheme: dark', () => {
@@ -48,6 +48,7 @@ describe('tokens dos temas escuros do Prumo', () => {
       });
       it('não mexe em fontes nem dimensões', () => {
         for (const t of NOT_COLOUR) assert.ok(!dark.has(t), t);
+        for (const t of dark.keys()) assert.ok(!t.startsWith('--cx-fs-'), t);
       });
       it('tokens clássicos apontam para cx-* (ou para uma cor própria, nunca para o valor claro do Ardósia)', () => {
         for (const t of ['--bg-deep', '--bg-card', '--text-primary', '--text-secondary', '--text-muted', '--border', '--red', '--red-dim']) {

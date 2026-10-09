@@ -254,6 +254,12 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     coluna "Sinais" do card de intimação passa a **Indicadores** (Sinais fica só para os sinais de processo); datas:
     lista = dd/mm, tooltip/ficha = dd/mm/aaaa, dia da semana sempre com inicial maiúscula ("Qua 14/10", também em
     `hoje.js`), relativo curto em lista e longo em frase ("verificado há 3 dias"); vazios no formato "Nenhum(a) X…".
+  - **Auditoria de consistência, fase 2/5 (tipografia)** (09/10/2026) — só CSS do Prumo. Escala em tokens `--cx-fs-*`
+    (xs 10,5 · sm 11,5 · md 12,5 · base 13 · lg 14 · h 22 · title 19 · kpi 28, mais 10/11/12/h3 17) no bloco de tokens, válidos
+    nos três temas; `.cx-cap` (mono 500 10,5 px, .06em, caixa alta, ink-3) para eyebrows, títulos de seção, rótulos de grupo e
+    KPI label; todos os `th` do Prumo (.cx-tbl, .cx-pt, .cx-bft, .cx-act-tab, tabela de processos) = .cx-cap com padding
+    vertical 7 px; datas em dois estilos (`.cx-date` 12/500, `.cx-date-lg` 13/600, tabulares); KPI único 28 px, h1 22 px, título
+    de gaveta/foco/operação 19 px; leitura (gaveta/ficha) 13/1,5. Card de intimação e Frentes (.cx-bfx*) intactos em 11,5.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
