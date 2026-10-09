@@ -4393,7 +4393,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-sub { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; }
 
 /* ─── Card de intimação (lista de Intimações e Processos › Substituição) · versão R do mockup
-   prumo-intimacao-card-b2-extremos: identidade · Tribunal · Minhas notas · Prazo. Colunas pela largura da LISTA
+   prumo-intimacao-card-b2-extremos: identidade · Objeto · Notas · Sinais · Prazo. Colunas pela largura da LISTA
    (container query: o menu lateral aberto/recolhido muda a largura útil), não da janela. Classes próprias (cx-ix-*,
    cx-it-*): Tarefas e Acompanhar continuam com .cx-i-row / .cx-c-*. ─── */
 .cx-it-list {
@@ -4406,14 +4406,14 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   --ixgap: 5px;                                                             /* respiro entre os blocos da identidade */
 }
 .app-layout.edition-claude.cx-theme-noite .cx-it-list, .app-layout.edition-claude.cx-theme-grafite .cx-it-list { --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent); }
-.cx-ix, .cx-ix-h { display: grid; padding: 0 14px; column-gap: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id pz" "tr tr" "nt nt"; }
+.cx-ix, .cx-ix-h { display: grid; padding: 0 14px; column-gap: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id pz" "sn sn" "tr tr" "nt nt"; }
 .cx-ix-h { display: none; }
 @container lst (min-width: 860px) {
-  .cx-ix, .cx-ix-h { grid-template-columns: 350px minmax(0, 1fr) 140px; grid-template-areas: "id tr pz" "id nt pz"; }
-  .cx-ix-h { display: grid; grid-template-areas: "id tr pz"; }
+  .cx-ix, .cx-ix-h { grid-template-columns: 260px minmax(0, 1fr) 110px 84px; grid-template-areas: "id tr sn pz" "id nt sn pz"; }
+  .cx-ix-h { display: grid; grid-template-areas: "id tr sn pz"; }
 }
 @container lst (min-width: 1480px) {
-  .cx-ix, .cx-ix-h { grid-template-columns: 384px minmax(0, 1.25fr) minmax(0, 1fr) 150px; grid-template-areas: "id tr nt pz"; }
+  .cx-ix, .cx-ix-h { grid-template-columns: 290px minmax(0, 1.25fr) minmax(0, 1fr) 118px 88px; grid-template-areas: "id tr nt sn pz"; }
 }
 .cx-ix { position: relative; border-top: 1px solid var(--cx-line); cursor: pointer; }
 .cx-ix:hover { background: var(--cx-hover); }
@@ -4424,7 +4424,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-it-list .cx-ix-h + .cx-grp { border-top: 0; }
 
 /* Identidade: eyebrow (operação · URGENTE/Novo/Atualizada/⚑), situação + parte, nº + sigla + Imp/Compl/peça, esteira */
-.cx-ix-id { grid-area: id; min-width: 0; padding: 8px 18px 9px 6px; display: flex; flex-direction: column; gap: var(--ixgap); }
+.cx-ix-id { grid-area: id; min-width: 0; padding: 8px 14px 9px 6px; display: flex; flex-direction: column; gap: var(--ixgap); }
 .cx-it-opl { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; height: 13px; }
 .cx-it-op { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font: 600 10px/13px var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--mini); border-radius: 3px; border: 0; background: none; padding: 0; cursor: default; }
 .cx-it-op.cx-link { cursor: pointer; }
@@ -4435,39 +4435,44 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-it-tags { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .cx-it-tags .cx-urg { margin-right: 0; }
 .cx-tag.xs { height: 16px; padding: 0 5px; font-size: 10px; border-radius: 4px; }
-.cx-ix-party { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: 13.5px; line-height: 18px; }
+.cx-ix-party { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: 13px; line-height: 18px; }
 .cx-ix-pc { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .cx-ix-pc .cx-proc-copy { flex: none; }
-.cx-ix .cx-proc { font-family: var(--cx-font); font-size: 12.5px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums slashed-zero; line-height: 16px; }
+.cx-ix .cx-proc { line-height: 16px; }
 .cx-ix .cx-proc .cx-d { color: var(--mini); font-weight: 400; }
 .cx-ix .cx-uf { margin-right: 7px; vertical-align: 0; }
 .cx-ix-sg { flex: none; font: 600 10px/16px var(--cx-mono); letter-spacing: .03em; padding: 0 5px; border-radius: 4px; border: 1px solid var(--cx-line-strong); color: var(--cx-ink-2); background: var(--cx-surface-2); cursor: help; }
-.cx-ix-sig { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 9px; }
 .cx-ix-cls { font-size: 11px; line-height: 15px; color: var(--mini); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
-.cx-ix-id .cx-i-est { margin-top: 0; line-height: 15px; }
-.cx-ix-id .cx-i-est .cx-muted { color: var(--mini); white-space: nowrap; }
 
 /* Zona Tribunal: o que veio de fora (objeto e teor da decisão) */
 .cx-it-tr { grid-area: tr; min-width: 0; padding: 8px 18px; border-left: 1px solid var(--cx-line); }
-.cx-it-obj { font-size: 12.5px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--ol, 2); line-clamp: var(--ol, 2); overflow: hidden; overflow-wrap: anywhere; }
-.cx-it-teor { margin-top: 3px; padding-left: 9px; border-left: 2px solid var(--cx-line-strong); font-size: 12px; line-height: 16px; color: var(--cx-ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--tl, 2); line-clamp: var(--tl, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-obj { font-size: 12px; line-height: 15px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--ol, 2); line-clamp: var(--ol, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor { margin-top: 3px; padding-left: 9px; border-left: 2px solid var(--cx-line-strong); font-size: 11.5px; line-height: 15px; color: var(--cx-ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--tl, 2); line-clamp: var(--tl, 2); overflow: hidden; overflow-wrap: anywhere; }
 .cx-it-teor .lbl, .cx-it-nt .zl { font: 600 9px/1 var(--cx-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mini); margin-right: 6px; vertical-align: 1px; }
 
 /* Zona Minhas notas: o que o procurador anotou (ou a atuação, na resolvida) */
 .cx-it-nt { grid-area: nt; min-width: 0; padding: 8px 18px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
-.cx-it-note { position: relative; padding-left: 12px; font-size: 12px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--nl, 1); line-clamp: var(--nl, 1); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-note { position: relative; padding-left: 12px; font-size: 11.5px; line-height: 15px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--nl, 1); line-clamp: var(--nl, 1); overflow: hidden; overflow-wrap: anywhere; }
 .cx-it-note + .cx-it-note, .cx-it-note + .cx-it-more { margin-top: 1px; }
-.cx-it-note::before { content: ""; position: absolute; left: 1px; top: 6px; width: 4px; height: 4px; border-radius: 1px; background: var(--cx-accent); }
+.cx-it-note::before { content: ""; position: absolute; left: 1px; top: 5.5px; width: 4px; height: 4px; border-radius: 1px; background: var(--cx-accent); }
 .cx-it-nt .zl { display: none; }
 .cx-it-note.act { color: var(--cx-ink-2); padding-left: 0; }
 .cx-it-note.act::before { display: none; }
-.cx-it-more { padding-left: 12px; font: 500 10.5px/16px var(--cx-mono); color: var(--mini); }
+.cx-it-more { padding-left: 12px; font: 500 10.5px/15px var(--cx-mono); color: var(--mini); }
+
+/* Sinais: Imp | Compl | peça em 3 casas fixas (alinham entre linhas), URGENTE e esteira (barrinhas + etapa atual) */
+.cx-ix-sn { grid-area: sn; min-width: 0; padding: 8px 6px 9px; border-left: 1px solid var(--cx-line); display: flex; flex-direction: column; align-items: center; gap: var(--ixgap); }
+.cx-ix-slots { display: grid; grid-template-columns: repeat(3, 26px); justify-items: center; align-items: center; height: 18px; }
+.cx-ix-slots .sl { display: inline-flex; align-items: center; justify-content: center; min-width: 0; }
+.cx-ix-sn .cx-urg { margin: 0; }
+.cx-ix-ei { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; min-width: 0; }
+.cx-ix-el { max-width: 100%; font-size: 10.5px; line-height: 13px; color: var(--cx-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Prazo: só tempo. Degrau 1 = data final (contagem no tooltip); degrau 2 = embargos, menor, logo abaixo */
-.cx-ix-pz { grid-area: pz; padding: 8px 0 8px 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.cx-ix-pz .cx-due { font-size: 13.5px; font-weight: 600; line-height: 16px; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.cx-ix-pz { grid-area: pz; padding: 8px 0 8px 6px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0; }
+.cx-ix-pz .cx-due { font: 500 12px/16px var(--cx-font); letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .cx-ix-pz .cx-due.later { color: var(--cx-ink-2); }
-.cx-ix-pz .cx-due.none { font-size: 11.5px; font-weight: 400; color: var(--mini); }
+.cx-ix-pz .cx-due.none { font-size: 11px; font-weight: 400; color: var(--mini); }
 .cx-emb { font: 500 10.5px/15px var(--cx-mono); letter-spacing: -.01em; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
 .cx-emb.calm { color: var(--mini); }
 .cx-emb.warn { color: var(--emb-warn); background: var(--cx-yellow-soft); padding: 0 6px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-yellow) 38%, transparent); font-weight: 600; }
@@ -4481,13 +4486,15 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-ix-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
 .cx-ix-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
 .cx-ix-h .h-nt b { color: var(--cx-accent); }
-.cx-ix-h .h-pz { grid-area: pz; padding-left: 12px; text-align: right; }
+.cx-ix-h .h-sn { grid-area: sn; text-align: center; border-left: 1px solid var(--cx-line); }
+.cx-ix-h .h-sn b, .cx-ix-h .h-pz b { margin-right: 0; }
+.cx-ix-h .h-pz { grid-area: pz; padding-left: 6px; text-align: right; }
 .cx-ix-h .m-only { display: none; }
 
 /* ~1200 px: Tribunal e Notas empilhadas numa coluna */
 @container lst (max-width: 1479.98px) {
   .cx-it-nt .zl { display: inline; }
-  .cx-ix-h .h-nt, .cx-ix-h .w-only { display: none; }
+  .cx-ix-h .h-nt { display: none; }
   .cx-ix-h .m-only { display: inline; }
 }
 @container lst (min-width: 860px) and (max-width: 1479.98px) {
@@ -4503,11 +4510,16 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   .cx-ix-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 17px; }
   .cx-ix-pz { padding: 8px 0 0 8px; }
   .cx-ix-id { padding-right: 8px; }
+  /* Sinais vira uma faixa horizontal compacta entre a identidade e o Objeto */
+  .cx-ix-sn { border-left: 0; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px 12px; padding: 5px 0 0; }
+  .cx-ix-slots { grid-template-columns: repeat(3, auto); gap: 12px; height: auto; }
+  .cx-ix-slots .sl:empty { display: none; }
+  .cx-ix-ei { flex-direction: row; gap: 7px; }
+  .cx-ix-el { max-width: 160px; }
   /* Celular estreito: o nº pode quebrar no hífen e Imp./Compl./peça descem para a linha de baixo, em vez de cortar */
   .cx-ix-pc { flex-wrap: wrap; row-gap: 3px; }
   .cx-ix-pc .cx-proc-copy { flex: 0 1 auto; min-width: 0; }
   .cx-ix .cx-proc { white-space: normal; }
-  .cx-ix-sig { margin-left: 0; }
 }
 .cx-board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
 .cx-b-col { background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 10px; display: flex; flex-direction: column; min-width: 0; }

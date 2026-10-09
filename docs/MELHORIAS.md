@@ -226,6 +226,14 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   - Colunas pela largura da lista (container query): ≥ 1480 px quatro colunas; 860–1479 Tribunal e Notas
     empilhadas; abaixo disso, uma coluna (celular). Cálculos puros em `src/lib/intim-card.js`
     (`test/intim-card.test.mjs`). Nenhum campo novo.
+- **Nexus Prumo — card de intimação, revisão de tamanhos e coluna Sinais** (09/10/2026) — só no Prumo. Fontes de
+  volta às do card antigo (parte 13 px/500; nº do processo `.cx-proc` padrão, Geist Mono 11,5 px; objeto 12 px; teor
+  da decisão e notas 11,5 px, entrelinha 15 px; prazo 12 px/500 na fonte da interface, tabular). Cabeçalhos só
+  "Parte · Objeto · Notas · Sinais · Prazo" (empilhado: "Objeto · Notas"). Nova coluna **Sinais** (118 px; 110 no meio;
+  faixa horizontal no celular) com Imp. | Compl. | peça em três casas fixas, URGENTE e a esteira (barrinhas + etapa
+  atual, sem "parou há"; o tempo fica no tooltip). Identidade mais estreita (290 / 260 px); Prazo estreito (88 / 84 px)
+  alinhado à direita, embargos só "Emb. dd/mm" (dias úteis no tooltip e no aria-label). Objeto e Notas ficam com o
+  espaço (fr): ≥ 1480 px `290px 1.25fr 1fr 118px 88px`. Orçamento de caracteres por linha recalculado.
 - **Nexus Prumo — abas da operação, ajuste fino** (09/10/2026) — proposta B do mockup `p1-ajuste-fino.html`, sem
   contadores de quantidade: faixa de largura total com fio em cima, rótulos em ink-2 com peso fixo (a ativa só
   escurece e ganha o sublinhado), anel de foco interno, esmaecer nas bordas só quando as abas rolam e a aba ativa

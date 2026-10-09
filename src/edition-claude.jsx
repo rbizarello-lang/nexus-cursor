@@ -1214,10 +1214,18 @@ function cxGroupResolved(items) {
   return order.map(k => ({ key: 'r' + k, label: k, icon: <CxStatusIcon s="analisado" />, items: items.filter(x => bucket(x) === k) })).filter(g => g.items.length);
 }
 /* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
-   contagem no tooltip). Quatro zonas: identidade (operação · sinais no topo, situação + parte, nº + sigla + Imp/Compl/peça,
-   esteira) · Tribunal (objeto e teor da decisão) · Minhas notas · Prazo (só tempo: data final e embargos). Cálculos em
+   contagem no tooltip). Cinco zonas: identidade (operação · Novo/Atualizada no topo, situação + parte, nº + sigla) · Objeto (objeto e teor da
+   decisão) · Notas · Sinais (Imp/Compl/peça, URGENTE, esteira) · Prazo (só tempo: data final e embargos). Cálculos em
    src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-i-row/cx-c-*. */
 function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
+/* Esteira da peça na coluna Sinais: só as barrinhas e a etapa atual (sem "parou há", que fica no tooltip). */
+function CxIxEst({ esteira }) {
+  if (!esteiraHasStarted(esteira)) return null;
+  const s = esteiraSummary(esteira);
+  const label = s.isComplete ? 'Concluída' : (s.current ? s.current.label : '—');
+  const when = s.isComplete ? 'concluída ' + cxDM(esteira.updatedAt) : 'parou ' + esteiraStoppedLabel(esteira.updatedAt);
+  return <div className="cx-ix-ei" title={'Esteira da peça: ' + label + ' · ' + when}><CxEstProgress esteira={esteira} size="sm" /><span className="cx-ix-el">{label}</span></div>;
+}
 function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
   const ra = intim.responseAction;
   const resolved = !!ra;
@@ -1234,7 +1242,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
   const fit = resolved ? null : intimNotesFit(notes, L.cplNt, L.budNt);
   const hasNt = resolved || fit.shown.length > 0;
   const flag = intim._importFlag === 'new' ? <span className="cx-tag blue xs">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag xs">Atualizada</span> : null;
-  const tags = urgent || flag || intim.hasPending;
+  const tags = flag || intim.hasPending;
   const num = intimProcCnj(intim.processNumber);
   return <div className={'cx-ix' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '') + (hasNt ? '' : ' nt-empty')} role="button" tabIndex={0}
     onClick={() => onOpen(intim.id)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}>
@@ -1243,16 +1251,14 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
         {hideOp ? <span /> : op
           ? <button type="button" className="cx-it-op cx-link" onClick={e => { e.stopPropagation(); if (onOpenOp) onOpenOp(op.id); }} title={'Abrir ' + op.name}><CxOpSquare op={op} size={8} /><span className="cx-ell">{cxOpName(op)}</span></button>
           : <span className="cx-it-op none"><CxOpSquare size={8} /><span className="cx-ell">Sem operação</span></span>}
-        <span className="cx-it-tags">{urgent ? <span className="cx-urg">URGENTE</span> : null}{flag}{intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}</span>
+        <span className="cx-it-tags">{flag}{intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}</span>
       </div>}
       <div className="cx-ix-party"><CxStatusIcon s={resolved ? 'analisado' : intim.status} /><span className="cx-ell" title={cxPartyName(intim)}>{cxPartyName(intim)}</span></div>
       <div className="cx-ix-pc">
         <button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={num} uf={intim.jurisdiction} /></button>
         {sigla ? <span className="cx-ix-sg" title={cls}>{sigla}</span> : null}
-        <span className="cx-ix-sig"><CxImp intim={intim} /><CxDif intim={intim} />{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</span>
       </div>
       {!sigla && cls ? <div className="cx-ix-cls" title={cls}>{cls}</div> : null}
-      <CxEstLine esteira={intim.esteira} />
     </div>
     <div className="cx-it-tr">
       <div className="cx-it-obj" style={{ '--ol': tl.ol }} title={obj || CX_OBJ_UNDEF_TXT}>{obj || <span className="cx-obj-undef">{CX_OBJ_UNDEF_TXT}</span>}</div>
@@ -1263,6 +1269,11 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
         ? <div className="cx-it-note act" style={{ '--nl': 2 }}><span className="zl">Atuação</span>{cxRaKind(ra)}{ra.description ? ' · ' + ra.description : ''}</div>
         : <>{fit.shown.map((n, i) => <div key={i} className="cx-it-note" style={{ '--nl': n.l }}>{i === 0 ? <span className="zl">Notas</span> : null}{n.t}</div>)}
           {fit.rest ? <div className="cx-it-more">+{fit.rest} {fit.rest === 1 ? 'nota anterior' : 'notas anteriores'}</div> : null}</>}
+    </div>
+    <div className="cx-ix-sn">
+      <span className="cx-ix-slots"><span className="sl"><CxImp intim={intim} /></span><span className="sl"><CxDif intim={intim} /></span><span className="sl">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</span></span>
+      {urgent ? <span className="cx-urg">URGENTE</span> : null}
+      <CxIxEst esteira={intim.esteira} />
     </div>
     <div className="cx-ix-pz">
       <span className={'cx-due ' + pz.tone} title={pz.title}>{pz.txt}</span>
@@ -1303,9 +1314,9 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
   const L = intimCardLayout(w || 1200);
   return <div className="cx-list cx-it-list" ref={ref}>
-    <div className="cx-ix-h"><span className="h-id"><b>Parte</b>processo · esteira</span>
-      <span className="h-tr"><b>Tribunal</b><span className="w-only">objeto · decisão</span><span className="m-only">· minhas notas</span></span>
-      <span className="h-nt"><b>Minhas notas</b>o que fazer</span><span className="h-pz"><b>Prazo</b>embargos</span></div>
+    <div className="cx-ix-h"><span className="h-id"><b>Parte</b></span>
+      <span className="h-tr"><b>Objeto<span className="m-only"> · Notas</span></b></span>
+      <span className="h-nt"><b>Notas</b></span><span className="h-sn"><b>Sinais</b></span><span className="h-pz"><b>Prazo</b></span></div>
     {groups.map(g => {
       const isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
       const sorted = g.items.slice().sort(cxSortFn(sort));
