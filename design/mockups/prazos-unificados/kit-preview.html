@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Kit base · Prazos unificados</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  html, body { margin: 0; background: #f2f3f5; color-scheme: light; }
+  /* CSS próprio desta página: todos os seletores prefixados por #kit-preview (mesma regra das propostas) */
+  #kit-preview code { font: 400 11.5px var(--nx-mono); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 4px; padding: 1px 5px; color: var(--nx-ink-2); }
+  #kit-preview .kp-sec { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 12px; }
+  #kit-preview .kp-sec > .nx-sub-h { padding-top: 14px; border-top: 1px solid var(--nx-line); }
+  #kit-preview .kp-sec:first-of-type > .nx-sub-h { border-top: 0; padding-top: 0; }
+  #kit-preview .kp-note { font-size: 12px; color: var(--nx-ink-3); max-width: 90ch; }
+  #kit-preview .kp-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  #kit-preview .kp-sw { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--nx-line); border-radius: 7px; background: var(--nx-surface); min-width: 0; }
+  #kit-preview .kp-sw i { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.12); flex: none; }
+  #kit-preview .kp-sw span { font: 400 11px var(--nx-mono); color: var(--nx-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #kit-preview .kp-sw b { display: block; font-weight: 500; color: var(--nx-ink); }
+  #kit-preview .kp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  #kit-preview .kp-label code { text-transform: none; letter-spacing: 0; }
+  #kit-preview .kp-label { font-size: 11px; font-weight: 600; color: var(--nx-ink-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  #kit-preview .kp-ruler-card { padding: 10px 14px 12px; }
+  #kit-preview .kp-ruler-card h3 { font-size: 12.5px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  #kit-preview .kp-under { padding: 0; }
+  #kit-preview .kp-bar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--nx-ground) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--nx-line); }
+  #kit-preview .kp-index { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 24px; max-width: 1240px; margin: 0 auto; }
+  #kit-preview .kp-index a { font-size: 12px; padding: 3px 9px; border: 1px solid var(--nx-line); border-radius: 12px; color: var(--nx-ink-2); background: var(--nx-surface); }
+  #kit-preview .kp-index a:hover { background: var(--nx-hover); text-decoration: none; }
+  #kit-preview .kp-hoje { font: 500 11.5px var(--nx-mono); color: var(--nx-accent); background: var(--nx-accent-soft); border-radius: 5px; padding: 3px 7px; }
+  @media (max-width: 720px) { #kit-preview .kp-index { padding: 8px 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } #kit-preview .kp-index a { flex: none; } }
+</style>
+</head>
+<body>
+<main class="nx-mock" id="kit-preview">
+  <div class="kp-bar"><div class="kp-index" id="kp-index"></div></div>
+  <div class="nx-page">
+
+    <header class="nx-page-h">
+      <div>
+        <h1>Kit base · Prazos unificados</h1>
+        <p>Todos os componentes de <code>base.css</code> com os dados de <code>dados.js</code>. Filtros, grupos, lote, formulários e gaveta abaixo são interativos só para validar o kit.</p>
+      </div>
+      <div class="nx-page-acts">
+        <span class="kp-hoje" id="kp-hoje"></span>
+        <div class="nx-seg-ctl" id="kp-tema" role="group" aria-label="Tema"><button type="button" class="on" data-tema="">Prumo</button><button type="button" data-tema="nx-classico">Clássico</button></div>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section class="kp-sec" id="s-tokens">
+      <div class="nx-sub-h"><h2>1 · Tokens</h2><span class="nx-muted nx-small">definidos em <code>.nx-mock</code>, nunca em <code>:root</code>; fundo claro fixo</span></div>
+      <div class="kp-swatches" id="kp-swatches"></div>
+    </section>
+
+    <!-- 2 -->
+    <section class="kp-sec" id="s-stats">
+      <div class="nx-sub-h"><h2>2 · Barra de contadores</h2><span class="nx-muted nx-small"><code>.nx-stats &gt; .nx-stat</code> · <code>.nx-stat-l/n/v/s</code> · <code>.is-active</code> · <code>button.nx-stat</code> é clicável</span></div>
+      <div class="nx-stats" id="kp-stats"></div>
+    </section>
+
+    <!-- 3 -->
+    <section class="kp-sec" id="s-filtros">
+      <div class="nx-sub-h"><h2>3 · Abas e filtros</h2><span class="nx-muted nx-small"><code>.nx-tabs</code> · <code>.nx-filters</code> · <code>.nx-sel</code> · <code>.nx-search</code> · <code>.nx-fchip</code> · <code>.nx-seg-ctl</code></span></div>
+      <div class="nx-tabs" id="kp-tabs" role="tablist"></div>
+      <div class="nx-filters">
+        <label class="nx-sel"><span>Operação</span><select id="kp-op"></select></label>
+        <label class="nx-search"><input id="kp-q" type="search" placeholder="CDA, processo ou devedor" aria-label="Buscar"></label>
+        <button type="button" class="nx-fchip" id="kp-f-venc" aria-pressed="false">Só vencidas</button>
+        <button type="button" class="nx-fchip" id="kp-f-idpj" aria-pressed="false">Com IDPJ</button>
+        <span class="nx-sp"></span>
+        <div class="nx-seg-ctl" id="kp-modo" role="group" aria-label="Modo"><button type="button" class="on" data-modo="grupos">Por processo</button><button type="button" data-modo="lista">Lista</button></div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="kp-sec" id="s-chips">
+      <div class="nx-sub-h"><h2>4 · Chips e selos</h2><span class="nx-muted nx-small"><code>.nx-chip</code> + variante</span></div>
+      <div class="nx-card nx-card-b"><div class="kp-grid">
+        <div><div class="kp-label">Natureza</div><div class="nx-chips"><span class="nx-chip decadencia">Decadência</span><span class="nx-chip ordinaria">Ordinária</span><span class="nx-chip intercorrente">Intercorrente</span></div></div>
+        <div><div class="kp-label">Certeza do cálculo</div><div class="nx-chips" id="kp-cert"></div></div>
+        <div><div class="kp-label">Situação e estados</div><div class="nx-chips"><span class="nx-chip situacao">Pedido sem desfecho</span><span class="nx-chip abrangida"><b>IDPJ</b> 5003333-22.2024.4.04.7002</span><span class="nx-chip adiada">Adiada até 21/10/26 · Aguardando certidão</span><span class="nx-chip adiada t-red">Adiamento venceu em 06/10/26 · Garantia em análise</span><span class="nx-chip tratada">Aguardando reconhecimento</span><span class="nx-chip consumada">Consumada</span><span class="nx-chip silenciada">Silenciada até 03/03/31</span></div></div>
+        <div><div class="kp-label">Tons livres (<code>t-red</code> … <code>t-gray</code>) e tamanho <code>sm</code></div><div class="nx-chips"><span class="nx-chip t-red">red</span><span class="nx-chip t-orange">orange</span><span class="nx-chip t-yellow">yellow</span><span class="nx-chip t-blue">blue</span><span class="nx-chip t-green">green</span><span class="nx-chip t-violet">violet</span><span class="nx-chip t-cyan">cyan</span><span class="nx-chip t-gray">gray</span><span class="nx-chip situacao sm">sm</span></div></div>
+      </div></div>
+    </section>
+
+    <!-- 5 -->
+    <section class="kp-sec" id="s-botoes">
+      <div class="nx-sub-h"><h2>5 · Botões</h2><span class="nx-muted nx-small"><code>.nx-btn</code> · <code>primary</code> · <code>secondary</code> · <code>quiet</code> · <code>danger</code> · <code>sm</code> · <code>icon</code></span></div>
+      <div class="nx-card nx-card-b nx-stack">
+        <div class="nx-cluster"><button class="nx-btn primary">Primário</button><button class="nx-btn secondary">Secundário</button><button class="nx-btn">Padrão</button><button class="nx-btn quiet">Quiet</button><button class="nx-btn danger">Perigo</button><button class="nx-btn danger primary">Perigo sólido</button><button class="nx-btn" disabled>Desabilitado</button><button class="nx-btn icon" aria-label="Fechar">&times;</button></div>
+        <div class="nx-cluster"><button class="nx-btn sm primary">Ajuizar execução</button><button class="nx-btn sm secondary">Abrir</button><button class="nx-btn sm">Conferir</button><button class="nx-btn sm quiet">Adiar…</button><button class="nx-btn sm danger">Descartar</button><button class="nx-btn sm icon" aria-label="Fechar">&times;</button></div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="kp-sec" id="s-linhas">
+      <div class="nx-sub-h"><h2>6 · Linha de CDA, grupo e lote</h2><span class="nx-muted nx-small"><code>.nx-row</code> · <code>.nx-group</code> · <code>.nx-batch</code> · variantes <code>dense</code>, <code>cols</code>, <code>is-venc</code>, <code>is-quiet</code>, <code>is-selected</code></span></div>
+      <div id="kp-lista-info" class="nx-muted nx-small"></div>
+      <div class="nx-groups" id="kp-lista"></div>
+      <div class="nx-batch sticky" id="kp-batch" hidden></div>
+    </section>
+
+    <!-- 7 -->
+    <section class="kp-sec" id="s-form">
+      <div class="nx-sub-h"><h2>7 · Formulário inline</h2><span class="nx-muted nx-small"><code>.nx-inline-form</code> · <code>.nx-field</code> · <code>.nx-input</code> / <code>.nx-select</code> · <code>.nx-hint</code>. Os botões “Lançar ciência”, “Adiar…” e “Ajuizar” da seção 6 abrem estes mesmos formulários dentro da linha.</span></div>
+      <div class="kp-grid" id="kp-forms"></div>
+    </section>
+
+    <!-- 8 -->
+    <section class="kp-sec" id="s-regua">
+      <div class="nx-sub-h"><h2>8 · Régua de tempo</h2><span class="nx-muted nx-small"><code>.nx-ruler</code> · <code>.nx-seg.{correndo,suspensao,pausa,aguardando}</code> · <code>.nx-band</code> · <code>.nx-mark.{cedo,tarde,termo,hoje,ciclo,fato}</code> · <code>mini</code></span></div>
+      <div class="kp-grid" id="kp-reguas"></div>
+    </section>
+
+    <!-- 9 -->
+    <section class="kp-sec" id="s-conferir">
+      <div class="nx-sub-h"><h2>9 · Conferir nos autos e avisos</h2><span class="nx-muted nx-small"><code>.nx-checks &gt; .nx-check</code> · <code>.nx-notice</code> (+ <code>orange red blue violet green gray</code>)</span></div>
+      <div class="kp-grid">
+        <div class="nx-card nx-card-b"><div class="kp-label">Conferir nos autos · nx-14</div><div class="nx-checks" id="kp-checks"></div></div>
+        <div class="nx-card nx-card-b nx-stack" style="--gap:8px">
+          <div class="kp-label">Avisos</div>
+          <div class="nx-notice">IDPJ 5003333-22.2024.4.04.7002 sem constrição lançada. Aos 5 anos da informação o processo pede esclarecimento.</div>
+          <div class="nx-notice orange">Faltam 14 dias para a data cedo. Peticionar antes dela.</div>
+          <div class="nx-notice red">O prazo já venceu pela leitura mais desfavorável.</div>
+          <div class="nx-notice violet">A análise importada diverge do cálculo.</div>
+          <div class="nx-notice green">Conferência lançada em 09/10/2026.</div>
+          <div class="nx-notice gray">Decadência: só registro, nunca alarma.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class="kp-sec" id="s-tabela">
+      <div class="nx-sub-h"><h2>10 · Tabela compacta</h2><span class="nx-muted nx-small"><code>.nx-table</code> dentro de <code>.nx-table-wrap</code> · <code>dense</code> · <code>.num</code> · <code>.mono</code>. Clique numa linha para abrir a gaveta.</span></div>
+      <div class="nx-table-wrap"><table class="nx-table dense" id="kp-tabela"></table></div>
+    </section>
+
+    <!-- 11 -->
+    <section class="kp-sec" id="s-estados">
+      <div class="nx-sub-h"><h2>11 · Estados vazio, colapsado e tooltip</h2><span class="nx-muted nx-small"><code>.nx-empty</code> · <code>.nx-fold</code> · <code>.nx-tip[data-tip]</code></span></div>
+      <div class="kp-grid">
+        <div class="nx-empty"><div class="nx-empty-t">Nada exige decisão agora</div><div class="nx-empty-s">O restante está abaixo, sem alarme. Nada some: o que sai da fila vai para Adiadas, com data para voltar.</div></div>
+        <div class="nx-empty plain"><div class="nx-empty-t">Nenhuma CDA neste recorte</div><div class="nx-empty-s">Mude a operação ou limpe a busca.</div><button class="nx-btn sm" type="button">Limpar filtros</button></div>
+        <div class="nx-stack" style="--gap:8px" id="kp-folds"></div>
+        <div class="nx-card nx-card-b nx-stack" style="--gap:10px">
+          <div class="kp-label">Tooltip simples</div>
+          <p>Prazo <span class="nx-tip left" tabindex="0" data-tip="Data cedo: a leitura mais desfavorável à União. É ela que dá o alarme." style="border-bottom:1px dotted var(--nx-ink-3)">cedo</span> e <span class="nx-tip" tabindex="0" data-tip="Data tarde: a tese da União, sustentada na peça." style="border-bottom:1px dotted var(--nx-ink-3)">tarde</span>, com a dica <span class="nx-tip down right" tabindex="0" data-tip="Abre para baixo e alinha à direita (down right)." style="border-bottom:1px dotted var(--nx-ink-3)">para baixo</span>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="kp-sec" id="s-gaveta">
+      <div class="nx-sub-h"><h2>12 · Gaveta lateral</h2><span class="nx-muted nx-small"><code>.nx-drawer-host</code> &gt; <code>.nx-scrim</code> + <code>.nx-drawer</code> (<code>.docked</code> e <code>.fixed</code> são variantes) · <code>.nx-props</code> · <code>.nx-events</code> · <code>.nx-sec</code></span></div>
+      <div class="nx-drawer-host" id="kp-host" style="min-height: 720px"></div>
+    </section>
+
+  </div>
+</main>
+
+<script src="dados.js"></script>
+<script>
+(function () {
+  var NX = window.NX, D = window.NX_DADOS;
+  var $ = function (s, el) { return (el || document).querySelector(s); };
+  var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+  var root = $('#kit-preview');
+  var state = { fila: null, natureza: '', op: '', q: '', venc: false, idpj: false, modo: 'grupos', sel: {}, aberto: {}, drawer: 'nx-16', drawerOn: true };
+  var byId = function (id) { return D.filter(function (r) { return r.id === id; })[0]; };
+
+  /* ── índice e cabeçalho ── */
+  $('#kp-hoje').textContent = 'hoje (fixo): ' + NX.fmtData(window.NX_HOJE);
+  $('#kp-index').innerHTML = [['tokens', 'Tokens'], ['stats', 'Contadores'], ['filtros', 'Filtros'], ['chips', 'Chips'], ['botoes', 'Botões'], ['linhas', 'Linhas e grupos'], ['form', 'Formulário inline'], ['regua', 'Régua'], ['conferir', 'Conferir'], ['tabela', 'Tabela'], ['estados', 'Estados'], ['gaveta', 'Gaveta']]
+    .map(function (x) { return '<a href="#s-' + x[0] + '">' + x[1] + '</a>'; }).join('');
+
+  /* ── tema ── */
+  $('#kp-tema').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tema]'); if (!b) return;
+    root.classList.toggle('nx-classico', !!b.dataset.tema);
+    $$('#kp-tema button').forEach(function (x) { x.classList.toggle('on', x === b); });
+  });
+
+  /* ── tokens ── */
+  var toks = ['ground', 'panel', 'surface', 'surface-2', 'hover', 'line', 'line-strong', 'ink', 'ink-2', 'ink-3', 'accent', 'accent-soft', 'btn', 'red', 'red-soft', 'orange', 'orange-soft', 'yellow', 'yellow-soft', 'blue', 'blue-soft', 'green', 'green-soft', 'violet', 'violet-soft', 'cyan', 'cyan-soft', 'gray', 'gray-soft'];
+  $('#kp-swatches').innerHTML = toks.map(function (t) {
+    return '<div class="kp-sw"><i style="background:var(--nx-' + t + ')"></i><span><b>--nx-' + t + '</b>' + getComputedStyle(root).getPropertyValue('--nx-' + t).trim() + '</span></div>';
+  }).join('');
+
+  /* ── chips de certeza ── */
+  $('#kp-cert').innerHTML = ['calculado', 'faixa', 'dado', 'analisar'].map(function (c) {
+    return '<span class="nx-chip ' + c + ' nx-tip" tabindex="0" data-tip="' + NX.esc(NX.ROTULOS.certezaDica[c]) + '">' + NX.ROTULOS.certeza[c] + '</span>';
+  }).join('');
+
+  /* ── filtros ── */
+  $('#kp-op').innerHTML = '<option value="">Todas</option>' + window.NX_OPERACOES.map(function (o) { return '<option value="' + o.nome + '">' + o.curto + '</option>'; }).join('');
+  var NAT = [['', 'Todas'], ['decadencia', 'Decadência'], ['ordinaria', 'Ordinária'], ['intercorrente', 'Intercorrente']];
+  function renderTabs() {
+    $('#kp-tabs').innerHTML = NAT.map(function (n) {
+      var c = D.filter(function (r) { return !n[0] || r.natureza === n[0]; }).length;
+      return '<button type="button" role="tab" data-nat="' + n[0] + '" aria-selected="' + (state.natureza === n[0]) + '">' + n[1] + '<span class="nx-n">' + c + '</span></button>';
+    }).join('');
+  }
+  $('#kp-tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-nat]'); if (!b) return; state.natureza = b.dataset.nat; render(); });
+  $('#kp-op').addEventListener('change', function (e) { state.op = e.target.value; render(); });
+  $('#kp-q').addEventListener('input', function (e) { state.q = e.target.value.trim().toLowerCase(); render(); });
+  $('#kp-f-venc').addEventListener('click', function () { state.venc = !state.venc; render(); });
+  $('#kp-f-idpj').addEventListener('click', function () { state.idpj = !state.idpj; render(); });
+  $('#kp-modo').addEventListener('click', function (e) { var b = e.target.closest('[data-modo]'); if (!b) return; state.modo = b.dataset.modo; render(); });
+
+  function visiveis(ignorarFila) {
+    return D.filter(function (r) {
+      if (!ignorarFila && state.fila && r.fila !== state.fila) return false;
+      if (state.natureza && r.natureza !== state.natureza) return false;
+      if (state.op && r.operacao !== state.op) return false;
+      if (state.venc && !(r.diasRestantes != null && r.diasRestantes < 0 && (r.fila === 'agir' || r.fila === 'conferir'))) return false;
+      if (state.idpj && !r.abrangidaPor) return false;
+      if (state.q) {
+        var q = state.q, dq = q.replace(/\D/g, '');
+        if (!(r.cda.toLowerCase().indexOf(q) >= 0 || r.devedor.toLowerCase().indexOf(q) >= 0 || (dq && r.processo && r.processo.replace(/\D/g, '').indexOf(dq) >= 0))) return false;
+      }
+      return true;
+    });
+  }
+
+  /* ── contadores ── */
+  function renderStats() {
+    var base = visiveis(true), tot = { n: base.length, v: NX.soma(base) };
+    var sub = {
+      agir: function (l) { var v = l.filter(function (r) { return r.diasRestantes != null && r.diasRestantes < 0; }).length; return v + (v === 1 ? ' vencida' : ' vencidas'); },
+      conferir: function () { return 'consumadas há ≤ 6 m'; },
+      vigiar: function () { return 'sem ação agora'; },
+      registro: function () { return 'nunca alarmam'; },
+      adiada: function (l) { var s = l.filter(function (r) { var d = NX.dias(r.adiada && r.adiada.ate); return d != null && d >= 0 && d <= 7; }).length; return s + ' voltam em 7 dias'; },
+      tratada: function () { return 'aguardam decisão'; },
+      impossivel: function () { return 'piso não chegou'; }
+    };
+    var h = '<button type="button" class="nx-stat' + (state.fila === null ? ' is-active' : '') + '" data-fila=""><span class="nx-stat-l">Todas</span><span class="nx-stat-n">' + tot.n + '</span><span class="nx-stat-v">' + NX.fmtMoedaCurta(tot.v) + '</span><span class="nx-stat-s">no recorte atual</span></button>';
+    NX.FILAS.forEach(function (f) {
+      var l = base.filter(function (r) { return r.fila === f.id; });
+      var tone = f.tom === 'gray' ? 'muted' : f.tom;
+      h += '<button type="button" class="nx-stat ' + tone + (state.fila === f.id ? ' is-active' : '') + '" data-fila="' + f.id + '" title="' + NX.esc(f.descricao) + '"><span class="nx-stat-l">' + f.rotulo + '</span><span class="nx-stat-n">' + l.length + '</span><span class="nx-stat-v">' + NX.fmtMoedaCurta(NX.soma(l)) + '</span><span class="nx-stat-s">' + sub[f.id](l) + '</span></button>';
+    });
+    $('#kp-stats').innerHTML = h;
+  }
+  $('#kp-stats').addEventListener('click', function (e) { var b = e.target.closest('[data-fila]'); if (!b) return; state.fila = b.dataset.fila || null; render(); });
+
+  /* ── lista agrupada ── */
+  function grupos(list) {
+    if (state.modo === 'lista') return [{ plano: true, itens: list }];
+    return NX.agrupar(list, function (r) { return r.processo || 'sem-processo'; });
+  }
+  function renderLista() {
+    var list = visiveis(false);
+    $('#kp-lista-info').textContent = list.length + ' CDAs · ' + NX.fmtMoeda(NX.soma(list)) + (state.fila ? ' · filtro: ' + NX.FILAS.filter(function (f) { return f.id === state.fila; })[0].rotulo : '');
+    if (!list.length) {
+      $('#kp-lista').innerHTML = '<div class="nx-empty plain"><div class="nx-empty-t">Nenhuma CDA neste recorte</div><div class="nx-empty-s">Mude o filtro ou limpe a busca.</div></div>';
+      return;
+    }
+    var rowOpts = function (r) { return { selecionavel: true, sel: !!state.sel[r.id], aberta: state.drawer === r.id && state.drawerOn && false, dense: state.modo === 'lista' && false }; };
+    var gs = grupos(list), h = '';
+    gs.forEach(function (g) {
+      if (g.plano) { h += '<div class="nx-group"><div class="nx-group-body">' + g.itens.map(function (r) { return NX.linhaHTML(r, rowOpts(r)); }).join('') + '</div></div>'; return; }
+      var it = g.itens, sem = g.chave === 'sem-processo';
+      var quiet = !it.some(function (r) { return r.fila === 'agir' || r.fila === 'conferir'; });
+      var colapsado = state.aberto[g.chave] != null ? !state.aberto[g.chave] : (state.fila === null && quiet);
+      var devs = it.map(function (r) { return r.devedor; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+      var titulo = sem ? 'Sem processo <span class="nx-muted" style="font-weight:400">· ordinárias a ajuizar</span>' : '<span class="nx-proc" style="font-size:12.5px">' + g.chave + '</span> <span class="nx-muted" style="font-weight:400">· ' + NX.esc(devs[0]) + '</span>';
+      var avisos = [];
+      var idpj = it.filter(function (r) { return r.abrangidaPor; })[0];
+      if (idpj) avisos.push('Execução abrangida pelo <b>' + NX.esc(idpj.abrangidaPor) + '</b>: a constrição no incidente vale como penhora. Aos 5 anos da informação (17/06/2029) o processo pede esclarecimento.');
+      h += NX.grupoHTML({ id: 'g-' + g.chave, titulo: titulo, n: it.length, valor: g.valor, avisos: avisos, colapsado: colapsado, corpo: it.map(function (r) { return NX.linhaHTML(r, rowOpts(r)); }).join('') });
+    });
+    $('#kp-lista').innerHTML = h;
+  }
+
+  /* ── lote ── */
+  function renderBatch() {
+    var ids = Object.keys(state.sel).filter(function (k) { return state.sel[k]; }), el = $('#kp-batch');
+    if (!ids.length) { el.hidden = true; el.innerHTML = ''; return; }
+    var l = ids.map(byId);
+    el.hidden = false;
+    el.innerHTML = '<span class="nx-batch-n">' + ids.length + (ids.length === 1 ? ' selecionada' : ' selecionadas') + '</span><span class="nx-batch-s">' + NX.fmtMoeda(NX.soma(l)) + '</span><span class="nx-sp"></span>' +
+      '<button type="button" class="nx-btn sm primary" data-lote="ciencia">Lançar ciência</button><button type="button" class="nx-btn sm" data-lote="adiar">Adiar…</button><button type="button" class="nx-btn sm quiet" data-lote="limpar">Limpar seleção</button>';
+  }
+
+  /* ── formulários ── */
+  var campo = function (rot, html, cls) { return '<label class="nx-field' + (cls ? ' ' + cls : '') + '">' + rot + html + '</label>'; };
+  var dataIn = function (v, extra) { return '<input class="nx-input" type="date" value="' + (v || '') + '" ' + (extra || '') + '>'; };
+  function formHTML(r, kind) {
+    var hoje = window.NX_HOJE, c = '', hint = '', ok = 'Salvar', limite = 30;
+    var mais = function (n) { var d = new Date(NX.parse(hoje) + n * 864e5); return d.toISOString().slice(0, 10); };
+    if (kind === 'adiar') {
+      c = campo('Motivo', '<select class="nx-select">' + NX.MOTIVOS_ADIAMENTO.map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select>') +
+        campo('Volta à fila em', dataIn(mais(14), 'min="' + hoje + '" max="' + mais(limite) + '"')) + campo('Descreva (obrigatório em “Outro”)', '<input class="nx-input" placeholder="Por que adiar">', 'grow');
+      hint = 'Limite deste grupo: ' + limite + ' dias. Volta antes se entrar fato novo ou o grupo piorar.'; ok = 'Adiar';
+    } else if (r.acao.tipo === 'ajuizar') {
+      c = campo('Nº do processo', '<input class="nx-input nx-mono" placeholder="5001234-56.2026.4.04.7001">', 'grow') + campo('Data do ajuizamento', dataIn(hoje));
+      hint = 'Ao ajuizar, a ordinária para de correr e passa a valer a intercorrente.'; ok = 'Registrar ajuizamento';
+    } else if (r.acao.tipo === 'lancar_ciencia') {
+      c = campo('Data da ciência', dataIn(r.podeSalvar ? '2020-03-30' : '')) + campo('Forma', '<select class="nx-select"><option>Eletrônica (abertura)</option><option>Eletrônica (10º dia)</option><option>Vista pessoal</option><option>Mandado</option></select>');
+      hint = 'Na ciência eletrônica a data cedo é a disponibilização; a tarde, a abertura.'; ok = 'Lançar ciência';
+    } else {
+      c = campo('Tipo de fato', '<select class="nx-select"><option>Penhora</option><option>Bloqueio (Sisbajud)</option><option>Indisponibilidade (CNIB)</option><option>Adesão a parcelamento</option><option>Outro</option></select>') + campo('Data', dataIn(hoje)) + campo('Observação', '<input class="nx-input" placeholder="Opcional">', 'grow');
+      hint = 'O fato entra na linha do tempo e refaz o cálculo na hora.'; ok = 'Lançar fato';
+    }
+    return '<form class="nx-inline-form" data-form="' + r.id + '">' + c + '<div class="nx-inline-form-acts"><button type="button" class="nx-btn sm quiet" data-form-x="cancelar">Cancelar</button><button type="submit" class="nx-btn sm primary">' + ok + '</button></div><span class="nx-hint">' + hint + '</span></form>';
+  }
+  function renderFormsDemo() {
+    var demos = [['ajuizar', 'nx-01', null], ['lancar_ciencia', 'nx-14', null], ['adiar', 'nx-13', 'adiar']];
+    $('#kp-forms').innerHTML = demos.map(function (d) { var r = byId(d[1]); return '<div class="nx-card nx-card-b"><div class="kp-label">' + (d[2] === 'adiar' ? 'Adiar' : NX.ROTULOS.acao[d[0]]) + '</div>' + formHTML(r, d[2]) + '</div>'; }).join('');
+  }
+
+  /* ── réguas ── */
+  function renderReguas() {
+    var ids = ['nx-16', 'nx-12', 'nx-20', 'nx-14', 'nx-19', 'nx-07', 'nx-05'];
+    $('#kp-reguas').innerHTML = ids.map(function (id) {
+      var r = byId(id);
+      return '<div class="nx-card kp-ruler-card"><h3><span class="nx-cda">' + r.cda + '</span><span class="nx-muted" style="font-weight:400">' + NX.esc(r.fase) + '</span></h3>' + NX.reguaHTML(r, {}) +
+        '<div class="nx-muted nx-small" style="margin-top:8px">mini:</div>' + NX.reguaHTML(r, { mini: true }) + '</div>';
+    }).join('');
+    $('#kp-checks').innerHTML = byId('nx-14').conferir.map(function (t, i) { return '<label class="nx-check"><input type="checkbox"' + (i === 0 ? ' checked' : '') + '><span>' + NX.esc(t) + '</span></label>'; }).join('');
+  }
+
+  /* ── tabela ── */
+  function renderTabela() {
+    var list = visiveis(false);
+    var h = '<thead><tr><th>CDA</th><th>Devedor</th><th>Operação</th><th>Natureza</th><th>Processo</th><th>Situação</th><th class="num">Prazo</th><th class="num">Valor</th></tr></thead><tbody>';
+    h += list.map(function (r) {
+      var q = NX.quando(r), op = NX.op(r.operacao);
+      return '<tr data-id="' + r.id + '" style="cursor:pointer"' + (state.drawer === r.id ? ' class="is-selected"' : '') + '><td class="mono">' + r.cda + '</td><td>' + NX.esc(r.devedor) + '</td><td class="nowrap"><span class="nx-op"><i class="nx-sq" style="--c:' + op.cor + '"></i>' + NX.esc(op.curto) + '</span></td><td><span class="nx-chip ' + r.natureza + ' sm">' + NX.ROTULOS.natureza[r.natureza] + '</span></td><td class="mono">' + (r.processo || '<span class="nx-muted">sem processo</span>') + '</td><td>' + NX.esc(r.fase) + '</td><td class="num"><span class="nx-when ' + q.tom + '" style="font-size:12px">' + NX.esc(q.principal) + '</span></td><td class="num">' + NX.fmtMoeda(r.valor) + '</td></tr>';
+    }).join('') + '</tbody>';
+    $('#kp-tabela').innerHTML = h;
+  }
+
+  /* ── dobras ── */
+  var folds = { rest: false, sil: true };
+  function renderFolds() {
+    var res = D.filter(function (r) { return r.fila === 'vigiar' || r.fila === 'registro'; }), sil = D.filter(function (r) { return r.fila === 'adiada' || r.fila === 'impossivel'; });
+    $('#kp-folds').innerHTML =
+      '<button type="button" class="nx-fold" data-fold="rest" aria-expanded="' + folds.rest + '"><span class="nx-chev"></span><b>O resto</b><span class="nx-n">' + res.length + '</span><span class="nx-fold-s">vigiar ' + D.filter(function (r) { return r.fila === 'vigiar'; }).length + ' · registro ' + D.filter(function (r) { return r.fila === 'registro'; }).length + '</span></button>' +
+      (folds.rest ? NX.linhaHTML(res[0], { dense: true, regua: false }) : '') +
+      '<button type="button" class="nx-fold" data-fold="sil" aria-expanded="' + folds.sil + '"><span class="nx-chev"></span><b>Silenciados</b><span class="nx-n">' + sil.length + '</span><span class="nx-fold-s">fora do alarme, com data para voltar</span></button>' +
+      (folds.sil ? sil.slice(0, 2).map(function (r) { return NX.linhaHTML(r, { dense: true, regua: false }); }).join('') : '');
+  }
+  $('#kp-folds').addEventListener('click', function (e) { var b = e.target.closest('[data-fold]'); if (!b) return; folds[b.dataset.fold] = !folds[b.dataset.fold]; renderFolds(); });
+
+  /* ── gaveta ── */
+  function renderDrawer() {
+    var r = byId(state.drawer), host = $('#kp-host'), q = NX.quando(r), op = NX.op(r.operacao);
+    var under = D.filter(function (x) { return x.fila === 'agir'; }).slice(0, 5).map(function (x) { return NX.linhaHTML(x, { dense: true, regua: false, acoes: false }); }).join('');
+    var h = '<div class="kp-under">' + under + '</div>';
+    if (!state.drawerOn) { host.innerHTML = h + '<div style="padding:12px 16px"><button type="button" class="nx-btn sm" data-drawer="abrir">Reabrir a gaveta</button></div>'; return; }
+    h += '<div class="nx-scrim" data-drawer="fechar"></div><aside class="nx-drawer" aria-label="Detalhe da CDA">' +
+      '<div class="nx-drawer-top"><span class="nx-ell">Prazos <span class="nx-muted">›</span> ' + (r.processo ? '<span class="nx-proc">' + r.processo + '</span>' : 'sem processo') + '</span><span class="nx-sp"></span><button type="button" class="nx-btn quiet icon" data-drawer="fechar" aria-label="Fechar">&times;</button></div>' +
+      '<div class="nx-drawer-body">' +
+        '<div><div class="nx-chips">' + NX.chipsHTML(r) + '</div><h3 class="nx-d-title">' + NX.esc(r.devedor) + '</h3><div class="nx-d-sub"><span class="nx-cda">' + r.cda + '</span> · <span class="nx-op" style="display:inline-flex"><i class="nx-sq" style="--c:' + op.cor + '"></i>' + NX.esc(op.nome) + '</span></div></div>' +
+        '<div class="nx-sec"><div class="nx-sec-h">Situação</div><p class="nx-row-why">' + NX.esc(r.situacao) + '</p>' + (r.abrangidaPor ? '<div class="nx-notice">Abrangida pelo ' + NX.esc(r.abrangidaPor) + '.</div>' : '') + '</div>' +
+        '<dl class="nx-props"><dt>Valor</dt><dd class="nx-num">' + NX.fmtMoeda(r.valor) + '</dd><dt>Prazo</dt><dd><span class="nx-when ' + q.tom + '">' + NX.esc(q.principal) + '</span></dd><dt>Datas</dt><dd class="nx-mono">' + (r.termoCedo ? 'cedo ' + NX.fmtData(r.termoCedo) : '—') + (r.termoTarde && r.termoTarde !== r.termoCedo ? '<br>tarde ' + NX.fmtData(r.termoTarde) : '') + '</dd><dt>Certeza</dt><dd>' + NX.ROTULOS.certezaDica[r.certeza] + '</dd></dl>' +
+        (r.regua ? '<div class="nx-sec"><div class="nx-sec-h">Régua do prazo</div>' + NX.reguaHTML(r, {}) + '</div>' : '') +
+        (r.conferir.length ? '<div class="nx-sec"><div class="nx-sec-h">Conferir nos autos <span class="nx-n">' + r.conferir.length + '</span></div><div class="nx-checks">' + r.conferir.map(function (t) { return '<label class="nx-check"><input type="checkbox"><span>' + NX.esc(t) + '</span></label>'; }).join('') + '</div></div>' : '') +
+        (r.acao && r.acao.tipo !== 'conferir_autos' && r.acao.tipo !== 'confirmar_vigencia' ? '<div class="nx-sec"><div class="nx-sec-h">' + NX.esc(r.acao.rotulo) + '</div>' + formHTML(r) + '</div>' : '') +
+        '<div class="nx-sec"><div class="nx-sec-h">Eventos <span class="nx-n">' + r.eventos.length + '</span></div><ol class="nx-events">' + r.eventos.map(function (e) { return '<li><span class="nx-ev-date">' + NX.fmtData(e.data) + '</span><span class="nx-ev-fato">' + NX.esc(e.fato) + '<span class="nx-ev-efeito">' + NX.esc(e.efeito) + '</span></span></li>'; }).join('') + '</ol></div>' +
+      '</div>' +
+      '<div class="nx-drawer-foot">' + (r.acao ? '<button type="button" class="nx-btn primary">' + NX.esc(r.acao.rotulo) + '</button>' : '') + '<button type="button" class="nx-btn" data-acao="adiar" data-id="' + r.id + '">Adiar…</button><button type="button" class="nx-btn quiet">Abrir ficha da CDA</button><span class="nx-sp"></span><button type="button" class="nx-btn quiet" data-drawer="fechar">Fechar</button></div>' +
+    '</aside>';
+    host.innerHTML = h;
+  }
+  $('#kp-host').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-drawer]');
+    if (b) { state.drawerOn = b.dataset.drawer === 'abrir'; renderDrawer(); }
+  });
+
+  /* ── eventos globais: expandir grupo, selecionar, ações, formulários ── */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-toggle]');
+    if (t) {
+      var g = t.closest('.nx-group'), exp = g.classList.contains('is-collapsed');
+      g.classList.toggle('is-collapsed', !exp); t.setAttribute('aria-expanded', String(exp));
+      if (g.id) state.aberto[g.id.replace(/^g-/, '')] = exp;
+      return;
+    }
+    var l = e.target.closest('[data-lote]');
+    if (l) {
+      if (l.dataset.lote === 'limpar') { state.sel = {}; renderLista(); renderBatch(); }
+      else { l.textContent = 'Simulado'; setTimeout(renderBatch, 900); }
+      return;
+    }
+    var a = e.target.closest('[data-acao]');
+    if (a) {
+      var row = a.closest('.nx-row'), r = byId(a.dataset.id);
+      if (a.dataset.acao === 'abrir' || (a.dataset.acao === 'exec' && r.acao.tipo === 'conferir_autos')) {
+        state.drawer = r.id; state.drawerOn = true; renderDrawer(); renderTabela();
+        if (a.closest('#kp-lista')) $('#s-gaveta').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (a.dataset.acao === 'exec' && r.acao.umClique) {
+        row.insertAdjacentHTML('beforeend', '<div class="nx-notice green" style="grid-column:1/-1">Conferência lançada em ' + NX.fmtData(window.NX_HOJE) + ' (simulação). A CDA sai da fila e volta 90 dias antes da nova data cedo.</div>');
+        a.disabled = true; return;
+      }
+      var kind = a.dataset.acao === 'adiar' ? 'adiar' : null, ja = $('.nx-inline-form', row || document);
+      var alvo = row || a.closest('.nx-drawer-foot');
+      if (!alvo) { return; }
+      ja = $('.nx-inline-form', row || alvo.parentNode);
+      if (ja) { ja.remove(); return; }
+      if (row) row.insertAdjacentHTML('beforeend', formHTML(r, kind));
+      else alvo.insertAdjacentHTML('beforebegin', '<div style="padding:12px 20px 0">' + formHTML(r, kind) + '</div>');
+      var first = $('.nx-inline-form input, .nx-inline-form select', row || alvo.parentNode); if (first) first.focus();
+      return;
+    }
+    if (e.target.closest('[data-form-x]')) { e.target.closest('.nx-inline-form').remove(); return; }
+    var tr = e.target.closest('#kp-tabela tbody tr');
+    if (tr) { state.drawer = tr.dataset.id; state.drawerOn = true; renderDrawer(); renderTabela(); $('#s-gaveta').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+  document.addEventListener('change', function (e) {
+    var c = e.target.closest('[data-sel]');
+    if (!c) return;
+    var id = c.closest('.nx-row').dataset.id; state.sel[id] = c.checked;
+    c.closest('.nx-row').classList.toggle('is-selected', c.checked); renderBatch();
+  });
+  document.addEventListener('submit', function (e) {
+    var f = e.target.closest('.nx-inline-form'); if (!f) return;
+    e.preventDefault();
+    f.outerHTML = '<div class="nx-notice green" style="grid-column:1/-1">Gravado (simulação). Nada foi salvo; é só o mockup.</div>';
+  });
+
+  /* ── render geral ── */
+  function render() {
+    renderTabs(); renderStats(); renderLista(); renderBatch(); renderTabela();
+    $('#kp-f-venc').classList.toggle('on', state.venc); $('#kp-f-venc').setAttribute('aria-pressed', state.venc);
+    $('#kp-f-idpj').classList.toggle('on', state.idpj); $('#kp-f-idpj').setAttribute('aria-pressed', state.idpj);
+    $$('#kp-modo button').forEach(function (b) { b.classList.toggle('on', b.dataset.modo === state.modo); });
+  }
+  render(); renderFormsDemo(); renderReguas(); renderFolds(); renderDrawer();
+})();
+</script>
+</body>
+</html>

@@ -36,8 +36,12 @@ npm install
 # Sempre que alterar src/app.jsx ou src/Nexus.shell.html
 npm run build
 
-# Build + envio ao Apps Script
+# Build + envio ao Apps Script (soma 1 à versão: 3.5.0 → 3.5.1)
 npm run push
+
+# Publica com a versão que já está no package.json, sem somar
+# (use quando a versão foi fixada no repositório, ex.: 3.5.0)
+npm run push:release
 ```
 
 ## Por que isso acelera
