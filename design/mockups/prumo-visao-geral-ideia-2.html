@@ -1,0 +1,1254 @@
+<!-- IDEIA 2 · Tabela-mestra · intensidade 2/5 -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Visão geral · Ideia 2 — Tabela-mestra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  /* post-it (novos, só para o Mural) */
+  --pi-yellow: #fff4b8; --pi-yellow-edge: #e9d672;
+  --pi-red: #ffe0e0;    --pi-red-edge: #f0a9ad;
+  --pi-green: #dcf3e4;  --pi-green-edge: #9fd3b4;
+  --pi-blue: #e1ebff;   --pi-blue-edge: #a9c0ef;
+  --pi-violet: #ebe5ff; --pi-violet-edge: #bfb0f0;
+  --pi-gray: #eef0f3;   --pi-gray-edge: #c9ced6;
+  --tree: #aab0ba;      /* conectores da árvore (só neste mockup) */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 13px/1.45 var(--cx-font); color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+ul, ol { list-style: none; }
+:focus-visible { outline: 2px solid var(--cx-blue); outline-offset: 1px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: middle; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 24px 56px; }
+.muted { color: var(--cx-ink-3); }
+
+/* ---------- moldura (fixa) ---------- */
+.crumb { font-size: 11.5px; color: var(--cx-ink-3); margin-bottom: 10px; }
+.crumb b { font-weight: 500; color: var(--cx-ink-2); }
+.alert { display: flex; align-items: center; gap: 9px; background: var(--cx-orange-soft); border: 1px solid #f1d2b3; color: #6f3708; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 14px; }
+.alert .ic { color: var(--cx-orange); width: 16px; height: 16px; }
+.alert b { font-weight: 600; }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.title h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.pri { width: 10px; height: 10px; border-radius: 2px; background: var(--cx-red); flex: none; }
+.etq { display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; }
+.etq.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.etq.orange { background: var(--cx-orange-soft); color: var(--cx-orange); }
+.etq.violet { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.sumline { margin-top: 5px; color: var(--cx-ink-2); font-size: 13px; }
+.sumline b { color: var(--cx-ink); font-weight: 600; }
+.sumline .sep { margin: 0 6px; color: var(--cx-line-strong); }
+.hbtns { display: flex; gap: 6px; flex: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid var(--cx-line-strong); background: var(--cx-surface); border-radius: 7px; font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+.btn:hover { background: var(--cx-hover); }
+.btn.dark { background: var(--cx-btn); color: var(--cx-btn-ink); border-color: var(--cx-btn); }
+.btn.dark:hover { background: var(--cx-btn-hover); }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--cx-line); margin: 14px 0 12px; }
+.tabs button { padding: 8px 12px; font-size: 13px; color: var(--cx-ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button:hover { color: var(--cx-ink); }
+.tabs button[aria-current="page"] { color: var(--cx-ink); font-weight: 600; border-bottom-color: var(--cx-ink); }
+.desc { display: flex; align-items: center; gap: 6px; color: var(--cx-ink-2); font-size: 13.5px; }
+.ibtn { width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 5px; color: var(--cx-ink-3); }
+.ibtn:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.resumo { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; font-size: 13px; }
+.pill-resumo { font: 700 10px var(--cx-mono); letter-spacing: .08em; color: var(--cx-accent); background: var(--cx-accent-soft); padding: 3px 7px; border-radius: 5px; flex: none; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; margin-bottom: 16px; }
+.kpi { display: block; text-align: left; padding: 10px 16px 11px; border-left: 1px solid var(--cx-line); }
+.kpi:first-child { border-left: 0; border-radius: 10px 0 0 10px; }
+.kpi:last-child { border-radius: 0 10px 10px 0; }
+.kpi:hover { background: var(--cx-surface-2); }
+.kpi .l { display: block; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--cx-ink-3); }
+.kpi .v { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; margin-top: 1px; }
+.kpi .s { display: block; font-size: 12px; color: var(--cx-ink-3); }
+.kpi .s.red { color: var(--cx-red); font-weight: 600; }
+
+/* ---------- cartões, pílulas e componentes compartilhados ---------- */
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; }
+.ch { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-bottom: 1px solid var(--cx-line); }
+.ch h2 { font-size: 14px; font-weight: 600; }
+.ch .hint { font-size: 12px; color: var(--cx-ink-3); }
+.ch .push { margin-left: auto; }
+.count { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--cx-hover); color: var(--cx-ink-2); font-size: 11px; font-weight: 600; }
+.count.red { background: var(--cx-red-soft); color: var(--cx-red); }
+
+/* chip de tipo */
+.kind { display: inline-flex; align-items: center; justify-content: center; height: 18px; padding: 0 5px; border-radius: 4px; font: 700 10.5px var(--cx-mono); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
+.k-EF { background: #3a3f48; color: #fff; }
+.k-IDPJ { background: var(--cx-violet-soft); color: var(--cx-violet); box-shadow: inset 0 0 0 1px #d6cdf7; }
+.k-EXC { background: var(--cx-orange-soft); color: var(--cx-orange); box-shadow: inset 0 0 0 1px #f1d2b3; }
+.k-AI { background: var(--cx-blue-soft); color: var(--cx-blue); box-shadow: inset 0 0 0 1px #c3d3f6; }
+.k-MCF { background: var(--cx-cyan-soft); color: var(--cx-cyan); box-shadow: inset 0 0 0 1px #b4dde2; }
+.k-EMB { background: var(--cx-red-soft); color: var(--cx-red); box-shadow: inset 0 0 0 1px #f0c5c8; }
+.k-OP { background: var(--cx-hover); color: var(--cx-ink-2); }
+.k-ACP { background: transparent; color: var(--cx-ink-2); box-shadow: inset 0 0 0 1px var(--cx-line-strong); }
+.k-ACP .ic { width: 12px; height: 12px; }
+
+/* chip de vínculo */
+.rel { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--cx-line-strong); background: var(--cx-surface-2); color: var(--cx-ink-2); font-size: 10.5px; font-weight: 500; white-space: nowrap; flex: none; }
+
+/* prazo */
+.due { display: inline-flex; align-items: center; gap: 5px; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; background: var(--cx-hover); color: var(--cx-ink-2); border: 1px solid var(--cx-line); }
+.due b { font: 600 10.5px var(--cx-mono); }
+.due.red { background: var(--cx-red-soft); color: var(--cx-red); border-color: #f0c5c8; }
+.due.orange { background: var(--cx-orange-soft); color: var(--cx-orange); border-color: #f1d2b3; }
+
+/* chip de número CNJ */
+.cnj { position: relative; display: inline-flex; align-items: center; gap: 3px; max-width: 100%; }
+.cnj .num { font: 500 12.5px var(--cx-mono); color: var(--cx-ink); user-select: all; -webkit-user-select: all; cursor: text; white-space: nowrap; }
+.cnj .num i { font-style: normal; color: var(--cx-ink-3); }
+.cnj .cp { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; color: var(--cx-ink-3); flex: none; }
+.cnj .cp:hover { color: var(--cx-ink); background: var(--cx-hover); }
+.cnj .cp.ok { color: var(--cx-green); }
+.cnj .tip { position: absolute; bottom: calc(100% + 3px); right: 0; background: var(--cx-btn); color: #fff; font: 500 11px var(--cx-font); padding: 3px 8px; border-radius: 5px; white-space: nowrap; pointer-events: none; z-index: 40; box-shadow: var(--cx-shadow); }
+.cnj .tip.err { background: var(--cx-red); }
+.cnj.lg .num { font-size: 15px; }
+.cnj.lg .cp { width: 24px; height: 24px; }
+.cnj.lg .cp .ic { width: 16px; height: 16px; }
+
+/* ---------- grade principal ---------- */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: stretch; }
+
+/* ---------- Frentes processuais (tabela-mestra) ---------- */
+.frentes { overflow: clip; }
+.tw { position: relative; }
+.tb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px; background: var(--cx-surface-2); border-bottom: 1px solid var(--cx-line); }
+.tb .lbl { font-size: 11.5px; color: var(--cx-ink-3); font-weight: 500; }
+.seg { display: inline-flex; background: var(--cx-hover); border-radius: 7px; padding: 2px; gap: 1px; }
+.seg button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--cx-ink-2); }
+.seg button:hover { color: var(--cx-ink); }
+.seg button[aria-pressed="true"] { background: var(--cx-surface); color: var(--cx-ink); font-weight: 600; box-shadow: 0 1px 2px rgba(20,24,32,.14); }
+.tgl { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border: 1px solid var(--cx-line-strong); border-radius: 7px; background: var(--cx-surface); font-size: 12px; font-weight: 500; }
+.tgl:hover { background: var(--cx-hover); }
+.tgl .sw { width: 22px; height: 12px; border-radius: 999px; background: var(--cx-line-strong); position: relative; transition: background .15s; flex: none; }
+.tgl .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; border-radius: 50%; background: #fff; transition: left .15s; }
+.tgl[aria-pressed="true"] .sw { background: var(--cx-green); }
+.tgl[aria-pressed="true"] .sw::after { left: 12px; }
+.tb .push { margin-left: auto; }
+
+.tt { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.tt th { position: sticky; top: 0; z-index: 3; background: var(--cx-surface-2); border-bottom: 1px solid var(--cx-line); padding: 7px 6px; text-align: left; font: 600 10.5px var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); white-space: nowrap; }
+.tt th.r { text-align: right; }
+.thb { display: inline-flex; align-items: center; gap: 3px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+.thb:hover, .thb.on { color: var(--cx-ink); }
+.tt td { padding: 8px 6px; border-bottom: 1px solid var(--cx-line); vertical-align: middle; background: var(--cx-surface); }
+.tt tbody.grp > tr:last-child > td { border-bottom-color: var(--cx-line-strong); }
+.tt .r:hover > td { background: var(--cx-hover); }
+.tt .r.flash > td { animation: flash 1.8s ease-out; }
+@keyframes flash { 0% { background: var(--cx-accent-soft); } 100% { background: var(--cx-surface); } }
+.tt tbody.fixed .r:first-child > td { border-top: 1px dashed var(--cx-line-strong); }
+
+.c1 { position: relative; padding: 0 !important; }
+.chev { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; color: var(--cx-ink-3); }
+.chev:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.chev .ic { transition: transform .15s; }
+.chev[aria-expanded="true"] .ic { transform: rotate(90deg); }
+.r.parent .chev { margin-left: 4px; }
+.r.child .chev { margin-left: 26px; }
+.r.child .c1::before { content: ""; position: absolute; left: 14px; top: 0; width: 12px; height: 50%; border-left: 1px solid var(--tree); border-bottom: 1px solid var(--tree); border-bottom-left-radius: 6px; }
+.r.child:not(.last) .c1::after { content: ""; position: absolute; left: 14px; top: 50%; bottom: -1px; border-left: 1px solid var(--tree); }
+.tt tbody.fixed .r.parent.has-kids .c1::after { top: calc(50% + 5px); }
+.r.parent.has-kids .c1::after { content: ""; position: absolute; left: 14px; top: calc(50% + 11px); bottom: -1px; border-left: 1px solid var(--tree); }
+.x.pass > .gut::before { content: ""; position: absolute; left: 14px; top: -1px; bottom: -1px; border-left: 1px solid var(--tree); }
+.x[hidden] { display: none; }
+.tt tbody.fixed .r.child .c1::before { width: 30px; }
+.sp { display: block; width: 7px; height: 7px; margin-left: 11px; border-radius: 50%; border: 1.5px solid var(--cx-ink-3); background: var(--cx-surface); }
+
+.c-kind { padding-left: 4px !important; padding-right: 2px !important; }
+.pr1 { display: flex; align-items: center; }
+.pr2 { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 11.5px; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; }
+.pr2 .cls { overflow: hidden; text-overflow: ellipsis; }
+.c-jz { font-size: 11.5px; line-height: 1.3; color: var(--cx-ink-2); padding-left: 4px !important; padding-right: 2px !important; }
+.c-ab { padding-left: 4px !important; padding-right: 2px !important; }
+.c-jz span { display: block; }
+.mr { position: relative; height: 10px; width: 84px; display: flex; justify-content: space-between; align-items: center; }
+.mr::before { content: ""; position: absolute; left: 4px; right: 4px; top: 4px; height: 2px; background: var(--cx-line-strong); border-radius: 1px; }
+.mr .pg { position: absolute; left: 4px; top: 4px; height: 2px; background: var(--cx-ink); border-radius: 1px; }
+.mr .d { position: relative; z-index: 1; width: 8px; height: 8px; border-radius: 50%; background: var(--cx-surface); border: 1.5px solid var(--cx-ink-3); }
+.mr .d.done { background: var(--cx-ink); border-color: var(--cx-ink); }
+.mr .d.cur { width: 10px; height: 10px; border: 2.5px solid var(--cx-accent); background: var(--cx-surface); }
+.fl { margin-top: 4px; font-size: 11px; line-height: 1.2; font-weight: 600; color: var(--cx-ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nxt { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 11.5px; color: var(--cx-ink-2); min-width: 0; }
+.nxt .ic { width: 12px; height: 12px; color: var(--cx-ink-3); }
+.nxt .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.more { flex: none; font: 600 10.5px var(--cx-mono); color: var(--cx-ink-3); background: var(--cx-hover); border-radius: 4px; padding: 0 4px; }
+.ab { display: grid; grid-template-columns: repeat(3, 22px); gap: 4px 3px; }
+.ai { display: inline-flex; align-items: center; gap: 2px; height: 16px; font-size: 11px; font-weight: 600; color: var(--cx-ink-2); }
+.ai .ic { width: 13px; height: 13px; color: var(--cx-ink-3); }
+.ai.red, .ai.red .ic { color: var(--cx-red); }
+.val { font: 600 12px var(--cx-font); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.val-s { font-size: 11px; color: var(--cx-ink-3); text-align: right; }
+.mbtn { width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center; color: var(--cx-ink-3); }
+.mbtn:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.c-more { padding-left: 0 !important; padding-right: 2px !important; }
+
+/* linha expandida */
+.x > td { background: var(--cx-surface-2); border-bottom: 1px solid var(--cx-line); }
+.x > td.gut { position: relative; padding: 0; }
+.x > td.xc { padding: 10px 14px 12px 6px; }
+.tt tbody.grp > tr.x:last-child > td { border-bottom-color: var(--cx-line-strong); }
+.xp { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px 22px; }
+.xs { min-width: 0; }
+.xs.full { grid-column: 1 / -1; }
+.xt { font: 600 10.5px var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-3); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.ruler { display: flex; margin-top: 2px; }
+.rs { flex: 1; position: relative; text-align: center; padding: 0 4px; min-width: 0; }
+.rs::before { content: ""; position: absolute; top: 5px; right: 50%; width: 100%; height: 2px; background: var(--cx-line-strong); }
+.rs:first-child::before { display: none; }
+.rs.done::before, .rs.cur::before { background: var(--cx-ink); }
+.rd { position: relative; z-index: 1; display: block; width: 12px; height: 12px; border-radius: 50%; margin: 0 auto 5px; background: var(--cx-surface-2); border: 1.5px solid var(--cx-ink-3); }
+.rs.done .rd { background: var(--cx-ink); border-color: var(--cx-ink); }
+.rs.cur .rd { width: 14px; height: 14px; margin: -1px auto 4px; border: 3px solid var(--cx-accent); background: var(--cx-surface-2); }
+.rl { display: block; font-size: 11px; color: var(--cx-ink-2); line-height: 1.25; }
+.rs.cur .rl { font-weight: 700; color: var(--cx-ink); }
+.re { display: block; font: 500 10.5px var(--cx-mono); color: var(--cx-ink-3); margin-top: 1px; }
+.ao { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 5px 0; border-bottom: 1px dotted var(--cx-line-strong); font-size: 12px; }
+.ao:last-child { border-bottom: 0; }
+.ao > .ic { margin-top: 2px; color: var(--cx-ink-3); }
+.ao.crit > .ic { color: var(--cx-red); }
+.ao em { display: block; font-style: normal; font-size: 11px; color: var(--cx-ink-3); }
+.empty { font-size: 12px; color: var(--cx-ink-3); padding: 4px 0; }
+.cda { padding: 5px 0 6px; border-bottom: 1px dotted var(--cx-line-strong); }
+.cda:last-child { border-bottom: 0; }
+.cda-h { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
+.cda-h b { font: 600 12px var(--cx-mono); }
+.cda-h .m { margin-left: auto; font: 500 11.5px var(--cx-mono); color: var(--cx-ink-2); }
+.tg { display: inline-flex; align-items: center; height: 16px; padding: 0 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; background: var(--cx-hover); color: var(--cx-ink-2); }
+.tg.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.tg.green { background: var(--cx-green-soft); color: var(--cx-green); }
+.tg.blue { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.bar { height: 5px; border-radius: 3px; background: var(--cx-hover); margin: 5px 0 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: var(--cx-ink-3); }
+.bar.red i { background: var(--cx-red); }
+.cda-f { font-size: 11px; color: var(--cx-ink-3); }
+.cda.red .cda-f { color: var(--cx-red); font-weight: 600; }
+.cs { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 0; flex-wrap: wrap; }
+.cs .ic { color: var(--cx-ink-3); }
+.cs .m { font: 500 11.5px var(--cx-mono); color: var(--cx-ink-2); margin-left: auto; }
+.kv { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 4px 8px; font-size: 12px; align-items: center; padding: 3px 0; }
+.kv > span:first-child { color: var(--cx-ink-3); font-size: 11.5px; }
+.kv .cnj { margin-right: 4px; }
+.ult { display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 0; flex: 1 1 340px; }
+.ult .xt { white-space: nowrap; flex: none; }
+.ult .m { font: 600 11px var(--cx-mono); color: var(--cx-ink-2); background: var(--cx-hover); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.ult .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lnk { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--cx-accent); white-space: nowrap; border-radius: 4px; padding: 1px 4px; }
+.lnk:hover { background: var(--cx-accent-soft); }
+.xfoot { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; border-top: 1px dashed var(--cx-line-strong); padding-top: 10px; }
+.acts { display: flex; align-items: center; gap: 6px; }
+.tfoot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 14px 9px; border-top: 1px solid var(--cx-line); font-size: 11.5px; color: var(--cx-ink-3); background: var(--cx-surface); }
+.tfoot .leg { display: flex; align-items: center; gap: 4px 13px; flex-wrap: wrap; }
+.tfoot .leg b { font-weight: 600; color: var(--cx-ink-2); }
+.tfoot .leg span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- Mural (trilho) ---------- */
+.rail { position: relative; min-height: 600px; }
+.mural { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mural .ch { flex: none; }
+.mf { flex: none; display: flex; align-items: center; gap: 2px; padding: 7px 10px 4px; }
+.fb { position: relative; width: 33px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: var(--cx-ink-2); }
+.fb:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.fb[aria-pressed="true"] { background: var(--cx-btn); color: #fff; }
+.fb .dot { position: absolute; right: 5px; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--cx-surface); }
+.fb[aria-pressed="true"] .dot { box-shadow: 0 0 0 1.5px var(--cx-btn); }
+.fcap { flex: none; padding: 0 12px 8px; font-size: 11px; color: var(--cx-ink-3); border-bottom: 1px solid var(--cx-line); line-height: 1.35; }
+.fcap b { color: var(--cx-ink-2); font-weight: 600; }
+.mlist { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 14px 20px; background: var(--cx-surface-2); }
+.pi { position: relative; display: block; border-radius: 4px; padding: 9px 11px 15px; margin: 0 0 -5px; background: var(--bg); border-bottom: 2px solid var(--edge); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 10px rgba(20,24,32,.06); transform: rotate(-.6deg); transition: transform .12s, box-shadow .12s; }
+.pi:nth-child(even) { transform: rotate(.5deg); }
+.pi:hover { transform: rotate(0) translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 8px 16px rgba(20,24,32,.10); z-index: 2; }
+.pi.y { --bg: var(--pi-yellow); --edge: var(--pi-yellow-edge); }
+.pi.r { --bg: var(--pi-red); --edge: var(--pi-red-edge); }
+.pi.g { --bg: var(--pi-green); --edge: var(--pi-green-edge); }
+.pi.b { --bg: var(--pi-blue); --edge: var(--pi-blue-edge); }
+.pi.v { --bg: var(--pi-violet); --edge: var(--pi-violet-edge); }
+.pi.n { --bg: var(--pi-gray); --edge: var(--pi-gray-edge); }
+.pi.pin::before { content: ""; position: absolute; top: -7px; left: 50%; width: 58px; height: 15px; transform: translateX(-50%) rotate(-2deg); background: rgba(255,255,255,.62); border: 1px solid rgba(20,24,32,.07); border-radius: 2px; }
+.pi-h { display: flex; align-items: center; gap: 6px; font: 700 10px var(--cx-font); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-ink-2); }
+.pi-h .d { margin-left: auto; font: 500 10.5px var(--cx-mono); letter-spacing: 0; text-transform: none; color: var(--cx-ink-2); }
+.pi-t { font-size: 12.5px; line-height: 1.4; color: var(--cx-ink); margin-top: 4px; }
+.pi-t[contenteditable="true"] { outline: 1px dashed var(--cx-ink-3); outline-offset: 2px; min-height: 18px; border-radius: 2px; }
+.pi-t[contenteditable="true"]:empty::before { content: attr(data-ph); color: var(--cx-ink-3); }
+.pi-f { margin-top: 7px; }
+.pi.done { opacity: .55; }
+.pi.done .pi-t { text-decoration: line-through; }
+.rchk { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--cx-ink-2); background: rgba(255,255,255,.55); display: grid; place-items: center; color: transparent; flex: none; }
+.rchk .ic { width: 10px; height: 10px; stroke-width: 3; }
+.rchk[aria-checked="true"] { background: var(--cx-green); border-color: var(--cx-green); color: #fff; }
+.tp { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(255,255,255,.7); border: 1px solid rgba(20,24,32,.12); color: var(--cx-ink-2); }
+.tp .ic { width: 11px; height: 11px; }
+.tp.yellow { background: #ffd95a; border-color: #d9b11f; color: #4a3600; }
+.tp.red { background: var(--cx-red); border-color: var(--cx-red); color: #fff; }
+.tp.green { background: var(--cx-green); border-color: var(--cx-green); color: #fff; }
+
+/* ---------- menu popup ---------- */
+.menu { position: absolute; z-index: 60; min-width: 210px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 9px; box-shadow: var(--cx-shadow); padding: 4px; }
+.menu button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 9px; border-radius: 6px; font-size: 12.5px; }
+.menu button:hover, .menu button:focus-visible { background: var(--cx-hover); }
+.menu .ic { color: var(--cx-ink-3); }
+.menu hr { border: 0; border-top: 1px solid var(--cx-line); margin: 4px 2px; }
+
+/* ---------- Painel de apoio ---------- */
+.apoio { margin-top: 16px; }
+.atabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--cx-line); }
+.atabs button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; font-size: 13px; color: var(--cx-ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.atabs button:hover { color: var(--cx-ink); }
+.atabs button[aria-selected="true"] { color: var(--cx-ink); font-weight: 600; border-bottom-color: var(--cx-ink); }
+.apane { padding: 12px 16px 16px; }
+.apane[hidden] { display: none; }
+.vem { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, auto); grid-auto-flow: column; gap: 0 32px; }
+.vem li { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px dotted var(--cx-line-strong); }
+.vem .its { display: flex; flex-direction: column; gap: 4px; }
+.vem .it { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; }
+.vem .it .ic { margin-top: 2px; color: var(--cx-ink-3); }
+.vem .it em { font-style: normal; color: var(--cx-ink-3); font-size: 11.5px; }
+.frt { border-radius: 4px; display: inline-flex; flex: none; }
+.frt:hover { filter: brightness(.94); }
+.px { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; }
+.px-main { align-self: start; border: 1px solid #f0c5c8; background: var(--cx-red-soft); border-radius: 9px; padding: 12px 14px; }
+.px-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.px-h .m { font: 500 12px var(--cx-mono); color: var(--cx-ink-2); }
+.px-main .bar { background: #f3c9cc; height: 7px; margin: 10px 0 6px; }
+.px-f { font-size: 12px; color: var(--cx-ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.px-oth .cda-f { color: var(--cx-ink-3); }
+.cl2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.cl h3 { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.cl .bar { margin: 7px 0 6px; }
+.cl .bar i { background: var(--cx-green); }
+.ck { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 5px 0; font-size: 12.5px; border-bottom: 1px dotted var(--cx-line-strong); }
+.ck .bx { width: 15px; height: 15px; border: 1.5px solid var(--cx-line-strong); border-radius: 4px; display: grid; place-items: center; color: transparent; background: var(--cx-surface); flex: none; }
+.ck .bx .ic { width: 11px; height: 11px; stroke-width: 3; }
+.ck[aria-checked="true"] .bx { background: var(--cx-green); border-color: var(--cx-green); color: #fff; }
+.ck[aria-checked="true"] .tx { color: var(--cx-ink-3); text-decoration: line-through; }
+.fontes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fonte { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--cx-line); border-radius: 9px; text-decoration: none; background: var(--cx-surface-2); }
+.fonte:hover { background: var(--cx-hover); }
+.fonte .fi { width: 30px; height: 30px; border-radius: 7px; background: var(--cx-blue-soft); color: var(--cx-blue); display: grid; place-items: center; flex: none; }
+.fonte b { display: block; font-weight: 600; font-size: 12.5px; }
+.fonte span { font-size: 11.5px; color: var(--cx-ink-3); }
+.fonte > .ic:last-child { margin-left: auto; color: var(--cx-ink-3); }
+.atu li { display: grid; grid-template-columns: 52px 18px max-content auto; justify-content: start; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dotted var(--cx-line-strong); font-size: 12.5px; }
+.atu .dt { font: 500 11.5px var(--cx-mono); color: var(--cx-ink-3); }
+.atu li > .ic { color: var(--cx-ink-3); }
+
+/* ---------- Notas da ideia ---------- */
+.notas { margin-top: 16px; background: var(--cx-surface-2); border: 1px dashed var(--cx-line-strong); border-radius: 10px; padding: 14px 16px 16px; }
+.notas h2 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.ng { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-top: 10px; font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.5; }
+.ng h3 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--cx-ink-3); margin-bottom: 4px; font-weight: 600; }
+.ng ul { list-style: disc; padding-left: 16px; }
+.ng li { margin-bottom: 2px; }
+.ng strong { color: var(--cx-ink); font-weight: 600; }
+.nrow { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--cx-line-strong); font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.5; }
+.nrow h3 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--cx-ink-3); margin-bottom: 4px; font-weight: 600; }
+
+/* ---------- toast ---------- */
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 8px); background: var(--cx-btn); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 100; box-shadow: var(--cx-shadow); max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- responsivo (a janela útil do mockup é 1280 / 1440) ---------- */
+@media (max-width: 1179px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .rail { min-height: 0; }
+  .mural { position: static; }
+  .mlist { max-height: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; padding-bottom: 24px; }
+  .pi { margin: 0; }
+  .vem { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
+  .px, .cl2 { grid-template-columns: 1fr; }
+  .fontes { grid-template-columns: 1fr; }
+  .ng { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .tabs, .atabs { overflow-x: auto; overflow-y: hidden; padding-bottom: 1px; }
+  .wrap { padding-left: 16px; padding-right: 16px; }
+  .head { flex-direction: column; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tw { overflow-x: auto; }
+  .tt { min-width: 760px; }
+  .xp { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ícones (traço 1.75, currentColor) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12l-4.41 4.42A2 2 0 0 0 7 17.83V22"/><path d="M7 2v4.17a2 2 0 0 0 .59 1.41L12 12l4.41-4.42A2 2 0 0 0 17 6.17V2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-landmark" viewBox="0 0 24 24"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></symbol>
+  <symbol id="i-checkc" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- ===== MOLDURA (fixa) ===== -->
+  <nav class="crumb" aria-label="Migalha de pão">NEXUS / Carteira / <b>Operação Fachada Norte</b> / Visão geral</nav>
+
+  <div class="alert" role="status">
+    <svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg>
+    <span><b>Audiência em 4 dias</b> · 12/10 14:30 — FAZENDA NACIONAL x Marina Ferreira Norte (justificação, IDPJ)</span>
+  </div>
+
+  <header class="head">
+    <div>
+      <div class="title">
+        <span class="pri" title="Prioridade alta" role="img" aria-label="Prioridade alta"></span>
+        <h1>Operação Fachada Norte</h1>
+        <span class="etq red">Alta relevância</span>
+        <span class="etq orange">Constrição ativa</span>
+        <span class="etq violet">IDPJ em curso</span>
+      </div>
+      <p class="sumline"><b>R$ 2,66 mi</b> em dívida<span class="sep">·</span><b>R$ 962 mil</b> indisponível<span class="sep">·</span>36% garantido<span class="sep">·</span>6 CDAs<span class="sep">·</span>5 processos<span class="sep">·</span>5 intimações abertas</p>
+    </div>
+    <div class="hbtns">
+      <button type="button" class="btn" data-act="stub" data-msg="Mockup: marcaria a operação como revisada hoje (08/10)."><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Revisada</button>
+      <button type="button" class="btn" data-act="stub" data-msg="Mockup: abriria o formulário de edição da operação.">Editar</button>
+      <button type="button" class="btn" data-act="stub" data-msg="Mockup: abriria o diagnóstico da operação.">Diagnóstico</button>
+      <button type="button" class="btn" data-act="stub" data-msg="Mockup: geraria o relatório da operação.">Relatório</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Abas da operação">
+    <button type="button" aria-current="page">Visão geral</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Processos e prescrição</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Inscrições</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Partes</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Bens</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Tarefas</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Arquivos</button>
+    <button type="button" data-act="stub" data-msg="Mockup: só a Visão geral está desenhada.">Importar</button>
+  </nav>
+
+  <p class="desc">Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR.
+    <button type="button" class="ibtn" aria-label="Editar descrição" data-act="stub" data-msg="Mockup: editaria a descrição."><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg></button>
+  </p>
+
+  <div class="resumo"><span class="pill-resumo">RESUMO</span><span>Indisponibilidade de 36% da dívida, abaixo da média da carteira (59%). 1 CDA prescreve em 6 dias. 2 intimações vencidas.</span></div>
+
+  <section class="kpis" aria-label="Briefing da operação">
+    <button type="button" class="kpi" data-act="stub" data-msg="Mockup: abriria a aba Inscrições."><span class="l">Dívida total</span><span class="v">R$ 2,66 mi</span><span class="s">6 CDAs</span></button>
+    <button type="button" class="kpi" data-act="stub" data-msg="Mockup: abriria a aba Bens."><span class="l">Indisponibilidade</span><span class="v">R$ 962 mil</span><span class="s">36% da dívida</span></button>
+    <button type="button" class="kpi" data-act="goto" data-id="ex-1" title="Ir à frente com a CDA que prescreve"><span class="l">Prescrição · CDAs</span><span class="v">1</span><span class="s red">em 6 dias</span></button>
+    <button type="button" class="kpi" data-act="urg" title="Ordenar as frentes por urgência"><span class="l">Intimações</span><span class="v">5</span><span class="s red">2 vencidas</span></button>
+  </section>
+
+  <!-- ===== CORPO: tabela-mestra + trilho (Mural) ===== -->
+  <div class="grid">
+
+    <section class="card frentes" id="frentes" aria-labelledby="h-fr">
+      <div class="ch">
+        <h2 id="h-fr">Frentes processuais</h2>
+        <span class="count" id="n-fr">5</span>
+        <span class="hint">▸ abre a linha com régua, CDAs e pendências da frente</span>
+        <button type="button" class="btn sm push" data-act="stub" data-msg="Mockup: abriria o formulário de nova frente (processo)."><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Frente</button>
+      </div>
+      <div class="tb" role="toolbar" aria-label="Ferramentas da tabela de frentes">
+        <span class="lbl">Ordenar:</span>
+        <div class="seg" role="group" aria-label="Ordenar frentes">
+          <button type="button" data-act="sort" data-k="urg" aria-pressed="true">Urgência</button>
+          <button type="button" data-act="sort" data-k="tipo" aria-pressed="false">Tipo</button>
+          <button type="button" data-act="sort" data-k="valor" aria-pressed="false">Valor</button>
+        </div>
+        <button type="button" class="tgl" id="f-pend" data-act="pend" aria-pressed="false"><span class="sw" aria-hidden="true"></span>Só com pendência</button>
+        <button type="button" class="btn sm push" id="b-copyall" data-act="copyall" title="Copia os números CNJ listados, um por linha"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span>Copiar números</span></button>
+      </div>
+      <div class="tw">
+        <table class="tt" id="tt" aria-label="Frentes processuais da operação">
+          <colgroup>
+            <col style="width:46px"><col style="width:46px"><col style="width:226px"><col style="width:58px"><col style="width:98px"><col><col style="width:80px"><col style="width:78px"><col style="width:26px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th><span class="sr">Expandir</span></th>
+              <th><button type="button" class="thb" data-act="sort" data-k="tipo">Tipo<span class="arr"></span></button></th>
+              <th>Processo</th>
+              <th>Juízo</th>
+              <th>Fase</th>
+              <th><button type="button" class="thb" data-act="sort" data-k="urg">Próximo ato<span class="arr"></span></button></th>
+              <th>Abertos</th>
+              <th class="r"><button type="button" class="thb" data-act="sort" data-k="valor">Valor<span class="arr"></span></button></th>
+              <th><span class="sr">Ações</span></th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <div class="tfoot">
+        <span id="tsum" aria-live="polite"></span>
+        <div class="leg" aria-label="Legenda da coluna Abertos">
+          <b>Abertos:</b>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg>intimações</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-task"/></svg>tarefas</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>audiências</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>constrições</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg>prescrição de CDA</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>acompanhar</span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Mural">
+      <section class="card mural" aria-labelledby="h-mu">
+        <div class="ch">
+          <h2 id="h-mu">Mural</h2>
+          <span class="count" id="n-mu">8</span>
+          <button type="button" class="btn sm push" id="b-nota" data-act="addmenu" aria-haspopup="menu"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nota<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></button>
+        </div>
+        <div class="mf" role="group" aria-label="Filtrar o mural">
+          <button type="button" class="fb" data-act="filt" data-f="tudo" aria-pressed="true" title="Tudo" aria-label="Tudo"><svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg></button>
+          <button type="button" class="fb" data-act="filt" data-f="lembrete" aria-pressed="false" title="Lembretes" aria-label="Lembretes"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span class="dot" style="background:#e9d672"></span></button>
+          <button type="button" class="fb" data-act="filt" data-f="estrategia" aria-pressed="false" title="Estratégia" aria-label="Estratégia"><svg class="ic" aria-hidden="true"><use href="#i-flag"/></svg><span class="dot" style="background:#d9b11f"></span></button>
+          <button type="button" class="fb" data-act="filt" data-f="risco" aria-pressed="false" title="Risco" aria-label="Risco"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span class="dot" style="background:var(--cx-red)"></span></button>
+          <button type="button" class="fb" data-act="filt" data-f="decisao" aria-pressed="false" title="Decisão judicial" aria-label="Decisão judicial"><svg class="ic" aria-hidden="true"><use href="#i-landmark"/></svg><span class="dot" style="background:var(--cx-blue)"></span></button>
+          <button type="button" class="fb" data-act="filt" data-f="providencia" aria-pressed="false" title="Providência" aria-label="Providência"><svg class="ic" aria-hidden="true"><use href="#i-checkc"/></svg><span class="dot" style="background:var(--cx-green)"></span></button>
+          <button type="button" class="fb" data-act="filt" data-f="observacao" aria-pressed="false" title="Observação" aria-label="Observação"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg><span class="dot" style="background:var(--cx-ink-3)"></span></button>
+        </div>
+        <p class="fcap" id="fcap" aria-live="polite"></p>
+        <div class="mlist" id="mlist"></div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ===== PAINEL DE APOIO (largura cheia) ===== -->
+  <section class="card apoio" aria-labelledby="h-ap">
+    <div class="ch">
+      <h2 id="h-ap">Painel de apoio</h2>
+      <span class="hint">cinco cartões antigos, uma só área com abas</span>
+    </div>
+    <div class="atabs" role="tablist" aria-label="Painel de apoio">
+      <button type="button" role="tab" id="tab-vem" aria-selected="true" aria-controls="pane-vem" tabindex="0">O que vem <span class="count" id="c-vem">8</span></button>
+      <button type="button" role="tab" id="tab-prazos" aria-selected="false" aria-controls="pane-prazos" tabindex="-1">Prazos extintivos <span class="count red">1</span></button>
+      <button type="button" role="tab" id="tab-check" aria-selected="false" aria-controls="pane-check" tabindex="-1">Checklists <span class="count" id="c-check">4/9</span></button>
+      <button type="button" role="tab" id="tab-fontes" aria-selected="false" aria-controls="pane-fontes" tabindex="-1">Fontes <span class="count">3</span></button>
+      <button type="button" role="tab" id="tab-atu" aria-selected="false" aria-controls="pane-atu" tabindex="-1">Atuações recentes <span class="count">3</span></button>
+    </div>
+
+    <div class="apane" role="tabpanel" id="pane-vem" aria-labelledby="tab-vem">
+      <ul class="vem" id="vem"></ul>
+    </div>
+
+    <div class="apane" role="tabpanel" id="pane-prazos" aria-labelledby="tab-prazos" hidden>
+      <div class="px">
+        <div class="px-main">
+          <div class="px-h">
+            <span class="kind k-EF">EF</span><b>CDA 000123 · IRPJ</b><span class="m">R$ 1.250.000</span>
+            <span class="due red"><b>14/10</b>em 6 dias</span><span class="tg red">exige decisão</span>
+          </div>
+          <div class="bar red"><i style="width:99%"></i></div>
+          <div class="px-f">
+            <span>Confirmar o marco interruptivo (citação, Ev. 9) antes da manifestação — ver RISCO de 05/10 no Mural.</span>
+            <button type="button" class="lnk" data-act="goto" data-id="ex-1">Ver na EF principal<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          </div>
+        </div>
+        <div class="px-oth">
+          <div class="xt">Sem alerta · 3 CDAs</div>
+          <div class="cda"><div class="cda-h"><b>000124</b>CSLL<span class="tg green">garantida</span><span class="m">R$ 480.000</span></div><div class="bar"><i style="width:51%"></i></div><div class="cda-f">prescreve em 15/03/2029</div></div>
+          <div class="cda"><div class="cda-h"><b>000125</b>PIS<span class="m">R$ 92.000</span></div><div class="bar"><i style="width:46%"></i></div><div class="cda-f">prescreve em 20/06/2029</div></div>
+          <div class="cda"><div class="cda-h"><b>000129</b>COFINS<span class="m">R$ 310.000</span></div><div class="bar"><i style="width:35%"></i></div><div class="cda-f">prescreve em 10/01/2030</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="apane" role="tabpanel" id="pane-check" aria-labelledby="tab-check" hidden>
+      <div class="cl2" id="cl2"></div>
+    </div>
+
+    <div class="apane" role="tabpanel" id="pane-fontes" aria-labelledby="tab-fontes" hidden>
+      <div class="fontes">
+        <a class="fonte" href="#"><span class="fi"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg></span><div><b>Organograma — Grupo Fachada Norte</b><span>Docs</span></div><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>
+        <a class="fonte" href="#"><span class="fi"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg></span><div><b>Memorial — Audiência IDPJ</b><span>Docs</span></div><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>
+        <a class="fonte" href="#"><span class="fi"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg></span><div><b>Petição — Resposta à exceção</b><span>Docs</span></div><svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>
+      </div>
+    </div>
+
+    <div class="apane" role="tabpanel" id="pane-atu" aria-labelledby="tab-atu" hidden>
+      <ul class="atu" id="atu"></ul>
+    </div>
+  </section>
+
+  <!-- ===== NOTAS DA IDEIA ===== -->
+  <section class="notas" aria-labelledby="h-notas">
+    <h2 id="h-notas">Notas da ideia <span class="count">Ideia 2 · Tabela-mestra · intensidade 2/5</span></h2>
+    <div class="ng">
+      <div>
+        <h3>O que muda</h3>
+        <ul>
+          <li>Frentes viram uma <strong>tabela em árvore</strong>, ordenável, com filhos recuados sob o pai (apensa, exceção, agravo).</li>
+          <li>Intimações abertas e Prazos extintivos deixam de ser cartões: viram as colunas <strong>Próximo ato</strong> e <strong>Abertos</strong> e a linha expandida.</li>
+          <li>Diário e Lembretes fundem-se no <strong>Mural</strong> (trilho direito).</li>
+          <li>O que vem + Agenda, Prazos, Checklists, Fontes e Atuações moram num <strong>Painel de apoio</strong> com abas.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Cartões: antes → depois</h3>
+        <p><strong>10 → 3.</strong> Antes: O que vem, Intimações abertas, Frentes, Atuações, Diário, Prazos extintivos, Agenda, Checklists, Lembretes, Fontes. Depois: Frentes processuais (tabela), Mural e Painel de apoio.</p>
+        <p style="margin-top:4px">A tabela começa logo após os KPIs (≈ 370 px do topo, contra ≈ 1.400 px hoje).</p>
+      </div>
+      <div>
+        <h3>Custo de implementação</h3>
+        <p><strong>Médio.</strong> Tabela em árvore com ordenação por grupo e linha expandida; Mural fundindo duas listas; abas simples. Reaproveita chip de número, copiar com toast, régua de fases e sinais por processo que o app já tem.</p>
+      </div>
+      <div>
+        <h3>Modelo de dados</h3>
+        <p><strong>Não muda.</strong> Lembrete × entrada do diário é só apresentação (nota com data × sem data). A linha “Operação (geral)” deriva de tarefas e itens de Acompanhar sem frente.</p>
+      </div>
+    </div>
+    <div class="nrow">
+      <h3>A validar com o uso</h3>
+      <p>(1) Mural em coluna rola por dentro quando há mais de ~7 notas. (2) A coluna Juízo abrevia (“1ª VF Maringá”, em duas linhas) para caber em 1280 px sem rolagem. (3) A régua da linha varia de 3 a 5 pontos conforme o tipo de processo. (4) Ordem do Mural: fixadas → lembretes vencidos → lembretes por prazo → diário do mais recente ao mais antigo.</p>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- utilitários ---------- */
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var TODAY = new Date(2026, 9, 8); // qui 08/10/2026
+  function dias(d, m) { return Math.round((new Date(2026, m - 1, d) - TODAY) / 86400000); }
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function fd(d, m) { return p2(d) + '/' + p2(m); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function ic(n) { return '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-' + n + '"/></svg>'; }
+  function dueText(n) { return n < 0 ? 'vencida há ' + (-n) + (n === -1 ? ' dia' : ' dias') : n === 0 ? 'hoje' : n === 1 ? 'amanhã' : 'em ' + n + ' dias'; }
+  function dueCls(n, crit) { return (crit || n <= 2) ? 'red' : n <= 7 ? 'orange' : ''; }
+  function dueHTML(d, m, crit) { var n = dias(d, m); return '<span class="due ' + dueCls(n, crit) + '"><b>' + fd(d, m) + '</b>' + dueText(n) + '</span>'; }
+
+  var toastT;
+  function toast(msg) {
+    var t = $('#toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('on'); }, 2600);
+  }
+
+  /* ---------- copiar (clipboard + fallback) ---------- */
+  function copyText(txt) {
+    function fallback() {
+      return new Promise(function (ok, no) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = txt; ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0';
+          document.body.appendChild(ta); ta.select();
+          var res = document.execCommand('copy');
+          document.body.removeChild(ta);
+          res ? ok() : no(new Error('execCommand'));
+        } catch (e) { no(e); }
+      });
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(txt).catch(fallback);
+    }
+    return fallback();
+  }
+
+  function cnjHTML(num, cls) {
+    var m = num.match(/^(\d{7}-\d{2})(\..+)$/);
+    return '<span class="cnj ' + (cls || '') + '" data-num="' + num + '"><span class="num">' + m[1] + '<i>' + m[2] + '</i></span>' +
+      '<button type="button" class="cp" aria-label="Copiar número do processo" title="Copiar número (Shift+clique: só os 20 dígitos)">' + ic('copy') + '</button></span>';
+  }
+  function selectNum(cnj) {
+    var r = document.createRange(); r.selectNodeContents($('.num', cnj));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  function feedback(cnj, ok, msg) {
+    var btn = $('.cp', cnj);
+    clearTimeout(cnj._t);
+    $$('.tip', cnj).forEach(function (t) { t.remove(); });
+    btn.classList.toggle('ok', ok);
+    btn.innerHTML = ic(ok ? 'check' : 'copy');
+    var tip = document.createElement('span');
+    tip.className = 'tip' + (ok ? '' : ' err'); tip.setAttribute('role', 'status'); tip.textContent = msg;
+    cnj.appendChild(tip);
+    $('#live').textContent = msg;
+    cnj._t = setTimeout(function () { tip.remove(); btn.classList.remove('ok'); btn.innerHTML = ic('copy'); }, 2000);
+  }
+  function doCopy(cnj, digits) {
+    var num = cnj.getAttribute('data-num');
+    var txt = digits ? num.replace(/\D/g, '') : num;
+    copyText(txt).then(
+      function () { feedback(cnj, true, digits ? 'Copiado (só dígitos)' : 'Copiado'); },
+      function () { selectNum(cnj); feedback(cnj, false, 'Selecionado — use Ctrl+C'); }
+    );
+  }
+
+  /* ---------- dados do caso (fictício) ---------- */
+  var PROCS = [
+    {
+      id: 'ex-1', parent: null, kind: 'EF', nome: 'Execução Fiscal (principal)', cls: 'Execução Fiscal', rel: 'principal',
+      num: '5001234-56.2023.4.04.7001', jz: ['1ª VF', 'Maringá'], jzFull: '1ª Vara Federal de Maringá',
+      fases: [
+        { n: 'Ajuizamento', s: 'done', e: 'Ev. 1' },
+        { n: 'Citação', s: 'done', e: 'Ev. 9' },
+        { n: 'Penhora / constrição', s: 'cur', e: 'Ev. 31 · mat. 45.678', sh: 'Penhora / constrição' },
+        { n: 'Embargos / defesa', s: 'todo', e: 'exceção em curso' },
+        { n: 'Expropriação', s: 'todo', e: '' }
+      ],
+      valor: 1822000, vtxt: 'R$ 1,82 mi', vsub: '3 CDAs', vfull: 'R$ 1.822.000,00',
+      ultimo: { ev: 'Ev. 58', data: '06/10', txt: 'Juntada de exceção de pré-executividade' },
+      abertos: [
+        { t: 'int', d: 3, m: 10, txt: 'Intimação pessoal — redirecionamento (João Almeida Souza)', short: 'Intimação pessoal — redirecionamento', nota: 'peça em edição' },
+        { t: 'tar', d: 11, m: 10, txt: 'Requerer extensão de penhora sobre imóvel matrícula 45.678', nota: 'prioridade alta' },
+        { t: 'int', d: 13, m: 10, txt: 'Manifestar sobre exceção de pré-executividade — 15 dias' },
+        { t: 'pre', d: 14, m: 10, txt: 'CDA 000123 (IRPJ) prescreve', crit: true, nota: 'alerta: confirmar marco interruptivo' },
+        { t: 'aud', d: 26, m: 10, txt: 'Audiência de instrução · 14:00 · presencial' }
+      ],
+      constr: [
+        { txt: 'Imóvel mat. 45.678 · CRI Maringá', v: 'R$ 900 mil', tags: [['CNIB', 'blue'], ['ativa', 'green']] },
+        { txt: 'Conta PJ · bloqueio parcial', v: 'R$ 62 mil', tags: [['Sisbajud', 'blue']] }
+      ],
+      cdas: [
+        { n: '000123', t: 'IRPJ', v: 'R$ 1.250.000', pct: 99, red: true, tag: ['exige decisão', 'red'], f: 'prescreve em 14/10/2026 · 6 dias' },
+        { n: '000124', t: 'CSLL', v: 'R$ 480.000', pct: 51, tag: ['garantida', 'green'], f: 'prescreve em 15/03/2029' },
+        { n: '000125', t: 'PIS', v: 'R$ 92.000', pct: 46, f: 'prescreve em 20/06/2029' }
+      ]
+    },
+    {
+      id: 'ex-1b', parent: 'ex-1', kind: 'EF', nome: 'Execução Fiscal (apensa)', cls: 'Execução Fiscal', rel: 'apensa',
+      num: '5001235-56.2023.4.04.7001', jz: ['1ª VF', 'Maringá'], jzFull: '1ª Vara Federal de Maringá',
+      fases: [
+        { n: 'Ajuizamento', s: 'done', e: 'Ev. 1' },
+        { n: 'Citação', s: 'cur', e: 'aguardando citação', sh: 'Citação' },
+        { n: 'Penhora', s: 'todo', e: '' },
+        { n: 'Embargos / defesa', s: 'todo', e: '' },
+        { n: 'Expropriação', s: 'todo', e: '' }
+      ],
+      valor: 310000, vtxt: 'R$ 310 mil', vsub: '1 CDA', vfull: 'R$ 310.000,00',
+      ultimo: { ev: 'Ev. 14', data: '02/09', txt: 'Certidão de apensamento' },
+      abertos: [], constr: [],
+      cdas: [{ n: '000129', t: 'COFINS', v: 'R$ 310.000', pct: 35, f: 'prescreve em 10/01/2030' }],
+      vinc: { lbl: 'Apensa à', ref: 'ex-1' }
+    },
+    {
+      id: 'ex-2', parent: null, kind: 'IDPJ', nome: 'Incidente de Desconsideração da PJ', cls: 'Desconsideração da PJ', rel: 'cobre 2 EFs',
+      num: '5009876-11.2024.4.04.7001', jz: ['1ª VF', 'Maringá'], jzFull: '1ª Vara Federal de Maringá',
+      fases: [
+        { n: 'Ajuizamento', s: 'done', e: '10/06/2026 · Ev. 1' },
+        { n: 'Liminar favorável', s: 'done', e: '10/07/2026 · Ev. 12' },
+        { n: 'Saneamento e provas', s: 'cur', e: 'aguarda audiência', sh: 'Saneamento e provas' },
+        { n: 'Decisão final', s: 'todo', e: '' }
+      ],
+      valor: 2132000, vtxt: 'R$ 2,13 mi', vsub: 'cobre', vfull: 'R$ 2.132.000,00 (cobre as duas EFs)',
+      ultimo: { ev: 'Ev. 41', data: '01/10', txt: 'Designada audiência de justificação' },
+      abertos: [
+        { t: 'int', d: 6, m: 10, txt: 'Manifestação sobre instauração de IDPJ — 15 dias', short: 'Manifestação sobre instauração de IDPJ', nota: 'pendente de análise' },
+        { t: 'tar', d: 11, m: 10, txt: 'Preparar memorial audiência IDPJ', nota: 'em andamento' },
+        { t: 'aud', d: 12, m: 10, txt: 'Audiência de justificação · 14:30 · presencial', nota: 'levar organograma do grupo' }
+      ],
+      constr: [], cdas: [],
+      polo: ['Marina Ferreira Norte', 'João Almeida Souza'],
+      cobre: [['ex-1', 'EF principal'], ['ex-1b', 'EF apensa']]
+    },
+    {
+      id: 'ex-18', parent: 'ex-1', kind: 'EXC', nome: 'Exceção de Pré-Executividade', cls: 'Exceção de pré-exec.', rel: 'incidental',
+      num: '5001240-56.2024.4.04.7001', jz: ['1ª VF', 'Maringá'], jzFull: '1ª Vara Federal de Maringá',
+      fases: [
+        { n: 'Apresentação', s: 'done', e: 'Ev. 1' },
+        { n: 'Vista à Fazenda', s: 'cur', e: 'Ev. 3 · 07/10', sh: 'Vista à Fazenda' },
+        { n: 'Decisão', s: 'todo', e: '' }
+      ],
+      valor: 0, vtxt: '—', vsub: '', vfull: 'sem valor próprio',
+      ultimo: { ev: 'Ev. 3', data: '07/10', txt: 'Vista à Fazenda Nacional' },
+      abertos: [{ t: 'int', d: 18, m: 10, txt: 'Vista — complementação de documentos', short: 'Vista — complementação de documentos' }],
+      constr: [], cdas: [],
+      vinc: { lbl: 'Incidental à', ref: 'ex-1' }
+    },
+    {
+      id: 'ex-19', parent: 'ex-2', kind: 'AI', nome: 'Agravo de Instrumento', cls: 'Agravo de Instrumento', rel: 'recurso',
+      num: '5001250-56.2025.4.04.0000', jz: ['TRF4', '2ª Turma'], jzFull: 'TRF4 · 2ª Turma',
+      fases: [
+        { n: 'Interposição', s: 'done', e: 'Ev. 1' },
+        { n: 'Contrarrazões', s: 'cur', e: 'Ev. 7 · 04/10', sh: 'Contrarrazões' },
+        { n: 'Julgamento', s: 'todo', e: '' }
+      ],
+      valor: 0, vtxt: '—', vsub: '', vfull: 'sem valor próprio',
+      ultimo: { ev: 'Ev. 7', data: '04/10', txt: 'Intimação para contrarrazões' },
+      abertos: [
+        { t: 'int', d: 16, m: 10, txt: 'Contrarrazões ao agravo — 15 dias', short: 'Contrarrazões ao agravo', nota: 'peça em edição' },
+        { t: 'tar', d: 16, m: 10, txt: 'Contrarrazões ao agravo IDPJ' }
+      ],
+      constr: [], cdas: [],
+      vinc: { lbl: 'Recurso contra decisão no', ref: 'ex-2' },
+      sistema: 'eproc · TRF4 (inferido de J.TR = 4.04)'
+    }
+  ];
+  var BYID = {};
+  PROCS.forEach(function (p, i) {
+    BYID[p.id] = p; p.idx = i;
+    p.abertos.sort(function (a, b) { return dias(a.d, a.m) - dias(b.d, b.m); });
+    p.urg = p.abertos.length ? dias(p.abertos[0].d, p.abertos[0].m) : 9999;
+    p.cnt = { int: 0, tar: 0, aud: 0, pre: 0, con: p.constr.length, acp: 0 };
+    p.abertos.forEach(function (a) { p.cnt[a.t]++; });
+    p.venc = p.abertos.filter(function (a) { return a.t === 'int' && dias(a.d, a.m) < 0; }).length;
+  });
+
+  var ICON_OF = { int: 'mail', tar: 'task', aud: 'cal', pre: 'hourglass', con: 'lock', acp: 'eye' };
+  var NOME_OF = { int: 'intimações', tar: 'tarefas', aud: 'audiências', con: 'constrições', pre: 'prescrição de CDA', acp: 'itens em acompanhamento' };
+  var SLOTS = ['int', 'tar', 'aud', 'con', 'pre', 'acp'];
+
+  /* ---------- tabela-mestra ---------- */
+  var state = { sort: 'urg', rev: false, pend: false, open: { 'ex-1': true } };
+  var SORT_NOME = { urg: 'urgência', tipo: 'tipo', valor: 'valor' };
+  var SORT_DICA = { urg: 'mais urgente primeiro', tipo: 'A → Z', valor: 'maior valor primeiro' };
+
+  function miniRuler(p) {
+    var n = p.fases.length, cur = 0;
+    p.fases.forEach(function (f, i) { if (f.s === 'cur') cur = i; });
+    var w = Math.round(76 * cur / (n - 1));
+    var tip = p.fases.map(function (f) { return f.n + (f.s === 'done' ? ' ✓' : f.s === 'cur' ? ' (atual)' : ''); }).join(' → ');
+    return '<div class="mr" role="img" aria-label="Fase atual: ' + esc(p.fases[cur].n) + '" title="' + esc(tip) + '"><span class="pg" style="width:' + w + 'px"></span>' +
+      p.fases.map(function (f) { return '<span class="d ' + f.s + '"></span>'; }).join('') + '</div>';
+  }
+  function curFase(p) { return p.fases.filter(function (f) { return f.s === 'cur'; })[0]; }
+  function fullRuler(p) {
+    return '<ol class="ruler" aria-label="Fases do processo">' + p.fases.map(function (f) {
+      return '<li class="rs ' + f.s + '"><span class="rd"></span><span class="rl">' + esc(f.n) + '<span class="sr"> (' + (f.s === 'done' ? 'concluída' : f.s === 'cur' ? 'atual' : 'futura') + ')</span></span><span class="re">' + esc(f.e || ' ') + '</span></li>';
+    }).join('') + '</ol>';
+  }
+  function abertosGrid(p, extra) {
+    return '<div class="ab">' + SLOTS.map(function (k) {
+      var n = (extra && extra[k] != null) ? extra[k] : p.cnt[k];
+      if (!n) return '<span></span>';
+      var red = (k === 'int' && p.venc) || k === 'pre';
+      var tit = n + ' ' + NOME_OF[k] + (k === 'int' && p.venc ? ' (' + p.venc + (p.venc === 1 ? ' vencida' : ' vencidas') + ')' : '');
+      return '<span class="ai' + (red ? ' red' : '') + '" title="' + esc(tit) + '">' + ic(ICON_OF[k]) + n + '<span class="sr"> ' + NOME_OF[k] + '</span></span>';
+    }).join('') + '</div>';
+  }
+  function frTag(id) {
+    if (!id) return '<span class="kind k-OP" title="Operação (sem frente)">OP</span>';
+    var p = BYID[id];
+    return '<button type="button" class="frt" data-act="goto" data-id="' + id + '" title="Ir à frente: ' + esc(p.nome) + '"><span class="kind k-' + p.kind + '">' + p.kind + '</span></button>';
+  }
+
+  function listaAbertos(p) {
+    if (!p.abertos.length) return '<div class="empty">Nada em aberto nesta frente.</div>';
+    return p.abertos.map(function (a) {
+      return '<div class="ao' + (a.crit ? ' crit' : '') + '">' + ic(ICON_OF[a.t]) +
+        '<span>' + esc(a.txt) + (a.nota ? '<em>' + esc(a.nota) + '</em>' : '') + '</span>' + dueHTML(a.d, a.m, a.crit) + '</div>';
+    }).join('');
+  }
+  function lateral(p) {
+    var h = '';
+    if (p.cdas.length) {
+      h += '<div class="xt">CDAs e prescrição</div>' + p.cdas.map(function (c) {
+        return '<div class="cda' + (c.red ? ' red' : '') + '"><div class="cda-h"><b>' + c.n + '</b>' + c.t +
+          (c.tag ? '<span class="tg ' + c.tag[1] + '">' + c.tag[0] + '</span>' : '') + '<span class="m">' + c.v + '</span></div>' +
+          '<div class="bar' + (c.red ? ' red' : '') + '" role="img" aria-label="' + c.pct + '% do prazo prescricional decorrido"><i style="width:' + c.pct + '%"></i></div>' +
+          '<div class="cda-f">' + c.f + '</div></div>';
+      }).join('');
+    }
+    if (p.constr.length) {
+      h += '<div class="xt" style="margin-top:10px">Constrições</div>' + p.constr.map(function (c) {
+        return '<div class="cs">' + ic('lock') + '<span>' + esc(c.txt) + '</span>' +
+          c.tags.map(function (t) { return '<span class="tg ' + t[1] + '">' + t[0] + '</span>'; }).join('') + '<span class="m">' + c.v + '</span></div>';
+      }).join('');
+    }
+    if (p.vinc) {
+      var r = BYID[p.vinc.ref];
+      h += '<div class="xt" style="margin-top:' + (h ? 10 : 0) + 'px">Vínculo</div><div class="kv"><span>' + p.vinc.lbl + '</span><span>' + cnjHTML(r.num) + ' <span class="rel">' + esc(r.rel === 'principal' ? 'EF principal' : r.cls) + '</span></span></div>';
+      if (p.id === 'ex-18') h += '<div class="kv"><span>Discute</span><span>CDAs da EF principal (000123, 000124, 000125)</span></div>';
+    }
+    if (p.polo) {
+      h += '<div class="xt">Polo passivo</div><div class="kv"><span>Incluídos</span><span>' + p.polo.map(esc).join(' · ') + ' <span class="tg blue">liminar · Ev. 12</span></span></div>' +
+        '<div class="xt" style="margin-top:10px">Cobre · R$ 2.132.000 · 4 CDAs</div>' +
+        p.cobre.map(function (c) { return '<div class="kv"><span>' + c[1] + '</span><span>' + cnjHTML(BYID[c[0]].num) + '</span></div>'; }).join('');
+    }
+    if (p.sistema) h += '<div class="kv"><span>Sistema</span><span>' + p.sistema + '</span></div>';
+    return h || '<div class="empty">Sem dados adicionais.</div>';
+  }
+  function painel(p) {
+    return '<div class="xp">' +
+      '<div class="xs full"><div class="xt">Fases · ' + esc(p.nome) + ' · ' + esc(p.jzFull) + '</div>' + fullRuler(p) + '</div>' +
+      '<div class="xs"><div class="xt">Em aberto <span class="count">' + p.abertos.length + '</span></div>' + listaAbertos(p) + '</div>' +
+      '<div class="xs">' + lateral(p) + '</div>' +
+      '<div class="xfoot">' +
+        '<div class="ult"><span class="xt" style="margin:0">Último registro</span><span class="m">' + p.ultimo.ev + ' · ' + p.ultimo.data + '</span><span class="t" title="' + esc(p.ultimo.txt) + '">' + esc(p.ultimo.txt) + '</span>' +
+        '<button type="button" class="lnk" data-act="remind" data-id="' + p.id + '" title="Transforma este registro em lembrete com data">' + ic('plus') + 'lembrete</button></div>' +
+        '<div class="acts"><button type="button" class="btn sm dark" data-act="stub" data-msg="Mockup: abriria a ficha lateral do processo.">Abrir ficha</button>' +
+        '<button type="button" class="btn sm" data-act="stub" data-msg="Mockup: abriria o formulário de novo evento na fase.">Registrar evento</button>' +
+        '<button type="button" class="btn sm" data-act="nota" data-id="' + p.id + '">Nova nota</button>' +
+        '<a class="ibtn" href="#" title="Abrir no eproc (TRF4)" aria-label="Abrir no eproc">' + ic('ext') + '</a></div>' +
+      '</div></div>';
+  }
+
+  function rowHTML(p, o) {
+    var open = !!state.open[p.id], child = !!p.parent;
+    var px = p.abertos[0], more = p.abertos.length - 1;
+    var cur = curFase(p);
+    var prox = px
+      ? '<div>' + dueHTML(px.d, px.m, px.crit) + '</div><div class="nxt" title="' + esc(px.txt) + '">' + ic(ICON_OF[px.t]) + '<span class="t">' + esc(px.short || px.txt) + '</span>' +
+        (more > 0 ? '<span class="more" title="' + more + (more === 1 ? ' outro item em aberto' : ' outros itens em aberto') + '">+' + more + '</span>' : '') + '</div>'
+      : '<span class="muted" style="font-size:11.5px">Nada em aberto</span>';
+    return '<tr class="r ' + (child ? 'child' : 'parent') + (o.last ? ' last' : '') + (o.hasKids ? ' has-kids' : '') + '" data-id="' + p.id + '">' +
+      '<td class="c1"><button type="button" class="chev" data-act="toggle" data-id="' + p.id + '" aria-expanded="' + open + '" aria-controls="xp-' + p.id + '" aria-label="Detalhes de ' + esc(p.nome) + ' ' + p.num + '">' + ic('chev') + '</button></td>' +
+      '<td class="c-kind"><span class="kind k-' + p.kind + '" title="' + esc(p.nome) + '">' + p.kind + '</span></td>' +
+      '<td class="c-proc"><div class="pr1">' + cnjHTML(p.num) + '</div><div class="pr2"><span class="cls" title="' + esc(p.nome) + '">' + esc(p.cls) + '</span><span class="rel">' + esc(p.rel) + '</span></div></td>' +
+      '<td class="c-jz" title="' + esc(p.jzFull) + '"><span>' + p.jz[0] + '</span><span>' + p.jz[1] + '</span></td>' +
+      '<td class="c-fase">' + miniRuler(p) + '<div class="fl" title="' + esc(cur.n) + '">' + esc(cur.sh) + '</div></td>' +
+      '<td class="c-prox">' + prox + '</td>' +
+      '<td class="c-ab">' + abertosGrid(p) + '</td>' +
+      '<td class="c-val"><div class="val" title="' + esc(p.vfull) + '">' + p.vtxt + '</div><div class="val-s">' + p.vsub + '</div></td>' +
+      '<td class="c-more"><button type="button" class="mbtn" data-act="more" data-id="' + p.id + '" aria-haspopup="menu" aria-label="Mais ações: ' + p.num + '">' + ic('more') + '</button></td>' +
+    '</tr>' +
+    '<tr class="x' + (o.pass ? ' pass' : '') + '" id="xp-' + p.id + '" data-for="' + p.id + '"' + (open ? '' : ' hidden') + '><td class="gut"></td><td class="xc" colspan="8">' + painel(p) + '</td></tr>';
+  }
+
+  function opGroup() {
+    var op = { cnt: { int: 0, tar: 1, aud: 0, pre: 0, con: 0, acp: 0 }, venc: 0 };
+    var acp = { cnt: { int: 0, tar: 0, aud: 0, pre: 0, con: 0, acp: 1 }, venc: 0 };
+    return '<tbody class="grp fixed">' +
+      '<tr class="r parent has-kids"><td class="c1"><span class="sp" aria-hidden="true"></span></td><td class="c-kind"><span class="kind k-OP">OP</span></td>' +
+      '<td class="c-proc"><div class="pr1"><b style="font-size:12.5px">Operação (geral)</b></div><div class="pr2"><span class="cls">sem processo vinculado</span></div></td>' +
+      '<td class="c-jz muted">—</td><td class="c-fase muted">—</td>' +
+      '<td class="c-prox"><div>' + dueHTML(15, 10) + '</div><div class="nxt" title="Tarefa da operação: Mapear quotas Norte Prime">' + ic('task') + '<span class="t">Mapear quotas Norte Prime</span></div></td>' +
+      '<td class="c-ab">' + abertosGrid(op) + '</td><td class="c-val"><div class="val muted">—</div></td><td class="c-more"></td></tr>' +
+      '<tr class="r child last"><td class="c1"></td><td class="c-kind"><span class="kind k-ACP" title="Acompanhar">' + ic('eye') + '<span class="sr">Acompanhar</span></span></td>' +
+      '<td class="c-proc"><div class="pr1">' + cnjHTML('5001300-56.2025.4.04.7001') + '</div><div class="pr2"><span class="cls" title="FN x Imobiliária Norte Prime">FN x Imobiliária Norte Prime</span></div></td>' +
+      '<td class="c-jz" title="Inferido do CNJ (J.TR.OOOO = 4.04.7001)"><span>1ª VF</span><span>Maringá</span></td><td class="c-fase muted">—</td>' +
+      '<td class="c-prox"><span class="rel" style="height:19px;font-size:11px">possível conexão</span></td>' +
+      '<td class="c-ab">' + abertosGrid(acp) + '</td><td class="c-val"><div class="val muted">—</div></td><td class="c-more"></td></tr>' +
+      '</tbody>';
+  }
+
+  var nat = function (x, y) { return typeof x === 'string' ? x.localeCompare(y, 'pt-BR') : x - y; };
+  function pKey(p) { return state.sort === 'urg' ? p.urg : state.sort === 'tipo' ? p.kind : -p.valor; }
+
+  function renderTable() {
+    var tt = $('#tt');
+    $$('tbody', tt).forEach(function (t) { t.remove(); });
+    var sgn = state.rev ? -1 : 1;
+    var groups = PROCS.filter(function (p) { return !p.parent; }).map(function (par) {
+      var all = PROCS.filter(function (c) { return c.parent === par.id; });
+      var g = { par: par, all: all };
+      g.key = state.sort === 'urg' ? Math.min.apply(null, [par.urg].concat(all.map(function (c) { return c.urg; }))) : pKey(par);
+      g.kids = all.filter(function (k) { return !state.pend || k.abertos.length; }).sort(function (a, b) { return (nat(pKey(a), pKey(b)) * sgn) || (a.idx - b.idx); });
+      g.show = !state.pend || par.abertos.length || g.kids.length;
+      return g;
+    });
+    groups.sort(function (a, b) { return (nat(a.key, b.key) * sgn) || (a.par.idx - b.par.idx); });
+    var html = '', shown = 0;
+    groups.forEach(function (g) {
+      if (!g.show) return;
+      var hasKids = g.kids.length > 0;
+      shown += 1 + g.kids.length;
+      html += '<tbody class="grp" data-g="' + g.par.id + '">' + rowHTML(g.par, { hasKids: hasKids, pass: hasKids }) +
+        g.kids.map(function (k, j) { var last = j === g.kids.length - 1; return rowHTML(k, { last: last, pass: !last }); }).join('') + '</tbody>';
+    });
+    html += opGroup();
+    tt.insertAdjacentHTML('beforeend', html);
+
+    $$('[data-act="sort"]').forEach(function (b) {
+      var on = b.getAttribute('data-k') === state.sort;
+      if (b.classList.contains('thb')) b.classList.toggle('on', on); else b.setAttribute('aria-pressed', on);
+      var arr = $('.arr', b);
+      if (arr) arr.innerHTML = on ? '<svg class="ic" aria-hidden="true" style="width:11px;height:11px;transform:rotate(' + (state.rev ? 180 : 0) + 'deg)"><use href="#i-arrow"/></svg>' : '';
+    });
+    $('#f-pend').setAttribute('aria-pressed', state.pend);
+    $('#tsum').textContent = shown + ' de ' + PROCS.length + ' frentes · ordem: ' + SORT_NOME[state.sort] + ' (' + (state.rev ? 'invertida' : SORT_DICA[state.sort]) + ') · cada frente mantém seus filhos';
+    $('#n-fr').textContent = shown === PROCS.length ? PROCS.length : shown + '/' + PROCS.length;
+  }
+
+  function toggleRow(id) {
+    var open = !state.open[id]; state.open[id] = open;
+    var x = $('tr.x[data-for="' + id + '"]'); if (x) x.hidden = !open;
+    var b = $('tr.r[data-id="' + id + '"] .chev'); if (b) b.setAttribute('aria-expanded', open);
+  }
+  function focusFrente(id) {
+    var p = BYID[id];
+    if (state.pend && !p.abertos.length) state.pend = false;
+    state.open[id] = true; renderTable();
+    var tr = $('tr.r[data-id="' + id + '"]');
+    if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(function () { tr.classList.remove('flash'); }, 1900); }
+  }
+
+  /* ---------- menu popup ---------- */
+  var menuEl = null, menuAnchor = null;
+  function closeMenu(refocus) {
+    if (menuEl) { menuEl.remove(); menuEl = null; if (refocus && menuAnchor) menuAnchor.focus(); }
+    if (menuAnchor) menuAnchor.setAttribute('aria-expanded', 'false');
+  }
+  function openMenu(anchor, items) {
+    closeMenu(); menuAnchor = anchor; anchor.setAttribute('aria-expanded', 'true');
+    menuEl = document.createElement('div'); menuEl.className = 'menu'; menuEl.setAttribute('role', 'menu');
+    menuEl.innerHTML = items.map(function (it) {
+      return it === '-' ? '<hr>' : '<button type="button" role="menuitem" data-act="mi" data-do="' + it.k + '" data-id="' + (it.id || '') + '">' + ic(it.ic) + it.t + '</button>';
+    }).join('');
+    document.body.appendChild(menuEl);
+    var r = anchor.getBoundingClientRect(), w = menuEl.offsetWidth;
+    menuEl.style.top = (window.scrollY + r.bottom + 4) + 'px';
+    menuEl.style.left = Math.max(8, Math.min(window.scrollX + r.right - w, window.scrollX + document.documentElement.clientWidth - w - 8)) + 'px';
+    var f = $('button', menuEl); if (f) f.focus();
+  }
+  function rowMenu(id) {
+    return [
+      { k: 'copy', id: id, ic: 'copy', t: 'Copiar número' }, { k: 'digits', id: id, ic: 'copy', t: 'Copiar só os dígitos' },
+      { k: 'eproc', id: id, ic: 'ext', t: 'Abrir no eproc' }, '-',
+      { k: 'ficha', id: id, ic: 'doc', t: 'Abrir ficha' }, { k: 'evento', id: id, ic: 'plus', t: 'Registrar evento' }, { k: 'nota', id: id, ic: 'flag', t: 'Nova nota' }
+    ];
+  }
+  function menuDo(k, id) {
+    var chip = id ? $('tr.r[data-id="' + id + '"] .cnj') : null;
+    if (k === 'copy' && chip) doCopy(chip, false);
+    else if (k === 'digits' && chip) doCopy(chip, true);
+    else if (k === 'eproc') toast('Mockup: abriria o processo no eproc (TRF4).');
+    else if (k === 'ficha') toast('Mockup: abriria a ficha lateral do processo.');
+    else if (k === 'evento') toast('Mockup: abriria o formulário de novo evento.');
+    else if (k === 'nota') addNote('observacao');
+    else if (k === 'n-lembrete') addNote('lembrete');
+    else if (k === 'n-diario') addNote('observacao');
+  }
+
+  /* ---------- Mural ---------- */
+  var TIPOS = {
+    estrategia: { nome: 'Estratégia', cls: 'y' }, risco: { nome: 'Risco', cls: 'r' }, decisao: { nome: 'Decisão judicial', cls: 'b' },
+    providencia: { nome: 'Providência', cls: 'g' }, replicacao: { nome: 'Replicação', cls: 'v' }, observacao: { nome: 'Observação', cls: 'n' }
+  };
+  var COR = { yellow: 'y', red: 'r', green: 'g' };
+  var NOTES = [
+    { id: 'n1', tipo: 'estrategia', pin: true, d: 7, m: 10, text: 'Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.' },
+    { id: 'l3', tipo: 'lembrete', cor: 'green', d: 8, m: 10, meta: 'novo', text: 'Ligar p/ CRI Maringá — matrícula atualizada.' },
+    { id: 'l1', tipo: 'lembrete', cor: 'yellow', d: 12, m: 10, meta: 'atualizado ontem', text: 'Audiência IDPJ — levar organograma do grupo.' },
+    { id: 'l2', tipo: 'lembrete', cor: 'red', d: 14, m: 10, meta: 'novo', text: 'Conferir certidão de citação da EF antes de 14/10.' },
+    { id: 'n2', tipo: 'risco', d: 5, m: 10, text: 'CDA 000123 prescreve em 14/10 — confirmar marco interruptivo (citação Ev. 9) antes da manifestação.' },
+    { id: 'n4', tipo: 'providencia', d: 3, m: 10, text: 'Pedido de Sisbajud reiterado; bloqueio parcial R$ 62 mil.' },
+    { id: 'n5', tipo: 'observacao', d: 1, m: 10, text: 'Contratos sociais cruzados, extratos Sisbajud, CNIB matrícula 45.678 e organograma do grupo.' },
+    { id: 'n3', tipo: 'decisao', d: 10, m: 7, text: 'Liminar no IDPJ deferida — inclusão cautelar de Marina e João no polo (Ev. 12).' }
+  ];
+  var FILTROS = { tudo: 'Tudo', lembrete: 'Lembretes', estrategia: 'Estratégia', risco: 'Risco', decisao: 'Decisão judicial', providencia: 'Providência', observacao: 'Observação' };
+  var mState = { f: 'tudo' }, nextId = 100, focusNote = null;
+
+  function rank(n) {
+    var v = new Date(2026, n.m - 1, n.d).getTime();
+    if (n.pin) return [0, -v];
+    if (n.tipo === 'lembrete') { var nd = dias(n.d, n.m); return (!n.done && nd < 0) ? [1, v] : [2, v]; }
+    return [3, -v];
+  }
+  function sortNotes(list) {
+    return list.slice().sort(function (a, b) { var x = rank(a), y = rank(b); return (x[0] - y[0]) || (x[1] - y[1]); });
+  }
+  function tPill(nd, done) {
+    if (done) return ['green', 'feito'];
+    if (nd < 0) return ['red', 'vencido há ' + (-nd) + (nd === -1 ? ' dia' : ' dias')];
+    if (nd === 0) return ['yellow', 'hoje'];
+    if (nd === 1) return ['', 'amanhã'];
+    return ['', 'em ' + nd + ' dias'];
+  }
+  function noteHTML(n) {
+    var l = n.tipo === 'lembrete', cls = l ? COR[n.cor] : TIPOS[n.tipo].cls, head, foot = '';
+    var txt = '<p class="pi-t"' + (n.draft ? ' contenteditable="true" data-ph="Escreva a nota…" data-nid="' + n.id + '" role="textbox" aria-label="Texto da nota"' : '') + '>' + esc(n.text) + '</p>';
+    if (l) {
+      var tp = tPill(dias(n.d, n.m), n.done);
+      head = '<div class="pi-h"><button type="button" class="rchk" role="checkbox" aria-checked="' + !!n.done + '" aria-label="Concluir lembrete" data-act="done" data-id="' + n.id + '">' + ic('check') + '</button><span>Lembrete</span><span class="d">' + esc(n.meta || '') + '</span></div>';
+      foot = '<div class="pi-f"><span class="tp ' + tp[0] + '">' + ic('clock') + fd(n.d, n.m) + ' · ' + tp[1] + '</span></div>';
+    } else {
+      head = '<div class="pi-h">' + (n.pin ? '<span aria-hidden="true">📌</span>' : '') + '<span>' + TIPOS[n.tipo].nome + '</span>' + (n.pin ? '<span class="sr">(fixada)</span>' : '') + '<span class="d">' + fd(n.d, n.m) + '</span></div>';
+    }
+    return '<article class="pi ' + cls + (n.pin ? ' pin' : '') + (n.done ? ' done' : '') + '" data-nid="' + n.id + '">' + head + txt + foot + '</article>';
+  }
+  function matchF(n) { return mState.f === 'tudo' || (mState.f === 'lembrete' ? n.tipo === 'lembrete' : n.tipo === mState.f); }
+  function renderMural() {
+    var list = sortNotes(NOTES).filter(matchF);
+    $('#mlist').innerHTML = list.map(noteHTML).join('') || '<p class="empty" style="padding:8px">Nenhuma nota neste filtro.</p>';
+    $('#n-mu').textContent = NOTES.length;
+    $$('.fb').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-f') === mState.f); });
+    $('#fcap').innerHTML = '<b>' + FILTROS[mState.f] + ' · ' + list.length + (list.length === 1 ? ' nota' : ' notas') + '</b><br>Ordem: fixadas → lembretes vencidos → lembretes por prazo → diário por data';
+    if (focusNote) {
+      var el = $('.pi-t[data-nid="' + focusNote + '"]'); focusNote = null;
+      if (el) { el.focus(); var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+    }
+  }
+  function addNote(tipo, preset) {
+    var n = preset || (tipo === 'lembrete'
+      ? { tipo: 'lembrete', cor: 'yellow', d: 9, m: 10, meta: 'novo', text: '' }
+      : { tipo: 'observacao', d: 8, m: 10, text: '' });
+    n.id = 'u' + (nextId++); n.draft = !preset;
+    NOTES.push(n);
+    if (mState.f !== 'tudo' && !matchF(n)) mState.f = 'tudo';
+    focusNote = n.draft ? n.id : null;
+    renderMural(); $('#mlist').scrollTop = 0;
+    if (n.draft) toast(tipo === 'lembrete' ? 'Novo lembrete no Mural — escreva e tecle Enter.' : 'Nova entrada do diário no Mural — escreva e tecle Enter.');
+  }
+  function remind(id) {
+    var p = BYID[id], u = p.ultimo;
+    addNote('lembrete', { tipo: 'lembrete', cor: 'yellow', d: 11, m: 10, meta: 'novo', text: u.ev + ' · ' + u.data + ' — ' + u.txt + ' (' + p.nome + ')' });
+    toast('Lembrete criado no Mural para 11/10.');
+  }
+
+  /* ---------- Painel de apoio ---------- */
+  var VEM = [
+    { d: 11, m: 10, its: [{ k: 'tar', t: 'Requerer extensão de penhora sobre imóvel matrícula 45.678', fr: 'ex-1', e: 'prioridade alta' }, { k: 'tar', t: 'Preparar memorial audiência IDPJ', fr: 'ex-2', e: 'em andamento' }] },
+    { d: 12, m: 10, its: [{ k: 'aud', t: 'Audiência de justificação · 14:30 · presencial', fr: 'ex-2', e: 'levar organograma do grupo' }] },
+    { d: 13, m: 10, its: [{ k: 'int', t: 'Prazo: manifestar sobre exceção de pré-executividade — 15 dias', fr: 'ex-1' }] },
+    { d: 14, m: 10, crit: true, its: [{ k: 'pre', t: 'CDA 000123 (IRPJ) prescreve · R$ 1,25 mi', fr: 'ex-1', e: 'exige decisão' }] },
+    { d: 15, m: 10, its: [{ k: 'tar', t: 'Mapear quotas Norte Prime', fr: null, e: 'tarefa da operação' }] },
+    { d: 16, m: 10, its: [{ k: 'int', t: 'Prazo: contrarrazões ao agravo — 15 dias', fr: 'ex-19', e: 'peça em edição' }, { k: 'tar', t: 'Contrarrazões ao agravo IDPJ', fr: 'ex-19' }] },
+    { d: 18, m: 10, its: [{ k: 'int', t: 'Vista — complementação de documentos', fr: 'ex-18' }] },
+    { d: 26, m: 10, its: [{ k: 'aud', t: 'Audiência de instrução · 14:00 · presencial', fr: 'ex-1' }] }
+  ];
+  function renderVem() {
+    $('#vem').innerHTML = VEM.map(function (g) {
+      return '<li>' + dueHTML(g.d, g.m, g.crit) + '<div class="its">' + g.its.map(function (i) {
+        return '<div class="it">' + frTag(i.fr) + '<span>' + esc(i.t) + (i.e ? ' <em>· ' + esc(i.e) + '</em>' : '') + '</span></div>';
+      }).join('') + '</div></li>';
+    }).join('');
+  }
+  var ATU = [
+    { dt: '07/10', ic: 'doc', t: 'Petição de reiteração Sisbajud', fr: 'ex-1' },
+    { dt: '02/10', ic: 'mail', t: 'Resposta a intimação', fr: 'ex-2' },
+    { dt: '28/09', ic: 'task', t: 'Tarefa concluída “Pesquisa CNIB”', fr: null }
+  ];
+  function renderAtu() {
+    $('#atu').innerHTML = ATU.map(function (a) {
+      return '<li><span class="dt">' + a.dt + '</span>' + ic(a.ic) + '<span>' + esc(a.t) + '</span>' + frTag(a.fr) + '</li>';
+    }).join('');
+  }
+  var CL = [
+    { n: '1ª vista', items: [['Ler a inicial e as CDAs', 1], ['Conferir a certidão de citação', 1], ['Verificar garantia e constrições', 1], ['Minutar a manifestação', 0]] },
+    { n: 'Decisão final do IDPJ', items: [['Organograma do grupo anexado', 1], ['Memorial da audiência de justificação', 0], ['Provas de confusão patrimonial', 0], ['Rol de sócios e administradores de fato', 0], ['Alegações finais', 0]] }
+  ];
+  function renderCl() {
+    var tot = 0, done = 0;
+    $('#cl2').innerHTML = CL.map(function (c, ci) {
+      var d = c.items.filter(function (i) { return i[1]; }).length; tot += c.items.length; done += d;
+      return '<div class="cl"><h3>' + esc(c.n) + ' <span class="count">' + d + '/' + c.items.length + '</span></h3><div class="bar"><i style="width:' + Math.round(100 * d / c.items.length) + '%"></i></div>' +
+        c.items.map(function (i, ii) {
+          return '<button type="button" class="ck" role="checkbox" aria-checked="' + !!i[1] + '" data-act="ck" data-c="' + ci + '" data-i="' + ii + '"><span class="bx">' + ic('check') + '</span><span class="tx">' + esc(i[0]) + '</span></button>';
+        }).join('') + '</div>';
+    }).join('');
+    $('#c-check').textContent = done + '/' + tot;
+  }
+  function selectTab(tab, focus) {
+    $$('[role="tab"]').forEach(function (t) {
+      var on = t === tab; t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      var pane = document.getElementById(t.getAttribute('aria-controls')); pane.hidden = !on;
+    });
+    if (focus) tab.focus();
+  }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var cp = t.closest('.cp');
+    if (cp) { e.preventDefault(); doCopy(cp.closest('.cnj'), e.shiftKey); return; }
+    if (!t.closest('.menu') && !t.closest('[aria-haspopup="menu"]')) closeMenu(false);
+    var link = t.closest('a[href="#"]');
+    if (link) { e.preventDefault(); toast('Mockup: abriria o link (eproc / Docs).'); return; }
+    var a = t.closest('[data-act]');
+    if (!a) return;
+    var id = a.getAttribute('data-id');
+    switch (a.getAttribute('data-act')) {
+      case 'toggle': toggleRow(id); break;
+      case 'goto': focusFrente(id); break;
+      case 'sort':
+        var k = a.getAttribute('data-k');
+        if (state.sort === k) state.rev = !state.rev; else { state.sort = k; state.rev = false; }
+        renderTable(); break;
+      case 'urg': state.sort = 'urg'; state.rev = false; renderTable(); $('#frentes').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+      case 'pend': state.pend = !state.pend; renderTable(); break;
+      case 'copyall': {
+        var nums = $$('#tt tbody.grp:not(.fixed) tr.r .cnj').map(function (c) { return c.getAttribute('data-num'); });
+        var lab = $('span', a);
+        copyText(nums.join('\n')).then(function () {
+          lab.textContent = nums.length + ' números copiados'; a.classList.add('ok');
+          $('#live').textContent = nums.length + ' números copiados';
+          clearTimeout(a._t); a._t = setTimeout(function () { lab.textContent = 'Copiar números'; a.classList.remove('ok'); }, 2200);
+        }, function () { toast('Não foi possível copiar — selecione os números manualmente.'); });
+        break;
+      }
+      case 'more': {
+        if (menuEl && menuAnchor === a) { closeMenu(true); break; }
+        openMenu(a, rowMenu(id)); break;
+      }
+      case 'mi': { var kk = a.getAttribute('data-do'); closeMenu(true); menuDo(kk, id); break; }
+      case 'addmenu':
+        if (menuEl && menuAnchor === a) { closeMenu(true); break; }
+        openMenu(a, [{ k: 'n-lembrete', ic: 'clock', t: 'Lembrete (com data)' }, { k: 'n-diario', ic: 'flag', t: 'Entrada do diário' }]); break;
+      case 'filt': mState.f = a.getAttribute('data-f'); renderMural(); break;
+      case 'done': {
+        var n = NOTES.filter(function (x) { return x.id === id; })[0]; n.done = !n.done; renderMural(); break;
+      }
+      case 'remind': remind(id); break;
+      case 'nota': addNote('observacao'); break;
+      case 'ck': { var it = CL[+a.getAttribute('data-c')].items[+a.getAttribute('data-i')]; it[1] = it[1] ? 0 : 1; renderCl(); break; }
+      case 'stub': toast(a.getAttribute('data-msg') || 'Mockup: ação ilustrativa.'); break;
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && menuEl) { closeMenu(true); return; }
+    if (menuEl && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      var bs = $$('button', menuEl), i = bs.indexOf(document.activeElement);
+      bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus();
+    }
+    var tab = e.target.closest && e.target.closest('[role="tab"]');
+    if (tab && /^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) {
+      e.preventDefault();
+      var tabs = $$('[role="tab"]'), i2 = tabs.indexOf(tab);
+      var j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i2 + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      selectTab(tabs[j], true);
+    }
+    if (e.key === 'Enter' && !e.shiftKey && e.target.matches && e.target.matches('.pi-t[contenteditable="true"]')) { e.preventDefault(); e.target.blur(); }
+  });
+  document.addEventListener('focusout', function (e) {
+    var el = e.target;
+    if (!(el.matches && el.matches('.pi-t[contenteditable="true"]'))) return;
+    var id = el.getAttribute('data-nid'), txt = el.textContent.trim();
+    var idx = NOTES.map(function (n) { return n.id; }).indexOf(id);
+    if (idx < 0) return;
+    if (!txt) NOTES.splice(idx, 1); else { NOTES[idx].text = txt; NOTES[idx].draft = false; }
+    setTimeout(renderMural, 0);
+  });
+  $$('[role="tab"]').forEach(function (t) { t.addEventListener('click', function () { selectTab(t, false); }); });
+  window.addEventListener('resize', function () { closeMenu(false); });
+
+  /* ---------- início ---------- */
+  renderTable(); renderMural(); renderVem(); renderAtu(); renderCl();
+})();
+</script>
+</body>
+</html>

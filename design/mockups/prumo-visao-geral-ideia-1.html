@@ -1,0 +1,1254 @@
+<!-- IDEIA 1 · Reordenar e enxugar · intensidade 1/5 -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Visão geral — Ideia 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  /* post-it (novos, só para o Mural) */
+  --pi-yellow: #fff4b8; --pi-yellow-edge: #e9d672;
+  --pi-red: #ffe0e0;    --pi-red-edge: #f0a9ad;
+  --pi-green: #dcf3e4;  --pi-green-edge: #9fd3b4;
+  --pi-blue: #e1ebff;   --pi-blue-edge: #a9c0ef;
+  --pi-violet: #ebe5ff; --pi-violet-edge: #bfb0f0;
+  --pi-gray: #eef0f3;   --pi-gray-edge: #c9ced6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 13px/1.45 var(--cx-font); color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+ul, ol { list-style: none; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--cx-blue); outline-offset: 1px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.grow { flex: 1 1 auto; }
+.mono { font-family: var(--cx-mono); }
+
+.page { max-width: 1180px; margin: 0 auto; padding: 24px; }
+.ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; display: inline-block; vertical-align: -2px; }
+
+/* ---------- etiqueta do mockup ---------- */
+.mk { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font: 600 11px var(--cx-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-accent); flex-wrap: wrap; }
+.mk .meter { display: inline-flex; gap: 3px; }
+.mk .meter i { width: 14px; height: 6px; border-radius: 2px; background: var(--cx-line-strong); }
+.mk .meter i.on { background: var(--cx-accent); }
+.mk .dim { color: var(--cx-ink-3); font-weight: 500; letter-spacing: .02em; text-transform: none; }
+
+/* ---------- botões ---------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--cx-line-strong); border-radius: 6px; background: var(--cx-surface); font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+.btn:hover { background: var(--cx-hover); }
+.btn.sm { height: 24px; padding: 0 8px; font-size: 11.5px; border-radius: 5px; }
+.btn.dark { background: var(--cx-btn); color: var(--cx-btn-ink); border-color: var(--cx-btn); }
+.btn.dark:hover { background: var(--cx-btn-hover); }
+.bsm { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 9px; border: 1px solid var(--cx-line-strong); border-radius: 5px; background: var(--cx-surface); font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+.bsm:hover { background: var(--cx-hover); }
+.lnk { color: var(--cx-blue); font-size: 12px; font-weight: 500; }
+.lnk:hover { text-decoration: underline; }
+.iconbtn { width: 24px; height: 24px; border-radius: 5px; display: inline-grid; place-items: center; color: var(--cx-ink-3); }
+.iconbtn:hover { background: var(--cx-hover); color: var(--cx-ink); }
+
+/* ---------- moldura ---------- */
+.crumb { font-size: 11.5px; color: var(--cx-ink-3); display: flex; gap: 6px; flex-wrap: wrap; }
+.crumb a { text-decoration: none; }
+.crumb a:hover { text-decoration: underline; color: var(--cx-ink-2); }
+.crumb .cur { color: var(--cx-ink-2); }
+
+.alert { display: flex; align-items: center; gap: 10px; margin: 12px 0 14px; padding: 8px 12px; background: var(--cx-orange-soft); border: 1px solid #f0d2b4; border-radius: 8px; color: #6e3606; font-size: 13px; }
+.alert .ic { color: var(--cx-orange); width: 16px; height: 16px; }
+.alert b { font-weight: 600; }
+.alert .lnk { color: #8a4208; text-decoration: underline; text-underline-offset: 2px; }
+
+.ttl { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.th { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sq { width: 11px; height: 11px; border-radius: 3px; background: var(--cx-red); flex: none; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+.et { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.et.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.et.blue { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.et.violet { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.sum { margin-top: 6px; color: var(--cx-ink-2); font-size: 13px; }
+.sum b { color: var(--cx-ink); font-weight: 600; }
+.tb { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.tabs { display: flex; gap: 2px; margin-top: 14px; border-bottom: 1px solid var(--cx-line); flex-wrap: wrap; }
+.tab { padding: 8px 12px; font-size: 13px; color: var(--cx-ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab:hover { color: var(--cx-ink); background: var(--cx-hover); border-radius: 6px 6px 0 0; }
+.tab[aria-current="page"] { color: var(--cx-ink); font-weight: 600; border-bottom-color: var(--cx-accent); }
+
+.desc { display: flex; align-items: flex-start; gap: 6px; margin-top: 14px; color: var(--cx-ink-2); font-size: 13.5px; line-height: 1.5; }
+.resumo { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--cx-ink-2); }
+.pilula { flex: none; padding: 1px 7px; border-radius: 4px; background: var(--cx-accent-soft); color: var(--cx-accent); font: 700 10px var(--cx-mono); letter-spacing: .07em; }
+.resumo b { color: var(--cx-ink); font-weight: 600; }
+.resumo .r { color: var(--cx-red); font-weight: 600; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; }
+.kpi { padding: 11px 16px 12px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.kpi + .kpi { border-left: 1px solid var(--cx-line); }
+.kl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); }
+.kv { font-size: 20px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
+.ks { font-size: 12px; color: var(--cx-ink-3); }
+.ks.bad { color: var(--cx-red); font-weight: 600; }
+
+/* ---------- cartão base ---------- */
+.block { margin-top: 16px; }
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; }
+.ch { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border-bottom: 1px solid var(--cx-line); flex-wrap: wrap; }
+.ch h2 { font-size: 14px; font-weight: 600; }
+.ch .sub { font-size: 12px; color: var(--cx-ink-3); }
+.cnt { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--cx-panel); color: var(--cx-ink-2); font: 600 11px var(--cx-mono); }
+.cnt.red { background: var(--cx-red-soft); color: var(--cx-red); }
+
+/* ---------- componentes compartilhados ---------- */
+.cnj { display: inline-flex; align-items: center; gap: 1px; height: 24px; padding: 0 3px 0 8px; border: 1px solid var(--cx-line); background: var(--cx-surface-2); border-radius: 6px; vertical-align: middle; flex: none; max-width: 100%; }
+.cnj .num { font: 500 12.5px var(--cx-mono); color: var(--cx-ink); user-select: all; -webkit-user-select: all; cursor: text; white-space: nowrap; letter-spacing: -.01em; }
+.cnj .num .tail { color: var(--cx-ink-3); }
+.cnj .cp, .cnj .op { position: relative; width: 20px; height: 20px; border-radius: 4px; display: inline-grid; place-items: center; color: var(--cx-ink-3); }
+.cnj .cp:hover, .cnj .op:hover { color: var(--cx-ink); background: var(--cx-hover); }
+.cnj .cp.ok { color: var(--cx-green); }
+.cnj.lg { height: 30px; padding-left: 10px; }
+.cnj.lg .num { font-size: 15px; }
+.cnj.sm { height: 22px; }
+.cnj.sm .num { font-size: 11.5px; }
+
+.kind { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 4px; font: 700 10.5px var(--cx-mono); letter-spacing: .03em; text-transform: uppercase; border: 1px solid transparent; flex: none; }
+.kind.ef { background: #3a3f49; color: #fff; }
+.kind.idpj { background: var(--cx-violet-soft); color: var(--cx-violet); border-color: #d9d1f7; }
+.kind.exc { background: var(--cx-orange-soft); color: var(--cx-orange); border-color: #f2d3b6; }
+.kind.ai { background: var(--cx-blue-soft); color: var(--cx-blue); border-color: #c9d8f7; }
+.kind.mcf { background: var(--cx-cyan-soft); color: var(--cx-cyan); border-color: #b9e0e5; }
+.kind.emb { background: var(--cx-red-soft); color: var(--cx-red); border-color: #f1c4c7; }
+.kind.op { background: var(--cx-surface); color: var(--cx-ink-2); border: 1px dashed var(--cx-line-strong); }
+
+.due { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.due .dt { font-family: var(--cx-mono); font-weight: 500; }
+.due.red { background: var(--cx-red-soft); color: var(--cx-red); border-color: #f1c4c7; }
+.due.orange { background: var(--cx-orange-soft); color: var(--cx-orange); border-color: #f2d3b6; }
+.due.gray { background: var(--cx-panel); color: var(--cx-ink-2); border-color: var(--cx-line); }
+.due.yellow { background: var(--cx-yellow-soft); color: var(--cx-yellow); border-color: #ecdca0; }
+.due.green { background: var(--cx-green-soft); color: var(--cx-green); border-color: #bfe3d1; }
+.due .ic { width: 12px; height: 12px; }
+
+.tag { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+.tag.yellow { background: var(--cx-yellow-soft); color: var(--cx-yellow); }
+.tag.gray { background: var(--cx-panel); color: var(--cx-ink-2); }
+.tag.blue { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.tag.green { background: var(--cx-green-soft); color: var(--cx-green); }
+.tag.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.tag .ic { width: 11px; height: 11px; }
+.prio { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--cx-ink-3); }
+.prio i { width: 8px; height: 8px; border-radius: 2px; background: var(--cx-red); }
+
+.ruler { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px 0 2px; }
+.rs { position: relative; text-align: center; padding: 0 4px; min-width: 0; }
+.rs .dot { display: block; width: 12px; height: 12px; border-radius: 50%; margin: 0 auto 6px; border: 2px solid var(--cx-ink-3); background: var(--cx-surface); position: relative; z-index: 1; }
+.rs.done .dot { background: var(--cx-ink); border-color: var(--cx-ink); }
+.rs.cur .dot { background: var(--cx-surface); border: 3px solid var(--cx-accent); box-shadow: 0 0 0 3px var(--cx-accent-soft); }
+.rs::after { content: ""; position: absolute; top: 5px; left: 50%; width: 100%; height: 2px; background: var(--cx-line-strong); }
+.rs.done::after { background: var(--cx-ink); }
+.rs.cur::after { background: repeating-linear-gradient(90deg, var(--cx-line-strong) 0 4px, transparent 4px 8px); }
+.rs:last-child::after { display: none; }
+.rs .rl { display: block; font-size: 11px; color: var(--cx-ink-2); line-height: 1.25; }
+.rs.cur .rl { font-weight: 700; color: var(--cx-ink); }
+.rs.fut .rl { color: var(--cx-ink-3); }
+.rs .rd { display: block; margin-top: 1px; font: 10.5px var(--cx-mono); color: var(--cx-ink-3); }
+
+/* ---------- Frentes processuais ---------- */
+.frentes { box-shadow: var(--cx-shadow); border-color: var(--cx-line-strong); overflow: hidden; }
+.frentes > .ch { background: var(--cx-surface); }
+.cols, .lh { display: grid; grid-template-columns: 22px minmax(0, 1fr) 134px 166px 120px; column-gap: 10px; align-items: center; }
+.cols { padding: 6px 24px 6px 14px; background: var(--cx-surface-2); border-bottom: 1px solid var(--cx-line); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-3); }
+.cols .r { text-align: right; }
+.fam { position: relative; background: var(--cx-surface); }
+.fam + .fam { border-top: 1px solid var(--cx-line-strong); }
+.lh { position: relative; padding: 10px 24px 10px 14px; }
+.lh:hover { background: #fbfbfc; }
+.lh::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: transparent; }
+.lh[data-h="red"]::before { background: var(--cx-red); }
+.lh[data-h="orange"]::before { background: var(--cx-orange); }
+.chev { align-self: start; margin-top: 1px; width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center; color: var(--cx-ink-3); }
+.chev:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.chev .ic { transition: transform .15s; }
+.chev[aria-expanded="true"] .ic { transform: rotate(90deg); }
+.lm { min-width: 0; }
+.l1 { display: flex; align-items: center; gap: 4px 7px; flex-wrap: wrap; min-height: 24px; }
+.l1 .tt { font-size: 13px; font-weight: 600; white-space: nowrap; letter-spacing: -.005em; }
+.l2 { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 11.5px; color: var(--cx-ink-3); min-width: 0; white-space: nowrap; }
+.l2 .sep { color: var(--cx-line-strong); }
+.l2 .jz, .l2 .st { color: var(--cx-ink-2); flex: none; }
+.l2 .reg { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--cx-ink-2); }
+.l2 .reg b { font-weight: 500; color: var(--cx-ink-3); }
+.rel { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; flex: none; border: 1px solid var(--cx-line-strong); border-radius: 4px; background: var(--cx-surface); color: var(--cx-ink-2); font-size: 10.5px; font-weight: 600; }
+.fv { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.fase { display: inline-block; max-width: 100%; padding: 2px 8px; border-radius: 999px; background: var(--cx-panel); border: 1px solid var(--cx-line); font-size: 10.5px; font-weight: 600; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.vl { font: 500 11.5px var(--cx-mono); color: var(--cx-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vl small { font: 400 10.5px var(--cx-font); color: var(--cx-ink-3); margin-left: 3px; }
+.vl.none { color: var(--cx-ink-3); }
+.nx { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.nx .nxt { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--cx-ink-3); }
+.nx .none { font-size: 11.5px; color: var(--cx-ink-3); }
+.sg { display: grid; grid-template-columns: repeat(5, 24px); justify-content: end; }
+.sg .s { display: flex; align-items: center; justify-content: center; gap: 1px; height: 18px; font: 600 11px var(--cx-mono); color: var(--cx-ink-3); }
+.sg .s .ic { width: 13px; height: 13px; }
+.sg .s b { font-weight: 600; }
+.sg .s.red { color: var(--cx-red); }
+
+.bd { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; padding: 12px 24px 14px 46px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); }
+.bd.one { grid-template-columns: minmax(0, 1fr); }
+.col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fam.has-kids > .bd { border-bottom: 0; }
+.fam.has-kids > .bd::before { content: ""; position: absolute; left: 25px; top: 0; bottom: 0; border-left: 1.5px solid var(--cx-line-strong); }
+.kids { background: var(--cx-surface-2); padding-bottom: 8px; }
+.bd[hidden] + .kids { border-top: 1px solid var(--cx-line); }
+.kidwrap { position: relative; padding: 6px 12px 0 46px; }
+.kidwrap::before { content: ""; position: absolute; left: 25px; top: 0; bottom: 0; border-left: 1.5px solid var(--cx-line-strong); }
+.kidwrap:last-child::before { bottom: auto; height: 29px; }
+.kidwrap::after { content: ""; position: absolute; left: 25px; top: 29px; width: 21px; border-top: 1.5px solid var(--cx-line-strong); }
+.lane.kid { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; box-shadow: 0 1px 2px rgba(20,24,32,.04); }
+.lane.kid .lh { padding: 9px 11px 9px 10px; border-radius: 8px; }
+.lane.kid .bd { grid-template-columns: minmax(0, 1fr) 300px; padding: 12px; border-radius: 0 0 8px 8px; }
+.lane.flash > .lh, .fam.flash > .lh { animation: flash 1.4s ease-out; }
+@keyframes flash { 0% { background: var(--cx-accent-soft); } 100% { background: transparent; } }
+
+.bx { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 9px 11px; }
+.bh { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); }
+.bx > .bh { margin-bottom: 6px; }
+.bh .grow { flex: 1; }
+.bh .m { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 11px; }
+.its { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; overflow: hidden; }
+.its > .bh { padding: 8px 11px; }
+.it { display: grid; grid-template-columns: 104px minmax(0, 1fr) 166px 76px; gap: 10px; align-items: center; padding: 7px 11px; border-top: 1px solid var(--cx-line); }
+.it.over { box-shadow: inset 3px 0 0 var(--cx-red); }
+.ty { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--cx-ink-3); }
+.ty.int { color: var(--cx-blue); }
+.ty.pre { color: var(--cx-red); }
+.it .tx b { display: block; font-weight: 500; font-size: 12.5px; line-height: 1.35; }
+.it .tx small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; font-size: 11.5px; color: var(--cx-ink-3); }
+.it .act { text-align: right; }
+.empty { display: flex; align-items: center; gap: 8px; padding: 12px 11px; border-top: 1px solid var(--cx-line); color: var(--cx-ink-3); font-size: 12.5px; }
+.empty .ic { color: var(--cx-green); }
+.rw { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px dotted var(--cx-line); }
+.bh + .rw, .bh + .rw2 { border-top: 0; }
+.rw2 { padding: 6px 0; border-top: 1px dotted var(--cx-line); }
+.rw2 .top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.rw2 .top b { font-weight: 500; font-size: 12.5px; }
+.rw2 .top .rv { margin-left: auto; font: 500 12px var(--cx-mono); }
+.rw .ic { color: var(--cx-ink-3); }
+.rw .rt { min-width: 0; line-height: 1.3; }
+.rw .rt b { font-weight: 500; font-size: 12.5px; display: block; }
+.rw .rt small { font-size: 11px; color: var(--cx-ink-3); display: block; }
+.rw .rv { font: 500 12px var(--cx-mono); text-align: right; white-space: nowrap; }
+.rw .rv small { display: block; font: 400 10.5px var(--cx-font); color: var(--cx-ink-3); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--cx-panel); font-size: 11.5px; font-weight: 500; }
+.regtx { font-size: 12.5px; line-height: 1.4; }
+.regtx .ev { font-family: var(--cx-mono); font-size: 11.5px; color: var(--cx-ink-2); }
+.hint2 { margin-top: 4px; font-size: 11px; color: var(--cx-ink-3); }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.cf { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--cx-line); background: var(--cx-surface-2); font-size: 11.5px; color: var(--cx-ink-3); }
+.cf span { display: inline-flex; align-items: center; gap: 4px; }
+.fam.op { border-top: 1px dashed var(--cx-line-strong); }
+
+/* ---------- Mural ---------- */
+.mural { position: relative; }
+.mural .ch { gap: 10px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--cx-line); }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid var(--cx-line-strong); border-radius: 999px; background: var(--cx-surface); font-size: 12px; font-weight: 500; color: var(--cx-ink-2); }
+.pill i { font: 600 10.5px var(--cx-mono); font-style: normal; color: var(--cx-ink-3); }
+.pill:hover { background: var(--cx-hover); }
+.pill[aria-pressed="true"] { background: var(--cx-ink); color: #fff; border-color: var(--cx-ink); }
+.pill[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
+.plus { position: relative; }
+.menu { position: absolute; right: 0; top: 32px; z-index: 20; min-width: 188px; padding: 4px; background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-radius: 8px; box-shadow: var(--cx-shadow); }
+.menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border-radius: 5px; text-align: left; font-size: 12.5px; }
+.menu button:hover { background: var(--cx-hover); }
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 16px; padding: 20px 16px 18px; background: var(--cx-surface-2); border-radius: 0 0 10px 10px; }
+.pi { position: relative; display: flex; flex-direction: column; min-height: 134px; padding: 9px 11px; border-radius: 4px; border: 1px solid rgba(20,24,32,.05); border-bottom-width: 2px; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 10px rgba(20,24,32,.06); transform: rotate(-.6deg); transition: transform .15s, box-shadow .15s, opacity .15s; }
+.pi:nth-child(even) { transform: rotate(.5deg); }
+.pi:hover { transform: rotate(0) translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 8px 16px rgba(20,24,32,.1); }
+.pi.c-y { background: var(--pi-yellow); border-bottom-color: var(--pi-yellow-edge); }
+.pi.c-r { background: var(--pi-red); border-bottom-color: var(--pi-red-edge); }
+.pi.c-g { background: var(--pi-green); border-bottom-color: var(--pi-green-edge); }
+.pi.c-b { background: var(--pi-blue); border-bottom-color: var(--pi-blue-edge); }
+.pi.c-v { background: var(--pi-violet); border-bottom-color: var(--pi-violet-edge); }
+.pi.c-n { background: var(--pi-gray); border-bottom-color: var(--pi-gray-edge); }
+.pi.pinned::before { content: ""; position: absolute; top: -8px; left: 50%; width: 56px; height: 15px; margin-left: -28px; transform: rotate(-2deg); background: rgba(255,255,255,.6); border: 1px solid rgba(20,24,32,.07); }
+.pi header { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: rgba(20,22,26,.74); }
+.pi .pd { margin-left: auto; font: 500 10.5px var(--cx-mono); letter-spacing: 0; text-transform: none; }
+.pi .ptx { flex: 1; font-size: 13px; line-height: 1.4; color: var(--cx-ink); outline: none; }
+.pi .ptx[contenteditable="true"] { cursor: text; border-radius: 3px; box-shadow: 0 0 0 2px rgba(45,98,211,.35); background: rgba(255,255,255,.5); padding: 2px 4px; margin: -2px -4px; }
+.pi footer { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 10.5px; color: rgba(20,22,26,.64); flex-wrap: wrap; }
+.pi.done { opacity: .55; }
+.pi.done:hover { opacity: .85; }
+.pi.done .ptx { text-decoration: line-through; }
+.rc { position: relative; display: inline-grid; place-items: center; width: 16px; height: 16px; cursor: pointer; }
+.rc input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
+.rc .rb { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid rgba(20,22,26,.5); background: rgba(255,255,255,.65); display: grid; place-items: center; }
+.rc input:focus-visible + .rb { outline: 2px solid var(--cx-blue); outline-offset: 1px; }
+.rc input:checked + .rb { background: var(--cx-green); border-color: var(--cx-green); }
+.rc input:checked + .rb::after { content: ""; width: 4px; height: 7px; margin-top: -1px; border: solid #fff; border-width: 0 1.8px 1.8px 0; transform: rotate(45deg); }
+.empty-board { grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--cx-ink-3); }
+
+/* ---------- Mais da operação ---------- */
+.mh2 { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.mh2 h2 { font-size: 14px; font-weight: 600; }
+.mh2 .hint { font-size: 12px; color: var(--cx-ink-3); }
+.minis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.mc { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; }
+.mc .mh { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; width: 100%; min-height: 56px; padding: 9px 10px 9px 12px; text-align: left; border-radius: 10px; }
+.mc .mh:hover { background: var(--cx-surface-2); }
+.mc .mt { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.mc .mt .ic { color: var(--cx-ink-3); }
+.mc .ms { grid-column: 1; margin-top: 1px; font-size: 11.5px; color: var(--cx-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc .mr { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 6px; color: var(--cx-ink-3); }
+.mc .mr .ic { transition: transform .15s; }
+.mc .mh[aria-expanded="true"] .mr .ic { transform: rotate(90deg); }
+.mc .mb { padding: 8px 12px 12px; border-top: 1px dotted var(--cx-line-strong); font-size: 12.5px; }
+.mnote { margin-bottom: 6px; font-size: 11px; color: var(--cx-ink-3); }
+.ol li { display: grid; grid-template-columns: 8px 34px minmax(0, 1fr); gap: 6px; align-items: baseline; padding: 4px 0; border-top: 1px dotted var(--cx-line); line-height: 1.3; }
+.ol li:first-child { border-top: 0; }
+.dd { width: 7px; height: 7px; border-radius: 50%; background: var(--cx-line-strong); align-self: center; }
+.dd.r { background: var(--cx-red); }
+.dd.o { background: var(--cx-orange); }
+.od { font: 500 11.5px var(--cx-mono); color: var(--cx-ink-2); }
+.mut { color: var(--cx-ink-3); font-size: 11.5px; }
+.px { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.px b { font-weight: 600; }
+.ck + .ck { margin-top: 10px; }
+.ckt { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.ckt b { font: 600 11.5px var(--cx-mono); }
+.pb { height: 6px; border-radius: 3px; background: var(--cx-panel); overflow: hidden; }
+.pb i { display: block; height: 100%; background: var(--cx-green); border-radius: 3px; }
+.fl li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 7px; align-items: start; padding: 5px 0; border-top: 1px dotted var(--cx-line); line-height: 1.3; }
+.fl li:first-child { border-top: 0; }
+.fl li .ic { margin-top: 1px; color: var(--cx-ink-3); }
+.fl em { display: block; font-style: normal; font-size: 11px; color: var(--cx-ink-3); }
+.al li { padding: 5px 0; border-top: 1px dotted var(--cx-line); line-height: 1.3; }
+.al li:first-child { border-top: 0; }
+.al .od { margin-right: 4px; }
+
+/* ---------- Notas da ideia ---------- */
+.notes { margin-top: 24px; padding: 16px 18px 18px; background: var(--cx-surface-2); border: 1px dashed var(--cx-line-strong); border-radius: 10px; }
+.notes h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
+.notes h2 .mk { margin: 0; font-size: 10.5px; }
+.ngrid { display: grid; grid-template-columns: 1.35fr 1.2fr 1fr 1.2fr; gap: 20px; margin-top: 12px; }
+.ngrid h3 { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-3); margin-bottom: 5px; }
+.ngrid p, .ngrid li { font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.5; }
+.ngrid li { position: relative; padding-left: 12px; margin-top: 3px; }
+.ngrid li::before { content: ""; position: absolute; left: 0; top: 8px; width: 4px; height: 4px; border-radius: 50%; background: var(--cx-line-strong); }
+.ngrid .big { font-size: 15px; font-weight: 600; color: var(--cx-ink); margin-bottom: 3px; }
+.ngrid code { font: 500 11.5px var(--cx-mono); background: var(--cx-panel); padding: 0 4px; border-radius: 3px; }
+.nfoot { margin-top: 14px; padding-top: 12px; border-top: 1px dotted var(--cx-line-strong); font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.5; }
+.nfoot b { color: var(--cx-ink); }
+
+/* ---------- tooltip / toast ---------- */
+.tip { position: fixed; z-index: 90; padding: 4px 9px; border-radius: 5px; background: var(--cx-ink); color: #fff; font-size: 11.5px; font-weight: 500; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .12s; white-space: nowrap; }
+.tip.on { opacity: 1; visibility: visible; }
+.toast { position: fixed; left: 50%; bottom: 22px; z-index: 95; transform: translate(-50%, 12px); display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-radius: 8px; background: var(--cx-ink); color: #fff; font-size: 12.5px; box-shadow: var(--cx-shadow); opacity: 0; visibility: hidden; transition: opacity .15s, transform .15s; max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.toast button { color: #f4d99a; font-weight: 600; text-decoration: underline; }
+
+/* ---------- responsivo (a página nunca rola na horizontal) ---------- */
+@media (max-width: 1100px) {
+  .cols, .lh { grid-template-columns: 22px minmax(0, 1fr) 124px 150px; }
+  .cols .c-sg, .lh .fv .vl, .lh .sg { display: none; }
+  .bd, .lane.kid .bd { grid-template-columns: minmax(0, 1fr); }
+  .board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .minis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ngrid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .page { padding: 16px; }
+  .cols { display: none; }
+  .lh { grid-template-columns: 22px minmax(0, 1fr); row-gap: 8px; }
+  .lh .fv, .lh .nx { grid-column: 2; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi + .kpi { border-left: 0; }
+  .it { grid-template-columns: minmax(0, 1fr) auto; }
+  .it .ty { grid-column: 1 / -1; }
+  .bd { padding-left: 14px; }
+  .fam.has-kids > .bd::before { display: none; }
+  .board, .minis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ngrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .board, .minis { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- sprite de ícones (traço 1.75, currentColor) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-gavel" viewBox="0 0 24 24"><rect x="10" y="3" width="10" height="5" rx="1" transform="rotate(45 15 5.5)"/><path d="M12.5 8.5L4 17"/><path d="M3 21h9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-hour" viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-act" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><path d="M15 3v6h6"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+</svg>
+
+<div class="sr" id="live" role="status" aria-live="polite"></div>
+<div class="tip" id="tip" role="presentation"></div>
+<div class="toast" id="toast" role="status"><span id="toastMsg"></span></div>
+
+<main class="page">
+
+  <div class="mk" aria-label="Identificação do mockup">
+    <span>Mockup · Ideia 1 de 5 — Reordenar e enxugar</span>
+    <span class="meter" title="Intensidade 1 de 5" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></span>
+    <span>1/5</span>
+    <span class="dim">· dados fictícios · hoje = qui 08/10/2026</span>
+  </div>
+
+  <!-- ===== MOLDURA FIXA ===== -->
+  <nav class="crumb" aria-label="Migalha">
+    <a href="#">NEXUS</a><span>/</span><a href="#">Carteira</a><span>/</span><a href="#">Operação Fachada Norte</a><span>/</span><span class="cur">Visão geral</span>
+  </nav>
+
+  <div class="alert" role="alert">
+    <svg class="ic" aria-hidden="true"><use href="#i-gavel"/></svg>
+    <span><b>Audiência em 4 dias</b> · 12/10 14:30 — FAZENDA NACIONAL x Marina Ferreira Norte (justificação, IDPJ)</span>
+    <span class="grow"></span>
+    <button type="button" class="lnk" id="goHearing">Ver frente</button>
+  </div>
+
+  <div class="ttl">
+    <div class="tl">
+      <div class="th">
+        <span class="sq" title="Prioridade alta" role="img" aria-label="Prioridade alta"></span>
+        <h1>Operação Fachada Norte</h1>
+        <span class="et red">Alta relevância</span>
+        <span class="et blue">Constrição ativa</span>
+        <span class="et violet">IDPJ em curso</span>
+      </div>
+      <p class="sum"><b>R$ 2,66 mi</b> em dívida · <b>R$ 962 mil</b> indisponível · 36% garantido · 6 CDAs · 5 processos · 5 intimações abertas</p>
+    </div>
+    <div class="tb">
+      <button type="button" class="btn" data-toast="Operação marcada como revisada (mockup)"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Revisada</button>
+      <button type="button" class="btn" data-toast="Editar operação (fora do escopo deste mockup)">Editar</button>
+      <button type="button" class="btn" data-toast="Diagnóstico (fora do escopo deste mockup)">Diagnóstico</button>
+      <button type="button" class="btn" data-toast="Relatório (fora do escopo deste mockup)">Relatório</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Abas da operação">
+    <button type="button" class="tab" role="tab" aria-current="page" aria-selected="true">Visão geral</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Processos e prescrição</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Inscrições</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Partes</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Bens</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Tarefas</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Arquivos</button>
+    <button type="button" class="tab" role="tab" data-toast="Aba fora do escopo deste mockup">Importar</button>
+  </div>
+
+  <p class="desc">
+    <span>Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR.</span>
+    <button type="button" class="iconbtn" aria-label="Editar descrição" title="Editar descrição" data-toast="Editar descrição (mockup)"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg></button>
+  </p>
+
+  <p class="resumo">
+    <span class="pilula">RESUMO</span>
+    <span>Indisponibilidade de <b>36%</b> da dívida, abaixo da média da carteira (59%). <span class="r">1 CDA prescreve em 6 dias.</span> <span class="r">2 intimações vencidas.</span></span>
+  </p>
+
+  <section class="kpis" aria-label="Briefing da operação">
+    <div class="kpi"><span class="kl">Dívida total</span><span class="kv">R$ 2,66 mi</span><span class="ks">6 CDAs</span></div>
+    <div class="kpi"><span class="kl">Indisponibilidade</span><span class="kv">R$ 962 mil</span><span class="ks">36% da dívida</span></div>
+    <div class="kpi"><span class="kl">Prescrição · CDAs</span><span class="kv">1</span><span class="ks bad">em 6 dias</span></div>
+    <div class="kpi"><span class="kl">Intimações</span><span class="kv">5</span><span class="ks bad">2 vencidas</span></div>
+  </section>
+
+  <!-- ===== BLOCO 1 · FRENTES PROCESSUAIS (centro da página) ===== -->
+  <section class="block card frentes" id="frentes" aria-labelledby="h-frentes">
+    <div class="ch">
+      <h2 id="h-frentes">Frentes processuais</h2>
+      <span class="cnt" title="5 processos">5</span>
+      <span class="sub">Intimações, tarefas e audiências moram dentro da frente a que pertencem</span>
+      <span class="grow"></span>
+      <button type="button" class="btn sm" id="expAll">Expandir todas</button>
+      <button type="button" class="btn sm" id="colAll">Recolher todas</button>
+      <button type="button" class="btn sm" data-toast="Nova frente (fora do escopo deste mockup)"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Frente</button>
+    </div>
+    <div class="cols" aria-hidden="true">
+      <span></span><span>Processo</span><span>Fase · Valor</span><span>Próximo prazo</span><span class="r c-sg">Sinais</span>
+    </div>
+    <div id="lanes"></div>
+    <div class="cf">
+      <span><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg>intimações</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-task"/></svg>tarefas</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-gavel"/></svg>audiências</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>constrições</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-hour"/></svg>prescrição</span>
+      <span class="grow"></span>
+      <span>Abrem por padrão as frentes com pendência vencida ou em até 7 dias</span>
+    </div>
+  </section>
+
+  <!-- ===== BLOCO 2 · MURAL (Diário + Lembretes) ===== -->
+  <section class="block card mural" id="mural" aria-labelledby="h-mural">
+    <div class="ch">
+      <h2 id="h-mural">Mural</h2>
+      <span class="cnt" id="muralCount">8</span>
+      <span class="sub">Diário da operação e lembretes num só lugar</span>
+      <span class="grow"></span>
+      <div class="plus">
+        <button type="button" class="btn dark" id="addBtn" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nota</button>
+        <div class="menu" id="addMenu" role="menu" hidden>
+          <button type="button" role="menuitem" data-new="lembrete"><svg class="ic" aria-hidden="true"><use href="#i-task"/></svg>Lembrete</button>
+          <button type="button" role="menuitem" data-new="diario"><svg class="ic" aria-hidden="true"><use href="#i-note"/></svg>Entrada do diário</button>
+        </div>
+      </div>
+    </div>
+    <div class="pills" id="pills" role="group" aria-label="Filtrar notas"></div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- ===== BLOCO 3 · MAIS DA OPERAÇÃO ===== -->
+  <section class="block more" aria-labelledby="h-more">
+    <div class="mh2">
+      <h2 id="h-more">Mais da operação</h2>
+      <span class="hint">5 resumos recolhidos · clique para abrir</span>
+      <span class="grow"></span>
+      <button type="button" class="lnk" id="moreAll">Expandir todos</button>
+    </div>
+    <div class="minis">
+
+      <article class="mc">
+        <button type="button" class="mh" aria-expanded="false" aria-controls="mb-vem">
+          <span class="mt"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>O que vem</span>
+          <span class="ms">Próximo: 11/10 · 2 tarefas</span>
+          <span class="mr"><span class="cnt">7</span><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="mb" id="mb-vem" hidden>
+          <p class="mnote">Próximos 90 dias · já inclui a Agenda</p>
+          <ul class="ol">
+            <li><i class="dd o"></i><span class="od">11/10</span><span>Tarefas (2): extensão de penhora · memorial IDPJ</span></li>
+            <li><i class="dd o"></i><span class="od">12/10</span><span>Audiência IDPJ · 14:30 (justificação)</span></li>
+            <li><i class="dd o"></i><span class="od">13/10</span><span>Prazo: manifestar sobre a exceção (EF)</span></li>
+            <li><i class="dd r"></i><span class="od">14/10</span><span>Prescrição da CDA 000123 (IRPJ)</span></li>
+            <li><i class="dd"></i><span class="od">16/10</span><span>Contrarrazões ao agravo (TRF4)</span></li>
+            <li><i class="dd"></i><span class="od">18/10</span><span>Vista — complementação de documentos (exceção)</span></li>
+            <li><i class="dd"></i><span class="od">26/10</span><span>Audiência de instrução · 14:00 (EF)</span></li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="mc">
+        <button type="button" class="mh" aria-expanded="false" aria-controls="mb-presc">
+          <span class="mt"><svg class="ic" aria-hidden="true"><use href="#i-hour"/></svg>Prazos extintivos</span>
+          <span class="ms">1 CDA exige decisão · 14/10</span>
+          <span class="mr"><span class="cnt red">1</span><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="mb" id="mb-presc" hidden>
+          <div class="px">
+            <span class="due red"><span class="dt">14/10</span> · em 6 dias</span>
+            <b>CDA 000123 · IRPJ</b>
+            <span class="mut">R$ 1,25 mi · EF principal. Confirmar o marco interruptivo (citação, Ev. 9).</span>
+            <button type="button" class="bsm" data-toast="Abre a Mesa de prazos extintivos (mockup)">Abrir mesa de prazos</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="mc">
+        <button type="button" class="mh" aria-expanded="false" aria-controls="mb-ck">
+          <span class="mt"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Checklists</span>
+          <span class="ms">1ª vista 3/4 · Decisão final 1/5</span>
+          <span class="mr"><span class="cnt">4/9</span><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="mb" id="mb-ck" hidden>
+          <div class="ck"><div class="ckt"><span>1ª vista</span><b>3/4</b></div><div class="pb" role="img" aria-label="3 de 4 itens"><i style="width:75%"></i></div></div>
+          <div class="ck"><div class="ckt"><span>Decisão final do IDPJ</span><b>1/5</b></div><div class="pb" role="img" aria-label="1 de 5 itens"><i style="width:20%"></i></div></div>
+        </div>
+      </article>
+
+      <article class="mc">
+        <button type="button" class="mh" aria-expanded="false" aria-controls="mb-fon">
+          <span class="mt"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>Fontes</span>
+          <span class="ms">3 documentos (Docs)</span>
+          <span class="mr"><span class="cnt">3</span><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="mb" id="mb-fon" hidden>
+          <ul class="fl">
+            <li><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><span>Organograma — Grupo Fachada Norte<em>Docs</em></span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><span>Memorial — Audiência IDPJ<em>Docs</em></span></li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><span>Petição — Resposta à exceção<em>Docs</em></span></li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="mc">
+        <button type="button" class="mh" aria-expanded="false" aria-controls="mb-atu">
+          <span class="mt"><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Atuações recentes</span>
+          <span class="ms">07/10 · Petição de reiteração Sisbajud</span>
+          <span class="mr"><span class="cnt">3</span><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></span>
+        </button>
+        <div class="mb" id="mb-atu" hidden>
+          <ul class="al">
+            <li><span class="od">07/10</span> Petição de reiteração Sisbajud <span class="mut">(EF)</span></li>
+            <li><span class="od">02/10</span> Resposta a intimação <span class="mut">(IDPJ)</span></li>
+            <li><span class="od">28/09</span> Tarefa concluída: “Pesquisa CNIB”</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===== NOTAS DA IDEIA ===== -->
+  <aside class="notes" aria-labelledby="h-notas">
+    <h2 id="h-notas">Notas da ideia
+      <span class="mk"><span>Ideia 1 · Reordenar e enxugar</span><span class="meter" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></span><span>1/5</span></span>
+    </h2>
+    <div class="ngrid">
+      <div>
+        <h3>O que muda</h3>
+        <ul>
+          <li>Frentes processuais sobe para logo abaixo dos KPIs (hoje só aparece uns 1.400 px abaixo do topo) e vira o centro da página.</li>
+          <li>Cabeçalho da lane em 2 linhas; o número CNJ copia sem abrir/fechar (só o chevron abre).</li>
+          <li>Intimações abertas deixam de ser cartão e viram linhas dentro da frente; tarefas, audiências e prescrição vêm juntas.</li>
+          <li>Exceção, agravo e EF apensa (que hoje nem aparecem) viram sub-linhas com conector.</li>
+          <li>Diário + Lembretes fundem-se no Mural; o resto vira 5 mini-cartões recolhidos.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Cartões: antes → depois</h3>
+        <p class="big">10 → 3 blocos</p>
+        <p><b>Antes:</b> O que vem · Intimações abertas · Frentes · Atuações · Diário · Prazos extintivos · Agenda · Checklists · Lembretes · Fontes.</p>
+        <p style="margin-top:6px"><b>Depois:</b> Frentes (absorve Intimações) · Mural (Diário + Lembretes) · Mais da operação (5 mini-cartões: O que vem + Agenda, Prazos extintivos, Checklists, Fontes, Atuações).</p>
+      </div>
+      <div>
+        <h3>Custo de implementação</h3>
+        <p class="big">Baixo</p>
+        <p>Reaproveita os componentes atuais. O trabalho está no cabeçalho de 2 linhas, em filtrar intimações/tarefas por frente e em montar os filhos por <code>parentExecutionId</code>.</p>
+      </div>
+      <div>
+        <h3>Muda o modelo de dados?</h3>
+        <p class="big">Não</p>
+        <p>“Último registro” sai da última fase ou intimação; tribunal/eproc, dos dígitos J.TR do CNJ. Ressalva: a pílula de prazo do lembrete e o “+ lembrete” pedem um <code>dueAt</code> opcional em <code>stickyNotes</code> (hoje só <code>content</code>, <code>color</code> e datas de edição). Sem ele o Mural funciona, só sem a pílula.</p>
+      </div>
+    </div>
+    <p class="nfoot"><b>Pontos de atenção:</b> a página ainda cresce quando várias lanes abrem (aqui, 3 abertas); o ganho depende do bom padrão de abertura. Nota não se vincula a uma frente nesta ideia. O trabalho “sem processo” (tarefa da operação, processo em acompanhamento) ganha uma lane própria no fim do cartão.</p>
+  </aside>
+
+</main>
+
+<noscript><p style="padding:24px;text-align:center">Este mockup precisa de JavaScript para desenhar as frentes e o mural.</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- utilidades ---------- */
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var ic = function (n, c) { return '<svg class="ic' + (c ? ' ' + c : '') + '" aria-hidden="true"><use href="#i-' + n + '"/></svg>'; };
+
+  var HOJE = new Date(2026, 9, 8);               // qui 08/10/2026
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var D = function (dd, mm) { return new Date(2026, mm - 1, dd); };
+  var diff = function (dt) { return Math.round((dt - HOJE) / 86400000); };
+  var fmt = function (dt) { return pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1); };
+
+  function dueInfo(dt) {
+    var n = diff(dt);
+    var cls = n <= 2 ? 'red' : (n <= 7 ? 'orange' : 'gray');
+    var txt;
+    if (n < 0) txt = 'vencida há ' + (-n) + (n === -1 ? ' dia' : ' dias');
+    else if (n === 0) txt = 'hoje';
+    else if (n === 1) txt = 'amanhã';
+    else txt = 'em ' + n + ' dias';
+    return { n: n, cls: cls, txt: txt };
+  }
+  function duePill(dt, o) {
+    o = o || {};
+    var i = dueInfo(dt);
+    var when = fmt(dt) + (o.time ? ' ' + o.time : '');
+    var lead = o.short ? '' : '<span class="dt">' + when + '</span> · ';
+    return '<span class="due ' + (o.force || i.cls) + '" title="' + when + '">' + lead + i.txt + '</span>';
+  }
+
+  /* ---------- CNJ ---------- */
+  function cnjHTML(n, o) {
+    o = o || {};
+    var head = n.slice(0, 10), tail = n.slice(10);
+    return '<span class="cnj' + (o.lg ? ' lg' : '') + (o.sm ? ' sm' : '') + '" data-cnj="' + n + '">' +
+      '<span class="num" title="Clique para selecionar o número inteiro">' + head + '<span class="tail">' + tail + '</span></span>' +
+      '<button type="button" class="cp" aria-label="Copiar número do processo" title="Copiar número do processo · Shift+clique copia só os dígitos">' + ic('copy') + '</button>' +
+      (o.noOpen ? '' : '<a class="op" href="#" aria-label="Abrir no eproc" title="Abrir no eproc' + (o.court ? ' (' + o.court + ')' : '') + '" data-toast="Abre o processo no eproc (mockup)">' + ic('ext') + '</a>') +
+      '</span>';
+  }
+
+  /* ---------- dados do caso fictício ---------- */
+  var CNJ = {
+    ef1: '5001234-56.2023.4.04.7001', ef1b: '5001235-56.2023.4.04.7001', idpj: '5009876-11.2024.4.04.7001',
+    exc: '5001240-56.2024.4.04.7001', ai: '5001250-56.2025.4.04.0000', acp: '5001300-56.2025.4.04.7001'
+  };
+  var TY = {
+    int: { lab: 'Intimação', ic: 'bell' }, tar: { lab: 'Tarefa', ic: 'task' }, aud: { lab: 'Audiência', ic: 'gavel' },
+    pre: { lab: 'Prescrição', ic: 'hour' }, acp: { lab: 'Acompanhar', ic: 'eye' }
+  };
+
+  var EF1B = {
+    id: 'ex-1b', kind: 'ef', kl: 'EF', title: 'Execução Fiscal (apensa)', cnj: CNJ.ef1b, rel: 'apensa', relTip: 'Apensa à EF principal',
+    juizo: '1ª VF Maringá', juizoFull: '1ª Vara Federal de Maringá', status: 'Em curso', fase: 'Citação',
+    valor: 'R$ 310 mil', valorFull: 'R$ 310.000,00',
+    reg: 'Ev. 14 · 02/09 — Certidão de apensamento',
+    ruler: [
+      { l: 'Ajuizamento', s: '—', st: 'done' }, { l: 'Citação', s: 'em curso', st: 'cur' }, { l: 'Penhora', s: '—', st: 'fut' },
+      { l: 'Embargos/defesa', s: '—', st: 'fut' }, { l: 'Expropriação', s: '—', st: 'fut' }
+    ],
+    itens: [],
+    cdas: [{ n: '000129', tipo: 'COFINS', v: 'R$ 310 mil' }],
+    vinc: { txt: 'Apensa à EF principal', cnj: CNJ.ef1, lab: 'EF principal' }
+  };
+  var EXC = {
+    id: 'ex-18', kind: 'exc', kl: 'EXC', title: 'Exceção de Pré-Executividade', cnj: CNJ.exc, rel: 'incidental', relTip: 'Incidental à EF principal',
+    juizo: '1ª VF Maringá', juizoFull: '1ª Vara Federal de Maringá', status: 'Em curso', fase: 'Vista à Fazenda', valor: '', valorFull: '',
+    reg: 'Ev. 3 · 07/10 — Vista à Fazenda Nacional',
+    ruler: [
+      { l: 'Juntada', s: '06/10 · Ev. 58 da EF', st: 'done' }, { l: 'Vista à Fazenda', s: '07/10 · Ev. 3', st: 'cur' }, { l: 'Decisão', s: '—', st: 'fut' }
+    ],
+    itens: [
+      { t: 'int', d: D(18, 10), txt: 'Vista — complementação de documentos', short: 'Vista — documentos', act: 'Responder' }
+    ],
+    vinc: { txt: 'Incidental à EF principal', cnj: CNJ.ef1, lab: 'EF principal' }
+  };
+  var EF1 = {
+    id: 'ex-1', kind: 'ef', kl: 'EF', title: 'Execução Fiscal (principal)', cnj: CNJ.ef1, rel: '',
+    juizo: '1ª VF Maringá', juizoFull: '1ª Vara Federal de Maringá', status: 'Em curso', fase: 'Penhora / constrição',
+    valor: 'R$ 1,82 mi', valorFull: 'R$ 1.822.000,00',
+    reg: 'Ev. 58 · 06/10 — Juntada de exceção de pré-executividade',
+    ruler: [
+      { l: 'Ajuizamento', s: 'Ev. 1', st: 'done' }, { l: 'Citação', s: 'Ev. 9', st: 'done' }, { l: 'Penhora', s: 'Ev. 31 · mat. 45.678', st: 'done' },
+      { l: 'Embargos/defesa', s: 'exceção em curso', st: 'cur' }, { l: 'Expropriação', s: '—', st: 'fut' }
+    ],
+    itens: [
+      { t: 'int', d: D(3, 10), txt: 'Intimação pessoal — redirecionamento (João Almeida Souza)', short: 'Intimação pessoal', tags: [['yellow', 'peça em edição']], act: 'Abrir peça' },
+      { t: 'tar', d: D(11, 10), txt: 'Requerer extensão de penhora sobre imóvel matrícula 45.678', short: 'Extensão de penhora — mat. 45.678', prio: 'alta', act: 'Concluir' },
+      { t: 'int', d: D(13, 10), txt: 'Manifestar sobre exceção de pré-executividade — 15 dias', short: 'Manifestar sobre a exceção', act: 'Responder' },
+      { t: 'pre', d: D(14, 10), force: 'red', txt: 'CDA 000123 (IRPJ · R$ 1,25 mi) prescreve', short: 'Prescrição da CDA 000123', sub: 'Confirmar marco interruptivo (citação, Ev. 9) antes da manifestação.', act: 'Ver prazo' },
+      { t: 'aud', d: D(26, 10), time: '14:00', txt: 'Audiência de instrução · presencial', short: 'Audiência de instrução', act: 'Ver roteiro' }
+    ],
+    cons: [
+      { t: 'Imóvel mat. 45.678', sub: 'CRI Maringá · CNIB', v: 'R$ 900 mil', st: 'ativa' },
+      { t: 'Conta PJ — bloqueio parcial', sub: 'Sisbajud', v: 'R$ 62 mil' }
+    ],
+    consTotal: 'R$ 962 mil',
+    cdas: [
+      { n: '000123', tipo: 'IRPJ', v: 'R$ 1,25 mi', presc: D(14, 10) },
+      { n: '000124', tipo: 'CSLL', v: 'R$ 480 mil', flag: 'garantida' },
+      { n: '000125', tipo: 'PIS', v: 'R$ 92 mil' }
+    ],
+    kids: [EF1B, EXC]
+  };
+  var AI = {
+    id: 'ex-19', kind: 'ai', kl: 'AI', title: 'Agravo de Instrumento', cnj: CNJ.ai, rel: 'recurso', relTip: 'Recurso contra decisão no IDPJ',
+    juizo: 'TRF4 · 2ª Turma', juizoFull: 'TRF4 · 2ª Turma', status: 'Em curso', fase: 'Contrarrazões', valor: '', valorFull: '', court: 'eproc TRF4',
+    reg: 'Ev. 7 · 04/10 — Intimação para contrarrazões',
+    ruler: [
+      { l: 'Interposição', s: '—', st: 'done' }, { l: 'Contrarrazões', s: '04/10 · Ev. 7', st: 'cur' }, { l: 'Julgamento', s: '—', st: 'fut' }
+    ],
+    itens: [
+      { t: 'int', d: D(16, 10), txt: 'Contrarrazões ao agravo — 15 dias', short: 'Contrarrazões ao agravo', tags: [['yellow', 'peça em edição']], act: 'Abrir peça' },
+      { t: 'tar', d: D(16, 10), txt: 'Contrarrazões ao agravo IDPJ', short: 'Contrarrazões ao agravo IDPJ', act: 'Concluir' }
+    ],
+    vinc: { txt: 'Recurso contra decisão no IDPJ', cnj: CNJ.idpj, lab: 'IDPJ', extra: 'Tribunal inferido do CNJ: J.TR 4.04 → TRF4 · eproc.' }
+  };
+  var IDPJ = {
+    id: 'ex-2', kind: 'idpj', kl: 'IDPJ', title: 'Incidente de Desconsideração da PJ', cnj: CNJ.idpj, rel: 'cobre 2 EFs', relTip: 'Cobre a EF principal e a EF apensa',
+    juizo: '1ª VF Maringá', juizoFull: '1ª Vara Federal de Maringá', status: 'Aguarda audiência', fase: 'Saneamento e provas',
+    valor: 'R$ 2,13 mi', valorSub: 'cobre', valorFull: 'R$ 2.132.000,00 (cobre)',
+    reg: 'Ev. 41 · 01/10 — Designada audiência de justificação',
+    ruler: [
+      { l: 'Ajuizamento', s: '10/06/2026 · Ev. 1', st: 'done' }, { l: 'Liminar favorável', s: '10/07/2026 · Ev. 12', st: 'done' },
+      { l: 'Saneamento e provas', s: 'aguarda audiência', st: 'cur' }, { l: 'Decisão final', s: '—', st: 'fut' }
+    ],
+    itens: [
+      { t: 'int', d: D(6, 10), txt: 'Manifestação sobre instauração de IDPJ — 15 dias', short: 'Instauração de IDPJ', tags: [['gray', 'pendente de análise']], act: 'Analisar' },
+      { t: 'tar', d: D(11, 10), txt: 'Preparar memorial audiência IDPJ', short: 'Preparar memorial audiência IDPJ', tags: [['blue', 'em andamento']], act: 'Concluir' },
+      { t: 'aud', d: D(12, 10), time: '14:30', txt: 'Audiência de justificação · presencial', short: 'Audiência de justificação', sub: 'Levar organograma do grupo.', act: 'Ver roteiro' }
+    ],
+    polo: ['Marina Ferreira Norte', 'João Almeida Souza'],
+    cobre: [{ cnj: CNJ.ef1, lab: 'EF principal', v: 'R$ 1,82 mi' }, { cnj: CNJ.ef1b, lab: 'EF apensa', v: 'R$ 310 mil' }],
+    kids: [AI]
+  };
+  var FAMS = [EF1, IDPJ];
+  var BYID = {};
+  [EF1, EF1B, EXC, IDPJ, AI].forEach(function (f) { BYID[f.id] = f; });
+
+  /* ---------- Frentes: renderização ---------- */
+  function sortedItems(f) { return (f.itens || []).slice().sort(function (a, b) { return a.d - b.d; }); }
+  function health(f) {
+    var nx = sortedItems(f)[0];
+    if (!nx) return 'ok';
+    var n = diff(nx.d);
+    return n <= 2 ? 'red' : (n <= 7 ? 'orange' : 'ok');
+  }
+  function startsOpen(f) { var nx = sortedItems(f)[0]; return !!nx && diff(nx.d) <= 7; }
+
+  function slotsHTML(f) {
+    var items = f.itens || [];
+    var cnt = function (t) { return items.filter(function (i) { return i.t === t; }).length; };
+    var over = items.filter(function (i) { return i.t === 'int' && diff(i.d) < 0; }).length;
+    var defs = [
+      { n: cnt('int'), icon: 'bell', one: 'intimação aberta', many: 'intimações abertas', cls: over ? 'red' : '', extra: over ? ' (' + over + (over === 1 ? ' vencida)' : ' vencidas)') : '' },
+      { n: cnt('tar'), icon: 'task', one: 'tarefa aberta', many: 'tarefas abertas' },
+      { n: cnt('aud'), icon: 'gavel', one: 'audiência marcada', many: 'audiências marcadas' },
+      { n: (f.cons || []).length, icon: 'lock', one: 'constrição', many: 'constrições' },
+      { n: cnt('pre'), icon: 'hour', one: 'prazo de prescrição', many: 'prazos de prescrição', cls: 'red' }
+    ];
+    return defs.map(function (d) {
+      if (!d.n) return '<span class="s e"></span>';
+      return '<span class="s ' + (d.cls || '') + '" title="' + d.n + ' ' + (d.n === 1 ? d.one : d.many) + (d.extra || '') + '">' + ic(d.icon) + '<b>' + d.n + '</b></span>';
+    }).join('');
+  }
+
+  function nextHTML(f) {
+    var nx = sortedItems(f)[0];
+    if (!nx) return '<span class="none">Sem pendências</span>';
+    var when = fmt(nx.d) + (nx.time ? ' ' + nx.time : '');
+    return duePill(nx.d, { short: true, time: nx.time, force: nx.force }) +
+      '<span class="nxt" title="' + esc(when + ' · ' + nx.txt) + '">' + fmt(nx.d) + ' · ' + esc(nx.short || nx.txt) + '</span>';
+  }
+
+  function headerHTML(f, open) {
+    var rel = f.rel ? '<span class="rel" title="' + esc(f.relTip || f.rel) + '">' + esc(f.rel) + '</span>' : '';
+    var valor = f.valor
+      ? '<span class="vl" title="' + esc(f.valorFull || f.valor) + '">' + esc(f.valor) + (f.valorSub ? '<small>' + f.valorSub + '</small>' : '') + '</span>'
+      : '<span class="vl none" title="Sem valor próprio">—</span>';
+    return '<div class="lh" data-h="' + health(f) + '">' +
+      '<button type="button" class="chev" data-toggle="' + f.id + '" aria-expanded="' + open + '" aria-controls="b-' + f.id + '" aria-label="' + (open ? 'Recolher' : 'Expandir') + ' detalhes: ' + esc(f.title) + '">' + ic('chev') + '</button>' +
+      '<div class="lm">' +
+        '<div class="l1"><span class="kind ' + f.kind + '">' + f.kl + '</span><span class="tt">' + esc(f.title) + '</span>' + rel + cnjHTML(f.cnj, { court: f.court }) + '</div>' +
+        '<div class="l2">' +
+          '<span class="jz" title="' + esc(f.juizoFull) + '">' + esc(f.juizo) + '</span><span class="sep">·</span>' +
+          '<span class="st" title="Situação da frente">' + esc(f.status) + '</span><span class="sep">·</span>' +
+          '<span class="reg" title="Último registro: ' + esc(f.reg) + '"><b>Último registro:</b> ' + esc(f.reg) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fv"><span class="fase" title="Fase atual: ' + esc(f.fase) + '">' + esc(f.fase) + '</span>' + valor + '</div>' +
+      '<div class="nx">' + nextHTML(f) + '</div>' +
+      '<div class="sg" aria-label="Sinais da frente">' + slotsHTML(f) + '</div>' +
+    '</div>';
+  }
+
+  function rulerHTML(steps) {
+    return '<ol class="ruler" aria-label="Fases do processo">' + steps.map(function (s) {
+      return '<li class="rs ' + s.st + '"' + (s.st === 'cur' ? ' aria-current="step"' : '') + '><span class="dot"></span><span class="rl">' + esc(s.l) + '</span><span class="rd">' + esc(s.s || '') + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
+  function itemRow(it) {
+    var m = TY[it.t];
+    var over = diff(it.d) < 0;
+    var tags = (it.tags || []).map(function (t) { return '<span class="tag ' + t[0] + '">' + esc(t[1]) + '</span>'; }).join('');
+    var prio = it.prio ? '<span class="prio"><i></i>prioridade ' + it.prio + '</span>' : '';
+    var sub = it.sub ? '<span>' + esc(it.sub) + '</span>' : '';
+    var small = (tags || prio || sub) ? '<small>' + tags + prio + sub + '</small>' : '';
+    return '<div class="it' + (over ? ' over' : '') + '">' +
+      '<span class="ty ' + it.t + '">' + ic(m.ic) + m.lab + '</span>' +
+      '<div class="tx"><b>' + esc(it.txt) + '</b>' + small + '</div>' +
+      duePill(it.d, { time: it.time, force: it.force }) +
+      '<div class="act"><button type="button" class="bsm" data-toast="' + esc(it.act) + ' — ação ilustrativa do mockup">' + esc(it.act) + '</button></div>' +
+    '</div>';
+  }
+
+  function itemsBox(f) {
+    var items = sortedItems(f);
+    return '<div class="its"><div class="bh"><span>Intimações e prazos desta frente</span><span class="cnt">' + items.length + '</span><span class="grow"></span><span class="m">por data · tarefas e audiências incluídas</span></div>' +
+      (items.length ? items.map(itemRow).join('') : '<div class="empty">' + ic('check') + 'Nada em aberto nesta frente.</div>') + '</div>';
+  }
+
+  function asideHTML(f) {
+    var out = [];
+    if (f.polo) {
+      out.push('<div class="bx"><div class="bh">Polo passivo</div><div class="chips">' + f.polo.map(function (p) { return '<span class="chip">' + esc(p) + '</span>'; }).join('') + '</div></div>');
+    }
+    if (f.cobre) {
+      out.push('<div class="bx"><div class="bh"><span>Cobre</span><span class="grow"></span><span class="m mono">' + esc(f.valorFull.replace(' (cobre)', '')) + '</span></div>' +
+        f.cobre.map(function (c) {
+          return '<div class="rw2"><div class="top"><span class="kind ef">EF</span><b>' + esc(c.lab) + '</b><span class="rv">' + esc(c.v) + '</span></div>' + cnjHTML(c.cnj, { sm: true, noOpen: true }) + '</div>';
+        }).join('') + '</div>');
+    }
+    if (f.vinc) {
+      out.push('<div class="bx"><div class="bh">Vínculo</div><div class="rt regtx"><b style="font-weight:500">' + esc(f.vinc.txt) + '</b></div>' +
+        '<div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="mut">' + esc(f.vinc.lab) + '</span>' + cnjHTML(f.vinc.cnj, { sm: true, noOpen: true }) + '</div>' +
+        (f.vinc.extra ? '<p class="hint2">' + esc(f.vinc.extra) + '</p>' : '') + '</div>');
+    }
+    if (f.cons && f.cons.length) {
+      out.push('<div class="bx"><div class="bh"><span>Constrições</span><span class="grow"></span><span class="m mono">' + esc(f.consTotal) + '</span></div>' +
+        f.cons.map(function (c) {
+          return '<div class="rw">' + ic('lock') + '<div class="rt"><b>' + esc(c.t) + '</b><small>' + esc(c.sub) + (c.st ? ' · <span style="color:var(--cx-green);font-weight:600">' + esc(c.st) + '</span>' : '') + '</small></div><span class="rv">' + esc(c.v) + '</span></div>';
+        }).join('') + '</div>');
+    }
+    if (f.cdas && f.cdas.length) {
+      out.push('<div class="bx"><div class="bh"><span>CDAs desta frente</span><span class="cnt">' + f.cdas.length + '</span></div>' +
+        f.cdas.map(function (c) {
+          var flag = '';
+          if (c.presc) flag = '<span class="due red" title="Prescreve em ' + fmt(c.presc) + '">' + ic('hour') + 'prescreve ' + fmt(c.presc) + ' · ' + dueInfo(c.presc).txt + '</span>';
+          else if (c.flag) flag = '<span class="tag green">' + esc(c.flag) + '</span>';
+          return '<div class="rw"><span class="mono" style="font-size:12px">' + c.n + '</span><div class="rt"><b>' + esc(c.tipo) + '</b>' + (flag ? '<div style="margin-top:2px">' + flag + '</div>' : '') + '</div><span class="rv">' + esc(c.v) + '</span></div>';
+        }).join('') + '</div>');
+    }
+    out.push('<div class="bx"><div class="bh"><span>Último registro</span><span class="grow"></span>' +
+      '<button type="button" class="bsm" data-remind="' + f.id + '" title="Transforma este registro em um lembrete no Mural">' + ic('plus') + ' lembrete</button></div>' +
+      '<p class="regtx">' + esc(f.reg).replace(/^(Ev\. \d+ · \d{2}\/\d{2})/, '<span class="ev">$1</span>') + '</p>' +
+      '<p class="hint2">Vem da última fase ou intimação registrada.</p></div>');
+    out.push('<div class="acts">' +
+      '<button type="button" class="btn sm" data-toast="Abre a ficha lateral do processo (já existe no app)">Abrir ficha</button>' +
+      '<button type="button" class="btn sm" data-digits="' + f.cnj + '" title="Copia os 20 dígitos, sem pontuação">Copiar só dígitos</button>' +
+      '<button type="button" class="btn sm" data-toast="Registrar evento (fora do escopo deste mockup)">Registrar evento</button></div>');
+    return out.join('');
+  }
+
+  function bodyHTML(f, open) {
+    return '<div class="bd" id="b-' + f.id + '"' + (open ? '' : ' hidden') + '>' +
+      '<div class="col"><div class="bx"><div class="bh"><span>Fases do processo</span></div>' + rulerHTML(f.ruler) + '</div>' + itemsBox(f) + '</div>' +
+      '<div class="col">' + asideHTML(f) + '</div></div>';
+  }
+
+  function famHTML(f) {
+    var kids = f.kids || [];
+    var open = startsOpen(f);
+    var html = '<section class="fam' + (kids.length ? ' has-kids' : '') + '" id="lane-' + f.id + '" aria-label="' + esc(f.title) + '">' + headerHTML(f, open) + bodyHTML(f, open);
+    if (kids.length) {
+      html += '<div class="kids">' + kids.map(function (k) {
+        var ko = startsOpen(k);
+        return '<div class="kidwrap"><div class="lane kid" id="lane-' + k.id + '">' + headerHTML(k, ko) + bodyHTML(k, ko) + '</div></div>';
+      }).join('') + '</div>';
+    }
+    return html + '</section>';
+  }
+
+  function opHTML() {
+    var tarefa = { t: 'tar', d: D(15, 10), txt: 'Mapear quotas Norte Prime', short: 'Mapear quotas', act: 'Concluir' };
+    var open = diff(tarefa.d) <= 7;
+    var f = { id: 'op', itens: [tarefa] };
+    var head = '<div class="lh" data-h="' + health(f) + '">' +
+      '<button type="button" class="chev" data-toggle="op" aria-expanded="' + open + '" aria-controls="b-op" aria-label="' + (open ? 'Recolher' : 'Expandir') + ' itens da operação sem processo">' + ic('chev') + '</button>' +
+      '<div class="lm"><div class="l1"><span class="kind op">Operação</span><span class="tt">Sem processo vinculado</span></div>' +
+      '<div class="l2"><span class="st">Itens gerais da operação e processos em acompanhamento</span></div></div>' +
+      '<div class="fv"><span class="mut">—</span></div>' +
+      '<div class="nx">' + nextHTML(f) + '</div>' +
+      '<div class="sg">' + slotsHTML(f) + '</div></div>';
+    var acp = '<div class="it">' +
+      '<span class="ty acp">' + ic('eye') + 'Acompanhar</span>' +
+      '<div class="tx"><b>FN x Imobiliária Norte Prime</b><small>' + cnjHTML(CNJ.acp, { sm: true, court: 'eproc TRF4' }) + '<span class="tag gray">possível conexão</span></small></div>' +
+      '<span class="due gray">em acompanhamento</span>' +
+      '<div class="act"><button type="button" class="bsm" data-toast="Vincular como frente (fora do escopo deste mockup)">Vincular</button></div></div>';
+    var body = '<div class="bd one" id="b-op"' + (open ? '' : ' hidden') + '><div class="its"><div class="bh"><span>Itens sem processo</span><span class="cnt">2</span></div>' + itemRow(tarefa) + acp + '</div></div>';
+    return '<section class="fam op" id="lane-op" aria-label="Itens da operação sem processo">' + head + body + '</section>';
+  }
+
+  function renderLanes() {
+    $('#lanes').innerHTML = FAMS.map(famHTML).join('') + opHTML();
+  }
+
+  function setLane(id, open, silent) {
+    var b = document.getElementById('b-' + id);
+    var btn = $('[data-toggle="' + id + '"]');
+    if (!b || !btn) return;
+    b.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    var f = BYID[id];
+    btn.setAttribute('aria-label', (open ? 'Recolher' : 'Expandir') + ' ' + (id === 'op' ? 'itens da operação sem processo' : 'detalhes: ' + f.title));
+  }
+  function allLaneIds() { return $$('[data-toggle]').map(function (b) { return b.getAttribute('data-toggle'); }); }
+
+  /* ---------- Mural ---------- */
+  var TIPO = {
+    estrategia: { lab: 'Estratégia', c: 'y' }, risco: { lab: 'Risco', c: 'r' }, decisao: { lab: 'Decisão judicial', c: 'b' },
+    providencia: { lab: 'Providência', c: 'g' }, replicacao: { lab: 'Replicação', c: 'v' }, observacao: { lab: 'Observação', c: 'n' }
+  };
+  var FILTERS = [
+    { k: 'all', l: 'Tudo' }, { k: 'lembrete', l: 'Lembretes' }, { k: 'estrategia', l: 'Estratégia' }, { k: 'risco', l: 'Risco' },
+    { k: 'decisao', l: 'Decisão' }, { k: 'providencia', l: 'Providência' }, { k: 'observacao', l: 'Observação' }
+  ];
+  var seq = 100;
+  var NOTES = [
+    { id: 'n1', kind: 'diario', tipo: 'estrategia', date: '07/10', pinned: true, text: 'Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.' },
+    { id: 'n2', kind: 'lembrete', color: 'g', text: 'Ligar p/ CRI Maringá — matrícula atualizada.', due: D(8, 10), time: '17:00', upd: 'novo' },
+    { id: 'n3', kind: 'lembrete', color: 'y', text: 'Audiência IDPJ — levar organograma do grupo.', due: D(12, 10), time: '14:30', upd: 'atualizado ontem' },
+    { id: 'n4', kind: 'lembrete', color: 'r', text: 'Conferir certidão de citação da EF antes de 14/10.', due: D(14, 10), upd: 'novo' },
+    { id: 'n5', kind: 'diario', tipo: 'risco', date: '05/10', text: 'CDA 000123 prescreve em 14/10 — confirmar marco interruptivo (citação Ev. 9) antes da manifestação.' },
+    { id: 'n6', kind: 'diario', tipo: 'providencia', date: '03/10', text: 'Pedido de Sisbajud reiterado; bloqueio parcial R$ 62 mil.' },
+    { id: 'n7', kind: 'diario', tipo: 'observacao', date: '01/10', text: 'Contratos sociais cruzados, extratos Sisbajud, CNIB matrícula 45.678 e organograma do grupo.' },
+    { id: 'n8', kind: 'diario', tipo: 'decisao', date: '10/07', text: 'Liminar no IDPJ deferida — inclusão cautelar de Marina e João no polo (Ev. 12).' }
+  ];
+  var filter = 'all';
+
+  function keyOf(n) { return n.kind === 'lembrete' ? 'lembrete' : n.tipo; }
+  function rank(n) {
+    if (n.pinned) return 0;
+    if (n.kind === 'lembrete') {
+      if (n.done) return 4;
+      return (n.due && diff(n.due) < 0) ? 1 : 2;
+    }
+    return 3;
+  }
+  function sortNotes() {
+    NOTES = NOTES.map(function (n, i) { return { n: n, i: i }; }).sort(function (a, b) {
+      var ra = rank(a.n), rb = rank(b.n);
+      if (ra !== rb) return ra - rb;
+      if (ra === 2 || ra === 1) {
+        var da = a.n.due ? a.n.due.getTime() : -Infinity, db = b.n.due ? b.n.due.getTime() : -Infinity;
+        if (da !== db) return da < db ? -1 : 1;
+      }
+      return a.i - b.i;
+    }).map(function (x) { return x.n; });
+  }
+
+  function notePill(n) {
+    if (n.done) return '<span class="due green">' + ic('check') + 'feito</span>';
+    if (!n.due) return '<button type="button" class="due gray" data-toast="Definir data do lembrete (mockup)" style="cursor:pointer">sem data · definir</button>';
+    var k = diff(n.due);
+    var cls = k < 0 ? 'red' : (k === 0 ? 'yellow' : 'gray');
+    var t = k < 0 ? 'vencido' : (k === 0 ? 'hoje' : (k === 1 ? 'amanhã' : 'em ' + k + ' dias'));
+    var when = fmt(n.due) + (n.time ? ' ' + n.time : '');
+    return '<span class="due ' + cls + '" title="Prazo do lembrete: ' + when + '">' + when + ' · ' + t + '</span>';
+  }
+
+  function noteHTML(n) {
+    var lem = n.kind === 'lembrete';
+    var color = lem ? n.color : TIPO[n.tipo].c;
+    var label = lem ? 'Lembrete' : TIPO[n.tipo].lab;
+    var head = '<header>' +
+      (lem ? '<label class="rc" title="Marcar como feito"><input type="checkbox" data-done="' + n.id + '"' + (n.done ? ' checked' : '') + ' aria-label="Marcar lembrete como feito"><span class="rb"></span></label>' : '') +
+      '<span class="pt">' + label + '</span>' +
+      (n.pinned ? '<span role="img" title="Fixada" aria-label="Fixada">📌</span>' : '') +
+      (!lem ? '<span class="pd">' + (n.date || '08/10') + '</span>' : '') +
+      '</header>';
+    var text = '<p class="ptx"' + (n.fresh ? ' contenteditable="true" data-edit="' + n.id + '"' : '') + '>' + esc(n.text) + '</p>';
+    var foot = lem
+      ? '<footer>' + notePill(n) + (n.upd ? '<span>' + n.upd + '</span>' : '') + '</footer>'
+      : '<footer><span>Entrada do diário</span></footer>';
+    return '<article class="pi c-' + color + (n.pinned ? ' pinned' : '') + (n.done ? ' done' : '') + '" data-id="' + n.id + '" data-key="' + keyOf(n) + '">' + head + text + foot + '</article>';
+  }
+
+  function renderPills() {
+    $('#pills').innerHTML = FILTERS.map(function (f) {
+      var c = f.k === 'all' ? NOTES.length : NOTES.filter(function (n) { return keyOf(n) === f.k; }).length;
+      return '<button type="button" class="pill" data-f="' + f.k + '" aria-pressed="' + (filter === f.k) + '">' + f.l + ' <i>' + c + '</i></button>';
+    }).join('');
+    $('#muralCount').textContent = NOTES.length;
+  }
+  function renderBoard() {
+    sortNotes();
+    var list = NOTES.filter(function (n) { return filter === 'all' || keyOf(n) === filter; });
+    $('#board').innerHTML = list.length ? list.map(noteHTML).join('') : '<div class="empty-board">Nenhuma nota neste filtro.</div>';
+    renderPills();
+  }
+
+  function addNote(n, focus) {
+    NOTES.unshift(n);
+    filter = 'all';
+    renderBoard();
+    if (focus) {
+      var el = $('[data-edit="' + n.id + '"]');
+      if (el) {
+        el.focus();
+        var r = document.createRange(); r.selectNodeContents(el);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      }
+    }
+  }
+
+  /* ---------- copiar ---------- */
+  function copyText(text) {
+    return new Promise(function (resolve, reject) {
+      function fallback() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text; ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0';
+          document.body.appendChild(ta);
+          ta.select(); ta.setSelectionRange(0, text.length);
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok) resolve(); else reject(new Error('execCommand falhou'));
+        } catch (err) { reject(err); }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(resolve, fallback);
+      } else { fallback(); }
+    });
+  }
+
+  var tipEl = $('#tip'), tipTimer;
+  function showTip(el, text) {
+    var r = el.getBoundingClientRect();
+    tipEl.textContent = text;
+    tipEl.classList.add('on');
+    var w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    var left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+    var top = r.top - h - 8; if (top < 8) top = r.bottom + 8;
+    tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(function () { tipEl.classList.remove('on'); }, 2000);
+  }
+
+  var toastEl = $('#toast'), toastMsg = $('#toastMsg'), toastTimer;
+  function toast(msg, action) {
+    toastMsg.textContent = msg;
+    var old = $('button', toastEl); if (old) old.remove();
+    if (action) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = action.label;
+      b.addEventListener('click', function () { action.fn(); toastEl.classList.remove('on'); });
+      toastEl.appendChild(b);
+    }
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, action ? 4200 : 2200);
+  }
+
+  function copyFrom(btn, text, label) {
+    copyText(text).then(function () {
+      if (btn.classList.contains('cp')) {
+        var use = $('use', btn);
+        if (use) use.setAttribute('href', '#i-check');
+        btn.classList.add('ok');
+        clearTimeout(btn._t);
+        btn._t = setTimeout(function () { if (use) use.setAttribute('href', '#i-copy'); btn.classList.remove('ok'); }, 2000);
+      }
+      try { btn.focus({ preventScroll: true }); } catch (e) { btn.focus(); }
+      showTip(btn, label);
+      $('#live').textContent = label + ': ' + text;
+    }, function () {
+      showTip(btn, 'Não foi possível copiar');
+    });
+  }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var cp = t.closest('.cnj .cp');
+    if (cp) {
+      e.preventDefault();
+      var num = cp.closest('.cnj').getAttribute('data-cnj');
+      if (e.shiftKey) copyFrom(cp, num.replace(/\D/g, ''), 'Copiado (só dígitos)');
+      else copyFrom(cp, num, 'Copiado');
+      return;
+    }
+    var dg = t.closest('[data-digits]');
+    if (dg) { copyFrom(dg, dg.getAttribute('data-digits').replace(/\D/g, ''), 'Copiado (só dígitos)'); return; }
+
+    var tg = t.closest('[data-toggle]');
+    if (tg) { var id = tg.getAttribute('data-toggle'); setLane(id, tg.getAttribute('aria-expanded') !== 'true'); return; }
+
+    var rm = t.closest('[data-remind]');
+    if (rm) {
+      var f = BYID[rm.getAttribute('data-remind')];
+      addNote({ id: 'n' + (++seq), kind: 'lembrete', color: 'y', text: f.kl + ' ' + f.cnj.slice(0, 10) + ' · ' + f.reg, due: null, upd: 'agora' }, false);
+      toast('Lembrete criado no Mural — falta definir a data', { label: 'Ver no Mural', fn: function () { document.getElementById('mural').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+      return;
+    }
+
+    var fp = t.closest('.pill[data-f]');
+    if (fp) { filter = fp.getAttribute('data-f'); renderBoard(); var again = $('.pill[data-f="' + filter + '"]'); if (again) again.focus(); return; }
+
+    var ab = t.closest('#addBtn');
+    if (ab) {
+      var m = $('#addMenu'); var show = m.hidden;
+      m.hidden = !show; ab.setAttribute('aria-expanded', String(show));
+      if (show) { var first = $('button', m); if (first) first.focus(); }
+      return;
+    }
+    var nn = t.closest('[data-new]');
+    if (nn) {
+      var kind = nn.getAttribute('data-new');
+      $('#addMenu').hidden = true; $('#addBtn').setAttribute('aria-expanded', 'false');
+      if (kind === 'lembrete') addNote({ id: 'n' + (++seq), kind: 'lembrete', color: 'y', text: 'Novo lembrete — escreva aqui.', due: null, upd: 'agora', fresh: true }, true);
+      else addNote({ id: 'n' + (++seq), kind: 'diario', tipo: 'observacao', date: '08/10', text: 'Nova entrada do diário — escreva aqui.', fresh: true }, true);
+      return;
+    }
+    if (!t.closest('.plus')) { var mm = $('#addMenu'); if (mm && !mm.hidden) { mm.hidden = true; $('#addBtn').setAttribute('aria-expanded', 'false'); } }
+
+    var mh = t.closest('.mc .mh');
+    if (mh) {
+      var ex = mh.getAttribute('aria-expanded') === 'true';
+      mh.setAttribute('aria-expanded', String(!ex));
+      document.getElementById(mh.getAttribute('aria-controls')).hidden = ex;
+      return;
+    }
+
+    var ts = t.closest('[data-toast]');
+    if (ts) { e.preventDefault(); toast(ts.getAttribute('data-toast')); return; }
+    var dead = t.closest('a[href="#"]');
+    if (dead) { e.preventDefault(); return; }
+  });
+
+  document.addEventListener('change', function (e) {
+    var cb = e.target.closest ? e.target.closest('[data-done]') : null;
+    if (!cb) return;
+    var n = NOTES.filter(function (x) { return x.id === cb.getAttribute('data-done'); })[0];
+    if (n) { n.done = cb.checked; renderBoard(); var again = $('[data-done="' + n.id + '"]'); if (again) again.focus(); }
+  });
+
+  document.addEventListener('focusout', function (e) {
+    var ed = e.target.closest ? e.target.closest('[data-edit]') : null;
+    if (!ed) return;
+    var n = NOTES.filter(function (x) { return x.id === ed.getAttribute('data-edit'); })[0];
+    if (n) { n.text = ed.textContent.trim() || n.text; n.fresh = false; ed.removeAttribute('contenteditable'); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var mm = $('#addMenu');
+      if (mm && !mm.hidden) { mm.hidden = true; $('#addBtn').setAttribute('aria-expanded', 'false'); $('#addBtn').focus(); }
+    }
+  });
+
+  $('#expAll').addEventListener('click', function () { allLaneIds().forEach(function (id) { setLane(id, true); }); });
+  $('#colAll').addEventListener('click', function () { allLaneIds().forEach(function (id) { setLane(id, false); }); });
+  $('#moreAll').addEventListener('click', function () {
+    var hs = $$('.mc .mh');
+    var allOpen = hs.every(function (h) { return h.getAttribute('aria-expanded') === 'true'; });
+    hs.forEach(function (h) { h.setAttribute('aria-expanded', String(!allOpen)); document.getElementById(h.getAttribute('aria-controls')).hidden = allOpen; });
+    $('#moreAll').textContent = allOpen ? 'Expandir todos' : 'Recolher todos';
+  });
+  $('#goHearing').addEventListener('click', function () {
+    setLane('ex-2', true);
+    var el = document.getElementById('lane-ex-2');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 1500);
+  });
+
+  /* ---------- início ---------- */
+  renderLanes();
+  renderBoard();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Diário — três opções</title>
+<style>
+  :root {
+    --ground: #f2f3f5; --surface: #fff; --surface-2: #f6f7f9; --hover: #e7e9ed;
+    --line: #dcdfe4; --ink: #14161a; --ink-2: #4d535e; --ink-3: #7c828e;
+    --mono: ui-monospace, Consolas, monospace;
+    --sans: system-ui, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 var(--sans); }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+  .lede { margin: 0 0 22px; color: var(--ink-2); max-width: 62ch; }
+  .opt { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; margin-bottom: 18px; }
+  .opt h2 { margin: 0 0 4px; font-size: 15px; }
+  .opt p.why { margin: 0 0 14px; color: var(--ink-2); font-size: 13px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+  .date { font: 600 11px var(--mono); color: var(--ink-3); }
+  .type { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: var(--ink-3); background: rgba(122,139,163,.15); }
+  .acts { display: inline-flex; gap: 0; }
+  .acts button { width: 18px; height: 18px; border: 0; background: transparent; color: var(--ink-3); cursor: default; font-size: 11px; border-radius: 4px; }
+  .txt { font-size: 12.5px; line-height: 1.5; }
+  .a .row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .a .acts { margin-left: auto; }
+  .b { display: grid; grid-template-columns: 108px minmax(0,1fr) auto; gap: 12px; align-items: start; }
+  .b .meta { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .c .top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .c .top .date, .c .top .type { font-weight: 500; font-size: 11px; background: none; padding: 0; color: var(--ink-3); }
+  .hint { margin-top: 8px; font-size: 11px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Diário — três jeitos de mostrar a entrada</h1>
+  <p class="lede">O mesmo texto nas três. Nada disso altera o app ainda. Escolha o número que ficar mais legível.</p>
+
+  <section class="opt">
+    <h2>1. Cabeçalho numa linha, texto embaixo</h2>
+    <p class="why">A data, o tipo e os ícones ficam juntos no topo. O texto usa a largura toda.</p>
+    <div class="card a">
+      <div class="row">
+        <span class="date">24/09/2026</span>
+        <span class="type">Observação</span>
+        <span class="acts"><button>📌</button><button>✎</button><button>✕</button></span>
+      </div>
+      <div class="txt">Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.</div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <h2>2. Data e tipo à esquerda, texto ao lado, ícones no canto</h2>
+    <p class="why">A data continua ao lado do texto. Os ícones saem de baixo do tipo e vão para o canto.</p>
+    <div class="card b">
+      <div class="meta">
+        <span class="date">24/09/2026</span>
+        <span class="type">Observação</span>
+      </div>
+      <div class="txt">Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.</div>
+      <span class="acts"><button>📌</button><button>✎</button><button>✕</button></span>
+    </div>
+  </section>
+
+  <section class="opt">
+    <h2>3. Texto em primeiro lugar</h2>
+    <p class="why">O parágrafo é o que se lê primeiro. Data e tipo ficam pequenos. Os ícones só aparecem quando o mouse passa na entrada.</p>
+    <div class="card c">
+      <div class="top">
+        <span class="date">24/09/2026</span>
+        <span class="type">Observação</span>
+        <span class="acts" style="margin-left:auto;opacity:.35"><button>📌</button><button>✎</button><button>✕</button></span>
+      </div>
+      <div class="txt">Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.</div>
+      <div class="hint">No app, os ícones ficariam apagados e só apareceriam ao passar o mouse.</div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

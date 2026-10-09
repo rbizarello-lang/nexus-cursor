@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!-- Índice comparativo das 5 ideias de reorganização da Visão geral (Nexus Prumo). Abre os mockups prumo-visao-geral-ideia-N.html em iframe. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão geral · 5 ideias</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc; --cx-green: #21845a; --cx-green-soft: #e2f3eb;
+  --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 13px/1.5 var(--cx-font); color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: var(--cx-blue); }
+.mono { font-family: var(--cx-mono); }
+.doc { max-width: 1240px; margin: 0 auto; padding: 40px 24px 96px; }
+.eyebrow { font: 600 11px var(--cx-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-accent); }
+h1 { font-size: 28px; font-weight: 600; letter-spacing: -.025em; margin: 8px 0 10px; line-height: 1.15; }
+.lede { font-size: 15px; color: var(--cx-ink-2); max-width: 900px; line-height: 1.6; }
+.lede b { color: var(--cx-ink); font-weight: 600; }
+section { margin-top: 56px; }
+section > h2 { font-size: 19px; font-weight: 600; letter-spacing: -.015em; display: flex; gap: 10px; align-items: baseline; }
+section > h2 .n { font: 600 12px var(--cx-mono); color: var(--cx-accent); }
+p.sl { color: var(--cx-ink-2); font-size: 14px; max-width: 920px; margin: 6px 0 18px; }
+p.sl b { color: var(--cx-ink); }
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 12px; }
+
+/* Antes */
+.antes { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 24px; align-items: start; }
+.wire { position: relative; height: 470px; padding: 0; overflow: hidden; }
+.wire .b { position: absolute; border: 1px solid var(--cx-line-strong); background: var(--cx-surface-2); border-radius: 4px; font-size: 9.5px; color: var(--cx-ink-2); padding: 2px 4px; line-height: 1.2; overflow: hidden; }
+.wire .b.hdr { background: #e9ebef; border-style: dashed; }
+.wire .b.fr { background: var(--cx-accent-soft); border-color: var(--cx-accent); color: var(--cx-accent); font-weight: 700; }
+.wire .fold { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--cx-red); }
+.wire .fold span { position: absolute; right: 4px; top: -16px; font: 600 9.5px var(--cx-mono); color: var(--cx-red); background: var(--cx-surface); padding: 0 3px; }
+.facts { padding: 18px 20px; }
+.facts h3 { font-size: 14px; margin-bottom: 8px; }
+.facts ul { padding-left: 18px; display: flex; flex-direction: column; gap: 7px; color: var(--cx-ink-2); font-size: 13px; }
+.facts li b { color: var(--cx-ink); }
+.facts code { font: 12px var(--cx-mono); background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; }
+
+/* Régua de intensidade */
+.scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.scale button { text-align: left; padding: 14px 14px 12px; border: 1px solid var(--cx-line); border-radius: 12px; background: var(--cx-surface); display: flex; flex-direction: column; gap: 6px; min-width: 0; transition: border-color .12s, box-shadow .12s; }
+.scale button:hover { border-color: var(--cx-line-strong); }
+.scale button.on { border-color: var(--cx-accent); box-shadow: 0 0 0 3px var(--cx-accent-soft); }
+.scale .lvl { display: flex; gap: 3px; }
+.scale .lvl i { width: 14px; height: 6px; border-radius: 2px; background: var(--cx-line); }
+.scale .lvl i.f { background: var(--cx-accent); }
+.scale .nm { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.scale .ds { font-size: 12px; color: var(--cx-ink-2); line-height: 1.45; }
+
+/* Tabela comparativa */
+.cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp th, .cmp td { text-align: left; vertical-align: top; padding: 10px 12px; border-top: 1px solid var(--cx-line); }
+.cmp thead th { border-top: 0; font-size: 11px; font-weight: 600; color: var(--cx-ink-3); text-transform: uppercase; letter-spacing: .05em; background: var(--cx-surface-2); }
+.cmp thead th:first-child { border-top-left-radius: 12px; } .cmp thead th:last-child { border-top-right-radius: 12px; }
+.cmp td:first-child { font-weight: 600; white-space: nowrap; }
+.cmp td:first-child .mono { color: var(--cx-accent); margin-right: 6px; }
+.cmp tbody tr:hover { background: var(--cx-surface-2); }
+.pill { display: inline-block; font: 600 11px var(--cx-mono); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.lo { background: var(--cx-green-soft); color: var(--cx-green); }
+.pill.md { background: var(--cx-orange-soft); color: var(--cx-orange); }
+.pill.hi { background: var(--cx-red-soft); color: var(--cx-red); }
+.pill.no { background: var(--cx-surface-2); color: var(--cx-ink-2); border: 1px solid var(--cx-line); }
+.pill.yes { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.tblwrap { overflow-x: auto; }
+
+/* Visualizador */
+.viewer-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; position: sticky; top: 0; z-index: 5; background: var(--cx-ground); padding: 10px 0; }
+.seg { display: inline-flex; background: var(--cx-panel); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { height: 30px; padding: 0 12px; border-radius: 7px; font-size: 12.5px; color: var(--cx-ink-2); white-space: nowrap; }
+.seg button b { font: 600 11px var(--cx-mono); color: var(--cx-accent); margin-right: 5px; }
+.seg button.on { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 1px 2px rgba(20,24,32,.08); }
+.viewer-bar .sp { flex: 1; }
+.viewer-bar a { font-size: 12.5px; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--cx-line); border-radius: 8px; background: var(--cx-surface); color: var(--cx-ink); }
+.viewer-bar a:hover { border-color: var(--cx-line-strong); }
+.frame { overflow: hidden; }
+.frame iframe { display: block; width: 100%; height: 1400px; border: 0; background: var(--cx-ground); }
+.thesis { padding: 14px 18px; margin-bottom: 12px; border-left: 3px solid var(--cx-accent); }
+.thesis b { font-size: 14px; }
+.thesis p { color: var(--cx-ink-2); margin-top: 3px; }
+
+/* Recomendação */
+.reco { padding: 20px 22px; border-left: 3px solid var(--cx-accent); }
+.reco h3 { font-size: 15px; margin-bottom: 6px; }
+.reco p, .reco li { color: var(--cx-ink-2); font-size: 13.5px; }
+.reco ol { padding-left: 20px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.reco b { color: var(--cx-ink); }
+.reco code { font: 12px var(--cx-mono); background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; }
+
+@media (max-width: 900px) {
+  .antes { grid-template-columns: 1fr; }
+  .scale { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .doc { padding: 24px 16px 64px; }
+  .scale { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · aba Visão geral · planejamento</div>
+  <h1>Cinco caminhos para pôr as Frentes processuais no centro</h1>
+  <p class="lede">Hoje a Visão geral tem <b>10 cartões</b> e as Frentes, que são onde você atua, aparecem só no meio da página. As cinco ideias abaixo vão da mais leve à mais radical. Todas usam o mesmo caso fictício (<b>Operação Fachada Norte</b>: EF principal e apensa, IDPJ, exceção de pré-executividade e agravo no TRF4), para que você compare só a organização. Todas preservam a <b>descrição</b>, o <b>resumo automatizado</b> e a <b>faixa de briefing</b>. Todas resolvem o <b>número copiável em 1 clique</b>.</p>
+
+  <section id="antes">
+    <h2><span class="n">00</span>Como está hoje</h2>
+    <p class="sl">Posições medidas no app (demo, tela 1440×900, operação Holding Atlântico). A linha vermelha marca a dobra da tela, ou seja, o que se vê sem rolar.</p>
+    <div class="antes">
+      <div class="card wire" id="wire" aria-label="Esquema da Visão geral atual"></div>
+      <div class="card facts">
+        <h3>O que a leitura do código mostrou</h3>
+        <ul>
+          <li><b>O número do processo está dentro da área que abre e fecha a frente.</b> O cabeçalho inteiro tem <code>role=button</code> e <code>cursor:pointer</code>. Arrastar para selecionar abre a frente. O duplo clique para no hífen e no ponto. Nas "EFs cobertas", o número fica dentro de um <code>&lt;button&gt;</code>, que abre o modal de edição.</li>
+          <li><b>As peças para copiar já existem no app.</b> <code>copyText</code>, <code>Copyable</code>, <code>cxCopy</code> e o botão <code>.cx-copy</code> já estão prontos. O cartão de Frentes só não os usa.</li>
+          <li><b>As frentes vêm fechadas por padrão.</b> Fase, prazos e notas ficam escondidos. Abrir "Notas" numa frente abre em todas, porque o estado de dobra é único.</li>
+          <li><b>O cartão não mostra o trabalho aberto de cada frente.</b> Intimações, tarefas, audiências, prescrição e constrição não aparecem, embora existam por processo e o app já desenhe esses sinais na lista de Processos (<code>ProcRowSymbols</code>).</li>
+          <li><b>Embargos, exceções e agravos não aparecem.</b> Eles se ligam por <code>parentExecutionId</code>, mas o cartão ignora esses vínculos.</li>
+          <li><b>Bug de valor:</b> nas frentes EF e Central, o valor soma só as CDAs dos apensos, não as do próprio processo.</li>
+          <li><b>A ficha lateral do processo já existe</b> (<code>EditionClaudeProcDrawer</code>), mas não abre a partir das Frentes.</li>
+          <li><b>Lembretes já são "sticky notes"</b> no modelo (<code>data.stickyNotes</code>, com cor gravada), mas o cartão não mostra a cor. O Diário (<code>briefing.entries</code>) não tem vínculo com processo.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="escala">
+    <h2><span class="n">01</span>A régua de intensidade</h2>
+    <p class="sl">Clique numa ideia para abri-la no visualizador abaixo.</p>
+    <div class="scale" id="scale"></div>
+  </section>
+
+  <section id="comparar">
+    <h2><span class="n">02</span>Lado a lado</h2>
+    <div class="card tblwrap">
+      <table class="cmp">
+        <thead><tr><th>Ideia</th><th>Cartões (hoje 10)</th><th>Frentes viram…</th><th>Copiar o número</th><th>Diário + Lembretes</th><th>Secundários</th><th>Custo</th><th>Modelo de dados</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mono">1</span>Reordenar e enxugar</td><td>3 blocos</td><td>Faixas largas logo abaixo dos KPIs, com o trabalho aberto de cada processo e os filhos recuados</td><td>Chip com botão sempre visível. O chevron abre e fecha, o número não.</td><td>Mural de post-its em grade</td><td>5 mini-cartões recolhidos ("Mais da operação")</td><td><span class="pill lo">baixo</span></td><td><span class="pill no">não muda</span></td></tr>
+          <tr><td><span class="mono">2</span>Tabela-mestra</td><td>3</td><td>Tabela em árvore, ordenável por urgência, tipo ou valor. A linha expande no lugar.</td><td>Chip e "Copiar números" (todos de uma vez)</td><td>Mural no trilho direito</td><td>1 cartão com abas</td><td><span class="pill md">médio</span></td><td><span class="pill no">não muda</span></td></tr>
+          <tr><td><span class="mono">3</span>Mesa de frentes</td><td>2 + faixa</td><td>Lista à esquerda e capa do processo à direita</td><td>Botões com rótulo: Copiar · Só dígitos · Abrir no eproc</td><td>Notas por frente, mais mural geral</td><td>Chips com contagem que abrem uma gaveta</td><td><span class="pill md">médio-alto</span></td><td><span class="pill yes">execId opcional</span></td></tr>
+          <tr><td><span class="mono">4</span>Mapa do tempo</td><td>2 + 3 mini</td><td>Raias num eixo de tempo. Absorvem O que vem, Agenda e Prazos.</td><td>Chip na coluna fixa de cada raia</td><td>Varal de post-its</td><td>Checklists, Fontes e Atuações em mini-cartões</td><td><span class="pill hi">alto</span></td><td><span class="pill no">não muda</span></td></tr>
+          <tr><td><span class="mono">5</span>Quadro da operação</td><td>1 + bastidores</td><td>Uma coluna por frente, como num kanban</td><td>Chip na capa de cada coluna</td><td>Post-its dentro da frente, arrastáveis</td><td>Abas "Bastidores"</td><td><span class="pill hi">alto</span></td><td><span class="pill yes">execId opcional</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="ver">
+    <h2><span class="n">03</span>Os mockups</h2>
+    <p class="sl">São interativos. O botão de copiar funciona de verdade (Shift+clique copia só os dígitos). As frentes abrem e fecham, as abas trocam e os filtros filtram.</p>
+    <div class="viewer-bar">
+      <div class="seg" id="seg" role="tablist" aria-label="Escolher ideia"></div>
+      <span class="sp"></span>
+      <a id="open" href="prumo-visao-geral-ideia-1.html" target="_blank" rel="noopener">Abrir em nova aba ↗</a>
+    </div>
+    <div class="card thesis" id="thesis"></div>
+    <div class="card frame"><iframe id="ifr" title="Mockup da ideia selecionada" src="prumo-visao-geral-ideia-1.html"></iframe></div>
+  </section>
+
+  <section id="reco">
+    <h2><span class="n">04</span>Recomendação</h2>
+    <div class="card reco" id="reco-body">
+      <h3>Caminho sugerido: começar pela 1, chegar à 2 e emprestar peças da 3 e da 4</h3>
+      <ol>
+        <li><b>Fase A, já (ideia 1, custo baixo).</b> O número sai da área que abre e fecha e ganha o chip com botão de copiar, reaproveitando <code>CxNumCopy</code> e <code>.cx-copy</code>. Frentes sobem para logo abaixo dos KPIs. Exceção, agravo e embargos aparecem como filhos. Cada frente passa a mostrar o próprio trabalho aberto (sinais de <code>ProcRowSymbols</code>, próximo prazo). "Abrir ficha" chama a ficha lateral que já existe. Junto, corrige o bug do valor. Só isso já resolve as três dores que você citou.</li>
+        <li><b>Fase B, destino (ideia 2, custo médio).</b> Tabela-mestra com linha que expande no lugar, Mural no trilho direito e Painel de apoio com abas. É o melhor equilíbrio: é a única ideia que mantém <b>todas as frentes visíveis ao mesmo tempo</b> e ordenáveis por urgência, sem mexer no modelo de dados.</li>
+        <li><b>Peças para emprestar.</b> A <b>capa</b> da ideia 3 pode virar o novo visual da ficha lateral aberta por "Abrir ficha", sem trocar o layout da página. O <b>mapa do tempo</b> da ideia 4 pode virar uma alternância "Tabela | Mapa" dentro do próprio cartão de Frentes, substituindo o "Horizonte" do O que vem.</li>
+        <li><b>Ideia 5 só se a Visão geral tiver de virar a mesa de trabalho.</b> É a que melhor junta "tudo de um processo num lugar", mas perde a comparação entre frentes (cabem cerca de 3,5 colunas em 1280 px) e exige arrastar e soltar, o que não funciona no toque.</li>
+      </ol>
+      <p style="margin-top:12px"><b>Mural (Diário + Lembretes):</b> funciona em qualquer ideia sem migração. Para o lembrete ter data e caixa de "feito", <code>stickyNotes</code> precisa de dois campos opcionais (<code>dueAt</code>, <code>done</code>). Para a nota pertencer a uma frente (ideias 3 e 5), precisa de <code>execId</code> opcional. Os três são compatíveis: quando ausentes, a nota fica como hoje.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const IDEIAS = [
+  { n: 1, nome: 'Reordenar e enxugar', ds: 'Mesmos componentes, outra ordem. Frentes sobem para logo abaixo dos KPIs e o número fica copiável. Os secundários viram mini-cartões no fim.', tese: 'Muda a ordem e conserta o cartão de Frentes por dentro. Intimações abertas e Agenda deixam de ser cartões e passam a morar na frente a que pertencem.' },
+  { n: 2, nome: 'Tabela-mestra', ds: 'Frentes como tabela densa em árvore, ordenável e filtrável, no estilo da lista do Linear. O mural fica no trilho direito.', tese: 'Uma linha por processo, com fase, próximo ato, pendências e valor de relance. Filhos ficam sob o pai. A linha expande no lugar.' },
+  { n: 3, nome: 'Mesa de frentes', ds: 'Mestre-detalhe: escolhe a frente à esquerda e a capa do processo abre à direita, com tudo o que é acionável.', tese: 'A Visão geral vira a mesa onde se atua. Cada frente tem uma capa (número grande copiável, juízo, partes, régua de fases, o que fazer agora e notas daquela frente).' },
+  { n: 4, nome: 'Mapa do tempo', ds: 'Cada frente vira uma raia num eixo de tempo. Prazos, audiências e o "O que vem" passam a morar na raia certa.', tese: 'Responde "o que acontece em cada processo e quando". Elimina os cartões O que vem, Agenda e Prazos extintivos, que viram marcadores nas raias.' },
+  { n: 5, nome: 'Quadro da operação', ds: 'Kanban com uma coluna por frente. Capa, trabalho aberto e post-its daquela frente ficam juntos. As notas se arrastam entre colunas.', tese: 'A forma mais radical: tudo o que é de um processo fica na coluna dele. Diário e lembretes deixam de ser cartões e viram post-its vinculados à frente.' },
+];
+const scale = document.getElementById('scale');
+const seg = document.getElementById('seg');
+const ifr = document.getElementById('ifr');
+const openA = document.getElementById('open');
+const thesis = document.getElementById('thesis');
+function lvl(n) { let s = '<span class="lvl" aria-hidden="true">'; for (let i = 1; i <= 5; i++) s += '<i class="' + (i <= n ? 'f' : '') + '"></i>'; return s + '</span>'; }
+IDEIAS.forEach(i => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.n = i.n;
+  b.innerHTML = lvl(i.n) + '<span class="nm">' + i.n + ' · ' + i.nome + '</span><span class="ds">' + i.ds + '</span>';
+  b.onclick = () => { pick(i.n); document.getElementById('ver').scrollIntoView({ behavior: 'smooth' }); };
+  scale.appendChild(b);
+  const s = document.createElement('button');
+  s.type = 'button'; s.role = 'tab'; s.dataset.n = i.n;
+  s.innerHTML = '<b>' + i.n + '</b>' + i.nome;
+  s.onclick = () => pick(i.n);
+  seg.appendChild(s);
+});
+function pick(n) {
+  const i = IDEIAS[n - 1];
+  const f = 'prumo-visao-geral-ideia-' + n + '.html';
+  if (!ifr.src.endsWith(f)) ifr.src = f;
+  openA.href = f;
+  thesis.innerHTML = '<b>' + n + ' · ' + i.nome + '</b> <span class="pill no" style="margin-left:6px">intensidade ' + n + '/5</span><p>' + i.tese + '</p>';
+  document.querySelectorAll('#scale button, #seg button').forEach(b => { const on = +b.dataset.n === n; b.classList.toggle('on', on); if (b.parentNode === seg) b.setAttribute('aria-selected', on); });
+}
+/* Reduz o iframe antes de medir: senão o documento interno herda a altura anterior e ela só cresce. */
+function fitFrame() {
+  try {
+    ifr.style.height = '900px';
+    const h = ifr.contentDocument.documentElement.scrollHeight;
+    ifr.style.height = Math.max(h, 900) + 'px';
+  } catch (e) { ifr.style.height = '1400px'; }
+}
+let ro = null;
+ifr.addEventListener('load', () => {
+  fitFrame(); setTimeout(fitFrame, 600);
+  /* Acompanha frentes abertas/fechadas dentro do mockup. */
+  try { if (ro) ro.disconnect(); ro = new ResizeObserver(() => fitFrame()); ro.observe(ifr.contentDocument.body); } catch (e) {}
+});
+pick(1);
+
+/* Esquema do "antes": posições medidas (px no app), escala 0,215 */
+(function () {
+  const S = 0.215, X0 = 272, Y0 = 70, W = 1134;
+  const w = document.getElementById('wire');
+  const box = (x, y, wd, h, t, cls) => { const d = document.createElement('div'); d.className = 'b ' + (cls || ''); d.style.left = ((x - X0) * S + 10) + 'px'; d.style.top = ((y - Y0) * S + 10) + 'px'; d.style.width = (wd * S) + 'px'; d.style.height = (h * S) + 'px'; d.textContent = t; w.appendChild(d); };
+  box(272, 70, W, 520, 'Cabeçalho, abas, descrição, resumo e KPIs', 'hdr');
+  box(272, 611, W, 552, 'O que vem (largura total)');
+  box(272, 1187, 790, 189, 'Intimações abertas');
+  box(272, 1400, 790, 172, 'FRENTES PROCESSUAIS', 'fr');
+  box(272, 1596, 790, 120, 'Atuações recentes');
+  box(272, 1740, 790, 233, 'Diário');
+  box(1086, 1187, 320, 102, 'Prazos extintivos');
+  box(1086, 1313, 320, 171, 'Agenda');
+  box(1086, 1508, 320, 325, 'Checklists');
+  box(1086, 1857, 320, 122, 'Lembretes');
+  box(1086, 2003, 320, 98, 'Fontes');
+  const f = document.createElement('div'); f.className = 'fold'; f.style.top = ((900 - Y0) * S + 10) + 'px'; f.innerHTML = '<span>dobra · 900px</span>'; w.appendChild(f);
+})();
+</script>
+</body>
+</html>

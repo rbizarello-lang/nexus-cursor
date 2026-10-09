@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Browser__find",
+      "Bash(npm test)",
+      "mcp__Claude_Browser__read_console_messages",
+      "Bash(tasklist)",
+      "Bash(tasklist *)"
+    ]
+  }
+}

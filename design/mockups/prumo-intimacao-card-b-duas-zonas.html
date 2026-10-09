@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="claro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Card de intimação · Direção B · Duas zonas de leitura</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═════════════ Tokens do app (src/Nexus.shell.html ~3907 · tema claro "Ardósia" e tema escuro "Noite") ═════════════ */
+:root, html[data-theme="claro"] {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-opc-parcel: #2d62d3; --cx-opc-maxima: #c2323d; --cx-opc-alta: #e0707a; --cx-opc-media: #c99a1a; --cx-opc-baixa: #21845a; --cx-opc-none: #8b919c;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-shadow-lg: 0 24px 64px rgba(20,24,32,0.22);
+  --cx-on-solid: #ffffff;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+html[data-theme="escuro"] {
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --cx-ground: #121a25; --cx-panel: #0d1521; --cx-surface: #18202c; --cx-surface-2: #1e2633; --cx-hover: #252e3a;
+  --cx-line: #2d3645; --cx-line-strong: #404a59;
+  --cx-ink: #e6ecf6; --cx-ink-2: #b0b9c5; --cx-ink-3: #939ca9;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #dee4ec; --cx-btn-ink: #0d1521;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #757d88;
+  --cx-shadow: 0 1px 2px rgba(3,8,16,0.40), 0 6px 20px rgba(3,8,16,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(3,8,16,0.65);
+  --cx-on-solid: #0d1521;
+  color-scheme: dark;
+}
+/* Tokens NOVOS desta proposta (todos derivados dos tokens do app; nenhuma cor nova) */
+:root {
+  --mini: color-mix(in srgb, var(--cx-ink-3) 68%, var(--cx-ink));            /* texto miúdo legível (≥ 4,5:1); --cx-ink-3 puro dá ~3,9:1 */
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 5.5%, transparent);        /* faixa da zona "Minhas notas" */
+  --zone-edge: color-mix(in srgb, var(--cx-accent) 34%, var(--cx-line));      /* fio da zona "Minhas notas" */
+  --emb-warn: color-mix(in srgb, var(--cx-yellow) 78%, var(--cx-ink));        /* âmbar com contraste para 10,5px */
+  --emb-today: color-mix(in srgb, var(--cx-orange) 86%, var(--cx-ink));       /* laranja forte do "HOJE" */
+}
+
+/* ═════════════ Página do mockup (não faz parte do app) ═════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--cx-ground); }
+body { font-family: var(--cx-font); font-size: 13px; line-height: 1.5; color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
+a { color: inherit; }
+.doc { padding: 28px 40px 120px; }
+.prose { max-width: 1180px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cx-accent); }
+.doc h1 { font-size: 27px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--cx-ink-2); margin-top: 10px; line-height: 1.6; max-width: 980px; }
+.doc h2 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 46px 0 6px; padding-top: 22px; border-top: 1px solid var(--cx-line); }
+.doc h2 .n { font: 500 12px var(--cx-mono); color: var(--mini); margin-right: 8px; }
+.doc h3 { font-size: 13.5px; font-weight: 600; margin: 24px 0 8px; }
+.sub { color: var(--cx-ink-2); max-width: 980px; margin-bottom: 14px; }
+.muted { color: var(--mini); }
+.mono { font-family: var(--cx-mono); }
+code, .code { font-family: var(--cx-mono); font-size: 12px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; }
+pre { max-width: 1280px; font-family: var(--cx-mono); font-size: 12px; line-height: 1.55; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 9px; padding: 13px 16px; overflow-x: auto; color: var(--cx-ink); white-space: pre; tab-size: 2; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .c { color: var(--mini); }
+.bar { position: sticky; top: 0; z-index: 50; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 40px; margin: 0 -40px 0; background: color-mix(in srgb, var(--cx-ground) 90%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--cx-line); }
+.bar .sp { flex: 1; }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; }
+.nav a { font-size: 12px; color: var(--cx-ink-2); text-decoration: none; padding: 3px 8px; border-radius: 5px; }
+.nav a:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.nav a:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+h2[id] { scroll-margin-top: 56px; }
+.seg { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); gap: 1px; }
+.seg button { height: 24px; padding: 0 10px; border-radius: 5px; color: var(--cx-ink-3); font-size: 12px; white-space: nowrap; }
+.seg button:hover { color: var(--cx-ink); }
+.seg button.on { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 0 0 1px var(--cx-line), 0 1px 2px rgba(0,0,0,0.08); font-weight: 500; }
+.seg button:focus-visible, .cx-it:focus-visible, .cx-i-row:focus-visible, .cx-op-tag:focus-visible, .cx-proc-copy:focus-visible, .cx-doc-ic:focus-visible, .cx-grp:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+.cap { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; font-size: 12px; color: var(--mini); flex-wrap: wrap; }
+.cap b { color: var(--cx-ink); font-weight: 600; font-size: 12.5px; }
+.cap .mono { font-size: 11.5px; }
+.fw { overflow-x: auto; padding-bottom: 6px; }
+.fz { width: max-content; }
+.callouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 8px 22px; margin-top: 12px; max-width: 1500px; }
+.callouts div { font-size: 12.5px; color: var(--cx-ink-2); display: flex; gap: 8px; }
+.callouts i { flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--cx-red); color: var(--cx-on-solid); font: 700 10px/17px var(--cx-mono); text-align: center; font-style: normal; margin-top: 1px; }
+.callouts.good i { background: var(--cx-green); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1180px; }
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 14px 16px; }
+.card h4 { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.card p, .card li { color: var(--cx-ink-2); font-size: 12.5px; }
+.card ul { padding-left: 17px; }
+.card li + li { margin-top: 3px; }
+table.t { width: 100%; max-width: 1280px; border-collapse: collapse; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; font-size: 12.5px; }
+table.t th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mini); padding: 9px 12px; border-bottom: 1px solid var(--cx-line); background: var(--cx-surface-2); }
+table.t td { padding: 9px 12px; border-bottom: 1px solid var(--cx-line); vertical-align: top; color: var(--cx-ink-2); }
+table.t tr:last-child td { border-bottom: 0; }
+table.t td:first-child { color: var(--cx-ink); font-weight: 500; white-space: nowrap; }
+.pill { display: inline-block; font: 600 10px/1 var(--cx-mono); letter-spacing: .04em; padding: 3px 5px; border-radius: 3px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); color: var(--cx-ink-2); }
+.sample { width: 196px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 8px 12px 8px 4px; display: grid; }
+.sample .cx-it-pz, .sample .cx-it-pe { grid-area: auto; padding: 0; }
+.sample .cx-it-pe { margin-top: 2px; }
+.tsample { width: 640px; max-width: 100%; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 0 0; display: block; }
+.tsample .cx-it-tr { border-left: 0; padding: 9px 18px; grid-area: auto; }
+#leg-teor td:nth-child(3) { width: 660px; }
+.annot { position: relative; }
+.annot .pin { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--cx-accent); color: var(--cx-on-solid); font: 700 9.5px/16px var(--cx-mono); text-align: center; z-index: 3; box-shadow: 0 0 0 2px var(--cx-surface); pointer-events: none; }
+/* Esquemas de anatomia */
+.wfs { display: grid; grid-template-columns: 1.55fr 1fr .52fr; gap: 18px; max-width: 1500px; align-items: start; }
+.wf { display: grid; gap: 0; border: 1px solid var(--cx-line-strong); border-radius: 8px; background: var(--cx-surface); overflow: hidden; font-size: 11px; color: var(--cx-ink-2); }
+.wf > span { padding: 8px 9px; border-left: 1px solid var(--cx-line); line-height: 1.35; }
+.wf > span:first-child { border-left: 0; }
+.wf small { display: block; color: var(--mini); font-size: 10px; }
+.wf b { font-weight: 600; color: var(--cx-ink); }
+.wf .nt { background: var(--zone-tint); border-left-color: var(--zone-edge); }
+.wf-wide { grid-template-columns: 24px 1.35fr 1.7fr 1.25fr .9fr; }
+.wf-mid { grid-template-columns: 24px 1fr 1.4fr .75fr; grid-template-areas: "s i t p" "s i n p"; }
+.wf-mid .s { grid-area: s } .wf-mid .i { grid-area: i } .wf-mid .t { grid-area: t } .wf-mid .n { grid-area: n; border-left: 1px solid var(--zone-edge); border-top: 1px dashed var(--zone-edge); } .wf-mid .p { grid-area: p }
+.wf-mob { grid-template-columns: 1fr 1fr; }
+.wf-mob > span { border-left: 0; border-top: 1px solid var(--cx-line); }
+.wf-mob > span:nth-child(-n+2) { border-top: 0; }
+.wf-mob > span:nth-child(2) { text-align: right; border-left: 1px solid var(--cx-line); }
+.wf-mob > span:nth-child(n+3) { grid-column: 1 / -1; }
+.wf-mob .nt { border-top-color: var(--zone-edge); }
+.wfl { font-size: 11.5px; color: var(--mini); margin-bottom: 5px; }
+.wfl b { color: var(--cx-ink); font-weight: 600; }
+.ok { color: var(--cx-green); font-weight: 600; }
+.bad { color: var(--cx-red); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: 1180px; margin: 12px 0 4px; }
+.kpi { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px 14px; }
+.kpi .v { font: 600 22px var(--cx-mono); letter-spacing: -.02em; }
+.kpi .l { font-size: 11.5px; color: var(--mini); margin-top: 2px; }
+.kpi .d { font-size: 11.5px; color: var(--cx-ink-2); margin-top: 4px; }
+@media (max-width: 1100px) { .two, .wfs, .kpis { grid-template-columns: 1fr; } }
+
+/* ═════════════ Peças do app (copiadas de src/Nexus.shell.html, mesmos nomes) ═════════════ */
+.cx { font-family: var(--cx-font); font-size: 13px; line-height: 1.45; color: var(--cx-ink); }
+.cx-i { flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.cx-mono { font-family: var(--cx-mono); letter-spacing: -0.01em; }
+.cx-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cx-muted { color: var(--cx-ink-3); }
+.cx-n { font: 500 10.5px var(--cx-mono); color: var(--cx-ink-3); }
+.cx-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.cx-op-sq { width: 9px; height: 9px; border-radius: 3px; flex: none; display: inline-block; }
+.cx-list { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; }
+.cx-grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); text-align: left; color: var(--cx-ink); font-weight: 500; cursor: pointer; }
+.cx-caret { color: var(--cx-ink-3); display: grid; }
+.cx-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--cx-line); color: var(--cx-ink-2); white-space: nowrap; flex: none; }
+.cx-tag.blue { color: var(--cx-blue); background: var(--cx-blue-soft); border-color: transparent; }
+.cx-flag { color: var(--cx-orange); display: inline-grid; }
+.cx-op-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; min-width: 0; max-width: 100%; }
+.cx-op-tag.cx-link { cursor: pointer; border-radius: 4px; }
+.cx-op-tag.cx-link:hover { color: var(--cx-ink); text-decoration: underline; text-underline-offset: 2px; }
+.cx-proc { font-family: var(--cx-mono); font-size: 11.5px; white-space: nowrap; letter-spacing: -0.02em; color: var(--cx-ink); }
+.cx-d { color: var(--cx-ink-3); }
+.cx-uf { display: inline-block; font: 600 9.5px/1 var(--cx-mono); padding: 3px 4px; border-radius: 3px; background: var(--cx-cyan-soft); color: var(--cx-cyan); margin-right: 6px; vertical-align: 1px; letter-spacing: 0.02em; }
+.cx-urg { font: 700 9px/1 var(--cx-mono); letter-spacing: 0.06em; padding: 3px 5px; border-radius: 3px; background: var(--cx-red); color: var(--cx-on-solid); flex: none; margin-right: 6px; }
+.cx-due { font: 500 12px var(--cx-mono); white-space: nowrap; letter-spacing: -0.01em; }
+.cx-due.late { color: var(--cx-red); } .cx-due.today { color: var(--cx-orange); } .cx-due.soon { color: var(--cx-yellow); }
+.cx-due.later, .cx-due.none { color: var(--cx-ink-3); } .cx-due.done { color: var(--cx-green); }
+.cx-imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.cx-imp i { width: 3px; border-radius: 1px; background: var(--cx-line-strong); }
+.cx-imp i:nth-child(1) { height: 5px; } .cx-imp i:nth-child(2) { height: 8px; } .cx-imp i:nth-child(3) { height: 12px; }
+.cx-imp[data-v="alta"] i { background: var(--cx-red); }
+.cx-imp[data-v="normal"] i:nth-child(-n+2) { background: var(--cx-ink-2); }
+.cx-imp[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); }
+.cx-dif { display: inline-flex; gap: 2px; align-items: center; height: 12px; flex: none; }
+.cx-dif i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--cx-line-strong); }
+.cx-dif[data-v="alta"] i { background: var(--cx-orange); border-color: var(--cx-orange); }
+.cx-dif[data-v="media"] i:nth-child(-n+2) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-dif[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-st-ic { display: grid; place-items: center; flex: none; }
+.cx-proc-copy { display: inline-flex; align-items: center; border: none; background: transparent; padding: 0; margin: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.cx-proc-copy:hover .cx-proc { text-decoration: underline; }
+.cx-cls { font-size: 11px; color: var(--cx-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-sub { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; }
+.cx-doc-ic { flex: none; display: inline-flex; border-radius: 3px; }
+.cx-obj-undef { color: var(--cx-ink-3); font-style: italic; }
+.cx-est-prog { display: inline-flex; gap: 2px; vertical-align: middle; flex: none; }
+.cx-est-prog.sm i { width: 11px; height: 4px; border-radius: 2px; background: var(--cx-line); display: block; }
+.cx-est-prog i.d { background: var(--cx-green); } .cx-est-prog i.n { background: var(--cx-blue); }
+.cx-i-est { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cx-ink-2); margin-top: 2px; min-width: 0; }
+.cx-i-est b { font-weight: 500; color: var(--cx-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── ANTES: linha atual (CSS idêntico ao do app, escopado em .old) ─── */
+.old .cx-list-h, .old .cx-i-row { display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 24px 34px 44px 96px; column-gap: 14px; }
+.old .cx-list-h { padding: 8px 14px; font-size: 11px; color: var(--cx-ink-3); border-bottom: 1px solid var(--cx-line); }
+.old .cx-list-h .r { text-align: right; }
+.old .cx-list-h + .cx-grp { border-top: 0; }
+.old .cx-i-row { position: relative; align-items: center; min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.old .cx-i-row:hover { background: var(--cx-hover); }
+.old .cx-i-row.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.old .cx-i-row.done { opacity: 0.78; }
+.old .cx-i-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.old .cx-i-party { display: flex; align-items: center; gap: 7px; font-weight: 500; min-width: 0; }
+.old .cx-i-party .cx-urg { margin-right: 0; }
+.old .cx-i-ev { font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.old .cx-i-note { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--cx-ink-3); min-width: 0; }
+.old .cx-i-note .cx-ell { font-style: italic; }
+.old .cx-c-proc { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.old .cx-c-op { min-width: 0; display: flex; align-items: center; }
+.old .cx-c-opdoc { display: flex; align-items: center; justify-content: center; }
+.old .cx-c-imp, .old .cx-c-dif { display: flex; justify-content: center; }
+.old .cx-c-due { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+
+/* ═════════════ DEPOIS · direção B · "duas zonas" (CSS novo, prefixo cx-it) ═════════════ */
+.cx-it-list { container-type: inline-size; container-name: lst; }
+.cx-it:focus-visible { outline-offset: -2px; }
+
+/* Mapa de colunas por largura da LISTA (não da janela): o menu lateral aberto/recolhido muda a largura útil. */
+.cx-it, .cx-it-h {
+  display: grid; padding: 0 14px; column-gap: 0;
+  grid-template-columns: 18px minmax(0, 1fr) auto;                         /* celular */
+  grid-template-areas: "st id pz" "st tr tr" "st nt nt" "st pe pe";
+}
+.cx-it-h { display: none; }
+@container lst (min-width: 860px) {                                         /* ~1200: tribunal e notas empilhadas */
+  .cx-it { grid-template-columns: 18px 282px minmax(0, 1fr) 184px; grid-template-areas: "st id tr pz" "st id nt pe"; }
+  .cx-it-h { display: grid; grid-template-columns: 18px 282px minmax(0, 1fr) 184px; grid-template-areas: "st id tr pz"; }
+}
+@container lst (min-width: 1480px) {                                        /* ≥ ~1500: duas zonas lado a lado */
+  .cx-it { grid-template-columns: 18px 340px minmax(0, 1.25fr) minmax(0, 1fr) 196px; grid-template-areas: "st id tr nt pz" "st id tr nt pe"; }
+  .cx-it-h { grid-template-columns: 18px 340px minmax(0, 1.25fr) minmax(0, 1fr) 196px; grid-template-areas: "st id tr nt pz"; }
+}
+
+.cx-it { position: relative; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-it:hover { background: var(--cx-hover); }
+.cx-it.sel { background: var(--cx-accent-soft); }
+.cx-it.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.cx-it.done { opacity: 0.78; }
+
+.cx-it-st { grid-area: st; align-self: start; padding-top: 22px; }
+.cx-it-id { grid-area: id; min-width: 0; padding: 8px 16px 8px 0; display: flex; flex-direction: column; gap: 1px; }
+.cx-it-tr { grid-area: tr; min-width: 0; padding: 8px 18px; border-left: 1px solid var(--cx-line); }
+.cx-it-nt { grid-area: nt; min-width: 0; padding: 8px 18px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-it-pz { grid-area: pz; padding: 8px 0 0 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.cx-it-pe { grid-area: pe; align-self: end; padding: 0 0 8px 12px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; min-height: 23px; }
+@container lst (min-width: 860px) and (max-width: 1479.98px) {
+  .cx-it-nt { border-top: 1px dashed var(--zone-edge); padding-top: 7px; padding-bottom: 8px; }
+  .cx-it-nt.empty { display: none; }
+}
+@container lst (max-width: 859.98px) {
+  .cx-it-tr { border-left: 0; padding: 4px 0 0 0; }
+  .cx-it-nt { border-left: 2px solid var(--zone-edge); border-radius: 0 6px 6px 0; padding: 6px 10px; margin-top: 6px; }
+  .cx-it-nt.empty { display: none; }
+  .cx-it-pz { padding-top: 8px; }
+  .cx-it-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 16px; }
+  .cx-it .cx-it-party { align-items: flex-start; }
+  .cx-it-party .cx-urg { margin-top: 2px; }
+  .cx-it-cnt .du { display: none; }
+  .cx-it-pe { padding: 7px 0 9px 0; justify-content: flex-start; flex-direction: row-reverse; gap: 12px; }
+  .cx-it-pe .cx-gl { margin-right: auto; }
+}
+
+/* Identidade */
+.cx-it-opl { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; height: 13px; }
+.cx-it-op { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font: 600 10px/13px var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--mini); border-radius: 3px; }
+.cx-it-op.cx-link:hover { color: var(--cx-ink); text-decoration: underline; text-underline-offset: 2px; }
+.cx-it-op.none { font-weight: 500; }
+.cx-it-op .cx-op-sq { width: 8px; height: 8px; border-radius: 2px; }
+.cx-it-op.none .cx-op-sq { background: transparent !important; border: 1.5px dashed var(--cx-line-strong); }
+.cx-it-tags { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.cx-tag.xs { height: 16px; padding: 0 5px; font-size: 10px; border-radius: 4px; }
+.cx-it-party { display: flex; align-items: center; min-width: 0; font-weight: 500; font-size: 13px; line-height: 16px; }
+.cx-it-pc { display: flex; align-items: center; gap: 9px; min-width: 0; line-height: 15px; }
+.cx-it-pc .cx-proc-copy { flex: none; }
+.cx-it-pc .cx-cls { min-width: 0; flex: 1 1 0; font-size: 11px; color: var(--mini); }
+.cx-it-id .cx-i-est { margin-top: 1px; line-height: 15px; }
+.cx-it-id .cx-i-est .cx-muted { color: var(--mini); white-space: nowrap; }
+
+/* Zona Tribunal: o que veio de fora */
+.cx-it-obj { font-size: 12.5px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--ol, 2); line-clamp: var(--ol, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor { margin-top: 3px; padding-left: 9px; border-left: 2px solid var(--cx-line-strong); font-size: 12px; line-height: 16px; color: var(--cx-ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--tl, 2); line-clamp: var(--tl, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor .lbl, .cx-it-nt .zl { font: 600 9px/1 var(--cx-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mini); margin-right: 6px; vertical-align: 1px; }
+.cx-it-teor .ia { font: 600 9px/1 var(--cx-mono); color: var(--cx-violet); margin-right: 6px; vertical-align: 1px; }
+
+/* Zona Minhas notas: o que o procurador anotou */
+.cx-it-note { position: relative; padding-left: 12px; font-size: 12px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--nl, 1); line-clamp: var(--nl, 1); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-note + .cx-it-note, .cx-it-note + .cx-it-more { margin-top: 1px; }
+.cx-it-note::before { content: ""; position: absolute; left: 1px; top: 6px; width: 4px; height: 4px; border-radius: 1px; background: var(--cx-accent); }
+.cx-it-nt .zl { display: none; }
+.cx-it-note.act { color: var(--cx-ink-2); padding-left: 0; }
+.cx-it-note.act::before { display: none; }
+.cx-it-more { padding-left: 12px; font: 500 10.5px/16px var(--cx-mono); color: var(--mini); }
+@container lst (max-width: 1479.98px) { .cx-it-nt .zl { display: inline; } }
+
+/* Prazo */
+.cx-it-pz .cx-due { font-size: 12.5px; line-height: 16px; }
+.cx-it-cnt { font: 400 10.5px/15px var(--cx-mono); color: var(--mini); white-space: nowrap; }
+.cx-gl { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.cx-gl .cx-doc-ic { margin-right: 2px; }
+
+/* Alerta de embargos de declaração: 3 intensidades visíveis + 2 estados "nada" */
+.cx-emb { font: 500 10.5px/15px var(--cx-mono); letter-spacing: -.01em; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
+.cx-emb.calm { color: var(--mini); }
+.cx-emb.warn { color: var(--emb-warn); background: var(--cx-yellow-soft); padding: 0 6px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-yellow) 38%, transparent); font-weight: 600; }
+.cx-emb.today { color: var(--cx-on-solid); background: var(--emb-today); padding: 0 6px; font-weight: 700; letter-spacing: .03em; }
+
+/* Cabeçalho de colunas (substitui o .cx-list-h atual NESTA lista) */
+.cx-it-h { border-bottom: 1px solid var(--cx-line); font-size: 11px; color: var(--mini); }
+.cx-it-h > span { padding: 7px 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-it-h b { font: 600 10px var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-2); margin-right: 7px; }
+.cx-it-h .h-id { grid-area: id; }
+.cx-it-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
+.cx-it-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-it-h .h-nt b { color: var(--cx-accent); }
+.cx-it-h .h-pz { grid-area: pz; padding-left: 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cx-it-h .h-gl { letter-spacing: .01em; }
+.cx-it-h .m-only { display: none; }
+@container lst (max-width: 1479.98px) {
+  .cx-it-h .h-nt { display: none; }
+  .cx-it-h .w-only { display: none; }
+  .cx-it-h .m-only { display: inline; }
+}
+.cx-it-list .cx-it-h + .cx-grp { border-top: 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="bar" role="toolbar" aria-label="Controles do mockup">
+  <span class="mono muted">Hoje no mockup: qui 08/10/2026</span>
+  <nav class="nav" aria-label="Seções"><a href="#antes">Antes</a><a href="#depois">Depois 1900</a><a href="#mid">1200</a><a href="#mobile">Celular</a><a href="#emb">Embargos</a><a href="#teor">Teor</a><a href="#mapa">Mapa</a><a href="#impl">Implementação</a><a href="#trade">Trade-offs</a></nav>
+  <span class="sp"></span>
+  <span class="muted">Tema</span>
+  <div class="seg" id="seg-theme" role="group" aria-label="Tema">
+    <button type="button" data-theme-set="claro" class="on" aria-pressed="true">Claro (Ardósia)</button>
+    <button type="button" data-theme-set="escuro" aria-pressed="false">Escuro (Noite)</button>
+  </div>
+  <span class="muted">Escala</span>
+  <div class="seg" id="seg-fit" role="group" aria-label="Escala dos quadros largos">
+    <button type="button" data-fit="1" class="on" aria-pressed="true">Ajustar à janela</button>
+    <button type="button" data-fit="0" aria-pressed="false">100%</button>
+  </div>
+</div>
+
+<div class="prose">
+  <div class="eyebrow" style="margin-top:26px">Nexus Prumo · Intimações · Proposta de card</div>
+  <h1>Direção B · Duas zonas de leitura: o que veio × o que eu anotei</h1>
+  <p class="lede">A linha deixa de ser uma coluna única onde objeto, decisão e notas disputam a mesma meia largura. Em tela larga ela vira cinco faixas: <b>situação</b>, <b>identidade</b> (operação, parte, CNJ, classe, esteira), <b>Tribunal</b> (objeto e, logo abaixo, a decisão), <b>Minhas notas</b> (todas as notas curtas empilhadas, com marcador) e <b>prazo</b> (data única, contagem, alerta de embargos, Imp./Compl. e a peça no pé). O conteúdo externo e o interno ficam lado a lado, separados por um fio e por uma faixa levíssima, e cada zona tem altura máxima de ~4 linhas. Não há expansão inline: o texto completo continua na gaveta, que a linha inteira abre.</p>
+</div>
+
+<h2 id="anatomia" style="max-width:1180px"><span class="n">0</span>Como a linha se reorganiza em cada largura</h2>
+<p class="sub">Os limites são da <b>lista</b>, não da janela (container query): com o menu aberto a lista de um monitor de 1920 px tem ~1620 px; recolhido, ~1810 px. Ambos usam o layout largo.</p>
+<div class="wfs">
+  <div>
+    <div class="wfl"><b>≥ 1480 px (lista)</b> · duas zonas lado a lado</div>
+    <div class="wf wf-wide">
+      <span title="situação">●</span>
+      <span><b>Identidade</b><small>■ OPERAÇÃO · tags<br>URGENTE Parte<br>[UF] CNJ · classe<br>esteira</small></span>
+      <span><b>Tribunal</b><small>Objeto (até 2 linhas)<br>▎Decisão (2–3 linhas)</small></span>
+      <span class="nt"><b>Minhas notas</b><small>▪ nota · ▪ nota · ▪ nota<br>+N notas anteriores</small></span>
+      <span style="text-align:right"><b>Prazo</b><small>Qui 15/10<br>em 7 dias · 5 úteis<br>Emb. 21/10 · 9 du ▂▅█ ●●○</small></span>
+    </div>
+  </div>
+  <div>
+    <div class="wfl"><b>860–1479 px (~1200)</b> · Tribunal e Notas empilhadas</div>
+    <div class="wf wf-mid">
+      <span class="s">●</span>
+      <span class="i"><b>Identidade</b><small>■ OPERAÇÃO<br>Parte<br>[UF] CNJ · classe<br>esteira</small></span>
+      <span class="t"><b>Tribunal</b><small>Objeto · ▎Decisão</small></span>
+      <span class="n nt"><b>Minhas notas</b><small>▪ nota · ▪ nota</small></span>
+      <span class="p" style="text-align:right"><b>Prazo</b><small>data · contagem<br>Emb. · ▂▅█ ●●○</small></span>
+    </div>
+  </div>
+  <div>
+    <div class="wfl"><b>≤ 859 px (celular)</b> · uma coluna</div>
+    <div class="wf wf-mob">
+      <span><b>■ OPERAÇÃO</b><br>Parte</span><span><b>Qui 15/10</b><small>em 7 dias</small></span>
+      <span>[UF] CNJ · classe · esteira</span>
+      <span>Objeto · ▎Decisão</span>
+      <span class="nt">▪ notas (até 3 linhas)</span>
+      <span>Emb. 21/10 · 9 du <span style="float:right">▂▅█ ●●○</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ 1 · ANTES ══════════════════════════ -->
+<h2 id="antes" style="max-width:1180px"><span class="n">1</span>Antes · linha atual do Prumo (1900 px)</h2>
+<p class="sub">As mesmas duas intimações usadas no "depois": uma com número cru de 20 dígitos (SCALTECH) e uma com CNJ (CONDOMÍNIO). Reprodução fiel de <code>CxIntimRow</code> com o CSS atual do app.</p>
+<div class="cap"><b>Lista atual</b><span class="mono">largura 1900 px</span></div>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx old"><div class="cx-list" id="old-list" style="width:1900px"></div></div></div></div>
+<div class="callouts">
+  <div><i>1</i><span>Mais de 500 px à direita do objeto ficam vazios: a coluna Processo (1,3fr) e a Operação (1fr) são largas demais para o que contêm.</span></div>
+  <div><i>2</i><span>Número do processo em dois formatos: <span class="mono">50008941820244047107</span> (20 dígitos crus) e CNJ.</span></div>
+  <div><i>3</i><span>Prazo repetido: "Ter 13/10" e logo abaixo "final 13/10".</span></div>
+  <div><i>4</i><span>Só a última nota aparece (1 linha, truncada) e "+2" esconde as outras duas.</span></div>
+  <div><i>5</i><span>Objeto em 1 linha com reticências; não existe lugar para o teor da decisão.</span></div>
+  <div><i>6</i><span>Operação numa coluna longe da parte; o prazo de embargos de declaração só existe na gaveta.</span></div>
+</div>
+
+<!-- ══════════════════════════ 2 · DEPOIS 1900 ══════════════════════════ -->
+<h2 id="depois" style="max-width:1180px"><span class="n">2</span>Depois · direção B em tela larga</h2>
+<p class="sub">Lista agrupada por prazo, com os casos do pedido e quatro sintéticos: embargos que vencem <b>hoje</b> (AGROPECUÁRIA SANTA ROSA), embargos em <b>2 dias úteis com o prazo final já vencido há 2 dias</b> (SUPERMERCADOS BOM PREÇO), <b>resolvida</b> (ESPÓLIO BRANDÃO) e <b>prazo fechado</b> (CONSTRUTORA HORIZONTE). RUBENS PAES está com a gaveta aberta (<code>.sel</code>).</p>
+<div class="cap"><b>Lista nova</b>
+  <div class="seg" id="seg-w" role="group" aria-label="Largura da lista">
+    <button type="button" data-w="1900" class="on" aria-pressed="true">1900 px</button>
+    <button type="button" data-w="1630" aria-pressed="false">1630 px (1920 com menu aberto)</button>
+    <button type="button" data-w="1500" aria-pressed="false">1500 px (limite)</button>
+  </div>
+  <span class="mono" id="lbl-w">largura 1900 px</span></div>
+<div class="fw" data-w="1900" id="fw-wide"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-wide" style="width:1900px"></div></div></div></div>
+
+<h3 style="margin-top:30px">2.1 · Anatomia de duas linhas (1900 px)</h3>
+<p class="sub">Uma linha rica (SCALTECH) e uma com alerta de embargos em atenção (SUPERMERCADOS BOM PREÇO), com cada pedaço numerado.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx annot" id="anno-wrap"><div class="cx-list cx-it-list" id="list-zoom" style="width:1900px"></div></div></div></div>
+<div class="callouts good" style="margin-bottom:6px">
+  <div><i>1</i><span>Eyebrow da operação: quadradinho + nome em caixa-alta miúda; clicar abre a operação (<code>onOpenOp</code>).</span></div>
+  <div><i>2</i><span>Parte (URGENTE vem antes do nome). Novo · Atualizada · ⚑ ficam no eyebrow, à direita.</span></div>
+  <div><i>3</i><span>UF + CNJ uniforme (clicar copia) + classe com reticências.</span></div>
+  <div><i>4</i><span>Esteira da peça, igual à de hoje.</span></div>
+  <div><i>5</i><span>Objeto: até 2 linhas, tinta plena.</span></div>
+  <div><i>6</i><span>Decisão (teor): barra de citação + rótulo; "✦ IA" quando resumo gerado.</span></div>
+  <div><i>7</i><span>Minhas notas: todas, com marcador dourado, mais recentes na prioridade; "+N notas anteriores" se faltar espaço.</span></div>
+  <div><i>8</i><span>Data final única, na cor da urgência.</span></div>
+  <div><i>9</i><span>Contagem: dias corridos e dias úteis (informação nova).</span></div>
+  <div><i>10</i><span>Pé: peça (Docs), Imp. e Compl.</span></div>
+  <div><i>11</i><span>Alerta de embargos de declaração (aqui: âmbar, 2 du, com o prazo final já vencido).</span></div>
+</div>
+
+<!-- ══════════════════════════ 3 · DEPOIS 1200 ══════════════════════════ -->
+<h2 id="mid" style="max-width:1180px"><span class="n">3</span>Depois · ~1200 px: as zonas se empilham em uma coluna</h2>
+<p class="sub">Abaixo de 1480 px a lista abandona as duas colunas de texto: o <b>Tribunal</b> (objeto + decisão) ocupa a coluna do meio e as <b>Minhas notas</b> descem para uma faixa tracejada logo abaixo, com o rótulo "NOTAS" na primeira nota. A coluna de identidade encolhe para 282 px e o cabeçalho passa a "Tribunal · minhas notas".</p>
+<div class="cap"><b>Lista nova</b><span class="mono">largura 1200 px</span></div>
+<div class="fw" data-w="1200"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-mid" style="width:1200px"></div></div></div></div>
+
+<!-- ══════════════════════════ 4 · CELULAR ══════════════════════════ -->
+<h2 id="mobile" style="max-width:1180px"><span class="n">4</span>Depois · ≤ 800 px: layout móvel de uma coluna (390 px)</h2>
+<p class="sub">Quatro cartões. Cada intimação vira uma pilha: operação e parte à esquerda, data e contagem à direita; depois CNJ + classe, objeto, decisão, uma caixa de notas (marcador dourado) e, por último, a linha de embargos com os glifos Imp./Compl. e a peça. O cabeçalho de colunas some (como hoje, <code>display:none</code> em ≤ 900 px); os rótulos "DECISÃO" e "NOTAS" ficam dentro da linha. O substituto de <code>.cx-i-sub</code> é o pé (<code>.cx-it-pe</code>).</p>
+<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start">
+  <div><div class="cap"><b>Celular</b><span class="mono">390 px</span></div><div class="cx"><div class="cx-list cx-it-list" id="list-mob" style="width:390px"></div></div></div>
+</div>
+
+<!-- ══════════════════════════ 5 · LEGENDAS ══════════════════════════ -->
+<h2 id="emb" style="max-width:1180px"><span class="n">5</span>Legenda · alerta de embargos de declaração (5 faixas)</h2>
+<p class="sub">Regra do app (a mesma de <code>CxRuler</code>): data-limite = <code>addBusinessDays(dateStart, 10)</code>; só vale para intimação em aberto (<code>!responseAction &amp;&amp; status !== 'analisado'</code>) e com <code>dateStart</code>. "du" = dias úteis a contar de hoje. O alerta vive no <b>pé</b> da coluna de prazo, à esquerda dos glifos, para a maioria das linhas ficar calma: só uma faixa (âmbar) e outra (HOJE) chamam atenção.</p>
+<table class="t legend-t">
+  <thead><tr><th>Faixa</th><th>Regra</th><th>Como aparece (amostra real)</th><th>Por quê</th></tr></thead>
+  <tbody id="leg-emb"></tbody>
+</table>
+<div class="card" style="max-width:1280px;margin-top:12px"><h4>Por que "expirado" some do card</h4><p>Toda intimação aberta há mais de 10 dias úteis (SCALTECH está aberta desde 25/08) mostraria "expirado" até o fim do prazo principal: em muitas linhas, sempre sem ação possível, o que treina o olho a ignorar a coluna. Quem precisa do histórico abre a gaveta, onde a régua de <code>CxRuler</code> continua mostrando "Emb. decl. · expirado". O alerta também sobrevive ao prazo principal: SUPERMERCADOS BOM PREÇO está em "Vencidas" (final há 2 dias) e ainda mostra o chip âmbar "Emb. 13/10 · 2 du", porque os embargos podem restaurar a discussão. E CLICKLOG tem embargos (21/10) <i>depois</i> do final (13/10): a data do pé mostra isso sem texto extra, e o tooltip diz "depois do final".</p></div>
+
+<h2 id="teor" style="max-width:1180px"><span class="n">6</span>Legenda · teor da decisão (ausente · curto · longo · resumo de IA)</h2>
+<p class="sub">Campo provisório <code>intim.teor</code> (string). Fica na zona Tribunal, <b>logo abaixo do objeto</b>, distinto dele por três sinais redundantes: barra de citação de 2 px à esquerda, rótulo "DECISÃO" em caixa-alta miúda e cor um grau mais suave. Não usei itálico: as notas do procurador já eram itálicas e agora têm marcador próprio; assim itálico não carrega significado. Ausente não reserva linha.</p>
+<table class="t legend-t">
+  <thead><tr><th>Estado</th><th>Regra</th><th>Como aparece (zona Tribunal em 640 px)</th><th>Comportamento</th></tr></thead>
+  <tbody id="leg-teor"></tbody>
+</table>
+
+<!-- ══════════════════════════ 7 · CABEÇALHO ══════════════════════════ -->
+<h2 id="cab" style="max-width:1180px"><span class="n">7</span>Cabeçalho de colunas (<code>.cx-list-h</code>)</h2>
+<div class="two">
+  <div class="card"><h4>Decisão: mudar, não eliminar</h4>
+    <p>O cabeçalho é o único lugar onde o nome das zonas custa <b>zero linhas</b> por intimação. Ele passa de "Parte · evento · notas | Processo | Operação | Imp. | Compl. | Prazo" para:</p>
+    <ul><li><b>≥ 1480 px:</b> PARTE · PROCESSO · ESTEIRA | <b>TRIBUNAL</b> objeto · decisão | <b>MINHAS NOTAS</b> (em dourado, sobre a mesma faixa das linhas) | PRAZO · EMBARGOS … IMP. COMPL.</li>
+    <li><b>860–1479 px:</b> PARTE · PROCESSO | <b>TRIBUNAL</b> · minhas notas | PRAZO.</li>
+    <li><b>≤ 859 px:</b> oculto (como hoje). Os rótulos "DECISÃO" e "NOTAS" ficam inline na linha.</li></ul></div>
+  <div class="card"><h4>Por que não eliminar</h4>
+    <p>Sem cabeçalho, a leitura "esquerda = tribunal, direita = eu" dependeria de rótulos repetidos em cada linha (uma linha a mais por intimação). Com o cabeçalho, a faixa dourada contínua e o fio vertical bastam: o olho aprende a zona uma vez. O custo é uma barra de ~30 px, que o app já tinha.</p></div>
+</div>
+
+<!-- ══════════════════════════ 8 · MAPA ══════════════════════════ -->
+<h2 id="mapa" style="max-width:1180px"><span class="n">8</span>Mapa de redistribuição</h2>
+<table class="t">
+  <thead><tr><th>Elemento</th><th>Onde estava</th><th>Onde fica (direção B)</th></tr></thead>
+  <tbody>
+    <tr><td>Ícone de situação</td><td>Coluna 1 (18 px), centrado</td><td>Coluna 1, alinhado com a linha da parte (<code>align-self:start</code>)</td></tr>
+    <tr><td>Operação</td><td>Coluna própria "Operação" (some em ≤ 1180 px; no celular, em <code>.cx-i-sub</code>)</td><td><b>Eyebrow</b> em caixa-alta miúda <u>acima</u> da parte, com o quadradinho de <code>CxOpSquare</code>; continua clicável (<code>onOpenOp</code> + <code>stopPropagation</code>); "SEM OPERAÇÃO" com quadradinho tracejado</td></tr>
+    <tr><td>Parte, URGENTE</td><td>Linha 1 da coluna principal</td><td>Linha 2 da identidade (URGENTE antes do nome, como hoje)</td></tr>
+    <tr><td>Novo · Atualizada · ⚑</td><td>Depois do nome da parte</td><td>Direita do eyebrow, versão <code>.cx-tag.xs</code> (16 px), para não competir com o nome</td></tr>
+    <tr><td>Processo (UF + CNJ) e classe</td><td>Coluna "Processo" (1,3fr), classe numa 2ª linha; número cru ou CNJ</td><td>Linha 3 da identidade: badge UF + <b>CNJ sempre formatado</b> (<code>cxProcFmt</code>) + classe com reticências; copiar ao clicar no número</td></tr>
+    <tr><td>Esteira da peça</td><td>Linha 4 da coluna principal</td><td>Linha 4 da identidade, igual (barrinha + etapa + "parou há …")</td></tr>
+    <tr><td>Objeto</td><td>Linha 2, 1 linha com reticências</td><td><b>Zona Tribunal</b>, topo; até 2 linhas; texto em tinta plena</td></tr>
+    <tr><td>Teor da decisão</td><td>Não existia</td><td><b>Zona Tribunal</b>, logo abaixo do objeto; barra de citação + "DECISÃO"; 1–3 linhas conforme o orçamento; ausente = nada</td></tr>
+    <tr><td>Notas</td><td>Só a última, 1 linha, itálico, "+N"</td><td><b>Zona Minhas notas</b>: até 4 linhas no total (3 em 1200 px), cada nota com marcador dourado; as mais recentes primeiro na prioridade; "+N notas anteriores" quando faltar espaço</td></tr>
+    <tr><td>Atuação (resolvidas)</td><td>No lugar da nota, ícone de envio</td><td>No lugar das notas, na zona Minhas notas, sem marcador (continua <code>.done</code>)</td></tr>
+    <tr><td>Prazo final</td><td>"Ter 13/10" + "final 13/10" (duplicado)</td><td>Linha 1 do prazo: <b>uma só data</b> com dia da semana, na cor da urgência</td></tr>
+    <tr><td>Contagem</td><td>Não existia (a 2ª linha repetia a data)</td><td>Linha 2 do prazo: "em 5 dias · 2 úteis", "amanhã", "hoje", "há 2 dias", "prazo fechado" ou "atuação registrada"</td></tr>
+    <tr><td>Embargos de declaração</td><td>Só na gaveta (<code>CxRuler</code>)</td><td>Pé do prazo, à esquerda dos glifos; 3 intensidades (calmo · âmbar · HOJE) e nada quando expirado ou sem início</td></tr>
+    <tr><td>Imp. / Compl.</td><td>Duas colunas (34 + 44 px) antes do prazo</td><td>Pé do prazo, à direita (<code>.cx-gl</code>), mesmos glifos</td></tr>
+    <tr><td>Ícone da peça (Google Docs)</td><td>Coluna de 24 px entre Operação e Imp.</td><td>Pé do prazo, à esquerda dos glifos, 14 px; só quando há <code>minutaUrl</code></td></tr>
+    <tr><td>Cabeçalho de colunas</td><td>"Parte · evento · notas | Processo | Operação | … | Prazo"</td><td>Reescrito para as zonas (seção 7); oculto no celular</td></tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════ 9 · IMPLEMENTAÇÃO ══════════════════════════ -->
+<h2 id="impl" style="max-width:1180px"><span class="n">9</span>Notas de implementação (para portar para <code>CxIntimRow</code>)</h2>
+
+<h3>9.1 · Funções novas (todas puras; ficam junto dos helpers de <code>src/edition-claude.jsx</code>, ~linha 340)</h3>
+<pre><code><span class="c">/* Número do processo SEMPRE em CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO). Só formata se houver 20 dígitos;
+   senão devolve como veio. Exibição e cópia; o dado gravado não muda. */</span>
+function cxProcFmt(num) {
+  const d = String(num || '').replace(/\D/g, '');
+  if (d.length !== 20) return num || '—';
+  return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+}
+<span class="c">/* CxProc passa a chamar cxProcFmt primeiro: Quadro, Hoje, Mesa, Foco etc. ganham o número uniforme de graça. */</span>
+function CxProc({ num, uf }) {
+  const f = cxProcFmt(num);
+  const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(f);
+  return &lt;span className="cx-proc"&gt;{uf ? &lt;span className="cx-uf"&gt;{uf}&lt;/span&gt; : null}{m ? &lt;&gt;{m[1]}&lt;span className="cx-d"&gt;{m[2]}&lt;/span&gt;&lt;/&gt; : f}&lt;/span&gt;;
+}
+<span class="c">/* No botão de copiar da linha: cxCopy(cxProcFmt(intim.processNumber)). A busca continua por dígitos (cxNorm/dig). */</span>
+
+<span class="c">/* Faixa do alerta de embargos → { date, du, tone } | null.
+   tone: 'calm' (&gt; 3 du) · 'warn' (1–3 du) · 'today'. Expirado, resolvida/analisada ou sem dateStart → null. */</span>
+function cxEmbargos(intim) {
+  if (!cxIsOpen(intim) || !intim.dateStart) return null;
+  const date = addBusinessDays(toDayKey(intim.dateStart), 10);          <span class="c">// mesma conta de CxRuler</span>
+  const dd = daysUntil(date);
+  if (dd === null || dd &lt; 0) return null;
+  if (dd === 0) return { date, du: 0, tone: 'today' };
+  const du = cxBizUntil(date);
+  return { date, du, tone: du &lt;= 3 ? 'warn' : 'calm' };
+}
+
+<span class="c">/* Duas linhas do prazo. Linha 1 = data única (tom de cxDue). Linha 2 = informação NOVA. */</span>
+function cxPrazoLinhas(intim) {
+  const ra = intim.responseAction;
+  if (ra) return { tone: 'done', l1: '✓ ' + cxDM(ra.respondedAt), l2: 'atuação registrada' };
+  if (!intim.dateDeadline) return { tone: 'none', l1: '—', l2: 'prazo fechado' };
+  const dd = daysUntil(intim.dateDeadline), d = cxDate(intim.dateDeadline);
+  const l1 = cxCap(CX_DOW[d.getDay()]) + ' ' + cxDM(intim.dateDeadline);
+  const tone = cxDue(dd, intim.dateDeadline).tone;                         <span class="c">// late · today · soon · later</span>
+  let l2;
+  if (dd &lt; -1) l2 = 'há ' + dd * -1 + ' dias'; else if (dd === -1) l2 = 'ontem';
+  else if (dd === 0) l2 = 'hoje'; else if (dd === 1) l2 = 'amanhã';
+  else { const u = cxBizUntil(intim.dateDeadline); l2 = &lt;&gt;em {dd} dias&lt;span className="du"&gt; · {u} {u === 1 ? 'útil' : 'úteis'}&lt;/span&gt;&lt;/&gt;; }   <span class="c">// .du some no celular</span>
+  return { tone, l1, l2 };
+}
+
+<span class="c">/* Orçamento de linhas das zonas. Só decide a DISTRIBUIÇÃO; o -webkit-line-clamp é a rede de segurança,
+   então um erro de estimativa custa no máximo uma linha a mais ou a menos. cpl = caracteres por linha. */</span>
+const cxLn = (t, cpl, max) =&gt; Math.min(max, Math.max(1, Math.ceil(String(t || '').length / cpl)));
+function cxTribLinhas(obj, teor, cpl, budget = 4) {                       <span class="c">// → { ol, tl }</span>
+  const ol = cxLn(obj || 'Objeto não definido', cpl, 2);
+  if (!teor) return { ol, tl: 0 };
+  return { ol, tl: Math.max(1, Math.min(cxLn(teor, cpl, 3), budget - ol)) };
+}
+function cxNotasCabem(notes, cpl, budget = 4) {                            <span class="c">// → { shown:[{t,l}], rest }</span>
+  const cap = notes.length === 1 ? 3 : 2;
+  const pick = (b) =&gt; { const out = []; let used = 0;
+    for (let i = notes.length - 1; i &gt;= 0; i--) {                         <span class="c">// da mais recente para a mais antiga</span>
+      let l = cxLn(notes[i], cpl, cap);
+      if (used + l &gt; b) { if (out.length) break; l = b; }
+      out.unshift({ t: notes[i], l }); used += l; }
+    return { shown: out, rest: notes.length - out.length }; };
+  const r = pick(budget);
+  return r.rest ? pick(budget - 1) : r;                                    <span class="c">// "+N notas anteriores" ocupa 1 linha</span>
+}</code></pre>
+<pre><code><span class="c">/* Orçamentos por largura DA LISTA. CxIntimList mede o .cx-it-list com um único ResizeObserver e passa `L` para cada linha
+   (nada de observer por linha). cpl = caracteres por linha da zona, estimativa conservadora. */</span>
+const CX_BUD = {
+  wide: { cplTr: 80, cplNt: 66, budTr: 4, budNt: 4 },     <span class="c">// ≥ 1480 px: zonas lado a lado</span>
+  mid:  { cplTr: 100, cplNt: 100, budTr: 3, budNt: 3 },   <span class="c">// 860–1479 px: empilhadas</span>
+  mob:  { cplTr: 46, cplNt: 44, budTr: 4, budNt: 3 }      <span class="c">// &lt; 860 px</span>
+};
+const cxBudOf = (w) =&gt; w &gt;= 1480 ? CX_BUD.wide : w &gt;= 860 ? CX_BUD.mid : CX_BUD.mob;</code></pre>
+<p class="sub" style="margin-top:8px">Se preferirem zero estimativa, dá para usar clamps fixos (objeto 2, teor 2, nota 2 e <code>max-height</code> de 4 linhas na zona): o custo é cortar a 3ª nota no meio quando ela for longa. As constantes acima foram calibradas contra este mockup (Geist 12–12,5 px ≈ 6,1–6,4 px por caractere); ajustem olhando a lista real.</p>
+
+<h3>9.2 · Esqueleto do novo <code>CxIntimRow</code> (JSX)</h3>
+<pre><code>function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, hideOp, L }) {   <span class="c">// hideOp: aba Processos &gt; Substituição · L = cxBudOf(largura da lista)</span>
+  const notes = cxNotes(intim), resolved = !!intim.responseAction;
+  const done = resolved || intim.status === 'analisado', urgent = intimIsUrgent(intim) &amp;&amp; !done;
+  const pz = cxPrazoLinhas(intim), emb = cxEmbargos(intim), ra = intim.responseAction;
+  const tri = cxTribLinhas(cxIntimObjeto(intim), intim.teor, L.cplTr, L.budTr);
+  const nt = resolved ? null : cxNotasCabem(notes, L.cplNt, L.budNt);
+  return &lt;div className={'cx-it' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex={0}
+      onClick={() =&gt; onOpen(intim.id)} onKeyDown={/* igual ao atual */}&gt;
+    &lt;div className="cx-it-st"&gt;&lt;CxStatusIcon s={resolved ? 'analisado' : intim.status} /&gt;&lt;/div&gt;
+    &lt;div className="cx-it-id"&gt;
+      &lt;div className="cx-it-opl"&gt;{hideOp ? &lt;span /&gt; : &lt;CxItOp op={op} onOpen={onOpenOp} /&gt;}
+        &lt;span className="cx-it-tags"&gt;{/* Novo · Atualizada (.cx-tag.xs) · ⚑ */}&lt;/span&gt;&lt;/div&gt;
+      &lt;div className="cx-it-party"&gt;{urgent ? &lt;span className="cx-urg"&gt;URGENTE&lt;/span&gt; : null}&lt;span className="cx-ell" title={cxPartyName(intim)}&gt;{cxPartyName(intim)}&lt;/span&gt;&lt;/div&gt;
+      &lt;div className="cx-it-pc"&gt;&lt;button type="button" className="cx-proc-copy" title="Copiar número do processo"
+          onClick={e =&gt; { e.stopPropagation(); cxCopy(cxProcFmt(intim.processNumber)); }}&gt;&lt;CxProc num={intim.processNumber} uf={intim.jurisdiction} /&gt;&lt;/button&gt;
+        &lt;span className="cx-cls" title={intim.className}&gt;{intim.className || '—'}&lt;/span&gt;&lt;/div&gt;
+      &lt;CxEstLine esteira={intim.esteira} /&gt;
+    &lt;/div&gt;
+    &lt;div className="cx-it-tr"&gt;
+      &lt;div className="cx-it-obj" style={{ '--ol': tri.ol }} title={cxIntimObjetoText(intim)}&gt;&lt;CxObj intim={intim} /&gt;&lt;/div&gt;
+      {intim.teor ? &lt;div className="cx-it-teor" style={{ '--tl': tri.tl }} title={intim.teor}&gt;&lt;span className="lbl"&gt;Decisão&lt;/span&gt;{intim.teorSrc === 'ia' ? &lt;span className="ia" title="Resumo gerado por IA"&gt;✦ IA&lt;/span&gt; : null}{intim.teor.replace(/\s*\n+\s*/g, ' ¶ ')}&lt;/div&gt; : null}
+    &lt;/div&gt;
+    &lt;div className={'cx-it-nt' + (resolved || notes.length ? '' : ' empty')} title={notes.join('\n')}&gt;
+      {resolved ? &lt;div className="cx-it-note act" style={{ '--nl': 2 }}&gt;{/* send + "Manifestação · …" como hoje */}&lt;/div&gt;
+        : nt.shown.map((n, i) =&gt; &lt;div key={i} className="cx-it-note" style={{ '--nl': n.l }}&gt;{i === 0 ? &lt;span className="zl"&gt;Notas&lt;/span&gt; : null}{n.t}&lt;/div&gt;)}
+      {nt &amp;&amp; nt.rest ? &lt;div className="cx-it-more"&gt;+{nt.rest} {nt.rest === 1 ? 'nota anterior' : 'notas anteriores'}&lt;/div&gt; : null}
+    &lt;/div&gt;
+    &lt;div className="cx-it-pz"&gt;&lt;span className={'cx-due ' + pz.tone} title={/* "Final do prazo: dd/mm/aaaa" */}&gt;{pz.l1}&lt;/span&gt;&lt;span className="cx-it-cnt"&gt;{pz.l2}&lt;/span&gt;&lt;/div&gt;
+    &lt;div className="cx-it-pe"&gt;
+      {emb ? &lt;span className={'cx-emb ' + emb.tone} aria-label={'Embargos de declaração ' + (emb.tone === 'today' ? 'vencem hoje' : 'até ' + cxDM(emb.date) + ', ' + cxPl(emb.du, 'dia útil', 'dias úteis'))} title={'Embargos de declaração até ' + fmtDate(emb.date) + (emb.date &gt; toDayKey(intim.dateDeadline) ? ' (depois do final do prazo)' : '')}&gt;
+        {emb.tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + cxDM(emb.date) + ' · ' + emb.du + ' du'}&lt;/span&gt; : null}
+      &lt;span className="cx-gl"&gt;{intim.minutaUrl ? &lt;CxDocIcon url={intim.minutaUrl} size={14} /&gt; : null}&lt;CxImp intim={intim} /&gt;&lt;CxDif intim={intim} /&gt;&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;;
+}</code></pre>
+<p class="sub" style="margin-top:8px"><code>CxItOp</code> é o <code>CxOpTag</code> com a classe <code>cx-it-op</code> (caixa-alta 10 px, quadradinho de <code>CxOpSquare</code> a 8 px) e o ramo "Sem operação". Em <code>.done</code> o chip de embargos não aparece (<code>cxEmbargos</code> devolve null). No <code>hay</code> da busca em <code>EditionClaudeIntimacoes</code> acrescente <code>x.teor</code>.</p>
+
+<h3>9.3 · CSS e <code>CxIntimList</code></h3>
+<table class="t">
+  <thead><tr><th>Item</th><th>Mudança</th></tr></thead>
+  <tbody>
+    <tr><td>Classes novas (Nexus.shell.html, depois da linha ~4392)</td><td><code>.cx-it-list</code> (container), <code>.cx-it</code>, <code>.cx-it-h</code>, células <code>.cx-it-st/-id/-tr/-nt/-pz/-pe</code>, <code>.cx-it-opl/-op/-tags/-party/-pc/-obj/-teor/-note/-more/-cnt</code>, <code>.cx-gl</code>, <code>.cx-emb(.calm|.warn|.today)</code>, <code>.cx-tag.xs</code>. Todas estão em <code>&lt;style&gt;</code> deste arquivo, na seção "DEPOIS".</td></tr>
+    <tr><td><code>grid-template-columns</code></td><td>Celular <code>18px minmax(0,1fr) auto</code> (áreas <code>st id pz / st tr tr / st nt nt / st pe pe</code>) · 860–1479 <code>18px 282px minmax(0,1fr) 184px</code> (áreas <code>st id tr pz / st id nt pe</code>) · ≥ 1480 <code>18px 340px minmax(0,1.25fr) minmax(0,1fr) 196px</code> (áreas <code>st id tr nt pz / st id tr nt pe</code>). O pé usa <code>align-self:end</code> para ficar no fundo da linha.</td></tr>
+    <tr><td>Responsivo</td><td><b>Container queries</b> na lista (<code>container-type:inline-size</code> só em <code>.cx-it-list</code>): a lista de 1620 px (1920 com menu aberto) e a de 1810 px (menu recolhido) usam o mesmo layout largo, o que <code>@media</code> sobre a janela não garante. Fallback por <code>@media</code> (largura da janela, supondo o menu aberto, que tira ~300 px): largo ≥ 1780 px, médio 1160–1779 px, celular &lt; 1160 px; com o menu recolhido a lista ganha ~190 px e só a container query acerta.</td></tr>
+    <tr><td><code>CxIntimList</code> (linha 1179)</td><td><code>&lt;div className="cx-list cx-it-list"&gt;</code> e novo cabeçalho: <code>&lt;div className="cx-it-h"&gt;&lt;span/&gt;&lt;span className="h-id"&gt;&lt;b&gt;Parte&lt;/b&gt;processo · esteira&lt;/span&gt;&lt;span className="h-tr"&gt;&lt;b&gt;Tribunal&lt;/b&gt;&lt;span className="w-only"&gt;objeto · decisão&lt;/span&gt;&lt;span className="m-only"&gt;· minhas notas&lt;/span&gt;&lt;/span&gt;&lt;span className="h-nt"&gt;&lt;b&gt;Minhas notas&lt;/b&gt;o que fazer&lt;/span&gt;&lt;span className="h-pz"&gt;&lt;span&gt;&lt;b&gt;Prazo&lt;/b&gt;embargos&lt;/span&gt;&lt;span className="h-gl"&gt;Imp. Compl.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;</code>. Os grupos (<code>.cx-grp</code>) não mudam.</td></tr>
+  </tbody>
+</table>
+
+<h3>9.4 · O que quebra se mexerem no lugar errado</h3>
+<div class="two">
+  <div class="card"><h4>CSS compartilhado (não editar)</h4><ul>
+    <li><code>.cx-i-row</code>, <code>.cx-i-main</code>, <code>.cx-c-proc</code>, <code>.cx-c-due</code>, <code>.cx-i-sub</code> e as regras @media de 1180/900 px (linhas ~4336-4392 e ~5478-5502) também servem a <b>Tarefas</b> (<code>CxTaskRow</code>, ~4280) e a <b>Acompanhar</b> (<code>CxWatchRow</code>, ~4855, que ainda tem <code>.cx-w-row .cx-i-sub</code>). Por isso a linha nova usa classes <code>cx-it-*</code> próprias; as antigas ficam como estão.</li>
+    <li>A linha nova não renderiza <code>.cx-i-sub</code>; no celular o pé <code>.cx-it-pe</code> faz esse papel.</li></ul></div>
+  <div class="card"><h4>Outros consumidores</h4><ul>
+    <li><b>Processos &gt; Substituição</b> (<code>EditionClaudeSubstituicao</code>) usa o mesmo <code>CxIntimList</code>: ganha o card novo. Passe <code>hideOp</code>, pois todas as linhas são da mesma operação e o eyebrow repetiria o nome em todas.</li>
+    <li><code>CxProc</code> é chamado por Quadro, Hoje, Mesa de trabalho, Foco e Visão geral: o número passa a ter 25 caracteres em vez de 20 dígitos; confira truncamento nos cartões estreitos do Quadro (<code>.cx-b-row</code>).</li>
+    <li>Edições Clássico, Demo e Beta não usam este arquivo. Depois de editar <code>src/</code>, rodar <code>npm run build</code> (AGENTS.md).</li>
+    <li>Foco por teclado: o chip da operação, o botão do número e o ícone da peça continuam tabuláveis e com <code>stopPropagation</code>; <kbd>Enter</kbd> na linha só abre a gaveta quando <code>e.target === e.currentTarget</code>, como hoje.</li></ul></div>
+</div>
+
+<h3>9.5 · Acessibilidade mínima</h3>
+<div class="card" style="max-width:1280px"><ul>
+  <li><b>Foco visível:</b> a linha (<code>role="button" tabIndex=0</code>), o chip da operação, o botão do número e o ícone da peça têm o anel <code>2px --cx-accent</code> do app (<code>.cx :focus-visible</code>), com <code>outline-offset:-2px</code> na linha para o <code>overflow:hidden</code> da lista não cortar.</li>
+  <li><b>Nada só no hover:</b> toda informação está na tela. O <code>title</code> (texto completo do objeto, da decisão e das notas) é complemento; o caminho por teclado para o texto inteiro é <kbd>Enter</kbd> → gaveta.</li>
+  <li><b>Cor nunca é o único sinal:</b> o alerta de embargos sempre traz texto ("Emb. 13/10 · 2 du", "Emb. HOJE") e a decisão sempre traz o rótulo "DECISÃO"; o chip tem <code>aria-label</code> por extenso ("Embargos de declaração até 13/10, 2 dias úteis").</li>
+  <li><b>Contraste:</b> todos os textos miúdos da proposta passam de 4,5:1 nos dois temas (números na seção 10). O eyebrow da operação tem 10 px em caixa-alta: é o menor texto da linha e usa <code>--mini</code>.</li>
+  <li><b>Movimento:</b> nenhuma animação.</li></ul></div>
+
+<!-- ══════════════════════════ 10 · TRADE-OFFS ══════════════════════════ -->
+<h2 id="trade" style="max-width:1180px"><span class="n">10</span>Trade-offs honestos</h2>
+<p class="sub">Medido neste próprio mockup (largura 1900 px, as 11 intimações da lista, linhas visíveis), comparando com a linha atual renderizada com o mesmo conteúdo. A tela útil da lista é a de um monitor 1080 px de altura menos topo, cabeçalho da página, barra de filtros e cabeçalho de colunas: ~800 px.</p>
+<div class="kpis">
+  <div class="kpi"><div class="v" id="m-old">…</div><div class="l">altura média da linha ATUAL</div><div class="d" id="m-old2"></div></div>
+  <div class="kpi"><div class="v" id="m-new">…</div><div class="l">altura média da linha NOVA (1900 px)</div><div class="d" id="m-new2"></div></div>
+  <div class="kpi"><div class="v" id="m-mid">…</div><div class="l">altura média da linha NOVA (1200 px)</div><div class="d" id="m-mid2"></div></div>
+  <div class="kpi"><div class="v" id="m-fit">…</div><div class="l">intimações por tela de 1080 px (atual → nova 1900 → nova 1200)</div><div class="d">~800 px úteis ÷ altura média; sem contar cabeçalhos de grupo (36 px cada)</div></div>
+</div>
+<p class="sub" id="m-simple" style="margin:8px 0 0"></p>
+<div class="two" style="margin-top:14px">
+  <div class="card"><h4>Onde esta direção é pior que as outras</h4><ul>
+    <li><b>Piso mais alto.</b> Uma intimação sem notas, sem teor e sem esteira ocupa ~64 px, contra ~57 px hoje (CLICKLOG, medido acima; a atual tem o selo "Atualizada" de 22 px na linha da parte): a identidade (operação, parte, processo) e o prazo (data, contagem, pé) têm, cada um, 3 linhas fixas. Densidade é a virtude que o pedido manda manter; esta é a direção que mais a aperta nas linhas <i>simples</i>. Nas ricas ela empata ou ganha: mostra mais (todas as notas, decisão) na mesma altura.</li>
+    <li><b>A zona de notas fica vazia onde não há nota.</b> No mockup 3 das 11 linhas não têm nota (e ele foi montado com casos ricos; no acervo real a proporção sem nota tende a ser maior). A faixa dourada contínua deixa isso legível, mas é um vazio grande no meio de uma tela de 1900 px. Estender o Tribunal sobre o vazio foi descartado: quebra o alinhamento que dá sentido às zonas.</li>
+    <li><b>Percurso do olho.</b> Parte à esquerda e prazo 1500 px adiante. O hover da linha ajuda, mas a leitura "quem → quando" é a mais longa das opções.</li>
+    <li><b>Em ~1200 px as zonas se empilham</b> e a linha rica chega a ~130 px (SCALTECH, máximo medido acima): o ganho de usar largura desaparece justo onde ela falta; a média sobe para ~85 px (+16% sobre hoje).</li></ul></div>
+  <div class="card"><h4>Custos de manutenção e limites</h4><ul>
+    <li><b>Orçamento de linhas por estimativa de caracteres.</b> O clamp CSS protege, mas a distribuição (quem fica com 1 ou 2 linhas) é heurística e precisa de ajuste fino por largura.</li>
+    <li><b>Sem expansão inline.</b> Teor longo e 3ª nota longa só se leem inteiros na gaveta (clique + painel de 600 px cobrindo a lista). Há <code>title</code> com o texto completo, mas é recurso de mouse; a leitura por teclado depende da gaveta.</li>
+    <li><b>Identidade apertada.</b> 340 px comportam ~44 caracteres de parte; "SCALTECH-COMERCIO IMPORTACAO E EXPORTACAO LTDA" perde o final (tooltip). A classe quase sempre trunca ("Incidente de Desconsi…"); uma tabela de siglas (IDPJ, EF) resolveria, mas é decisão de domínio.</li>
+    <li><b>Pé lotado.</b> Embargos + peça + 2 glifos em 196 px: "du" no lugar de "dias úteis" e sem texto extra para "depois do final" (só tooltip).</li>
+    <li><b>Container queries</b> exigem Chrome/Edge 105+ e Safari 16+; ok para o público do Apps Script, mas é a primeira vez que o app as usa.</li>
+    <li><b>Contraste.</b> O app usa <code>--cx-ink-3</code> (3,9:1 sobre branco no tema claro) em textos de 10,5–11,5 px. Aqui criei <code>--mini</code> (68% ink-3 + 32% ink): 6,4:1 no claro e 8,0:1 no escuro, também sobre a faixa das notas. O âmbar do chip de embargos (<code>--emb-warn</code>) tem 5,7:1 e o laranja do HOJE com texto sólido 5,3:1 no claro (hoje o <code>--cx-yellow</code> puro sobre <code>--cx-yellow-soft</code> dá 4,2:1). Vale adotar <code>--mini</code> no app inteiro, mas é mudança separada.</li></ul></div>
+</div>
+<div class="card" style="max-width:1180px;margin-top:14px"><h4>Premissas assumidas no mockup</h4><ul>
+  <li>Tema escuro = <b>Noite</b> (azul-marinho do app). No app, "Ardósia" é o tema claro base; os escuros são Noite e Grafite. Os tokens vêm de <code>src/Nexus.shell.html</code> ~3907 e ~3947.</li>
+  <li>Dias úteis consideram feriados nacionais (07/09, 12/10, 02/11, 20/11, 25/12), o que reproduz exatamente as datas de embargos do pedido (09/09, 15/10, 13/10, 20/10, 21/10). Por isso as contagens saem um pouco menores que as do pedido: RUBENS PAES mostra "2 du" (9/10 e 13/10; 12/10 é feriado) e não "3 du", CLICKLOG "8 du" e não "9". Continuam nas mesmas faixas.</li>
+  <li><code>teor</code> e <code>teorSrc</code> são nomes provisórios; todos os textos de decisão do mockup são inventados.</li>
+  <li>Para a lista "Resolvidas", o app agrupa por data de atuação ("Últimos 7 dias") e só a mostra ao trocar o filtro para Resolvidas; aqui ela aparece como último grupo, aberto, para exibir o estado.</li></ul></div>
+
+</div><!-- /doc -->
+
+<script>
+(function () {
+  'use strict';
+  /* ───────────── Calendário e helpers (mesma lógica do app; dias úteis com feriados nacionais) ───────────── */
+  var TODAY = new Date(2026, 9, 8);
+  var HOL = { '2026-09-07': 1, '2026-10-12': 1, '2026-11-02': 1, '2026-11-20': 1, '2026-12-25': 1 };
+  var DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  function p2(n) { return String(n).padStart(2, '0'); }
+  function iso(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+  function parse(s) { return new Date(s + 'T00:00:00'); }
+  function isBiz(d) { return d.getDay() !== 0 && d.getDay() !== 6 && !HOL[iso(d)]; }
+  function addBD(s, n) { var d = parse(s), k = 0; while (k < n) { d.setDate(d.getDate() + 1); if (isBiz(d)) k++; } return iso(d); }
+  function bizUntil(s) { var a = parse(s), d = new Date(TODAY), n = 0; while (d < a) { d.setDate(d.getDate() + 1); if (isBiz(d)) n++; } return n; }
+  function daysUntil(s) { return s ? Math.round((parse(s) - TODAY) / 86400000) : null; }
+  function dm(s) { var d = parse(s); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1); }
+  function dmy(s) { var d = parse(s); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function E(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
+
+  /* cxProcFmt: número SEMPRE em CNJ */
+  function procFmt(num) {
+    var d = String(num || '').replace(/\D/g, '');
+    if (d.length !== 20) return num || '—';
+    return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+  }
+  function procHtml(num, uf, fmt) {
+    var f = fmt ? procFmt(num) : num;
+    var m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(f || '');
+    return '<span class="cx-proc">' + (uf ? '<span class="cx-uf">' + E(uf) + '</span>' : '') + (m ? E(m[1]) + '<span class="cx-d">' + E(m[2]) + '</span>' : E(f || '—')) + '</span>';
+  }
+  /* cxDue (tom) */
+  function dueTone(dd) {
+    if (dd === null) return 'none';
+    if (dd < 0) return 'late';
+    if (dd <= 1) return 'today';
+    if (dd <= 5) return 'soon';
+    return 'later';
+  }
+  function dueOld(dd, end) {
+    if (dd === null) return { tone: 'none', txt: 'sem prazo' };
+    if (dd < -1) return { tone: 'late', txt: 'há ' + (-dd) + 'd' };
+    if (dd === -1) return { tone: 'late', txt: 'Ontem' };
+    if (dd === 0) return { tone: 'today', txt: 'Hoje' };
+    if (dd === 1) return { tone: 'today', txt: 'Amanhã' };
+    var d = parse(end);
+    if (dd <= 5) return { tone: 'soon', txt: cap(DOW[d.getDay()]) + ' ' + dm(end) };
+    return { tone: 'later', txt: dm(end) };
+  }
+  /* cxEmbargos */
+  function embargos(it) {
+    if (it.ra || it.status === 'analisado' || !it.start) return null;
+    var date = addBD(it.start, 10), dd = daysUntil(date);
+    if (dd < 0) return null;
+    if (dd === 0) return { date: date, du: 0, tone: 'today' };
+    var du = bizUntil(date);
+    return { date: date, du: du, tone: du <= 3 ? 'warn' : 'calm' };
+  }
+  /* cxPrazoLinhas */
+  function prazoLinhas(it) {
+    if (it.ra) return { tone: 'done', l1: '✓ ' + dm(it.ra.at), l2: 'atuação registrada', title: 'Atuação em ' + dmy(it.ra.at) };
+    if (!it.end) return { tone: 'none', l1: '—', l2: 'prazo fechado', title: 'Prazo ainda não aberto' };
+    var dd = daysUntil(it.end), d = parse(it.end), l2;
+    if (dd < -1) l2 = 'há ' + (-dd) + ' dias'; else if (dd === -1) l2 = 'ontem';
+    else if (dd === 0) l2 = 'hoje'; else if (dd === 1) l2 = 'amanhã';
+    else { var u = bizUntil(it.end); l2 = 'em ' + dd + ' dias<span class="du"> · ' + u + (u === 1 ? ' útil' : ' úteis') + '</span>'; }
+    return { tone: dueTone(dd), l1: cap(DOW[d.getDay()]) + ' ' + dm(it.end), l2: l2, title: 'Final do prazo: ' + dmy(it.end) };
+  }
+  /* orçamento de linhas */
+  function ln(t, cpl, max) { return Math.min(max, Math.max(1, Math.ceil(String(t || '').length / cpl))); }
+  function tribLinhas(obj, teor, cpl, budget) {
+    var ol = ln(obj || 'Objeto não definido', cpl, 2);
+    if (!teor) return { ol: ol, tl: 0 };
+    return { ol: ol, tl: Math.max(1, Math.min(ln(teor, cpl, 3), budget - ol)) };
+  }
+  function notasCabem(notes, cpl, budget) {
+    var cap = notes.length === 1 ? 3 : 2;
+    function pick(b) {
+      var out = [], used = 0;
+      for (var i = notes.length - 1; i >= 0; i--) {
+        var l = ln(notes[i], cpl, cap);
+        if (used + l > b) { if (out.length) break; l = b; }
+        out.unshift({ t: notes[i], l: l }); used += l;
+      }
+      return { shown: out, rest: notes.length - out.length };
+    }
+    var r = pick(budget);
+    return r.rest ? pick(budget - 1) : r;
+  }
+  /* orçamentos por largura da lista */
+  function layoutOf(W) {
+    var mode = W >= 1480 ? 'wide' : W >= 860 ? 'mid' : 'mob', L = { mode: mode };
+    if (mode === 'wide') {
+      var av = W - 28 - 18 - 340 - 196;
+      L.cplTr = Math.floor((av * 1.25 / 2.25 - 36) / 6.35); L.cplNt = Math.floor((av / 2.25 - 36) / 6.1);
+      L.budTr = 4; L.budNt = 4;
+    } else if (mode === 'mid') {
+      var c3 = W - 28 - 18 - 282 - 184 - 36;
+      L.cplTr = Math.floor(c3 / 6.35); L.cplNt = Math.floor((c3 - 14) / 6.1); L.budTr = 3; L.budNt = 3;
+    } else {
+      var c = W - 28 - 28 - 20;
+      L.cplTr = Math.floor(c / 6.3); L.cplNt = Math.floor((c - 12) / 6.1); L.budTr = 4; L.budNt = 3;
+    }
+    return L;
+  }
+
+  /* ───────────── Ícones e peças ───────────── */
+  var IC = {
+    note: '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path d="M8 9h8M8 13h4"/>',
+    send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+    flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>'
+  };
+  function icon(n, s) { return '<svg class="cx-i" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
+  var ST = {
+    pendente_analise: ['Pendente de análise', 'var(--cx-yellow)'], em_analise: ['Em análise', 'var(--cx-violet)'],
+    analise_concluida: ['Análise concluída', 'var(--cx-green)'], aguardando_subsidios: ['Aguardando subsídios', 'var(--cx-ink-3)'],
+    peca_edicao: ['Peça em edição', 'var(--cx-blue)'], analisado: ['Analisado', 'var(--cx-green)']
+  };
+  function statusIcon(s) {
+    var c = ST[s][1], inner;
+    if (s === 'analisado') inner = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--cx-surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
+    else if (s === 'peca_edicao') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+    else if (s === 'em_analise') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><circle cx="7" cy="7" r="2.2" style="fill:' + c + '"/>';
+    else if (s === 'analise_concluida') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M4.6 7.2 6.3 8.8l3.1-3.3" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"/>';
+    else if (s === 'aguardando_subsidios') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
+    else inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
+    return '<span class="cx-st-ic" title="' + ST[s][0] + '"><svg width="14" height="14" viewBox="0 0 14 14">' + inner + '</svg></span>';
+  }
+  var IMPL = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' }, DIFL = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  function imp(v) { return '<span class="cx-imp" data-v="' + v + '" title="Importância ' + IMPL[v].toLowerCase() + '"><i></i><i></i><i></i></span>'; }
+  function dif(v) { return '<span class="cx-dif" data-v="' + v + '" title="Complexidade ' + DIFL[v].toLowerCase() + '"><i></i><i></i><i></i></span>'; }
+  function docIcon(size) {
+    return '<a class="cx-doc-ic" href="#" onclick="return false" title="Abrir peça" aria-label="Abrir peça" style="width:' + size + 'px;height:' + size + 'px"><svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="1" width="20" height="22" rx="3" fill="#4285f4"/><path d="M14 1 22 9h-6a2 2 0 0 1-2-2z" fill="#8ab4f8"/><rect x="6" y="12" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="15.6" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="19.2" width="7.5" height="1.7" rx="0.85" fill="#fff"/></svg></a>';
+  }
+  function estLine(e) {
+    if (!e) return '';
+    var bars = '', i;
+    for (i = 0; i < e.d; i++) bars += '<i class="d"></i>';
+    for (i = 0; i < e.n; i++) bars += '<i class="n"></i>';
+    for (i = 0; i < e.g; i++) bars += '<i></i>';
+    return '<div class="cx-i-est"><span class="cx-est-prog sm" aria-hidden="true">' + bars + '</span><b class="cx-ell">' + E(e.label) + '</b><span class="cx-muted"> · parou há ' + e.stopped + ' dias</span></div>';
+  }
+  function opSq(op) { return '<span class="cx-op-sq" style="background:var(' + op.c + ')"></span>'; }
+
+  /* ───────────── Dados de teste ───────────── */
+  var OPS = {
+    termo: { name: 'TERMOFLOW / SCALTECH', c: '--cx-opc-alta' }, click: { name: 'CLICKLOG', c: '--cx-opc-media' },
+    decor: { name: 'DECORVIDROS COMÉRCIO DE VIDROS', c: '--cx-opc-baixa' }, alelu: { name: 'ALELUIA EMPREENDIMENTOS GRÁFICOS', c: '--cx-opc-parcel' },
+    gsn: { name: 'GSN INDUSTRIA', c: '--cx-opc-media' }, raol: { name: 'ORGANIZAÇÕES RA OLIVEIRA', c: '--cx-opc-maxima' },
+    rosa: { name: 'GRUPO SANTA ROSA', c: '--cx-opc-baixa' }
+  };
+  var T_SCAL = 'Intimada a União para, em 15 dias, manifestar-se sobre o pedido de conversão em renda dos depósitos judiciais vinculados à execução, informando o saldo remanescente do débito. Indeferido, por ora, o pedido de suspensão do incidente; os autos seguem conclusos após a manifestação.';
+  var T_JOSE = 'Vistos. Considerando a impugnação apresentada pela Defensoria Pública da União, na condição de curadora especial do requerido citado por edital, intime-se a União para réplica no prazo de 15 dias úteis.\n\nApós, abra-se vista ao Ministério Público Federal, se for o caso, e voltem os autos conclusos para decisão sobre a desconsideração.';
+  var DATA = [
+    { id: 'i1', party: 'SCALTECH-COMERCIO IMPORTACAO E EXPORTACAO LTDA', op: 'termo', uf: 'RS', proc: '50008941820244047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Ante o exposto, requer a Requerida: a) a intimação da União (Fazenda Nacional/PGFN) para que concorde com a conversão em renda dos depósitos judiciais vinculados ao processo executivo; b) a suspensão do incidente até a apreciação do pedido.',
+      notes: ['CONTEXTUALIZAR COM O OUTRO IDPJ', 'atualizar operação com SIDA', 'Defender a necessidade de transferência de valores em montante suficiente para satisfação do débito objeto do outro IDPJ (execução se faz no interesse do credor; crédito tributário não se submete à recuperação)'],
+      sent: '2026-08-14', start: '2026-08-25', end: '2026-10-13', status: 'pendente_analise', imp: 'normal', dif: 'media',
+      est: { d: 3, n: 1, g: 0, label: 'Leitura e ajustes', stopped: 9 }, teor: T_SCAL, ia: true },
+    { id: 'i2', party: 'CLICKLOG TRANSPORTES E LOGISTICA LTDA', op: 'click', uf: 'RS', proc: '5059246-53.2025.4.04.7100', cls: 'Execução Fiscal',
+      obj: 'RESULTADO SISBAJUD. OFERTA DE PENHORA SOBRE FATURAMENTO', notes: [], sent: '2026-09-23', start: '2026-10-06', end: '2026-10-13',
+      status: 'pendente_analise', imp: 'normal', dif: 'media', flag: 'updated' },
+    { id: 'i3', party: 'CONDOMÍNIO RESIDENCIAL FIRENZE', op: 'decor', uf: 'TJPR', proc: '0008825-43.2022.8.16.0194', cls: 'Execução de Título Extrajudicial',
+      obj: null, notes: ['Copia do processo na pasta'], sent: '2026-09-28', start: '2026-09-30', end: '2026-10-14', status: 'peca_edicao', imp: 'normal', dif: 'media',
+      urgent: true, doc: true, est: { d: 2, n: 1, g: 0, label: 'Redação fina', stopped: 7 }, teor: 'Intimada a exequente para dizer sobre a certidão do oficial de justiça.' },
+    { id: 'i4', party: 'RUBENS PAES', op: 'alelu', uf: 'PR', proc: '5000198-16.2024.4.04.7031', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Suspensão do IDPJ em razão de parcelamento', notes: ['Aguardar resposta da coordenação. Em caso de rescisão, pedir prosseguimento. Em caso de manutenção, avaliar.'],
+      sent: '2026-09-15', start: '2026-09-28', end: '2026-10-19', status: 'aguardando_subsidios', imp: 'normal', dif: 'media', sel: true },
+    { id: 'i5', party: 'JOSE DE ASSIS PEREIRA DOS SANTOS', op: 'gsn', uf: 'PR', proc: '5035008-13.2024.4.04.7000', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'resposta à impugnação apresentada pela DPU, como curadora especial.', notes: [], sent: '2026-09-22', start: '2026-10-05', end: '2026-10-19',
+      status: 'pendente_analise', imp: 'normal', dif: 'media', flag: 'updated', teor: T_JOSE },
+    { id: 'i6', party: 'ROMOLO AUGUSTO DE OLIVEIRA', op: 'raol', uf: 'RS', proc: '50191418120234047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'ALEGAÇÕES FINAIS', notes: ['ANTIGRAVITY + FABLE. LEITURA E COMPLEMENTAÇÃO PÓS, ONDE E SE CABÍVEL', 'Conferir tese do Tema 1.209/STJ antes de fechar a peça'],
+      sent: '2026-09-30', start: '2026-10-06', end: '2026-10-20', status: 'em_analise', imp: 'alta', dif: 'alta', urgent: true, doc: true,
+      est: { d: 2, n: 1, g: 1, label: 'Extração do relatório e triagem', stopped: 10 } },
+    { id: 'i7', party: 'EDUARDO ANVERSA', op: 'termo', uf: 'RS', proc: '5004231-44.2026.4.04.7107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'REPLICA', notes: ['Juntar Votos do julgamento do Agravo, além de decisão do outro IDPJ. Confrontar o afastamento da responsabilidade com o acórdão do TRF4 e com a tese de grupo econômico de fato.'],
+      sent: '2026-10-02', start: '2026-10-07', end: '2026-10-29', status: 'pendente_analise', imp: 'alta', dif: 'media', urgent: true },
+    { id: 'a1', party: 'AGROPECUÁRIA SANTA ROSA S/A', op: 'rosa', uf: 'SC', proc: '5001234-56.2025.4.04.7200', cls: 'Execução Fiscal',
+      obj: 'Exceção de pré-executividade. Manifestação sobre prescrição intercorrente', notes: ['Prescrição: conferir data do arquivamento provisório (art. 40)'],
+      sent: '2026-09-17', start: '2026-09-24', end: '2026-10-09', status: 'em_analise', imp: 'alta', dif: 'media', flag: 'new',
+      teor: 'Intimada a Fazenda para se manifestar sobre a exceção de pré-executividade no prazo de 10 dias.' },
+    { id: 'b1', party: 'SUPERMERCADOS BOM PREÇO LTDA', op: 'click', uf: 'PR', proc: '5012345-67.2023.4.04.7000', cls: 'Embargos à Execução Fiscal',
+      obj: 'Sentença de improcedência dos embargos. Prazo para apelação', notes: ['Avaliar embargos de declaração (omissão sobre a prescrição)'],
+      sent: '2026-09-24', start: '2026-09-28', end: '2026-10-06', status: 'analise_concluida', imp: 'alta', dif: 'baixa', pend: true,
+      teor: 'Julgo improcedentes os embargos. Custas pela embargante.' },
+    { id: 'd1', party: 'CONSTRUTORA HORIZONTE LTDA', op: null, uf: 'SC', proc: '5000444-11.2026.4.04.7200', cls: 'Execução Fiscal',
+      obj: 'Citação por edital. Prazo ainda não iniciado', notes: [], sent: '2026-10-07', start: null, end: null, status: 'pendente_analise', imp: 'baixa', dif: 'baixa' },
+    { id: 'c1', party: 'ESPÓLIO DE ANTÔNIO CARLOS BRANDÃO', op: 'alelu', uf: 'PR', proc: '5009876-54.2024.4.04.7000', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Intimação para impugnar o pedido de desconsideração', notes: ['(não aparece: resolvida mostra a atuação)'], sent: '2026-09-18', start: '2026-09-21', end: '2026-10-14',
+      status: 'analisado', imp: 'normal', dif: 'media', ra: { kind: 'Manifestação', desc: 'Impugnação ao IDPJ protocolada', at: '2026-10-07' } }
+  ];
+  var BYID = {}; DATA.forEach(function (x) { BYID[x.id] = x; });
+
+  /* agrupamento e ordenação (cxGroupIntims / cxAttention) */
+  var IMPO = { alta: 0, normal: 1, baixa: 2 }, DIFO = { alta: 0, media: 1, baixa: 2 };
+  function attention(a, b) {
+    var ua = a.urgent ? 0 : 1, ub = b.urgent ? 0 : 1; if (ua !== ub) return ua - ub;
+    if (IMPO[a.imp] !== IMPO[b.imp]) return IMPO[a.imp] - IMPO[b.imp];
+    if (DIFO[a.dif] !== DIFO[b.dif]) return DIFO[a.dif] - DIFO[b.dif];
+    if (!a.end && !b.end) return 0; if (!a.end) return 1; if (!b.end) return -1;
+    return a.end.localeCompare(b.end);
+  }
+  function groups(items) {
+    var open = items.filter(function (x) { return !x.ra && x.status !== 'analisado'; });
+    var dd = function (x) { return daysUntil(x.end); };
+    var g = [
+      { label: 'Vencidas', dot: 'var(--cx-red)', items: open.filter(function (x) { var d = dd(x); return d !== null && d < 0; }) },
+      { label: 'Hoje e amanhã', dot: 'var(--cx-orange)', items: open.filter(function (x) { var d = dd(x); return d !== null && d >= 0 && d <= 1; }) },
+      { label: 'Próximos 5 dias', dot: 'var(--cx-yellow)', items: open.filter(function (x) { var d = dd(x); return d !== null && d >= 2 && d <= 5; }) },
+      { label: 'Mais adiante', dot: 'var(--cx-ink-3)', items: open.filter(function (x) { var d = dd(x); return d !== null && d > 5; }) },
+      { label: 'Sem prazo aberto', dot: 'var(--cx-line-strong)', items: open.filter(function (x) { return dd(x) === null; }) },
+      { label: 'Resolvidas · Últimos 7 dias', icon: statusIcon('analisado'), items: items.filter(function (x) { return !!x.ra; }) }
+    ];
+    return g.filter(function (x) { return x.items.length; }).map(function (x) { x.items = x.items.slice().sort(attention); return x; });
+  }
+  function grpHtml(g) {
+    return '<button type="button" class="cx-grp" aria-expanded="true"><span class="cx-caret">' + icon('chev', 14) + '</span>' +
+      (g.icon || '<span class="cx-dot" style="background:' + g.dot + '"></span>') + '<span>' + E(g.label) + '</span><span class="cx-n">' + g.items.length + '</span></button>';
+  }
+
+  /* ───────────── ANTES: CxIntimRow atual ───────────── */
+  function rowOld(it) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done;
+    var pz = it.ra ? { tone: 'done', txt: '✓ ' + dm(it.ra.at) } : dueOld(daysUntil(it.end), it.end);
+    var op = it.op ? OPS[it.op] : null, n = it.notes;
+    var tag = it.flag === 'new' ? '<span class="cx-tag blue">Novo</span>' : it.flag === 'updated' ? '<span class="cx-tag">Atualizada</span>' : '';
+    var ev = it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>';
+    var note = it.ra ? '<div class="cx-i-note">' + icon('send', 12) + '<span class="cx-ell">' + E(it.ra.kind + ' · ' + it.ra.desc) + '</span></div>'
+      : n.length ? '<div class="cx-i-note" title="' + E(n.join('\n')) + '">' + icon('note', 12) + '<span class="cx-ell">' + E(n[n.length - 1]) + '</span>' + (n.length > 1 ? '<span class="cx-mono">+' + (n.length - 1) + '</span>' : '') + '</div>' : '';
+    return '<div class="cx-i-row' + (urgent ? ' urgent' : '') + (done ? ' done' : '') + '" role="button" tabindex="0" data-id="' + it.id + '">' +
+      statusIcon(it.ra ? 'analisado' : it.status) +
+      '<div class="cx-i-main"><div class="cx-i-party">' + (urgent ? '<span class="cx-urg">URGENTE</span>' : '') + '<span class="cx-ell">' + E(it.party) + '</span>' + tag +
+        (it.pend ? '<span class="cx-flag" title="Pendência marcada">' + icon('flag', 11) + '</span>' : '') + '</div>' +
+        '<div class="cx-i-ev">' + ev + '</div>' + note + estLine(it.est) + '</div>' +
+      '<div class="cx-c-proc"><button type="button" class="cx-proc-copy" title="Copiar número do processo">' + procHtml(it.proc, it.uf, false) + '</button><span class="cx-cls">' + E(it.cls) + '</span></div>' +
+      '<div class="cx-c-op">' + (op ? '<button type="button" class="cx-op-tag cx-link" title="Abrir ' + E(op.name) + '">' + opSq(op) + '<span class="cx-ell">' + E(op.name) + '</span></button>' : '<span class="cx-op-tag cx-muted">Sem operação</span>') + '</div>' +
+      '<div class="cx-c-opdoc">' + (it.doc ? docIcon(14) : '') + '</div>' +
+      '<div class="cx-c-imp">' + imp(it.imp) + '</div><div class="cx-c-dif">' + dif(it.dif) + '</div>' +
+      '<div class="cx-c-due"><span class="cx-due ' + pz.tone + '">' + pz.txt + '</span><span class="cx-sub">' + (it.ra ? 'atuação registrada' : it.end ? 'final ' + dm(it.end) : 'prazo fechado') + '</span></div></div>';
+  }
+  function oldList(ids) {
+    var h = '<div class="cx-list-h"><span></span><span>Parte · evento · notas</span><span>Processo</span><span class="cx-h-op">Operação</span><span></span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span class="r">Prazo</span></div>';
+    return h + ids.map(function (id) { return rowOld(BYID[id]); }).join('');
+  }
+
+  /* ───────────── DEPOIS: direção B ───────────── */
+  function opChip(it) {
+    var op = it.op ? OPS[it.op] : null;
+    if (!op) return '<span class="cx-it-op none">' + opSq({ c: '--cx-line-strong' }) + '<span class="cx-ell">Sem operação</span></span>';
+    return '<button type="button" class="cx-it-op cx-link" title="Abrir ' + E(op.name) + '">' + opSq(op) + '<span class="cx-ell">' + E(op.name) + '</span></button>';
+  }
+  function tribHtml(it, L, extra) {
+    var teor = it.teor ? it.teor : null;
+    var t = tribLinhas(it.obj, teor, L.cplTr, L.budTr);
+    var objTxt = it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>';
+    var h = '<div class="cx-it-obj" style="--ol:' + t.ol + '" title="' + E(it.obj || 'Objeto não definido') + '">' + objTxt + '</div>';
+    if (teor) {
+      h += '<div class="cx-it-teor" style="--tl:' + t.tl + '" title="' + E(teor) + '"><span class="lbl">Decisão</span>' + (it.ia ? '<span class="ia" title="Resumo gerado por IA">✦ IA</span>' : '') + E(teor.replace(/\s*\n+\s*/g, ' ¶ ')) + '</div>';
+    }
+    return h;
+  }
+  function notesHtml(it, L) {
+    if (it.ra) return '<div class="cx-it-note act" style="--nl:2"><span class="zl">Atuação</span>' + E(it.ra.kind + ' · ' + it.ra.desc) + '</div>';
+    if (!it.notes.length) return '';
+    var r = notasCabem(it.notes, L.cplNt, L.budNt), h = '';
+    r.shown.forEach(function (n, i) { h += '<div class="cx-it-note" style="--nl:' + n.l + '">' + (i === 0 ? '<span class="zl">Notas</span>' : '') + E(n.t) + '</div>'; });
+    if (r.rest) h += '<div class="cx-it-more">+' + r.rest + (r.rest === 1 ? ' nota anterior' : ' notas anteriores') + '</div>';
+    return h;
+  }
+  function embHtml(e, it) {
+    if (!e) return '';
+    var after = it.end && e.date > it.end ? ' (depois do final do prazo)' : '';
+    var txt = e.tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + dm(e.date) + ' · ' + e.du + ' du';
+    return '<span class="cx-emb ' + e.tone + '" aria-label="Embargos de declaração ' + (e.tone === 'today' ? 'vencem hoje' : 'até ' + dm(e.date) + ', ' + plural(e.du, 'dia útil', 'dias úteis')) + '" title="Embargos de declaração até ' + dmy(e.date) + ' (' + (e.du === 0 ? 'hoje' : plural(e.du, 'dia útil', 'dias úteis')) + ')' + after + '">' + txt + '</span>';
+  }
+  function pzHtml(it) {
+    var pz = prazoLinhas(it);
+    return '<span class="cx-due ' + pz.tone + '" title="' + E(pz.title) + '">' + pz.l1 + '</span><span class="cx-it-cnt">' + pz.l2 + '</span>';
+  }
+  function peHtml(it) {
+    return embHtml(embargos(it), it) + '<span class="cx-gl">' + (it.doc ? docIcon(14) : '') + imp(it.imp) + dif(it.dif) + '</span>';
+  }
+  function rowNew(it, L) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done;
+    var tag = it.flag === 'new' ? '<span class="cx-tag blue xs">Novo</span>' : it.flag === 'updated' ? '<span class="cx-tag xs">Atualizada</span>' : '';
+    var nts = notesHtml(it, L);
+    return '<div class="cx-it' + (urgent ? ' urgent' : '') + (it.sel ? ' sel' : '') + (done ? ' done' : '') + '" role="button" tabindex="0" data-id="' + it.id + '">' +
+      '<div class="cx-it-st">' + statusIcon(it.ra ? 'analisado' : it.status) + '</div>' +
+      '<div class="cx-it-id"><div class="cx-it-opl">' + opChip(it) + '<span class="cx-it-tags">' + tag + (it.pend ? '<span class="cx-flag" title="Pendência marcada">' + icon('flag', 11) + '</span>' : '') + '</span></div>' +
+        '<div class="cx-it-party">' + (urgent ? '<span class="cx-urg">URGENTE</span>' : '') + '<span class="cx-ell" title="' + E(it.party) + '">' + E(it.party) + '</span></div>' +
+        '<div class="cx-it-pc"><button type="button" class="cx-proc-copy" title="Copiar número do processo">' + procHtml(it.proc, it.uf, true) + '</button><span class="cx-cls" title="' + E(it.cls) + '">' + E(it.cls) + '</span></div>' +
+        estLine(it.est) + '</div>' +
+      '<div class="cx-it-tr">' + tribHtml(it, L) + '</div>' +
+      '<div class="cx-it-nt' + (nts ? '' : ' empty') + '" title="' + E(it.ra ? '' : it.notes.join('\n')) + '">' + nts + '</div>' +
+      '<div class="cx-it-pz">' + pzHtml(it) + '</div>' +
+      '<div class="cx-it-pe">' + peHtml(it) + '</div></div>';
+  }
+  function headHtml() {
+    return '<div class="cx-it-h"><span></span><span class="h-id"><b>Parte</b>processo · esteira</span>' +
+      '<span class="h-tr"><b>Tribunal</b><span class="w-only">objeto · decisão</span><span class="m-only">· minhas notas</span></span>' +
+      '<span class="h-nt"><b>Minhas notas</b>o que fazer</span>' +
+      '<span class="h-pz"><span><b>Prazo</b>embargos</span><span class="h-gl">Imp. Compl.</span></span></div>';
+  }
+  function newList(el, W, ids) {
+    var L = layoutOf(W), items = ids ? ids.map(function (i) { return BYID[i]; }) : DATA, h = headHtml();
+    groups(items).forEach(function (g) { h += grpHtml(g) + g.items.map(function (it) { return rowNew(it, L); }).join(''); });
+    el.innerHTML = h; el.style.width = W + 'px';
+  }
+
+  /* ───────────── Montagem das listas ───────────── */
+  document.getElementById('old-list').innerHTML = oldList(['i1', 'i3']);
+  newList(document.getElementById('list-wide'), 1900);
+  (function () {   // anatomia: só duas linhas, sem grupos
+    var L = layoutOf(1900), el = document.getElementById('list-zoom');
+    el.innerHTML = headHtml() + ['i1', 'b1'].map(function (id) { return rowNew(BYID[id], L); }).join('');
+  })();
+  function annotate() {
+    var wrap = document.getElementById('anno-wrap'), fz = wrap.closest('.fz'), old = fz.style.zoom;
+    [].forEach.call(wrap.querySelectorAll('.pin'), function (p) { p.remove(); });
+    fz.style.zoom = 1;
+    var rows = wrap.querySelectorAll('.cx-it'), r1 = rows[0], r2 = rows[1], w0 = wrap.getBoundingClientRect();
+    var items = [
+      [r1, '.cx-it-op', 1, 'r'], [r1, '.cx-it-party', 2, 'r'], [r1, '.cx-it-pc', 3, 'r'], [r1, '.cx-i-est', 4, 'r'],
+      [r1, '.cx-it-obj', 5, 'r'], [r1, '.cx-it-teor', 6, 'r'], [r1, '.cx-it-note', 7, 'r'],
+      [r1, '.cx-due', 8, 'l'], [r1, '.cx-it-cnt', 9, 'l'], [r1, '.cx-gl', 10, 'l'], [r2, '.cx-emb', 11, 'l']
+    ];
+    items.forEach(function (a) {
+      var el = a[0].querySelector(a[1]); if (!el) return;
+      var r = el.getBoundingClientRect(), pin = document.createElement('span');
+      pin.className = 'pin'; pin.textContent = a[2];
+      pin.style.top = (r.top - w0.top + r.height / 2 - 8) + 'px';
+      pin.style.left = (a[3] === 'r' ? (a[1] === '.cx-it-op' ? r.right - w0.left + 6 : r.right - w0.left + 1) : (r.left - w0.left - 22)) + 'px';
+      wrap.appendChild(pin);
+    });
+    fz.style.zoom = old;
+  }
+  newList(document.getElementById('list-mid'), 1200);
+  (function () {
+    var L = layoutOf(390), el = document.getElementById('list-mob');
+    el.innerHTML = ['i3', 'i1', 'b1', 'c1'].map(function (id) { return rowNew(BYID[id], L); }).join('');
+  })();
+
+  /* ───────────── Legendas ───────────── */
+  function sampleIt(over) { var b = { id: 's', party: 'X', op: null, uf: 'PR', proc: '', cls: '', obj: 'x', notes: [], sent: '2026-09-01', start: '2026-09-24', end: '2026-10-20', status: 'pendente_analise', imp: 'normal', dif: 'media' }; for (var k in over) b[k] = over[k]; return b; }
+  function pzSample(it) { return '<div class="sample"><div class="cx-it-pz">' + pzHtml(it) + '</div><div class="cx-it-pe">' + peHtml(it) + '</div></div>'; }
+  var embRows = [
+    ['Calmo', '> 3 dias úteis', sampleIt({ start: '2026-10-06', end: '2026-10-13' }), 'Texto miúdo cinza (CLICKLOG: embargos em 21/10, depois do final). A pessoa só precisa saber que existe e quando vence. A maioria das linhas fica aqui.'],
+    ['Atenção', '1 a 3 dias úteis', sampleIt({ start: '2026-09-28', end: '2026-10-06' }), 'Chip âmbar com fio (SUPERMERCADOS BOM PREÇO, final vencido há 2 dias). Único destaque contínuo; cor derivada de <code>--cx-yellow</code> misturada com a tinta para passar de 4,5:1.'],
+    ['Hoje', 'data-limite = hoje', sampleIt({ start: '2026-09-24', end: '2026-10-09' }), 'Selo laranja cheio, negrito, texto "Emb. HOJE" (AGROPECUÁRIA SANTA ROSA). É o mais forte da linha depois do URGENTE.'],
+    ['Expirado', 'data-limite &lt; hoje', sampleIt({ start: '2026-08-25', end: '2026-10-13' }), 'Nada: só os glifos Imp./Compl. (SCALTECH). A gaveta continua mostrando "expirado".'],
+    ['Prazo fechado', 'sem <code>dateStart</code>', sampleIt({ start: null, end: null }), 'Nada: prazo "—", "prazo fechado" (CONSTRUTORA HORIZONTE). Resolvidas e analisadas também não mostram alerta.']
+  ];
+  document.getElementById('leg-emb').innerHTML = embRows.map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + pzSample(r[2]) + '</td><td>' + r[3] + '</td></tr>';
+  }).join('');
+
+  var LT = layoutOf(1900);
+  function tsample(over) { var it = sampleIt(over); return '<div class="tsample"><div class="cx-it-tr" style="border-left:0">' + tribHtml(it, { cplTr: 98, cplNt: 80, budTr: 4, budNt: 4 }) + '</div></div>'; }
+  var teorRows = [
+    ['Ausente', '<code>teor</code> vazio ou indefinido', tsample({ obj: 'RESULTADO SISBAJUD. OFERTA DE PENHORA SOBRE FATURAMENTO' }), 'A maioria no início. <b>Não reserva linha</b>: a zona só tem o objeto e a linha mantém o piso de ~64 px.'],
+    ['Curto', '1 frase (cabe em 1 linha)', tsample({ obj: null, teor: 'Intimada a exequente para dizer sobre a certidão do oficial de justiça.' }), 'Uma linha com barra e rótulo. Objeto indefinido continua em itálico cinza.'],
+    ['Longo', '&gt; 1 linha', tsample({ obj: 'Ante o exposto, requer a Requerida: a) a intimação da União (Fazenda Nacional/PGFN) para que concorde com a conversão em renda dos depósitos judiciais vinculados ao processo executivo; b) a suspensão do incidente até a apreciação do pedido.', teor: T_SCAL }), 'Orçamento de 4 linhas na zona: objeto 2 + decisão 2 com reticências; se o objeto tem 1 linha, a decisão ganha até 3. Texto inteiro na gaveta e no <code>title</code>.'],
+    ['Resumo de IA', '<code>teorSrc === "ia"</code>', tsample({ obj: 'REPLICA', teor: T_SCAL, ia: true }), 'Marca "✦ IA" em violeta (<code>--cx-violet</code>) depois do rótulo, para saber que é resumo, não transcrição.'],
+    ['Vários parágrafos', 'contém quebras de linha', tsample({ obj: 'resposta à impugnação apresentada pela DPU, como curadora especial.', teor: T_JOSE }), 'Quebras viram " ¶ " e o bloco é achatado e truncado em 2–3 linhas (JOSE DE ASSIS).']
+  ];
+  document.getElementById('leg-teor').innerHTML = teorRows.map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>';
+  }).join('');
+
+  /* ───────────── Interações do mockup ───────────── */
+  var root = document.documentElement;
+  function setTheme(t) {
+    root.setAttribute('data-theme', t);
+    [].forEach.call(document.querySelectorAll('[data-theme-set]'), function (b) { var on = b.getAttribute('data-theme-set') === t; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    try { localStorage.setItem('mock-b-theme', t); } catch (e) {}
+    measure();
+  }
+  [].forEach.call(document.querySelectorAll('[data-theme-set]'), function (b) { b.addEventListener('click', function () { setTheme(b.getAttribute('data-theme-set')); }); });
+  var fit = true;
+  function applyFit() {
+    [].forEach.call(document.querySelectorAll('.fw'), function (fw) {
+      var fz = fw.querySelector('.fz'), w = parseFloat(fw.getAttribute('data-w')), avail = fw.clientWidth;
+      fz.style.zoom = fit ? Math.min(1, avail / w) : 1;
+    });
+  }
+  [].forEach.call(document.querySelectorAll('[data-fit]'), function (b) {
+    b.addEventListener('click', function () {
+      fit = b.getAttribute('data-fit') === '1';
+      [].forEach.call(document.querySelectorAll('[data-fit]'), function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+      applyFit();
+    });
+  });
+  [].forEach.call(document.querySelectorAll('#seg-w [data-w]'), function (b) {
+    b.addEventListener('click', function () {
+      var W = parseInt(b.getAttribute('data-w'), 10);
+      [].forEach.call(document.querySelectorAll('#seg-w [data-w]'), function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+      newList(document.getElementById('list-wide'), W);
+      document.getElementById('lbl-w').textContent = 'largura ' + W + ' px';
+      document.getElementById('fw-wide').setAttribute('data-w', W);
+      applyFit(); measure();
+    });
+  });
+  window.addEventListener('resize', applyFit);
+
+  /* ───────────── Medição real (altura média das linhas) ───────────── */
+  function avgH(list, sel) {
+    var rows = [].slice.call(list.querySelectorAll(sel)), z = parseFloat((list.closest('.fz') || {}).style && list.closest('.fz').style.zoom) || 1;
+    var hs = rows.map(function (r) { return r.getBoundingClientRect().height / z; });
+    return { avg: hs.reduce(function (a, b) { return a + b; }, 0) / (hs.length || 1), min: Math.min.apply(null, hs), max: Math.max.apply(null, hs), n: hs.length };
+  }
+  function measure() {
+    try {
+      var probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;left:-99999px;top:0;width:1900px';
+      probe.innerHTML = '<div class="cx old"><div class="cx-list" id="old-all" style="width:1900px"></div></div>';
+      document.body.appendChild(probe);
+      var o = document.getElementById('old-all');
+      o.innerHTML = DATA.map(rowOld).join('');
+      var mo = avgH(o, '.cx-i-row'); document.body.removeChild(probe);
+      var mw = avgH(document.getElementById('list-wide'), '.cx-it');
+      var mm = avgH(document.getElementById('list-mid'), '.cx-it');
+      function r(x) { return Math.round(x); }
+      document.getElementById('m-old').textContent = r(mo.avg) + ' px';
+      document.getElementById('m-old2').textContent = 'mín. ' + r(mo.min) + ' · máx. ' + r(mo.max) + ' px';
+      document.getElementById('m-new').textContent = r(mw.avg) + ' px';
+      document.getElementById('m-new2').textContent = 'mín. ' + r(mw.min) + ' · máx. ' + r(mw.max) + ' px';
+      document.getElementById('m-mid').textContent = r(mm.avg) + ' px';
+      document.getElementById('m-mid2').textContent = 'mín. ' + r(mm.min) + ' · máx. ' + r(mm.max) + ' px';
+      function f1(x) { return (800 / x).toFixed(1).replace('.', ','); }
+      document.getElementById('m-fit').textContent = f1(mo.avg) + ' → ' + f1(mw.avg) + ' → ' + f1(mm.avg);
+      var h1 = function (root, sel) { var e = root.querySelector(sel); return e ? e.getBoundingClientRect().height / ((root.closest('.fz') && parseFloat(root.closest('.fz').style.zoom)) || 1) : 0; };
+      var simO = (function () { var q = document.createElement('div'); q.style.cssText = 'position:absolute;left:-99999px;top:0;width:1900px'; q.innerHTML = '<div class="cx old"><div class="cx-list" style="width:1900px">' + rowOld(BYID.i2) + '</div></div>'; document.body.appendChild(q); var h = q.querySelector('.cx-i-row').getBoundingClientRect().height; document.body.removeChild(q); return h; })();
+      var simW = h1(document.getElementById('list-wide'), '[data-id="i2"]'), simM = h1(document.getElementById('list-mid'), '[data-id="i2"]');
+      document.getElementById('m-simple').innerHTML = 'Linha simples (CLICKLOG: só objeto, sem notas, teor nem esteira): atual <b>' + r(simO) + ' px</b> → nova 1900 px <b>' + r(simW) + ' px</b> → nova 1200 px <b>' + r(simM) + ' px</b>.';
+      window.__measure = { old: mo, wide: mw, mid: mm, simple: { old: simO, wide: simW, mid: simM } };
+    } catch (e) { /* medição é só informativa */ }
+  }
+
+  try { var saved = localStorage.getItem('mock-b-theme'); if (saved === 'escuro') setTheme('escuro'); } catch (e) {}
+  if (location.hash.indexOf('escuro') > -1) setTheme('escuro');
+  var mw = /w(1500|1630)/.exec(location.hash); if (mw) document.querySelector('#seg-w [data-w="' + mw[1] + '"]').click();
+  applyFit(); annotate();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { annotate(); applyFit(); measure(); });
+  measure();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="claro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Card de intimação · C · Espiada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Tokens: copiados de src/Nexus.shell.html (~3900-4000).
+   "claro" = bloco base do Prumo (no código chamado Ardósia); "noite" = .cx-theme-noite (escuro azulado).
+   ═══════════════════════════════════════════════════════════════════════ */
+:root, [data-theme="claro"] {
+  color-scheme: light;
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-opc-parcel: #2d62d3; --cx-opc-maxima: #c2323d; --cx-opc-alta: #e0707a; --cx-opc-media: #c99a1a; --cx-opc-baixa: #21845a; --cx-opc-none: #8b919c;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-shadow-lg: 0 24px 64px rgba(20,24,32,0.22);
+  --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --cx-on-solid: #ffffff; --cx-card-shadow: 0 1px 2px rgba(20,24,32,0.04), 0 1px 0 rgba(20,24,32,0.02);
+  --cx-shadow-xs: 0 1px 1px rgba(20,24,32,0.04);
+  /* NOVOS (propostos): cinza miúdo que passa AA (≥4,5:1) nos dois temas + cores do alerta de embargos */
+  --cx-ink-3-aa: color-mix(in srgb, var(--cx-ink-3) 45%, var(--cx-ink-2));
+  --cx-emb-atencao-ink: color-mix(in srgb, var(--cx-yellow) 74%, #000);
+  --cx-emb-hoje-bg: color-mix(in srgb, var(--cx-orange) 84%, #000);
+}
+[data-theme="noite"] {
+  color-scheme: dark;
+  --cx-ground: #121a25; --cx-panel: #0d1521; --cx-surface: #18202c; --cx-surface-2: #1e2633; --cx-hover: #252e3a;
+  --cx-line: #2d3645; --cx-line-strong: #404a59;
+  --cx-ink: #e6ecf6; --cx-ink-2: #b0b9c5; --cx-ink-3: #939ca9;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #dee4ec; --cx-btn-hover: #bbc1c9; --cx-btn-ink: #0d1521;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #757d88;
+  --cx-shadow: 0 1px 2px rgba(3,8,16,0.40), 0 6px 20px rgba(3,8,16,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(3,8,16,0.65);
+  --cx-on-solid: #0d1521; --cx-card-shadow: 0 1px 2px rgba(3,8,16,0.30), 0 1px 0 rgba(3,8,16,0.20);
+  --cx-shadow-xs: 0 1px 1px rgba(3,8,16,0.30);
+  --cx-ink-3-aa: color-mix(in srgb, var(--cx-ink-3) 70%, var(--cx-ink-2));
+  --cx-emb-atencao-ink: var(--cx-yellow);
+  --cx-emb-hoje-bg: var(--cx-orange);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-padding-top: 64px; }
+body { font-family: var(--cx-font); font-size: 13px; line-height: 1.45; color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+.themed { background: var(--cx-ground); color: var(--cx-ink); }
+
+/* ═══ Utilitários do app (copiados) ═══ */
+.cx { font-family: var(--cx-font); font-size: 13px; line-height: 1.45; color: var(--cx-ink); }
+:where(.cx) button { font: inherit; color: inherit; padding: 0; border: 0; border-radius: 0; background: none; text-align: inherit; cursor: pointer; }
+.cx :focus-visible, .d-bar :focus-visible, .d-tabs :focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+.cx-i { flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.cx-mono { font-family: var(--cx-mono); letter-spacing: -0.01em; }
+.cx-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cx-muted { color: var(--cx-ink-3); }
+.cx-sp { flex: 1; }
+.cx-kbd { font: 500 10.5px/1 var(--cx-mono); padding: 2px 4px; border: 1px solid var(--cx-line); border-bottom-width: 2px; border-radius: 4px; color: var(--cx-ink-3-aa); background: var(--cx-surface-2); white-space: nowrap; }
+.cx-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.cx-op-sq { width: 9px; height: 9px; border-radius: 3px; flex: none; display: inline-block; }
+.cx-st-ic { display: grid; place-items: center; flex: none; }
+.cx-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--cx-line); color: var(--cx-ink-2); white-space: nowrap; flex: none; }
+.cx-tag.blue { color: var(--cx-blue); background: var(--cx-blue-soft); border-color: transparent; }
+.cx-flag { color: var(--cx-orange); display: inline-grid; flex: none; }
+.cx-proc { font-family: var(--cx-mono); font-size: 11.5px; white-space: nowrap; letter-spacing: -0.02em; color: var(--cx-ink); }
+.cx-d { color: var(--cx-ink-3); }
+.cx-uf { display: inline-block; font: 600 9.5px/1 var(--cx-mono); padding: 3px 4px; border-radius: 3px; background: var(--cx-cyan-soft); color: var(--cx-cyan); margin-right: 6px; vertical-align: 1px; letter-spacing: 0.02em; }
+.cx-urg { font: 700 9px/1 var(--cx-mono); letter-spacing: 0.06em; padding: 3px 5px; border-radius: 3px; background: var(--cx-red); color: var(--cx-on-solid); flex: none; margin-right: 0; }
+.cx-due { font: 500 12px var(--cx-mono); white-space: nowrap; letter-spacing: -0.01em; }
+.cx-due.late { color: var(--cx-red); } .cx-due.today { color: var(--cx-orange); } .cx-due.soon { color: var(--cx-yellow); }
+.cx-due.later, .cx-due.none { color: var(--cx-ink-3); } .cx-due.done { color: var(--cx-green); }
+.cx-imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.cx-imp i { width: 3px; border-radius: 1px; background: var(--cx-line-strong); }
+.cx-imp i:nth-child(1) { height: 5px; } .cx-imp i:nth-child(2) { height: 8px; } .cx-imp i:nth-child(3) { height: 12px; }
+.cx-imp[data-v="alta"] i { background: var(--cx-red); }
+.cx-imp[data-v="normal"] i:nth-child(-n+2) { background: var(--cx-ink-2); }
+.cx-imp[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); }
+.cx-dif { display: inline-flex; gap: 2px; align-items: center; height: 12px; flex: none; }
+.cx-dif i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--cx-line-strong); }
+.cx-dif[data-v="alta"] i { background: var(--cx-orange); border-color: var(--cx-orange); }
+.cx-dif[data-v="media"] i:nth-child(-n+2) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-dif[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-op-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; min-width: 0; max-width: 100%; }
+.cx-obj-undef { color: var(--cx-ink-3-aa); font-style: italic; }
+.cx-est-prog { display: inline-flex; gap: 2px; vertical-align: middle; flex: none; }
+.cx-est-prog i { width: 14px; height: 5px; border-radius: 2px; background: var(--cx-line); display: block; }
+.cx-est-prog.sm i { width: 11px; height: 4px; }
+.cx-est-prog i.d { background: var(--cx-green); } .cx-est-prog i.n { background: var(--cx-blue); }
+.cx-i-est { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cx-ink-2); margin-top: 2px; min-width: 0; }
+.cx-i-est b { font-weight: 500; color: var(--cx-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-doc-ic { flex: none; display: inline-flex; border-radius: 3px; }
+.cx-proc-copy { display: inline-flex; align-items: center; border: none; background: transparent; padding: 0; margin: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.cx-proc-copy:hover .cx-proc { text-decoration: underline; }
+.cx-cls { font-size: 11px; color: var(--cx-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-sub { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; }
+
+/* ═══ Lista (app, com a grade NOVA) ═══ */
+.cx-list { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; }
+/* MUDOU: sai a coluna Operação (1fr). Processo vira faixa de 188px a 19% da lista. Prazo ganha 136px (data + embargos/contagem). */
+.cx-list-h, .cx-i-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(188px, 19%) 24px 34px 44px 136px; column-gap: 14px; }
+.cx-list-h { padding: 8px 14px; font-size: 11px; color: var(--cx-ink-3); border-bottom: 1px solid var(--cx-line); }
+.cx-list-h .r { text-align: right; }
+.cx-grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); color: var(--cx-ink); font-weight: 500; }
+.cx-list-h + .cx-grp { border-top: 0; }
+.cx-caret { color: var(--cx-ink-3); display: grid; }
+.cx-n { font: 500 10.5px var(--cx-mono); color: var(--cx-ink-3); }
+
+.cx-i-row { position: relative; align-items: center; min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-i-row:hover, .cx-i-row.open { background: var(--cx-hover); }
+.cx-i-row.sel { background: var(--cx-accent-soft); }
+.cx-i-row.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.cx-i-row.done { opacity: 0.78; }
+.cx-i-row:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: -2px; }
+.cx-i-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; position: relative; }
+.cx-i-ev { font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-i-sub { display: none; }
+.cx-c-proc { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cx-c-opdoc { display: flex; align-items: center; justify-content: center; }
+.cx-c-imp, .cx-c-dif { display: flex; justify-content: center; }
+.cx-c-due { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+
+/* ═══ NOVO · linha 1: parte + chip da operação ═══ */
+.cx-i-wrap { position: relative; }
+.cx-i-wrap.has-docked { background: var(--cx-surface-2); }
+.cx-i-wrap.has-docked .cx-i-row { background: transparent; }
+.cx-i-party { display: flex; align-items: center; gap: 7px; font-weight: 500; min-width: 0; padding-right: 34px; }
+.cx-i-name { flex: 0 1 auto; min-width: 30%; }
+.cx-opchip { display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 7px 0 6px; border: 1px solid var(--cx-line); border-radius: 5px; background: var(--cx-surface-2); font: 500 11px/1 var(--cx-font); color: var(--cx-ink-2); white-space: nowrap; min-width: 0; max-width: 40%; min-width: 84px; flex: 0 3 auto; cursor: pointer; }
+.cx-opchip:hover { color: var(--cx-ink); border-color: var(--cx-line-strong); background: var(--cx-surface); }
+.cx-opchip.none { border-style: dashed; background: none; color: var(--cx-ink-3-aa); font-style: italic; font-weight: 400; cursor: default; flex: none; }
+.cx-opchip.static { cursor: default; max-width: 320px; flex: 0 1 auto; }
+.cx-opchip.static:hover { color: var(--cx-ink-2); border-color: var(--cx-line); background: var(--cx-surface-2); }
+.cx-i-wrap .cx-i-party .cx-tag { height: 18px; font-size: 11px; padding: 0 6px; }
+
+/* ═══ NOVO · linha 3: decisão (teor), só se existir ═══ */
+.cx-i-teor { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; color: var(--cx-ink-2); border-left: 2px solid var(--cx-line-strong); padding-left: 7px; margin: 1px 0; }
+.cx-i-teor > b { font: 600 9.5px/1 var(--cx-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--cx-ink-3-aa); flex: none; }
+
+/* ═══ NOVO · linha 4: notas + esteira na mesma linha (quebra quando falta espaço) ═══ */
+.cx-i-meta { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; column-gap: 18px; row-gap: 1px; min-width: 0; }
+.cx-i-notes { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cx-ink-3-aa); }
+.cx-i-notes .cx-i { color: var(--cx-ink-3-aa); }
+.cx-i-notes .n { font-style: italic; }
+.cx-i-notes .n1 { flex: 0 1 auto; }
+.cx-i-notes .n2 { display: none; flex: 0 1 auto; max-width: 38%; border-left: 1px solid var(--cx-line-strong); padding-left: 8px; }
+.cx-i-notes .pl { flex: none; }
+.cx-i-notes .pl-b { display: none; }
+.cx-i-notes.act { color: var(--cx-ink-2); }
+.cx-i-notes.act .cx-ell { font-style: normal; }
+.cx-i-meta .cx-i-est { margin-top: 0; flex: 0 1 auto; max-width: 100%; }
+@container (min-width: 880px) {
+  .cx-i-notes .n1 { flex: 1 1 0; }
+  .cx-i-notes .n2 { display: block; }
+  .cx-i-notes .pl-a { display: none; }
+  .cx-i-notes .pl-b { display: inline; }
+}
+
+/* ═══ NOVO · célula de prazo: data 1× + embargos ou contagem ═══ */
+.cx-due .dm { font-weight: 400; opacity: 0.8; }
+.cx-due2 { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3-aa); white-space: nowrap; }
+.cx-emb { display: inline-flex; align-items: center; white-space: nowrap; }
+.cx-emb.calmo { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3-aa); }
+.cx-emb.atencao { height: 16px; padding: 0 6px; border-radius: 4px; font: 600 10.5px/1 var(--cx-font); background: var(--cx-yellow-soft); color: var(--cx-emb-atencao-ink); }
+.cx-emb.hoje { height: 16px; padding: 0 6px; border-radius: 4px; font: 700 10.5px/1 var(--cx-font); letter-spacing: 0.04em; background: var(--cx-emb-hoje-bg); color: var(--cx-on-solid); }
+
+/* ═══ NOVO · botão "olho" (espiar / fixar) ═══ */
+.cx-peek-btn { position: absolute; top: -3px; right: 0; width: 26px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--cx-ink-3-aa); }
+.cx-i-row:hover .cx-peek-btn, .cx-peek-btn:focus-visible { color: var(--cx-ink); background: var(--cx-surface); box-shadow: 0 0 0 1px var(--cx-line); }
+.cx-peek-btn[aria-expanded="true"] { color: var(--cx-accent); background: var(--cx-accent-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cx-accent) 40%, transparent); }
+@media (hover: none) { .cx-peek-btn { width: 36px; height: 36px; top: -8px; color: var(--cx-ink-2); } .cx-i-party { padding-right: 44px; } }
+.touchsim .cx-peek-btn { width: 36px; height: 36px; top: -8px; color: var(--cx-ink-2); }
+.touchsim .cx-i-party { padding-right: 44px; }
+
+/* ═══ NOVO · a espiada ═══ */
+.cx-peek { container: pk / inline-size; font-size: 12.5px; line-height: 1.5; color: var(--cx-ink); background: var(--cx-surface); text-align: left; cursor: default; }
+.cx-peek.float { position: fixed; z-index: 70; border: 1px solid var(--cx-line-strong); border-top: 2px solid var(--cx-accent); border-radius: 0 0 10px 10px; box-shadow: var(--cx-shadow-lg); pointer-events: none; animation: pkIn 0.09s ease-out; }
+.cx-peek.float.flip { border-top: 1px solid var(--cx-line-strong); border-bottom: 2px solid var(--cx-accent); border-radius: 10px 10px 0 0; }
+.cx-peek.docked { position: relative; max-width: 1040px; margin: 0 14px 10px 46px; border: 1px solid var(--cx-line-strong); border-radius: 9px; box-shadow: var(--cx-card-shadow); }
+.cx-peek.static-float { position: absolute; z-index: 5; top: 100%; left: 46px; width: 790px; border: 1px solid var(--cx-line-strong); border-top: 2px solid var(--cx-accent); border-radius: 0 0 10px 10px; box-shadow: var(--cx-shadow-lg); }
+@keyframes pkIn { from { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .cx-peek.float { animation: none; } }
+.cx-pk-h { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 14px; border-bottom: 1px solid var(--cx-line); min-height: 34px; }
+.cx-pk-who { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; font-weight: 500; }
+.cx-pk-hint { font-size: 11px; color: var(--cx-ink-3-aa); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.cx-pk-b { height: 24px; padding: 0 8px; border: 1px solid var(--cx-line); border-radius: 6px; background: var(--cx-surface); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; color: var(--cx-ink-2); white-space: nowrap; }
+.cx-pk-b:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.cx-pk-b.x { padding: 0; width: 24px; justify-content: center; }
+.cx-pk-b.on { color: var(--cx-accent); background: var(--cx-accent-soft); border-color: transparent; }
+.cx-pk-body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 4px 26px; padding: 10px 14px 4px; }
+@container pk (max-width: 620px) { .cx-pk-body { grid-template-columns: minmax(0, 1fr); } }
+.cx-pk-sec { min-width: 0; margin-bottom: 8px; }
+.cx-pk-sec h4 { margin: 0 0 3px; font: 600 10px/1.3 var(--cx-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--cx-ink-3-aa); display: flex; align-items: center; gap: 7px; }
+.cx-pk-txt { margin: 0; font-size: 13px; color: var(--cx-ink); overflow-wrap: anywhere; user-select: text; }
+.cx-pk-quote { margin: 0; padding: 1px 0 1px 10px; border-left: 2px solid var(--cx-line-strong); color: var(--cx-ink-2); max-height: 156px; overflow: auto; user-select: text; overflow-wrap: anywhere; }
+.cx-pk-quote p { margin: 0 0 6px; } .cx-pk-quote p:last-child { margin: 0; }
+.cx-pk-empty { color: var(--cx-ink-3-aa); font-style: italic; }
+.cx-pk-ia { font: 600 9px/1 var(--cx-mono); letter-spacing: 0.04em; padding: 2px 4px; border-radius: 3px; background: var(--cx-violet-soft); color: var(--cx-violet); text-transform: none; }
+.cx-pk-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 176px; overflow: auto; }
+.cx-pk-notes li { display: flex; gap: 7px; align-items: flex-start; font-style: italic; color: var(--cx-ink-2); overflow-wrap: anywhere; user-select: text; }
+.cx-pk-notes li .cx-i { margin-top: 3px; color: var(--cx-ink-3-aa); }
+.cx-pk-notes li.act { font-style: normal; color: var(--cx-ink); }
+.cx-pk-new { font: 600 9px/1 var(--cx-mono); letter-spacing: 0.04em; padding: 2px 4px; border-radius: 3px; border: 1px solid var(--cx-line-strong); color: var(--cx-ink-3-aa); font-style: normal; text-transform: uppercase; margin-left: 4px; white-space: nowrap; align-self: center; }
+.cx-pk-dates { display: flex; flex-wrap: wrap; gap: 6px 26px; padding: 8px 14px 10px; border-top: 1px solid var(--cx-line); background: var(--cx-surface-2); border-radius: 0 0 9px 9px; }
+.cx-pk-dates > span { font-size: 10.5px; color: var(--cx-ink-3-aa); display: flex; flex-direction: column; gap: 1px; }
+.cx-pk-op { margin-left: auto; font-size: 10.5px; color: var(--cx-ink-3-aa); display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; max-width: 280px; }
+.cx-pk-dates b { font: 500 12px var(--cx-mono); color: var(--cx-ink); display: inline-flex; gap: 6px; align-items: baseline; }
+.cx-pk-dates b em { font: 400 10.5px var(--cx-font); font-style: normal; color: var(--cx-ink-3-aa); }
+.cx-pk-dates .e-atencao b { color: var(--cx-emb-atencao-ink); } .cx-pk-dates .e-atencao b em { color: var(--cx-emb-atencao-ink); }
+.cx-pk-dates .e-hoje b, .cx-pk-dates .e-hoje b em { color: var(--cx-orange); font-weight: 700; }
+.cx-pk-dates .e-exp b { color: var(--cx-ink-3-aa); text-decoration: line-through; text-decoration-color: var(--cx-line-strong); } .cx-pk-dates .e-exp b em { text-decoration: none; display: inline-block; }
+
+/* ═══ Responsivo da lista (proposta; espelha o bloco ~5476 do shell) ═══ */
+.w1200 .cx-list-h, .w1200 .cx-i-row { grid-template-columns: 18px minmax(0, 1fr) minmax(176px, 196px) 20px 30px 40px 128px; column-gap: 12px; }
+
+/* ═══ Antes (grade antiga) ═══ */
+.legacy .cx-list-h, .legacy .cx-i-row { grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 24px 34px 44px 96px; }
+.legacy .cx-i-party { padding-right: 0; }
+.legacy .cx-i-note { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--cx-ink-3); min-width: 0; }
+.legacy .cx-i-note .cx-ell { font-style: italic; }
+.legacy .cx-c-op { min-width: 0; display: flex; align-items: center; }
+.legacy .cx-i-teor-naive { font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legacy .cx-tag { height: 22px; }
+.legacy .cx-i-party .cx-urg { margin-right: 0; }
+
+/* ═══ Documento (só a página; nada disto vai para o app) ═══ */
+.d-bar { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 28px; background: color-mix(in srgb, var(--cx-ground) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--cx-line); }
+.d-bar b { font-weight: 600; letter-spacing: -0.01em; }
+.d-seg { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); gap: 1px; }
+.d-seg button { height: 24px; padding: 0 10px; border-radius: 5px; color: var(--cx-ink-3-aa); font: 500 12px var(--cx-font); cursor: pointer; border: 0; background: none; }
+.d-seg button[aria-pressed="true"] { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 0 0 1px var(--cx-line), 0 1px 2px rgba(0,0,0,0.08); }
+.d-btn { height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--cx-line); background: var(--cx-surface); color: var(--cx-ink-2); font: 500 12px var(--cx-font); cursor: pointer; }
+.d-btn:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.d-btn[aria-pressed="true"] { background: var(--cx-accent-soft); color: var(--cx-accent); border-color: transparent; }
+.d-navl { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; margin-left: auto; }
+.d-navl a { color: var(--cx-ink-2); text-decoration: none; } .d-navl a:hover { color: var(--cx-ink); text-decoration: underline; }
+.d-pins { font-size: 12px; color: var(--cx-ink-2); display: none; align-items: center; gap: 8px; }
+.d-pins.on { display: inline-flex; }
+
+.doc { max-width: 1740px; margin: 0 auto; padding: 30px 28px 90px; }
+.d-prose { max-width: 1080px; }
+.d-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cx-accent); }
+.doc h1 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.2; }
+.d-lede { font-size: 14.5px; color: var(--cx-ink-2); margin-top: 10px; line-height: 1.6; }
+.doc h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.012em; margin: 46px 0 6px; }
+.doc h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
+.d-sub { color: var(--cx-ink-2); font-size: 13.5px; line-height: 1.6; max-width: 1080px; }
+.d-sub + .d-sub { margin-top: 8px; }
+.d-sub b, .d-tbl b { color: var(--cx-ink); font-weight: 600; }
+.d-sub code, .d-tbl code, .d-card code, .d-note code { font: 500 12px var(--cx-mono); background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; color: var(--cx-ink); }
+.d-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; max-width: 1380px; }
+.d-card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.55; }
+.d-card h4 { font-size: 12.5px; font-weight: 600; color: var(--cx-ink); margin-bottom: 4px; }
+.d-card.warn { border-left: 3px solid var(--cx-orange); }
+.d-fh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; font-size: 12px; color: var(--cx-ink-2); }
+.d-fh b { color: var(--cx-ink); font-weight: 600; font-size: 13px; }
+.d-pill { font: 600 10px/1 var(--cx-mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 6px; border-radius: 4px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); color: var(--cx-ink-2); }
+.d-pill.antes { background: var(--cx-red-soft); color: var(--cx-red); border-color: transparent; }
+.d-pill.depois { background: var(--cx-green-soft); color: var(--cx-green); border-color: transparent; }
+.d-pill.live { background: var(--cx-accent-soft); color: var(--cx-accent); border-color: transparent; }
+.xscroll { overflow-x: auto; padding: 1px 1px 14px; }
+.cx-hintbar { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 11.5px; color: var(--cx-ink-2); background: var(--cx-accent-soft); border-bottom: 1px solid var(--cx-line); }
+.cx-hintbar .cx-i { color: var(--cx-accent); }
+.d-hint { font-size: 12px; color: var(--cx-ink-2); margin: 0 0 8px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.d-themed-frame { border: 1px solid var(--cx-line-strong); border-radius: 12px; padding: 12px 14px 4px; margin-top: 14px; }
+.d-themed-frame > .d-fh { margin-top: 0; }
+.d-tw { overflow-x: auto; max-width: 1380px; }
+.d-tbl { width: 100%; border-collapse: collapse; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; font-size: 12.5px; margin-top: 12px; max-width: 1380px; }
+.d-tbl th { text-align: left; font-size: 11px; font-weight: 500; color: var(--cx-ink-3-aa); padding: 8px 12px; border-bottom: 1px solid var(--cx-line); background: var(--cx-surface-2); }
+.d-tbl td { padding: 9px 12px; border-bottom: 1px solid var(--cx-line); vertical-align: top; color: var(--cx-ink-2); line-height: 1.5; }
+.d-tbl tr:last-child td { border-bottom: 0; }
+.d-tbl td:first-child { color: var(--cx-ink); font-weight: 500; white-space: nowrap; }
+.d-tbl.wrapfirst td:first-child { white-space: normal; }
+.d-demo { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 8px 10px; display: inline-flex; flex-direction: column; align-items: flex-end; min-width: 150px; }
+.d-demo.left { align-items: stretch; min-width: 0; }
+.d-code { background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 9px; padding: 11px 14px; font: 400 12px/1.55 var(--cx-mono); color: var(--cx-ink); overflow: auto; max-width: 1380px; margin-top: 8px; white-space: pre; tab-size: 2; }
+.d-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1380px; }
+.d-note { font-size: 12.5px; color: var(--cx-ink-2); background: var(--cx-surface); border: 1px solid var(--cx-line); border-left: 3px solid var(--cx-accent); border-radius: 8px; padding: 10px 14px; max-width: 1080px; margin-top: 12px; line-height: 1.55; }
+.d-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 200; background: var(--cx-btn); color: var(--cx-btn-ink); border-radius: 8px; padding: 8px 14px; font-size: 12.5px; box-shadow: var(--cx-shadow-lg); opacity: 0; pointer-events: none; transition: opacity 0.15s; max-width: 80vw; }
+.d-toast.on { opacity: 1; }
+.d-measure { position: absolute; left: -99999px; top: 0; visibility: hidden; pointer-events: none; }
+.d-no { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--cx-accent); color: var(--cx-on-solid); font: 700 10px/1 var(--cx-mono); flex: none; }
+.d-ok { color: var(--cx-green); font-weight: 600; } .d-bad { color: var(--cx-red); font-weight: 600; }
+.d-leg { display: grid; gap: 10px; max-width: 1380px; margin-top: 12px; }
+.d-leg-row { display: grid; grid-template-columns: 170px 200px 410px minmax(0, 1fr); gap: 16px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px 14px; align-items: start; font-size: 12.5px; color: var(--cx-ink-2); }
+.d-leg-row h4 { font-size: 12.5px; color: var(--cx-ink); font-weight: 600; margin-bottom: 2px; }
+.d-leg-row .cx-pk-dates { background: none; border: 0; padding: 0; border-radius: 0; }
+.d-leg-row small { color: var(--cx-ink-3-aa); display: block; font-size: 11px; margin-bottom: 4px; }
+.d-teor-leg { display: grid; gap: 10px; max-width: 1380px; margin-top: 12px; }
+.d-teor-leg .row { display: grid; grid-template-columns: 170px 700px minmax(0, 1fr); gap: 16px; align-items: start; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: var(--cx-ink-2); }
+.d-teor-leg h4 { font-size: 12.5px; color: var(--cx-ink); font-weight: 600; }
+.d-teor-leg .cx-i-main { padding: 4px 0; }
+.d-leg-row > *, .d-teor-leg .row > * { min-width: 0; }
+@media (max-width: 1100px) { .d-grid4, .d-two { grid-template-columns: 1fr 1fr; } .d-leg-row, .d-teor-leg .row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) { .d-grid4, .d-two { grid-template-columns: minmax(0, 1fr); } .doc { padding: 22px 16px 70px; } .d-bar { padding: 7px 16px; } }
+</style>
+</head>
+<body>
+
+<div class="d-bar" role="toolbar" aria-label="Opções da página">
+  <b>Prumo · card de intimação · C</b>
+  <span class="d-seg" role="group" aria-label="Tema"><button type="button" data-theme-btn="claro" aria-pressed="true">Claro</button><button type="button" data-theme-btn="noite" aria-pressed="false">Noite (escuro azulado)</button></span>
+  <button type="button" class="d-btn" id="btn-touch" aria-pressed="false" title="Desliga hover e foco como gatilhos e mostra o olho em tamanho de toque">Simular toque</button>
+  <span class="d-pins" id="pins"><span id="pins-n">0 espiadas fixas</span><button type="button" class="d-btn" id="btn-unpin">Soltar todas</button></span>
+  <nav class="d-navl" aria-label="Seções"><a href="#antes">Antes × depois</a><a href="#l1900">1900 px</a><a href="#l1200">1200 px</a><a href="#estatico">Espiada aberta</a><a href="#legendas">Legendas</a><a href="#mapa">Mapa</a><a href="#impl">Implementação</a><a href="#trade">Trade-offs</a></nav>
+</div>
+
+<div class="doc">
+
+<header class="d-prose">
+  <div class="d-eyebrow">Nexus Prumo · Intimações · direção C</div>
+  <h1>Linha compacta + espiada: ler Objeto, Decisão e Notas sem abrir a gaveta</h1>
+  <p class="d-lede">A linha continua tão compacta quanto a de hoje: <b>3 linhas de texto, 4 quando a intimação tem decisão</b>. O texto completo de Objeto, Decisão e todas as Notas mora numa <b>espiada</b>: aparece quando o mouse para 0,25 s sobre a linha, quando a linha recebe foco do teclado ou quando se toca no olho. Clicar na linha continua abrindo a gaveta. Hoje, nesta página, é <b>quinta-feira, 08/10/2026</b>.</p>
+</header>
+
+<div class="d-grid4">
+  <div class="d-card"><h4>Linha fechada</h4>Operação como chip ao lado do nome (sai a coluna). Objeto, Decisão (só se existir), última nota (+ a anterior em telas largas) e esteira na mesma linha das notas. Processo sempre em CNJ. Prazo mostra a data uma vez; a 2ª linha traz o alerta de embargos.</div>
+  <div class="d-card"><h4>Espiada transitória</h4>Popover flutuante preso à borda de baixo da própria linha. Não captura o mouse (como um tooltip rico): descer pela lista nunca é bloqueado. Fecha ao sair, com Esc, clique fora ou rolagem.</div>
+  <div class="d-card"><h4>Espiada fixada</h4>Clique no olho, toque, <span class="cx-kbd">P</span> ou clique na própria espiada: ela vira uma expansão <b>em fluxo</b> (empurra as linhas de baixo, não cobre nada), com texto selecionável. Dá para fixar várias e comparar.</div>
+  <div class="d-card warn"><h4>Embargos na linha fechada</h4>Três faixas visíveis na 2ª linha do Prazo: cinza (&gt; 3 úteis), âmbar (1 a 3), laranja sólido “EMB. HOJE”. Expirado e prazo fechado: nada. A maioria das linhas fica calma.</div>
+</div>
+
+<!-- ═════════════════ ANTES × DEPOIS ═════════════════ -->
+<h2 id="antes">1 · Antes × depois, com as mesmas 2 intimações</h2>
+<p class="d-sub">Largura de uma janela de 1900 px (menu lateral de 244 px + margens de 28 px → lista de 1600 px). Tema: o que estiver marcado no topo. Os três quadros são estáticos; a lista interativa vem na seção 2.</p>
+
+<div class="d-fh"><span class="d-pill antes">Antes</span><b>Linha atual do Prumo</b><span>coluna Operação, processo cru no 1º caso, “final 13/10” repetindo “Ter 13/10”, só a última nota, embargos só na gaveta</span></div>
+<div class="xscroll"><div class="cx legacy" style="width:1600px" id="fr-antes"></div></div>
+
+<div class="d-fh"><span class="d-pill depois">Depois</span><b>Linha fechada (padrão)</b><span>os mesmos dados, sem espiada aberta</span></div>
+<div class="xscroll"><div class="cx" style="width:1600px" id="fr-depois"></div></div>
+
+<div class="d-fh"><span class="d-pill depois">Depois</span><b>Com a 1ª linha fixada</b><span>a decisão e as 3 notas aparecem inteiras; a 2ª linha segue compacta</span></div>
+<div class="xscroll"><div class="cx" style="width:1600px" id="fr-depois-pk"></div></div>
+
+<!-- ═════════════════ 1900 ═════════════════ -->
+<h2 id="l1900">2 · Lista agrupada em 1900 px (interativa)</h2>
+<p class="d-sub">Passe o mouse e pare 0,25 s numa linha. Tab percorre as linhas (foco abre a espiada). O olho fixa. <span class="cx-kbd">Esc</span> fecha, <span class="cx-kbd">P</span> fixa/solta. Clique na linha mostra um aviso “gaveta aberta”: a espiada nunca o dispara. “Simular toque” na barra do topo desliga hover e foco para você testar o fluxo de toque.</p>
+<div class="d-fh"><span class="d-pill live">Interativo</span><b>Janela de 1900 px</b><span>lista de 1600 px · 11 intimações em 6 grupos (as 7 do print + 4 sintéticas: embargos hoje, prazo vencido com embargos em 2 úteis, resolvida, prazo fechado)</span></div>
+<div class="xscroll"><div class="cx" style="width:1600px" id="fr-1900" data-live="1"></div></div>
+
+<!-- ═════════════════ 1200 ═════════════════ -->
+<h2 id="l1200">3 · A mesma lista em 1200 px (interativa)</h2>
+<p class="d-sub">Janela de 1200 px (lista de 900 px). Com a coluna Operação extinta, a coluna da parte passa de ≈ 295 px (hoje) para ≈ 365 px. O nome da parte e o chip da operação disputam a linha: o chip cede primeiro (até 84 px, com <code>title</code>) e depois o nome, que tem reticências; nome e operação completos estão na espiada. A esteira desce para uma linha própria quando não cabe ao lado da nota (linhas com nota + esteira voltam a ter 4 linhas, como hoje); a 2ª nota some; o aviso de embargos continua na célula do Prazo.</p>
+<div class="d-fh"><span class="d-pill live">Interativo</span><b>Janela de 1200 px</b><span>lista de 900 px · grade <code class="cx-mono">18px 1fr 176-196px 20px 30px 40px 128px</code></span></div>
+<div class="xscroll"><div class="cx w1200" style="width:900px" id="fr-1200" data-live="1"></div></div>
+<p class="d-sub"><b>≤ 1180 px:</b> a grade só encolhe (processo 168 px, espaçamento 12 px). <b>≤ 900 px / toque:</b> grade <code class="cx-mono">18px 1fr auto</code> como hoje; a coluna Processo some e o <code class="cx-mono">.cx-i-sub</code> mostra processo + Imp./Compl. (sem repetir a operação, que já está na linha 1); a espiada nasce <b>sempre fixada</b> (acordeão em largura total, 1 coluna), porque não há hover.</p>
+
+<!-- ═════════════════ ESTÁTICO ═════════════════ -->
+<h2 id="estatico">4 · Espiada aberta · quadros estáticos nos dois temas</h2>
+<p class="d-sub">Cada quadro mostra, na mesma lista, as duas formas: <b>① linha fixada</b> (em fluxo, empurra as de baixo) e <b>② espiada transitória</b> (flutuante, cobrindo as linhas seguintes; é o preço honesto do popover). Recorte de lista de 1100 px, para caber em screenshot.</p>
+<div class="d-themed-frame themed" data-theme="claro"><div class="d-fh"><span class="d-pill">Tema claro</span><b>① fixada na 1ª linha · ② transitória na 3ª</b></div><div class="xscroll"><div class="cx" style="width:1100px" id="st-claro"></div></div></div>
+<div class="d-themed-frame themed" data-theme="noite"><div class="d-fh"><span class="d-pill">Tema Noite</span><b>① fixada na 1ª linha · ② transitória na 3ª</b></div><div class="xscroll"><div class="cx" style="width:1100px" id="st-noite"></div></div></div>
+
+<!-- ═════════════════ LEGENDAS ═════════════════ -->
+<h2 id="legendas">5 · Legendas de estados</h2>
+<h3>Alerta de embargos de declaração (as 5 faixas)</h3>
+<p class="d-sub">Regra do app: data-limite = <code>addBusinessDays(dateStart, 10)</code>; só vale para intimação <b>em aberto</b> (<code>!responseAction &amp;&amp; status !== 'analisado'</code>) <b>e com <code>dateStart</code></b>. Hoje = 08/10/2026. O feriado de 12/10 (Nossa Senhora Aparecida) não conta como dia útil, então as contagens abaixo são as do app, não as de “dias corridos”. O alerta é independente do prazo final: pode vencer depois dele (CLICKLOG: final 13/10, embargos 21/10) e continua útil depois que o principal passa (caso sintético do grupo Vencidas).</p>
+<div class="d-leg" id="leg-emb"></div>
+<div class="d-note"><b>Hierarquia.</b> Só duas faixas ganham fundo (âmbar e laranja sólido), e ambas são raras por natureza: o âmbar cobre 3 dias úteis a cada intimação, o laranja, 1 dia. Tudo que está &gt; 3 úteis é texto cinza miúdo, sem chip. A cor vermelha fica reservada para URGENTE e prazo vencido, para não competir. <b>Por que “expirado” some do card:</b> não há mais ação possível, e uma linha com “emb. 09/09” esmaecido em dezenas de intimações antigas seria ruído permanente; ela não é apagada (a espiada mostra “Emb. decl. 09/09 expirado” riscado e a gaveta continua com a régua).</div>
+
+<h3>Teor da decisão (3 estados)</h3>
+<p class="d-sub">Campo provisório <code>teor</code> (string; parágrafos separados por linha em branco). Rótulo “Decisão” em caixa-alta miúda + barra de citação à esquerda: o rótulo diz de quem é a voz (juízo), a barra diferencia do Objeto (texto do usuário/eproc, sem barra) e das Notas (itálico, voz do usuário, com ícone). Fica na linha 3, logo abaixo do Objeto.</p>
+<div class="d-teor-leg" id="leg-teor"></div>
+
+<h3>Estados da espiada</h3>
+<div class="d-tw"><table class="d-tbl wrapfirst">
+  <thead><tr><th>Estado</th><th>Como entra</th><th>Aparência / comportamento</th><th>Como sai</th></tr></thead>
+  <tbody>
+    <tr><td>Fechada</td><td>padrão</td><td>Linha compacta; olho discreto no canto da linha (sempre no DOM e focável).</td><td>—</td></tr>
+    <tr><td>Transitória</td><td>mouse parado 250 ms na linha · foco por Tab (250 ms) · tecla <span class="cx-kbd">P</span> fixa</td><td>Popover <code>position: fixed</code> colado à borda de baixo da linha, com filete âmbar ligando-o à linha; <code>pointer-events: none</code>; linha realçada. Mostra tudo, não oferece botões.</td><td>mouse sai da linha (120 ms) · <span class="cx-kbd">Esc</span> · clique fora · rolagem · foco sai</td></tr>
+    <tr><td>Transitória “flip”</td><td>não cabe abaixo da linha</td><td>Abre para cima, filete na borda de baixo. Altura limitada: Decisão e Notas rolam por dentro (156 / 176 px).</td><td>idem</td></tr>
+    <tr><td>Fixada</td><td>clique no olho · clique na espiada transitória · <span class="cx-kbd">P</span> · toque no olho</td><td>Bloco em fluxo sob a linha (fundo cinza-claro unindo linha e painel), selecionável; botões Soltar, Abrir ficha ›, ✕. Várias ao mesmo tempo; contador e “Soltar todas” no topo da página.</td><td>olho · Soltar · ✕ · <span class="cx-kbd">Esc</span> (com foco dentro) · abrir a ficha daquela linha</td></tr>
+    <tr><td>Toque / sem hover</td><td>toque no olho (36 × 36 px, sempre visível)</td><td>Abre já fixada; hover e foco não são gatilhos (<code>@media (hover: hover)</code>).</td><td>toque no olho ou ✕</td></tr>
+  </tbody>
+</table></div>
+
+<h2>6 · Decisões de interação (e por quê)</h2>
+<div class="d-tw"><table class="d-tbl wrapfirst">
+  <thead><tr><th>Pergunta</th><th>Decisão</th><th>Justificativa</th></tr></thead>
+  <tbody>
+    <tr><td>Ancora na linha (empurrando) ou flutua?</td><td><b>Flutua enquanto é transitória; vira em-fluxo quando fixada.</b> A transitória nunca cobre a própria linha: cola na borda de baixo (ou de cima, se faltar espaço).</td><td>Expandir a linha no hover desloca tudo para baixo: o alvo se move sob o mouse e a lista “respira” a cada passada (layout shift). Popover não desloca nada. A reclamação legítima do popover é cobrir as vizinhas e atrapalhar a comparação; por isso (1) ele não captura o mouse, então não bloqueia a descida e (2) quem quer comparar fixa uma linha, que então empurra e não cobre.</td></tr>
+    <tr><td>Como comparar duas linhas?</td><td>Fixe a primeira (olho ou <span class="cx-kbd">P</span>); passe o mouse sobre a segunda.</td><td>A fixada está em fluxo e a transitória flutua sob a segunda. Podem ficar até várias fixadas (o contador no topo avisa).</td></tr>
+    <tr><td>Como não atrapalhar o clique que abre a gaveta?</td><td>O painel é <b>irmão</b> da linha, não filho: nunca está na área clicável dela. Clicar na linha cancela a espera de 250 ms e fecha a transitória. <code>mousedown</code> sobre uma transitória visível <b>a fixa</b> (e engole o clique) em vez de abrir a gaveta da linha que está por baixo.</td><td>Sem isso, ler o painel e clicar nele abriria a ficha errada. “Abrir ficha ›” existe dentro da fixada.</td></tr>
+    <tr><td>Fixar para copiar texto</td><td>Fixada = texto selecionável, em fluxo. Além disso, enquanto houver texto selecionado dentro da espiada ela não fecha por rolagem/saída.</td><td>A transitória é “tooltip rico” sem pointer-events; copiar exige um estado estável. Fixar é o gesto único para isso.</td></tr>
+    <tr><td>Teclado</td><td>Tab → linha (foco visível) → espiada abre em 250 ms; <span class="cx-kbd">P</span> fixa; <span class="cx-kbd">Esc</span> fecha; Enter/Espaço seguem abrindo a gaveta. O olho é um botão tabulável (<code>aria-expanded</code>). A espiada fixada fica logo após a linha na ordem de Tab; os botões dela vêm em seguida.</td><td>Nada depende só de hover. O painel é descrito à linha por <code>aria-describedby</code> enquanto aberto; a fixada é <code>role="region"</code> com nome “Espiada: parte”.</td></tr>
+    <tr><td>Toque / mobile</td><td>Olho de 36 px sempre visível; abre fixada; ≤ 900 px em 1 coluna e largura total.</td><td>Hover não existe; fixada é o único modo que funciona sem timers.</td></tr>
+    <tr><td>Descoberta</td><td>Olho com contraste AA, sempre no DOM; dica uma vez no cabeçalho da lista (“Passe o mouse, use Tab ou o olho para ler tudo”), dispensável.</td><td>Conteúdo que só aparece em hover precisa de pista visível para quem usa só toque/teclado.</td></tr>
+    <tr><td>Movimento</td><td>Fade de 90 ms; desligado com <code>prefers-reduced-motion</code>.</td><td>—</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ═════════════════ MAPA ═════════════════ -->
+<h2 id="mapa">7 · Mapa de redistribuição</h2>
+<div class="d-tw"><table class="d-tbl wrapfirst">
+  <thead><tr><th>Elemento</th><th>Onde estava</th><th>Onde fica</th></tr></thead>
+  <tbody>
+    <tr><td>Operação</td><td>Coluna própria (1fr) e repetida no <code>.cx-i-sub</code> mobile</td><td>Chip com quadradinho colorido (<code>CxOpSquare</code>) logo depois do nome, na linha 1; clique abre a operação (<code>onOpenOp</code> + <code>stopPropagation</code>); “Sem operação” em itálico tracejado. Coluna extinta.</td></tr>
+    <tr><td>Parte, URGENTE, Novo/Atualizada, ⚑</td><td>Linha 1 da coluna principal</td><td>Linha 1 (tags de 18 px em vez de 22 px). Faixa vermelha à esquerda inalterada.</td></tr>
+    <tr><td>Objeto</td><td>Linha 2, 1 linha com reticências</td><td>Linha 2 (igual). Texto completo na espiada.</td></tr>
+    <tr><td>Decisão (teor)</td><td>— (novo)</td><td>Linha 3, logo abaixo do Objeto, só se existir (sem linha reservada). Completa na espiada.</td></tr>
+    <tr><td>Notas</td><td>Linha 3: só a última + “+N”, <code>title</code> nativo com todas</td><td>Linha 4: última nota + (≥ 880 px de largura) a anterior + “+N”. Todas na espiada, mais recente primeiro. Sem <code>title</code>.</td></tr>
+    <tr><td>Esteira da peça</td><td>Linha 4 própria</td><td>Mesma linha das notas, à direita; desce para linha própria quando não cabe (&lt; ~560 px).</td></tr>
+    <tr><td>Processo</td><td>Coluna 1.3fr (≈ 330 px em 1900, sobrando espaço), cru ou CNJ</td><td>Coluna de 188 px até 19 % da lista (≈ 300 px em 1900), <b>sempre CNJ</b> (<code>cxProcFmt</code>), UF em badge, ponta esmaecida; classe embaixo; copiar ao clicar (copia o CNJ).</td></tr>
+    <tr><td>Prazo final</td><td>“Ter 13/10” + “final 13/10” (duplicado)</td><td>1ª linha: data (ou “Hoje · 08/10”, “há 2d · 06/10”) uma só vez, na cor de sempre.</td></tr>
+    <tr><td>Embargos de declaração</td><td>Só na gaveta (régua)</td><td>2ª linha do Prazo (cinza / âmbar / “EMB. HOJE”); quando não há (expirado, sem início) a 2ª linha vira contagem “em 5d · 3 úteis”. Na espiada: faixa de datas com Emb. decl.</td></tr>
+    <tr><td>Envio / Início</td><td>Gaveta</td><td>Faixa de datas no rodapé da espiada.</td></tr>
+    <tr><td>Imp. / Compl.</td><td>Colunas 34 / 44 px</td><td>Iguais.</td></tr>
+    <tr><td>Ícone da peça (Google Docs)</td><td>Coluna 24 px</td><td>Igual.</td></tr>
+    <tr><td>Ícone de situação, .sel, .done, agrupamento</td><td>—</td><td>Iguais. Resolvida: a atuação registrada substitui as notas na linha 4; a espiada mostra a atuação e as notas.</td></tr>
+    <tr><td>Olho (espiar)</td><td>—</td><td>Canto direito da linha 1 (dentro da coluna principal).</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ═════════════════ IMPLEMENTAÇÃO ═════════════════ -->
+<h2 id="impl">8 · Notas de implementação</h2>
+<p class="d-sub"><b>Arquivos:</b> <code>src/edition-claude.jsx</code> (CxIntimRow, cabeçalho do CxIntimList, helpers e componente da espiada) e o CSS em <code>src/Nexus.shell.html</code>. Nada em <code>app.jsx</code>. Depois, <code>npm run build</code>. <b>Reaproveita:</b> <code>cxIntimObjeto</code>/<code>CxObj</code>, <code>cxNotes</code>, <code>cxPartyName</code>, <code>CxOpSquare</code>/<code>cxOpName</code>, <code>CxStatusIcon</code>, <code>CxDocIcon</code>, <code>CxImp</code>/<code>CxDif</code>, <code>CxEstLine</code>, <code>cxDue</code>, <code>cxDM</code>, <code>cxBizUntil</code>, <code>daysUntil</code>, <code>addBusinessDays</code>, <code>toDayKey</code>, <code>cxCopy</code>.</p>
+
+<h3>Helpers novos</h3>
+<script type="text/plain" data-code="h1">/* Sempre CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO. Se não tiver 20 dígitos, devolve como veio. */
+function cxProcFmt(num) {
+  const d = String(num || '').replace(/\D/g, '');
+  if (d.length !== 20) return num || '—';
+  return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+}
+/* CxProc já casa /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/ — basta passar cxProcFmt(...) em num.
+   Copiar ao clicar: cxCopy(cxProcFmt(intim.processNumber)). O dado gravado continua cru. */
+
+/* Faixa do alerta de embargos de declaração. null = nada a mostrar (resolvida, analisada ou sem dateStart). */
+function cxEmbargos(intim) {
+  if (!intim || intim.responseAction || intim.status === 'analisado') return null;
+  const start = toDayKey(intim.dateStart);
+  if (!start) return null;
+  const date = addBusinessDays(start, 10);
+  if (!date) return null;
+  const dd = daysUntil(date);
+  if (dd === null || dd < 0) return { date, du: null, tone: 'exp' };       // expirado: a linha não mostra
+  const du = dd === 0 ? 0 : cxBizUntil(date);
+  return { date, du, tone: du === 0 ? 'hoje' : du <= 3 ? 'atencao' : 'calmo' };
+}
+
+/* Célula do Prazo: duas linhas, a data aparece UMA vez. */
+function cxDueCell(intim) {
+  const ra = intim.responseAction;
+  if (ra) return { l1: { tone: 'done', txt: '✓ ' + cxDM(ra.respondedAt) }, l2: { kind: 'txt', txt: 'atuação registrada' } };
+  if (!intim.dateDeadline) return { l1: { tone: 'none', txt: 'sem prazo' }, l2: { kind: 'txt', txt: 'prazo fechado' } };
+  const dd = daysUntil(intim.dateDeadline), info = cxDue(dd, intim.dateDeadline);
+  const l1 = { tone: info.tone, txt: info.txt, dm: info.txt.includes('/') ? null : cxDM(intim.dateDeadline) };   // "Hoje · 08/10"
+  const emb = cxEmbargos(intim);
+  if (emb && emb.tone !== 'exp') return { l1, l2: { kind: 'emb', ...emb } };
+  return { l1, l2: dd >= 2 ? { kind: 'txt', txt: 'em ' + dd + 'd · ' + cxBizUntil(intim.dateDeadline) + ' úteis' } : null };
+}
+
+/* Texto de 1 linha do teor. Resumo (IA): 1º parágrafo. Íntegra: o ÚLTIMO parágrafo (dispositivo é o que se quer ver). */
+function cxTeorLine(intim) {
+  const ps = String(intim.teor || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (!ps.length) return '';
+  return intim.teorKind === 'integral' ? ps[ps.length - 1] : ps[0];
+}</script>
+
+<h3>CxIntimRow (esboço do JSX)</h3>
+<script type="text/plain" data-code="h2">function CxIntimRow({ intim, op, sel, hideOp, peek, onOpen, onOpenOp }) {
+  const notes = cxNotes(intim), ra = intim.responseAction, resolved = !!ra;
+  const done = resolved || intim.status === 'analisado';
+  const urgent = intimIsUrgent(intim) && !done;
+  const proc = cxProcFmt(intim.processNumber), due = cxDueCell(intim), teor = cxTeorLine(intim);
+  const pinned = peek.isPinned(intim.id);
+  return <div className={'cx-i-wrap' + (pinned ? ' has-docked' : '')} data-id={intim.id}
+      onMouseEnter={() => peek.hoverIn(intim.id)} onMouseLeave={() => peek.hoverOut(intim.id)}>
+    <div className={'cx-i-row' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '') + (peek.isOpen(intim.id) ? ' open' : '')}
+      role="button" tabIndex={0} aria-describedby={peek.floatId === intim.id ? 'cx-pk-' + intim.id : undefined}
+      onClick={() => { peek.close(intim.id); onOpen(intim.id); }}
+      onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}
+      onFocus={e => e.target === e.currentTarget && e.target.matches(':focus-visible') && peek.focusIn(intim.id)}
+      onBlur={e => !e.currentTarget.contains(e.relatedTarget) && peek.focusOut(intim.id)}>
+      <CxStatusIcon s={resolved ? 'analisado' : intim.status} />
+      <div className="cx-i-main">
+        <div className="cx-i-party">
+          {urgent ? <span className="cx-urg">URGENTE</span> : null}
+          <span className="cx-ell cx-i-name">{cxPartyName(intim)}</span>
+          {hideOp ? null : <CxOpChip op={op} onOpen={onOpenOp} />}
+          {intim._importFlag === 'new' ? <span className="cx-tag blue">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag">Atualizada</span> : null}
+          {intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}
+        </div>
+        <div className="cx-i-ev"><CxObj intim={intim} /></div>
+        {teor ? <div className="cx-i-teor"><b>Decisão</b><span className="cx-ell">{teor}</span></div> : null}
+        {(resolved || notes.length || esteiraHasStarted(intim.esteira)) ? <div className="cx-i-meta">
+          {resolved ? <div className="cx-i-notes act"><CxIcon n="send" s={12} /><span className="cx-ell">{cxAtuacaoTxt(ra)}</span></div>
+            : notes.length ? <div className="cx-i-notes"><CxIcon n="note" s={12} />
+                <span className="cx-ell n n1">{notes[notes.length - 1]}</span>
+                {notes.length > 1 ? <span className="cx-ell n n2">{notes[notes.length - 2]}</span> : null}
+                {notes.length > 1 ? <span className="cx-mono pl pl-a">+{notes.length - 1}</span> : null}
+                {notes.length > 2 ? <span className="cx-mono pl pl-b">+{notes.length - 2}</span> : null}
+              </div> : null}
+          <CxEstLine esteira={intim.esteira} />
+        </div> : null}
+        <button type="button" className="cx-peek-btn" aria-expanded={pinned} aria-label="Espiar objeto, decisão e notas"
+          onClick={e => { e.stopPropagation(); peek.togglePin(intim.id); }}><CxIcon n="eye" s={15} /></button>
+        <div className="cx-i-sub"><CxProc num={proc} uf={intim.jurisdiction} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
+      </div>
+      <div className="cx-c-proc"><button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(proc); }}><CxProc num={proc} uf={intim.jurisdiction} /></button><span className="cx-cls">{intim.className || '—'}</span></div>
+      <div className="cx-c-opdoc">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</div>
+      <div className="cx-c-imp"><CxImp intim={intim} /></div>
+      <div className="cx-c-dif"><CxDif intim={intim} /></div>
+      <div className="cx-c-due">
+        <CxDue iso={ra ? null : intim.dateDeadline} doneIso={ra ? (ra.respondedAt || '') : undefined} extra={due.l1.dm} />
+        {due.l2 ? (due.l2.kind === 'emb' ? <CxEmb e={due.l2} /> : <span className="cx-due2">{due.l2.txt}</span>) : null}
+      </div>
+    </div>
+    {peek.node(intim)}   {/* null | transitória (fixed) | fixada (em fluxo): sempre IRMÃ da linha */}
+  </div>;
+}
+function CxEmb({ e }) {
+  const txt = e.tone === 'hoje' ? 'EMB. HOJE' : e.tone === 'atencao' ? 'Emb. ' + cxDM(e.date) + ' · ' + e.du + (e.du === 1 ? ' útil' : ' úteis') : 'emb. ' + cxDM(e.date);
+  return <span className={'cx-emb ' + e.tone} title={'Embargos de declaração até ' + fmtDate(e.date) + (e.du ? ' · ' + cxPl(e.du, 'dia útil', 'dias úteis') : '')}>{txt}</span>;
+}</script>
+
+<h3>Máquina de estados da espiada (hook no CxIntimList)</h3>
+<script type="text/plain" data-code="h3">/* useCxPeek(items): estado { floatId, pinned:Set } + timers { open:250ms, close:120ms }.
+   hoverIn(id)   → só se matchMedia('(hover: hover)').matches e id não está fixada: reinicia timer de 250 ms → floatId = id
+   hoverOut(id)  → cancela timer de abrir; se floatId === id, timer de 120 ms → floatId = null
+   focusIn(id)   → igual a hoverIn, só quando :focus-visible (teclado)        focusOut(id) → floatId = null
+   togglePin(id) → floatId = null; pinned.has(id) ? delete : add             (olho, tecla P, toque)
+   close(id)     → floatId = null; pinned.delete(id)                         (clique na linha / abrir gaveta)
+   mousedown (captura, no contêiner da lista): se floatId e o ponteiro está dentro do retângulo da transitória → pin + preventDefault + engolir o click seguinte
+   Esc / scroll (captura) / resize / mousedown fora → floatId = null          (Esc com foco dentro de uma fixada → solta e devolve o foco à linha)
+   node(intim)   → fixada: <CxPeek mode="docked">; transitória: <CxPeek mode="float" style={posição}> medida em useLayoutEffect:
+                   top = rect.bottom - 1, ou rect.top - altura + 1 (flip) se não couber; left = clamp(rect.left + 46, 8, vw - largura - 8); largura = min(820, vw - 16)
+   Toque: sem (hover:hover) hoverIn/focusIn viram no-op e o olho chama togglePin.            */
+function CxPeek({ intim, mode, style, id }) {
+  // seções: Objeto (CxObj em <p>), Decisão (teor em parágrafos; selo IA se teorSource==='ia'), Notas (todas, mais recente 1ª),
+  // faixa de datas (Envio · Início · Emb. decl. [tone] · Final + contagem). mode==='docked' ganha cabeçalho com Soltar · Abrir ficha › · ✕.
+}</script>
+
+<h3>CSS novo e grades</h3>
+<script type="text/plain" data-code="h4">/* ── classes novas (src/Nexus.shell.html, bloco "Intimações"; ver o <style> desta página, seções NOVO) ──
+   .cx-i-wrap(.has-docked)  .cx-opchip(.none)  .cx-i-teor  .cx-i-meta  .cx-i-notes(.act) .n .n1 .n2 .pl-a .pl-b
+   .cx-due .dm   .cx-due2   .cx-emb(.calmo|.atencao|.hoje)   .cx-peek-btn   .cx-peek(.float|.float.flip|.docked)
+   .cx-pk-h .cx-pk-who .cx-pk-hint .cx-pk-b .cx-pk-body .cx-pk-sec .cx-pk-txt .cx-pk-quote .cx-pk-ia .cx-pk-notes .cx-pk-dates
+   tokens: --cx-ink-3-aa  --cx-emb-atencao-ink  --cx-emb-hoje-bg   (definidos por tema; Noite/Grafite redefinem os três)            */
+
+/* grade da lista (≥ 1181 px). ANTES:  18px 2.6fr 1.3fr 1fr 24px 34px 44px 96px   */
+.cx-list-h, .cx-i-row { grid-template-columns: 18px minmax(0, 1fr) minmax(188px, 19%) 24px 34px 44px 136px; column-gap: 14px; }
+@media (max-width: 1180px) {       /* ANTES: escondia .cx-c-op e .cx-c-opdoc (o ícone da peça sumia) */
+  .cx-list-h, .cx-i-row { grid-template-columns: 18px minmax(0, 1fr) 168px 22px 30px 40px 124px; column-gap: 12px; }
+}
+@media (max-width: 900px) {        /* igual a hoje; a operação já está na linha 1 */
+  .cx-i-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .cx-i-party { flex-wrap: wrap; row-gap: 3px; } .cx-opchip { max-width: 100%; }
+  .cx-peek.docked { margin-left: 14px; }
+}
+/* cabeçalho em CxIntimList: */
+&lt;span /&gt;&lt;span&gt;Parte · operação · objeto · decisão · notas&lt;/span&gt;&lt;span&gt;Processo&lt;/span&gt;&lt;span /&gt;&lt;span title="Importância"&gt;Imp.&lt;/span&gt;&lt;span title="Complexidade"&gt;Compl.&lt;/span&gt;&lt;span className="r" title="Prazo final · embargos de declaração"&gt;Prazo&lt;/span&gt;</script>
+
+<h3>Cuidados</h3>
+<div class="d-tw"><table class="d-tbl wrapfirst">
+  <thead><tr><th>Onde pode quebrar</th><th>O que fazer</th></tr></thead>
+  <tbody>
+    <tr><td>Processos &gt; Substituição (<code>EditionClaudeSubstituicao</code>) usa o mesmo <code>CxIntimList</code>/<code>CxIntimRow</code></td><td>Todas as linhas têm a mesma operação (“EM SUBSTITUIÇÃO”): passar <code>hideOp</code> e não repetir o chip. O cabeçalho continua o mesmo. A espiada vale lá também (não precisa de gaveta aberta).</td></tr>
+    <tr><td><code>.cx-c-due</code>, <code>.cx-c-proc</code>, <code>.cx-i-sub</code>, <code>.cx-i-est</code> são compartilhadas com Tarefas (<code>.cx-t-row</code>) e Acompanhar (<code>.cx-w-row</code>)</td><td>Escopar toda regra nova em <code>.cx-i-wrap …</code> ou <code>.cx-i-row …</code>; não alterar as regras base. O <code>margin-top: 2px</code> de <code>.cx-i-est</code> só é zerado dentro de <code>.cx-i-meta</code>.</td></tr>
+    <tr><td>Bloco responsivo ~5478 esconde <code>.cx-c-op, .cx-c-opdoc</code> ≤ 1180 px</td><td>Remover o seletor <code>.cx-c-op</code> (não existe mais) e <b>manter</b> <code>.cx-c-opdoc</code> visível, senão o ícone da peça some em janelas médias.</td></tr>
+    <tr><td><code>position: fixed</code> dentro de ancestral com <code>transform</code>/<code>filter</code>/<code>contain</code> vira relativo a ele</td><td>Hoje <code>.cx-list</code> só tem <code>overflow: hidden</code> (fixed escapa). Se a gaveta ou um wrapper ganhar <code>transform</code>, usar <code>createPortal</code> para <code>document.body</code> e manter a ordem de Tab com <code>aria-owns</code>.</td></tr>
+    <tr><td>Portal de tooltips global (fim de <code>Nexus.shell.html</code>)</td><td>Só reage a <code>.has-tip</code>, <code>.task-desc-wrap</code>, <code>.note-stack</code>, <code>.intim-center-text-wrap</code> e esconde em qualquer clique. Não usar essas classes na espiada; ela é elemento próprio (precisa ser selecionável e fixável, o que o portal, <code>pointer-events: none</code>, não permite).</td></tr>
+    <tr><td><code>title</code> nativo na nota (hoje lista todas as notas)</td><td>Remover: duplicaria a espiada. Manter <code>title</code> só em controles (olho, chip da operação, embargos).</td></tr>
+    <tr><td>Busca (<code>hay</code> em <code>EditionClaudeIntimacoes</code>)</td><td>Incluir <code>x.teor</code>. Opcional: destacar o termo na espiada.</td></tr>
+    <tr><td><code>container queries</code> (<code>@container</code>)</td><td>Chrome/Edge ≥ 105, Safari ≥ 16. Fallback aceitável: sem suporte, a 2ª nota simplesmente não aparece.</td></tr>
+    <tr><td>Quadro (<code>CxBoard</code>) e Foco</td><td>Sem mudança nesta fase. O cartão do Quadro ganharia o chip de embargos no mesmo formato (<code>CxEmb</code>) numa fase posterior.</td></tr>
+    <tr><td>Contraste dos textos miúdos (AA ≥ 4,5:1)</td><td><code>--cx-ink-3</code> cru dá 3,86:1 no claro em texto de 10-11 px (já é assim no app). Os textos novos usam <code>--cx-ink-3-aa</code> (mistura de ink-3 e ink-2): 5,6:1 no claro e 6,6:1 na Noite. Chip âmbar: 6,6:1 (cru: 4,2). “EMB. HOJE”: 5,8:1 (cru: 4,3); Noite ≥ 8,6:1. Conferido por cálculo, não só a olho. Grafite precisa de um valor por token.</td></tr>
+    <tr><td>Testes sugeridos</td><td><code>cxProcFmt</code>: 20 dígitos crus, CNJ já formatado, vazio, nº antigo (&lt; 20 dígitos). <code>cxEmbargos</code>: hoje, +1/+3/+4 úteis, véspera de feriado (12/10), expirado, sem <code>dateStart</code>, resolvida, analisada. Espiada: hover rápido não abre; mousedown na transitória fixa e não abre gaveta; Esc; Tab; rolagem; toque (sem hover).</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ═════════════════ TRADE-OFFS ═════════════════ -->
+<h2 id="trade">9 · Trade-offs honestos</h2>
+<p class="d-sub">Medido nesta página (altura real das linhas renderizadas, fonte Geist), na janela de 1900 px (lista de 1600 px), com as mesmas 11 intimações. “Hoje + teor ingênuo” = a linha atual com uma linha de decisão encaixada embaixo do Objeto, sem mais nada mudar (o que aconteceria sem este redesenho). Os números variam alguns px se a fonte cair no fallback.</p>
+<div class="d-tw"><table class="d-tbl">
+  <thead><tr><th>Cenário (1900 px)</th><th>Altura média por intimação</th><th>Linhas visíveis em tela de 1080 px de altura *</th></tr></thead>
+  <tbody>
+    <tr><td>Hoje (sem teor)</td><td id="m-old">—</td><td id="r-old">—</td></tr>
+    <tr><td>Hoje + teor ingênuo</td><td id="m-naive">—</td><td id="r-naive">—</td></tr>
+    <tr><td>Esta proposta (C)</td><td id="m-new">—</td><td id="r-new">—</td></tr>
+    <tr><td>Esta proposta em 1200 px</td><td id="m-new2">—</td><td id="r-new2">—</td></tr>
+  </tbody>
+</table></div>
+<p class="d-sub" style="font-size:12px">* Janela maximizada em tela de 1080 px: ~900 px de viewport útil − barra do app 48 − cabeçalho da página, tribunais e filtros ~170 = ~700 px; − cabeçalho de colunas 33 − 2 cabeçalhos de grupo (36 cada) → ~595 px para linhas. Contagem = piso(595 ÷ altura média). Linhas com espiada fixada crescem; não entram na conta.</p>
+
+<div class="d-grid4" style="grid-template-columns:repeat(2,minmax(0,1fr)); max-width:1100px">
+  <div class="d-card warn"><h4>1 · Não ganha densidade; só a mantém</h4>A altura média (≈ 73 px) é a de hoje e cabem ≈ 8 linhas na tela de 1080 px, as mesmas de hoje. A proposta evita o custo (+5 px por linha, ≈ 7 linhas) de simplesmente encaixar a decisão no card atual e põe no mesmo espaço a decisão, a 2ª nota e os embargos, mas quem queria <i>mais</i> linhas por tela não ganha nada. Direções que mostram mais texto na própria linha ficam acima disso.</div>
+  <div class="d-card warn"><h4>2 · Conteúdo escondido atrás de um gesto</h4>Quem não para o mouse (ou usa só teclado/toque) não lê a Decisão nem as outras notas. Para “varrer 30 intimações lendo tudo”, direções com objeto em 2-3 linhas e notas empilhadas são melhores: aqui, ler tudo = 30 esperas de 250 ms ou 30 fixações. Mitigação: olho sempre visível e dica no cabeçalho, mas a descoberta continua pior.</div>
+  <div class="d-card warn"><h4>3 · Comparar linhas depende de fixar</h4>A transitória cobre 2-3 linhas de baixo (quadro ② da seção 4) e some quando o mouse sai. Para comparar A com B é preciso fixar A. É um passo a mais do que numa direção em que as linhas já mostram o texto.</div>
+  <div class="d-card warn"><h4>4 · Nota e esteira na mesma linha</h4>Em 1900 px, com 2+ notas e esteira, a 1ª nota mostra ≈ 85 caracteres (hoje ≈ 115, porque a linha era só dela). Em coluna estreita (&lt; ~880 px) a 2ª nota some e, abaixo de ~560 px, a esteira desce de linha (volta a 4 linhas, como hoje).</div>
+  <div class="d-card warn"><h4>5 · Mais código, mais bordas</h4>Timers, posição fixa com flip, foco, captura de <code>mousedown</code>, container queries, ordem de Tab e a variante de toque. Estimativa: ≈ 80 linhas de CSS e ≈ 180 de JSX/JS; risco de regressão em hover/rolagem e de ancestrais com <code>transform</code>. É a direção mais difícil de testar.</div>
+  <div class="d-card warn"><h4>6 · Comportamento menos óbvio</h4>“Clicar na espiada fixa em vez de abrir a gaveta” e “a transitória não aceita clique” são regras a aprender (a dica no cabeçalho ajuda). Em toque, ler algo custa 2 toques (olho, depois ✕), onde um acordeão direto custaria 1.</div>
+  <div class="d-card warn"><h4>7 · Prazo: contagem some quando há embargos</h4>A 2ª linha do Prazo mostra embargos <i>ou</i> a contagem “em 5d · 2 úteis”, não as duas. A contagem continua na espiada (rodapé de datas). Para ver as duas na linha seria preciso uma 3ª linha (+14 px nas linhas que hoje têm só 2 linhas de texto).</div>
+  <div class="d-card warn"><h4>8 · Em 1200 px o nome da parte ainda trunca</h4>A coluna principal vai de ≈ 295 px (hoje) para ≈ 365 px, mas nomes longos + chip da operação não cabem: o chip cede primeiro (até 84 px, com <code>title</code>) e depois o nome (reticências). A altura média sobe para ≈ 77 px porque a esteira desce de linha.</div>
+</div>
+
+<h2>10 · Suposições e dúvidas</h2>
+<ul class="d-sub" style="padding-left:18px">
+  <li><b>Temas:</b> o briefing chama de “Ardósia” o escuro azulado. No código, o bloco base de <code>--cx-*</code> (claro) é a “Ardósia” e o escuro azulado é <code>.cx-theme-noite</code>. Usei esses dois: <b>Claro</b> e <b>Noite</b>. Grafite herdaria o mesmo esquema (os três tokens novos precisam de um valor por tema).</li>
+  <li><b>Contagem de dias úteis:</b> o <code>isBusinessDay</code> do app trata 12/10 como feriado. Por isso CLICKLOG tem embargos em 8 úteis, FIRENZE em 4 (&gt; 3, cinza) e RUBENS em 2 (âmbar), e não 9 / 5 / 3 como estimado no briefing. As datas (21/10, 15/10, 13/10) conferem.</li>
+  <li><b>Formato de <code>teor</code>:</b> assumi string com parágrafos separados por linha em branco e dois campos opcionais, <code>teorKind</code> (<code>'resumo'</code> | <code>'integral'</code>) e <code>teorSource</code> (<code>'ia'</code>), só para escolher o trecho de 1 linha e mostrar o selo “IA”. Se o outro chat entregar outro formato, só <code>cxTeorLine</code> e <code>CxPeek</code> mudam. Se a decisão vier integral, mostrar o <i>início</i> truncado é pouco útil: sugiro o último parágrafo (dispositivo).</li>
+  <li><b>Notas:</b> <code>cxNotes</code> está em ordem cronológica (última = mais recente); a espiada lista a mais recente primeiro. Não há data por nota no modelo; não inventei.</li>
+  <li>Os nomes de partes, números e textos são os do briefing; objeto e teor completados quando o briefing trazia reticências. Textos de decisão são inventados.</li>
+  <li><b>UF do TJPR:</b> o selo usa <code>intim.jurisdiction</code> (“PR”), como hoje; não diferencia TJ de TRF4 (o CNJ mostra, <code>.8.16.</code>).</li>
+</ul>
+
+</div><!-- /doc -->
+
+<div class="d-toast" id="toast" role="status" aria-live="polite"></div>
+<div class="d-measure cx" id="measure"></div>
+
+<script>
+(function () {
+'use strict';
+
+/* ═════════ datas (versão reduzida de src/lib/dates.js; hoje = 08/10/2026) ═════════ */
+var TODAY = new Date(2026, 9, 8);
+var HOL = ['2026-09-07', '2026-10-12', '2026-11-02', '2026-11-15', '2026-11-20'];
+var pad = function (n) { return String(n).padStart(2, '0'); };
+var iso = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+var parse = function (s) { return s ? new Date(s + 'T00:00:00') : null; };
+function isBiz(d) { var w = d.getDay(); if (w === 0 || w === 6) return false; if (d.getMonth() === 11 && d.getDate() >= 20) return false; if (d.getMonth() === 0 && d.getDate() <= 20) return false; return HOL.indexOf(iso(d)) < 0; }
+function addBiz(s, n) { var d = parse(s), a = 0; while (a < n) { d.setDate(d.getDate() + 1); if (isBiz(d)) a++; } return iso(d); }
+function daysUntil(s) { return Math.round((parse(s) - TODAY) / 864e5); }
+function bizUntil(s) { var t = parse(s), d = new Date(TODAY), n = 0; while (d < t) { d.setDate(d.getDate() + 1); if (isBiz(d)) n++; } return n; }
+var DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+function dm(s) { var d = parse(s); return d ? pad(d.getDate()) + '/' + pad(d.getMonth() + 1) : '—'; }
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function cxDue(dd, s) {
+  if (dd === null) return { tone: 'none', txt: 'sem prazo' };
+  if (dd < -1) return { tone: 'late', txt: 'há ' + (-dd) + 'd' };
+  if (dd === -1) return { tone: 'late', txt: 'Ontem' };
+  if (dd === 0) return { tone: 'today', txt: 'Hoje' };
+  if (dd === 1) return { tone: 'today', txt: 'Amanhã' };
+  if (dd <= 5) return { tone: 'soon', txt: cap(DOW[parse(s).getDay()]) + ' ' + dm(s) };
+  return { tone: 'later', txt: dm(s) };
+}
+function cxEmbargos(it) {
+  if (it.resp || it.status === 'analisado' || !it.start) return null;
+  var date = addBiz(it.start, 10), dd = daysUntil(date);
+  if (dd < 0) return { date: date, du: null, tone: 'exp' };
+  var du = dd === 0 ? 0 : bizUntil(date);
+  return { date: date, du: du, tone: du === 0 ? 'hoje' : du <= 3 ? 'atencao' : 'calmo' };
+}
+function cxProcFmt(num) {
+  var d = String(num || '').replace(/\D/g, '');
+  if (d.length !== 20) return num || '—';
+  return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+}
+function teorParas(it) { return String(it.teor || '').split(/\n\s*\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
+function teorLine(it) { var ps = teorParas(it); if (!ps.length) return ''; return it.teorKind === 'integral' ? ps[ps.length - 1] : ps[0]; }
+function pl(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
+function E(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* ═════════ ícones (de CX_ICONS) ═════════ */
+var ICONS = {
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  chevR: '<path d="m9 18 6-6-6-6"/>', chevD: '<path d="m6 9 6 6 6-6"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  note: '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path d="M8 9h8M8 13h4"/>',
+  send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>', flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+  pin: '<path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 14v7"/>'
+};
+function ic(n, s) { return '<svg class="cx-i" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[n] + '</svg>'; }
+
+var ST = { pendente_analise: ['Pendente de análise', 'var(--cx-yellow)'], em_analise: ['Em análise', 'var(--cx-violet)'], aguardando_subsidios: ['Aguardando subsídios', 'var(--cx-ink-3)'], peca_edicao: ['Peça em edição', 'var(--cx-blue)'], analisado: ['Analisado', 'var(--cx-green)'] };
+function stIcon(s) {
+  var c = ST[s][1], inner;
+  if (s === 'analisado') inner = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--cx-surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
+  else if (s === 'peca_edicao') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+  else if (s === 'em_analise') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><circle cx="7" cy="7" r="2.2" style="fill:' + c + '"/>';
+  else if (s === 'aguardando_subsidios') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
+  else inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
+  return '<span class="cx-st-ic" title="' + ST[s][0] + '"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">' + inner + '</svg></span>';
+}
+function docIcon() {
+  return '<a class="cx-doc-ic" href="#" data-act="doc" title="Abrir peça" aria-label="Abrir peça" style="width:14px;height:14px"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="1" width="20" height="22" rx="3" fill="#4285f4"/><path d="M14 1 22 9h-6a2 2 0 0 1-2-2z" fill="#8ab4f8"/><rect x="6" y="12" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="15.6" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="19.2" width="7.5" height="1.7" rx="0.85" fill="#fff"/></svg></a>';
+}
+
+/* ═════════ dados de teste (briefing §3) ═════════ */
+var OPS = {
+  termo: { name: 'TERMOFLOW / SCALTECH', c: 'var(--cx-opc-media)' },
+  click: { name: 'CLICKLOG', c: 'var(--cx-opc-baixa)' },
+  decor: { name: 'DECORVIDROS COMÉRCIO DE VIDROS', c: 'var(--cx-opc-parcel)' },
+  alel: { name: 'ALELUIA EMPREENDIMENTOS GRÁFICOS', c: 'var(--cx-opc-alta)' },
+  gsn: { name: 'GSN INDUSTRIA', c: 'var(--cx-opc-media)' },
+  raol: { name: 'ORGANIZAÇÕES RA OLIVEIRA', c: 'var(--cx-opc-maxima)' }
+};
+var D = [
+  { id: 1, party: 'SCALTECH-COMERCIO IMPORTACAO E EXPORTACAO LTDA', op: 'termo', uf: 'RS', proc: '50008941820244047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'Ante o exposto, requer a Requerida: a) a intimação da União (Fazenda Nacional/PGFN) para que concorde com a conversão em renda dos depósitos judiciais vinculados ao processo executivo; b) a juntada dos extratos atualizados das contas judiciais; c) a suspensão do incidente até a manifestação da União.',
+    teor: 'Defiro em parte o pedido de conversão em renda dos depósitos judiciais vinculados ao executivo, limitada ao montante necessário à quitação das CDAs sem parcelamento ativo, e determino a intimação da União para, em 15 dias, informar o saldo atualizado do débito e manifestar-se sobre a suficiência dos valores. Indefiro, por ora, a liberação do excedente, que permanece à disposição do juízo até o julgamento do incidente.',
+    teorKind: 'resumo', teorSource: 'ia',
+    notes: ['CONTEXTUALIZAR COM O OUTRO IDPJ', 'atualizar operação com SIDA', 'Defender a necessidade de transferência de valores em montante suficiente para satisfação do débito objeto do outro IDPJ (execução se faz no interesse do credor; crédito tributário não se submete à recuperação)'],
+    sent: '2026-08-14', start: '2026-08-25', final: '2026-10-13', status: 'pendente_analise', imp: 'normal', dif: 'media',
+    est: { label: 'Leitura e ajustes', st: 'dddn', stopped: '9 dias' } },
+  { id: 2, party: 'CLICKLOG TRANSPORTES E LOGISTICA LTDA', op: 'click', uf: 'RS', proc: '5059246-53.2025.4.04.7100', cls: 'Execução Fiscal',
+    obj: 'RESULTADO SISBAJUD. OFERTA DE PENHORA SOBRE FATURAMENTO', notes: [],
+    sent: '2026-09-23', start: '2026-10-06', final: '2026-10-13', status: 'pendente_analise', tag: 'upd', imp: 'normal', dif: 'media' },
+  { id: 3, party: 'CONDOMÍNIO RESIDENCIAL FIRENZE', op: 'decor', uf: 'PR', proc: '0008825-43.2022.8.16.0194', cls: 'Execução de Título Extrajudicial',
+    obj: null, teor: 'Intimada a exequente para dizer sobre a certidão do oficial de justiça.', notes: ['Copia do processo na pasta'],
+    sent: '2026-09-28', start: '2026-09-30', final: '2026-10-14', status: 'peca_edicao', urgent: true, doc: true, imp: 'normal', dif: 'media',
+    est: { label: 'Redação fina', st: 'ddnt', stopped: '7 dias' } },
+  { id: 4, party: 'RUBENS PAES', op: 'alel', uf: 'PR', proc: '5000198-16.2024.4.04.7031', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'Suspensão do IDPJ em razão de parcelamento', notes: ['Aguardar resposta da coordenação. Em caso de rescisão, pedir prosseguimento. Em caso de manutenção, avaliar.'],
+    sent: '2026-09-15', start: '2026-09-28', final: '2026-10-19', status: 'aguardando_subsidios', imp: 'normal', dif: 'media' },
+  { id: 5, party: 'JOSE DE ASSIS PEREIRA DOS SANTOS', op: 'gsn', uf: 'PR', proc: '5035008-13.2024.4.04.7000', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'resposta à impugnação apresentada pela DPU, como curadora especial.',
+    teor: 'Trata-se de incidente de desconsideração da personalidade jurídica instaurado pela União em face de JOSE DE ASSIS PEREIRA DOS SANTOS e outros. A Defensoria Pública da União, na qualidade de curadora especial do sócio citado por edital, apresentou impugnação por negativa geral, nos termos do art. 341, parágrafo único, do CPC.\n\nIntime-se a União para, no prazo legal, manifestar-se sobre a impugnação e indicar as provas que pretende produzir. Após, voltem conclusos para decisão do incidente.',
+    teorKind: 'integral', notes: [],
+    sent: '2026-09-22', start: '2026-10-05', final: '2026-10-19', status: 'pendente_analise', tag: 'upd', imp: 'normal', dif: 'media' },
+  { id: 6, party: 'ROMOLO AUGUSTO DE OLIVEIRA', op: 'raol', uf: 'RS', proc: '50191418120234047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'ALEGAÇÕES FINAIS', notes: ['ANTIGRAVITY + FABLE. LEITURA E COMPLEMENTAÇÃO PÓS, ONDE E SE CABÍVEL', 'Conferir juntada dos documentos do evento 188 antes da minuta'],
+    sent: '2026-09-25', start: '2026-10-02', final: '2026-10-20', status: 'em_analise', urgent: true, doc: true, imp: 'alta', dif: 'alta',
+    est: { label: 'Extração do relatório e triagem', st: 'ddntt', stopped: '10 dias' } },
+  { id: 7, party: 'EDUARDO ANVERSA', op: 'termo', uf: 'RS', proc: '5004231-44.2026.4.04.7107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'REPLICA', notes: ['Juntar Votos do julgamento do Agravo, além de decisão do outro IDPJ. Confrontar o afastamento da solidariedade tributária com a tese fixada no julgamento e verificar se há embargos de declaração pendentes.'],
+    sent: '2026-10-02', start: '2026-10-07', final: '2026-10-29', status: 'pendente_analise', urgent: true, imp: 'alta', dif: 'media' },
+  { id: 8, party: 'METALÚRGICA SANTA CLARA LTDA', op: 'click', uf: 'SC', proc: '5012345-67.2025.4.04.7200', cls: 'Execução Fiscal',
+    obj: 'Exceção de pré-executividade. Prescrição intercorrente.', notes: ['Conferir termo inicial da suspensão (art. 40, § 2º, LEF) antes de manifestar'],
+    sent: '2026-09-17', start: '2026-09-24', final: '2026-10-09', status: 'em_analise', imp: 'normal', dif: 'media' },
+  { id: 9, party: 'AGROINDUSTRIAL CAMPO LARGO S/A', op: 'gsn', uf: 'PR', proc: '5021876-40.2023.4.04.7000', cls: 'Embargos à Execução Fiscal',
+    obj: 'Impugnação aos embargos. Prazo curto.', notes: ['Protocolar hoje ou pedir dilação'], flag: true,
+    sent: '2026-09-24', start: '2026-09-28', final: '2026-10-06', status: 'pendente_analise', imp: 'normal', dif: 'media' },
+  { id: 10, party: 'TRANSPORTES RODOVIÁRIOS HORIZONTE LTDA', op: 'click', uf: 'RS', proc: '5017712-09.2025.4.04.7100', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+    obj: 'Impugnação ao IDPJ', notes: ['Peça revisada pela coordenação'],
+    sent: '2026-09-25', start: '2026-09-30', final: '2026-10-09', status: 'analisado', imp: 'normal', dif: 'media',
+    resp: { txt: 'Manifestação · Impugnação ao IDPJ protocolada', at: '2026-10-07' } },
+  { id: 11, party: 'COOPERATIVA AGRÍCOLA VALE VERDE', op: null, uf: 'SC', proc: '0301234-12.2024.8.24.0023', cls: 'Execução Fiscal',
+    obj: null, notes: [], sent: '2026-10-06', start: null, final: null, status: 'pendente_analise', imp: 'normal', dif: 'media' }
+];
+var BY = {}; D.forEach(function (x) { BY[x.id] = x; });
+var IMPO = { alta: 0, normal: 1, baixa: 2 }, DIFO = { alta: 0, media: 1, baixa: 2 };
+
+/* ═════════ marcação ═════════ */
+function bars(st) { return st.split('').map(function (c) { return '<i' + (c === 'd' ? ' class="d"' : c === 'n' ? ' class="n"' : '') + '></i>'; }).join(''); }
+function estHTML(it) { return it.est ? '<div class="cx-i-est"><span class="cx-est-prog sm" aria-hidden="true">' + bars(it.est.st) + '</span><b class="cx-ell">' + E(it.est.label) + '</b><span class="cx-muted"> · parou há ' + it.est.stopped + '</span></div>' : ''; }
+function procHTML(it) {
+  var f = cxProcFmt(it.proc), m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(f);
+  return '<span class="cx-proc"><span class="cx-uf">' + it.uf + '</span>' + (m ? m[1] + '<span class="cx-d">' + m[2] + '</span>' : E(f)) + '</span>';
+}
+function procHTMLRaw(it) { return '<span class="cx-proc"><span class="cx-uf">' + it.uf + '</span>' + E(it.proc) + '</span>'; }
+function impdif(it) { return { imp: '<span class="cx-imp" data-v="' + it.imp + '" title="Importância"><i></i><i></i><i></i></span>', dif: '<span class="cx-dif" data-v="' + it.dif + '" title="Complexidade"><i></i><i></i><i></i></span>' }; }
+function actTxt(it) { return it.resp.txt; }
+function embText(e) {
+  if (e.tone === 'hoje') return 'EMB. HOJE';
+  if (e.tone === 'atencao') return 'Emb. ' + dm(e.date) + ' · ' + e.du + (e.du === 1 ? ' útil' : ' úteis');
+  return 'emb. ' + dm(e.date);
+}
+function embTitle(e) { return 'Embargos de declaração até ' + dm(e.date) + '/2026' + (e.du ? ' · ' + e.du + (e.du === 1 ? ' dia útil' : ' dias úteis') : ''); }
+
+function dueCell(it) {
+  if (it.resp) return '<div class="cx-c-due"><span class="cx-due done" title="Atuação em ' + dm(it.resp.at) + '/2026">✓ ' + dm(it.resp.at) + '</span><span class="cx-due2">atuação registrada</span></div>';
+  if (!it.final) return '<div class="cx-c-due"><span class="cx-due none" title="Prazo ainda não aberto">sem prazo</span><span class="cx-due2">prazo fechado</span></div>';
+  var dd = daysUntil(it.final), info = cxDue(dd, it.final), e = cxEmbargos(it), l2 = '';
+  var l1 = info.txt + (info.txt.indexOf('/') < 0 ? '<span class="dm"> · ' + dm(it.final) + '</span>' : '');
+  if (e && e.tone !== 'exp') l2 = '<span class="cx-emb ' + e.tone + '" title="' + embTitle(e) + '">' + embText(e) + '</span>';
+  else if (dd >= 2) l2 = '<span class="cx-due2">em ' + dd + 'd · ' + pl(bizUntil(it.final), 'útil', 'úteis') + '</span>';
+  return '<div class="cx-c-due"><span class="cx-due ' + info.tone + '" title="Final do prazo: ' + dm(it.final) + '/2026">' + l1 + '</span>' + l2 + '</div>';
+}
+
+function mainHTML(it, o) {
+  o = o || {};
+  var done = !!it.resp || it.status === 'analisado', urgent = it.urgent && !done, op = it.op ? OPS[it.op] : null, n = it.notes || [];
+  var l1 = '';
+  if (urgent) l1 += '<span class="cx-urg">URGENTE</span>';
+  l1 += '<span class="cx-ell cx-i-name">' + E(it.party) + '</span>';
+  l1 += op ? '<button type="button" class="cx-opchip" data-act="op" data-op="' + it.op + '" title="Abrir operação ' + E(op.name) + '"><span class="cx-op-sq" style="background:' + op.c + '"></span><span class="cx-ell">' + E(op.name) + '</span></button>' : '<span class="cx-opchip none">Sem operação</span>';
+  if (it.tag === 'upd') l1 += '<span class="cx-tag">Atualizada</span>';
+  if (it.flag) l1 += '<span class="cx-flag" title="Pendência marcada">' + ic('flag', 11) + '</span>';
+  var h = '<div class="cx-i-party">' + l1 + '</div>';
+  h += '<div class="cx-i-ev">' + (it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>') + '</div>';
+  var tl = teorLine(it);
+  if (tl) h += '<div class="cx-i-teor"><b>Decisão</b><span class="cx-ell">' + E(tl) + '</span></div>';
+  var notes = '';
+  if (it.resp) notes = '<div class="cx-i-notes act">' + ic('send', 12) + '<span class="cx-ell">' + E(actTxt(it)) + '</span></div>';
+  else if (n.length) {
+    notes = '<div class="cx-i-notes">' + ic('note', 12) + '<span class="cx-ell n n1">' + E(n[n.length - 1]) + '</span>' + (n.length > 1 ? '<span class="cx-ell n n2">' + E(n[n.length - 2]) + '</span>' : '') +
+      (n.length > 1 ? '<span class="cx-mono pl pl-a">+' + (n.length - 1) + '</span>' : '') + (n.length > 2 ? '<span class="cx-mono pl pl-b">+' + (n.length - 2) + '</span>' : '') + '</div>';
+  }
+  var est = estHTML(it);
+  if (notes || est) h += '<div class="cx-i-meta">' + notes + est + '</div>';
+  if (!o.noBtn) h += '<button type="button" class="cx-peek-btn" data-act="peek" aria-expanded="false" aria-label="Espiar objeto, decisão e notas de ' + E(it.party) + '">' + ic('eye', 15) + '</button>';
+  var q = impdif(it);
+  h += '<div class="cx-i-sub">' + procHTML(it) + q.imp + q.dif + '</div>';
+  return h;
+}
+
+function rowHTML(it, o) {
+  o = o || {};
+  var done = !!it.resp || it.status === 'analisado', urgent = it.urgent && !done, q = impdif(it);
+  var cls = 'cx-i-row' + (urgent ? ' urgent' : '') + (done ? ' done' : '');
+  var row = '<div class="' + cls + '" role="button" tabindex="0">' + stIcon(it.resp ? 'analisado' : it.status) +
+    '<div class="cx-i-main">' + mainHTML(it, o) + '</div>' +
+    '<div class="cx-c-proc"><button type="button" class="cx-proc-copy" data-act="copy" data-v="' + cxProcFmt(it.proc) + '" title="Copiar número do processo">' + procHTML(it) + '</button><span class="cx-cls" title="' + E(it.cls) + '">' + E(it.cls) + '</span></div>' +
+    '<div class="cx-c-opdoc">' + (it.doc ? docIcon() : '') + '</div><div class="cx-c-imp">' + q.imp + '</div><div class="cx-c-dif">' + q.dif + '</div>' + dueCell(it) + '</div>';
+  if (o.dock) row = row.replace('aria-expanded="false"', 'aria-expanded="true"');
+  return '<div class="cx-i-wrap' + (o.dock ? ' has-docked' : '') + '" data-id="' + it.id + '">' + row + (o.dock ? peekHTML(it, 'docked') : '') + (o.staticFloat ? peekHTML(it, 'static-float') : '') + '</div>';
+}
+
+/* linha ANTIGA, fiel ao CxIntimRow atual (com a grade antiga via .legacy) */
+function rowOldHTML(it, withTeor) {
+  var done = !!it.resp || it.status === 'analisado', urgent = it.urgent && !done, op = it.op ? OPS[it.op] : null, n = it.notes || [], q = impdif(it);
+  var p = '';
+  if (urgent) p += '<span class="cx-urg">URGENTE</span>';
+  p += '<span class="cx-ell">' + E(it.party) + '</span>';
+  if (it.tag === 'upd') p += '<span class="cx-tag">Atualizada</span>';
+  if (it.flag) p += '<span class="cx-flag" title="Pendência marcada">' + ic('flag', 11) + '</span>';
+  var main = '<div class="cx-i-party">' + p + '</div><div class="cx-i-ev">' + (it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>') + '</div>';
+  if (withTeor && it.teor) main += '<div class="cx-i-teor-naive">' + E(teorLine(it)) + '</div>';
+  if (it.resp) main += '<div class="cx-i-note">' + ic('send', 12) + '<span class="cx-ell">' + E(actTxt(it)) + '</span></div>';
+  else if (n.length) main += '<div class="cx-i-note">' + ic('note', 12) + '<span class="cx-ell">' + E(n[n.length - 1]) + '</span>' + (n.length > 1 ? '<span class="cx-mono">+' + (n.length - 1) + '</span>' : '') + '</div>';
+  main += estHTML(it);
+  var due;
+  if (it.resp) due = '<span class="cx-due done">✓ ' + dm(it.resp.at) + '</span><span class="cx-sub">atuação registrada</span>';
+  else if (!it.final) due = '<span class="cx-due none">sem prazo</span><span class="cx-sub">prazo fechado</span>';
+  else { var dd = daysUntil(it.final), info = cxDue(dd, it.final); due = '<span class="cx-due ' + info.tone + '">' + info.txt + '</span><span class="cx-sub">final ' + dm(it.final) + '</span>'; }
+  return '<div class="cx-i-row' + (urgent ? ' urgent' : '') + (done ? ' done' : '') + '" role="button" tabindex="0">' + stIcon(it.resp ? 'analisado' : it.status) +
+    '<div class="cx-i-main">' + main + '</div>' +
+    '<div class="cx-c-proc"><button type="button" class="cx-proc-copy">' + procHTMLRaw(it) + '</button><span class="cx-cls" title="' + E(it.cls) + '">' + E(it.cls) + '</span></div>' +
+    '<div class="cx-c-op">' + (op ? '<span class="cx-op-tag"><span class="cx-op-sq" style="background:' + op.c + '"></span><span class="cx-ell">' + E(op.name) + '</span></span>' : '<span class="cx-op-tag cx-muted">Sem operação</span>') + '</div>' +
+    '<div class="cx-c-opdoc">' + (it.doc ? docIcon() : '') + '</div><div class="cx-c-imp">' + q.imp + '</div><div class="cx-c-dif">' + q.dif + '</div><div class="cx-c-due">' + due + '</div></div>';
+}
+function oldHeader() { return '<div class="cx-list-h"><span></span><span>Parte · evento · notas</span><span>Processo</span><span>Operação</span><span></span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span class="r">Prazo</span></div>'; }
+function newHeader() { return '<div class="cx-list-h"><span></span><span>Parte · operação · objeto · decisão · notas</span><span>Processo</span><span></span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span class="r" title="Prazo final · embargos de declaração">Prazo · emb. decl.</span></div>'; }
+
+/* ═════════ espiada ═════════ */
+function datesHTML(it) {
+  var e = cxEmbargos(it), h = '<span>Envio<b>' + dm(it.sent) + '</b></span><span>Início<b>' + (it.start ? dm(it.start) : '—') + '</b></span>';
+  if (e) {
+    var lab = e.tone === 'exp' ? 'expirado' : e.tone === 'hoje' ? 'hoje' : e.du + (e.du === 1 ? ' dia útil' : ' dias úteis');
+    h += '<span class="e-' + e.tone + '">Emb. decl.<b>' + dm(e.date) + ' <em>' + lab + '</em></b></span>';
+  } else if (!it.resp) h += '<span>Emb. decl.<b>—</b></span>';
+  if (it.resp) h += '<span>Atuação<b>' + dm(it.resp.at) + ' <em>registrada</em></b></span>';
+  if (it.final) {
+    var dd = daysUntil(it.final), c = dd < 0 ? 'há ' + (-dd) + (dd === -1 ? ' dia' : ' dias') : dd === 0 ? 'hoje' : 'em ' + dd + (dd === 1 ? ' dia' : ' dias') + ' · ' + pl(bizUntil(it.final), 'útil', 'úteis');
+    h += '<span>Final<b>' + dm(it.final) + ' <em>' + (it.resp ? 'era o prazo' : c) + '</em></b></span>';
+  } else h += '<span>Final<b>— <em>prazo fechado</em></b></span>';
+  return h;
+}
+function peekHTML(it, mode) {
+  var n = (it.notes || []).slice().reverse(), ps = teorParas(it), op = it.op ? OPS[it.op] : null;
+  var who = '<span class="cx-ell">' + E(it.party) + '</span>' + procHTML(it);
+  var opf = op ? '<span class="cx-pk-op">Operação<span class="cx-opchip static"><span class="cx-op-sq" style="background:' + op.c + '"></span><span class="cx-ell">' + E(op.name) + '</span></span></span>' : '<span class="cx-pk-op">Operação<span class="cx-opchip none">Sem operação</span></span>';
+  var right = mode === 'docked'
+    ? '<button type="button" class="cx-pk-b on" data-act="unpin">' + ic('pin', 12) + 'Fixada · soltar</button><button type="button" class="cx-pk-b" data-act="drawer">Abrir ficha ' + ic('chevR', 12) + '</button><button type="button" class="cx-pk-b x" data-act="unpin" aria-label="Fechar espiada">' + ic('x', 12) + '</button>'
+    : '<span class="cx-pk-hint">clique aqui ou <span class="cx-kbd">P</span> para fixar · <span class="cx-kbd">Esc</span> fecha</span>';
+  var body = '<div class="cx-pk-body"><div>' +
+    '<div class="cx-pk-sec"><h4>Objeto</h4><p class="cx-pk-txt">' + (it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>') + '</p></div>' +
+    '<div class="cx-pk-sec"><h4>Decisão' + (it.teorSource === 'ia' ? '<span class="cx-pk-ia" title="Resumo gerado por IA — confira o original">resumo IA</span>' : '') + '</h4>' +
+    (ps.length ? '<div class="cx-pk-quote">' + ps.map(function (p) { return '<p>' + E(p) + '</p>'; }).join('') + '</div>' : '<div class="cx-pk-empty">Sem decisão registrada</div>') + '</div>' +
+    '</div><div><div class="cx-pk-sec"><h4>' + (it.resp ? 'Atuação e notas' : 'Notas') + (n.length ? ' · ' + n.length : '') + '</h4><ul class="cx-pk-notes">' +
+    (it.resp ? '<li class="act">' + ic('send', 12) + '<span>' + E(actTxt(it)) + '</span></li>' : '') +
+    (n.length ? n.map(function (t, i) { return '<li>' + ic('note', 12) + '<span>' + E(t) + (i === 0 && n.length > 1 ? '<span class="cx-pk-new">mais recente</span>' : '') + '</span></li>'; }).join('') : (it.resp ? '' : '<li class="cx-pk-empty" style="font-style:italic">Sem notas</li>')) +
+    '</ul></div></div></div>';
+  var cls = 'cx-peek ' + mode;
+  return '<section class="' + cls + '" role="region" aria-label="Espiada: ' + E(it.party) + '" data-peek="' + it.id + '"><div class="cx-pk-h"><div class="cx-pk-who">' + who + '</div>' + right + '</div>' + body + '<div class="cx-pk-dates">' + datesHTML(it) + opf + '</div></section>';
+}
+
+/* ═════════ listas ═════════ */
+function groupsOf(items) {
+  var openL = items.filter(function (x) { return !x.resp && x.status !== 'analisado'; });
+  var dd = function (x) { return x.final ? daysUntil(x.final) : null; };
+  var cmp = function (a, b) {
+    var ua = a.urgent ? 0 : 1, ub = b.urgent ? 0 : 1; if (ua !== ub) return ua - ub;
+    if (IMPO[a.imp] !== IMPO[b.imp]) return IMPO[a.imp] - IMPO[b.imp];
+    if (DIFO[a.dif] !== DIFO[b.dif]) return DIFO[a.dif] - DIFO[b.dif];
+    return String(a.final || '9').localeCompare(String(b.final || '9')) || a.id - b.id;
+  };
+  var g = [
+    ['Vencidas', 'var(--cx-red)', openL.filter(function (x) { return dd(x) !== null && dd(x) < 0; })],
+    ['Hoje e amanhã', 'var(--cx-orange)', openL.filter(function (x) { return dd(x) !== null && dd(x) >= 0 && dd(x) <= 1; })],
+    ['Próximos 5 dias', 'var(--cx-yellow)', openL.filter(function (x) { return dd(x) !== null && dd(x) >= 2 && dd(x) <= 5; })],
+    ['Mais adiante', 'var(--cx-ink-3)', openL.filter(function (x) { return dd(x) !== null && dd(x) > 5; })],
+    ['Sem prazo aberto', 'var(--cx-line-strong)', openL.filter(function (x) { return dd(x) === null; })],
+    ['Analisadas / resolvidas', null, items.filter(function (x) { return !!x.resp; })]
+  ];
+  return g.filter(function (x) { return x[2].length; }).map(function (x) { x[2] = x[2].slice().sort(cmp); return x; });
+}
+function grpHTML(g) {
+  var icon = g[1] ? '<span class="cx-dot" style="background:' + g[1] + '"></span>' : stIcon('analisado');
+  return '<div class="cx-grp"><span class="cx-caret">' + ic('chevD', 14) + '</span>' + icon + '<span>' + g[0] + '</span><span class="cx-n">' + g[2].length + '</span></div>';
+}
+function listHTML(items, header, rowFn, hint) {
+  return '<div class="cx-list">' + (hint || '') + header + groupsOf(items).map(function (g) { return grpHTML(g) + g[2].map(rowFn).join(''); }).join('') + '</div>';
+}
+function mount(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; return el; }
+
+/* Antes × depois: as mesmas 2 intimações (SCALTECH = nº cru; CLICKLOG = CNJ) */
+mount('fr-antes', '<div class="cx-list">' + oldHeader() + rowOldHTML(BY[1]) + rowOldHTML(BY[2]) + '</div>');
+mount('fr-depois', '<div class="cx-list">' + newHeader() + rowHTML(BY[1], { noBtn: false }) + rowHTML(BY[2]) + '</div>');
+mount('fr-depois-pk', '<div class="cx-list">' + newHeader() + rowHTML(BY[1], { dock: true }) + rowHTML(BY[2]) + '</div>');
+/* vivas */
+var HINT = '<div class="cx-hintbar">' + ic('eye', 13) + '<span>Para ler objeto, decisão e notas sem abrir a ficha: pare o mouse na linha, use Tab ou toque no olho. <span class="cx-kbd">P</span> fixa, <span class="cx-kbd">Esc</span> fecha.</span></div>';
+mount('fr-1900', listHTML(D, newHeader(), function (x) { return rowHTML(x); }, HINT));
+mount('fr-1200', listHTML(D, newHeader(), function (x) { return rowHTML(x); }, HINT));
+/* quadros estáticos: ① 1ª linha fixada, ② 3ª linha com popover estático */
+function staticList() {
+  var ids = [1, 2, 3, 4, 5, 6, 9];
+  return '<div class="cx-list">' + newHeader() + ids.map(function (id, i) {
+    var h = rowHTML(BY[id], i === 0 ? { dock: true } : i === 2 ? { staticFloat: true } : {});
+    if (i === 0 || i === 2) h = h.replace('<div class="cx-pk-who">', '<div class="cx-pk-who"><span class="d-no">' + (i === 0 ? '1' : '2') + '</span>');
+    return h;
+  }).join('') + '</div>';
+}
+mount('st-claro', staticList());
+mount('st-noite', staticList());
+
+/* legendas ─ embargos */
+var LEG = [
+  { it: 2, h: '&gt; 3 dias úteis · calmo', rule: 'du ≥ 4', why: 'Texto cinza miúdo, sem chip: só avisa que existe e quando vence. É a faixa da maioria das linhas. Vale também quando o embargo vence <b>depois</b> do prazo final (21/10 × 13/10).' },
+  { it: 4, h: '1 a 3 dias úteis · atenção', rule: '1 ≤ du ≤ 3', why: 'Chip âmbar com data e contagem. Texto âmbar escurecido no tema claro para passar AA sobre o fundo âmbar.' },
+  { it: 8, h: 'Hoje', rule: 'data-limite = hoje', why: 'Chip laranja sólido “EMB. HOJE”. Único elemento de peso da coluna; aqui combina com “Amanhã · 09/10” do prazo principal na mesma linha.' },
+  { it: 1, h: 'Expirado', rule: 'data-limite &lt; hoje', why: 'Some do card (a 2ª linha volta a ser a contagem do prazo). A espiada mostra “Emb. decl. 09/09 expirado” riscado; a gaveta segue com a régua.' },
+  { it: 11, h: 'Sem início (prazo fechado)', rule: 'sem dateStart', why: 'Nada de embargos (não há como contar). A célula mostra “sem prazo / prazo fechado”, como hoje.' }
+];
+mount('leg-emb', LEG.map(function (l) {
+  var it = BY[l.it];
+  return '<div class="d-leg-row"><div><h4>' + l.h + '</h4><small>' + l.rule + (it ? ' · ' + E(it.party.split(' ').slice(0, 2).join(' ')) : '') + '</small></div>' +
+    '<div><small>Na linha fechada</small><div class="d-demo cx">' + dueCell(it) + '</div></div>' +
+    '<div><small>Rodapé da espiada</small><div class="cx" style="font-size:12px"><div class="cx-pk-dates" style="gap:4px 14px">' + datesHTML(it) + '</div></div></div>' +
+    '<div>' + l.why + '</div></div>';
+}).join('') +
+  '<div class="d-leg-row"><div><h4>Vencida, com embargos ainda abertos</h4><small>caso sintético · AGROINDUSTRIAL…</small></div><div><small>Na linha fechada</small><div class="d-demo cx">' + dueCell(BY[9]) + '</div></div><div><small>Resolvida (sem alerta)</small><div class="d-demo cx">' + dueCell(BY[10]) + '</div></div><div>O alerta sobrevive ao prazo principal: final “há 2d · 06/10” em vermelho e “Emb. 13/10 · 2 úteis” em âmbar. Resolvidas e analisadas nunca mostram embargos.</div></div>');
+
+/* legendas ─ teor */
+var LT = [
+  { it: 2, h: 'Ausente', txt: 'Nenhuma linha reservada: a linha 3 simplesmente não existe e a altura é a de hoje (compactação preservada). Na espiada, “Sem decisão registrada” em cinza.' },
+  { it: 3, h: 'Curto', txt: 'Uma frase cabe inteira na linha 3; a espiada repete o mesmo texto (sem “ver mais” desnecessário).' },
+  { it: 1, h: 'Longo', txt: 'Uma linha com reticências; a espiada mostra o parágrafo inteiro com selo “resumo IA”. Se vier a íntegra com 2+ parágrafos (<code>teorKind: \'integral\'</code>), a linha mostra o último parágrafo, onde costuma estar o dispositivo.' },
+  { it: 5, h: 'Longo (2 parágrafos)', txt: 'Caso para testar o limite: a linha mostra o 2º parágrafo (“Intime-se a União…”); a espiada mostra os dois, com rolagem interna a partir de 156 px.' }
+];
+mount('leg-teor', LT.map(function (l) {
+  return '<div class="row"><div><h4>' + l.h + '</h4></div><div class="cx"><div class="cx-i-main" style="border:1px solid var(--cx-line);border-radius:8px;padding:6px 10px;background:var(--cx-surface)">' + mainHTML(BY[l.it], { noBtn: true }) + '</div></div><div>' + l.txt + '</div></div>';
+}).join(''));
+
+/* trechos de código */
+Array.prototype.forEach.call(document.querySelectorAll('script[data-code]'), function (s) {
+  var pre = document.createElement('pre'); pre.className = 'd-code'; pre.textContent = s.textContent.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  s.parentNode.insertBefore(pre, s.nextSibling);
+});
+
+/* ═════════ tema, toque, avisos ═════════ */
+var root = document.documentElement;
+Array.prototype.forEach.call(document.querySelectorAll('[data-theme-btn]'), function (b) {
+  b.addEventListener('click', function () {
+    root.setAttribute('data-theme', b.getAttribute('data-theme-btn'));
+    Array.prototype.forEach.call(document.querySelectorAll('[data-theme-btn]'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    clearTimeout(S.openT); closeFloat();
+  });
+});
+var S = { float: null, openT: 0, closeT: 0, touch: false, swallow: false };
+var toastEl = document.getElementById('toast'), toastT = 0;
+function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.classList.remove('on'); }, 1800); }
+document.getElementById('btn-touch').addEventListener('click', function (e) {
+  S.touch = !S.touch; e.currentTarget.setAttribute('aria-pressed', String(S.touch)); root.classList.toggle('touchsim', S.touch); clearTimeout(S.openT); closeFloat();
+  toast(S.touch ? 'Modo toque: hover e foco não abrem; use o olho' : 'Modo mouse/teclado');
+});
+function canHover() { return !S.touch && window.matchMedia('(hover: hover)').matches; }
+
+/* ═════════ máquina de estados da espiada ═════════ */
+function liveWrap(el) { var w = el && el.closest ? el.closest('.cx-i-wrap') : null; return w && w.closest('[data-live="1"]') ? w : null; }
+function rowOf(w) { return w.querySelector('.cx-i-row'); }
+function updatePins() {
+  var n = document.querySelectorAll('[data-live="1"] .cx-i-wrap.has-docked').length;
+  document.getElementById('pins').classList.toggle('on', n > 0);
+  document.getElementById('pins-n').textContent = n + (n === 1 ? ' espiada fixa' : ' espiadas fixas');
+}
+function place(w, pk) {
+  var r = rowOf(w).getBoundingClientRect(), sc = w.closest('.xscroll'), sb = sc ? sc.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+  var vl = Math.max(0, sb.left), vr = Math.min(window.innerWidth, sb.right);
+  var width = Math.min(820, vr - vl - 16); pk.style.width = width + 'px';
+  var left = Math.max(vl + 8, Math.min(r.left + 46, vr - width - 8)); pk.style.left = left + 'px';
+  var h = pk.offsetHeight, below = window.innerHeight - r.bottom, top, flip = false;
+  if (below >= h + 8 || below >= r.top - 56) top = r.bottom - 1; else { top = r.top - h + 1; flip = true; }
+  top = Math.max(56, Math.min(top, window.innerHeight - h - 8));
+  pk.style.top = top + 'px'; pk.classList.toggle('flip', flip);
+}
+function openFloat(w) {
+  if (!w.isConnected || w.classList.contains('has-docked')) return;
+  if (S.float && S.float.wrap === w) return;
+  closeFloat();
+  var it = BY[w.getAttribute('data-id')], tpl = document.createElement('div');
+  tpl.innerHTML = peekHTML(it, 'float');
+  var pk = tpl.firstElementChild; pk.id = 'cx-pk-' + it.id; pk.style.visibility = 'hidden'; pk.style.left = '0px'; pk.style.top = '0px';
+  w.appendChild(pk); place(w, pk); pk.style.visibility = '';
+  var row = rowOf(w); row.classList.add('open'); row.setAttribute('aria-describedby', pk.id);
+  S.float = { wrap: w, peek: pk };
+}
+function closeFloat() {
+  clearTimeout(S.closeT);            // NÃO cancela a abertura pendente de OUTRA linha (descer pela lista)
+  if (!S.float) return;
+  var w = S.float.wrap, row = rowOf(w); S.float.peek.remove();
+  if (!w.classList.contains('has-docked')) row.classList.remove('open');
+  row.removeAttribute('aria-describedby'); S.float = null;
+}
+function pin(w) {
+  if (S.float && S.float.wrap === w) closeFloat();
+  if (w.classList.contains('has-docked')) return;
+  w.insertAdjacentHTML('beforeend', peekHTML(BY[w.getAttribute('data-id')], 'docked'));
+  w.classList.add('has-docked'); rowOf(w).classList.remove('open'); w.querySelector('.cx-peek-btn').setAttribute('aria-expanded', 'true'); updatePins();
+}
+function unpin(w) {
+  var pk = w.querySelector('.cx-peek.docked'); if (pk) pk.remove();
+  w.classList.remove('has-docked'); var b = w.querySelector('.cx-peek-btn'); if (b) b.setAttribute('aria-expanded', 'false'); updatePins();
+}
+function togglePin(w) { if (w.classList.contains('has-docked')) unpin(w); else pin(w); }
+document.getElementById('btn-unpin').addEventListener('click', function () {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-live="1"] .cx-i-wrap.has-docked'), unpin);
+});
+
+/* hover (com intenção) */
+document.addEventListener('mouseover', function (e) {
+  if (!canHover()) return;
+  var w = liveWrap(e.target); if (!w || w.classList.contains('has-docked')) return;
+  if (S.float && S.float.wrap === w) { clearTimeout(S.closeT); return; }
+  clearTimeout(S.openT); S.openT = setTimeout(function () { openFloat(w); }, 250);
+});
+document.addEventListener('mouseout', function (e) {
+  var w = liveWrap(e.target); if (!w) return;
+  if (e.relatedTarget && w.contains(e.relatedTarget)) return;
+  clearTimeout(S.openT);
+  if (S.float && S.float.wrap === w) { clearTimeout(S.closeT); S.closeT = setTimeout(closeFloat, 120); }
+});
+/* foco por teclado */
+document.addEventListener('focusin', function (e) {
+  if (S.touch) return;
+  var w = liveWrap(e.target); if (!w || w.classList.contains('has-docked')) return;
+  if (!e.target.matches(':focus-visible')) return;
+  clearTimeout(S.openT); S.openT = setTimeout(function () { openFloat(w); }, 250);
+});
+document.addEventListener('focusout', function (e) {
+  var w = liveWrap(e.target); if (!w) return;
+  if (e.relatedTarget && w.contains(e.relatedTarget)) return;
+  clearTimeout(S.openT); if (S.float && S.float.wrap === w) closeFloat();
+});
+/* mousedown sobre a transitória visível: FIXA (e engole o clique), em vez de abrir a gaveta da linha por baixo */
+document.addEventListener('mousedown', function (e) {
+  clearTimeout(S.openT);
+  if (S.float) {
+    var r = S.float.peek.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      e.preventDefault(); e.stopPropagation(); S.swallow = true; pin(S.float.wrap); return;
+    }
+    if (!S.float.wrap.contains(e.target)) closeFloat();
+  }
+}, true);
+document.addEventListener('click', function (e) {
+  if (S.swallow) { S.swallow = false; e.preventDefault(); e.stopPropagation(); return; }
+}, true);
+document.addEventListener('click', function (e) {
+  var a = e.target.closest ? e.target.closest('[data-act]') : null, w = liveWrap(e.target);
+  if (a) {
+    var act = a.getAttribute('data-act');
+    if (act === 'op') { e.stopPropagation(); toast('Abrir operação ' + OPS[a.getAttribute('data-op')].name); return; }
+    if (act === 'copy') { e.stopPropagation(); toast('Copiado: ' + a.getAttribute('data-v')); return; }
+    if (act === 'doc') { e.preventDefault(); e.stopPropagation(); toast('Abrir peça (Google Docs)'); return; }
+    if (!w) return;
+    if (act === 'peek') { e.stopPropagation(); togglePin(w); return; }
+    if (act === 'unpin') { unpin(w); rowOf(w).focus({ preventScroll: true }); return; }
+    if (act === 'drawer') { unpin(w); toast('Gaveta aberta: ' + BY[w.getAttribute('data-id')].party); return; }
+  }
+  var row = e.target.closest ? e.target.closest('.cx-i-row') : null;
+  if (row && w) { clearTimeout(S.openT); closeFloat(); toast('Gaveta aberta: ' + BY[w.getAttribute('data-id')].party); }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    if (S.float) { closeFloat(); return; }
+    var w0 = liveWrap(document.activeElement);
+    if (w0 && w0.classList.contains('has-docked')) { unpin(w0); rowOf(w0).focus({ preventScroll: true }); }
+    return;
+  }
+  var row = e.target.classList && e.target.classList.contains('cx-i-row') ? e.target : null;
+  if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); var w1 = liveWrap(row); if (w1) { closeFloat(); toast('Gaveta aberta: ' + BY[w1.getAttribute('data-id')].party); } return; }
+  if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    var w = S.float ? S.float.wrap : liveWrap(document.activeElement);
+    if (w) { e.preventDefault(); togglePin(w); }
+  }
+});
+window.addEventListener('scroll', function (e) { if (e.target.closest && e.target.closest('.cx-peek')) return; clearTimeout(S.openT); closeFloat(); }, true);
+window.addEventListener('resize', function () { clearTimeout(S.openT); closeFloat(); });
+
+/* ═════════ medição (alturas reais, para a seção de trade-offs) ═════════ */
+function measure() {
+  var box = document.getElementById('measure');
+  function avg(width, html, cls) {
+    box.innerHTML = '<div class="' + cls + '" style="width:' + width + 'px">' + html + '</div>';
+    var rows = box.querySelectorAll('.cx-i-row'), t = 0;
+    Array.prototype.forEach.call(rows, function (r) { t += r.getBoundingClientRect().height; });
+    return t / rows.length;
+  }
+  var items = D.filter(function (x) { return !x.resp; });
+  items = D;   // mesmas 11
+  var wrapNew = function (arr) { return '<div class="cx-list">' + arr.map(function (x) { return rowHTML(x); }).join('') + '</div>'; };
+  var wrapOld = function (arr, t) { return '<div class="cx-list">' + arr.map(function (x) { return rowOldHTML(x, t); }).join('') + '</div>'; };
+  var aOld = avg(1600, wrapOld(items, false), 'cx legacy'), aNaive = avg(1600, wrapOld(items, true), 'cx legacy');
+  var aNew = avg(1600, wrapNew(items), 'cx'), aNew2 = avg(900, wrapNew(items), 'cx w1200');
+  box.innerHTML = '';
+  var avail = 595;
+  function put(id, a) { var el = document.getElementById(id); if (el) el.innerHTML = '<b>≈ ' + Math.round(a) + ' px</b>'; }
+  function rows(id, a) { var el = document.getElementById(id); if (el) el.innerHTML = '<b>≈ ' + Math.floor(avail / a) + ' linhas</b>'; }
+  put('m-old', aOld); put('m-naive', aNaive); put('m-new', aNew); put('m-new2', aNew2);
+  rows('r-old', aOld); rows('r-naive', aNaive); rows('r-new', aNew); rows('r-new2', aNew2);
+  window.__avg = { old: aOld, naive: aNaive, nu: aNew, nu1200: aNew2 };
+}
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(measure, 60); });
+})();
+</script>
+</body>
+</html>

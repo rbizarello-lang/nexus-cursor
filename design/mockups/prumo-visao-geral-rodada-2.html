@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!-- Rodada 2 da Visão geral (Nexus Prumo): versões A (faixas) e B (tabela) após o retorno do usuário. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão geral · rodada 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-green: #21845a; --cx-green-soft: #e2f3eb;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 13px/1.5 var(--cx-font); color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.doc { max-width: 1240px; margin: 0 auto; padding: 40px 24px 96px; }
+.eyebrow { font: 600 11px var(--cx-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-accent); }
+.eyebrow a { color: inherit; }
+h1 { font-size: 28px; font-weight: 600; letter-spacing: -.025em; margin: 8px 0 10px; line-height: 1.15; }
+.lede { font-size: 15px; color: var(--cx-ink-2); max-width: 900px; line-height: 1.6; }
+.lede b { color: var(--cx-ink); font-weight: 600; }
+section { margin-top: 48px; }
+section > h2 { font-size: 19px; font-weight: 600; letter-spacing: -.015em; display: flex; gap: 10px; align-items: baseline; margin-bottom: 14px; }
+section > h2 .n { font: 600 12px var(--cx-mono); color: var(--cx-accent); }
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 12px; }
+code { font: 12px var(--cx-mono); background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; }
+
+.fb { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fb .card { padding: 16px 18px; }
+.fb h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; }
+.fb h3 .n { font: 600 11px var(--cx-mono); color: var(--cx-accent); }
+.fb ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.fb li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; color: var(--cx-ink-2); font-size: 13px; }
+.fb li::before { font: 600 12px var(--cx-mono); }
+.fb li.out::before { content: '−'; color: var(--cx-red); }
+.fb li.in::before { content: '+'; color: var(--cx-green); }
+.fb li.eq::before { content: '='; color: var(--cx-ink-3); }
+
+.ab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ab th, .ab td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--cx-line); }
+.ab thead th { border-top: 0; font-size: 11px; font-weight: 600; color: var(--cx-ink-3); text-transform: uppercase; letter-spacing: .05em; background: var(--cx-surface-2); }
+.ab thead th:first-child { border-top-left-radius: 12px; } .ab thead th:last-child { border-top-right-radius: 12px; }
+.ab td:first-child { color: var(--cx-ink-2); width: 200px; }
+.tblwrap { overflow-x: auto; }
+
+.viewer-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; position: sticky; top: 0; z-index: 5; background: var(--cx-ground); padding: 10px 0; }
+.seg { display: inline-flex; background: var(--cx-panel); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { height: 30px; padding: 0 14px; border-radius: 7px; font-size: 12.5px; color: var(--cx-ink-2); white-space: nowrap; }
+.seg button b { font: 600 11px var(--cx-mono); color: var(--cx-accent); margin-right: 6px; }
+.seg button.on { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 1px 2px rgba(20,24,32,.08); }
+.viewer-bar .sp { flex: 1; }
+.viewer-bar a { font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--cx-line); border-radius: 8px; background: var(--cx-surface); color: var(--cx-ink); }
+.frame { overflow: hidden; }
+.frame iframe { display: block; width: 100%; height: 1400px; border: 0; background: var(--cx-ground); }
+@media (max-width: 760px) { .fb { grid-template-columns: 1fr; } .doc { padding: 24px 16px 64px; } }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · Visão geral · rodada 2 · <a href="prumo-visao-geral-ideias.html">rodada 1</a></div>
+  <h1>Duas versões ajustadas ao seu retorno</h1>
+  <p class="lede">O conteúdo das duas é o mesmo. Muda só a forma das Frentes processuais: <b>A · Faixas</b> parte da ideia 1, com uma faixa expansível por processo. <b>B · Tabela</b> parte da ideia 2, com linhas densas e ordenáveis que abrem uma "capa" como a da ideia 3. Nas duas, o Mural fica ao lado das Frentes. Prazos extintivos, O que vem, Checklists, Fontes e Atuações recentes ficam embaixo.</p>
+
+  <section>
+    <h2><span class="n">01</span>Seu retorno, item por item</h2>
+    <div class="fb">
+      <div class="card"><h3><span class="n">1</span>Frentes como hub de trabalho</h3><ul>
+        <li class="in">Sinais sutis da ideia 1. A dica ao passar o mouse diz o que cada sinal é e lista os itens.</li>
+        <li class="in">Penhoras e constrições aparecem como sinal e na régua de fases ("Penhora · Ev. 31 · mat. 45.678").</li>
+        <li class="eq">A lista "Em aberto" da frente continua (intimações, tarefas, audiências, prescrição).</li>
+        <li class="out">Saem os cartões de constrições, de CDAs e de último registro. O último registro passa para Atuações recentes, embaixo.</li>
+      </ul></div>
+      <div class="card"><h3><span class="n">2</span>Mural ao lado das frentes</h3><ul>
+        <li class="in">Fica no trilho direito, como na ideia 2.</li>
+        <li class="in">Filtros viram ícones discretos, sem caixa, com dica ao passar o mouse.</li>
+        <li class="out">Saem os textos de aviso ("Ordem: …", "5 de 5 frentes · ordem: …", "Tudo · 8 notas").</li>
+        <li class="out">Saem as legendas de ícones ("Abertos: …"). Quem explica é a dica.</li>
+      </ul></div>
+      <div class="card"><h3><span class="n">3</span>Número do processo</h3><ul>
+        <li class="in">Um clique no número copia. A dica muda de "Clique para copiar" para "Copiado ✓".</li>
+        <li class="in">O número não abre nem fecha a frente.</li>
+        <li class="out">Saem o ícone de copiar, "abrir no eproc", "copiar só dígitos" e o Shift+clique.</li>
+      </ul></div>
+      <div class="card"><h3><span class="n">4</span>Notas do processo e texto dos eventos</h3><ul>
+        <li class="in">Clicar numa fase da régua mostra o texto daquele evento: data, nº do evento, desfecho e os recursos ligados a ela.</li>
+        <li class="in">"+ Evento" registra decisão, liminar, sentença ou recurso ali mesmo, sem abrir janela.</li>
+        <li class="in">Notas do processo com campo "Escrever nota…" + Enter, no lugar do <code>prompt()</code> de hoje.</li>
+        <li class="eq">Os dados já existem no app: notas em <code>exec.notesList</code>; texto de fase e recursos em <code>briefing.processStageV2</code>. O modelo de dados não muda.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span>A × B</h2>
+    <div class="card tblwrap">
+      <table class="ab">
+        <thead><tr><th></th><th>A · Faixas</th><th>B · Tabela</th></tr></thead>
+        <tbody>
+          <tr><td>Leitura das frentes</td><td>Cada processo é um bloco com respiro. Os vínculos (apensa, incidental, recurso) ficam bem visíveis.</td><td>Cada processo é uma linha. As cinco frentes cabem na tela sem rolar, com colunas para comparar.</td></tr>
+          <tr><td>Ordenação</td><td>Fixa: as frentes com pendência abrem por padrão.</td><td>Urgência, tipo ou valor, e "Só com pendência". Os filhos ficam sob o pai.</td></tr>
+          <tr><td>Frente aberta</td><td>A faixa cresce no lugar: régua, texto do evento e "Em aberto" à esquerda; notas à direita.</td><td>A linha abre uma "capa": régua em largura cheia; texto do evento e "Em aberto" à esquerda; notas à direita.</td></tr>
+          <tr><td>Secundários embaixo</td><td>5 mini-cartões recolhidos.</td><td>1 painel com 5 abas.</td></tr>
+          <tr><td>Custo no app</td><td>Menor. Reaproveita a lane atual (<code>CxBfFronts</code>) e reorganiza por dentro.</td><td>Médio. Exige um componente de tabela com ordenação e a linha expandida.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="ver">
+    <h2><span class="n">03</span>Os mockups</h2>
+    <div class="viewer-bar">
+      <div class="seg" role="tablist" aria-label="Escolher versão">
+        <button type="button" role="tab" data-f="prumo-visao-geral-r2-a-faixas.html" class="on" aria-selected="true"><b>A</b>Faixas</button>
+        <button type="button" role="tab" data-f="prumo-visao-geral-r2-b-tabela.html" aria-selected="false"><b>B</b>Tabela</button>
+      </div>
+      <span class="sp"></span>
+      <a id="open" href="prumo-visao-geral-r2-a-faixas.html" target="_blank" rel="noopener">Abrir em nova aba ↗</a>
+    </div>
+    <div class="card frame"><iframe id="ifr" title="Mockup da versão selecionada" src="prumo-visao-geral-r2-a-faixas.html"></iframe></div>
+  </section>
+</div>
+<script>
+const ifr = document.getElementById('ifr');
+const openA = document.getElementById('open');
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); });
+  ifr.src = b.dataset.f; openA.href = b.dataset.f;
+}));
+/* Reduz o iframe antes de medir: senão o documento interno herda a altura anterior e ela só cresce. */
+function fitFrame() {
+  try {
+    ifr.style.height = '900px';
+    const h = ifr.contentDocument.documentElement.scrollHeight;
+    ifr.style.height = Math.max(h, 900) + 'px';
+  } catch (e) { ifr.style.height = '1400px'; }
+}
+let ro = null;
+ifr.addEventListener('load', () => {
+  fitFrame(); setTimeout(fitFrame, 600);
+  /* Acompanha frentes abertas/fechadas dentro do mockup. */
+  try { if (ro) ro.disconnect(); ro = new ResizeObserver(() => fitFrame()); ro.observe(ifr.contentDocument.body); } catch (e) {}
+});
+</script>
+</body>
+</html>

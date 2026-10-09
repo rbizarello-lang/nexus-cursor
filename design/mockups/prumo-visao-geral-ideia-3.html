@@ -1,0 +1,1408 @@
+<!-- IDEIA 3 · Mesa de frentes (mestre-detalhe) · intensidade 3/5 -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Visão geral · Ideia 3 — Mesa de frentes</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  /* post-it (novos, só para o Mural) */
+  --pi-yellow: #fff4b8; --pi-yellow-edge: #e9d672;
+  --pi-red: #ffe0e0;    --pi-red-edge: #f0a9ad;
+  --pi-green: #dcf3e4;  --pi-green-edge: #9fd3b4;
+  --pi-blue: #e1ebff;   --pi-blue-edge: #a9c0ef;
+  --pi-violet: #ebe5ff; --pi-violet-edge: #bfb0f0;
+  --pi-gray: #eef0f3;   --pi-gray-edge: #c9ced6;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; font: 13px/1.45 var(--cx-font); color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: inherit; }
+h1, h2, h3, h4, h5, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sp { flex: 1; }
+.mono { font-family: var(--cx-mono); font-variant-numeric: tabular-nums; }
+.ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -3px; }
+.ic.sm { width: 13px; height: 13px; vertical-align: -2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 16px 24px 56px; }
+
+/* ---------- botões, tags, chips ---------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--cx-line-strong); background: var(--cx-surface); border-radius: 6px; font-size: 12.5px; font-weight: 500; color: var(--cx-ink); white-space: nowrap; text-decoration: none; }
+.btn:hover { background: var(--cx-hover); }
+.btn.pri { background: var(--cx-btn); border-color: var(--cx-btn); color: var(--cx-btn-ink); }
+.btn.pri:hover { background: var(--cx-btn-hover); }
+.btn.sm { height: 24px; padding: 0 8px; font-size: 12px; }
+.btn.ok { background: var(--cx-green-soft); border-color: #a9d9c1; color: var(--cx-green); }
+.btn[disabled] { opacity: .6; cursor: default; }
+.tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.tag.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.tag.org { background: var(--cx-orange-soft); color: var(--cx-orange); }
+.tag.vio { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.tg { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap; background: var(--cx-hover); color: var(--cx-ink-2); }
+.tg.red { background: var(--cx-red-soft); color: var(--cx-red); }
+.tg.blue { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.tg.green { background: var(--cx-green-soft); color: var(--cx-green); }
+.tg.org { background: var(--cx-orange-soft); color: var(--cx-orange); }
+.tg.yel { background: var(--cx-yellow-soft); color: var(--cx-yellow); }
+.cnt { display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 999px; background: var(--cx-hover); color: var(--cx-ink-2); font-size: 11.5px; font-weight: 600; }
+
+.kind { display: inline-flex; align-items: center; justify-content: center; height: 18px; padding: 0 6px; border-radius: 4px; font: 700 10.5px/1 var(--cx-mono); letter-spacing: .03em; text-transform: uppercase; flex: none; border: 1px solid transparent; }
+.kind.EF { background: #e1e4e9; color: #2b2f36; border-color: #c7cbd2; }
+.kind.IDPJ { background: var(--cx-violet-soft); color: var(--cx-violet); border-color: #d3c8f6; }
+.kind.EXC { background: var(--cx-orange-soft); color: var(--cx-orange); border-color: #f0cfae; }
+.kind.AI { background: var(--cx-blue-soft); color: var(--cx-blue); border-color: #c0d2f7; }
+.kind.MCF { background: var(--cx-cyan-soft); color: var(--cx-cyan); border-color: #b6dde1; }
+.kind.EMB { background: var(--cx-red-soft); color: var(--cx-red); border-color: #f1c3c6; }
+.kind.lg { height: 24px; padding: 0 9px; font-size: 12.5px; border-radius: 5px; }
+
+.due { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; background: var(--cx-hover); color: var(--cx-ink-2); border: 1px solid var(--cx-line); }
+.due.red { background: var(--cx-red-soft); color: var(--cx-red); border-color: #f1c3c6; }
+.due.org { background: var(--cx-orange-soft); color: var(--cx-orange); border-color: #f2d3b5; }
+.due.ok { background: var(--cx-green-soft); color: var(--cx-green); border-color: #b5dec9; }
+.due.none { background: transparent; border-style: dashed; color: var(--cx-ink-3); font-weight: 500; }
+.due.sm { height: 18px; padding: 0 6px; font-size: 10.5px; font-family: var(--cx-mono); }
+
+.selo { display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border-radius: 999px; background: var(--cx-hover); color: var(--cx-ink-2); font-size: 10.5px; font-weight: 600; white-space: nowrap; max-width: 100%; }
+.selo.lg { height: 22px; font-size: 11.5px; background: var(--cx-accent-soft); color: #6a4e14; }
+.selo i { font-style: normal; font-weight: 500; opacity: .75; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.dot.red { background: var(--cx-red); } .dot.org { background: var(--cx-orange); } .dot.grn { background: var(--cx-green); }
+
+kbd { font: 500 10.5px var(--cx-mono); padding: 1px 5px; border: 1px solid var(--cx-line-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--cx-surface); color: var(--cx-ink-2); }
+
+/* ---------- chip de número CNJ ---------- */
+.cnj { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+.cnj-n { font: 500 12.5px/1.2 var(--cx-mono); color: var(--cx-ink); user-select: all; -webkit-user-select: all; letter-spacing: -.01em; padding: 2px 3px; border-radius: 4px; cursor: text; white-space: nowrap; }
+.cnj-n i { font-style: normal; color: var(--cx-ink-3); }
+.cnj-n:hover { background: var(--cx-hover); }
+.cnj.lg .cnj-n { font-size: 15px; padding: 3px 4px; }
+.cnj-copy { position: relative; display: inline-grid; place-items: center; width: 20px; height: 20px; border: 0; background: transparent; border-radius: 4px; color: var(--cx-ink-3); padding: 0; flex: none; }
+.cnj-copy:hover { color: var(--cx-ink); background: var(--cx-hover); }
+.cnj-copy .i-ok { display: none; }
+.cnj-copy.ok { color: var(--cx-green); }
+.cnj-copy.ok .i-ok { display: block; }
+.cnj-copy.ok .i-cp { display: none; }
+.cnj-open { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: var(--cx-ink-3); flex: none; }
+.cnj-open:hover { color: var(--cx-ink); background: var(--cx-hover); }
+[data-tip].show::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--cx-btn); color: #fff; font: 500 11px/1 var(--cx-font); padding: 6px 8px; border-radius: 5px; white-space: nowrap; pointer-events: none; z-index: 30; }
+
+/* ---------- moldura ---------- */
+.crumb { font-size: 11.5px; color: var(--cx-ink-3); margin-bottom: 10px; }
+.crumb span { margin: 0 4px; opacity: .6; }
+.crumb b { font-weight: 500; color: var(--cx-ink-2); }
+.aviso { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--cx-orange-soft); border: 1px solid #f0cfae; border-radius: 8px; color: #6d3509; font-size: 13px; margin-bottom: 14px; }
+.aviso .ic { color: var(--cx-orange); }
+.aviso b { font-weight: 600; }
+.aviso .btn { margin-left: auto; border-color: #e6bd93; background: rgba(255,255,255,.6); }
+.ttl { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ttl-l { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.ttl-r { display: flex; gap: 6px; flex-wrap: wrap; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.sq { width: 11px; height: 11px; border-radius: 3px; background: var(--cx-red); flex: none; }
+.sum-line { margin-top: 6px; color: var(--cx-ink-2); }
+.sum-line b { color: var(--cx-ink); font-weight: 600; }
+.sum-line .sep { margin: 0 6px; color: var(--cx-line-strong); }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--cx-line); margin: 12px 0 10px; }
+.tabs button { border: 0; background: none; padding: 9px 12px; font-size: 13px; color: var(--cx-ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button:hover { color: var(--cx-ink); }
+.tabs button[aria-selected="true"] { color: var(--cx-ink); font-weight: 600; border-bottom-color: var(--cx-accent); }
+.desc { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13.5px; color: var(--cx-ink-2); }
+.desc button { border: 0; background: none; color: var(--cx-ink-3); padding: 2px; border-radius: 4px; }
+.desc button:hover { color: var(--cx-ink); background: var(--cx-hover); }
+.resumo { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--cx-ink-2); }
+.pill-r { font: 600 10px var(--cx-mono); letter-spacing: .08em; color: var(--cx-accent); background: var(--cx-accent-soft); padding: 3px 7px; border-radius: 4px; flex: none; }
+.resumo b { color: var(--cx-red); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; margin-bottom: 14px; }
+.kpi { padding: 8px 14px; border: 0; border-left: 1px solid var(--cx-line); background: none; text-align: left; display: block; min-width: 0; font: inherit; }
+.kpi:first-child { border-left: 0; }
+button.kpi:hover { background: var(--cx-surface-2); }
+.kpi .l { display: block; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); font-weight: 600; }
+.kpi .v { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.kpi .s { font-size: 12px; color: var(--cx-ink-2); margin-left: 4px; }
+.kpi.red .v, .kpi.red .s { color: var(--cx-red); }
+
+/* ---------- cartões ---------- */
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; }
+.card-h { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px; border-bottom: 1px solid var(--cx-line); flex-wrap: wrap; }
+.card-h h2 { font-size: 14px; font-weight: 600; }
+.hint { font-size: 12px; color: var(--cx-ink-3); }
+
+/* ---------- Mesa ---------- */
+.mesa { display: flex; flex-direction: column; height: 624px; overflow: hidden; scroll-margin-top: 12px; }
+.mesa .card-h { flex: none; height: 46px; padding-top: 0; padding-bottom: 0; flex-wrap: nowrap; }
+.legend { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--cx-ink-3); white-space: nowrap; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.mesa-b { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr); }
+.lista-w { border-right: 1px solid var(--cx-line); background: var(--cx-surface-2); display: flex; flex-direction: column; min-height: 0; border-radius: 0 0 0 10px; }
+.lista-q { padding: 10px; border-bottom: 1px solid var(--cx-line); }
+.fld { position: relative; display: flex; align-items: center; }
+.fld .ic { position: absolute; left: 9px; color: var(--cx-ink-3); pointer-events: none; }
+.fld input { width: 100%; height: 30px; padding: 0 56px 0 29px; border: 1px solid var(--cx-line-strong); border-radius: 6px; background: var(--cx-surface); font: inherit; font-size: 12.5px; color: var(--cx-ink); }
+.fld input::placeholder { color: var(--cx-ink-3); }
+.fld input:focus { outline: 2px solid var(--cx-accent); outline-offset: 0; border-color: var(--cx-accent); }
+.fld .kb { position: absolute; right: 8px; }
+.fld .clr { position: absolute; right: 4px; width: 22px; height: 22px; border: 0; background: none; border-radius: 4px; color: var(--cx-ink-3); display: none; place-items: center; padding: 0; }
+.fld .clr:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.fld.has .clr { display: grid; } .fld.has .kb { display: none; }
+.lista-m { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; font-size: 11.5px; color: var(--cx-ink-3); }
+#lista { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; outline: none; overscroll-behavior: contain; }
+#lista:focus-visible { box-shadow: inset 0 0 0 2px var(--cx-accent); }
+.lista-f { padding: 8px 12px; border-top: 1px solid var(--cx-line); font-size: 11.5px; color: var(--cx-ink-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.row { position: relative; padding: 8px 10px 8px 12px; border: 1px solid transparent; border-radius: 8px; cursor: pointer; display: grid; gap: 3px; }
+.row.root { margin-top: 6px; }
+.row.root:first-child { margin-top: 0; }
+.row:hover { background: var(--cx-hover); }
+.row.sel { background: var(--cx-surface); border-color: var(--cx-line-strong); box-shadow: inset 3px 0 0 var(--cx-accent), 0 1px 2px rgba(20,24,32,.06); }
+.row.ctx { opacity: .55; }
+.row.kid { padding-left: 32px; }
+.row.kid::before { content: ""; position: absolute; left: 16px; top: -1px; bottom: -1px; width: 1px; background: var(--cx-line-strong); }
+.row.kid.last::before { bottom: auto; height: 19px; }
+.row.kid::after { content: ""; position: absolute; left: 16px; top: 18px; width: 10px; height: 1px; background: var(--cx-line-strong); }
+.r1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.r-cnj { font: 600 12.5px var(--cx-mono); letter-spacing: -.01em; }
+.r2 { font-size: 12px; color: var(--cx-ink-2); }
+.r3 { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--cx-ink-3); min-width: 0; }
+.r3 .selo { overflow: hidden; text-overflow: ellipsis; }
+.vinc { white-space: nowrap; }
+.empty-l { padding: 22px 14px; text-align: center; color: var(--cx-ink-3); font-size: 12.5px; }
+.empty-l b { display: block; color: var(--cx-ink-2); margin-bottom: 4px; }
+
+/* ---------- Capa ---------- */
+.capa { overflow-y: auto; padding: 16px 22px 24px; min-width: 0; outline: none; overscroll-behavior: contain; }
+.capa:focus-visible { box-shadow: inset 0 0 0 2px var(--cx-accent); }
+.cp-head { display: flex; flex-direction: column; gap: 9px; }
+.cp-l1, .cp-l2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.cp-classe { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.vb { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--cx-line); border-radius: 6px; background: var(--cx-surface-2); color: var(--cx-ink-2); font-size: 11.5px; }
+.vb b { font: 500 11.5px var(--cx-mono); color: var(--cx-ink); }
+.sis { font: 500 11px var(--cx-mono); color: var(--cx-ink-3); border: 1px solid var(--cx-line); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+.cp-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--cx-line); border: 1px solid var(--cx-line); border-radius: 8px; overflow: hidden; margin-top: 14px; }
+.meta .c { background: var(--cx-surface); padding: 7px 11px 8px; min-width: 0; overflow-wrap: anywhere; }
+.meta .k { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); font-weight: 600; margin-bottom: 2px; }
+.meta .v { font-size: 12.5px; color: var(--cx-ink); line-height: 1.4; }
+.meta .big { font: 600 15px var(--cx-mono); letter-spacing: -.02em; }
+.meta .sub { font-size: 11.5px; color: var(--cx-ink-3); }
+.rlinks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lk { display: inline-flex; align-items: center; gap: 4px; height: 21px; padding: 0 6px 0 3px; border: 1px solid var(--cx-line); border-radius: 6px; background: var(--cx-surface-2); font: 500 10.5px var(--cx-mono); color: var(--cx-ink); }
+.lk .kind { height: 15px; padding: 0 4px; font-size: 9.5px; }
+.lk:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); }
+.cda { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
+.cda .num { font: 600 11.5px var(--cx-mono); }
+.cda .mono { color: var(--cx-ink-2); }
+.cda + .cda { margin-top: 2px; }
+.stt { display: flex; align-items: flex-start; gap: 7px; }
+.stt .dot { margin-top: 5px; }
+
+.sec { margin-top: 16px; }
+.sec-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13.5px; font-weight: 600; min-height: 24px; }
+.sec-h .hint { font-weight: 400; }
+
+.ruler { list-style: none; margin: 0; padding: 4px 0 0; display: flex; }
+.rs { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 4px; min-width: 0; }
+.rs::before { content: ""; position: absolute; top: 10px; left: calc(-50% + 9px); right: calc(50% + 9px); height: 2px; background: var(--cx-line-strong); }
+.rs:first-child::before { display: none; }
+.rs.done + .rs::before { background: var(--cx-ink); }
+.rdw { height: 18px; display: grid; place-items: center; position: relative; z-index: 1; }
+.rd { width: 12px; height: 12px; border-radius: 50%; background: var(--cx-surface); border: 2px solid var(--cx-ink-3); }
+.rs.done .rd { background: var(--cx-ink); border-color: var(--cx-ink); }
+.rs.cur .rd { width: 16px; height: 16px; border: 4px solid var(--cx-accent); background: var(--cx-surface); box-shadow: 0 0 0 3px var(--cx-accent-soft); }
+.rs.par .rd { border: 2px dashed var(--cx-accent); }
+.rn { margin-top: 6px; font-size: 11px; color: var(--cx-ink-2); line-height: 1.25; }
+.rs.done .rn { color: var(--cx-ink); }
+.rs.cur .rn { color: var(--cx-ink); font-weight: 700; }
+.rsub { margin-top: 2px; font: 10.5px/1.3 var(--cx-mono); color: var(--cx-ink-3); overflow-wrap: anywhere; }
+
+.ag { border: 1px solid var(--cx-line); border-radius: 8px; overflow: hidden; background: var(--cx-surface); }
+.ag-i { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--cx-line); }
+.ag-i:last-child { border-bottom: 0; }
+.ag-i.late { background: #fff9f9; }
+.ag-i.late::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cx-red); }
+.ag-i.done { opacity: .55; }
+.ag-i.done .ag-t { text-decoration: line-through; }
+.ag-ic { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; }
+.ag-ic.intim { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.ag-ic.tarefa { background: var(--cx-green-soft); color: var(--cx-green); }
+.ag-ic.aud { background: var(--cx-violet-soft); color: var(--cx-violet); }
+.ag-ic.presc { background: var(--cx-red-soft); color: var(--cx-red); }
+.ag-ic.lock { background: var(--cx-hover); color: var(--cx-ink-2); }
+.ag-t { font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.ag-m { margin-top: 2px; font-size: 11.5px; color: var(--cx-ink-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ag-a { display: flex; gap: 6px; }
+.ag-x { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: 0; border-top: 1px dashed var(--cx-line-strong); background: var(--cx-surface-2); text-align: left; font-size: 12px; color: var(--cx-ink-2); }
+.ag-x:hover { background: var(--cx-hover); }
+.cons-v { font: 600 12.5px var(--cx-mono); }
+
+.empty { display: flex; gap: 14px; align-items: flex-start; padding: 18px; border: 1px dashed var(--cx-line-strong); border-radius: 8px; background: var(--cx-surface-2); }
+.eic { width: 34px; height: 34px; border-radius: 50%; background: var(--cx-green-soft); color: var(--cx-green); display: grid; place-items: center; flex: none; }
+.eic .ic { width: 18px; height: 18px; }
+.et { font-size: 14px; font-weight: 600; }
+.empty p { margin-top: 3px; color: var(--cx-ink-2); max-width: 520px; }
+.evinc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; color: var(--cx-ink-2); }
+.eav { margin-top: 10px; padding-top: 10px; border-top: 1px dotted var(--cx-line-strong); font-size: 12px; color: var(--cx-ink-3); }
+.eav b { color: var(--cx-ink-2); font-weight: 600; }
+
+.bt { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; align-items: start; }
+.ult-c { border: 1px solid var(--cx-line); border-radius: 8px; padding: 10px 12px; background: var(--cx-surface-2); }
+.ult-ev { font-size: 12.5px; }
+.ult-ev .mono { display: block; font-size: 11.5px; color: var(--cx-ink-3); margin-bottom: 1px; }
+.ult-c .btn { margin-top: 8px; }
+.info { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--cx-line-strong); font: 600 9px var(--cx-font); color: var(--cx-ink-3); cursor: help; }
+.sub-h { margin: 12px 0 6px; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); font-weight: 600; }
+.tl { list-style: none; margin: 0; padding: 0 0 0 4px; }
+.tl li { position: relative; padding: 0 0 9px 16px; font-size: 12px; color: var(--cx-ink-2); }
+.tl li::before { content: ""; position: absolute; left: 0; top: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--cx-ink-3); }
+.tl li:first-child::before { background: var(--cx-ink); }
+.tl li::after { content: ""; position: absolute; left: 3px; top: 14px; bottom: -1px; width: 1px; background: var(--cx-line-strong); }
+.tl li:last-child::after { display: none; }
+.tl .mono { font-size: 11px; color: var(--cx-ink-3); margin-right: 4px; }
+
+/* ---------- post-its ---------- */
+.pi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; padding: 8px 4px 4px; }
+.pi { --bg: var(--pi-gray); --edge: var(--pi-gray-edge); position: relative; display: flex; flex-direction: column; min-height: 104px; padding: 10px 12px 9px; border-radius: 4px; border-bottom: 2px solid var(--edge); background: var(--bg); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 10px rgba(20,24,32,.06); transition: transform .12s; min-width: 0; }
+.pi.y { --bg: var(--pi-yellow); --edge: var(--pi-yellow-edge); }
+.pi.r { --bg: var(--pi-red); --edge: var(--pi-red-edge); }
+.pi.g { --bg: var(--pi-green); --edge: var(--pi-green-edge); }
+.pi.b { --bg: var(--pi-blue); --edge: var(--pi-blue-edge); }
+.pi.v { --bg: var(--pi-violet); --edge: var(--pi-violet-edge); }
+.pi.n { --bg: var(--pi-gray); --edge: var(--pi-gray-edge); }
+.pi-grid > .pi:nth-child(odd) { transform: rotate(-.6deg); }
+.pi-grid > .pi:nth-child(even) { transform: rotate(.5deg); }
+.pi-grid > .pi:hover { transform: rotate(0) translateY(-1px); }
+.pi.pinned::before { content: ""; position: absolute; top: -8px; left: 50%; width: 54px; height: 15px; margin-left: -27px; background: rgba(255,255,255,.62); border: 1px solid rgba(20,24,32,.07); box-shadow: 0 1px 2px rgba(20,24,32,.06); transform: rotate(-2deg); }
+.pi.sm { min-height: 82px; padding: 8px 10px 8px; }
+.pi-h { display: flex; align-items: center; gap: 6px; font: 700 10px var(--cx-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-ink); }
+.pi-d { font-weight: 500; letter-spacing: 0; color: var(--cx-ink-2); margin-left: auto; }
+.pi-pin { font-weight: 500; letter-spacing: .02em; text-transform: none; color: var(--cx-ink-2); }
+.pi-t { margin-top: 6px; font-size: 12.5px; line-height: 1.42; color: var(--cx-ink); overflow-wrap: anywhere; }
+.pi.sm .pi-t { font-size: 12px; }
+.pi-f { margin-top: auto; padding-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pi-u { font-size: 10.5px; color: var(--cx-ink-2); }
+.pi.done { opacity: .55; }
+.pi.done .pi-t { text-decoration: line-through; }
+.rchk { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(20,24,32,.45); background: rgba(255,255,255,.6); display: grid; place-items: center; padding: 0; color: transparent; }
+.rchk:hover { border-color: var(--cx-ink); background: #fff; }
+.rchk[aria-checked="true"] { background: var(--cx-green); border-color: var(--cx-green); color: #fff; }
+.lp { display: inline-flex; align-items: center; gap: 4px; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(255,255,255,.7); border: 1px solid rgba(20,24,32,.1); color: var(--cx-ink-2); white-space: nowrap; }
+.lp.yel { background: #fff1b0; border-color: #e2c44d; color: #6b5200; }
+.lp.red { background: var(--cx-red); border-color: var(--cx-red); color: #fff; }
+.lp.ok { background: var(--cx-green); border-color: var(--cx-green); color: #fff; }
+.vlk { display: inline-flex; align-items: center; gap: 4px; height: 19px; padding: 0 6px 0 3px; border: 1px solid rgba(20,24,32,.12); border-radius: 5px; background: rgba(255,255,255,.7); font: 500 10.5px var(--cx-mono); color: var(--cx-ink); }
+.vlk:hover { background: #fff; }
+.pi-empty { grid-column: 1 / -1; padding: 14px; border: 1px dashed var(--cx-line-strong); border-radius: 8px; color: var(--cx-ink-3); font-size: 12.5px; text-align: center; }
+.pi-empty button { border: 0; background: none; color: var(--cx-ink); text-decoration: underline; padding: 0; }
+.pi-add { min-height: 82px; border: 1.5px dashed var(--cx-line-strong); border-radius: 4px; background: transparent; color: var(--cx-ink-3); display: grid; place-items: center; font-size: 12.5px; }
+.pi-add:hover { color: var(--cx-ink); border-color: var(--cx-ink-3); background: var(--cx-surface-2); }
+
+/* ---------- Mural ---------- */
+.mural { margin-top: 16px; }
+.pills { display: flex; gap: 5px; flex-wrap: wrap; }
+.pill { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--cx-line); background: var(--cx-surface); font-size: 12px; font-weight: 500; color: var(--cx-ink-2); white-space: nowrap; }
+.pill:hover { background: var(--cx-hover); }
+.pill[aria-pressed="true"] { background: var(--cx-btn); color: #fff; border-color: var(--cx-btn); }
+.pill .n { margin-left: 5px; opacity: .7; font: 11px var(--cx-mono); }
+.pill.z:not([aria-pressed="true"]) { color: var(--cx-ink-3); }
+.chk-l { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cx-ink-2); cursor: pointer; white-space: nowrap; }
+#mural-body { padding: 10px 14px 14px; }
+.acomp { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--cx-line); background: var(--cx-surface-2); border-radius: 0 0 10px 10px; font-size: 12.5px; color: var(--cx-ink-2); }
+.acomp .ic { color: var(--cx-ink-3); }
+.acomp b { font-weight: 600; color: var(--cx-ink); }
+
+.menuwrap { position: relative; display: inline-block; }
+.menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: #fff; border: 1px solid var(--cx-line-strong); border-radius: 8px; box-shadow: var(--cx-shadow); padding: 4px; min-width: 210px; }
+.menu[hidden] { display: none; }
+.menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; background: none; border-radius: 5px; text-align: left; font-size: 12.5px; }
+.menu button:hover { background: var(--cx-hover); }
+.menu small { display: block; color: var(--cx-ink-3); font-size: 11px; }
+
+.cmp { border: 1px dashed var(--cx-line-strong); border-radius: 8px; padding: 10px; background: var(--cx-surface-2); display: grid; gap: 8px; margin-bottom: 12px; }
+.cmp-r { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cmp-ctx { font-size: 11.5px; color: var(--cx-ink-3); }
+.cmp textarea { width: 100%; resize: vertical; border: 1px solid var(--cx-line-strong); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 12.5px; background: #fff; color: var(--cx-ink); }
+.cmp textarea:focus { outline: 2px solid var(--cx-accent); outline-offset: 0; }
+.cmp label { font-size: 12px; color: var(--cx-ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.cmp input[type=date], .cmp select { height: 26px; border: 1px solid var(--cx-line-strong); border-radius: 6px; padding: 0 6px; font: inherit; font-size: 12px; background: #fff; }
+.cmp[data-tipo="lembrete"] .only-diario, .cmp[data-tipo="diario"] .only-lemb { display: none; }
+.seg { display: inline-flex; border: 1px solid var(--cx-line-strong); border-radius: 6px; overflow: hidden; background: #fff; }
+.seg button { height: 26px; padding: 0 10px; border: 0; background: none; font-size: 12px; color: var(--cx-ink-2); }
+.seg button + button { border-left: 1px solid var(--cx-line-strong); }
+.seg button[aria-pressed="true"] { background: var(--cx-btn); color: #fff; }
+
+/* ---------- faixa de resumos ---------- */
+.band { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.chipw { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; text-align: left; min-width: 0; }
+.chipw:hover { border-color: var(--cx-line-strong); background: var(--cx-surface-2); }
+.chipw[aria-expanded="true"] { border-color: var(--cx-accent); }
+.chipw .ci { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--cx-hover); color: var(--cx-ink-2); flex: none; }
+.chipw.alert .ci { background: var(--cx-red-soft); color: var(--cx-red); }
+.chipw.alert .cv { color: var(--cx-red); }
+.chipw .tx { flex: 1; min-width: 0; }
+.chipw .ct { display: block; font-size: 12px; color: var(--cx-ink-3); }
+.chipw .cv { display: block; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chipw .go { color: var(--cx-ink-3); flex: none; }
+
+/* ---------- gaveta ---------- */
+.ov { position: fixed; inset: 0; background: rgba(20,24,32,.28); opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 50; }
+.ov.on { opacity: 1; pointer-events: auto; }
+.dr { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 100vw; background: var(--cx-surface); border-left: 1px solid var(--cx-line-strong); box-shadow: -12px 0 32px rgba(20,24,32,.14); transform: translateX(102%); visibility: hidden; transition: transform .22s cubic-bezier(.2,.7,.2,1), visibility 0s .22s; z-index: 51; display: flex; flex-direction: column; }
+.dr.on { transform: none; visibility: visible; transition: transform .22s cubic-bezier(.2,.7,.2,1), visibility 0s; }
+.dr-h { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--cx-line); flex: none; }
+.dr-h h2 { font-size: 15px; font-weight: 600; }
+.dr-x { width: 30px; height: 30px; display: grid; place-items: center; border: 0; background: none; border-radius: 6px; color: var(--cx-ink-2); }
+.dr-x:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.dr-tabs { display: flex; gap: 5px; padding: 10px 16px; border-bottom: 1px solid var(--cx-line); flex-wrap: wrap; flex: none; background: var(--cx-surface-2); }
+.dr-b { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+.dr-f { padding: 8px 16px; border-top: 1px solid var(--cx-line); font-size: 11.5px; color: var(--cx-ink-3); flex: none; }
+.dc { border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px; background: var(--cx-surface); margin-bottom: 10px; }
+.dc.crit { border-color: #efc2c5; background: #fffafa; }
+.dc-h { display: flex; align-items: flex-start; gap: 10px; }
+.dc-h .tx { flex: 1; min-width: 0; }
+.dc-t { font-weight: 600; }
+.dc-s { font-size: 12px; color: var(--cx-ink-3); }
+.dc p { margin-top: 10px; color: var(--cx-ink-2); }
+.dc-a { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.dmuted { color: var(--cx-ink-3); font-size: 12px; }
+.vem-d { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; }
+.vem-d:first-child { margin-top: 0; }
+.vem-i { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px dotted var(--cx-line); }
+.vem-i .tx { flex: 1; min-width: 0; }
+.chk-g { margin-bottom: 16px; }
+.chk-gh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+.bar { height: 6px; border-radius: 99px; background: var(--cx-hover); overflow: hidden; margin-bottom: 6px; }
+.bar i { display: block; height: 100%; background: var(--cx-green); border-radius: 99px; }
+.chk-i { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; cursor: pointer; }
+.chk-i input { margin-top: 2px; accent-color: var(--cx-green); }
+.chk-i.on span { color: var(--cx-ink-3); text-decoration: line-through; }
+.src { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--cx-line); border-radius: 8px; margin-bottom: 8px; text-decoration: none; }
+.src:hover { background: var(--cx-surface-2); }
+.src .tx { flex: 1; min-width: 0; font-weight: 500; }
+.src small { display: block; font-weight: 400; color: var(--cx-ink-3); font-size: 11.5px; }
+
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--cx-btn); color: #fff; padding: 9px 14px; border-radius: 8px; font-size: 12.5px; box-shadow: var(--cx-shadow); opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 80; max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- notas da ideia ---------- */
+.ni { margin-top: 22px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 10px; padding: 14px 16px 12px; }
+.ni-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.ni-h b { font-size: 14px; font-weight: 600; }
+.ni-k { color: var(--cx-ink-3); font-size: 12px; }
+.ni-int { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--cx-ink-3); }
+.ni-int i { width: 14px; height: 6px; border-radius: 2px; background: var(--cx-line-strong); display: inline-block; }
+.ni-int i.on { background: var(--cx-accent); }
+.ni-int span { margin-left: 4px; font-family: var(--cx-mono); }
+.ni-g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.ni h5 { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-3); font-weight: 600; margin-bottom: 4px; }
+.ni p { color: var(--cx-ink-2); font-size: 12.5px; }
+.ni p b { color: var(--cx-ink); font-weight: 600; }
+.ni code { font: 11.5px var(--cx-mono); background: var(--cx-hover); padding: 1px 4px; border-radius: 3px; }
+.ni-foot { margin-top: 12px; padding-top: 10px; border-top: 1px dotted var(--cx-line-strong); }
+
+@media (max-width: 1100px) {
+  .band { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(3) { border-left: 0; }
+  .bt { grid-template-columns: 1fr; }
+  .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ni-g { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .legend { display: none; }
+}
+@media (max-width: 860px) {
+  .mesa { height: auto; }
+  .mesa-b { grid-template-columns: 1fr; }
+  .lista-w { max-height: 340px; border-right: 0; border-bottom: 1px solid var(--cx-line); border-radius: 0; }
+  .capa { overflow: visible; }
+  .band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ag-i { grid-template-columns: 28px minmax(0, 1fr); }
+  .ag-i .due, .ag-i .ag-a { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- sprite de ícones -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path d="M9 4L7.5 20M16.5 4L15 20M4.5 9h16M3.5 15h16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></symbol>
+    <symbol id="i-task" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-gavel" viewBox="0 0 24 24"><path d="M13.5 4.5l6 6-3 3-6-6z"/><path d="M11 13L5.5 18.5"/><path d="M4 21h8"/></symbol>
+    <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 4 5 4 8.5s-4 4.5-4 8.5M16 3.5c0 4-4 5-4 8.5s4 4.5 4 8.5"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6.5 3.5H14l4 4v12a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 19.5v-14a2 2 0 0 1 1.5-2z"/><path d="M14 3.5v4h4M8.5 12h7M8.5 15.5h7"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v16M8 20h8M4.5 7.5h15"/><path d="M4.5 7.5L2.5 14a2.6 2.6 0 0 0 4 0zM19.5 7.5L17.5 14a2.6 2.6 0 0 0 4 0z"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1.2-4.2L16 5a2.1 2.1 0 0 1 3 3L8.2 18.8z"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-corner" viewBox="0 0 24 24"><path d="M5 5v8a3 3 0 0 0 3 3h10"/><path d="M14 12l4 4-4 4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4.5h14v10l-5 5H5z"/><path d="M14 19.5v-5h5"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 5h11l-2 4 2 4H6"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap" id="page">
+
+  <!-- 1. migalha -->
+  <nav class="crumb" aria-label="Migalha">NEXUS <span>/</span> Carteira <span>/</span> Operação Fachada Norte <span>/</span> <b>Visão geral</b></nav>
+
+  <!-- 2. faixa de aviso -->
+  <div class="aviso" role="note">
+    <svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg>
+    <span><b>Audiência em 4 dias</b> · 12/10 14:30 — FAZENDA NACIONAL x Marina Ferreira Norte (justificação, IDPJ)</span>
+    <button class="btn sm" data-act="sel" data-id="ex-2" data-go="1">Ver na mesa <svg class="ic sm" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+  </div>
+
+  <!-- 3. título -->
+  <div class="ttl">
+    <div class="ttl-l">
+      <span class="sq" title="Prioridade alta"></span>
+      <h1>Operação Fachada Norte</h1>
+      <span class="tag red">Alta relevância</span>
+      <span class="tag org">Constrição ativa</span>
+      <span class="tag vio">IDPJ em curso</span>
+    </div>
+    <div class="ttl-r">
+      <button class="btn" data-act="toast" data-msg="Mockup: marcaria a operação como revisada hoje"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Revisada</button>
+      <button class="btn" data-act="toast" data-msg="Mockup: abriria a edição da operação">Editar</button>
+      <button class="btn" data-act="toast" data-msg="Mockup: abriria o diagnóstico da operação">Diagnóstico</button>
+      <button class="btn" data-act="toast" data-msg="Mockup: geraria o relatório da operação">Relatório</button>
+    </div>
+  </div>
+  <p class="sum-line"><b>R$ 2,66 mi</b> em dívida<span class="sep">·</span><b>R$ 962 mil</b> indisponível<span class="sep">·</span>36% garantido<span class="sep">·</span>6 CDAs<span class="sep">·</span>5 processos<span class="sep">·</span>5 intimações abertas</p>
+
+  <!-- 4. abas -->
+  <div class="tabs" role="tablist" aria-label="Seções da operação">
+    <button role="tab" aria-selected="true">Visão geral</button>
+    <button role="tab" aria-selected="false" data-act="tab">Processos e prescrição</button>
+    <button role="tab" aria-selected="false" data-act="tab">Inscrições</button>
+    <button role="tab" aria-selected="false" data-act="tab">Partes</button>
+    <button role="tab" aria-selected="false" data-act="tab">Bens</button>
+    <button role="tab" aria-selected="false" data-act="tab">Tarefas</button>
+    <button role="tab" aria-selected="false" data-act="tab">Arquivos</button>
+    <button role="tab" aria-selected="false" data-act="tab">Importar</button>
+  </div>
+
+  <!-- 5. descrição -->
+  <p class="desc">Grupo econômico com interposição de pessoas, blindagem patrimonial e IDPJ em curso no norte do PR. <button aria-label="Editar descrição" data-act="toast" data-msg="Mockup: editaria a descrição"><svg class="ic sm" aria-hidden="true"><use href="#i-pencil"/></svg></button></p>
+
+  <!-- 6. resumo automatizado -->
+  <p class="resumo"><span class="pill-r">RESUMO</span><span>Indisponibilidade de 36% da dívida, abaixo da média da carteira (59%). 1 CDA prescreve em 6 dias. <b>2 intimações vencidas.</b></span></p>
+
+  <!-- 7. faixa de briefing (KPIs numa linha só) -->
+  <div class="kpis" aria-label="Briefing da operação">
+    <div class="kpi"><span class="l">Dívida total</span><span class="v">R$ 2,66 mi</span><span class="s">6 CDAs</span></div>
+    <div class="kpi"><span class="l">Indisponibilidade</span><span class="v">R$ 962 mil</span><span class="s">36% da dívida</span></div>
+    <button class="kpi red" data-act="drawer" data-k="prazos" data-fid="kpi-presc" title="Abrir prazos extintivos"><span class="l">Prescrição · CDAs</span><span class="v">1</span><span class="s">em 6 dias</span></button>
+    <button class="kpi red" data-act="sel" data-id="ex-1" data-go="1" title="Ir à frente com intimação vencida"><span class="l">Intimações</span><span class="v">5</span><span class="s">2 vencidas</span></button>
+  </div>
+
+  <!-- ============ MESA DE FRENTES ============ -->
+  <section class="card mesa" id="mesa" aria-label="Mesa de frentes processuais">
+    <div class="card-h">
+      <h2>Frentes processuais</h2><span class="cnt" id="cnt-frentes">5</span>
+      <span class="hint">Escolha uma frente à esquerda: a capa do processo abre à direita</span>
+      <span class="sp"></span>
+      <span class="legend" aria-label="Legenda do ponto de status"><span><i class="dot red"></i>vencido ou ≤ 2 dias</span><span><i class="dot org"></i>≤ 7 dias</span><span><i class="dot grn"></i>sem urgência</span></span>
+      <button class="btn sm" data-act="toast" data-msg="Mockup: abriria o formulário de nova frente"><svg class="ic sm" aria-hidden="true"><use href="#i-plus"/></svg> Frente</button>
+    </div>
+    <div class="mesa-b">
+      <div class="lista-w">
+        <div class="lista-q">
+          <label class="sr" for="q">Filtrar frentes</label>
+          <div class="fld" id="fld">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="q" type="text" placeholder="Filtrar frentes" autocomplete="off" spellcheck="false" aria-controls="lista">
+            <kbd class="kb" aria-hidden="true">/</kbd>
+            <button class="clr" id="q-clr" type="button" aria-label="Limpar filtro"><svg class="ic sm" aria-hidden="true"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="lista-m"><span id="q-res">5 de 5 frentes</span><span>número, tipo ou juízo</span></div>
+        </div>
+        <div id="lista" role="listbox" tabindex="0" aria-label="Frentes processuais"></div>
+        <div class="lista-f"><kbd>↑</kbd><kbd>↓</kbd> trocam de frente <span class="sp"></span> <kbd>/</kbd> filtra</div>
+      </div>
+      <div class="capa" id="capa" tabindex="0" role="region" aria-label="Capa da frente selecionada"></div>
+    </div>
+  </section>
+
+  <!-- ============ MURAL GERAL ============ -->
+  <section class="card mural" id="mural" aria-label="Mural geral">
+    <div class="card-h">
+      <h2>Mural geral</h2><span class="cnt" id="mural-cnt">4</span>
+      <div class="pills" id="mural-pills" role="group" aria-label="Filtrar notas"></div>
+      <span class="sp"></span>
+      <label class="chk-l"><input type="checkbox" id="mural-incl"> Incluir notas das frentes</label>
+      <span class="menuwrap">
+        <button class="btn sm pri" data-act="menu" aria-haspopup="true" aria-expanded="false"><svg class="ic sm" aria-hidden="true"><use href="#i-plus"/></svg> Nota</button>
+        <div class="menu" role="menu" hidden>
+          <button role="menuitem" data-act="nota-new" data-where="mural" data-tipo="lembrete"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>Lembrete<small>com data, vira pílula de prazo</small></span></button>
+          <button role="menuitem" data-act="nota-new" data-where="mural" data-tipo="diario"><svg class="ic" aria-hidden="true"><use href="#i-note"/></svg><span>Entrada do diário<small>sem data de lembrete</small></span></button>
+        </div>
+      </span>
+    </div>
+    <div id="mural-body"></div>
+    <div class="acomp">
+      <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>
+      <b>Acompanhar</b>
+      <span class="cnj"><span class="cnj-n" data-cnj="5001300-56.2025.4.04.7001" title="Clique para selecionar o número inteiro"><b style="font-weight:500">5001300-56</b><i>.2025.4.04.7001</i></span><button class="cnj-copy" data-act="copy" data-tip="Copiado" aria-label="Copiar número do processo" title="Copiar número · Shift+clique: só os 20 dígitos"><svg class="ic i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="ic i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></span>
+      <span>FN x Imobiliária Norte Prime</span>
+      <span class="tg yel">possível conexão</span>
+      <span class="sp"></span>
+      <span class="hint">Fora de processo da operação</span>
+      <button class="btn sm" data-act="toast" data-msg="Mockup: abriria a ficha do processo acompanhado">Abrir ficha</button>
+    </div>
+  </section>
+
+  <!-- ============ FAIXA DE RESUMOS ============ -->
+  <div class="band" id="band" aria-label="Resumos da operação"></div>
+
+  <!-- ============ NOTAS DA IDEIA ============ -->
+  <aside class="ni" aria-label="Notas da ideia">
+    <div class="ni-h">
+      <b>Notas da ideia</b>
+      <span class="ni-k">Ideia 3 · Mesa de frentes (mestre-detalhe)</span>
+      <span class="ni-int" title="Intensidade 3 de 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><span>3/5</span></span>
+    </div>
+    <div class="ni-g">
+      <div><h5>O que muda</h5><p>As frentes deixam de ser lanes empilhadas e viram uma <b>mesa mestre-detalhe</b>: lista de 300 px à esquerda, capa do processo à direita. Intimações, tarefas, audiências e prazos extintivos passam a morar em <b>"Agora nesta frente"</b>; exceção, agravo e EF apensa aparecem como filhos na árvore. Diário e Lembretes fundem-se no Mural, e os cinco cartões secundários viram chips que abrem uma gaveta.</p></div>
+      <div><h5>Cartões: antes → depois</h5><p><b>10 → 2 cartões + 1 faixa.</b> Saem O que vem, Intimações abertas, Atuações recentes, Diário, Prazos extintivos, Agenda, Checklists, Lembretes e Fontes como cartões soltos; ficam <b>Mesa de frentes</b> e <b>Mural geral</b>, mais a faixa de 5 resumos com gaveta (a Agenda é absorvida por "O que vem").</p></div>
+      <div><h5>Custo de implementação</h5><p><b>Médio/alto.</b> Item de lista, capa, gaveta com foco/Esc, navegação por ↑/↓ e composer de nota são novos; régua de fases, chip CNJ, pílulas de prazo e copiar com toast já existem no app e são reaproveitados. Convém lembrar a última frente selecionada por operação.</p></div>
+      <div><h5>Modelo de dados</h5><p><b>Opcional:</b> campo <code>execId</code> em <code>briefing.entries</code> e <code>stickyNotes</code> (ausente = Mural geral). O resto é derivado: "Último registro" vem da última fase ou intimação, e tribunal/eproc se inferem dos dígitos J.TR do CNJ (4.04 = TRF4).</p></div>
+    </div>
+    <p class="ni-foot"><b>Trade-off:</b> só uma frente fica aberta por vez, então se perde o panorama simultâneo das lanes; o ponto de status e a pílula de prazo na lista tentam compensar. A mesa pede cerca de 620 px de altura e usa rolagem interna em telas baixas.</p>
+  </aside>
+</div>
+
+<!-- gaveta -->
+<div class="ov" id="ov"></div>
+<aside class="dr" id="dr" role="dialog" aria-modal="true" aria-labelledby="dr-t" aria-hidden="true">
+  <div class="dr-h"><svg class="ic" id="dr-ic" aria-hidden="true"><use href="#i-list"/></svg><h2 id="dr-t">Resumo</h2><span class="sp"></span><button class="dr-x" id="dr-close" data-act="dclose" aria-label="Fechar gaveta"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+  <div class="dr-tabs" id="dr-tabs" role="tablist" aria-label="Resumos"></div>
+  <div class="dr-b" id="dr-b"></div>
+  <div class="dr-f"><kbd>Esc</kbd> fecha a gaveta</div>
+</aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+(function () {
+'use strict';
+
+/* ======================= dados do caso fictício (hoje = qui 08/10/2026) ======================= */
+const HOJE = Date.UTC(2026, 9, 8);
+const KIND = {
+  EF: 'Execução Fiscal', IDPJ: 'Incidente de Desconsideração da Personalidade Jurídica',
+  EXC: 'Exceção de Pré-Executividade', AI: 'Agravo de Instrumento', MCF: 'Medida Cautelar Fiscal', EMB: 'Embargos'
+};
+
+const F = [
+  {
+    id: 'ex-1', tipo: 'EF', classe: 'Execução Fiscal (principal)', pai: null,
+    cnj: '5001234-56.2023.4.04.7001', juizo: '1ª Vara Federal de Maringá', jab: '1ª VF Maringá', sis: 'TRF4 · eproc',
+    fase: 'Penhora / constrição', vl: 'principal', badge: 'principal',
+    relTxt: 'Principal · 1 apensa · 1 incidental', rel: ['ex-1b', 'ex-18', 'ex-2'],
+    polo: 'Comercial Fachada Norte LTDA · redirecionamento: João Almeida Souza',
+    valor: 'R$ 1.822.000,00', vnota: '3 CDAs',
+    cdas: [
+      { n: '000123', t: 'IRPJ', v: '1,25 mi', tag: ['red', 'prescreve 14/10'] },
+      { n: '000124', t: 'CSLL', v: '480 mil', tag: ['green', 'garantida'] },
+      { n: '000125', t: 'PIS', v: '92 mil' }
+    ],
+    status: 'Em andamento · constrição ativa (R$ 962 mil)',
+    regua: [
+      { n: 'Ajuizamento', s: 'Ev. 1', st: 'done' },
+      { n: 'Citação', s: 'Ev. 9', st: 'done' },
+      { n: 'Penhora / constrição', s: 'mat. 45.678 · Ev. 31', st: 'cur' },
+      { n: 'Embargos / defesa', s: 'exceção em curso', st: 'par' },
+      { n: 'Expropriação', s: '', st: 'next' }
+    ],
+    ult: { ev: 'Ev. 58', d: '06/10', tx: 'Juntada de exceção de pré-executividade' },
+    trilha: [
+      { ev: 'Ev. 58', d: '06/10', tx: 'Juntada de exceção de pré-executividade' },
+      { ev: 'Ev. 31', d: '', tx: 'Penhora do imóvel mat. 45.678 (CNIB)' },
+      { ev: 'Ev. 9', d: '', tx: 'Citação' }
+    ],
+    itens: [
+      { id: 'i1', t: 'intim', titulo: 'Intimação pessoal — redirecionamento (João Almeida Souza)', data: '03/10', tag: ['blue', 'peça em edição'], acoes: ['Responder'] },
+      { id: 'i2', t: 'intim', titulo: 'Manifestar sobre exceção de pré-executividade — 15 dias', data: '13/10', acoes: ['Responder'] },
+      { id: 'i3', t: 'presc', titulo: 'CDA 000123 (IRPJ · R$ 1,25 mi) prescreve em 14/10', meta: 'Confirmar o marco interruptivo (citação, Ev. 9) antes da manifestação', data: '14/10', crit: true, acoes: ['Ver roteiro'] },
+      { id: 'i4', t: 'tarefa', titulo: 'Requerer extensão de penhora sobre imóvel matrícula 45.678', data: '11/10', tag: ['red', 'alta'], acoes: ['Concluir'] },
+      { id: 'i5', t: 'aud', titulo: 'Audiência de instrução — presencial', data: '26/10', hora: '14:00', acoes: ['Preparar'] }
+    ],
+    cons: [
+      { t: 'Imóvel mat. 45.678 · CRI Maringá', tg: ['blue', 'CNIB · ativa'], v: 'R$ 900.000,00' },
+      { t: 'Conta PJ · bloqueio parcial', tg: ['green', 'Sisbajud'], v: 'R$ 62.000,00' }
+    ]
+  },
+  {
+    id: 'ex-1b', tipo: 'EF', classe: 'Execução Fiscal (apensa)', pai: 'ex-1',
+    cnj: '5001235-56.2023.4.04.7001', juizo: '1ª Vara Federal de Maringá', jab: '1ª VF Maringá', sis: 'TRF4 · eproc',
+    fase: 'Citação', vl: 'apensa', badge: 'apensa à 5001234-56…',
+    relTxt: 'Apensa à principal', rel: ['ex-1', 'ex-2'],
+    polo: 'Comercial Fachada Norte LTDA (a mesma da principal)',
+    valor: 'R$ 310.000,00', vnota: '1 CDA',
+    cdas: [{ n: '000129', t: 'COFINS', v: '310 mil' }],
+    status: 'Em andamento · aguardando citação',
+    regua: [
+      { n: 'Ajuizamento', s: 'Ev. 1', st: 'done' },
+      { n: 'Citação', s: 'aguardando', st: 'cur' },
+      { n: 'Penhora', s: 'segue a principal', st: 'next' },
+      { n: 'Embargos / defesa', s: '', st: 'next' },
+      { n: 'Expropriação', s: '', st: 'next' }
+    ],
+    ult: { ev: 'Ev. 14', d: '02/09', tx: 'Certidão de apensamento' },
+    trilha: [
+      { ev: 'Ev. 14', d: '02/09', tx: 'Certidão de apensamento à 5001234-56' },
+      { ev: 'Ev. 1', d: '', tx: 'Distribuição por dependência' }
+    ],
+    itens: [], cons: null
+  },
+  {
+    id: 'ex-2', tipo: 'IDPJ', classe: 'Incidente de Desconsideração da PJ', pai: null,
+    cnj: '5009876-11.2024.4.04.7001', juizo: '1ª Vara Federal de Maringá', jab: '1ª VF Maringá', sis: 'TRF4 · eproc',
+    fase: 'Saneamento e provas', vl: 'cobre 2 EFs', badge: 'incidente · cobre 2 EFs',
+    relTxt: 'Incidente — cobre 2 EFs', rel: ['ex-1', 'ex-1b', 'ex-19'],
+    polo: 'Marina Ferreira Norte · João Almeida Souza',
+    valor: 'R$ 2.132.000,00', vnota: 'cobre as 2 EFs',
+    cdasTxt: 'Cobre 000123, 000124, 000125 e 000129 (4 CDAs das duas EFs)',
+    status: 'Aguardando audiência de justificação (12/10)',
+    regua: [
+      { n: 'Ajuizamento', s: '10/06/2026 · Ev. 1', st: 'done' },
+      { n: 'Liminar favorável', s: '10/07/2026 · Ev. 12', st: 'done' },
+      { n: 'Saneamento e provas', s: 'audiência 12/10', st: 'cur' },
+      { n: 'Decisão final', s: '', st: 'next' }
+    ],
+    ult: { ev: 'Ev. 41', d: '01/10', tx: 'Designada audiência de justificação' },
+    trilha: [
+      { ev: 'Ev. 41', d: '01/10', tx: 'Designada audiência de justificação' },
+      { ev: 'Ev. 12', d: '10/07', tx: 'Liminar favorável — inclusão cautelar de Marina e João no polo' },
+      { ev: 'Ev. 1', d: '10/06', tx: 'Ajuizamento do IDPJ' }
+    ],
+    itens: [
+      { id: 'i1', t: 'intim', titulo: 'Manifestação sobre instauração de IDPJ — 15 dias', data: '06/10', tag: ['gray', 'pendente de análise'], acoes: ['Responder'] },
+      { id: 'i2', t: 'tarefa', titulo: 'Preparar memorial audiência IDPJ', data: '11/10', tag: ['green', 'em andamento'], acoes: ['Concluir'] },
+      { id: 'i3', t: 'aud', titulo: 'Audiência de justificação — presencial', meta: 'Levar organograma do grupo', data: '12/10', hora: '14:30', acoes: ['Preparar'] }
+    ],
+    cons: null
+  },
+  {
+    id: 'ex-18', tipo: 'EXC', classe: 'Exceção de Pré-Executividade', pai: 'ex-1',
+    cnj: '5001240-56.2024.4.04.7001', juizo: '1ª Vara Federal de Maringá', jab: '1ª VF Maringá', sis: 'TRF4 · eproc',
+    fase: 'Vista à Fazenda', vl: 'incidental', badge: 'incidental à 5001234-56…',
+    relTxt: 'Incidental à principal', rel: ['ex-1'],
+    polo: 'Excipiente: Comercial Fachada Norte LTDA',
+    valor: '—', vnota: 'segue a principal',
+    cdasTxt: 'Impugna as CDAs da principal (não tem CDA própria)',
+    status: 'Vista à Fazenda · prazo 18/10',
+    regua: [
+      { n: 'Oposição', s: 'Ev. 1 · 06/10', st: 'done' },
+      { n: 'Vista à Fazenda', s: 'Ev. 3 · 07/10', st: 'cur' },
+      { n: 'Decisão', s: '', st: 'next' }
+    ],
+    ult: { ev: 'Ev. 3', d: '07/10', tx: 'Vista à Fazenda Nacional' },
+    trilha: [
+      { ev: 'Ev. 3', d: '07/10', tx: 'Vista à Fazenda Nacional' },
+      { ev: 'Ev. 1', d: '06/10', tx: 'Oposição da exceção (juntada também na principal, Ev. 58)' }
+    ],
+    itens: [
+      { id: 'i1', t: 'intim', titulo: 'Vista — complementação de documentos', data: '18/10', acoes: ['Responder'] }
+    ],
+    xref: { id: 'ex-1', tx: 'Também aberto na principal: manifestar sobre a exceção — 13/10' },
+    cons: null
+  },
+  {
+    id: 'ex-19', tipo: 'AI', classe: 'Agravo de Instrumento', pai: 'ex-2',
+    cnj: '5001250-56.2025.4.04.0000', juizo: 'TRF4 · 2ª Turma', jab: 'TRF4 · 2ª Turma', sis: 'TRF4 · eproc',
+    fase: 'Contrarrazões', vl: 'recurso', badge: 'recurso no IDPJ 5009876-11…',
+    relTxt: 'Recurso contra decisão no IDPJ', rel: ['ex-2'],
+    polo: 'Marina Ferreira Norte · João Almeida Souza (agravantes)',
+    valor: '—', vnota: 'recurso, sem valor próprio',
+    cdasTxt: '—',
+    status: 'Contrarrazões · prazo 16/10',
+    regua: [
+      { n: 'Interposição', s: 'Ev. 1', st: 'done' },
+      { n: 'Contrarrazões', s: 'Ev. 7 · 04/10 · prazo 16/10', st: 'cur' },
+      { n: 'Julgamento', s: '2ª Turma', st: 'next' }
+    ],
+    ult: { ev: 'Ev. 7', d: '04/10', tx: 'Intimação para contrarrazões' },
+    trilha: [
+      { ev: 'Ev. 7', d: '04/10', tx: 'Intimação para contrarrazões' },
+      { ev: 'Ev. 1', d: '', tx: 'Interposição do agravo contra a liminar do IDPJ (Ev. 12)' }
+    ],
+    itens: [
+      { id: 'i1', t: 'intim', titulo: 'Contrarrazões ao agravo — 15 dias', data: '16/10', tag: ['blue', 'peça em edição'], acoes: ['Responder'] },
+      { id: 'i2', t: 'tarefa', titulo: 'Contrarrazões ao agravo IDPJ', data: '16/10', tag: ['green', 'em andamento'], acoes: ['Concluir'] }
+    ],
+    cons: null
+  }
+];
+
+const TIPOS = {
+  estrategia: { nome: 'Estratégia', cor: 'y' }, risco: { nome: 'Risco', cor: 'r' },
+  decisao: { nome: 'Decisão judicial', cor: 'b' }, providencia: { nome: 'Providência', cor: 'g' },
+  replicacao: { nome: 'Replicação', cor: 'v' }, observacao: { nome: 'Observação', cor: 'n' }
+};
+const COR_LEMB = { amarelo: 'y', vermelho: 'r', verde: 'g' };
+
+const NOTAS = [
+  { id: 'n1', exec: null, kind: 'estrategia', pinned: true, date: '07/10', text: 'Sustentar IDPJ na audiência; ampliar penhora sobre imóvel 45.678; acompanhar prazo da exceção; mapear quotas da Norte Prime.' },
+  { id: 'n2', exec: 'ex-1', kind: 'risco', date: '05/10', text: 'CDA 000123 prescreve em 14/10 — confirmar marco interruptivo (citação Ev. 9) antes da manifestação.' },
+  { id: 'n3', exec: 'ex-2', kind: 'decisao', date: '10/07', text: 'Liminar no IDPJ deferida — inclusão cautelar de Marina e João no polo (Ev. 12).' },
+  { id: 'n4', exec: 'ex-1', kind: 'providencia', date: '03/10', text: 'Pedido de Sisbajud reiterado; bloqueio parcial R$ 62 mil.' },
+  { id: 'n5', exec: null, kind: 'observacao', date: '01/10', text: 'Contratos sociais cruzados, extratos Sisbajud, CNIB matrícula 45.678 e organograma do grupo.' },
+  { id: 'l1', exec: 'ex-2', kind: 'lembrete', cor: 'amarelo', due: '12/10', upd: 'atualizado ontem', text: 'Audiência IDPJ — levar organograma do grupo.' },
+  { id: 'l2', exec: 'ex-1', kind: 'lembrete', cor: 'vermelho', due: '14/10', text: 'Conferir certidão de citação da EF antes de 14/10.' },
+  { id: 'l3', exec: null, kind: 'lembrete', cor: 'verde', due: '09/10', text: 'Ligar p/ CRI Maringá — matrícula atualizada.' },
+  { id: 'l4', exec: null, kind: 'lembrete', cor: 'amarelo', due: '15/10', text: 'Mapear quotas Norte Prime. (tarefa da operação, sem processo)' }
+];
+
+const VEM = [
+  { d: '11/10', it: [
+    { t: 'tarefa', tx: 'Requerer extensão de penhora sobre imóvel mat. 45.678', f: 'ex-1' },
+    { t: 'tarefa', tx: 'Preparar memorial audiência IDPJ', f: 'ex-2' } ] },
+  { d: '12/10', hora: '14:30', it: [{ t: 'aud', tx: 'Audiência de justificação — presencial', f: 'ex-2' }] },
+  { d: '13/10', it: [{ t: 'intim', tx: 'Prazo: manifestar sobre exceção de pré-executividade', f: 'ex-1' }] },
+  { d: '14/10', it: [{ t: 'presc', tx: 'Prescrição da CDA 000123 (IRPJ)', f: 'ex-1' }] },
+  { d: '16/10', it: [
+    { t: 'intim', tx: 'Prazo: contrarrazões ao agravo', f: 'ex-19' },
+    { t: 'tarefa', tx: 'Contrarrazões ao agravo IDPJ', f: 'ex-19' } ] },
+  { d: '18/10', it: [{ t: 'intim', tx: 'Prazo: vista — complementação de documentos', f: 'ex-18' }] },
+  { d: '26/10', hora: '14:00', it: [{ t: 'aud', tx: 'Audiência de instrução — presencial', f: 'ex-1' }] }
+];
+
+const CHK = [
+  { nome: '1ª vista', it: [
+    { t: 'Conferir CDAs e certidões', ok: true },
+    { t: 'Mapear partes e grupo econômico', ok: true },
+    { t: 'Levantar bens e constrições', ok: true },
+    { t: 'Definir estratégia de redirecionamento', ok: false } ] },
+  { nome: 'Decisão final do IDPJ', it: [
+    { t: 'Liminar obtida (Ev. 12)', ok: true },
+    { t: 'Audiência de justificação', ok: false },
+    { t: 'Memorial final', ok: false },
+    { t: 'Decisão de mérito', ok: false },
+    { t: 'Inclusão definitiva dos sócios', ok: false } ] }
+];
+
+const FONTES = [
+  { t: 'Organograma — Grupo Fachada Norte', s: 'Docs' },
+  { t: 'Memorial — Audiência IDPJ', s: 'Docs' },
+  { t: 'Petição — Resposta à exceção', s: 'Docs' }
+];
+
+const ATU = [
+  { d: '07/10', tx: 'Petição de reiteração Sisbajud', f: 'ex-1' },
+  { d: '02/10', tx: 'Resposta a intimação', f: 'ex-2' },
+  { d: '28/09', tx: 'Tarefa concluída "Pesquisa CNIB"', f: null }
+];
+
+/* ======================= estado ======================= */
+const S = { sel: 'ex-1', q: '', vis: [], drawer: null, compose: null, mf: 'tudo', incl: false, done: {}, reg: {} };
+
+/* ======================= utilitários ======================= */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const byId = id => F.find(f => f.id === id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ic = (n, c) => '<svg class="ic' + (c ? ' ' + c : '') + '" aria-hidden="true"><use href="#i-' + n + '"/></svg>';
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const digits = c => c.replace(/\D/g, '');
+const short = c => c.slice(0, 10);
+function dias(s) {
+  const p = s.split('/');
+  return Math.round((Date.UTC(p[2] ? +p[2] : 2026, +p[1] - 1, +p[0]) - HOJE) / 86400000);
+}
+function quando(n) {
+  if (n < 0) return 'vencida há ' + (-n) + (n === -1 ? ' dia' : ' dias');
+  if (n === 0) return 'hoje';
+  if (n === 1) return 'amanhã';
+  return 'em ' + n + ' dias';
+}
+function kind(t, lg) { return '<span class="kind ' + t + (lg ? ' lg' : '') + '" title="' + esc(KIND[t]) + '">' + t + '</span>'; }
+function duePill(dm, o) {
+  o = o || {};
+  const n = dias(dm);
+  const cls = o.crit ? 'red' : n <= 2 ? 'red' : n <= 7 ? 'org' : '';
+  if (o.sm) return '<span class="due sm ' + cls + '">' + (n < 0 ? 'venc. ' + (-n) + ' d' : dm + ' · ' + n + ' d') + '</span>';
+  return '<span class="due ' + cls + '">' + ic('clock', 'sm') + '<span class="mono">' + dm + (o.hora ? ' ' + o.hora : '') + '</span> · ' + quando(n) + '</span>';
+}
+function cnjParts(c) {
+  const m = c.match(/^(\d{7}-\d{2})(\..*)$/);
+  return '<b style="font-weight:500">' + m[1] + '</b><i>' + m[2] + '</i>';
+}
+function cnjChip(c, o) {
+  o = o || {};
+  return '<span class="cnj' + (o.lg ? ' lg' : '') + '"><span class="cnj-n" data-cnj="' + c + '" title="Clique para selecionar o número inteiro">' + cnjParts(c) + '</span>' +
+    '<button class="cnj-copy" data-act="copy" data-tip="Copiado" aria-label="Copiar número do processo" title="Copiar número · Shift+clique: só os 20 dígitos">' + ic('copy', 'i-cp') + ic('check', 'i-ok') + '</button>' +
+    '<a class="cnj-open" href="#" data-act="eproc" aria-label="Abrir no eproc" title="Abrir no eproc">' + ic('ext', 'sm') + '</a></span>';
+}
+function ensureVisible(box, el) {
+  if (!box || !el) return;
+  const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+  if (r.top < b.top + 4) box.scrollTop -= (b.top + 4 - r.top);
+  else if (r.bottom > b.bottom - 4) box.scrollTop += (r.bottom - b.bottom + 4);
+}
+function keepFocus(fn) {
+  const a = document.activeElement;
+  const fid = a && a.getAttribute ? a.getAttribute('data-fid') : null;
+  fn();
+  if (fid) { const el = document.querySelector('[data-fid="' + fid + '"]'); if (el) el.focus({ preventScroll: true }); }
+}
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400);
+}
+function scrollMesa() {
+  const rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('#mesa').scrollIntoView({ behavior: rm ? 'auto' : 'smooth', block: 'start' });
+}
+
+/* ======================= copiar (clipboard + fallback) ======================= */
+function fallbackCopy(t) {
+  return new Promise((res, rej) => {
+    const prev = document.activeElement;
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    if (prev && prev.focus) prev.focus({ preventScroll: true });
+    ok ? res() : rej(new Error('copy-failed'));
+  });
+}
+function copyText(t) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(t).catch(() => fallbackCopy(t));
+  }
+  return fallbackCopy(t);
+}
+function flashCopy(el, ok, label) {
+  clearTimeout(el._t);
+  if (el.classList.contains('cnj-copy')) {
+    el.setAttribute('data-tip', ok ? label : 'Não foi possível copiar — selecione e use Ctrl+C');
+    el.classList.toggle('ok', ok); el.classList.add('show');
+    el._t = setTimeout(() => { el.classList.remove('ok', 'show'); }, 2000);
+  } else {
+    if (!el._orig) el._orig = el.innerHTML;
+    el.innerHTML = ic(ok ? 'check' : 'x') + '<span>' + (ok ? label : 'Falhou') + '</span>';
+    el.classList.toggle('ok', ok);
+    el._t = setTimeout(() => { el.innerHTML = el._orig; el._orig = null; el.classList.remove('ok'); }, 2000);
+  }
+}
+function doCopy(btn, shift) {
+  const holder = btn.closest('.cnj');
+  const cnj = btn.dataset.cnj || (holder && holder.querySelector('.cnj-n').dataset.cnj);
+  const dig = shift || btn.dataset.mode === 'digits';
+  const txt = dig ? digits(cnj) : cnj;
+  copyText(txt).then(() => {
+    flashCopy(btn, true, dig ? 'Só dígitos copiados' : 'Copiado');
+    $('#live').textContent = (dig ? 'Dígitos copiados: ' : 'Número copiado: ') + txt;
+  }, () => {
+    flashCopy(btn, false);
+    const n = holder && holder.querySelector('.cnj-n');
+    if (n) { const r = document.createRange(); r.selectNodeContents(n); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  });
+}
+
+/* ======================= próximo prazo / status da frente ======================= */
+const abertos = f => f.itens.filter(i => !S.done[f.id + ':' + i.id]);
+function proximo(f) {
+  const a = abertos(f).map(i => ({ i, n: dias(i.data) })).sort((x, y) => x.n - y.n);
+  return a[0] || null;
+}
+function dotCls(f) { const p = proximo(f); if (!p) return 'grn'; return p.n <= 2 ? 'red' : p.n <= 7 ? 'org' : 'grn'; }
+const DOT_T = { red: 'Vencido ou em até 2 dias', org: 'Prazo em até 7 dias', grn: 'Sem urgência' };
+
+/* ======================= lista (mestre) ======================= */
+function match(f, q) {
+  if (!q) return true;
+  const hay = norm([f.tipo, KIND[f.tipo], f.classe, f.cnj, digits(f.cnj), f.juizo, f.jab, f.fase, f.vl, f.badge, f.sis].join(' '));
+  return norm(q).split(/\s+/).filter(Boolean).every(t => hay.indexOf(t) >= 0);
+}
+function row(f, o) {
+  const p = proximo(f);
+  const pill = p ? duePill(p.i.data, { sm: true, crit: p.i.crit && p.n <= 7 }) : '<span class="due none sm">sem pendência</span>';
+  const dc = dotCls(f);
+  const lbl = f.tipo + ' ' + short(f.cnj) + ', ' + f.jab + ', fase ' + f.fase + (p ? ', próximo: ' + quando(p.n) : ', sem pendência');
+  return '<div class="row ' + (o.root ? 'root' : 'kid') + (o.last ? ' last' : '') + (o.ctx ? ' ctx' : '') + (f.id === S.sel ? ' sel' : '') +
+    '" role="option" id="opt-' + f.id + '" data-act="sel" data-id="' + f.id + '" aria-selected="' + (f.id === S.sel) + '" aria-label="' + esc(lbl) + '" title="' + esc(f.cnj) + '">' +
+    '<div class="r1">' + kind(f.tipo) + '<span class="r-cnj">' + short(f.cnj) + '</span><i class="dot ' + dc + '" title="' + DOT_T[dc] + '"></i><span class="sp"></span>' + pill + '</div>' +
+    '<div class="r2">' + esc(f.jab) + '</div>' +
+    '<div class="r3"><span class="selo">' + esc(f.fase) + '</span><span class="vinc">' + esc(f.vl) + '</span></div></div>';
+}
+function renderLista() {
+  const q = S.q.trim();
+  let html = '', vis = [], total = 0;
+  F.filter(f => !f.pai).forEach(r => {
+    const kids = F.filter(f => f.pai === r.id);
+    const rm = match(r, q), km = kids.filter(k => match(k, q));
+    if (!rm && !km.length) return;
+    html += row(r, { root: true, ctx: !rm }); vis.push(r.id);
+    if (rm) total++;
+    km.forEach((k, i) => { html += row(k, { last: i === km.length - 1 }); vis.push(k.id); total++; });
+  });
+  if (!vis.length) html = '<div class="empty-l"><b>Nenhuma frente encontrada</b>Tente o número do processo, o tipo (EF, IDPJ, AI) ou o juízo.<br><button class="btn sm" style="margin-top:10px" data-act="q-clear">Limpar filtro</button></div>';
+  S.vis = vis;
+  const el = $('#lista');
+  el.innerHTML = html;
+  $('#q-res').textContent = q ? total + ' de ' + F.length + ' frentes' : F.length + ' de ' + F.length + ' frentes';
+  $('#fld').classList.toggle('has', !!q);
+  const selEl = $('#opt-' + S.sel);
+  if (selEl) el.setAttribute('aria-activedescendant', 'opt-' + S.sel); else el.removeAttribute('aria-activedescendant');
+  ensureVisible(el, selEl);
+}
+function selecionar(id, o) {
+  o = o || {};
+  if (!byId(id)) return;
+  const mudou = id !== S.sel;
+  S.sel = id;
+  if (S.compose && S.compose.where === 'capa') S.compose = null;
+  renderLista();
+  if (mudou || o.force) renderCapa(true);
+  if (o.focusList) $('#lista').focus({ preventScroll: true });
+}
+
+/* ======================= capa (detalhe) ======================= */
+function headHTML(f) {
+  const pai = f.pai ? byId(f.pai) : null;
+  return '<header class="cp-head">' +
+    '<div class="cp-l1">' + kind(f.tipo, true) + '<h3 class="cp-classe">' + esc(f.classe) + '</h3>' +
+      '<span class="selo lg" title="Fase atual"><i>Fase</i> ' + esc(f.fase) + '</span>' +
+      '<span class="vb" title="' + esc(pai ? 'Vínculo com ' + pai.cnj : 'Frente raiz da árvore') + '">' + (pai ? ic('corner', 'sm') + ' ' : '') + esc(f.badge) + '</span>' +
+      '<span class="sp"></span><span class="sis" title="Inferido dos dígitos J.TR do número CNJ (4.04)">' + esc(f.sis) + '</span></div>' +
+    '<div class="cp-l2"><span class="cnj lg"><span class="cnj-n" data-cnj="' + f.cnj + '" title="Clique para selecionar o número inteiro">' + cnjParts(f.cnj) + '</span></span>' +
+      '<div class="cp-btns">' +
+        '<button class="btn" data-act="copy" data-cnj="' + f.cnj + '" data-mode="mask" title="Copiar o número com máscara">' + ic('copy') + '<span>Copiar</span></button>' +
+        '<button class="btn" data-act="copy" data-cnj="' + f.cnj + '" data-mode="digits" title="Copiar só os 20 dígitos, sem pontos e traço">' + ic('hash') + '<span>Só dígitos</span></button>' +
+        '<a class="btn" href="#" data-act="eproc" title="Abrir este processo no eproc (' + esc(f.sis) + ')">' + ic('ext') + '<span>Abrir no eproc</span></a>' +
+      '</div></div></header>';
+}
+function metaHTML(f) {
+  const links = f.rel.map(id => {
+    const r = byId(id);
+    return '<button class="lk" data-act="sel" data-id="' + id + '" title="' + esc(r.classe + ' · ' + r.cnj) + '">' + kind(r.tipo) + short(r.cnj) + '</button>';
+  }).join('');
+  const cdas = f.cdas
+    ? f.cdas.map(c => '<div class="cda"><span class="num">' + c.n + '</span><span>' + c.t + '</span><span class="mono">' + c.v + '</span>' + (c.tag ? '<span class="tg ' + c.tag[0] + '">' + c.tag[1] + '</span>' : '') + '</div>').join('')
+    : '<div class="v">' + esc(f.cdasTxt) + '</div>';
+  const dc = dotCls(f);
+  return '<div class="meta">' +
+    '<div class="c"><div class="k">Juízo</div><div class="v">' + esc(f.juizo) + '</div></div>' +
+    '<div class="c"><div class="k">Relação</div><div class="v">' + esc(f.relTxt) + '</div><div class="rlinks">' + links + '</div></div>' +
+    '<div class="c"><div class="k">Polo passivo</div><div class="v">' + esc(f.polo) + '</div></div>' +
+    '<div class="c"><div class="k">Valor</div><div class="big">' + esc(f.valor) + '</div><div class="sub">' + esc(f.vnota) + '</div></div>' +
+    '<div class="c"><div class="k">CDAs</div>' + cdas + '</div>' +
+    '<div class="c"><div class="k">Situação</div><div class="stt"><i class="dot ' + dc + '" title="' + DOT_T[dc] + '"></i><div class="v">' + esc(f.status) + '</div></div></div>' +
+    '</div>';
+}
+function reguaHTML(f) {
+  return '<section class="sec" style="margin-top:12px"><h4 class="sr">Fases do processo</h4>' +
+    '<ol class="ruler" title="Processo fiscal não é linear: a lista mostra só a fase atual como selo; a régua completa fica aqui, no detalhe">' + f.regua.map(s => '<li class="rs ' + s.st + '"' + (s.st === 'cur' ? ' aria-current="step"' : '') + '><span class="rdw"><span class="rd"></span></span><span class="rn">' + esc(s.n) + '</span>' + (s.s ? '<span class="rsub">' + esc(s.s) + '</span>' : '') + '</li>').join('') + '</ol></section>';
+}
+const AG_LAB = { intim: 'Intimação', tarefa: 'Tarefa', aud: 'Audiência', presc: 'Prazo extintivo' };
+const AG_IC = { intim: 'mail', tarefa: 'task', aud: 'gavel', presc: 'hourglass' };
+const AG_MSG = { 'Responder': 'Mockup: abriria o editor da resposta à intimação', 'Preparar': 'Mockup: abriria a pauta de preparação da audiência' };
+function agoraRow(f, i) {
+  const done = !!S.done[f.id + ':' + i.id];
+  const n = dias(i.data);
+  const late = n < 0 && !done;
+  const pill = done ? '<span class="due ok">' + ic('check', 'sm') + 'concluída</span>' : duePill(i.data, { hora: i.hora, crit: i.crit });
+  const acoes = i.acoes.map(a => {
+    if (a === 'Concluir') return '<button class="btn sm' + (done ? '' : ' pri') + '" data-act="concluir" data-fid="c-' + f.id + '-' + i.id + '" data-id="' + f.id + '" data-item="' + i.id + '">' + (done ? 'Reabrir' : 'Concluir') + '</button>';
+    if (a === 'Ver roteiro') return '<button class="btn sm" data-act="roteiro" data-fid="r-' + f.id + '-' + i.id + '">Ver roteiro</button>';
+    return '<button class="btn sm" data-act="toast" data-msg="' + esc(AG_MSG[a] || 'Mockup') + '">' + a + '</button>';
+  }).join('');
+  return '<div class="ag-i' + (late ? ' late' : '') + (done ? ' done' : '') + '">' +
+    '<span class="ag-ic ' + i.t + '">' + ic(AG_IC[i.t]) + '</span>' +
+    '<div><div class="ag-t">' + esc(i.titulo) + '</div><div class="ag-m"><span>' + AG_LAB[i.t] + '</span>' +
+      (i.tag ? '<span class="tg ' + i.tag[0] + '">' + esc(i.tag[1]) + '</span>' : '') + (i.meta ? '<span>' + esc(i.meta) + '</span>' : '') + '</div></div>' +
+    pill + '<div class="ag-a">' + acoes + '</div></div>';
+}
+function vazioHTML(f) {
+  const pai = byId(f.pai);
+  const ab = abertos(pai), late = ab.filter(i => dias(i.data) < 0).length;
+  const prox = proximo(pai);
+  return '<div class="empty"><span class="eic">' + ic('check') + '</span><div>' +
+    '<div class="et">Nada aberto nesta frente</div>' +
+    '<p>Esta execução está apensa à principal e acompanha os atos dela: não há intimação, tarefa, audiência nem prazo extintivo próprio.</p>' +
+    '<div class="evinc">' + ic('corner', 'sm') + '<span>apensa à</span>' + cnjChip(pai.cnj) +
+      '<button class="btn sm" data-act="sel" data-id="' + pai.id + '">Abrir a principal ' + ic('chev-r', 'sm') + '</button></div>' +
+    '<div class="eav">Na principal há <b>' + ab.length + ' itens abertos</b>' + (late ? ' (' + late + ' vencido)' : '') + (prox ? ' · o mais urgente: ' + esc(prox.i.titulo.split(' — ')[0]) + ', ' + quando(prox.n) : '') + '.</div>' +
+    '</div></div>';
+}
+function agoraHTML(f) {
+  if (!f.itens.length) return '<section class="sec"><h4 class="sec-h">Agora nesta frente <span class="cnt">0</span></h4>' + (f.pai ? vazioHTML(f) : '<div class="empty"><span class="eic">' + ic('check') + '</span><div><div class="et">Nada aberto nesta frente</div></div></div>') + '</section>';
+  const all = f.itens.slice().sort((a, b) => dias(a.data) - dias(b.data));
+  const ab = abertos(f), late = ab.filter(i => dias(i.data) < 0).length;
+  let h = '<section class="sec"><h4 class="sec-h">Agora nesta frente <span class="cnt">' + ab.length + '</span>' + (late ? '<span class="tg red">' + late + ' vencida</span>' : '') + '</h4>';
+  h += '<div class="ag">' + all.map(i => agoraRow(f, i)).join('');
+  if (f.xref) {
+    const x = byId(f.xref.id);
+    h += '<button class="ag-x" data-act="sel" data-id="' + x.id + '">' + ic('corner', 'sm') + '<span>' + esc(f.xref.tx) + '</span><span class="sp"></span>' + kind(x.tipo) + '<span class="mono">' + short(x.cnj) + '</span>' + ic('chev-r', 'sm') + '</button>';
+  }
+  h += '</div>';
+  if (f.cons) {
+    h += '<h4 class="sec-h" style="margin-top:14px">Constrições ativas <span class="cnt">' + f.cons.length + '</span><span class="sp"></span><span class="hint">R$ 962 mil indisponível</span></h4><div class="ag">' +
+      f.cons.map(c => '<div class="ag-i" style="grid-template-columns:28px minmax(0,1fr) auto"><span class="ag-ic lock">' + ic('lock') + '</span><div><div class="ag-t">' + esc(c.t) + '</div></div><span><span class="tg ' + c.tg[0] + '">' + esc(c.tg[1]) + '</span> <span class="cons-v">' + c.v + '</span></span></div>').join('') + '</div>';
+  }
+  return h + '</section>';
+}
+function ultHTML(f) {
+  const criado = !!S.reg[f.id];
+  return '<h4 class="sec-h">Último registro <span class="info" title="O modelo ainda não guarda movimentos: vem da última fase registrada ou da última intimação">i</span></h4>' +
+    '<div class="ult-c"><div class="ult-ev"><span class="mono">' + f.ult.ev + ' · ' + f.ult.d + '</span>' + esc(f.ult.tx) + '</div>' +
+    '<button class="btn sm" data-act="reg-lembrete" data-id="' + f.id + '" data-fid="reg-' + f.id + '"' + (criado ? ' disabled' : '') + ' title="Transforma este registro em um lembrete com data">' + (criado ? ic('check', 'sm') + ' Lembrete criado' : ic('plus', 'sm') + ' lembrete') + '</button></div>' +
+    '<div class="sub-h">Últimos movimentos</div><ul class="tl">' + f.trilha.map(t => '<li><span class="mono">' + t.ev + (t.d ? ' · ' + t.d : '') + '</span>' + esc(t.tx) + '</li>').join('') + '</ul>';
+}
+function menuHTML(where) {
+  return '<span class="menuwrap"><button class="btn sm" data-act="menu" data-fid="menu-' + where + '" aria-haspopup="true" aria-expanded="false">' + ic('plus', 'sm') + ' Nota</button>' +
+    '<div class="menu" role="menu" hidden>' +
+    '<button role="menuitem" data-act="nota-new" data-where="' + where + '" data-tipo="lembrete">' + ic('clock') + '<span>Lembrete<small>com data, vira pílula de prazo</small></span></button>' +
+    '<button role="menuitem" data-act="nota-new" data-where="' + where + '" data-tipo="diario">' + ic('note') + '<span>Entrada do diário<small>sem data de lembrete</small></span></button></div></span>';
+}
+function notasHTML(f) {
+  const ns = sortNotas(NOTAS.filter(n => n.exec === f.id));
+  return '<h4 class="sec-h">Notas desta frente <span class="cnt">' + ns.length + '</span><span class="sp"></span>' + menuHTML('capa') + '</h4>' +
+    (S.compose && S.compose.where === 'capa' ? composerHTML('capa', f) : '') +
+    '<div class="pi-grid">' + (ns.length ? ns.map(n => postit(n, { sm: true, where: 'capa' })).join('') :
+      '<p class="pi-empty">Nenhuma nota nesta frente ainda. Use <b>+ Nota</b> para criar um lembrete ou uma entrada do diário vinculada a este processo.</p>') + '</div>';
+}
+function renderCapa(reset) {
+  const f = byId(S.sel), el = $('#capa'), st = el.scrollTop;
+  el.innerHTML = headHTML(f) + metaHTML(f) + reguaHTML(f) + agoraHTML(f) +
+    '<div class="sec bt"><section id="sec-notas">' + notasHTML(f) + '</section><section id="sec-ult">' + ultHTML(f) + '</section></div>';
+  el.scrollTop = reset ? 0 : st;
+}
+function refreshNotasCapa() {
+  const f = byId(S.sel), e = $('#sec-notas');
+  if (e) keepFocus(() => { e.innerHTML = notasHTML(f); });
+}
+
+/* ======================= notas (post-its) ======================= */
+function rank(n) {
+  if (n.pinned) return 0;
+  if (n.kind === 'lembrete') { if (n.done) return 4; return dias(n.due) < 0 ? 1 : 2; }
+  return 3;
+}
+const dmKey = s => { const p = s.split('/'); return (+p[1]) * 100 + (+p[0]); };
+function sortNotas(a) {
+  return a.slice().sort((x, y) => {
+    const r = rank(x) - rank(y); if (r) return r;
+    if (x.kind === 'lembrete' && y.kind === 'lembrete') return dias(x.due) - dias(y.due);
+    return dmKey(y.date || '01/01') - dmKey(x.date || '01/01');
+  });
+}
+function lembPill(n) {
+  if (n.done) return '<span class="lp ok">' + ic('check', 'sm') + ' feito</span>';
+  const d = dias(n.due);
+  const cls = d < 0 ? 'red' : d <= 1 ? 'yel' : '';
+  const txt = d < 0 ? 'vencido há ' + (-d) + ' d' : d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'em ' + d + ' dias';
+  return '<span class="lp ' + cls + '">' + ic('clock', 'sm') + ' ' + n.due + ' · ' + txt + '</span>';
+}
+function postit(n, o) {
+  o = o || {};
+  const lemb = n.kind === 'lembrete';
+  const cor = lemb ? COR_LEMB[n.cor] : TIPOS[n.kind].cor;
+  const nome = lemb ? 'Lembrete' : TIPOS[n.kind].nome;
+  const f = n.exec ? byId(n.exec) : null;
+  const fid = 'n-' + n.id + '-' + (o.where || 'x');
+  return '<article class="pi ' + cor + (n.pinned ? ' pinned' : '') + (n.done ? ' done' : '') + (o.sm ? ' sm' : '') + '">' +
+    '<header class="pi-h"><span>' + nome + '</span>' + (n.pinned ? '<span class="pi-pin">· fixada</span>' : '') +
+    (lemb ? '<button class="rchk" data-act="nota-check" data-id="' + n.id + '" data-fid="' + fid + '" role="checkbox" aria-checked="' + (!!n.done) + '" aria-label="Marcar lembrete como feito">' + ic('check', 'sm') + '</button>' : '<span class="pi-d">' + n.date + '</span>') + '</header>' +
+    '<p class="pi-t">' + esc(n.text) + '</p>' +
+    '<footer class="pi-f">' + (lemb ? lembPill(n) : '') + (n.upd ? '<span class="pi-u">' + n.upd + '</span>' : '') +
+    (o.vinc && f ? '<button class="vlk" data-act="sel" data-id="' + f.id + '" data-go="1" title="' + esc(f.classe + ' · ' + f.cnj) + '">' + kind(f.tipo) + short(f.cnj) + '</button>' : '') + '</footer></article>';
+}
+const FILTROS = [['tudo', 'Tudo'], ['lembrete', 'Lembretes'], ['estrategia', 'Estratégia'], ['risco', 'Risco'], ['decisao', 'Decisão'], ['providencia', 'Providência'], ['observacao', 'Observação']];
+const passa = (n, k) => k === 'tudo' || n.kind === k;
+function renderMural() {
+  const base = NOTAS.filter(n => S.incl || n.exec === null);
+  $('#mural-cnt').textContent = base.length;
+  $('#mural-pills').innerHTML = FILTROS.map(f => {
+    const c = base.filter(n => passa(n, f[0])).length;
+    return '<button class="pill' + (c ? '' : ' z') + '" data-act="mfiltro" data-k="' + f[0] + '" data-fid="pill-' + f[0] + '" aria-pressed="' + (S.mf === f[0]) + '">' + f[1] + '<span class="n">' + c + '</span></button>';
+  }).join('');
+  const list = sortNotas(base.filter(n => passa(n, S.mf)));
+  let h = (S.compose && S.compose.where === 'mural') ? composerHTML('mural', null) : '';
+  h += '<div class="pi-grid">';
+  if (list.length) h += list.map(n => postit(n, { vinc: true, where: 'mural' })).join('');
+  else {
+    const fora = NOTAS.filter(n => n.exec !== null && passa(n, S.mf)).length;
+    h += '<p class="pi-empty">Nenhuma nota deste tipo no mural geral.' + (!S.incl && fora ? ' <button data-act="mincl-on">' + (fora === 1 ? 'Incluir a nota' : 'Incluir as ' + fora + ' notas') + ' das frentes</button>' : '') + '</p>';
+  }
+  h += '<button class="pi-add" data-act="nota-new" data-where="mural" data-tipo="lembrete" data-fid="mural-add">' + ic('plus', 'sm') + ' Nova nota no mural</button></div>';
+  keepFocus(() => { $('#mural-body').innerHTML = h; });
+}
+function composerHTML(where, f) {
+  const t = S.compose.tipo;
+  const ctx = f ? 'Vinculada a ' + kind(f.tipo) + ' ' + short(f.cnj) : 'Sem vínculo: fica no mural geral';
+  return '<form class="cmp" data-where="' + where + '" data-tipo="' + t + '" novalidate onsubmit="return false">' +
+    '<div class="cmp-r"><div class="seg" role="group" aria-label="Tipo da nota">' +
+      '<button type="button" data-act="cmp-tipo" data-tipo="lembrete" aria-pressed="' + (t === 'lembrete') + '">Lembrete</button>' +
+      '<button type="button" data-act="cmp-tipo" data-tipo="diario" aria-pressed="' + (t === 'diario') + '">Entrada do diário</button></div>' +
+      '<span class="cmp-ctx">' + ctx + '</span></div>' +
+    '<textarea class="cmp-ta" rows="2" placeholder="Escreva a nota…" aria-label="Texto da nota"></textarea>' +
+    '<div class="cmp-r"><label class="only-lemb">Lembrar em <input type="date" class="cmp-date" value="2026-10-10" min="2026-10-08"></label>' +
+      '<label class="only-diario">Tipo <select class="cmp-sel"><option value="estrategia">Estratégia</option><option value="risco">Risco</option><option value="decisao">Decisão judicial</option><option value="providencia">Providência</option><option value="observacao" selected>Observação</option></select></label>' +
+      '<span class="sp"></span><button type="button" class="btn sm" data-act="cmp-cancel">Cancelar</button><button type="button" class="btn sm pri" data-act="cmp-save">Salvar nota</button></div></form>';
+}
+function openCompose(where, tipo) {
+  S.compose = { where, tipo };
+  if (where === 'capa') refreshNotasCapa(); else renderMural();
+  const ta = $('#' + (where === 'capa' ? 'sec-notas' : 'mural-body') + ' .cmp-ta');
+  if (ta) ta.focus();
+}
+function closeCompose() {
+  const w = S.compose && S.compose.where; S.compose = null;
+  if (w === 'capa') refreshNotasCapa(); else if (w === 'mural') renderMural();
+}
+function saveCompose(form) {
+  const where = form.dataset.where, tipo = form.dataset.tipo;
+  const ta = form.querySelector('.cmp-ta'), txt = ta.value.trim();
+  if (!txt) { ta.focus(); toast('Escreva o texto da nota antes de salvar'); return; }
+  const exec = where === 'capa' ? S.sel : null;
+  const id = 'u' + Date.now();
+  if (tipo === 'lembrete') {
+    const v = form.querySelector('.cmp-date').value || '2026-10-10', p = v.split('-');
+    NOTAS.push({ id, exec, kind: 'lembrete', cor: 'amarelo', due: p[0] === '2026' ? p[2] + '/' + p[1] : p[2] + '/' + p[1] + '/' + p[0], text: txt });
+  } else {
+    NOTAS.push({ id, exec, kind: form.querySelector('.cmp-sel').value, date: '08/10', text: txt });
+  }
+  S.compose = null; S.mf = 'tudo';
+  if (exec) refreshNotasCapa();
+  renderMural();
+  toast(exec ? 'Nota salva e vinculada a esta frente' : 'Nota salva no mural geral');
+}
+
+/* ======================= faixa de resumos + gaveta ======================= */
+const chkTot = () => { let a = 0, b = 0; CHK.forEach(g => g.it.forEach(i => { b++; if (i.ok) a++; })); return [a, b]; };
+const DR = {
+  prazos: { t: 'Prazos extintivos', short: 'Prazos', ic: 'hourglass', v: () => '1 exige decisão', alert: true },
+  vem: { t: 'O que vem', short: 'O que vem', ic: 'cal', v: () => VEM.length + ' em 30 dias' },
+  chk: { t: 'Checklists', short: 'Checklists', ic: 'list', v: () => chkTot()[0] + '/' + chkTot()[1] + ' itens' },
+  fontes: { t: 'Fontes', short: 'Fontes', ic: 'doc', v: () => FONTES.length + ' documentos' },
+  atu: { t: 'Atuações recentes', short: 'Atuações', ic: 'clock', v: () => ATU.length + ' recentes' }
+};
+function renderBand() {
+  $('#band').innerHTML = Object.keys(DR).map(k => {
+    const d = DR[k];
+    return '<button class="chipw' + (d.alert ? ' alert' : '') + '" data-act="drawer" data-k="' + k + '" data-fid="band-' + k + '" aria-haspopup="dialog" aria-expanded="' + (S.drawer === k) + '">' +
+      '<span class="ci">' + ic(d.ic) + '</span><span class="tx"><span class="ct">' + d.t + '</span><span class="cv">' + d.v() + '</span></span><span class="go">' + ic('chev-r') + '</span></button>';
+  }).join('');
+}
+function frenteChip(id) {
+  const f = byId(id);
+  return '<button class="lk" data-act="ir" data-id="' + id + '" title="' + esc(f.classe + ' · ' + f.cnj) + '">' + kind(f.tipo) + short(f.cnj) + '</button>';
+}
+function drPrazos() {
+  const f = byId('ex-1');
+  return '<div class="dc crit"><div class="dc-h"><span class="ag-ic presc">' + ic('hourglass') + '</span><div class="tx"><div class="dc-t">CDA 000123 · IRPJ</div><div class="dc-s">R$ 1.250.000,00 · exige decisão</div></div>' + duePill('14/10', { crit: true }) + '</div>' +
+    '<p>Confirmar o marco interruptivo (citação, Ev. 9) antes da manifestação sobre a exceção de pré-executividade, cujo prazo vence em 13/10.</p>' +
+    '<div class="dc-a">' + cnjChip(f.cnj) + '</div>' +
+    '<div class="dc-a"><button class="btn sm pri" data-act="ir" data-id="ex-1">Abrir a EF na mesa</button><button class="btn sm" data-act="toast" data-msg="Mockup: abriria o roteiro de verificação da prescrição">Ver roteiro</button></div></div>' +
+    '<p class="dmuted">Demais CDAs da operação (000124, 000125 e 000129): sem prazo extintivo nos próximos 90 dias.</p>';
+}
+function drVem() {
+  return VEM.map(g => '<div class="vem-d">' + duePill(g.d, { hora: g.hora }) + '</div>' + g.it.map(i =>
+    '<div class="vem-i"><span class="ag-ic ' + i.t + '">' + ic(AG_IC[i.t]) + '</span><div class="tx">' + esc(i.tx) + '<div class="dmuted">' + AG_LAB[i.t] + '</div></div>' + frenteChip(i.f) + '</div>').join('')).join('') +
+    '<p class="dmuted" style="margin-top:14px">Sem processo: 15/10 · Mapear quotas Norte Prime (tarefa da operação), que aparece no Mural geral.</p>';
+}
+function drChk() {
+  return CHK.map((g, gi) => {
+    const a = g.it.filter(i => i.ok).length;
+    return '<div class="chk-g"><div class="chk-gh"><span>' + esc(g.nome) + '</span><span class="cnt">' + a + '/' + g.it.length + '</span></div>' +
+      '<div class="bar"><i style="width:' + Math.round(a / g.it.length * 100) + '%"></i></div>' +
+      g.it.map((i, ii) => '<label class="chk-i' + (i.ok ? ' on' : '') + '"><input type="checkbox" data-act="chk" data-g="' + gi + '" data-i="' + ii + '" data-fid="chk-' + gi + '-' + ii + '"' + (i.ok ? ' checked' : '') + '><span>' + esc(i.t) + '</span></label>').join('') + '</div>';
+  }).join('');
+}
+function drFontes() {
+  return FONTES.map(f => '<a class="src" href="#" data-act="toast" data-msg="Mockup: abriria o documento no Google Docs">' + '<span class="ag-ic intim">' + ic('doc') + '</span><span class="tx">' + esc(f.t) + '<small>' + f.s + '</small></span>' + ic('ext', 'sm') + '</a>').join('');
+}
+function drAtu() {
+  return ATU.map(a => '<div class="vem-i"><span class="mono dmuted" style="width:42px;padding-top:2px">' + a.d + '</span><div class="tx">' + esc(a.tx) + '</div>' + (a.f ? frenteChip(a.f) : '<span class="tg">Operação</span>') + '</div>').join('');
+}
+const DR_FN = { prazos: drPrazos, vem: drVem, chk: drChk, fontes: drFontes, atu: drAtu };
+function renderDrawer() {
+  const k = S.drawer, d = DR[k];
+  $('#dr-t').textContent = d.t;
+  $('#dr-ic').innerHTML = '<use href="#i-' + d.ic + '"/>';
+  $('#dr-tabs').innerHTML = Object.keys(DR).map(x => '<button class="pill" role="tab" data-act="dtab" data-k="' + x + '" data-fid="dtab-' + x + '" aria-selected="' + (x === k) + '" aria-pressed="' + (x === k) + '">' + DR[x].short + '</button>').join('');
+  $('#dr-b').innerHTML = DR_FN[k]();
+}
+let drOpener = null;
+function openDrawer(k, opener) {
+  if (!S.drawer) drOpener = opener || document.activeElement;
+  S.drawer = k;
+  keepFocus(renderDrawer);
+  $('#ov').classList.add('on'); $('#dr').classList.add('on'); $('#dr').setAttribute('aria-hidden', 'false');
+  try { $('#page').inert = true; } catch (e) {}
+  renderBand();
+  if (!document.activeElement || !$('#dr').contains(document.activeElement)) setTimeout(() => $('#dr-close').focus(), 30);
+}
+function closeDrawer() {
+  if (!S.drawer) return;
+  S.drawer = null;
+  $('#ov').classList.remove('on'); $('#dr').classList.remove('on'); $('#dr').setAttribute('aria-hidden', 'true');
+  try { $('#page').inert = false; } catch (e) {}
+  renderBand();
+  const fid = drOpener && drOpener.getAttribute ? drOpener.getAttribute('data-fid') : null;
+  const el = fid ? document.querySelector('[data-fid="' + fid + '"]') : (drOpener && drOpener.isConnected ? drOpener : null);
+  if (el) el.focus({ preventScroll: true });
+  drOpener = null;
+}
+
+/* ======================= menus ======================= */
+function closeMenus() {
+  $$('.menu').forEach(m => {
+    if (!m.hidden) { m.hidden = true; const b = m.parentNode.querySelector('[data-act="menu"]'); if (b) b.setAttribute('aria-expanded', 'false'); }
+  });
+}
+function toggleMenu(btn) {
+  const m = btn.parentNode.querySelector('.menu'), abrir = m.hidden;
+  closeMenus();
+  if (abrir) { m.hidden = false; btn.setAttribute('aria-expanded', 'true'); const first = m.querySelector('button'); if (first) first.focus(); }
+}
+
+/* ======================= eventos ======================= */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) { closeMenus(); return; }
+  const act = t.dataset.act;
+  if (act !== 'menu') closeMenus();
+  switch (act) {
+    case 'sel':
+      if (S.drawer) closeDrawer();
+      selecionar(t.dataset.id, { focusList: !t.dataset.go && t.classList.contains('row') });
+      if (t.dataset.go) scrollMesa();
+      break;
+    case 'ir':
+      closeDrawer(); selecionar(t.dataset.id); scrollMesa(); break;
+    case 'copy': e.preventDefault(); doCopy(t, e.shiftKey); break;
+    case 'eproc': e.preventDefault(); toast('Mockup: abriria o processo no eproc do TRF4 em nova aba'); break;
+    case 'toast': e.preventDefault(); toast(t.dataset.msg); break;
+    case 'tab': toast('Mockup: só a Visão geral está desenhada nesta ideia'); break;
+    case 'roteiro': openDrawer('prazos', t); break;
+    case 'drawer': openDrawer(t.dataset.k, t); break;
+    case 'dtab': openDrawer(t.dataset.k); break;
+    case 'dclose': closeDrawer(); break;
+    case 'q-clear': limparFiltro(); break;
+    case 'concluir': {
+      const key = t.dataset.id + ':' + t.dataset.item;
+      S.done[key] = !S.done[key];
+      keepFocus(() => { renderCapa(false); }); renderLista();
+      toast(S.done[key] ? 'Marcada como concluída (só no mockup)' : 'Reaberta');
+      break;
+    }
+    case 'menu': toggleMenu(t); break;
+    case 'nota-new': openCompose(t.dataset.where, t.dataset.tipo); break;
+    case 'cmp-tipo': {
+      const form = t.closest('form'); form.dataset.tipo = t.dataset.tipo;
+      if (S.compose) S.compose.tipo = t.dataset.tipo;
+      $$('.seg button', form).forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+      break;
+    }
+    case 'cmp-cancel': closeCompose(); break;
+    case 'cmp-save': saveCompose(t.closest('form')); break;
+    case 'nota-check': {
+      const n = NOTAS.find(x => x.id === t.dataset.id); n.done = !n.done;
+      refreshNotasCapa(); renderMural(); break;
+    }
+    case 'mfiltro': S.mf = t.dataset.k; renderMural(); break;
+    case 'mincl-on': S.incl = true; $('#mural-incl').checked = true; renderMural(); break;
+    case 'reg-lembrete': {
+      const f = byId(t.dataset.id);
+      if (S.reg[f.id]) break;
+      S.reg[f.id] = true;
+      NOTAS.push({ id: 'r-' + f.id, exec: f.id, kind: 'lembrete', cor: 'amarelo', due: '10/10', text: 'Acompanhar: ' + f.ult.tx + ' (' + f.ult.ev + ', ' + f.ult.d + ').' });
+      refreshNotasCapa(); renderMural();
+      const sec = $('#sec-ult'); keepFocus(() => { sec.innerHTML = ultHTML(f); });
+      toast('Lembrete criado em "Notas desta frente" para 10/10');
+      break;
+    }
+    case 'chk':
+      if (t.tagName === 'INPUT') {
+        CHK[+t.dataset.g].it[+t.dataset.i].ok = t.checked;
+        keepFocus(renderDrawer); renderBand();
+      }
+      break;
+  }
+});
+
+$('#mural-incl').addEventListener('change', e => { S.incl = e.target.checked; renderMural(); });
+
+const q = $('#q');
+function limparFiltro() { q.value = ''; S.q = ''; renderLista(); q.focus(); }
+q.addEventListener('input', () => { S.q = q.value; renderLista(); });
+q.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); limparFiltro(); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); $('#lista').focus(); }
+});
+$('#q-clr').addEventListener('click', limparFiltro);
+
+$('#lista').addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End') {
+    e.preventDefault();
+    if (!S.vis.length) return;
+    const i = S.vis.indexOf(S.sel);
+    let j;
+    if (k === 'Home') j = 0; else if (k === 'End') j = S.vis.length - 1;
+    else j = Math.min(S.vis.length - 1, Math.max(0, (i < 0 ? (k === 'ArrowDown' ? -1 : S.vis.length) : i) + (k === 'ArrowDown' ? 1 : -1)));
+    selecionar(S.vis[j]);
+  } else if (k === 'Enter') { e.preventDefault(); $('#capa').focus(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (S.drawer) { e.preventDefault(); closeDrawer(); return; }
+    if ($$('.menu').some(m => !m.hidden)) { const b = $$('.menu').filter(m => !m.hidden)[0].parentNode.querySelector('[data-act="menu"]'); closeMenus(); if (b) b.focus(); return; }
+  }
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && !S.drawer) { e.preventDefault(); q.focus(); }
+  if (e.key === 'Tab' && S.drawer) {
+    const f = $$('button, a[href], input, [tabindex="0"]', $('#dr')).filter(x => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+$('#ov').addEventListener('click', closeDrawer);
+
+/* ======================= início ======================= */
+renderLista();
+renderCapa(true);
+renderMural();
+renderBand();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="claro" data-pf="geist">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Card de intimação · B · Rodada 2 · Colunas extremas</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═════════════ Tokens do app (src/Nexus.shell.html ~3907 · tema claro "Ardósia" e tema escuro "Noite") ═════════════ */
+:root, html[data-theme="claro"] {
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-opc-parcel: #2d62d3; --cx-opc-maxima: #c2323d; --cx-opc-alta: #e0707a; --cx-opc-media: #c99a1a; --cx-opc-baixa: #21845a; --cx-opc-none: #8b919c;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-shadow-lg: 0 24px 64px rgba(20,24,32,0.22);
+  --cx-on-solid: #ffffff;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+html[data-theme="escuro"] {
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --cx-ground: #121a25; --cx-panel: #0d1521; --cx-surface: #18202c; --cx-surface-2: #1e2633; --cx-hover: #252e3a;
+  --cx-line: #2d3645; --cx-line-strong: #404a59;
+  --cx-ink: #e6ecf6; --cx-ink-2: #b0b9c5; --cx-ink-3: #939ca9;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #dee4ec; --cx-btn-ink: #0d1521;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #757d88;
+  --cx-shadow: 0 1px 2px rgba(3,8,16,0.40), 0 6px 20px rgba(3,8,16,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(3,8,16,0.65);
+  --cx-on-solid: #0d1521;
+  color-scheme: dark;
+}
+/* Tokens NOVOS desta proposta (todos derivados dos tokens do app; nenhuma cor nova) */
+:root {
+  --mini: color-mix(in srgb, var(--cx-ink-3) 68%, var(--cx-ink));            /* texto miúdo legível (≥ 4,5:1); --cx-ink-3 puro dá ~3,9:1 */
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 5.5%, transparent);        /* faixa da zona "Minhas notas" */
+  --zone-edge: color-mix(in srgb, var(--cx-accent) 34%, var(--cx-line));      /* fio da zona "Minhas notas" */
+  --emb-warn: color-mix(in srgb, var(--cx-yellow) 78%, var(--cx-ink));        /* âmbar com contraste para 10,5px */
+  --emb-today: color-mix(in srgb, var(--cx-orange) 86%, var(--cx-ink));       /* laranja forte do "HOJE" */
+}
+
+/* ═════════════ Página do mockup (não faz parte do app) ═════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--cx-ground); }
+body { font-family: var(--cx-font); font-size: 13px; line-height: 1.5; color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
+a { color: inherit; }
+.doc { padding: 28px 40px 120px; }
+.prose { max-width: 1180px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cx-accent); }
+.doc h1 { font-size: 27px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--cx-ink-2); margin-top: 10px; line-height: 1.6; max-width: 980px; }
+.doc h2 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 46px 0 6px; padding-top: 22px; border-top: 1px solid var(--cx-line); }
+.doc h2 .n { font: 500 12px var(--cx-mono); color: var(--mini); margin-right: 8px; }
+.doc h3 { font-size: 13.5px; font-weight: 600; margin: 24px 0 8px; }
+.sub { color: var(--cx-ink-2); max-width: 980px; margin-bottom: 14px; }
+.muted { color: var(--mini); }
+.mono { font-family: var(--cx-mono); }
+code, .code { font-family: var(--cx-mono); font-size: 12px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; }
+pre { max-width: 1280px; font-family: var(--cx-mono); font-size: 12px; line-height: 1.55; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 9px; padding: 13px 16px; overflow-x: auto; color: var(--cx-ink); white-space: pre; tab-size: 2; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .c { color: var(--mini); }
+.bar { position: sticky; top: 0; z-index: 50; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 40px; margin: 0 -40px 0; background: color-mix(in srgb, var(--cx-ground) 90%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--cx-line); }
+.bar .sp { flex: 1; }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; }
+.nav a { font-size: 12px; color: var(--cx-ink-2); text-decoration: none; padding: 3px 8px; border-radius: 5px; }
+.nav a:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.nav a:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+h2[id] { scroll-margin-top: 56px; }
+.seg { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); gap: 1px; }
+.seg button { height: 24px; padding: 0 10px; border-radius: 5px; color: var(--cx-ink-3); font-size: 12px; white-space: nowrap; }
+.seg button:hover { color: var(--cx-ink); }
+.seg button.on { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 0 0 1px var(--cx-line), 0 1px 2px rgba(0,0,0,0.08); font-weight: 500; }
+.seg button:focus-visible, .cx-it:focus-visible, .cx-i-row:focus-visible, .cx-op-tag:focus-visible, .cx-proc-copy:focus-visible, .cx-doc-ic:focus-visible, .cx-grp:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+.cap { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; font-size: 12px; color: var(--mini); flex-wrap: wrap; }
+.cap b { color: var(--cx-ink); font-weight: 600; font-size: 12.5px; }
+.cap .mono { font-size: 11.5px; }
+.fw { overflow-x: auto; padding-bottom: 6px; }
+.fz { width: max-content; }
+.callouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 8px 22px; margin-top: 12px; max-width: 1500px; }
+.callouts div { font-size: 12.5px; color: var(--cx-ink-2); display: flex; gap: 8px; }
+.callouts i { flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--cx-red); color: var(--cx-on-solid); font: 700 10px/17px var(--cx-mono); text-align: center; font-style: normal; margin-top: 1px; }
+.callouts.good i { background: var(--cx-green); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1180px; }
+.card { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 14px 16px; }
+.card h4 { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.card p, .card li { color: var(--cx-ink-2); font-size: 12.5px; }
+.card ul { padding-left: 17px; }
+.card li + li { margin-top: 3px; }
+table.t { width: 100%; max-width: 1280px; border-collapse: collapse; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; font-size: 12.5px; }
+table.t th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mini); padding: 9px 12px; border-bottom: 1px solid var(--cx-line); background: var(--cx-surface-2); }
+table.t td { padding: 9px 12px; border-bottom: 1px solid var(--cx-line); vertical-align: top; color: var(--cx-ink-2); }
+table.t tr:last-child td { border-bottom: 0; }
+table.t td:first-child { color: var(--cx-ink); font-weight: 500; white-space: nowrap; }
+.pill { display: inline-block; font: 600 10px/1 var(--cx-mono); letter-spacing: .04em; padding: 3px 5px; border-radius: 3px; background: var(--cx-surface-2); border: 1px solid var(--cx-line); color: var(--cx-ink-2); }
+.sample { width: 196px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 8px 12px 8px 4px; display: grid; }
+.sample .cx-it-pz, .sample .cx-it-pe { grid-area: auto; padding: 0; }
+.sample .cx-it-pe { margin-top: 2px; }
+.tsample { width: 640px; max-width: 100%; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 8px; padding: 0 0; display: block; }
+.tsample .cx-it-tr { border-left: 0; padding: 9px 18px; grid-area: auto; }
+#leg-teor td:nth-child(3) { width: 660px; }
+.annot { position: relative; }
+.annot .pin { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--cx-accent); color: var(--cx-on-solid); font: 700 9.5px/16px var(--cx-mono); text-align: center; z-index: 3; box-shadow: 0 0 0 2px var(--cx-surface); pointer-events: none; }
+/* Esquemas de anatomia */
+.wfs { display: grid; grid-template-columns: 1.55fr 1fr .52fr; gap: 18px; max-width: 1500px; align-items: start; }
+.wf { display: grid; gap: 0; border: 1px solid var(--cx-line-strong); border-radius: 8px; background: var(--cx-surface); overflow: hidden; font-size: 11px; color: var(--cx-ink-2); }
+.wf > span { padding: 8px 9px; border-left: 1px solid var(--cx-line); line-height: 1.35; }
+.wf > span:first-child { border-left: 0; }
+.wf small { display: block; color: var(--mini); font-size: 10px; }
+.wf b { font-weight: 600; color: var(--cx-ink); }
+.wf .nt { background: var(--zone-tint); border-left-color: var(--zone-edge); }
+.wf-wide { grid-template-columns: 24px 1.35fr 1.7fr 1.25fr .9fr; }
+.wf-mid { grid-template-columns: 24px 1fr 1.4fr .75fr; grid-template-areas: "s i t p" "s i n p"; }
+.wf-mid .s { grid-area: s } .wf-mid .i { grid-area: i } .wf-mid .t { grid-area: t } .wf-mid .n { grid-area: n; border-left: 1px solid var(--zone-edge); border-top: 1px dashed var(--zone-edge); } .wf-mid .p { grid-area: p }
+.wf-mob { grid-template-columns: 1fr 1fr; }
+.wf-mob > span { border-left: 0; border-top: 1px solid var(--cx-line); }
+.wf-mob > span:nth-child(-n+2) { border-top: 0; }
+.wf-mob > span:nth-child(2) { text-align: right; border-left: 1px solid var(--cx-line); }
+.wf-mob > span:nth-child(n+3) { grid-column: 1 / -1; }
+.wf-mob .nt { border-top-color: var(--zone-edge); }
+.wfl { font-size: 11.5px; color: var(--mini); margin-bottom: 5px; }
+.wfl b { color: var(--cx-ink); font-weight: 600; }
+.ok { color: var(--cx-green); font-weight: 600; }
+.bad { color: var(--cx-red); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: 1180px; margin: 12px 0 4px; }
+.kpi { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px 14px; }
+.kpi .v { font: 600 22px var(--cx-mono); letter-spacing: -.02em; }
+.kpi .l { font-size: 11.5px; color: var(--mini); margin-top: 2px; }
+.kpi .d { font-size: 11.5px; color: var(--cx-ink-2); margin-top: 4px; }
+@media (max-width: 1100px) { .two, .wfs, .kpis { grid-template-columns: 1fr; } }
+
+/* ═════════════ Peças do app (copiadas de src/Nexus.shell.html, mesmos nomes) ═════════════ */
+.cx { font-family: var(--cx-font); font-size: 13px; line-height: 1.45; color: var(--cx-ink); }
+.cx-i { flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.cx-mono { font-family: var(--cx-mono); letter-spacing: -0.01em; }
+.cx-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cx-muted { color: var(--cx-ink-3); }
+.cx-n { font: 500 10.5px var(--cx-mono); color: var(--cx-ink-3); }
+.cx-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.cx-op-sq { width: 9px; height: 9px; border-radius: 3px; flex: none; display: inline-block; }
+.cx-list { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; overflow: hidden; }
+.cx-grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); text-align: left; color: var(--cx-ink); font-weight: 500; cursor: pointer; }
+.cx-caret { color: var(--cx-ink-3); display: grid; }
+.cx-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--cx-line); color: var(--cx-ink-2); white-space: nowrap; flex: none; }
+.cx-tag.blue { color: var(--cx-blue); background: var(--cx-blue-soft); border-color: transparent; }
+.cx-flag { color: var(--cx-orange); display: inline-grid; }
+.cx-op-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; min-width: 0; max-width: 100%; }
+.cx-op-tag.cx-link { cursor: pointer; border-radius: 4px; }
+.cx-op-tag.cx-link:hover { color: var(--cx-ink); text-decoration: underline; text-underline-offset: 2px; }
+.cx-proc { font-family: var(--cx-mono); font-size: 11.5px; white-space: nowrap; letter-spacing: -0.02em; color: var(--cx-ink); }
+.cx-d { color: var(--cx-ink-3); }
+.cx-uf { display: inline-block; font: 600 9.5px/1 var(--cx-mono); padding: 3px 4px; border-radius: 3px; background: var(--cx-cyan-soft); color: var(--cx-cyan); margin-right: 6px; vertical-align: 1px; letter-spacing: 0.02em; }
+.cx-urg { font: 700 9px/1 var(--cx-mono); letter-spacing: 0.06em; padding: 3px 5px; border-radius: 3px; background: var(--cx-red); color: var(--cx-on-solid); flex: none; margin-right: 6px; }
+.cx-due { font: 500 12px var(--cx-mono); white-space: nowrap; letter-spacing: -0.01em; }
+.cx-due.late { color: var(--cx-red); } .cx-due.today { color: var(--cx-orange); } .cx-due.soon { color: var(--cx-yellow); }
+.cx-due.later, .cx-due.none { color: var(--cx-ink-3); } .cx-due.done { color: var(--cx-green); }
+.cx-imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.cx-imp i { width: 3px; border-radius: 1px; background: var(--cx-line-strong); }
+.cx-imp i:nth-child(1) { height: 5px; } .cx-imp i:nth-child(2) { height: 8px; } .cx-imp i:nth-child(3) { height: 12px; }
+.cx-imp[data-v="alta"] i { background: var(--cx-red); }
+.cx-imp[data-v="normal"] i:nth-child(-n+2) { background: var(--cx-ink-2); }
+.cx-imp[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); }
+.cx-dif { display: inline-flex; gap: 2px; align-items: center; height: 12px; flex: none; }
+.cx-dif i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--cx-line-strong); }
+.cx-dif[data-v="alta"] i { background: var(--cx-orange); border-color: var(--cx-orange); }
+.cx-dif[data-v="media"] i:nth-child(-n+2) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-dif[data-v="baixa"] i:nth-child(1) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-st-ic { display: grid; place-items: center; flex: none; }
+.cx-proc-copy { display: inline-flex; align-items: center; border: none; background: transparent; padding: 0; margin: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.cx-proc-copy:hover .cx-proc { text-decoration: underline; }
+.cx-cls { font-size: 11px; color: var(--cx-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-sub { font: 400 10.5px var(--cx-mono); color: var(--cx-ink-3); white-space: nowrap; }
+.cx-doc-ic { flex: none; display: inline-flex; border-radius: 3px; }
+.cx-obj-undef { color: var(--cx-ink-3); font-style: italic; }
+.cx-est-prog { display: inline-flex; gap: 2px; vertical-align: middle; flex: none; }
+.cx-est-prog.sm i { width: 11px; height: 4px; border-radius: 2px; background: var(--cx-line); display: block; }
+.cx-est-prog i.d { background: var(--cx-green); } .cx-est-prog i.n { background: var(--cx-blue); }
+.cx-i-est { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--cx-ink-2); margin-top: 2px; min-width: 0; }
+.cx-i-est b { font-weight: 500; color: var(--cx-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── ANTES: linha atual (CSS idêntico ao do app, escopado em .old) ─── */
+.old .cx-list-h, .old .cx-i-row { display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1fr) 24px 34px 44px 96px; column-gap: 14px; }
+.old .cx-list-h { padding: 8px 14px; font-size: 11px; color: var(--cx-ink-3); border-bottom: 1px solid var(--cx-line); }
+.old .cx-list-h .r { text-align: right; }
+.old .cx-list-h + .cx-grp { border-top: 0; }
+.old .cx-i-row { position: relative; align-items: center; min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.old .cx-i-row:hover { background: var(--cx-hover); }
+.old .cx-i-row.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.old .cx-i-row.done { opacity: 0.78; }
+.old .cx-i-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.old .cx-i-party { display: flex; align-items: center; gap: 7px; font-weight: 500; min-width: 0; }
+.old .cx-i-party .cx-urg { margin-right: 0; }
+.old .cx-i-ev { font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.old .cx-i-note { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--cx-ink-3); min-width: 0; }
+.old .cx-i-note .cx-ell { font-style: italic; }
+.old .cx-c-proc { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.old .cx-c-op { min-width: 0; display: flex; align-items: center; }
+.old .cx-c-opdoc { display: flex; align-items: center; justify-content: center; }
+.old .cx-c-imp, .old .cx-c-dif { display: flex; justify-content: center; }
+.old .cx-c-due { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+
+/* ═════════════ DEPOIS · direção B · "duas zonas" (CSS novo, prefixo cx-it) ═════════════ */
+.cx-it-list { container-type: inline-size; container-name: lst; }
+.cx-it:focus-visible { outline-offset: -2px; }
+
+/* Mapa de colunas por largura da LISTA (não da janela): o menu lateral aberto/recolhido muda a largura útil. */
+.cx-it, .cx-it-h {
+  display: grid; padding: 0 14px; column-gap: 0;
+  grid-template-columns: 18px minmax(0, 1fr) auto;                         /* celular */
+  grid-template-areas: "st id pz" "st tr tr" "st nt nt" "st pe pe";
+}
+.cx-it-h { display: none; }
+@container lst (min-width: 860px) {                                         /* ~1200: tribunal e notas empilhadas */
+  .cx-it { grid-template-columns: 18px 282px minmax(0, 1fr) 184px; grid-template-areas: "st id tr pz" "st id nt pe"; }
+  .cx-it-h { display: grid; grid-template-columns: 18px 282px minmax(0, 1fr) 184px; grid-template-areas: "st id tr pz"; }
+}
+@container lst (min-width: 1480px) {                                        /* ≥ ~1500: duas zonas lado a lado */
+  .cx-it { grid-template-columns: 18px 340px minmax(0, 1.25fr) minmax(0, 1fr) 196px; grid-template-areas: "st id tr nt pz" "st id tr nt pe"; }
+  .cx-it-h { grid-template-columns: 18px 340px minmax(0, 1.25fr) minmax(0, 1fr) 196px; grid-template-areas: "st id tr nt pz"; }
+}
+
+.cx-it { position: relative; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-it:hover { background: var(--cx-hover); }
+.cx-it.sel { background: var(--cx-accent-soft); }
+.cx-it.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.cx-it.done { opacity: 0.78; }
+
+.cx-it-st { grid-area: st; align-self: start; padding-top: 22px; }
+.cx-it-id { grid-area: id; min-width: 0; padding: 8px 16px 8px 0; display: flex; flex-direction: column; gap: 1px; }
+.cx-it-tr { grid-area: tr; min-width: 0; padding: 8px 18px; border-left: 1px solid var(--cx-line); }
+.cx-it-nt { grid-area: nt; min-width: 0; padding: 8px 18px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-it-pz { grid-area: pz; padding: 8px 0 0 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.cx-it-pe { grid-area: pe; align-self: end; padding: 0 0 8px 12px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; min-height: 23px; }
+@container lst (min-width: 860px) and (max-width: 1479.98px) {
+  .cx-it-nt { border-top: 1px dashed var(--zone-edge); padding-top: 7px; padding-bottom: 8px; }
+  .cx-it-nt.empty { display: none; }
+}
+@container lst (max-width: 859.98px) {
+  .cx-it-tr { border-left: 0; padding: 4px 0 0 0; }
+  .cx-it-nt { border-left: 2px solid var(--zone-edge); border-radius: 0 6px 6px 0; padding: 6px 10px; margin-top: 6px; }
+  .cx-it-nt.empty { display: none; }
+  .cx-it-pz { padding-top: 8px; }
+  .cx-it-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 16px; }
+  .cx-it .cx-it-party { align-items: flex-start; }
+  .cx-it-party .cx-urg { margin-top: 2px; }
+  .cx-it-cnt .du { display: none; }
+  .cx-it-pe { padding: 7px 0 9px 0; justify-content: flex-start; flex-direction: row-reverse; gap: 12px; }
+  .cx-it-pe .cx-gl { margin-right: auto; }
+}
+
+/* Identidade */
+.cx-it-opl { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; height: 13px; }
+.cx-it-op { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font: 600 10px/13px var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--mini); border-radius: 3px; }
+.cx-it-op.cx-link:hover { color: var(--cx-ink); text-decoration: underline; text-underline-offset: 2px; }
+.cx-it-op.none { font-weight: 500; }
+.cx-it-op .cx-op-sq { width: 8px; height: 8px; border-radius: 2px; }
+.cx-it-op.none .cx-op-sq { background: transparent !important; border: 1.5px dashed var(--cx-line-strong); }
+.cx-it-tags { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.cx-tag.xs { height: 16px; padding: 0 5px; font-size: 10px; border-radius: 4px; }
+.cx-it-party { display: flex; align-items: center; min-width: 0; font-weight: 500; font-size: 13px; line-height: 16px; }
+.cx-it-pc { display: flex; align-items: center; gap: 9px; min-width: 0; line-height: 15px; }
+.cx-it-pc .cx-proc-copy { flex: none; }
+.cx-it-pc .cx-cls { min-width: 0; flex: 1 1 0; font-size: 11px; color: var(--mini); }
+.cx-it-id .cx-i-est { margin-top: 1px; line-height: 15px; }
+.cx-it-id .cx-i-est .cx-muted { color: var(--mini); white-space: nowrap; }
+
+/* Zona Tribunal: o que veio de fora */
+.cx-it-obj { font-size: 12.5px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--ol, 2); line-clamp: var(--ol, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor { margin-top: 3px; padding-left: 9px; border-left: 2px solid var(--cx-line-strong); font-size: 12px; line-height: 16px; color: var(--cx-ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--tl, 2); line-clamp: var(--tl, 2); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor .lbl, .cx-it-nt .zl { font: 600 9px/1 var(--cx-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mini); margin-right: 6px; vertical-align: 1px; }
+.cx-it-teor .ia { font: 600 9px/1 var(--cx-mono); color: var(--cx-violet); margin-right: 6px; vertical-align: 1px; }
+
+/* Zona Minhas notas: o que o procurador anotou */
+.cx-it-note { position: relative; padding-left: 12px; font-size: 12px; line-height: 16px; color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--nl, 1); line-clamp: var(--nl, 1); overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-note + .cx-it-note, .cx-it-note + .cx-it-more { margin-top: 1px; }
+.cx-it-note::before { content: ""; position: absolute; left: 1px; top: 6px; width: 4px; height: 4px; border-radius: 1px; background: var(--cx-accent); }
+.cx-it-nt .zl { display: none; }
+.cx-it-note.act { color: var(--cx-ink-2); padding-left: 0; }
+.cx-it-note.act::before { display: none; }
+.cx-it-more { padding-left: 12px; font: 500 10.5px/16px var(--cx-mono); color: var(--mini); }
+@container lst (max-width: 1479.98px) { .cx-it-nt .zl { display: inline; } }
+
+/* Prazo */
+.cx-it-pz .cx-due { font-size: 12.5px; line-height: 16px; }
+.cx-it-cnt { font: 400 10.5px/15px var(--cx-mono); color: var(--mini); white-space: nowrap; }
+.cx-gl { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.cx-gl .cx-doc-ic { margin-right: 2px; }
+
+/* Alerta de embargos de declaração: 3 intensidades visíveis + 2 estados "nada" */
+.cx-emb { font: 500 10.5px/15px var(--cx-mono); letter-spacing: -.01em; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
+.cx-emb.calm { color: var(--mini); }
+.cx-emb.warn { color: var(--emb-warn); background: var(--cx-yellow-soft); padding: 0 6px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-yellow) 38%, transparent); font-weight: 600; }
+.cx-emb.today { color: var(--cx-on-solid); background: var(--emb-today); padding: 0 6px; font-weight: 700; letter-spacing: .03em; }
+
+/* Cabeçalho de colunas (substitui o .cx-list-h atual NESTA lista) */
+.cx-it-h { border-bottom: 1px solid var(--cx-line); font-size: 11px; color: var(--mini); }
+.cx-it-h > span { padding: 7px 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-it-h b { font: 600 10px var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-2); margin-right: 7px; }
+.cx-it-h .h-id { grid-area: id; }
+.cx-it-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
+.cx-it-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-it-h .h-nt b { color: var(--cx-accent); }
+.cx-it-h .h-pz { grid-area: pz; padding-left: 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cx-it-h .h-gl { letter-spacing: .01em; }
+.cx-it-h .m-only { display: none; }
+@container lst (max-width: 1479.98px) {
+  .cx-it-h .h-nt { display: none; }
+  .cx-it-h .w-only { display: none; }
+  .cx-it-h .m-only { display: inline; }
+}
+.cx-it-list .cx-it-h + .cx-grp { border-top: 0; }
+
+/* ═════════════ RODADA 2 · colunas extremas (prefixo cx-ix) · colunas do meio = as da B (cx-it-tr / cx-it-nt) ═════════════ */
+/* Fonte do número do processo: variáveis; qualquer elemento pode carregar data-pf (o <html> carrega a escolha global) */
+:root, [data-pf="gm"] { --pf: var(--cx-mono); --pf-size: 11.5px; --pf-ls: -0.02em; --pf-w: 400; --pf-var: normal; }
+[data-pf="jb"] { --pf: 'JetBrains Mono', ui-monospace, Consolas, monospace; --pf-size: 11px; --pf-ls: -0.03em; --pf-w: 400; --pf-var: normal; }
+[data-pf="geist"] { --pf: var(--cx-font); --pf-size: 12.5px; --pf-ls: 0; --pf-w: 500; --pf-var: tabular-nums slashed-zero; }
+[data-pf="inter"] { --pf: 'Inter', 'Segoe UI', system-ui, sans-serif; --pf-size: 12.5px; --pf-ls: 0; --pf-w: 500; --pf-var: tabular-nums slashed-zero; }
+[data-pf="plex"] { --pf: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; --pf-size: 12.5px; --pf-ls: 0.01em; --pf-w: 500; --pf-var: tabular-nums; }
+:is(.cx-ix, .spec, .vcell, .sample) .cx-proc { font-family: var(--pf); font-size: var(--pf-size); letter-spacing: var(--pf-ls); font-weight: var(--pf-w); font-variant-numeric: var(--pf-var); line-height: 16px; }
+:is(.cx-ix, .spec, .vcell, .sample) .cx-proc .cx-d { color: var(--mini); font-weight: 400; }
+:is(.cx-ix, .spec, .vcell, .sample) .cx-uf { margin-right: 7px; vertical-align: 0; }
+
+/* Grade: quatro colunas. A largura da coluna de prazo cai (só tempo) e a identidade ganha esse espaço */
+.cx-ix, .cx-ix-h { display: grid; padding: 0 14px; column-gap: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id pz" "tr tr" "nt nt"; }
+.cx-ix-h { display: none; }
+@container lst (min-width: 860px) {
+  .cx-ix, .cx-ix-h { grid-template-columns: var(--idw-mid, 350px) minmax(0, 1fr) 140px; grid-template-areas: "id tr pz" "id nt pz"; }
+  .cx-ix-h { display: grid; grid-template-areas: "id tr pz"; }
+}
+@container lst (min-width: 1480px) {
+  .cx-ix, .cx-ix-h { grid-template-columns: var(--idw, 384px) minmax(0, 1.25fr) minmax(0, 1fr) 150px; grid-template-areas: "id tr nt pz"; }
+}
+.cx-it-list[data-dir="d2"] { --idw: 420px; --idw-mid: 360px; }
+/* Respiro vertical entre os blocos da identidade (controle da barra): c = 3 px · m = 5 px · f = 7 px */
+:root { --ixgap: 5px; }
+html[data-gap="c"] { --ixgap: 3px; }
+html[data-gap="f"] { --ixgap: 7px; }
+
+.cx-ix { position: relative; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-ix:hover { background: var(--cx-hover); }
+.cx-ix.sel { background: var(--cx-accent-soft); }
+.cx-ix.urgent::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.cx-ix.done { opacity: 0.78; }
+.cx-ix:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: -2px; }
+
+/* Identidade: ritmo de 6 px entre blocos (era 1 px) */
+.cx-ix-id { grid-area: id; min-width: 0; padding: 8px 18px 9px 6px; display: flex; flex-direction: column; gap: var(--ixgap); }
+.cx-ix-id .cx-it-tags .cx-urg { margin-right: 0; }
+.cx-ix-party { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: 13.5px; line-height: 18px; }
+.cx-ix-pc { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.cx-ix-pc .cx-proc-copy { flex: none; }
+.cx-ix-cls { font-size: 11px; line-height: 15px; color: var(--mini); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.cx-ix-sg { flex: none; font: 600 10px/16px var(--cx-mono); letter-spacing: .03em; padding: 0 5px; border-radius: 4px; border: 1px solid var(--cx-line-strong); color: var(--cx-ink-2); background: var(--cx-surface-2); cursor: help; }
+.cx-ix-id .cx-i-est { margin-top: 0; line-height: 15px; }
+.cx-ix-id .cx-i-est .cx-muted { color: var(--mini); white-space: nowrap; }
+.cx-ix-sig { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 9px; }
+
+/* D2 · trilho de sinais: cada sinal ocupa a altura de uma linha do texto, no mesmo eixo em todas as linhas */
+.cx-ix-id.rail { flex-direction: row; gap: 0; padding-left: 0; }
+.cx-ix-rail { flex: none; width: 36px; display: flex; flex-direction: column; align-items: center; }
+.cx-ix-rail > span { display: flex; align-items: center; justify-content: center; width: 100%; }
+.cx-ix-rail .s-pe { height: 13px; margin-bottom: var(--ixgap); }
+.cx-ix-rail .s-st { height: 18px; margin-bottom: var(--ixgap); }
+.cx-ix-rail .s-gl { flex-direction: column; gap: 3px; }
+.cx-ix-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ixgap); }
+
+/* D3 · faixa de metadados legendada */
+.cx-ix-meta { display: flex; align-items: center; gap: 13px; min-width: 0; font-size: 11px; line-height: 16px; color: var(--mini); white-space: nowrap; }
+.cx-ix-meta .stl { display: inline-flex; align-items: center; gap: 6px; color: var(--cx-ink-2); font-weight: 500; min-width: 0; }
+.cx-ix-meta .kv { display: inline-flex; align-items: center; gap: 6px; }
+.cx-ix-meta .pl { display: inline-flex; align-items: center; gap: 5px; color: var(--cx-ink-2); text-decoration: none; border-radius: 3px; }
+.cx-ix-meta .pl:hover { color: var(--cx-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Prazo: só tempo. Degrau 1 = data final; degrau 2 = embargos, menor, logo abaixo */
+.cx-ix-pz { grid-area: pz; padding: 8px 0 8px 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.cx-ix-pz .dl { display: flex; align-items: baseline; justify-content: flex-end; white-space: nowrap; }
+.cx-ix-pz .cx-due { font-size: 12.5px; line-height: 16px; font-variant-numeric: tabular-nums; }
+.cx-ix-pz .cx-due.later { color: var(--cx-ink-2); }          /* a data é o degrau 1: prazo distante não pode ficar em cinza de rodapé */
+.cx-ix-pz .cx-due.none { font-size: 11.5px; color: var(--mini); }
+.cx-ix-pz .ct { font: 400 10.5px/16px var(--cx-mono); color: var(--mini); margin-left: 7px; }
+.cx-ix-pz .cx-it-cnt { line-height: 14px; }
+.cx-it-list[data-dir="d3"] .cx-ix-pz .cx-due { font-size: 15px; font-weight: 600; line-height: 18px; letter-spacing: -0.02em; }
+.cx-it-list[data-dir="r"] .cx-ix-pz .cx-due { font-size: 13.5px; font-weight: 600; letter-spacing: -0.015em; }
+.cx-it-list[data-dir="r"] .cx-ix-pz .cx-due.none { font-size: 11.5px; font-weight: 400; }
+.cx-it-list[data-dir="d3"] .cx-ix-pz .cx-due.none { font-size: 11.5px; font-weight: 400; }
+
+/* Cabeçalho de colunas */
+.cx-ix-h { border-bottom: 1px solid var(--cx-line); font-size: 11px; color: var(--mini); }
+.cx-ix-h > span { padding: 7px 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-ix-h b { font: 600 10px var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-2); margin-right: 7px; }
+.cx-ix-h .h-id { grid-area: id; padding-left: 6px; }
+.cx-ix-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
+.cx-ix-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-ix-h .h-nt b { color: var(--cx-accent); }
+.cx-ix-h .h-pz { grid-area: pz; padding-left: 12px; text-align: right; }
+.cx-ix-h .m-only { display: none; }
+@container lst (max-width: 1479.98px) {
+  .cx-ix-h .h-nt { display: none; }
+  .cx-ix-h .w-only { display: none; }
+  .cx-ix-h .m-only { display: inline; }
+}
+.cx-it-list .cx-ix-h + .cx-grp { border-top: 0; }
+
+/* Celular (≤ 859 px) */
+@container lst (max-width: 859.98px) {
+  .cx-ix-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 17px; }
+  .cx-ix-pz { padding: 8px 0 0 8px; }
+  .cx-ix-pz .ct { display: none; }
+  .cx-ix-id { padding-right: 8px; }
+  .cx-ix-meta { flex-wrap: wrap; row-gap: 3px; white-space: normal; }
+  .cx-ix .cx-it-nt { margin-bottom: 9px; }
+}
+
+/* Página do mockup (apoio) */
+.dirhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 26px 0 8px; }
+.dirhead .tag { font: 700 11px var(--cx-mono); letter-spacing: .06em; padding: 3px 8px; border-radius: 5px; background: var(--cx-accent); color: var(--cx-on-solid); }
+.dirhead h3 { margin: 0; font-size: 15px; }
+.vgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 1500px; }
+.vcell { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 12px 14px; }
+.vcell h4 { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+.vcell h4 .pill.on { background: var(--cx-accent); color: var(--cx-on-solid); border-color: transparent; }
+.vcell .cx-ix-id { padding: 0; border-top: 1px dashed var(--cx-line); padding-top: 9px; margin-top: 9px; }
+.vcell .cx-ix-id:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.vcell p { font-size: 12px; color: var(--cx-ink-2); margin-top: 8px; }
+.vcell .sample { width: 100%; max-width: 230px; margin-top: 8px; padding: 8px 12px; }
+.pzcase { display: grid; grid-template-columns: 220px repeat(3, 230px); gap: 8px 16px; align-items: start; max-width: 1500px; }
+.pzcase > .lb { font-size: 12px; color: var(--cx-ink-2); padding-top: 8px; }
+.spec { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 6px 16px; max-width: 1180px; }
+.spec table { width: 100%; border-collapse: collapse; }
+.spec td, .spec th { padding: 8px 12px 8px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--cx-line); font-weight: 400; }
+.spec th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--mini); }
+.spec tr:last-child td { border-bottom: 0; }
+.spec .nm { font-size: 12px; color: var(--cx-ink-2); white-space: nowrap; }
+.spec .col { display: flex; flex-direction: column; gap: 5px; }
+.stgrid { display: grid; grid-template-columns: 170px repeat(3, minmax(0, 1fr)); gap: 0 18px; max-width: 1180px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 4px 16px; }
+.stgrid > div { padding: 8px 0; border-bottom: 1px solid var(--cx-line); display: flex; align-items: center; gap: 8px; font-size: 12.5px; min-height: 36px; }
+.stgrid > div.h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--mini); font-weight: 600; min-height: 30px; }
+.measure { max-width: 1180px; }
+.measure td.num, .measure th.num { text-align: right; font-family: var(--cx-mono); font-variant-numeric: tabular-nums; }
+.measure tr.base td { color: var(--mini); }
+@media (max-width: 1100px) { .vgrid, .pzcase { grid-template-columns: 1fr; } }
+
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="bar" role="toolbar" aria-label="Controles do mockup">
+  <span class="mono muted">Hoje no mockup: qui 08/10/2026</span>
+  <nav class="nav" aria-label="Seções"><a href="#antes">Antes</a><a href="#d1">D1</a><a href="#d2">D2</a><a href="#d3">D3</a><a href="#rec">★ Recomendada</a><a href="#mid">1200</a><a href="#mob">Celular</a><a href="#cls">Classe</a><a href="#sit">Situação</a><a href="#pz">Prazo</a><a href="#fonte">Fonte</a><a href="#mapa">Mapa</a><a href="#impl">Implementação</a><a href="#trade">Trade-offs</a></nav>
+  <span class="sp"></span>
+  <span class="muted">Tema</span>
+  <div class="seg" id="seg-theme" role="group" aria-label="Tema"><button type="button" data-v="claro" class="on" aria-pressed="true">Claro</button><button type="button" data-v="escuro" aria-pressed="false">Escuro</button></div>
+  <span class="muted">Fonte do nº</span>
+  <div class="seg" id="seg-pf" role="group" aria-label="Fonte do número do processo"><button type="button" data-v="gm">Geist Mono</button><button type="button" data-v="jb">JetBrains Mono</button><button type="button" data-v="geist">Geist</button><button type="button" data-v="inter">Inter</button><button type="button" data-v="plex">IBM Plex</button></div>
+  <span class="muted">Classe</span>
+  <div class="seg" id="seg-cls" role="group" aria-label="Apresentação da classe do processo"><button type="button" data-v="full">Por extenso</button><button type="button" data-v="sigla" class="on">Sigla</button><button type="button" data-v="above">Acima do nº</button></div>
+  <span class="muted">Respiro</span>
+  <div class="seg" id="seg-gap" role="group" aria-label="Respiro vertical da identidade"><button type="button" data-v="c">Compacto</button><button type="button" data-v="m" class="on">Médio</button><button type="button" data-v="f">Folgado</button></div>
+  <span class="muted">Escala</span>
+  <div class="seg" id="seg-fit" role="group" aria-label="Escala"><button type="button" data-v="1" class="on">Ajustar</button><button type="button" data-v="0">100%</button></div>
+</div>
+
+<div class="prose">
+  <div class="eyebrow" style="margin-top:26px">Nexus Prumo · Intimações · Direção B · Rodada 2</div>
+  <h1>Colunas extremas da B: identidade e prazo</h1>
+  <p class="lede">As colunas do meio (<b>Tribunal</b> e <b>Minhas notas</b>) estão congeladas: mesmo markup, mesmo CSS, mesmos orçamentos de linha da B. Aqui só mudam a <b>identidade</b> (esquerda) e o <b>prazo</b> (direita). Três direções para <i>onde moram</i> a situação, a importância, a complexidade e a peça; todas tiram esses sinais da coluna de prazo, que passa a conter só tempo (data final em destaque, embargos logo abaixo, menor). Os três controles da barra (tema, fonte do número, apresentação da classe) valem para todas as listas da página.</p>
+</div>
+
+<h2 style="max-width:1180px"><span class="n">0</span>Queixas × soluções</h2>
+<table class="t">
+<tr><th>Queixa</th><th>D1 · linha do número</th><th>D2 · trilho</th><th>D3 · faixa legendada</th></tr>
+<tr><td>Classe cortada, pouco clara</td><td colspan="3">Igual nas três: nunca com reticências. <b>Sigla</b> (IDPJ, EF…) com o nome completo no tooltip, ou <b>por extenso em linha própria</b> (até 2 linhas); seletor "Classe" da barra. Seção 7.</td></tr>
+<tr><td>Espaçamento condensado</td><td colspan="3">Ritmo entre blocos de 1 px → <b>5 px</b> (seletor "Respiro": 3 / 5 / 7 px). Custa altura: ver a tabela da seção 13.</td></tr>
+<tr><td>Fonte do número</td><td colspan="3">Seletor "Fonte do nº" com 5 candidatas já carregadas pelo app + espécime (seção 10). Recomendação: <b>Geist com algarismos tabulares</b>, 12,5 px / 500.</td></tr>
+<tr><td>Bolinha de situação</td><td>Inline, antes do nome, mesma linha-base</td><td>No trilho, centrada na linha do nome</td><td>Vira rótulo ("Em análise") na faixa</td></tr>
+<tr><td>Imp./Compl.</td><td>Cluster à direita da linha do número</td><td>Trilho (empilhados)</td><td>Faixa, com micro-rótulo</td></tr>
+<tr><td>Peça</td><td>Fim do cluster</td><td>Topo do trilho</td><td>Link "Peça" na faixa</td></tr>
+<tr><td>"Diversos prazos"</td><td colspan="3">Coluna só de tempo: <b>data final</b> (degrau 1) e, <b>logo abaixo, menor, o embargo</b>. A contagem sai da vista: D1/D2 a deixam como "5d" miúdo ao lado da data; D3 e a combinação R só no tooltip.</td></tr>
+<tr><td>URGENTE</td><td colspan="3">Passa do lado do nome para o eyebrow (com Novo/Atualizada/⚑), para o nome ficar sempre no mesmo x. A faixa vermelha à esquerda continua.</td></tr>
+</table>
+<p class="sub" style="margin-top:12px"><b>Recomendação:</b> D1 + sigla + Geist + prazo com contagem no tooltip (seção ★). É a única que fica perto da meta de altura, sem perder legibilidade. D2 é a mais "ordenada" para quem escaneia sinais em coluna, mas o trilho é também a coluna mais carregada, o que vai contra a queixa de poluição. D3 é a mais legível e a mais alta.</p>
+
+<h2 id="antes" style="max-width:1180px"><span class="n">1</span>Antes · a B da rodada 1 (1900 px)</h2>
+<p class="sub">Três intimações da B: o número e a classe disputam a mesma linha (a classe é cortada), a bolinha de situação fica solta à esquerda, e a coluna da direita empilha data, contagem, embargos, glifos e peça.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="old-b1" style="width:1900px"></div></div></div></div>
+
+<h2 id="d1" style="max-width:1180px"><span class="n">2</span>D1 · Sinais na linha do número</h2>
+<p class="sub"><b>Situação</b> inline, imediatamente antes do nome (mesma linha-base). <b>Imp., Compl. e peça</b> num cluster à direita da linha do número. O <b>URGENTE</b> passa para o eyebrow (junto de Novo/Atualizada/⚑), de modo que o nome fica sempre no mesmo x em todas as linhas.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-d1" style="width:1900px"></div></div></div></div>
+
+<h2 id="d2" style="max-width:1180px"><span class="n">3</span>D2 · Trilho vertical de sinais</h2>
+<p class="sub">Trilho fixo de 36 px à esquerda: cada sinal ocupa a altura de uma linha de texto e fica sempre no mesmo lugar (peça ↔ eyebrow, situação ↔ nome, importância e complexidade empilhadas ao lado do número e da classe). Quem passa o olho em coluna enxerga todos os sinais num eixo.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-d2" style="width:1900px"></div></div></div></div>
+
+<h2 id="d3" style="max-width:1180px"><span class="n">4</span>D3 · Faixa de metadados legendada</h2>
+<p class="sub">A situação deixa de ser bolinha e vira rótulo; Imp. e Compl. ganham micro-rótulo; a peça vira link "Peça". Tudo numa faixa própria abaixo do número. A data de prazo é "herói" (15 px, 600) e a contagem vai só para o tooltip.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-d3" style="width:1900px"></div></div></div></div>
+
+<h2 id="rec" style="max-width:1180px"><span class="n">★</span>R · Combinação recomendada (D1 + sigla + Geist + prazo com tooltip)</h2>
+<p class="sub">D1 inteira, com a classe em sigla (nome completo no tooltip), o número em Geist com algarismos tabulares, e a coluna de prazo da variante C: data final em 13,5 px/600 e embargos logo abaixo, menor; a contagem ("em 5 dias · 2 úteis") fica no tooltip da data. É o que o seletor da barra mostra por padrão.</p>
+<div class="fw" data-w="1900"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="list-r" style="width:1900px"></div></div></div></div>
+<div class="cap" style="margin-top:14px"><b>R a ~1200 px</b></div><div class="fw" data-w="1200"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mid-r" style="width:1200px"></div></div></div></div>
+
+<h2 id="mid" style="max-width:1180px"><span class="n">5</span>~1200 px · as zonas do meio empilham</h2>
+<p class="sub">Mesma regra da B (Tribunal e Notas numa coluna). A identidade passa a 350 px (D2: 360) e a coluna de prazo a 140 px; os sinais continuam onde cada direção os põe.</p>
+<div class="cap"><b>D1</b></div><div class="fw" data-w="1200"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mid-d1" style="width:1200px"></div></div></div></div>
+<div class="cap" style="margin-top:14px"><b>D2</b></div><div class="fw" data-w="1200"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mid-d2" style="width:1200px"></div></div></div></div>
+<div class="cap" style="margin-top:14px"><b>D3</b></div><div class="fw" data-w="1200"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mid-d3" style="width:1200px"></div></div></div></div>
+
+<h2 id="mob" style="max-width:1180px"><span class="n">6</span>Celular (390 px)</h2>
+<p class="sub">Uma coluna: identidade e prazo lado a lado no topo (prazo sem a contagem), depois Tribunal, depois Notas. Os sinais vão junto da identidade em qualquer direção; no D3 a faixa de metadados quebra em duas linhas se precisar.</p>
+<div class="vgrid" style="max-width:1300px">
+  <div><div class="cap"><b>D1</b></div><div class="fw" data-w="390"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mob-d1" style="width:390px"></div></div></div></div></div>
+  <div><div class="cap"><b>D2</b></div><div class="fw" data-w="390"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mob-d2" style="width:390px"></div></div></div></div></div>
+  <div><div class="cap"><b>D3</b></div><div class="fw" data-w="390"><div class="fz"><div class="cx"><div class="cx-list cx-it-list" id="mob-d3" style="width:390px"></div></div></div></div></div>
+</div>
+
+<h2 id="cls" style="max-width:1180px"><span class="n">7</span>Variações · classe do processo</h2>
+<p class="sub">A classe nunca é cortada com reticências na linha principal. Três apresentações (o seletor "Classe" da barra aplica a escolhida em todas as listas). Bloco mostra IDPJ (nome longo), Execução Fiscal e Execução de Título Extrajudicial (TJPR).</p>
+<div class="vgrid">
+  <div class="vcell"><h4><span class="pill">a</span>Linha própria, por extenso</h4><div id="vc-full"></div><p>Sem invenção de sigla; até 2 linhas, sem reticências. Custa uma linha de altura em toda a coluna.</p></div>
+  <div class="vcell"><h4><span class="pill">b</span>Sigla + tooltip</h4><div id="vc-sigla"></div><p>A mais compacta: uma linha a menos. Siglas são <b>sugestão a validar</b> (dicionário em 9). Classe fora do dicionário cai no texto por extenso.</p></div>
+  <div class="vcell"><h4><span class="pill">c</span>Legenda acima do número</h4><div id="vc-above"></div><p>Mesma altura de (a); lê "o que é" antes de "qual é". O número fica mais perto das datas, mais longe do nome.</p></div>
+</div>
+
+<h2 id="sit" style="max-width:1180px"><span class="n">8</span>Variações · ícone de situação</h2>
+<p class="sub">Os seis estados em cada solução. A bolinha deixa de ficar solta no meio da altura da linha: em D1 acompanha o nome, em D2 fica no trilho alinhada ao centro da linha do nome, em D3 vira rótulo.</p>
+<div class="stgrid" id="st-grid"></div>
+
+<h2 id="pz" style="max-width:1180px"><span class="n">9</span>Variações · coluna de prazo e estados</h2>
+<p class="sub">Três jeitos de tratar a contagem ("em 5 dias · 2 úteis"), nos oito estados do prazo e das cinco faixas de embargos. Em todos, a <b>data final é o degrau 1</b> e o <b>embargo vem logo abaixo, menor</b>.</p>
+<div class="pzcase" id="pz-states"></div>
+<style>.pzcase > .h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--mini); font-weight: 600; }</style>
+
+<h2 id="fonte" style="max-width:1180px"><span class="n">10</span>Espécime · fonte do número do processo</h2>
+<p class="sub">As cinco candidatas já estão carregadas pelo app. Os números têm 20 dígitos; o que importa é distinguir 0/6/8 e 1/7, a largura total e o alinhamento vertical entre linhas. Use o seletor "Fonte do nº" da barra para ver cada uma dentro da lista.</p>
+<div class="spec" id="spec-body"></div>
+
+<div class="prose" style="margin-top:14px"><p class="sub"><b>Recomendação: Geist com <code>font-variant-numeric: tabular-nums slashed-zero</code>, 12,5 px, peso 500, sem letter-spacing negativo.</b> Motivos: (1) é a mais estreita das candidatas (≈ 187 px em 12 px, contra ≈ 201 da Geist Mono atual e ≈ 203 da Inter), o que importa numa coluna de 384 px que ainda abriga a sigla e os sinais; (2) com algarismos tabulares as linhas alinham em coluna como numa fonte mono; (3) o zero cortado resolve 0/O sem recorrer a largura fixa; (4) acompanha a fonte da interface que o usuário escolhe no app (<code>font-inter</code>, <code>font-outfit</code>, <code>font-source</code> trocam <code>--cx-font</code>; <code>--cx-mono</code> não troca); (5) a ponta <code>.AAAA.J.TR.OOOO</code> continua esmaecida e, em peso 400 contra 500, o contraste entre prefixo e ponta fica mais nítido do que na mono. Contra: perde o aspecto "técnico" da mono; a Geist Mono atual continua uma opção segura se a prioridade for não mudar nada.</p></div>
+
+<h2 id="mapa" style="max-width:1180px"><span class="n">11</span>Mapa de redistribuição (delta da B)</h2>
+<table class="t"><tr><th>Elemento</th><th>Na B (rodada 1)</th><th>Agora (recomendada R)</th></tr>
+<tr><td>Coluna de situação (18 px)</td><td>Coluna própria, bolinha centrada na linha inteira</td><td>Some. Ícone inline antes do nome (D1)</td></tr>
+<tr><td>URGENTE</td><td>Antes do nome</td><td>Eyebrow, à direita, com Novo/Atualizada/⚑</td></tr>
+<tr><td>Classe</td><td>Depois do número, com reticências</td><td>Sigla ao lado do número (tooltip = nome completo); por extenso em linha própria como alternativa</td></tr>
+<tr><td>Imp. / Compl. / peça</td><td>Coluna de prazo (pé)</td><td>Cluster à direita da linha do número</td></tr>
+<tr><td>Data final</td><td>12,5 px mono, cinza quando distante</td><td>13,5 px / 600; prazo distante sobe de <code>ink-3</code> para <code>ink-2</code></td></tr>
+<tr><td>Contagem</td><td>Linha própria ("em 5 dias · 2 úteis")</td><td>Tooltip da data</td></tr>
+<tr><td>Embargos</td><td>Pé da coluna, junto de Imp./Compl.</td><td>Logo abaixo da data, menor (10,5 px), mesmas 5 faixas</td></tr>
+<tr><td>Larguras (≥ 1480)</td><td>18 + 340 + 1,25fr + 1fr + 196</td><td>384 + 1,25fr + 1fr + 150 (as colunas do meio ganham ~30 px)</td></tr>
+<tr><td>Tribunal e Minhas notas</td><td colspan="2">Idênticas à B (markup, CSS e orçamentos de linha)</td></tr></table>
+
+<h2 id="impl" style="max-width:1180px"><span class="n">12</span>Notas de implementação (delta da B)</h2>
+<div class="prose"><p class="sub">Delta em relação à B. Tudo em <code>src/edition-claude.jsx</code> e <code>src/Nexus.shell.html</code>; nada em parsers, prescrição ou sync. <b>Não alterar</b> <code>.cx-i-row</code>, <code>.cx-i-main</code>, <code>.cx-c-proc</code>, <code>.cx-c-due</code>: Tarefas e Acompanhar compartilham essas classes. A linha nova usa <code>cx-ix-*</code> (as colunas do meio continuam <code>cx-it-tr</code> e <code>cx-it-nt</code>, da B).</p></div>
+<pre><code><span class="c">// 1. Sigla da classe (sugestão; validar com o usuário). Fora do dicionário: texto por extenso em linha própria.</span>
+const CX_CLS_SIGLA = { 'Incidente de Desconsideração de Personalidade Jurídica': 'IDPJ', 'Execução Fiscal': 'EF',
+  'Execução de Título Extrajudicial': 'ETE', 'Embargos à Execução Fiscal': 'EEF', 'Embargos à Execução': 'EE', 'Embargos de Terceiro': 'ET',
+  'Exceção de Pré-Executividade': 'EPE', 'Cumprimento de Sentença': 'CS', 'Agravo de Instrumento': 'AI', 'Apelação Cível': 'AC',
+  'Procedimento Comum Cível': 'PCC', 'Recuperação Judicial': 'RJ', 'Falência': 'FAL', 'Mandado de Segurança': 'MS' };
+
+<span class="c">// 2. Identidade (D1/R): URGENTE vai para o eyebrow; ícone de situação inline; sinais na linha do número.</span>
+&lt;div className="cx-ix-id"&gt;
+  &lt;div className="cx-it-opl"&gt;&lt;CxOpTag/&gt;&lt;span className="cx-it-tags"&gt;{urgent &amp;&amp; &lt;span className="cx-urg"&gt;URGENTE&lt;/span&gt;} …Novo/Atualizada/⚑&lt;/span&gt;&lt;/div&gt;
+  &lt;div className="cx-ix-party"&gt;&lt;CxStatusIcon s={st}/&gt;&lt;span className="cx-ell" title={nome}&gt;{nome}&lt;/span&gt;&lt;/div&gt;
+  &lt;div className="cx-ix-pc"&gt;&lt;CxProc num={intim.processNumber} uf={intim.jurisdiction}/&gt;{sigla &amp;&amp; &lt;span className="cx-ix-sg" title={classe}&gt;{sigla}&lt;/span&gt;}
+    &lt;span className="cx-ix-sig"&gt;&lt;CxImp/&gt;&lt;CxDif/&gt;{intim.minutaUrl &amp;&amp; &lt;CxDocIcon url={intim.minutaUrl} size={14}/&gt;}&lt;/span&gt;&lt;/div&gt;
+  {!sigla &amp;&amp; classe &amp;&amp; &lt;div className="cx-ix-cls" title={classe}&gt;{classe}&lt;/div&gt;}
+  &lt;CxEstLine esteira={intim.esteira}/&gt;
+&lt;/div&gt;
+
+<span class="c">// 3. Prazo: só tempo. Reaproveita a regra de embargos da B (addBusinessDays(dateStart, 10), 5 faixas).</span>
+&lt;div className="cx-ix-pz"&gt;&lt;CxDue iso={intim.dateDeadline}/&gt;{emb &amp;&amp; &lt;span className={'cx-emb ' + emb.tone}&gt;…&lt;/span&gt;}&lt;/div&gt;   <span class="c">// title da data = contagem (dias e dias úteis)</span>
+
+<span class="c">/* 4. CSS: ver o &lt;style&gt; deste arquivo, blocos "RODADA 2".
+   grid ≥ 1480: var(--idw, 384px) minmax(0,1.25fr) minmax(0,1fr) 150px · 860–1479: 350px 1fr 140px · ≤ 859: "id pz" / "tr tr" / "nt nt"
+   número: .cx-ix .cx-proc { font-family: var(--cx-font); font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums slashed-zero }
+   respiro: gap de 5px entre os blocos; ponta do CNJ (.cx-d) em peso 400 e cor esmaecida */</span></code></pre>
+<div class="two" style="margin-top:14px">
+  <div class="card"><h4>Riscos / o que conferir ao portar</h4><ul><li><code>CxIntimList</code> também alimenta a aba Processos › Substituição (sem operação no eyebrow nessa tela).</li><li>Container queries já estão na B (Chrome/Edge 105+).</li><li>Quadro e Foco usam cartões próprios: fora desta fase.</li><li>Linha resolvida (<code>.done</code>): sem embargos; data da atuação em verde.</li></ul></div>
+  <div class="card"><h4>Decisões a validar com o usuário</h4><ul><li>Dicionário de siglas (acima).</li><li>Sigla ou nome por extenso como padrão (diferença de ~18 px por linha).</li><li>Contagem só no tooltip (perde "em 5 dias" à vista).</li><li>Prazo distante em <code>ink-2</code> (o app usa <code>ink-3</code>).</li></ul></div>
+</div>
+
+<h2 id="trade" style="max-width:1180px"><span class="n">13</span>Alturas medidas e trade-offs</h2>
+<p class="sub">Medido ao vivo neste arquivo, com as mesmas 11 intimações, em Chrome. "Linha simples" é o CLICKLOG (só objeto, sem notas, teor ou esteira).</p>
+<div id="measure-body"></div>
+<div class="two" style="margin-top:14px">
+  <div class="card"><h4>O que a recomendada (R) paga</h4><ul><li><b>Altura:</b> R com sigla faz 79 / 83 / 87 px de média (respiro compacto / médio / folgado) contra 70 na B, ou seja +13% / +19% / +24%; com a classe por extenso, 94 / 101 / 108 px.</li><li>Sigla é convenção nova: o nome completo sai da vista (tooltip e gaveta o mantêm).</li><li>A contagem "em N dias" sai da vista; só o tooltip e a cor dizem a distância.</li></ul></div>
+  <div class="card"><h4>Onde D2 e D3 perdem</h4><ul><li><b>D2:</b> o trilho é a coluna mais carregada (4 sinais empilhados) e impõe um piso de altura mais alto.</li><li><b>D3:</b> a faixa de metadados é a mais legível, mas acrescenta uma linha inteira (a mais alta das três).</li><li>Em 1200 px as três chegam a 133 px nas linhas mais ricas, como a B.</li></ul></div>
+</div>
+<p class="sub" style="margin-top:12px">O seletor "Respiro" (3 / 5 / 7 px) permite escolher o ponto de equilíbrio entre folga e altura; o valor final entra no CSS como uma única variável.</p>
+
+</div>
+
+<script>
+var DEFAULT_PF = "geist";
+(function () {
+  'use strict';
+  /* ───────────── Calendário e helpers (mesma lógica do app; dias úteis com feriados nacionais) ───────────── */
+  var TODAY = new Date(2026, 9, 8);
+  var HOL = { '2026-09-07': 1, '2026-10-12': 1, '2026-11-02': 1, '2026-11-20': 1, '2026-12-25': 1 };
+  var DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  function p2(n) { return String(n).padStart(2, '0'); }
+  function iso(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+  function parse(s) { return new Date(s + 'T00:00:00'); }
+  function isBiz(d) { return d.getDay() !== 0 && d.getDay() !== 6 && !HOL[iso(d)]; }
+  function addBD(s, n) { var d = parse(s), k = 0; while (k < n) { d.setDate(d.getDate() + 1); if (isBiz(d)) k++; } return iso(d); }
+  function bizUntil(s) { var a = parse(s), d = new Date(TODAY), n = 0; while (d < a) { d.setDate(d.getDate() + 1); if (isBiz(d)) n++; } return n; }
+  function daysUntil(s) { return s ? Math.round((parse(s) - TODAY) / 86400000) : null; }
+  function dm(s) { var d = parse(s); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1); }
+  function dmy(s) { var d = parse(s); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function E(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
+
+  /* cxProcFmt: número SEMPRE em CNJ */
+  function procFmt(num) {
+    var d = String(num || '').replace(/\D/g, '');
+    if (d.length !== 20) return num || '—';
+    return d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16);
+  }
+  function procHtml(num, uf, fmt) {
+    var f = fmt ? procFmt(num) : num;
+    var m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(f || '');
+    return '<span class="cx-proc">' + (uf ? '<span class="cx-uf">' + E(uf) + '</span>' : '') + (m ? E(m[1]) + '<span class="cx-d">' + E(m[2]) + '</span>' : E(f || '—')) + '</span>';
+  }
+  /* cxDue (tom) */
+  function dueTone(dd) {
+    if (dd === null) return 'none';
+    if (dd < 0) return 'late';
+    if (dd <= 1) return 'today';
+    if (dd <= 5) return 'soon';
+    return 'later';
+  }
+  function dueOld(dd, end) {
+    if (dd === null) return { tone: 'none', txt: 'sem prazo' };
+    if (dd < -1) return { tone: 'late', txt: 'há ' + (-dd) + 'd' };
+    if (dd === -1) return { tone: 'late', txt: 'Ontem' };
+    if (dd === 0) return { tone: 'today', txt: 'Hoje' };
+    if (dd === 1) return { tone: 'today', txt: 'Amanhã' };
+    var d = parse(end);
+    if (dd <= 5) return { tone: 'soon', txt: cap(DOW[d.getDay()]) + ' ' + dm(end) };
+    return { tone: 'later', txt: dm(end) };
+  }
+  /* cxEmbargos */
+  function embargos(it) {
+    if (it.ra || it.status === 'analisado' || !it.start) return null;
+    var date = addBD(it.start, 10), dd = daysUntil(date);
+    if (dd < 0) return null;
+    if (dd === 0) return { date: date, du: 0, tone: 'today' };
+    var du = bizUntil(date);
+    return { date: date, du: du, tone: du <= 3 ? 'warn' : 'calm' };
+  }
+  /* cxPrazoLinhas */
+  function prazoLinhas(it) {
+    if (it.ra) return { tone: 'done', l1: '✓ ' + dm(it.ra.at), l2: 'atuação registrada', title: 'Atuação em ' + dmy(it.ra.at) };
+    if (!it.end) return { tone: 'none', l1: '—', l2: 'prazo fechado', title: 'Prazo ainda não aberto' };
+    var dd = daysUntil(it.end), d = parse(it.end), l2;
+    if (dd < -1) l2 = 'há ' + (-dd) + ' dias'; else if (dd === -1) l2 = 'ontem';
+    else if (dd === 0) l2 = 'hoje'; else if (dd === 1) l2 = 'amanhã';
+    else { var u = bizUntil(it.end); l2 = 'em ' + dd + ' dias<span class="du"> · ' + u + (u === 1 ? ' útil' : ' úteis') + '</span>'; }
+    return { tone: dueTone(dd), l1: cap(DOW[d.getDay()]) + ' ' + dm(it.end), l2: l2, title: 'Final do prazo: ' + dmy(it.end) };
+  }
+  /* orçamento de linhas */
+  function ln(t, cpl, max) { return Math.min(max, Math.max(1, Math.ceil(String(t || '').length / cpl))); }
+  function tribLinhas(obj, teor, cpl, budget) {
+    var ol = ln(obj || 'Objeto não definido', cpl, 2);
+    if (!teor) return { ol: ol, tl: 0 };
+    return { ol: ol, tl: Math.max(1, Math.min(ln(teor, cpl, 3), budget - ol)) };
+  }
+  function notasCabem(notes, cpl, budget) {
+    var cap = notes.length === 1 ? 3 : 2;
+    function pick(b) {
+      var out = [], used = 0;
+      for (var i = notes.length - 1; i >= 0; i--) {
+        var l = ln(notes[i], cpl, cap);
+        if (used + l > b) { if (out.length) break; l = b; }
+        out.unshift({ t: notes[i], l: l }); used += l;
+      }
+      return { shown: out, rest: notes.length - out.length };
+    }
+    var r = pick(budget);
+    return r.rest ? pick(budget - 1) : r;
+  }
+  /* orçamentos por largura da lista */
+  function layoutOf(W) {
+    var mode = W >= 1480 ? 'wide' : W >= 860 ? 'mid' : 'mob', L = { mode: mode };
+    if (mode === 'wide') {
+      var av = W - 28 - 18 - 340 - 196;
+      L.cplTr = Math.floor((av * 1.25 / 2.25 - 36) / 6.35); L.cplNt = Math.floor((av / 2.25 - 36) / 6.1);
+      L.budTr = 4; L.budNt = 4;
+    } else if (mode === 'mid') {
+      var c3 = W - 28 - 18 - 282 - 184 - 36;
+      L.cplTr = Math.floor(c3 / 6.35); L.cplNt = Math.floor((c3 - 14) / 6.1); L.budTr = 3; L.budNt = 3;
+    } else {
+      var c = W - 28 - 28 - 20;
+      L.cplTr = Math.floor(c / 6.3); L.cplNt = Math.floor((c - 12) / 6.1); L.budTr = 4; L.budNt = 3;
+    }
+    return L;
+  }
+
+  /* ───────────── Ícones e peças ───────────── */
+  var IC = {
+    note: '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path d="M8 9h8M8 13h4"/>',
+    send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+    flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>'
+  };
+  function icon(n, s) { return '<svg class="cx-i" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
+  var ST = {
+    pendente_analise: ['Pendente de análise', 'var(--cx-yellow)'], em_analise: ['Em análise', 'var(--cx-violet)'],
+    analise_concluida: ['Análise concluída', 'var(--cx-green)'], aguardando_subsidios: ['Aguardando subsídios', 'var(--cx-ink-3)'],
+    peca_edicao: ['Peça em edição', 'var(--cx-blue)'], analisado: ['Analisado', 'var(--cx-green)']
+  };
+  function statusIcon(s) {
+    var c = ST[s][1], inner;
+    if (s === 'analisado') inner = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--cx-surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
+    else if (s === 'peca_edicao') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+    else if (s === 'em_analise') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><circle cx="7" cy="7" r="2.2" style="fill:' + c + '"/>';
+    else if (s === 'analise_concluida') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M4.6 7.2 6.3 8.8l3.1-3.3" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"/>';
+    else if (s === 'aguardando_subsidios') inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
+    else inner = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
+    return '<span class="cx-st-ic" title="' + ST[s][0] + '"><svg width="14" height="14" viewBox="0 0 14 14">' + inner + '</svg></span>';
+  }
+  var IMPL = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' }, DIFL = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  function imp(v) { return '<span class="cx-imp" data-v="' + v + '" title="Importância ' + IMPL[v].toLowerCase() + '"><i></i><i></i><i></i></span>'; }
+  function dif(v) { return '<span class="cx-dif" data-v="' + v + '" title="Complexidade ' + DIFL[v].toLowerCase() + '"><i></i><i></i><i></i></span>'; }
+  function docIcon(size) {
+    return '<a class="cx-doc-ic" href="#" onclick="return false" title="Abrir peça" aria-label="Abrir peça" style="width:' + size + 'px;height:' + size + 'px"><svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="1" width="20" height="22" rx="3" fill="#4285f4"/><path d="M14 1 22 9h-6a2 2 0 0 1-2-2z" fill="#8ab4f8"/><rect x="6" y="12" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="15.6" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="19.2" width="7.5" height="1.7" rx="0.85" fill="#fff"/></svg></a>';
+  }
+  function estLine(e) {
+    if (!e) return '';
+    var bars = '', i;
+    for (i = 0; i < e.d; i++) bars += '<i class="d"></i>';
+    for (i = 0; i < e.n; i++) bars += '<i class="n"></i>';
+    for (i = 0; i < e.g; i++) bars += '<i></i>';
+    return '<div class="cx-i-est"><span class="cx-est-prog sm" aria-hidden="true">' + bars + '</span><b class="cx-ell">' + E(e.label) + '</b><span class="cx-muted"> · parou há ' + e.stopped + ' dias</span></div>';
+  }
+  function opSq(op) { return '<span class="cx-op-sq" style="background:var(' + op.c + ')"></span>'; }
+
+  /* ───────────── Dados de teste ───────────── */
+  var OPS = {
+    termo: { name: 'TERMOFLOW / SCALTECH', c: '--cx-opc-alta' }, click: { name: 'CLICKLOG', c: '--cx-opc-media' },
+    decor: { name: 'DECORVIDROS COMÉRCIO DE VIDROS', c: '--cx-opc-baixa' }, alelu: { name: 'ALELUIA EMPREENDIMENTOS GRÁFICOS', c: '--cx-opc-parcel' },
+    gsn: { name: 'GSN INDUSTRIA', c: '--cx-opc-media' }, raol: { name: 'ORGANIZAÇÕES RA OLIVEIRA', c: '--cx-opc-maxima' },
+    rosa: { name: 'GRUPO SANTA ROSA', c: '--cx-opc-baixa' }
+  };
+  var T_SCAL = 'Intimada a União para, em 15 dias, manifestar-se sobre o pedido de conversão em renda dos depósitos judiciais vinculados à execução, informando o saldo remanescente do débito. Indeferido, por ora, o pedido de suspensão do incidente; os autos seguem conclusos após a manifestação.';
+  var T_JOSE = 'Vistos. Considerando a impugnação apresentada pela Defensoria Pública da União, na condição de curadora especial do requerido citado por edital, intime-se a União para réplica no prazo de 15 dias úteis.\n\nApós, abra-se vista ao Ministério Público Federal, se for o caso, e voltem os autos conclusos para decisão sobre a desconsideração.';
+  var DATA = [
+    { id: 'i1', party: 'SCALTECH-COMERCIO IMPORTACAO E EXPORTACAO LTDA', op: 'termo', uf: 'RS', proc: '50008941820244047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Ante o exposto, requer a Requerida: a) a intimação da União (Fazenda Nacional/PGFN) para que concorde com a conversão em renda dos depósitos judiciais vinculados ao processo executivo; b) a suspensão do incidente até a apreciação do pedido.',
+      notes: ['CONTEXTUALIZAR COM O OUTRO IDPJ', 'atualizar operação com SIDA', 'Defender a necessidade de transferência de valores em montante suficiente para satisfação do débito objeto do outro IDPJ (execução se faz no interesse do credor; crédito tributário não se submete à recuperação)'],
+      sent: '2026-08-14', start: '2026-08-25', end: '2026-10-13', status: 'pendente_analise', imp: 'normal', dif: 'media',
+      est: { d: 3, n: 1, g: 0, label: 'Leitura e ajustes', stopped: 9 }, teor: T_SCAL, ia: true },
+    { id: 'i2', party: 'CLICKLOG TRANSPORTES E LOGISTICA LTDA', op: 'click', uf: 'RS', proc: '5059246-53.2025.4.04.7100', cls: 'Execução Fiscal',
+      obj: 'RESULTADO SISBAJUD. OFERTA DE PENHORA SOBRE FATURAMENTO', notes: [], sent: '2026-09-23', start: '2026-10-06', end: '2026-10-13',
+      status: 'pendente_analise', imp: 'normal', dif: 'media', flag: 'updated' },
+    { id: 'i3', party: 'CONDOMÍNIO RESIDENCIAL FIRENZE', op: 'decor', uf: 'TJPR', proc: '0008825-43.2022.8.16.0194', cls: 'Execução de Título Extrajudicial',
+      obj: null, notes: ['Copia do processo na pasta'], sent: '2026-09-28', start: '2026-09-30', end: '2026-10-14', status: 'peca_edicao', imp: 'normal', dif: 'media',
+      urgent: true, doc: true, est: { d: 2, n: 1, g: 0, label: 'Redação fina', stopped: 7 }, teor: 'Intimada a exequente para dizer sobre a certidão do oficial de justiça.' },
+    { id: 'i4', party: 'RUBENS PAES', op: 'alelu', uf: 'PR', proc: '5000198-16.2024.4.04.7031', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Suspensão do IDPJ em razão de parcelamento', notes: ['Aguardar resposta da coordenação. Em caso de rescisão, pedir prosseguimento. Em caso de manutenção, avaliar.'],
+      sent: '2026-09-15', start: '2026-09-28', end: '2026-10-19', status: 'aguardando_subsidios', imp: 'normal', dif: 'media', sel: true },
+    { id: 'i5', party: 'JOSE DE ASSIS PEREIRA DOS SANTOS', op: 'gsn', uf: 'PR', proc: '5035008-13.2024.4.04.7000', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'resposta à impugnação apresentada pela DPU, como curadora especial.', notes: [], sent: '2026-09-22', start: '2026-10-05', end: '2026-10-19',
+      status: 'pendente_analise', imp: 'normal', dif: 'media', flag: 'updated', teor: T_JOSE },
+    { id: 'i6', party: 'ROMOLO AUGUSTO DE OLIVEIRA', op: 'raol', uf: 'RS', proc: '50191418120234047107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'ALEGAÇÕES FINAIS', notes: ['ANTIGRAVITY + FABLE. LEITURA E COMPLEMENTAÇÃO PÓS, ONDE E SE CABÍVEL', 'Conferir tese do Tema 1.209/STJ antes de fechar a peça'],
+      sent: '2026-09-30', start: '2026-10-06', end: '2026-10-20', status: 'em_analise', imp: 'alta', dif: 'alta', urgent: true, doc: true,
+      est: { d: 2, n: 1, g: 1, label: 'Extração do relatório e triagem', stopped: 10 } },
+    { id: 'i7', party: 'EDUARDO ANVERSA', op: 'termo', uf: 'RS', proc: '5004231-44.2026.4.04.7107', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'REPLICA', notes: ['Juntar Votos do julgamento do Agravo, além de decisão do outro IDPJ. Confrontar o afastamento da responsabilidade com o acórdão do TRF4 e com a tese de grupo econômico de fato.'],
+      sent: '2026-10-02', start: '2026-10-07', end: '2026-10-29', status: 'pendente_analise', imp: 'alta', dif: 'media', urgent: true },
+    { id: 'a1', party: 'AGROPECUÁRIA SANTA ROSA S/A', op: 'rosa', uf: 'SC', proc: '5001234-56.2025.4.04.7200', cls: 'Execução Fiscal',
+      obj: 'Exceção de pré-executividade. Manifestação sobre prescrição intercorrente', notes: ['Prescrição: conferir data do arquivamento provisório (art. 40)'],
+      sent: '2026-09-17', start: '2026-09-24', end: '2026-10-09', status: 'em_analise', imp: 'alta', dif: 'media', flag: 'new',
+      teor: 'Intimada a Fazenda para se manifestar sobre a exceção de pré-executividade no prazo de 10 dias.' },
+    { id: 'b1', party: 'SUPERMERCADOS BOM PREÇO LTDA', op: 'click', uf: 'PR', proc: '5012345-67.2023.4.04.7000', cls: 'Embargos à Execução Fiscal',
+      obj: 'Sentença de improcedência dos embargos. Prazo para apelação', notes: ['Avaliar embargos de declaração (omissão sobre a prescrição)'],
+      sent: '2026-09-24', start: '2026-09-28', end: '2026-10-06', status: 'analise_concluida', imp: 'alta', dif: 'baixa', pend: true,
+      teor: 'Julgo improcedentes os embargos. Custas pela embargante.' },
+    { id: 'd1', party: 'CONSTRUTORA HORIZONTE LTDA', op: null, uf: 'SC', proc: '5000444-11.2026.4.04.7200', cls: 'Execução Fiscal',
+      obj: 'Citação por edital. Prazo ainda não iniciado', notes: [], sent: '2026-10-07', start: null, end: null, status: 'pendente_analise', imp: 'baixa', dif: 'baixa' },
+    { id: 'c1', party: 'ESPÓLIO DE ANTÔNIO CARLOS BRANDÃO', op: 'alelu', uf: 'PR', proc: '5009876-54.2024.4.04.7000', cls: 'Incidente de Desconsideração de Personalidade Jurídica',
+      obj: 'Intimação para impugnar o pedido de desconsideração', notes: ['(não aparece: resolvida mostra a atuação)'], sent: '2026-09-18', start: '2026-09-21', end: '2026-10-14',
+      status: 'analisado', imp: 'normal', dif: 'media', ra: { kind: 'Manifestação', desc: 'Impugnação ao IDPJ protocolada', at: '2026-10-07' } }
+  ];
+  var BYID = {}; DATA.forEach(function (x) { BYID[x.id] = x; });
+
+  /* agrupamento e ordenação (cxGroupIntims / cxAttention) */
+  var IMPO = { alta: 0, normal: 1, baixa: 2 }, DIFO = { alta: 0, media: 1, baixa: 2 };
+  function attention(a, b) {
+    var ua = a.urgent ? 0 : 1, ub = b.urgent ? 0 : 1; if (ua !== ub) return ua - ub;
+    if (IMPO[a.imp] !== IMPO[b.imp]) return IMPO[a.imp] - IMPO[b.imp];
+    if (DIFO[a.dif] !== DIFO[b.dif]) return DIFO[a.dif] - DIFO[b.dif];
+    if (!a.end && !b.end) return 0; if (!a.end) return 1; if (!b.end) return -1;
+    return a.end.localeCompare(b.end);
+  }
+  function groups(items) {
+    var open = items.filter(function (x) { return !x.ra && x.status !== 'analisado'; });
+    var dd = function (x) { return daysUntil(x.end); };
+    var g = [
+      { label: 'Vencidas', dot: 'var(--cx-red)', items: open.filter(function (x) { var d = dd(x); return d !== null && d < 0; }) },
+      { label: 'Hoje e amanhã', dot: 'var(--cx-orange)', items: open.filter(function (x) { var d = dd(x); return d !== null && d >= 0 && d <= 1; }) },
+      { label: 'Próximos 5 dias', dot: 'var(--cx-yellow)', items: open.filter(function (x) { var d = dd(x); return d !== null && d >= 2 && d <= 5; }) },
+      { label: 'Mais adiante', dot: 'var(--cx-ink-3)', items: open.filter(function (x) { var d = dd(x); return d !== null && d > 5; }) },
+      { label: 'Sem prazo aberto', dot: 'var(--cx-line-strong)', items: open.filter(function (x) { return dd(x) === null; }) },
+      { label: 'Resolvidas · Últimos 7 dias', icon: statusIcon('analisado'), items: items.filter(function (x) { return !!x.ra; }) }
+    ];
+    return g.filter(function (x) { return x.items.length; }).map(function (x) { x.items = x.items.slice().sort(attention); return x; });
+  }
+  function grpHtml(g) {
+    return '<button type="button" class="cx-grp" aria-expanded="true"><span class="cx-caret">' + icon('chev', 14) + '</span>' +
+      (g.icon || '<span class="cx-dot" style="background:' + g.dot + '"></span>') + '<span>' + E(g.label) + '</span><span class="cx-n">' + g.items.length + '</span></button>';
+  }
+
+  /* ───────────── ANTES: CxIntimRow atual ───────────── */
+  function rowOld(it) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done;
+    var pz = it.ra ? { tone: 'done', txt: '✓ ' + dm(it.ra.at) } : dueOld(daysUntil(it.end), it.end);
+    var op = it.op ? OPS[it.op] : null, n = it.notes;
+    var tag = it.flag === 'new' ? '<span class="cx-tag blue">Novo</span>' : it.flag === 'updated' ? '<span class="cx-tag">Atualizada</span>' : '';
+    var ev = it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>';
+    var note = it.ra ? '<div class="cx-i-note">' + icon('send', 12) + '<span class="cx-ell">' + E(it.ra.kind + ' · ' + it.ra.desc) + '</span></div>'
+      : n.length ? '<div class="cx-i-note" title="' + E(n.join('\n')) + '">' + icon('note', 12) + '<span class="cx-ell">' + E(n[n.length - 1]) + '</span>' + (n.length > 1 ? '<span class="cx-mono">+' + (n.length - 1) + '</span>' : '') + '</div>' : '';
+    return '<div class="cx-i-row' + (urgent ? ' urgent' : '') + (done ? ' done' : '') + '" role="button" tabindex="0" data-id="' + it.id + '">' +
+      statusIcon(it.ra ? 'analisado' : it.status) +
+      '<div class="cx-i-main"><div class="cx-i-party">' + (urgent ? '<span class="cx-urg">URGENTE</span>' : '') + '<span class="cx-ell">' + E(it.party) + '</span>' + tag +
+        (it.pend ? '<span class="cx-flag" title="Pendência marcada">' + icon('flag', 11) + '</span>' : '') + '</div>' +
+        '<div class="cx-i-ev">' + ev + '</div>' + note + estLine(it.est) + '</div>' +
+      '<div class="cx-c-proc"><button type="button" class="cx-proc-copy" title="Copiar número do processo">' + procHtml(it.proc, it.uf, false) + '</button><span class="cx-cls">' + E(it.cls) + '</span></div>' +
+      '<div class="cx-c-op">' + (op ? '<button type="button" class="cx-op-tag cx-link" title="Abrir ' + E(op.name) + '">' + opSq(op) + '<span class="cx-ell">' + E(op.name) + '</span></button>' : '<span class="cx-op-tag cx-muted">Sem operação</span>') + '</div>' +
+      '<div class="cx-c-opdoc">' + (it.doc ? docIcon(14) : '') + '</div>' +
+      '<div class="cx-c-imp">' + imp(it.imp) + '</div><div class="cx-c-dif">' + dif(it.dif) + '</div>' +
+      '<div class="cx-c-due"><span class="cx-due ' + pz.tone + '">' + pz.txt + '</span><span class="cx-sub">' + (it.ra ? 'atuação registrada' : it.end ? 'final ' + dm(it.end) : 'prazo fechado') + '</span></div></div>';
+  }
+  function oldList(ids) {
+    var h = '<div class="cx-list-h"><span></span><span>Parte · evento · notas</span><span>Processo</span><span class="cx-h-op">Operação</span><span></span><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span class="r">Prazo</span></div>';
+    return h + ids.map(function (id) { return rowOld(BYID[id]); }).join('');
+  }
+
+  /* ───────────── DEPOIS: direção B ───────────── */
+  function opChip(it) {
+    var op = it.op ? OPS[it.op] : null;
+    if (!op) return '<span class="cx-it-op none">' + opSq({ c: '--cx-line-strong' }) + '<span class="cx-ell">Sem operação</span></span>';
+    return '<button type="button" class="cx-it-op cx-link" title="Abrir ' + E(op.name) + '">' + opSq(op) + '<span class="cx-ell">' + E(op.name) + '</span></button>';
+  }
+  function tribHtml(it, L, extra) {
+    var teor = it.teor ? it.teor : null;
+    var t = tribLinhas(it.obj, teor, L.cplTr, L.budTr);
+    var objTxt = it.obj ? E(it.obj) : '<span class="cx-obj-undef">Objeto não definido</span>';
+    var h = '<div class="cx-it-obj" style="--ol:' + t.ol + '" title="' + E(it.obj || 'Objeto não definido') + '">' + objTxt + '</div>';
+    if (teor) {
+      h += '<div class="cx-it-teor" style="--tl:' + t.tl + '" title="' + E(teor) + '"><span class="lbl">Decisão</span>' + (it.ia ? '<span class="ia" title="Resumo gerado por IA">✦ IA</span>' : '') + E(teor.replace(/\s*\n+\s*/g, ' ¶ ')) + '</div>';
+    }
+    return h;
+  }
+  function notesHtml(it, L) {
+    if (it.ra) return '<div class="cx-it-note act" style="--nl:2"><span class="zl">Atuação</span>' + E(it.ra.kind + ' · ' + it.ra.desc) + '</div>';
+    if (!it.notes.length) return '';
+    var r = notasCabem(it.notes, L.cplNt, L.budNt), h = '';
+    r.shown.forEach(function (n, i) { h += '<div class="cx-it-note" style="--nl:' + n.l + '">' + (i === 0 ? '<span class="zl">Notas</span>' : '') + E(n.t) + '</div>'; });
+    if (r.rest) h += '<div class="cx-it-more">+' + r.rest + (r.rest === 1 ? ' nota anterior' : ' notas anteriores') + '</div>';
+    return h;
+  }
+  function embHtml(e, it) {
+    if (!e) return '';
+    var after = it.end && e.date > it.end ? ' (depois do final do prazo)' : '';
+    var txt = e.tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + dm(e.date) + ' · ' + e.du + ' du';
+    return '<span class="cx-emb ' + e.tone + '" aria-label="Embargos de declaração ' + (e.tone === 'today' ? 'vencem hoje' : 'até ' + dm(e.date) + ', ' + plural(e.du, 'dia útil', 'dias úteis')) + '" title="Embargos de declaração até ' + dmy(e.date) + ' (' + (e.du === 0 ? 'hoje' : plural(e.du, 'dia útil', 'dias úteis')) + ')' + after + '">' + txt + '</span>';
+  }
+  function pzHtml(it) {
+    var pz = prazoLinhas(it);
+    return '<span class="cx-due ' + pz.tone + '" title="' + E(pz.title) + '">' + pz.l1 + '</span><span class="cx-it-cnt">' + pz.l2 + '</span>';
+  }
+  function peHtml(it) {
+    return embHtml(embargos(it), it) + '<span class="cx-gl">' + (it.doc ? docIcon(14) : '') + imp(it.imp) + dif(it.dif) + '</span>';
+  }
+  function rowNew(it, L) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done;
+    var tag = it.flag === 'new' ? '<span class="cx-tag blue xs">Novo</span>' : it.flag === 'updated' ? '<span class="cx-tag xs">Atualizada</span>' : '';
+    var nts = notesHtml(it, L);
+    return '<div class="cx-it' + (urgent ? ' urgent' : '') + (it.sel ? ' sel' : '') + (done ? ' done' : '') + '" role="button" tabindex="0" data-id="' + it.id + '">' +
+      '<div class="cx-it-st">' + statusIcon(it.ra ? 'analisado' : it.status) + '</div>' +
+      '<div class="cx-it-id"><div class="cx-it-opl">' + opChip(it) + '<span class="cx-it-tags">' + tag + (it.pend ? '<span class="cx-flag" title="Pendência marcada">' + icon('flag', 11) + '</span>' : '') + '</span></div>' +
+        '<div class="cx-it-party">' + (urgent ? '<span class="cx-urg">URGENTE</span>' : '') + '<span class="cx-ell" title="' + E(it.party) + '">' + E(it.party) + '</span></div>' +
+        '<div class="cx-it-pc"><button type="button" class="cx-proc-copy" title="Copiar número do processo">' + procHtml(it.proc, it.uf, true) + '</button><span class="cx-cls" title="' + E(it.cls) + '">' + E(it.cls) + '</span></div>' +
+        estLine(it.est) + '</div>' +
+      '<div class="cx-it-tr">' + tribHtml(it, L) + '</div>' +
+      '<div class="cx-it-nt' + (nts ? '' : ' empty') + '" title="' + E(it.ra ? '' : it.notes.join('\n')) + '">' + nts + '</div>' +
+      '<div class="cx-it-pz">' + pzHtml(it) + '</div>' +
+      '<div class="cx-it-pe">' + peHtml(it) + '</div></div>';
+  }
+  function headHtml() {
+    return '<div class="cx-it-h"><span></span><span class="h-id"><b>Parte</b>processo · esteira</span>' +
+      '<span class="h-tr"><b>Tribunal</b><span class="w-only">objeto · decisão</span><span class="m-only">· minhas notas</span></span>' +
+      '<span class="h-nt"><b>Minhas notas</b>o que fazer</span>' +
+      '<span class="h-pz"><span><b>Prazo</b>embargos</span><span class="h-gl">Imp. Compl.</span></span></div>';
+  }
+  function newList(el, W, ids) {
+    var L = layoutOf(W), items = ids ? ids.map(function (i) { return BYID[i]; }) : DATA, h = headHtml();
+    groups(items).forEach(function (g) { h += grpHtml(g) + g.items.map(function (it) { return rowNew(it, L); }).join(''); });
+    el.innerHTML = h; el.style.width = W + 'px';
+  }
+
+  /* ═════════════════════════ RODADA 2 · colunas extremas ═════════════════════════ */
+  var S = { cls: 'sigla' };
+  /* Siglas SUGERIDAS (a validar com o usuário). Classe fora do dicionário cai no texto por extenso. */
+  var CLSMAP = {
+    'Incidente de Desconsideração de Personalidade Jurídica': 'IDPJ', 'Execução Fiscal': 'EF', 'Execução de Título Extrajudicial': 'ETE',
+    'Embargos à Execução Fiscal': 'EEF', 'Embargos à Execução': 'EE', 'Embargos de Terceiro': 'ET', 'Exceção de Pré-Executividade': 'EPE',
+    'Cumprimento de Sentença': 'CS', 'Agravo de Instrumento': 'AI', 'Apelação Cível': 'AC', 'Procedimento Comum Cível': 'PCC',
+    'Recuperação Judicial': 'RJ', 'Falência': 'FAL', 'Mandado de Segurança': 'MS'
+  };
+  function $(id) { return document.getElementById(id); }
+  function stIcon(it) { return statusIcon(it.ra ? 'analisado' : it.status); }
+  function clsParts(it, mode) {
+    var r = { above: '', inline: '', line: '' };
+    if (!it.cls) return r;
+    var full = '<div class="cx-ix-cls" title="' + E(it.cls) + '">' + E(it.cls) + '</div>';
+    if (mode === 'sigla' && CLSMAP[it.cls]) r.inline = '<span class="cx-ix-sg" title="' + E(it.cls) + '">' + CLSMAP[it.cls] + '</span>';
+    else if (mode === 'above') r.above = full;
+    else r.line = full;
+    return r;
+  }
+  function pecaLink(size) { return '<a class="pl" href="#" onclick="return false" title="Abrir peça (Google Docs)">' + docIcon(size) + 'Peça</a>'; }
+
+  /* ── Coluna 1 · identidade (3 direções) ── */
+  function ixId(it, dir, mode) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done;
+    var tag = it.flag === 'new' ? '<span class="cx-tag blue xs">Novo</span>' : it.flag === 'updated' ? '<span class="cx-tag xs">Atualizada</span>' : '';
+    var eb = '<div class="cx-it-opl">' + opChip(it) + '<span class="cx-it-tags">' + (urgent ? '<span class="cx-urg">URGENTE</span>' : '') + tag +
+      (it.pend ? '<span class="cx-flag" title="Pendência marcada">' + icon('flag', 11) + '</span>' : '') + '</span></div>';
+    var name = '<div class="cx-ix-party">' + ((dir === 'd1' || dir === 'r') ? stIcon(it) : '') + '<span class="cx-ell" title="' + E(it.party) + '">' + E(it.party) + '</span></div>';
+    var cp = clsParts(it, mode);
+    var sigs = (dir === 'd1' || dir === 'r') ? '<span class="cx-ix-sig">' + imp(it.imp) + dif(it.dif) + (it.doc ? docIcon(14) : '') + '</span>' : '';
+    var num = '<div class="cx-ix-pc"><button type="button" class="cx-proc-copy" title="Copiar número do processo">' + procHtml(it.proc, it.uf, true) + '</button>' + cp.inline + sigs + '</div>';
+    var meta = '';
+    if (dir === 'd3') {
+      var key = it.ra ? 'analisado' : it.status;
+      meta = '<div class="cx-ix-meta"><span class="stl">' + stIcon(it) + '<span>' + ST[key][0] + '</span></span>' +
+        '<span class="kv">Imp. ' + imp(it.imp) + '</span><span class="kv">Compl. ' + dif(it.dif) + '</span>' + (it.doc ? pecaLink(12) : '') + '</div>';
+    }
+    var txt = eb + name + cp.above + num + cp.line + meta + estLine(it.est);
+    if (dir === 'd2') {
+      return '<div class="cx-ix-id rail"><div class="cx-ix-rail"><span class="s-pe">' + (it.doc ? docIcon(14) : '') + '</span><span class="s-st">' + stIcon(it) + '</span><span class="s-gl">' + imp(it.imp) + dif(it.dif) + '</span></div><div class="cx-ix-txt">' + txt + '</div></div>';
+    }
+    return '<div class="cx-ix-id">' + txt + '</div>';
+  }
+
+  /* ── Coluna 4 · prazo (só tempo). mode: inline | line | tip ── */
+  function ctShort(it) {
+    if (it.ra) return 'atuação';
+    if (!it.end) return '';
+    var dd = daysUntil(it.end);
+    if (dd < -1) return 'há ' + (-dd) + 'd'; if (dd === -1) return 'ontem'; if (dd === 0) return 'hoje'; if (dd === 1) return 'amanhã';
+    return dd + 'd';
+  }
+  function pzTip(it) {
+    if (it.ra) return 'Atuação em ' + dmy(it.ra.at);
+    if (!it.end) return 'Prazo ainda não aberto';
+    var dd = daysUntil(it.end), t = 'Final do prazo: ' + dmy(it.end);
+    if (dd > 1) t += ' · em ' + plural(dd, 'dia', 'dias') + ' (' + plural(bizUntil(it.end), 'dia útil', 'dias úteis') + ')';
+    else if (dd < 0) t += ' · há ' + plural(-dd, 'dia', 'dias');
+    return t;
+  }
+  function pzX(it, mode) {
+    var pz = prazoLinhas(it), ct = ctShort(it), h;
+    if (!it.end && !it.ra) h = '<span class="cx-due none" title="Prazo ainda não aberto">prazo fechado</span>';
+    else h = '<span class="dl"><span class="cx-due ' + pz.tone + '" title="' + E(pzTip(it)) + '">' + pz.l1 + '</span>' + (mode === 'inline' && ct ? '<span class="ct">' + ct + '</span>' : '') + '</span>' +
+      (mode === 'line' ? '<span class="cx-it-cnt">' + pz.l2 + '</span>' : '');
+    return h + embHtml(embargos(it), it);
+  }
+
+  /* ── orçamentos de linha por largura da lista ── */
+  function layoutX(W, dir) {
+    var idw = dir === 'd2' ? 420 : 384, idm = dir === 'd2' ? 360 : 350, L = { mode: W >= 1480 ? 'wide' : W >= 860 ? 'mid' : 'mob' };
+    if (L.mode === 'wide') {
+      var av = W - 28 - idw - 150;
+      L.cplTr = Math.floor((av * 1.25 / 2.25 - 36) / 6.35); L.cplNt = Math.floor((av / 2.25 - 36) / 6.1); L.budTr = 4; L.budNt = 4;
+    } else if (L.mode === 'mid') {
+      var c3 = W - 28 - idm - 140 - 36;
+      L.cplTr = Math.floor(c3 / 6.35); L.cplNt = Math.floor((c3 - 14) / 6.1); L.budTr = 3; L.budNt = 3;
+    } else {
+      var c = W - 28 - 28 - 20;
+      L.cplTr = Math.floor(c / 6.3); L.cplNt = Math.floor((c - 12) / 6.1); L.budTr = 4; L.budNt = 3;
+    }
+    return L;
+  }
+  function ixRow(it, L, dir, mode) {
+    var done = !!it.ra || it.status === 'analisado', urgent = it.urgent && !done, nts = notesHtml(it, L);
+    return '<div class="cx-ix' + (urgent ? ' urgent' : '') + (it.sel ? ' sel' : '') + (done ? ' done' : '') + '" role="button" tabindex="0" data-id="' + it.id + '">' +
+      ixId(it, dir, mode) +
+      '<div class="cx-it-tr">' + tribHtml(it, L) + '</div>' +
+      '<div class="cx-it-nt' + (nts ? '' : ' empty') + '" title="' + E(it.ra ? '' : it.notes.join('\n')) + '">' + nts + '</div>' +
+      '<div class="cx-ix-pz">' + pzX(it, (dir === 'd3' || dir === 'r') ? 'tip' : 'inline') + '</div></div>';
+  }
+  function ixHead() {
+    return '<div class="cx-ix-h"><span class="h-id"><b>Parte</b>processo · esteira</span>' +
+      '<span class="h-tr"><b>Tribunal</b><span class="w-only">objeto · decisão</span><span class="m-only">· minhas notas</span></span>' +
+      '<span class="h-nt"><b>Minhas notas</b>o que fazer</span><span class="h-pz"><b>Prazo</b>embargos</span></div>';
+  }
+  function ixList(el, W, dir, ids, mode, flat) {
+    var L = layoutX(W, dir), items = ids ? ids.map(function (i) { return BYID[i]; }) : DATA, h = ixHead();
+    if (flat) h += items.map(function (it) { return ixRow(it, L, dir, mode); }).join('');
+    else groups(items).forEach(function (g) { h += grpHtml(g) + g.items.map(function (it) { return ixRow(it, L, dir, mode); }).join(''); });
+    el.setAttribute('data-dir', dir); el.innerHTML = h; el.style.width = W + 'px';
+  }
+
+  /* ═════════════ Montagem ═════════════ */
+  var MID_IDS = ['i1', 'i3', 'i4', 'b1', 'c1'], MOB_IDS = ['i3', 'i1'];
+  function renderAll() {
+    ['d1', 'd2', 'd3'].forEach(function (d) {
+      ixList($('list-' + d), 1900, d, null, S.cls);
+      ixList($('mid-' + d), 1200, d, MID_IDS, S.cls, true);
+      ixList($('mob-' + d), 390, d, MOB_IDS, S.cls, true);
+    });
+    ixList($('list-r'), 1900, 'r', null, S.cls); ixList($('mid-r'), 1200, 'r', MID_IDS, S.cls, true);
+    var Lb = layoutOf(1900), eb = $('old-b1'); eb.setAttribute('data-dir', 'b1');
+    eb.innerHTML = headHtml() + ['i1', 'i2', 'i3'].map(function (id) { return rowNew(BYID[id], Lb); }).join('');
+    // variações · classe do processo
+    [['full', 'Linha própria, por extenso', true], ['sigla', 'Sigla + nome completo no tooltip', false], ['above', 'Legenda acima do número', false]].forEach(function (m) {
+      $('vc-' + m[0]).innerHTML = ['i1', 'i2', 'i3'].map(function (id) { return ixId(BYID[id], 'd1', m[0]).replace('cx-ix-id', 'cx-ix-id'); }).join('');
+    });
+    // variações · situação (os 6 estados em cada solução)
+    var order = ['pendente_analise', 'em_analise', 'analise_concluida', 'peca_edicao', 'aguardando_subsidios', 'analisado'], g = '<div class="h">Situação</div><div class="h">D1 · inline antes do nome</div><div class="h">D2 · trilho alinhado ao nome</div><div class="h">D3 · rótulo na faixa</div>';
+    order.forEach(function (s) {
+      g += '<div>' + ST[s][0] + '</div><div>' + statusIcon(s) + '<span style="font-weight:500;font-size:13.5px">RUBENS PAES</span></div>' +
+        '<div><span style="width:36px;display:flex;justify-content:center">' + statusIcon(s) + '</span><span style="font-weight:500;font-size:13.5px">RUBENS PAES</span></div>' +
+        '<div><span class="cx-ix-meta"><span class="stl">' + statusIcon(s) + '<span>' + ST[s][0] + '</span></span></span></div>';
+    });
+    $('st-grid').innerHTML = g;
+    // prazo · estados × 3 versões da contagem
+    var cases = [
+      ['Mais adiante · embargos calmos (8 du)', 'i5'], ['Próximos 5 dias · embargos já expirados', 'i1'], ['Embargos DEPOIS do final do prazo', 'i2'],
+      ['Amanhã · embargos HOJE', 'a1'], ['Vencida há 2 dias · embargos em atenção (2 du)', 'b1'], ['Prazo adiante · embargos em atenção (2 du)', 'i4'],
+      ['Prazo fechado (sem início)', 'd1'], ['Resolvida', 'c1']
+    ];
+    var pzh = '<div></div><div class="h">A · três linhas (B da rodada 1)</div><div class="h">B · contagem junto da data</div><div class="h">C · contagem só no tooltip</div>';
+    cases.forEach(function (c) {
+      var it = BYID[c[1]];
+      function box(mode, dir) { return '<div class="sample cx-it-list" data-dir="' + dir + '" style="container-type:normal;width:230px"><div class="cx-ix-pz" style="padding:0">' + pzX(it, mode) + '</div></div>'; }
+      pzh += '<div class="lb">' + c[0] + '</div>' + box('line', 'd1') + box('inline', 'd1') + box('tip', 'd3');
+    });
+    $('pz-states').innerHTML = pzh;
+  }
+  /* espécime tipográfico */
+  var PFS = [['gm', 'Geist Mono', 'atual · monoespaçada'], ['jb', 'JetBrains Mono', 'monoespaçada, já no shell'], ['geist', 'Geist', 'proporcional + tnum + zero cortado'], ['inter', 'Inter', 'proporcional + tnum + zero cortado'], ['plex', 'IBM Plex Sans', 'proporcional + tnum']];
+  function specimen() {
+    var nums = [['RS', '50008941820244047107'], ['RS', '5059246-53.2025.4.04.7100'], ['TJPR', '0008825-43.2022.8.16.0194']], h = '<table><tr><th>Fonte</th><th>12 px</th><th>13 px</th><th>Largura do nº (px)</th></tr>';
+    PFS.forEach(function (f) {
+      function col(px) { return '<div class="col" data-pf="' + f[0] + '" style="--pf-size:' + px + 'px">' + nums.map(function (n) { return '<span>' + procHtml(n[1], n[0], true) + '</span>'; }).join('') + '</div>'; }
+      h += '<tr><td class="nm"><b style="color:var(--cx-ink)">' + f[1] + '</b><br>' + f[2] + '</td><td>' + col(12) + '</td><td>' + col(13) + '</td><td class="num mono" data-w="' + f[0] + '">—</td></tr>';
+    });
+    $('spec-body').innerHTML = h + '</table>';
+    [].forEach.call(document.querySelectorAll('[data-w]'), function (td) {
+      if (td.tagName !== 'TD') return;
+      var s = document.querySelector('.spec .col[data-pf="' + td.getAttribute('data-w') + '"] .cx-proc');
+      if (s) td.textContent = Math.round(s.getBoundingClientRect().width) + ' (12 px)';
+    });
+  }
+
+  /* ═════════════ Medição real das alturas (todas as combinações) ═════════════ */
+  function avgH(root, sel) {
+    var hs = [].slice.call(root.querySelectorAll(sel)).map(function (r) { return r.getBoundingClientRect().height; });
+    return { avg: hs.reduce(function (a, b) { return a + b; }, 0) / (hs.length || 1), min: Math.min.apply(null, hs), max: Math.max.apply(null, hs) };
+  }
+  function probe(fn) {
+    var q = document.createElement('div'); q.style.cssText = 'position:absolute;left:-99999px;top:0'; q.innerHTML = '<div class="cx"><div class="cx-list cx-it-list" id="__p"></div></div>';
+    document.body.appendChild(q); var el = q.querySelector('#__p'), res = fn(el); document.body.removeChild(q); return res;
+  }
+  function measure() {
+    try {
+      var rows = [], r = Math.round;
+      [1900, 1200].forEach(function (W) {
+        rows.push({ k: 'B · rodada 1 (base)', W: W, m: probe(function (el) { var L = layoutOf(W); el.setAttribute('data-dir', 'b1'); el.style.width = W + 'px'; el.innerHTML = headHtml() + DATA.map(function (it) { return rowNew(it, L); }).join(''); return { all: avgH(el, '.cx-it'), simple: avgH(el.querySelector('[data-id="i2"]').parentNode, '[data-id="i2"]') }; }), base: true });
+        ['d1', 'd2', 'd3', 'r'].forEach(function (d) {
+          ['full', 'sigla'].forEach(function (md) {
+            rows.push({ k: (d === 'r' ? 'R · recomendada' : d.toUpperCase()) + ' · classe ' + (md === 'full' ? 'por extenso' : 'sigla'), W: W, m: probe(function (el) { var L = layoutX(W, d); el.setAttribute('data-dir', d); el.style.width = W + 'px'; el.innerHTML = ixHead() + DATA.map(function (it) { return ixRow(it, L, d, md); }).join(''); return { all: avgH(el, '.cx-ix'), simple: avgH(el, '[data-id="i2"]') }; }) });
+          });
+        });
+      });
+      var names = {}; rows.forEach(function (x) { (names[x.k] = names[x.k] || {})[x.W] = x.m; });
+      var h = '<table class="t measure"><tr><th>Versão</th><th class="num">Média 1900</th><th class="num">Mín–máx 1900</th><th class="num">Linha simples 1900</th><th class="num">Média 1200</th><th class="num">Mín–máx 1200</th></tr>';
+      Object.keys(names).forEach(function (k) {
+        var a = names[k][1900], b = names[k][1200];
+        h += '<tr' + (k.indexOf('base') > -1 ? ' class="base"' : '') + '><td>' + k + '</td><td class="num">' + r(a.all.avg) + ' px</td><td class="num">' + r(a.all.min) + '–' + r(a.all.max) + '</td><td class="num">' + r(a.simple.avg) + ' px</td><td class="num">' + r(b.all.avg) + ' px</td><td class="num">' + r(b.all.min) + '–' + r(b.all.max) + '</td></tr>';
+      });
+      $('measure-body').innerHTML = h + '</table>';
+      window.__rows = names;
+    } catch (e) { $('measure-body').textContent = 'medição indisponível: ' + e; }
+  }
+
+  /* ═════════════ Controles ═════════════ */
+  var root = document.documentElement, fit = true;
+  function seg(id, attr, fn) {
+    [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (b) {
+      b.addEventListener('click', function () {
+        var v = b.getAttribute(attr);
+        [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+        fn(v);
+      });
+    });
+  }
+  function applyFit() {
+    [].forEach.call(document.querySelectorAll('.fw'), function (fw) {
+      var fz = fw.querySelector('.fz'), w = parseFloat(fw.getAttribute('data-w')), avail = fw.clientWidth;
+      fz.style.zoom = fit ? Math.min(1, avail / w) : 1;
+    });
+  }
+  function setBtn(id, attr, val) { [].forEach.call(document.querySelectorAll('#' + id + ' button'), function (b) { var on = b.getAttribute(attr) === val; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
+  function setTheme(t) { root.setAttribute('data-theme', t); setBtn('seg-theme', 'data-v', t); try { localStorage.setItem('mock-b2-theme', t); } catch (e) {} }
+  function setPf(v) { root.setAttribute('data-pf', v); setBtn('seg-pf', 'data-v', v); measure(); applyFit(); }
+  function setGap(v) { root.setAttribute('data-gap', v); setBtn('seg-gap', 'data-v', v); measure(); applyFit(); }
+  function setCls(v) { S.cls = v; setBtn('seg-cls', 'data-v', v); renderAll(); measure(); applyFit(); }
+  seg('seg-theme', 'data-v', setTheme); seg('seg-pf', 'data-v', setPf); seg('seg-cls', 'data-v', setCls); seg('seg-gap', 'data-v', setGap);
+  seg('seg-fit', 'data-v', function (v) { fit = v === '1'; applyFit(); });
+  window.addEventListener('resize', applyFit);
+
+  var hs = location.hash, mg = /gap=(c|m|f)/.exec(hs), mp = /pf=(gm|jb|geist|inter|plex)/.exec(hs), mc = /cls=(full|sigla|above)/.exec(hs);
+  try { var sv = localStorage.getItem('mock-b2-theme'); if (sv === 'escuro') setTheme('escuro'); } catch (e) {}
+  if (hs.indexOf('escuro') > -1) setTheme('escuro');
+  root.setAttribute('data-pf', mp ? mp[1] : DEFAULT_PF); setBtn('seg-pf', 'data-v', mp ? mp[1] : DEFAULT_PF);
+  if (mc) { S.cls = mc[1]; setBtn('seg-cls', 'data-v', mc[1]); } else { setBtn('seg-cls', 'data-v', 'sigla'); }
+  root.setAttribute('data-gap', mg ? mg[1] : 'm'); setBtn('seg-gap', 'data-v', mg ? mg[1] : 'm');
+  renderAll(); specimen(); applyFit(); measure();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { specimen(); measure(); applyFit(); });
+})();
+
+</script>
+</body>
+</html>
