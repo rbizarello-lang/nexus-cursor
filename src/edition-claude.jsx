@@ -56,6 +56,9 @@ const CX_ICONS = {
   layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
   filter: '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   timeline: '<path d="M3 6h9M3 12h14M3 18h6"/><circle cx="15" cy="6" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>',
+  bold: '<path d="M7 4h6a4 4 0 0 1 0 8H7z"/><path d="M7 12h7a4 4 0 0 1 0 8H7z"/>',
+  italic: '<path d="M19 4h-9M14 20H5M15 4 9 20"/>',
+  listOl: '<path d="M10 6h11M10 12h11M10 18h11"/><path d="M3.5 5.5 5 4.5V9M3.5 14.5c0-1 3-1 3 .6 0 1-3 2.4-3 3.4h3"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/>',
 };
 function CxIcon({ n, s = 16, className = '', style }) {
@@ -3934,7 +3937,7 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, shell, onOpenIntim, on
    op.descriptionHtml — exibido (sanitizado de novo) só enquanto o texto simples dele for igual a
    description; se alguém editar no modal clássico, volta ao texto simples. Edição inline com o mesmo
    editor rico do Diário (RichNoteEditor), com cor de texto. */
-const cxSanitizeDesc = (h) => sanitizeNoteHtml(h, { color: true });
+const cxSanitizeDesc = (h) => sanitizeNoteHtml(h, { color: true, links: true });
 function EditionClaudeOpDesc({ op, upsert }) {
   const [editing, setEditing] = React.useState(false);
   const draftRef = React.useRef('');
@@ -4010,6 +4013,107 @@ function CxStageTextEditor({ texto, textoHtml, onSave, onCancel }) {
       <button type="button" className="cx-btn sm ghost" onClick={onCancel}>Cancelar</button>
       <button type="button" className="cx-btn sm primary" onClick={() => onSave(draftRef.current)}>Salvar</button>
     </div>
+  </div>;
+}
+/* Editor rico mínimo, no lugar (Evento da fase e Notas das Frentes): contenteditable com barra discreta
+   (negrito, itálico, lista, lista numerada, link), Ctrl+B / Ctrl+I, Esc cancela, Ctrl+Enter salva.
+   `enterSaves` (campo de nova nota): Enter salva, Shift+Enter quebra a linha; dentro de uma lista o Enter cria
+   o item (Enter em item vazio sai da lista e o Enter seguinte salva). `actions` mostra Cancelar/Salvar.
+   Devolve o HTML bruto em onSave(html) — quem chama sanitiza (cxSanitizeDesc) ou converte (htmlToMdNote). */
+function cxNormalizeUrl(u) {
+  u = String(u || '').trim();
+  if (!u) return '';
+  if (/^(https?:\/\/|mailto:)/i.test(u)) return u;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u)) return 'mailto:' + u;
+  if (/^[^\s:]+\.[^\s:]+/.test(u) && !/^[a-z][a-z0-9+.-]*:/i.test(u)) return 'https://' + u;
+  return '';
+}
+function CxRichEdit({ html, onSave, onCancel, placeholder, compact, enterSaves, actions, autoFocus, ariaLabel }) {
+  const ref = React.useRef(null);
+  const savedSel = React.useRef(null);
+  const [empty, setEmpty] = React.useState(!html);
+  const [link, setLink] = React.useState(null); // null | string (URL em edição)
+  const sync = () => { const ed = ref.current; if (ed) setEmpty(!String(ed.textContent || '').trim() && !ed.querySelector('li')); };
+  React.useEffect(() => {
+    const ed = ref.current; if (!ed) return;
+    ed.innerHTML = html || '';
+    sync();
+    if (autoFocus) {
+      ed.focus();
+      try { const r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+    }
+  }, []);
+  /* execCommand de lista dentro de <p> gera <p><ul>…</ul></p> (inválido): tira a lista de dentro do parágrafo. */
+  const fixLists = () => {
+    const ed = ref.current; if (!ed) return;
+    ed.querySelectorAll('p > ul, p > ol').forEach(l => {
+      const p = l.parentNode;
+      p.parentNode.insertBefore(l, p.nextSibling);
+      if (!String(p.textContent || '').trim() && !p.querySelector('img')) p.remove();
+    });
+  };
+  const run = (c) => { const ed = ref.current; if (!ed) return; ed.focus(); try { document.execCommand(c, false, null); } catch (e) {} fixLists(); sync(); };
+  const inList = () => {
+    const ed = ref.current; const s = window.getSelection();
+    let n = s && s.anchorNode;
+    while (n && n !== ed) { if (n.nodeName === 'LI') return true; n = n.parentNode; }
+    return false;
+  };
+  const commit = () => { const ed = ref.current; if (!ed) return; fixLists(); onSave(ed.innerHTML); };
+  const openLink = () => {
+    const s = window.getSelection();
+    savedSel.current = s && s.rangeCount && ref.current.contains(s.anchorNode) ? s.getRangeAt(0).cloneRange() : null;
+    setLink('');
+  };
+  const applyLink = () => {
+    const url = cxNormalizeUrl(link);
+    const ed = ref.current; setLink(null);
+    if (!url || !ed) { if (ed) ed.focus(); return; }
+    ed.focus();
+    const s = window.getSelection();
+    if (savedSel.current) { s.removeAllRanges(); s.addRange(savedSel.current); }
+    try {
+      if (s.isCollapsed) document.execCommand('insertHTML', false, '<a href="' + url.replace(/"/g, '%22') + '">' + url.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</a>&nbsp;');
+      else document.execCommand('createLink', false, url);
+    } catch (e) {}
+    sync();
+  };
+  const onKeyDown = (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel && onCancel(); return; }
+    if (mod && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); run('bold'); return; }
+    if (mod && !e.shiftKey && !e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); run('italic'); return; }
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      if (mod) { e.preventDefault(); commit(); return; }
+      if (enterSaves && !e.shiftKey && !inList()) { e.preventDefault(); commit(); }
+    }
+  };
+  const onPaste = (e) => {
+    const t = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (t == null) return;
+    e.preventDefault();
+    try { document.execCommand('insertText', false, t); } catch (er) {}
+    sync();
+  };
+  const btn = (ic, title, fn) => <button type="button" className="cx-icon-btn cx-sm" title={title} aria-label={title} onClick={fn}><CxIcon n={ic} s={14} /></button>;
+  return <div className={'cx-re' + (compact ? ' compact' : '') + (empty ? ' empty' : '')}>
+    <div className="cx-re-tb" role="toolbar" aria-label="Formatação" onMouseDown={e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); }}>
+      {btn('bold', 'Negrito (Ctrl+B)', () => run('bold'))}
+      {btn('italic', 'Itálico (Ctrl+I)', () => run('italic'))}
+      {btn('list', 'Lista', () => run('insertUnorderedList'))}
+      {btn('listOl', 'Lista numerada', () => run('insertOrderedList'))}
+      {btn('link', 'Link', openLink)}
+      {link !== null ? <input className="cx-re-url" autoFocus placeholder="https://… e Enter" aria-label="Endereço do link" value={link}
+        onChange={e => setLink(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); applyLink(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setLink(null); if (ref.current) ref.current.focus(); } }} /> : null}
+    </div>
+    <div ref={ref} className="cx-re-ed" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={ariaLabel || 'Texto'}
+      data-ph={placeholder || ''} onInput={sync} onKeyDown={onKeyDown} onPaste={onPaste} />
+    {actions ? <div className="cx-re-act">
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm ghost" onClick={onCancel}>Cancelar</button>
+      <button type="button" className="cx-btn sm primary" onClick={commit}>Salvar</button>
+    </div> : null}
   </div>;
 }
 /* Cartões da Visão geral (CxFoldAllBar): o que "Recolher tudo / Expandir tudo" alcança. Os blocos de dentro de cada frente
@@ -5632,8 +5736,10 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
   const [sel, setSel] = React.useState(null);
   const [popup, setPopup] = React.useState(null);
   const [addMenu, setAddMenu] = React.useState(false);
-  const [noteDraft, setNoteDraft] = React.useState('');
-  const [noteEdit, setNoteEdit] = React.useState(null); // { idx, val }
+  const [noteEdit, setNoteEdit] = React.useState(null); // { idx, val, atu } — atu: nota de atuação (edição em texto puro)
+  const [evEdit, setEvEdit] = React.useState(null); // chave da fase cujo texto está em edição inline
+  const [noteDel, setNoteDel] = React.useState(null); // índice da nota aguardando confirmação de exclusão
+  const [composeKey, setComposeKey] = React.useState(0);
   const focused = R.visible.find(m => m.k === sel) || R.cur;
   const setRec = (sk, patch) => cxStageSetRec(op, upsert, e.id, sk, patch);
   const delRec = (sk) => cxStageDelRec(op, upsert, e.id, sk);
@@ -5657,16 +5763,32 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
   const rawNotes = e.notesList || (e.notes ? [e.notes] : []);
   const notes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
   const setNotes = (arr) => upsert('executions', { ...e, notesList: arr });
-  const addNote = () => { const t = noteDraft.trim(); if (!t) return; setNotes([...rawNotes, t]); setNoteDraft(''); };
+  /* Notas: texto com marcação leve (**negrito**, *itálico*, "- ", "1. ", [texto](url)) — o Clássico mostra o texto legível. */
+  const addNote = (html) => {
+    const md = htmlToMdNote(html);
+    if (!md) return;
+    setNotes([...rawNotes, md]);
+    setComposeKey(k => k + 1);
+  };
   const startEdit = (idx, raw) => {
     const txt = cxNoteText(raw);
     const atu = presentAtuacaoProcessNote(txt);
-    setNoteEdit({ idx, val: atu ? atu.text : txt });
+    setNoteDel(null);
+    setNoteEdit({ idx, val: atu ? atu.text : txt, atu: !!atu });
+  };
+  const saveRichEdit = (html) => {
+    if (!noteEdit) return;
+    const md = htmlToMdNote(html);
+    const idx = noteEdit.idx;
+    setNoteEdit(null);
+    if (!md) return;
+    setNotes(replaceNoteText(rawNotes, idx, md));
   };
   const saveEdit = () => {
     if (!noteEdit) return;
     const next = noteEdit.val.trim();
     const raw = rawNotes[noteEdit.idx];
+    if (!noteEdit.atu) return;
     setNoteEdit(null);
     if (!next) return;
     const txt = cxNoteText(raw);
@@ -5704,7 +5826,7 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
           const compl = (s.k === 'constricoes' || s.k === 'garantia') && s.rec && s.rec.texto ? String(s.rec.texto).trim().split(/\n/)[0].slice(0, 26) : '';
           const on = focused && focused.k === s.k;
           return <li key={s.k} className={'rs ' + state + (on ? ' sel' : '')}>
-            <button type="button" className="bt" aria-pressed={on} aria-label={s.sd.label + (isCur ? ' (atual)' : '')} onClick={() => setSel(s.k)}>
+            <button type="button" className="bt" aria-pressed={on} aria-label={s.sd.label + (isCur ? ' (atual)' : '')} onClick={() => { setSel(s.k); setEvEdit(null); }}>
               <span className="rd" /><span className="rl">{s.sd.label}</span><span className="re">{l2 || '\u00a0'}</span>
               {compl ? <span className="rt"><CxIcon n="lock" s={10} />{compl}</span> : null}
             </button>
@@ -5725,7 +5847,11 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
     </div>
     <div className="cx-bfx-box cx-bfx-ev">
       <div className="cx-bfx-bh"><h3>Evento da fase</h3><span className="push" />
-        {m ? <button type="button" className="cx-icon-btn cx-sm" title="Editar fase" aria-label="Editar fase" onClick={() => setPopup(m.k)}><CxIcon n="edit" s={13} /></button> : null}
+        {m && !m.sd.multiRecurso ? <>
+          <button type="button" className={'cx-icon-btn cx-sm' + (evEdit === m.k ? ' on' : '')} title="Editar o texto da fase" aria-label="Editar o texto da fase" onClick={() => setEvEdit(evEdit === m.k ? null : m.k)}><CxIcon n="edit" s={13} /></button>
+          <button type="button" className="cx-icon-btn cx-sm" title="Data, evento, desfecho e outros campos" aria-label="Data, evento, desfecho e outros campos da fase" onClick={() => setPopup(m.k)}><CxIcon n="settings" s={13} /></button>
+        </> : null}
+        {m && m.sd.multiRecurso ? <button type="button" className="cx-icon-btn cx-sm" title="Editar fase" aria-label="Editar fase" onClick={() => setPopup(m.k)}><CxIcon n="edit" s={13} /></button> : null}
       </div>
       {m ? <>
         <div className="cx-bfx-evh">
@@ -5744,36 +5870,52 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
             </li>;
           })}</ol> : <div className="cx-bfx-empty">Sem julgamentos listados.</div>
         ) : (
-          (m.rec && String(m.rec.texto || '').trim())
-            ? <CxRichText className="cx-bfx-rt" text={String(m.rec.texto).trim()} html={pickStageTextHtml(m.rec, cxSanitizeDesc)} />
-            : <div className="cx-bfx-empty">Sem texto neste evento.</div>
+          evEdit === m.k
+            ? <CxRichEdit key={'ev-' + e.id + '-' + m.k} actions autoFocus placeholder="Texto do evento…" ariaLabel={'Texto da fase ' + phaseTitle}
+                html={pickStageTextHtml(m.rec, cxSanitizeDesc) || plainToRichHtml(m.rec && m.rec.texto)}
+                onCancel={() => setEvEdit(null)}
+                onSave={(h) => { setRec(m.k, { ...buildStageTextPatch(h, cxSanitizeDesc), _present: true }); setEvEdit(null); }} />
+            : (m.rec && String(m.rec.texto || '').trim())
+              ? <CxRichText className="cx-bfx-rt" text={String(m.rec.texto).trim()} html={pickStageTextHtml(m.rec, cxSanitizeDesc)} />
+              : <div className="cx-bfx-empty">Sem texto neste evento. <button type="button" className="cx-link-btn" onClick={() => setEvEdit(m.k)}>Escrever</button></div>
         )}
       </> : <div className="cx-bfx-empty">Nenhuma fase registrada. Use “+ Evento” na régua.</div>}
     </div>
     <div className="cx-bfx-box cx-bfx-nt">
       <div className="cx-bfx-bh"><h3>Notas</h3><span className="cx-bfx-n">{notes.length}</span></div>
       <div className="cx-bfx-nl">
-        {notes.map(({ n, idx }) => {
+        {[...notes].reverse().map(({ n, idx }) => { /* gravadas em sequência; exibidas da mais recente para a mais antiga */
           const dt = cxNoteDate(n);
           const editing = noteEdit && noteEdit.idx === idx;
+          const atu = presentAtuacaoProcessNote(cxNoteText(n));
           return <div key={idx} className="cx-bfx-note">
-            {editing
-              ? <input className="cx-bfx-ni" autoFocus value={noteEdit.val} onChange={ev => setNoteEdit({ idx, val: ev.target.value })}
+            {editing && noteEdit.atu
+              ? <input className="cx-bfx-ni" autoFocus value={noteEdit.val} onChange={ev => setNoteEdit({ ...noteEdit, val: ev.target.value })}
                   onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); saveEdit(); } else if (ev.key === 'Escape') setNoteEdit(null); }} onBlur={saveEdit} />
-              : <div className="t">{renderProcessNote(n)}</div>}
-            <div className="f">
+              : editing
+                ? <CxRichEdit key={'ne-' + idx} actions autoFocus ariaLabel="Editar nota" html={mdNoteToHtml(cxNoteText(n))} onCancel={() => setNoteEdit(null)} onSave={saveRichEdit} />
+                : atu
+                  ? <div className="t">{renderProcessNote(n)}</div>
+                  : <div className="t cx-nt-rich" dangerouslySetInnerHTML={{ __html: mdNoteToHtml(cxNoteText(n)) }} />}
+            {!editing || noteEdit.atu ? <div className="f">
               {dt ? <time>{dt}</time> : null}
-              <span className="na">
-                <button type="button" className="cx-icon-btn cx-sm" title="Editar nota" aria-label="Editar nota" onMouseDown={ev => ev.preventDefault()} onClick={() => startEdit(idx, n)}><CxIcon n="edit" s={12} /></button>
-                <button type="button" className="cx-icon-btn cx-sm del" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}><CxIcon n="x" s={12} /></button>
-              </span>
-            </div>
+              {noteDel === idx
+                ? <span className="cx-bfx-del" role="group" aria-label="Confirmar exclusão">Excluir esta nota?
+                    <button type="button" className="cx-link-btn red" autoFocus onClick={() => { setNotes(rawNotes.filter((_, j) => j !== idx)); setNoteDel(null); }}>Excluir</button>
+                    <button type="button" className="cx-link-btn" onClick={() => setNoteDel(null)}>Manter</button></span>
+                : <span className="na">
+                    <button type="button" className="cx-icon-btn cx-sm" title="Editar nota" aria-label="Editar nota" onMouseDown={ev => ev.preventDefault()} onClick={() => startEdit(idx, n)}><CxIcon n="edit" s={12} /></button>
+                    <button type="button" className="cx-icon-btn cx-sm del" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNoteDel(idx)}><CxIcon n="x" s={12} /></button>
+                  </span>}
+            </div> : null}
           </div>;
         })}
         {!notes.length ? <div className="cx-bfx-empty">Nenhuma nota.</div> : null}
       </div>
-      <input className="cx-bfx-ni cx-bfx-compose" placeholder="Escrever nota…" aria-label="Nova nota do processo" value={noteDraft}
-        onChange={ev => setNoteDraft(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); addNote(); } }} />
+      <div className="cx-bfx-compose">
+        <CxRichEdit key={'nc-' + composeKey} compact enterSaves autoFocus={composeKey > 0} ariaLabel="Nova nota do processo"
+          placeholder="Escrever nota…" onSave={addNote} onCancel={() => setComposeKey(k => k + 1)} />
+      </div>
     </div>
     <div className="cx-bfx-o">
       {shortcuts}

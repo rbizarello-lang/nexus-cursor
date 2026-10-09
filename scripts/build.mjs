@@ -150,6 +150,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(esteiraPath, 'utf8')),
   '/* --- src/lib/rich-text.js --- */',
   unwrapModule(fs.readFileSync(richTextPath, 'utf8')),
+  '/* --- src/lib/notes-md.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'notes-md.js'), 'utf8')),
   '/* --- src/lib/atuacoes.js --- */',
   unwrapModule(fs.readFileSync(atuacoesPath, 'utf8')),
   '/* --- src/lib/hoje.js --- */',

@@ -6491,6 +6491,34 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-bfx-ni { width: 100%; height: 30px; border: 1px solid var(--cx-line-strong); border-radius: 6px; padding: 0 9px; font-size: 13px; color: var(--cx-ink); background: var(--cx-surface); box-sizing: border-box; }
 .cx-bfx-ni:focus { outline: 2px solid var(--cx-blue); outline-offset: -1px; border-color: transparent; }
 .cx-bfx-compose { margin-top: 10px; flex: none; }
+.cx-bfx-note .t.cx-nt-rich div { margin: 0; }
+.cx-bfx-note .t ul, .cx-bfx-note .t ol, .cx-bfx-rt ul, .cx-bfx-rt ol { margin: .2em 0 .5em; padding-left: 22px; }
+.cx-bfx-note .t ul, .cx-bfx-rt ul { list-style: disc; }
+.cx-bfx-note .t ol, .cx-bfx-rt ol { list-style: decimal; }
+.cx-bfx-note .t b, .cx-bfx-note .t strong { font-weight: 600; }
+.cx-bfx-note .t a, .cx-bfx-rt a, .cx-re-ed a { color: var(--cx-blue); text-decoration: underline; }
+.cx-bfx-del { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--cx-ink-2); }
+.cx-bfx-del .cx-link-btn.red, .cx-bfx-del .cx-link-btn.red:hover { color: var(--cx-red); }
+/* Editor rico mínimo (CxRichEdit): barra discreta + corpo com a tipografia de leitura */
+.cx-re { border: 1px solid var(--cx-line-strong); border-radius: 8px; background: var(--cx-surface); }
+.cx-re:focus-within { outline: 2px solid var(--cx-blue); outline-offset: -1px; border-color: transparent; }
+.cx-re-tb { display: flex; align-items: center; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--cx-line); }
+.cx-re-tb .cx-icon-btn { width: 24px; height: 24px; }
+.cx-re-url { height: 22px; width: 210px; margin-left: 4px; border: 1px solid var(--cx-line-strong); border-radius: 5px; padding: 0 7px; font-size: 12px; color: var(--cx-ink); background: var(--cx-surface); }
+.cx-re-ed { padding: 9px 13px; min-height: 90px; outline: none; font-size: 13.5px; line-height: 1.6; color: var(--cx-ink); overflow-wrap: anywhere; }
+.cx-re-ed:focus { outline: none; }
+.cx-re.empty .cx-re-ed:before { content: attr(data-ph); color: var(--cx-ink-3); pointer-events: none; float: left; height: 0; }
+.cx-re-ed div { margin: 0; }
+.cx-re-ed p { margin: 0 0 .7em; }
+.cx-re-ed > :last-child { margin-bottom: 0; }
+.cx-re-ed ul, .cx-re-ed ol { margin: .2em 0 .4em; padding-left: 22px; }
+.cx-re-ed ul { list-style: disc; }
+.cx-re-ed ol { list-style: decimal; }
+.cx-re.compact .cx-re-ed { padding: 8px 12px; min-height: 3.2em; max-height: 240px; overflow-y: auto; }
+.cx-re.compact .cx-re-tb { display: none; }
+.cx-re.compact:focus-within .cx-re-tb { display: flex; }
+.cx-re-act { display: flex; align-items: center; gap: 6px; padding: 0 8px 8px; }
+.cx-re-act .cx-sp { flex: 1; }
 @media (max-width: 1100px) { .cx-bfx { grid-template-columns: minmax(0, 1fr); } }
 .cx-bf-diary { padding: 6px 18px 16px; }
 /* M14 · telas baixas (≤ 900 px de altura): cabeçalho da operação mais compacto, mais área para o conteúdo */
