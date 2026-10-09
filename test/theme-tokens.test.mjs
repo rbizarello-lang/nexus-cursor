@@ -22,7 +22,7 @@ export function tokens(body) {
 }
 
 // Tokens que não são cor: fontes, escala tipográfica (--cx-fs-*) e dimensões ficam no bloco base e valem para qualquer tema.
-const NOT_COLOUR = new Set(['--cx-font', '--cx-mono', '--cx-ctl-h', '--cx-sbw', '--font-display', '--font-ui', '--font-body', '--font-mono']);
+const NOT_COLOUR = new Set(['--cx-font', '--cx-mono', '--cx-ctl-h', '--cx-chip-h', '--cx-chip-r', '--cx-tagk-h', '--cx-tagk-r', '--cx-pill-h', '--cx-nb-h', '--cx-nb-r', '--cx-row-h-sm', '--cx-row-h-md', '--cx-sbw', '--font-display', '--font-ui', '--font-body', '--font-mono']);
 
 const ardosia = tokens(ruleBody('.app-layout.edition-claude'));
 const darkKeys = CX_THEMES.filter(t => t.scheme === 'dark').map(t => t.key);

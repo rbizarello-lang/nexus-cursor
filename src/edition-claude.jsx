@@ -1609,7 +1609,7 @@ function CxBlock({ title, summary, count, open, onToggle, aside, children }) {
   return <div className="cx-blk">
     <div className="cx-blk-bar">
       <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
-        <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+        <span className="cx-blk-chev cx-caret" style={{ transform: open ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
         <span className="cx-blk-t">{title}</span>
         {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
         {count != null ? <span className="cx-blk-n">{count}</span> : null}
@@ -2779,7 +2779,7 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
     const st0 = { height: v.h };
     if (v.kind === 'head') return <div key={k} className="cx-tl-rl hd" style={st0}>{v.icon ? <CxIcon n={v.icon} s={13} /> : null}<span className="cx-ell">{v.label}</span>{v.sub ? <span className="cx-tl-hsub">{v.sub}</span> : null}</div>;
     if (v.kind === 'op') return <div key={k} className="cx-tl-rl" style={{ ...st0, alignItems: 'flex-end', paddingBottom: 10 }}><CxIcon n="flag" s={13} /><span className="cx-ell">Operação</span><span className="cx-tl-hsub">audiências · revisão</span></div>;
-    if (v.kind === 'extgrp') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 12 }} role="button" tabIndex={0} aria-expanded={extOpen} onClick={() => setExtOpen(o => !o)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExtOpen(o => !o); } }} title="Execuções extintas ficam recolhidas para não dominar a régua; as datas delas só puxam o eixo quando você as mostra."><span aria-hidden="true" style={{ color: 'var(--cx-ink-3)', fontSize: 11, width: 13, textAlign: 'center' }}>{extOpen ? '▾' : '▸'}</span><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{v.n} execuções extintas · {extOpen ? 'ocultar' : 'mostrar'}</span></div>;
+    if (v.kind === 'extgrp') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 12 }} role="button" tabIndex={0} aria-expanded={extOpen} onClick={() => setExtOpen(o => !o)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExtOpen(o => !o); } }} title="Execuções extintas ficam recolhidas para não dominar a régua; as datas delas só puxam o eixo quando você as mostra."><span className="cx-caret" aria-hidden="true" style={{ transform: extOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{v.n} execuções extintas · {extOpen ? 'ocultar' : 'mostrar'}</span></div>;
     if (v.kind === 'cdamore') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 26 }} role="button" tabIndex={0} onClick={() => setCdaAll(a => !a)} onKeyDown={ev => { if (ev.key === 'Enter') setCdaAll(a => !a); }}><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{cdaAll ? 'Mostrar só as 10 primeiras' : '+' + v.n + (v.n === 1 ? ' CDA' : ' CDAs') + ' · mostrar todas'}</span></div>;
     if (v.kind === 'cda') {
       const c = v.c, bar = tlCdaBar({ start: c.start, end: c.end, today: todayIso });
@@ -5338,7 +5338,7 @@ function CxFoldCard({ id, scope, title, count, summary, sub, actions, className 
   };
   return <section className={'cx-card cx-fold' + (open ? '' : ' folded') + (className ? ' ' + className : '')} id={domId} aria-label={ariaLabel}>
     <div className="cx-card-h cx-fold-h" role="button" tabIndex={0} aria-expanded={open} title={open ? 'Recolher' : 'Expandir'} onClick={onClick} onKeyDown={onKeyDown}>
-      <span className="cx-fold-chev" aria-hidden="true"><CxIcon n="chevD" s={13} /></span>
+      <span className="cx-fold-chev" aria-hidden="true"><CxIcon n="chevD" s={14} /></span>
       {React.createElement(as, { className: 'cx-fold-title' }, title)}
       {count != null ? <span className="cx-count">{count}</span> : null}
       {sub ? <span className="cx-muted cx-small cx-fold-sub">{sub}</span> : null}
@@ -6187,7 +6187,7 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
     return <React.Fragment key={e.id}>
       <tr className={rowCls} data-id={e.id} onClick={() => toggleLane(e.id)}>
         <td className="c1"><button type="button" className="chev" aria-expanded={open} aria-controls={'cx-bfx-' + e.id}
-          aria-label={(open ? 'Recolher' : 'Expandir') + ' detalhes de ' + (e.processNumber || 'processo sem número')} onClick={ev => { ev.stopPropagation(); toggleLane(e.id); }}><CxIcon n="chevR" s={13} /></button></td>
+          aria-label={(open ? 'Recolher' : 'Expandir') + ' detalhes de ' + (e.processNumber || 'processo sem número')} onClick={ev => { ev.stopPropagation(); toggleLane(e.id); }}><CxIcon n="chevD" s={14} /></button></td>
         <td className="c-kind"><span className={'kind k-' + kind.cls} {...cxHintProps(() => ({ title: kind.label }))}>{kind.code}</span></td>
         <td className="c-proc"><div className="pr1"><CxProc num={e.processNumber} size="md" /></div>
           <div className="pr2"><span className="cls">{e.className || kind.label}</span><span className="rel">{rel}</span></div></td>
@@ -7188,7 +7188,7 @@ function EditionClaudeProcessos(p) {
     const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     return <React.Fragment>
       {label && <tr className={'cx-pt-band' + (onToggle ? ' tgl' : '')} onClick={onToggle || undefined}>
-        <td className="cx-pt-ck">{onToggle && <span className="cx-chev sm" aria-hidden="true">{collapsed ? '▸' : '▾'}</span>}</td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
+        <td className="cx-pt-ck">{onToggle && <span className={'cx-chev sm' + (collapsed ? ' closed' : '')} aria-hidden="true"><CxIcon n="chevD" s={14} /></span>}</td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
@@ -7224,7 +7224,7 @@ function EditionClaudeProcessos(p) {
     const unitLabel = covered.length + ' ' + bm.unit + (covered.length === 1 ? '' : 's');
     return <React.Fragment key={h.exec.id}>
       <tr className={'cx-pt-hubrow' + (drawerExecId === h.exec.id ? ' on' : '')} onClick={() => openDrawerFor(h.exec.id)}>
-        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button></td>
+        <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><button type="button" className={'cx-chev sm' + (open ? '' : ' closed')} onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}><CxIcon n="chevD" s={14} /></button></td>
         <td className="cx-pt-num">
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
           <CxProc num={h.exec.processNumber} size="md" empty="S/N" />
@@ -7694,7 +7694,7 @@ function EditionClaudeInscricoes(p) {
       <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.allCdas.map(d => d.id))} aria-label={'Selecionar grupo ' + (g.umbrella.processNumber || '')} /></td>
         <td colSpan={3}>
-          <span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>
+          <span className={'cx-chev sm' + (isCollapsed ? ' closed' : '')}><CxIcon n="chevD" s={14} /></span>
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxProc num={g.umbrella.processNumber} size="md" empty="S/N" />
           {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <CxProc num={combinedEf.subExec.processNumber} size="md" empty="S/N" /></> : null}
           <span className="cx-muted cx-small"> · {cxPl(g.allCdas.length, 'CDA', 'CDAs')}</span>
@@ -7720,7 +7720,7 @@ function EditionClaudeInscricoes(p) {
     return <React.Fragment>
       <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(unajuizadas.map(d => d.id))} aria-label="Selecionar não ajuizadas" /></td>
-        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>Não ajuizadas<span className="cx-muted cx-small"> · {cxPl(unajuizadas.length, 'CDA', 'CDAs')}</span></td>
+        <td colSpan={3}><span className={'cx-chev sm' + (isCollapsed ? ' closed' : '')}><CxIcon n="chevD" s={14} /></span>Não ajuizadas<span className="cx-muted cx-small"> · {cxPl(unajuizadas.length, 'CDA', 'CDAs')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
         <CxPrescCell cdas={unajuizadas} prazosByDebt={prazosByDebt} />
       </tr>
@@ -7739,7 +7739,7 @@ function EditionClaudeInscricoes(p) {
     return <React.Fragment>
       <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.items.map(d => d.id))} aria-label={'Selecionar grupo ' + g.label} /></td>
-        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'CDA', 'CDAs')}</span></td>
+        <td colSpan={3}><span className={'cx-chev sm' + (isCollapsed ? ' closed' : '')}><CxIcon n="chevD" s={14} /></span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'CDA', 'CDAs')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
         <CxPrescCell cdas={g.items} prazosByDebt={prazosByDebt} />
       </tr>
@@ -8145,7 +8145,7 @@ function EditionClaudeBens(p) {
     return <React.Fragment>
       <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.items.map(a => a.id))} aria-label={'Selecionar grupo ' + g.label} /></td>
-        <td colSpan={3}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'bem', 'bens')}</span></td>
+        <td colSpan={3}><span className={'cx-chev sm' + (isCollapsed ? ' closed' : '')}><CxIcon n="chevD" s={14} /></span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'bem', 'bens')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(total)}</td>
         <td colSpan={2}></td>
       </tr>
@@ -8394,7 +8394,7 @@ function EditionClaudeArquivos(p) {
     const rest = g.items.length - visible.length;
     return <React.Fragment>
       <tr className="cx-pt-band cx-pt-clickable" onClick={() => toggleGroup(key)}>
-        <td colSpan={4}><span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'documento', 'documentos')}</span></td>
+        <td colSpan={4}><span className={'cx-chev sm' + (isCollapsed ? ' closed' : '')}><CxIcon n="chevD" s={14} /></span>{g.label}<span className="cx-muted cx-small"> · {cxPl(g.items.length, 'documento', 'documentos')}</span></td>
       </tr>
       {!isCollapsed && visible.map(d => <DocRow key={d.id} d={d} />)}
       {!isCollapsed && rest > 0 && <tr className="cx-pt-more"><td colSpan={4}><button type="button" className="cx-link-btn" onClick={() => setShowMore(s => ({ ...s, [key]: shown + 20 }))}>Mostrar mais {rest}</button></td></tr>}
@@ -8824,6 +8824,7 @@ function CxActRow({ ev, open, full, opObj, onToggle, onOpen, onRestore }) {
   return <div className={'cx-act-row' + (open ? ' open' : '')}>
     <div className="cx-act-rh" role="button" tabIndex={0} aria-expanded={open} onClick={onToggle}
       onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(); } }}>
+      <span className="cx-act-chev"><CxIcon n="chevD" s={14} /></span>
       <span className="cx-act-tm">{cxActTime(ev.ts)}</span>
       <span className={'cx-act-b t-' + ty}>{CX_ACT_TYPES[ty]}</span>
       <span className="cx-minw0">
@@ -8836,7 +8837,6 @@ function CxActRow({ ev, open, full, opObj, onToggle, onOpen, onRestore }) {
           {ev.coalesced > 1 ? <span className="cx-act-min">{ev.coalesced} ajustes juntos</span> : null}
         </span>
       </span>
-      <span className="cx-act-chev"><CxIcon n="chevR" s={14} /></span>
     </div>
     {open ? <CxActDetail ev={ev} full={full} onOpen={onOpen} onRestore={onRestore} /> : null}
   </div>;

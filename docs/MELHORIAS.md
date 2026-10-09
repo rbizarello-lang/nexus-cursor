@@ -267,6 +267,16 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     `.cx-proc-copy`, `.cx-crumb-proc`, `.cx-act-proc`; `Copyable` não é mais usado no Prumo e o 📋 do `.copyable` fica
     neutro sob `.app-layout.edition-claude`. `copy={false}` só dentro de `<button>` (cartões do Quadro, cartão da
     operação, seletor de processo).
+  - **Auditoria de consistência, fase 4/5 (chips, contadores, recolher, vazios, alturas)** (09/10/2026) — só Prumo.
+    Tokens `--cx-chip-h/-r` 22/6 · `--cx-tagk-h/-r` 18/4 · `--cx-pill-h` 18 · `--cx-nb-h/-r` 18/5 · `--cx-row-h-sm/-md`
+    42/56. Chip (`.cx-chip/.cx-tag/.cx-chp/.cx-rs-chip/.cx-pd-sig/.cx-ua-chip/.cx-cal-fchip`, sans 11,5), tagk
+    (`.cx-kind/.cx-pd-kind/.cx-bft .kind/.cx-cert/.cx-nr-k/.cx-ix-sg`, mono 600 10px .04em, 18px), pill só para estado
+    (`.cx-bft-due/.oc`, `.cx-act-b`, `.badge` das tabelas). Contador sem caixa = mono 500 11px ink-3 (`.cx-n/.cx-count/
+    .cx-cnt/.cx-blk-n/.cx-ap-n`; `.cx-bfx-n` fica em 10,5px); com caixa `.cx-nb/.cx-cb/.cx-tb-n/.cx-fcn` 18px r5;
+    alerta `.cx-badge/.cx-tab-al` 18px r5. Recolher: chevD 14px à esquerda, gira -90° fechado (grupos, `CxBlock`,
+    `CxFoldCard`, Frentes, Atividade, tabelas de Processos/CDAs/Bens, grupo extinto da Linha do tempo); rótulo 13/600.
+    Vazios no padrão `.cx-empty-row`; `.cx-b-empty` com uma só definição. Controles e campos = `--cx-ctl-h` (30);
+    `.cx-t-row` com um só `min-height` (56). `.cx-bfx*` e o card de intimação não crescem.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
