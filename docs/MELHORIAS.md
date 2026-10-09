@@ -249,6 +249,11 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   frente" / "Retirar da frente"). Qualquer frente pode ser retirada, inclusive central e filho. O fio de ligação
   aparece só quando o processo-pai também é frente. Apensos e demais processos ficam na aba Processos e
   prescrição; na linha da frente seguem como "cobre N" e no valor.
+  - **Auditoria de consistência, fase 1/5 (textos e formatos)** (09/10/2026) — só no Prumo. "Mesa de intimações" é o
+    nome da tela de trabalho (botões "Levar à Mesa" / "Tirar da Mesa"); "Prazo final" no lugar de "Final do prazo";
+    coluna "Sinais" do card de intimação passa a **Indicadores** (Sinais fica só para os sinais de processo); datas:
+    lista = dd/mm, tooltip/ficha = dd/mm/aaaa, dia da semana sempre com inicial maiúscula ("Qua 14/10", também em
+    `hoje.js`), relativo curto em lista e longo em frase ("verificado há 3 dias"); vazios no formato "Nenhum(a) X…".
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---

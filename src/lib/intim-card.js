@@ -93,7 +93,7 @@ export const intimPrazo = (intim, asOf) => {
   const end = toDayKey(intim && intim.dateDeadline);
   if (!end) return { tone: 'none', txt: 'prazo fechado', title: 'Prazo ainda não aberto' };
   const dd = daysUntil(end, asOf);
-  let title = 'Final do prazo: ' + _dmy(end);
+  let title = 'Prazo final: ' + _dmy(end);
   if (dd > 1) title += ' · em ' + _pl(dd, 'dia', 'dias') + ' (' + _pl(bizDaysUntil(end, asOf), 'dia útil', 'dias úteis') + ')';
   else if (dd === 1) title += ' · amanhã';
   else if (dd === 0) title += ' · hoje';
@@ -120,7 +120,7 @@ export const intimEmbargos = (intim, asOf) => {
   const du = dd === 0 ? 0 : bizDaysUntil(date, asOf);
   const tone = dd === 0 ? 'today' : du <= INTIM_EMB_WARN_DU ? 'warn' : 'calm';
   const end = toDayKey(intim.dateDeadline);
-  const after = end && date > end ? ' (depois do final do prazo)' : '';
+  const after = end && date > end ? ' (depois do prazo final)' : '';
   return {
     date, du, tone,
     txt: tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + _dm(date),

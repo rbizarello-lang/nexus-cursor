@@ -407,7 +407,7 @@ function CxDue({ iso, dd, doneIso }) {
   if (doneIso) return <span className="cx-due done" title={'Atuação em ' + fmtDate(doneIso)}>✓ {cxDM(doneIso)}</span>;
   const d = dd === undefined ? daysUntil(iso) : dd;
   const info = cxDue(d, iso);
-  return <span className={'cx-due ' + info.tone} title={iso ? 'Final do prazo: ' + fmtDate(iso) : 'Prazo ainda não aberto'}>{info.txt}</span>;
+  return <span className={'cx-due ' + info.tone} title={iso ? 'Prazo final: ' + fmtDate(iso) : 'Prazo ainda não aberto'}>{info.txt}</span>;
 }
 function CxProc({ num, uf }) {
   const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(num || '');
@@ -889,7 +889,7 @@ function CxAtencaoCard({ atencao, today, opsById, onOpenCda, onReviewed, onOpenP
         <span className="ico"><CxIcon n="hourglass" s={16} /></span>
         <div className="cx-minw0">
           <div className="tt cx-ell"><span className="cx-mono">{r.cdaNumber || 'S/N'}</span><span className="cd">{r.prescDays == null ? 'sem data' : cxHorizonTxt(r.prescDays)}</span></div>
-          <div className="mm">{[cxOpName(opsById.get(r.operationId)), r.prescDays == null ? '' : fmtDate(addCalendarDays(today, r.prescDays)), r.value ? cxMoneyShort(r.value) : ''].filter(Boolean).join(' · ')}</div>
+          <div className="mm">{[cxOpName(opsById.get(r.operationId)), r.prescDays == null ? '' : cxDM(addCalendarDays(today, r.prescDays)), r.value ? cxMoneyShort(r.value) : ''].filter(Boolean).join(' · ')}</div>
         </div>
         <button type="button" className="cx-btn sm" onClick={() => onOpenCda(r)}>Abrir CDA</button>
       </div>)}
@@ -905,7 +905,7 @@ function CxAtencaoCard({ atencao, today, opsById, onOpenCda, onReviewed, onOpenP
         {a.cdas.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenPrazos}>+{a.cdas.length - CAP} na Mesa de prazos</button> : null}
         {a.revisoes.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenCarteira}>+{a.revisoes.length - CAP} na Carteira</button> : null}
       </div> : null}
-    </> : <div className="cx-empty-row">Nada pede uma decisão sua agora: nenhuma CDA no alarme de prescrição e nenhuma revisão atrasada.</div>}
+    </> : <div className="cx-empty-row">Nenhuma decisão pendente: nenhuma CDA no alarme de prescrição e nenhuma revisão atrasada.</div>}
   </section>;
 }
 function EditionClaudeHoje(p) {
@@ -1052,7 +1052,7 @@ function EditionClaudeHoje(p) {
           <div className="cx-card-h"><h2 id="cx-h-cont">Continuar de onde parou</h2><div className="cx-aside"><span className="cx-muted cx-small">{cxPl(continueQueue.length, 'peça pela metade', 'peças pela metade')}</span></div></div>
           {continueQueue.slice(0, 8).map(it => <div key={it.key} className="cx-cont-row">
             <div className="cx-minw0">
-              <div className="cx-cont-p"><span className="cx-ell">{it.title}</span>{it.iso ? <span className="cx-muted cx-small cx-mono"> · final {cxDM(it.iso)}</span> : null}</div>
+              <div className="cx-cont-p"><span className="cx-ell">{it.title}</span>{it.iso ? <span className="cx-muted cx-small cx-mono"> · prazo final {cxDM(it.iso)}</span> : null}</div>
               <div className="cx-cont-s"><CxEstProgress esteira={it.intim ? it.intim.esteira : it.task.esteira} size="sm" /><b>{it.info.etapa.label}</b><span className="cx-muted"> · {esteiraStoppedLabel(it.updatedAt)}</span>{it.info.etapa.note ? <><span className="cx-muted"> · </span><i className="cx-cont-note cx-ell">“{it.info.etapa.note}”</i></> : null}</div>
             </div>
             <button type="button" className="cx-btn sm" onClick={() => it.intim ? p.onOpenIntim(it.intim.id) : p.onOpenTask(it.task)}>Retomar</button>
@@ -1072,7 +1072,7 @@ function EditionClaudeHoje(p) {
             <span className="cx-kind">{x.kind}</span>
             <span className="cx-q-glyph">{x.intim ? <CxImp intim={x.intim} /> : x.prio ? <CxPrio v={x.prio} /> : x.g ? <span className="cx-gnum" style={{ '--c': x.g === 1 ? 'var(--cx-red)' : 'var(--cx-orange)' }}>{x.g}</span> : null}</span>
             <span className="cx-q-due">{x.doneIso ? <CxDue doneIso={x.doneIso} /> : <CxDue iso={x.iso} dd={x.due} />}</span>
-          </button>) : <div className="cx-empty-row">{tab === 'vencidos' ? 'Nenhum prazo vencido.' : tab === 'feitos' ? 'Nenhuma atuação registrada nos últimos 7 dias.' : 'Nada para os próximos 7 dias.'}</div>}
+          </button>) : <div className="cx-empty-row">{tab === 'vencidos' ? 'Nenhum prazo vencido.' : tab === 'feitos' ? 'Nenhuma atuação registrada nos últimos 7 dias.' : 'Nenhum item nos próximos 7 dias.'}</div>}
           {shown.length > 12 ? <div className="cx-more">+{shown.length - 12} na lista completa</div> : null}
         </section>
 
@@ -1116,7 +1116,7 @@ function EditionClaudeHoje(p) {
 
         <section className="cx-card" aria-labelledby="cx-h-prox">
           <div className="cx-card-h"><h2 id="cx-h-prox">Próximos prazos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onNav('audiencias')}><CxIcon n="calendar" s={13} />Agenda</button></div></div>
-          {upcoming.length === 0 ? <div className="cx-empty-row">Nada nos próximos 7 dias.</div> : buckets.map(b => b[1].length ? <div key={b[0]}>
+          {upcoming.length === 0 ? <div className="cx-empty-row">Nenhum item nos próximos 7 dias.</div> : buckets.map(b => b[1].length ? <div key={b[0]}>
             <div className="cx-dl-h"><b>{b[0]}</b><span>{b[1].length}</span></div>
             {b[1].slice(0, 6).map(x => <button key={x.key} type="button" className="cx-dl-item" onClick={() => openItem(x)}>
               <CxOpSquare opId={x.opId} />
@@ -1141,7 +1141,7 @@ function EditionClaudeHoje(p) {
           : activity.length ? activity.map(a => <div key={a.id} className="cx-act">
             <span className="cx-act-ic"><CxIcon n={a.ic} s={12} /></span>
             <div className="cx-minw0"><div className="cx-ell" style={{ fontWeight: 500 }}>{a.ref}</div><div className="cx-act-txt">{a.txt}</div><time>{cxRelTime(a.at)}</time></div>
-          </div>) : <div className="cx-empty-row">As mudanças de situação, prazos e atuações aparecem aqui.</div>}
+          </div>) : <div className="cx-empty-row">Nenhuma mudança registrada ainda. Situação, prazos e atuações aparecem aqui.</div>}
         </section>
       </div>
     </div>
@@ -1215,10 +1215,10 @@ function cxGroupResolved(items) {
 }
 /* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
    contagem no tooltip). Cinco zonas: identidade (operação · Novo/Atualizada no topo, situação + parte, nº + sigla) · Objeto (objeto e teor da
-   decisão) · Notas · Sinais (Imp/Compl/peça, URGENTE, esteira) · Prazo (só tempo: data final e embargos). Cálculos em
+   decisão) · Notas · Indicadores (Imp/Compl/peça, URGENTE, esteira) · Prazo (só tempo: data final e embargos). Cálculos em
    src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-i-row/cx-c-*. */
 function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
-/* Esteira da peça na coluna Sinais: só as barrinhas e a etapa atual (sem "parou há", que fica no tooltip). */
+/* Esteira da peça na coluna Indicadores: só as barrinhas e a etapa atual (sem "parou há", que fica no tooltip). */
 function CxIxEst({ esteira }) {
   if (!esteiraHasStarted(esteira)) return null;
   const s = esteiraSummary(esteira);
@@ -1316,7 +1316,7 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
   return <div className="cx-list cx-it-list" ref={ref}>
     <div className="cx-ix-h"><span className="h-id"><b>Parte</b></span>
       <span className="h-tr"><b>Objeto<span className="m-only"> · Notas</span></b></span>
-      <span className="h-nt"><b>Notas</b></span><span className="h-sn"><b>Sinais</b></span><span className="h-pz"><b>Prazo</b></span></div>
+      <span className="h-nt"><b>Notas</b></span><span className="h-sn"><b>Indicadores</b></span><span className="h-pz"><b>Prazo</b></span></div>
     {groups.map(g => {
       const isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
       const sorted = g.items.slice().sort(cxSortFn(sort));
@@ -1637,9 +1637,9 @@ function CxRuler({ intim }) {
   const biz = cxBizUntil(end);
   let big, sub;
   if (resolved) { big = 'Atuação registrada em ' + fmtDate(intim.responseAction.respondedAt); sub = 'prazo era ' + fmtDate(end); }
-  else if (dd < 0) { big = 'Vencida há ' + cxPl(-dd, 'dia', 'dias'); sub = 'final em ' + fmtDate(end); }
-  else if (dd === 0) { big = 'Vence hoje'; sub = 'final em ' + fmtDate(end); }
-  else { big = 'Faltam ' + cxPl(dd, 'dia', 'dias'); sub = cxPl(biz, 'dia útil', 'dias úteis') + ' · final em ' + fmtDate(end); }
+  else if (dd < 0) { big = 'Vencida há ' + cxPl(-dd, 'dia', 'dias'); sub = 'prazo final em ' + fmtDate(end); }
+  else if (dd === 0) { big = 'Vence hoje'; sub = 'prazo final em ' + fmtDate(end); }
+  else { big = 'Faltam ' + cxPl(dd, 'dia', 'dias'); sub = cxPl(biz, 'dia útil', 'dias úteis') + ' · prazo final em ' + fmtDate(end); }
   const edDd = ed ? daysUntil(ed) : null;
   const edTxt = edDd === null ? '' : edDd < 0 ? 'expirado' : edDd === 0 ? 'hoje' : cxPl(cxBizUntil(ed), 'dia útil', 'dias úteis');
   return <div className="cx-ruler">
@@ -1649,14 +1649,14 @@ function CxRuler({ intim }) {
       {sent ? <i className="cx-mk" style={{ left: pos(sent) + '%' }} title={'Envio ' + fmtDate(sent)} /> : null}
       {start ? <i className="cx-mk" style={{ left: pos(start) + '%' }} title={'Início ' + fmtDate(start)} /> : null}
       {ed ? <i className="cx-mk ed" style={{ left: pos(ed) + '%' }} title={'Embargos de declaração até ' + fmtDate(ed)} /> : null}
-      <i className="cx-mk final" style={{ left: pos(end) + '%' }} title={'Final ' + fmtDate(end)} />
+      <i className="cx-mk final" style={{ left: pos(end) + '%' }} title={'Prazo final ' + fmtDate(end)} />
       {!resolved ? <i className="cx-now" style={{ left: pos(0) + '%' }} title="Hoje" /> : null}
     </div>
     <div className="cx-ruler-l">
       <span>Envio<b>{sent ? cxDM(sent) : '—'}</b></span>
       <span>Início<b>{start ? cxDM(start) : '—'}</b></span>
       <span className="ed">Emb. decl.{edTxt ? ' · ' + edTxt : ''}<b>{ed ? cxDM(ed) : '—'}</b></span>
-      <span>Final<b>{cxDM(end)}</b></span>
+      <span>Prazo final<b>{cxDM(end)}</b></span>
     </div>
     <div className="cx-ruler-foot">Embargos de declaração: 10 dias úteis contados do início, com feriados e recesso do calendário do app.</div>
   </div>;
@@ -1836,15 +1836,15 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
     </CxBlock>
 
     <CxBlock title="Peças e links" open={!!blocks.pecas} onToggle={() => toggleBlock('pecas')} count={pecas.length}
-      summary={pecas.length ? pecas[0].label : 'Nada ainda'}>
+      summary={pecas.length ? pecas[0].label : 'Nenhuma peça ainda'}>
       <CxPecasBlock intim={intim} data={data} a={a} />
     </CxBlock>
 
     <CxBlock title="Notas" open={!!blocks.notas} onToggle={() => toggleBlock('notas')} count={notes.length}
-      summary={notes.length ? notes[notes.length - 1] : 'Sem notas ainda'}>
+      summary={notes.length ? notes[notes.length - 1] : 'Nenhuma nota ainda'}>
       <div className="cx-notes">
         {notes.map((n, k) => <div key={k} className="cx-note">{a.linkify ? a.linkify(n) : n}</div>)}
-        {notes.length === 0 ? <div className="cx-empty-note">Sem notas ainda.</div> : null}
+        {notes.length === 0 ? <div className="cx-empty-note">Nenhuma nota ainda.</div> : null}
         <form className="cx-note-add" onSubmit={e => { e.preventDefault(); const v = nt.trim(); if (!v) return; set({ notesList: [...notes, v] }); setNt(''); cxNotify('Nota adicionada'); }}>
           <textarea id={'cx-nt-' + intim.id} value={nt} onChange={e => setNt(e.target.value)} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} />
           <button type="submit" className="cx-btn">Anotar</button>
@@ -1917,7 +1917,7 @@ function CxDetailActions({ intim, a, onRespond, compact }) {
   return <>
     <button type="button" className="cx-btn primary" onClick={onRespond}><CxIcon n="send" s={14} />Registrar atuação{compact ? <kbd className="cx-kbd">R</kbd> : null}</button>
     <span className="cx-sp" />
-    <button type="button" className={'cx-icon-btn' + (onDesk ? ' on' : '')} onClick={() => { a.toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); cxNotify(onDesk ? 'Removida da Mesa' : 'Enviada para a Mesa'); }} title={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'} aria-label={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'}><CxIcon n="desk" /></button>
+    <button type="button" className={'cx-icon-btn' + (onDesk ? ' on' : '')} onClick={() => { a.toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); cxNotify(onDesk ? 'Tirada da Mesa' : 'Levada à Mesa'); }} title={onDesk ? 'Tirar da Mesa' : 'Levar à Mesa'} aria-label={onDesk ? 'Tirar da Mesa' : 'Levar à Mesa'}><CxIcon n="desk" /></button>
     <button type="button" className="cx-icon-btn" onClick={() => a.onWatch(intim)} title="Acompanhar este processo" aria-label="Acompanhar este processo"><CxIcon n="eye" /></button>
     <button type="button" className="cx-icon-btn" onClick={() => a.onEditFull(intim)} title="Editar todos os campos" aria-label="Editar todos os campos"><CxIcon n="edit" /></button>
   </>;
@@ -2573,11 +2573,11 @@ function useCxTip(resolve) {
 /* Texto do tooltip de um fato da régua. */
 function cxTlTipData(it, execById) {
   const dd = it.d ? daysUntil(it.d) : null;
-  const dow = it.d ? CX_DOW[cxDate(it.d).getDay()] : '';
+  const dow = it.d ? cxCap(CX_DOW[cxDate(it.d).getDay()]) : '';
   const rel = dd === null ? '' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd === -1 ? 'ontem' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd);
   const e = it.execId ? execById.get(it.execId) : null;
   const lines = [];
-  if (it.kind === 'prazo') lines.push('Prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d));
+  if (it.kind === 'prazo') lines.push('Prazo de ' + fmtDate(it.from) + ' a ' + fmtDate(it.d));
   if (e) lines.push(cxExecTag(e) + ' ' + cxExecShortNum(e));
   if (it.kind === 'aud' && it.hearing && it.hearing.parties) lines.push(it.hearing.parties);
   if (it.k === 'cda' && it.debt) lines.push((it.debt.tribute || it.debt.system || 'CDA') + ' · ' + cxMoneyShort(it.debt.value) + ' · sem processo');
@@ -2814,7 +2814,7 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
         if (a.left + a.width > xn + 1) inner.push(<span key="s2" className="cx-tl-seg inter rest thin" data-tl={it.id} style={{ left: xn, width: a.left + a.width - xn, top: Y - 4 }} />);
       }
       const X = cl(f(o));
-      const txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + cxDM(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
+      const txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + fmtDate(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
       const w = cxTlMeasure(txt) + 8, lx = Math.max(4, Math.min(X + 8 - w, CW - w - 4));
       inner.push(mk(it, X, Y));
       inner.push(<span key="tx" className={'cx-tl-cdal' + (bar.late ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: lx, top: 4, width: w }}>{txt}</span>);
@@ -2829,7 +2829,7 @@ function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearin
       const w = span(it.from, it.d); if (!w) return;
       const c = cxTlPrazoColor(it.d);
       if (w.width >= 6) inner.push(<span key={'w' + it.id} className="cx-tl-win" data-tl={it.id} style={{ left: w.left, width: w.width, top: by - 12, '--c': c }} onClick={() => open(it)} />);
-      inner.push(<button key={'g' + it.id} type="button" className="cx-tl-g" style={{ left: cl(f(daysUntil(it.d))), top: by - 9 }} data-tl={it.id} aria-label={it.l + ' · final ' + fmtDate(it.d)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
+      inner.push(<button key={'g' + it.id} type="button" className="cx-tl-g" style={{ left: cl(f(daysUntil(it.d))), top: by - 9 }} data-tl={it.id} aria-label={it.l + ' · prazo final ' + fmtDate(it.d)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
     });
     v.its.filter(it => it.kind !== 'prazo' && !hid(it.kind)).forEach(it => { const o = daysUntil(it.d); if (o !== null) inner.push(mk(it, cl(f(o)), by)); });
     labelEls(v, v.its, inner);
@@ -3079,7 +3079,7 @@ function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpe
     if (key.indexOf('cal|') === 0) {
       const x = calCells.get(key.slice(4)); if (!x) return null;
       const pts = x.cell.points;
-      const lines = pts.slice(0, 8).map(p => String(p.number).slice(-9) + (p.n > 1 ? ' +' + (p.n - 1) : '') + ' · ' + cxDM(p.d) + '/' + p.d.slice(2, 4) + ' · ' + cxMoneyShort(p.val) + ' · ' + (p.kind === 'piso' ? 'piso' : 'termo'));
+      const lines = pts.slice(0, 8).map(p => String(p.number).slice(-9) + (p.n > 1 ? ' +' + (p.n - 1) : '') + ' · ' + fmtDate(p.d) + ' · ' + cxMoneyShort(p.val) + ' · ' + (p.kind === 'piso' ? 'piso' : 'termo'));
       if (pts.length > 8) { const rest = pts.slice(8); lines.push('+' + rest.length + (rest.length === 1 ? ' relógio' : ' relógios') + ' (' + cxPl(rest.reduce((a, p) => a + (p.n || 1), 0), 'CDA', 'CDAs') + ')'); }
       lines.push(calSel === key.slice(4) ? 'Clique para limpar o filtro' : 'Clique para filtrar os relógios');
       return { when: x.label, title: cxPl(x.cell.cdas, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cell.value), lines, tone: x.lane === 'over' ? 'late' : '' };
@@ -3281,7 +3281,7 @@ function cxNarrSentence(sum) {
   const bits = [];
   if (sum.late.n) bits.push(<span key="l">Há <b className="cx-red-t">{cxPl(sum.late.n, 'prazo vencido', 'prazos vencidos')}</b>{sum.late.first ? ' (' + cxTlShortDesc(sum.late.first.title, 34) + ')' : ''} e <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
   else bits.push(<span key="l">Nenhum prazo vencido; <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
-  if (sum.aud) bits.push(<span key="a">A próxima audiência é <b>{sum.aud.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.aud.days)}</b> ({cxDM(sum.aud.d)}{sum.aud.tm ? ' ' + sum.aud.tm : ''}).</span>);
+  if (sum.aud) bits.push(<span key="a">A próxima audiência é <b>{sum.aud.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.aud.days)}</b> ({fmtDate(sum.aud.d)}{sum.aud.tm ? ' ' + sum.aud.tm : ''}).</span>);
   if (sum.decision) bits.push(<span key="d">A última decisão foi <b>{cxTlShortDesc(sum.decision.title, 44)}</b>, em {fmtDate(sum.decision.d)}.</span>);
   if (sum.term) bits.push(<span key="t">O próximo termo de prescrição é em <b>{fmtDate(sum.term.d)}</b> ({sum.term.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.term.days)}).</span>);
   else bits.push(<span key="t">Nenhum termo de prescrição à frente.</span>);
@@ -3298,7 +3298,7 @@ function CxNarrItem({ it, todayIso, onOpen }) {
     onKeyDown={clickable ? (e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(it); } }) : undefined}>
     <span className="cx-nr-mk"><CxTlGlyph kind={it.glyph} c={c} s={18} /></span>
     <span className="cx-nr-t"><span className="cx-nr-k">{it.kindLabel}</span><span className="cx-nr-tt">{it.title}</span></span>
-    <span className="cx-nr-w">{it.d ? <><b>{CX_DOW[cxDate(it.d).getDay()]} {cxDM(it.d)}{it.tm ? ' · ' + it.tm : ''}</b>{rel}</> : <><b>sem data</b></>}</span>
+    <span className="cx-nr-w">{it.d ? <><b>{cxCap(CX_DOW[cxDate(it.d).getDay()])} {cxDM(it.d)}{it.tm ? ' · ' + it.tm : ''}</b>{rel}</> : <><b>sem data</b></>}</span>
     {it.text ? <span className="cx-nr-s">{it.text}</span> : null}
     <span className="cx-nr-m">
       {it.badges.map((b, i) => <span key={i} className="cx-nr-b" style={{ '--c': b.c }}>{b.t}</span>)}
@@ -3348,7 +3348,7 @@ function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, shell, o
     {items(s.items)}
   </React.Fragment>;
   let body;
-  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{listed.length ? 'Nada com esses filtros.' : card ? 'Nada à frente: nenhum prazo, audiência, tarefa ou termo de prescrição à vista.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
+  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{listed.length ? 'Nenhum item com esses filtros.' : card ? 'Nenhum item à frente: nenhum prazo, audiência, tarefa ou termo de prescrição à vista.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
   else if (card) {
     body = <>
       {pg.sections.map(group)}
@@ -3544,7 +3544,7 @@ function CxFrMap({ graph, tl, crit, onlyCrit, onOpen }) {
     if (n.item) { const d = cxTlTipData(n.item, tl.execById); if (n.open && !n.ghost && !n.late && n.d > graph.today) d.lines.push('Em aberto: está no caminho de quem depende dele'); return d; }
     if (n.ghost) return { when: 'Esperado · sem data', title: n.label, lines: [n.note, laneName, 'Clique para abrir o processo'].filter(Boolean) };
     if (n.derived) return { when: 'Derivado · ' + fmtDate(n.d), title: n.label, lines: [n.note, 'Clique para abrir o processo'] };
-    return { when: CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d), title: n.label, lines: [laneName, 'Clique para abrir o processo'] };
+    return { when: cxCap(CX_DOW[cxDate(n.d).getDay()]) + ' ' + fmtDate(n.d), title: n.label, lines: [laneName, 'Clique para abrir o processo'] };
   }, [graph, tl]));
   const openNode = (n) => { const r = n && n.ref; if (r) onOpen(r); };
   const nodeOf = (ev) => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-st]') : null; return t ? t.getAttribute('data-st') : ''; };
@@ -3653,7 +3653,7 @@ function CxFrCrit({ graph, crit, onOpen }) {
   return <div className="cx-fr-crit">{crit.ids.map((id, i) => {
     const n = graph.byId.get(id), lane = graph.lanes.find(l => l.id === n.lane) || {};
     const dd = n.d ? daysUntil(n.d) : null;
-    const when = n.ghost ? 'Sem data' : (CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d) + (n.tm ? ' · ' + n.tm : '') + (dd === null ? '' : dd === 0 ? ' · hoje' : dd < 0 ? ' · vencido ' + tlDurLabel(dd) : ' · em ' + tlDurLabel(dd)));
+    const when = n.ghost ? 'Sem data' : (cxCap(CX_DOW[cxDate(n.d).getDay()]) + ' ' + fmtDate(n.d) + (n.tm ? ' · ' + n.tm : '') + (dd === null ? '' : dd === 0 ? ' · hoje' : dd < 0 ? ' · vencido ' + tlDurLabel(dd) : ' · em ' + tlDurLabel(dd)));
     return <button key={id} type="button" className={'cx-fr-cr' + (n.ghost ? ' g' : '') + (n.late ? ' late' : '')} onClick={() => n.ref && onOpen(n.ref)}>
       <span className="n">CAMINHO CRÍTICO · {i + 1}</span><h6>{n.label}</h6><p>{when}</p><p className="cx-muted">{lane.name}{n.ghost && n.note ? ' · ' + n.note.replace(/ Sem data\.$/, '') : ''}</p>
     </button>;
@@ -3934,7 +3934,7 @@ function CxPulse({ pulse, todayIso }) {
     </svg>
     <span className="cx-pulse-ln">{sum.next
       ? <><span className="cx-dot" style={{ background: (byId.get(sum.next.id) || {}).color || 'var(--cx-ink-3)' }} /><span className="cx-pulse-nx"><span className="cx-pulse-pre">Próximo:</span><b className="cx-ell" title={sum.next.title}>{sum.next.title}</b><span className="cx-pulse-rel">· {rel(sum.next.o)}{sum.next.tm ? ' ' + sum.next.tm : ''}</span></span></>
-      : <span className="cx-muted">Nada agendado à frente.</span>}</span>
+      : <span className="cx-muted">Nenhum item agendado à frente.</span>}</span>
     <span className="cx-pulse-ln sub">{sum.late ? <b className="cx-red-t">{sum.late} vencido{sum.late === 1 ? '' : 's'}</b> : null}{sum.late ? ' · ' : ''}{cxPl(sum.in7, 'item', 'itens')} nos próximos 7 dias{sum.term ? <> · <span className="cx-violet-t">⌛ {sum.term.o <= 90 ? 'termo em ' + tlDurLabel(sum.term.o) : 'próximo termo ' + cxDM(sum.term.d) + '/' + sum.term.d.slice(2, 4)}{sum.term.extra ? ' (+' + sum.term.extra + ')' : ''}</span></> : null}</span>
   </span>;
 }
@@ -4004,7 +4004,7 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, shell, onOpenIntim, on
   };
   const card = (it, col) => {
     const wk = col.kind === 'week';
-    const d = it.d, dow = CX_DOW[cxDate(d).getDay()];
+    const d = it.d, dow = cxCap(CX_DOW[cxDate(d).getDay()]);
     const dl = (wk ? dow + ' ' + d.slice(8, 10) : cxDM(d)) + (it.tm ? ' · ' + it.tm : '');
     const busyDay = hz.busy.has(d);
     const clickable = it.ref.t !== 'rev';
@@ -4020,7 +4020,7 @@ function EditionClaudeHorizon({ data, opIds, prazosRadar, shell, onOpenIntim, on
   const lateN = hz.buckets.late.length;
   const rowsDef = HORIZON_ROWS;
   const summary = total + (total === 1 ? ' item' : ' itens') + ' nos próximos 90 dias' + (lateN ? ' · ' + lateN + (lateN === 1 ? ' atrasado' : ' atrasados') : '');
-  return shell({ cls: 'cx-hz', summary, extras: <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>, children: <>
+  return shell({ cls: 'cx-hz', summary, extras: <span className="cx-hz-range">{cxDM(todayIso)} → {cxDM(hz.end)}</span>, children: <>
     <div className="cx-hz-h">
       <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} nos próximos 90 dias{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
       <span className="cx-hz-key"><i className="cx-hz-sw busy" />dia com 3 ou mais itens<span className="cx-hz-off-k" title="Dias de semana sem expediente: feriado nacional, recesso forense (20/12 a 20/01) ou dia marcado no calendário local (⚙)">● dia não útil</span></span>
@@ -4342,7 +4342,7 @@ function CxMesaRow({ r, debt, a }) {
       </div>
     </div>
     <div className="cx-mesa-side">
-      <span className={'cx-mesa-when' + (vencido ? ' red' : '')}>{horizon || (r.keyDate ? cxDM(r.keyDate) : '—')}</span>
+      <span className={'cx-mesa-when' + (vencido ? ' red' : '')}>{horizon || (r.keyDate ? fmtDate(r.keyDate) : '—')}</span>
       {r.keyDate && horizon ? <span className="cx-mesa-date" title={r.basis || undefined}>{r.bandHit ? r.keyLabel : fmtDate(r.keyDate)}</span> : null}
       <span className="cx-mesa-val">{fmtCur(r.value || 0)}</span>
     </div>
@@ -4359,7 +4359,7 @@ function CxMesaRow({ r, debt, a }) {
     </div>
     {snooze ? <form className="cx-snooze" onSubmit={e => { e.preventDefault(); if (snooze.reason === 'outro' && !snooze.note.trim()) return; a.snooze(r, snooze.reason, snooze.until, snooze.note); setSnooze(null); }}>
       <label>Motivo<select id={'cx-sz-r-' + r.id} className="cx-input" value={snooze.reason} onChange={e => setSnooze({ ...snooze, reason: e.target.value })}>{Object.entries(PRESC_SNOOZE_REASONS).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}</select></label>
-      <label>Volta à mesa em<input id={'cx-sz-u-' + r.id} type="date" className="cx-input" min={today} max={snoozeMaxUntil(r.group, today)} value={snooze.until} onChange={e => setSnooze({ ...snooze, until: e.target.value })} /></label>
+      <label>Volta à Mesa de prazos em<input id={'cx-sz-u-' + r.id} type="date" className="cx-input" min={today} max={snoozeMaxUntil(r.group, today)} value={snooze.until} onChange={e => setSnooze({ ...snooze, until: e.target.value })} /></label>
       {snooze.reason === 'outro' ? <label className="cx-snooze-note">Descreva (obrigatório)<input id={'cx-sz-n-' + r.id} className="cx-input" value={snooze.note} onChange={e => setSnooze({ ...snooze, note: e.target.value })} placeholder="Por que adiar" autoFocus /></label> : null}
       <span className="cx-snooze-hint">Limite deste grupo: {snoozeLimitDays(r.group)} dias. Volta antes se entrar fato novo ou o grupo piorar.</span>
       <span className="cx-snooze-acts"><button type="button" className="cx-btn sm ghost" onClick={() => setSnooze(null)}>Cancelar</button><button type="submit" className="cx-btn sm primary" disabled={snooze.reason === 'outro' && !snooze.note.trim()}>Adiar</button></span>
@@ -4416,7 +4416,7 @@ function EditionClaudePrazos(p) {
     {head}
     <CxKpiStrip n={4} className="bare cx-ks-sp">
       <CxKpiCard label="Precisa de você" value={needs.length} tone={needs.length ? 'red' : ''} onClick={() => document.getElementById('cx-pz-need') && document.getElementById('cx-pz-need').scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        desc={needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nada exige decisão agora'} />
+        desc={needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nenhuma CDA exige decisão agora'} />
       <CxKpiCard label="No radar, sem alarme" value={split.rest.length} onClick={() => setRestOpen(true)}
         desc={[1, 2, 3, 4].map(g => 'G' + g + ' ' + split.rest.filter(r => r.group === g).length).join(' · ')} />
       <CxKpiCard label="Silenciados" value={drawer.length} onClick={() => setSilOpen(true)}
@@ -4432,7 +4432,7 @@ function EditionClaudePrazos(p) {
 
     <section className="cx-card cx-pz-block" id="cx-pz-need">
       <div className="cx-card-h"><h2>Precisa de você</h2><div className="cx-aside"><span className="cx-muted cx-small">pela data cedo; no empate, o maior valor</span></div></div>
-      {split.needsYou.length === 0 && split.overCap.length === 0 ? <div className="cx-empty-row">Nada exige decisão agora. O restante está abaixo, sem alarme.</div> : null}
+      {split.needsYou.length === 0 && split.overCap.length === 0 ? <div className="cx-empty-row">Nenhuma CDA exige decisão agora. O restante está abaixo, sem alarme.</div> : null}
       {cxMesaGroups(split.needsYou, notesByProc, r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />)}
       {split.overCap.length ? <button type="button" className="cx-pz-more" onClick={() => setOverOpen(v => !v)} aria-expanded={overOpen}>{overOpen ? 'Esconder' : 'Mostrar'} {cxPl(split.overCap.length, 'item acima do limite', 'itens acima do limite')}<CxIcon n={overOpen ? 'chevU' : 'chevD'} s={13} /></button> : null}
       {overOpen ? split.overCap.map(r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />) : null}
@@ -4456,7 +4456,7 @@ function EditionClaudePrazos(p) {
       {restOpen ? (restByGroup.length ? restByGroup.map(x => <div key={x.g}>
         <div className="cx-pz-gh"><span className="cx-gnum" style={{ '--c': CX_GROUP_C[x.g] }}>{x.g}</span>{PRAZOS_GROUP_LABELS[x.g]}<span className="cx-n">{x.rows.length}</span></div>
         {cxMesaGroups(x.rows, notesByProc, r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />)}
-      </div>) : <div className="cx-empty-row">Nada neste recorte além do bloco de cima.</div>) : null}
+      </div>) : <div className="cx-empty-row">Nenhuma CDA neste recorte além do bloco de cima.</div>) : null}
     </section>
 
     <section className="cx-card cx-pz-block">
@@ -4474,7 +4474,7 @@ function EditionClaudePrazos(p) {
           <span className="cx-sil-until">{reason}{item.until ? ' · até ' + fmtDate(item.until) : ''}</span>
           {item.canReopen ? <button type="button" className="cx-btn sm" onClick={() => a.clearSnooze(item.debtId)}>Reabrir agora</button> : <span />}
         </div>;
-      }) : <div className="cx-empty-row">Nada silenciado.</div>) : null}
+      }) : <div className="cx-empty-row">Nenhuma CDA silenciada.</div>) : null}
     </section>
     <div className="cx-pz-legend">
       <span><span className="cx-cert calculado">Calculado</span>{CX_CERT_TIP.calculado}</span>
@@ -4526,7 +4526,7 @@ function cxTaskSort(a, b) {
   return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR');
 }
 function cxDeskBtn(on, onClick) {
-  return <button type="button" className={'cx-desk-btn' + (on ? ' on' : '')} aria-pressed={on} title={on ? 'Tirar da Mesa' : 'Enviar para a Mesa'} onClick={e => { e.stopPropagation(); onClick(); }}><CxIcon n="desk" s={12} />{on ? 'na mesa' : 'Mesa'}</button>;
+  return <button type="button" className={'cx-desk-btn' + (on ? ' on' : '')} aria-pressed={on} title={on ? 'Tirar da Mesa' : 'Levar à Mesa'} onClick={e => { e.stopPropagation(); onClick(); }}><CxIcon n="desk" s={12} />{on ? 'na Mesa' : 'Mesa'}</button>;
 }
 
 /* ═════════════════════ Tarefas ═════════════════════ */
@@ -4674,7 +4674,7 @@ function EditionClaudeTarefas(p) {
       ? <CxTaskBoard items={open} done={done} opsById={opsById} onOpen={p.onOpenTask} onSetStatus={(id, s) => { const t = all.find(x => x.id === id); if (t && t.status !== s) { p.upsert('tasks', { ...t, status: s }); cxNotify(CX_TASK_ST[s]); } }} />
       : <div className="cx-list">
         {!groups.length && !done.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{all.length ? 'Nenhuma tarefa com esses filtros.' : 'Nenhuma tarefa ainda. Escreva a primeira no campo acima.'}</div> : null}
-        {!groups.length && done.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nada em aberto neste recorte.</div> : null}
+        {!groups.length && done.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma tarefa em aberto neste recorte.</div> : null}
         {groups.map(g => {
           const isClosed = !!closed[g.key];
           return <React.Fragment key={g.key}>
@@ -4816,7 +4816,7 @@ function EditionClaudeAgenda(p) {
   const past = hearings.filter(h => isClosedH(h) || (h.date && daysUntil(h.date) < 0)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   const hRow = (h) => <CxHearingRow key={h.id} h={h} op={opsById.get(h.operationId)} onOpen={p.onOpenHearing} onOpenOp={p.onOpenOp} deskOn={p.isOnDesk('hearing', h.id)} onDesk={() => p.toggleDesk('hearing', h.id, daysUntil(h.date))} />;
   const total = Object.values(byDay).reduce((s, a) => s + a.length, 0);
-  const dayHead = (d) => { const k = localIso(d); return <><span className="cx-ag-dow">{CX_DOW[d.getDay()]}</span><span className={'cx-ag-n' + (k === todayIso ? ' today' : '')}>{d.getDate()}</span></>; };
+  const dayHead = (d) => { const k = localIso(d); return <><span className="cx-ag-dow">{cxCap(CX_DOW[d.getDay()])}</span><span className={'cx-ag-n' + (k === todayIso ? ' today' : '')}>{d.getDate()}</span></>; };
   return <div className="cx cx-page cx-page-wide">
     <div className="cx-page-h">
       <div><h1>Agenda</h1><p>Audiências, finais de prazo, tarefas com data limite e termos de prescrição num só calendário. Clique num item para abrir.</p></div>
@@ -4847,7 +4847,7 @@ function EditionClaudeAgenda(p) {
         <div className={'cx-ag-lh' + (k === todayIso ? ' today' : '')}>{dayHead(d)}<span className="cx-muted cx-small">{CX_DOW_L[d.getDay()]}, {d.getDate()} de {CX_MES_L[d.getMonth()]}</span><span className="cx-n" style={{ marginLeft: 'auto' }}>{byDay[k].length}</span></div>
         <div className="cx-ag-lits">{byDay[k].map(it => <CxAgItem key={it.id} it={it} opsById={opsById} onOpen={open} />)}</div>
       </div>; })}
-      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{dayFocus ? 'Nada neste dia com esses filtros.' : 'Nada nos próximos 30 dias com esses filtros.'}</div> : null}
+      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{dayFocus ? 'Nenhum item neste dia com esses filtros.' : 'Nenhum item nos próximos 30 dias com esses filtros.'}</div> : null}
     </div> : <div className={'cx-ag-grid' + (view === 'mes' ? ' month' : '')}>
       {view === 'mes' ? ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(n => <div key={n} className="cx-ag-mh">{n}</div>) : null}
       {days.map(d => {
@@ -4892,11 +4892,11 @@ function cxDeskResolve(data, d) {
 }
 function cxDeskWhen(dd) {
   if (dd === null) return { t: 'sem data', c: '' };
-  if (dd < 0) return { t: 'vencido há ' + (-dd) + 'd', c: 'red' };
+  if (dd < 0) return { t: 'vencido há ' + cxPl(-dd, 'dia', 'dias'), c: 'red' };
   if (dd === 0) return { t: 'hoje', c: 'red' };
   if (dd === 1) return { t: 'amanhã', c: 'orange' };
-  if (dd <= 7) return { t: 'em ' + dd + ' dias', c: 'yellow' };
-  return { t: 'em ' + dd + ' dias', c: '' };
+  if (dd <= 7) return { t: 'em ' + cxPl(dd, 'dia', 'dias'), c: 'yellow' };
+  return { t: 'em ' + cxPl(dd, 'dia', 'dias'), c: '' };
 }
 function EditionClaudeMesa(p) {
   const { data, opsById, a } = p;
@@ -4931,7 +4931,7 @@ function EditionClaudeMesa(p) {
         <span className="cx-sp" />
         <button type="button" className="cx-icon-btn cx-sm" onClick={() => move(d.type, col, i, -1)} disabled={i === 0} aria-label="Subir" title="Subir"><CxIcon n="chevU" s={13} /></button>
         <button type="button" className="cx-icon-btn cx-sm" onClick={() => move(d.type, col, i, 1)} disabled={i === col.length - 1} aria-label="Descer" title="Descer"><CxIcon n="chevD" s={13} /></button>
-        <button type="button" className="cx-icon-btn cx-sm" onClick={() => a.remove(d.type, d.id)} aria-label="Tirar da mesa" title="Tirar da mesa (sem concluir)"><CxIcon n="x" s={13} /></button>
+        <button type="button" className="cx-icon-btn cx-sm" onClick={() => a.remove(d.type, d.id)} aria-label="Tirar da Mesa" title="Tirar da Mesa (sem concluir)"><CxIcon n="x" s={13} /></button>
       </div>
       <button type="button" className="cx-dk-title" onClick={() => openItem(d.type, x)}>{it.urgent ? <span className="cx-urg">URGENTE</span> : null}<span>{it.title}</span></button>
       {it.sub ? <div className="cx-dk-sub">{it.sub}</div> : null}
@@ -4947,12 +4947,12 @@ function EditionClaudeMesa(p) {
   };
   return <div className="cx cx-page cx-page-wide">
     <div className="cx-page-h">
-      <div><h1>Mesa de intimações</h1><p>{items.length ? cxPl(items.length, 'item em foco', 'itens em foco') + '. ' : ''}O que você escolheu atacar agora. Tirar da mesa não conclui nada: o item continua na sua lista.</p></div>
+      <div><h1>Mesa de intimações</h1><p>{items.length ? cxPl(items.length, 'item em foco', 'itens em foco') + '. ' : ''}O que você escolheu atacar agora. Tirar da Mesa não conclui nada: o item continua na sua lista.</p></div>
     </div>
     {sug.length ? <section className="cx-card cx-dk-sug">
       <button type="button" className="cx-pz-fold" onClick={() => setSugOpen(!sugOpen)} aria-expanded={sugOpen}>
         <span className="cx-caret" style={{ transform: sugOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
-        <b>Sugestões</b><span className="cx-n">{sug.length}</span><span className="cx-pz-fold-s">vence logo ou está marcado como urgente, e ainda não está na mesa</span>
+        <b>Sugestões</b><span className="cx-n">{sug.length}</span><span className="cx-pz-fold-s">vence logo ou está marcado como urgente, e ainda não está na Mesa</span>
       </button>
       {sugOpen ? <div className="cx-dk-sug-list">{sug.slice(0, 8).map(s => {
         const r = cxDeskResolve(data, { type: s.type, id: s.x.id });
@@ -4971,7 +4971,7 @@ function EditionClaudeMesa(p) {
         onDragOver={e => { if (drag && drag.split(':')[0] === c[0]) e.preventDefault(); }}
         onDrop={e => { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); setDrag(null); setOverId(null); if (!from || !col.length) return; const [ft, fid] = from.split(':'); const last = col[col.length - 1]; if (ft === c[0] && fid !== last.d.id) a.reorder(c[0], fid, last.d.id); }}>
         <div className="cx-b-h"><CxIcon n={c[2]} s={14} className="cx-muted" />{c[1]}<span className="cx-n">{col.length}</span></div>
-        <div className="cx-dk-list">{col.length ? col.map((it, i) => card(it, i, col)) : <div className="cx-b-empty">Nada aqui. Use o botão Mesa nas listas{c[0] === 'intimation' ? ' ou na gaveta da intimação' : ''}.</div>}</div>
+        <div className="cx-dk-list">{col.length ? col.map((it, i) => card(it, i, col)) : <div className="cx-b-empty">Nenhum item na Mesa. Use o botão Mesa nas listas{c[0] === 'intimation' ? ' ou na gaveta da intimação' : ''}.</div>}</div>
       </section>;
     })}</div>
   </div>;
@@ -5148,11 +5148,11 @@ function CxWatchRow({ w, op, onOpen, onOpenOp, onCheck, onStatus }) {
       {w.parties ? <div className="cx-i-ev">{w.parties}</div> : null}
       <div className="cx-w-reason" title={w.reason || ''}><span className="cx-muted">Motivo:</span> {w.reason || '—'}</div>
       {notes.length ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
-      <div className="cx-i-sub"><CxOpTag op={op} /><span className={'cx-w-age' + (stale ? ' stale' : '')}>{checked === null ? 'nunca verificado' : checked === 0 ? 'verificado hoje' : 'verificado há ' + checked + 'd'}</span></div>
+      <div className="cx-i-sub"><CxOpTag op={op} /><span className={'cx-w-age' + (stale ? ' stale' : '')}>{checked === null ? 'nunca verificado' : checked === 0 ? 'verificado hoje' : 'verificado há ' + cxPl(checked, 'dia', 'dias')}</span></div>
     </div>
-    <div className="cx-c-proc">{op ? <CxOpTag op={op} onOpen={onOpenOp} /> : <span className="cx-op-tag cx-muted">Avulso</span>}<span className="cx-cls">{since !== null ? 'acompanhando há ' + since + 'd' : ''}</span></div>
+    <div className="cx-c-proc">{op ? <CxOpTag op={op} onOpen={onOpenOp} /> : <span className="cx-op-tag cx-muted">Avulso</span>}<span className="cx-cls">{since !== null ? 'acompanhando há ' + cxPl(since, 'dia', 'dias') : ''}</span></div>
     <div className="cx-w-check">
-      <span className={'cx-w-age' + (stale ? ' stale' : '')}>{checked === null ? 'nunca verificado' : checked === 0 ? 'verificado hoje' : 'verificado há ' + checked + 'd'}</span>
+      <span className={'cx-w-age' + (stale ? ' stale' : '')}>{checked === null ? 'nunca verificado' : checked === 0 ? 'verificado hoje' : 'verificado há ' + cxPl(checked, 'dia', 'dias')}</span>
       {closed ? null : <button type="button" className="cx-btn sm" onClick={e => { e.stopPropagation(); onCheck(w); }} title="Registrar que você conferiu o processo hoje"><CxIcon n="tick" s={12} />Verificar</button>}
     </div>
     <label className="cx-w-st" onClick={e => e.stopPropagation()}>
@@ -5217,7 +5217,7 @@ function EditionClaudeAcompanhar(p) {
     </div>
     <div className="cx-list">
       {list.length ? list.map(w => <CxWatchRow key={w.id} w={w} op={opsById.get(w.operationId)} onOpen={p.onOpen} onOpenOp={p.onOpenOp} onCheck={check} onStatus={setStatus} />)
-        : <div className="cx-empty-row" style={{ borderTop: 0 }}>{all.length ? 'Nada neste recorte.' : 'Nenhum processo em acompanhamento. Use para monitorar processos depois de uma manifestação pontual, quando não há garantia de nova intimação. Também dá para criar a partir da gaveta de uma intimação (Acompanhar).'}</div>}
+        : <div className="cx-empty-row" style={{ borderTop: 0 }}>{all.length ? 'Nenhum processo neste recorte.' : 'Nenhum processo em acompanhamento. Use para monitorar processos depois de uma manifestação pontual, quando não há garantia de nova intimação. Também dá para criar a partir da gaveta de uma intimação (Acompanhar).'}</div>}
     </div>
   </div>;
 }
@@ -5722,7 +5722,7 @@ function CxBfApoio({ op, data, prazosRadar, prescLookup, split, execs, upsert, o
           <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
           <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
           <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
-        </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
+        </button>) : <div className="cx-empty-row">Nenhuma CDA exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
         {needs.length > 8 ? <div className="cx-more">+{needs.length - 8} na Mesa de prazos</div> : null}
       </div> : null}
       {tab === 'check' ? <CxBfChecklists bare op={op} upsert={upsert} /> : null}
@@ -5861,10 +5861,10 @@ const CX_BF_SIG = [
   ['pre', 'hourglass', 'Prescrição'],
 ];
 function cxBfSigTip(k, e, pd) {
-  const dm = (iso) => iso ? cxDM(iso) : 'sem prazo';
+  const dm = (iso) => iso ? fmtDate(iso) : 'sem prazo';
   if (k === 'int') return { title: cxPl(pd.intims.length, 'intimação aberta', 'intimações abertas'), lines: pd.intims.slice(0, 6).map(i => dm(i.dateDeadline) + ' · ' + cxPartyName(i) + ' · ' + cxIntimObjetoText(i)).concat(pd.intims.length > 6 ? ['+' + (pd.intims.length - 6)] : []) };
   if (k === 'tar') return { title: cxPl(pd.tasks.length, 'tarefa em aberto', 'tarefas em aberto'), lines: pd.tasks.slice(0, 6).map(t => dm(t.dueDate) + ' · ' + (t.title || t.description || 'Tarefa')).concat(pd.tasks.length > 6 ? ['+' + (pd.tasks.length - 6)] : []) };
-  if (k === 'aud') return { title: cxPl(pd.hearings.length, 'audiência marcada', 'audiências marcadas'), lines: pd.hearings.slice(0, 6).map(h => cxDM(h.date) + (h.time ? ' ' + h.time : '') + ' · ' + (CX_HEARING[h.hearingType] || 'Audiência')) };
+  if (k === 'aud') return { title: cxPl(pd.hearings.length, 'audiência marcada', 'audiências marcadas'), lines: pd.hearings.slice(0, 6).map(h => fmtDate(h.date) + (h.time ? ' ' + h.time : '') + ' · ' + (CX_HEARING[h.hearingType] || 'Audiência')) };
   if (k === 'con') return { title: pd.assets.length ? cxPl(pd.assets.length, 'bem com constrição', 'bens com constrição') : 'Constrição registrada no processo', lines: pd.assets.slice(0, 6).map(a => a.description || a.name || 'Bem') };
   return { title: cxPl(pd.presc.length, 'CDA com prazo extintivo a decidir', 'CDAs com prazo extintivo a decidir'), lines: pd.presc.slice(0, 6).map(r => (r.cdaNumber || 'S/N') + ' · ' + (r.prescDays == null ? '—' : formatPrescHorizon(r.prescDays))) };
 }
@@ -6047,7 +6047,7 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
               <div className="rh">{oc ? <span className={'oc ' + outcomeCls(r.outcome)}>{oc}</span> : null}{r.parte === 'adversa' ? <span className="oc">adversa</span> : null}{r.date ? <span className="m">{fmtDate(r.date)}</span> : null}{r.proc ? <span className="m">{r.proc}</span> : null}</div>
               {rt ? <CxRichText text={rt} className="cx-bfx-rt" /> : null}
             </li>;
-          })}</ol> : <div className="cx-bfx-empty">Sem julgamentos listados.</div>
+          })}</ol> : <div className="cx-bfx-empty">Nenhum julgamento listado.</div>
         ) : (
           evEdit === m.k
             ? <CxRichEdit key={'ev-' + e.id + '-' + m.k} actions autoFocus placeholder="Texto do evento…" ariaLabel={'Texto da fase ' + phaseTitle}
@@ -6056,7 +6056,7 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
                 onSave={(h) => { setRec(m.k, { ...buildStageTextPatch(h, cxSanitizeDesc), _present: true }); setEvEdit(null); }} />
             : (m.rec && String(m.rec.texto || '').trim())
               ? <CxRichText className="cx-bfx-rt" text={String(m.rec.texto).trim()} html={pickStageTextHtml(m.rec, cxSanitizeDesc)} />
-              : <div className="cx-bfx-empty">Sem texto neste evento. <button type="button" className="cx-link-btn" onClick={() => setEvEdit(m.k)}>Escrever</button></div>
+              : <div className="cx-bfx-empty">Nenhum texto neste evento. <button type="button" className="cx-link-btn" onClick={() => setEvEdit(m.k)}>Escrever</button></div>
         )}
       </> : <div className="cx-bfx-empty">Nenhuma fase registrada. Use “+ Evento” na régua.</div>}
     </div>
@@ -6194,8 +6194,8 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
         <td className="c-fase" {...cxHintProps(faseTip)}>{R.cur ? <>{mini}<span className="fase">{R.cur.sd.label}</span></> : <span className="cx-muted">—</span>}</td>
         <td className="c-prox">{px ? <>
           <div><CxBfDue it={px} /></div>
-          <div className="nxt"><span className="t">{px.txt}</span>{more > 0 ? <span className="more" {...cxHintProps(() => ({ title: more === 1 ? '1 outro item em aberto' : more + ' outros itens em aberto', lines: pd.items.slice(1, 7).map(it => (it.iso ? cxDM(it.iso) + ' · ' : '') + it.txt) }))}>+{more}</span> : null}</div>
-        </> : <span className="cx-muted cx-bft-none">Nada em aberto</span>}</td>
+          <div className="nxt"><span className="t">{px.txt}</span>{more > 0 ? <span className="more" {...cxHintProps(() => ({ title: more === 1 ? '1 outro item em aberto' : more + ' outros itens em aberto', lines: pd.items.slice(1, 7).map(it => (it.iso ? fmtDate(it.iso) + ' · ' : '') + it.txt) }))}>+{more}</span> : null}</div>
+        </> : <span className="cx-muted cx-bft-none">Nenhum item em aberto</span>}</td>
         <td className="c-sg"><CxBfSignals e={e} pd={pd} /></td>
         <td className="c-val">{v.val > 0 ? <div className="val" {...cxHintProps(() => ({ title: fmtCur(v.val) }))}>{cxMoneyMi(v.val)}</div> : <div className="val cx-muted">—</div>}
           <div className="val-s">{v.n ? cxPl(v.n, 'CDA', 'CDAs') : (covered.length ? 'cobre' : '')}{v.n && covered.length ? ' · cobre' : ''}</div></td>
@@ -6236,7 +6236,7 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
               <td className="c-jz cx-muted">—</td><td className="c-fase cx-muted">—</td>
               <td className="c-prox"><div><CxBfDue it={dueItemOf(opTasks[0])} /></div><div className="nxt"><span className="t">{opTasks[0].title || opTasks[0].description || 'Tarefa'}</span>{opTasks.length > 1 ? <span className="more">+{opTasks.length - 1}</span> : null}</div></td>
               <td className="c-sg"><div className="cx-bft-sg"><span className={'s' + (opTasks.some(t => t.dueDate && daysUntil(t.dueDate) < 0) ? ' red' : '')} role="img" tabIndex={0} aria-label={'Tarefas em aberto: ' + opTasks.length}
-                {...cxHintProps(() => ({ when: 'Tarefas em aberto', title: cxPl(opTasks.length, 'tarefa', 'tarefas'), lines: opTasks.slice(0, 6).map(t => (t.dueDate ? cxDM(t.dueDate) : 'sem prazo') + ' · ' + (t.title || t.description || 'Tarefa')) }))}><CxIcon n="check" s={13} /><b>{opTasks.length}</b></span></div></td>
+                {...cxHintProps(() => ({ when: 'Tarefas em aberto', title: cxPl(opTasks.length, 'tarefa', 'tarefas'), lines: opTasks.slice(0, 6).map(t => (t.dueDate ? fmtDate(t.dueDate) : 'sem prazo') + ' · ' + (t.title || t.description || 'Tarefa')) }))}><CxIcon n="check" s={13} /><b>{opTasks.length}</b></span></div></td>
               <td className="c-val"><div className="val cx-muted">—</div></td>
             </tr> : null}
             {watches.map((w, i) => <tr key={w.id} className={'r child' + (i === watches.length - 1 ? ' last' : '')}>
@@ -6661,7 +6661,7 @@ function EditionClaudeProcDrawer(p) {
           </div> : null}
         </div>}
         {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
-          {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}
+          {cdas.length === 0 && <div className="cx-empty-row">Nenhuma CDA vinculada.</div>}
           {cdas.map(d => {
             const isSel = selectedCDAs.has(d.id);
             const isHandled = !!d.prescriptionHandled;
@@ -6685,7 +6685,7 @@ function EditionClaudeProcDrawer(p) {
           })}
         </div>}
         {tab === 'notas' && e && <div className="cx-pd-tabpane">
-          {(e.notesList || (e.notes ? [e.notes] : [])).length === 0 && <div className="cx-empty-row">Sem notas.</div>}
+          {(e.notesList || (e.notes ? [e.notes] : [])).length === 0 && <div className="cx-empty-row">Nenhuma nota.</div>}
           {(e.notesList || (e.notes ? [e.notes] : [])).map((n, i) => {
             const text = typeof n === 'string' ? n : ((n && (n.text || n.content || n.body)) || '');
             return <div key={i} className="cx-pd-note">{linkify ? linkify(text) : text}</div>;
@@ -6812,7 +6812,7 @@ function CxCdaDadosBlock({ debt: d, exec }) {
 /** Bloco "Eventos": collectEventsForCda + inferParcelamentoEnds (mesmo motor do clássico); ✎ abre o evento. */
 function CxCdaEventsBlock({ debt, data, setModal }) {
   const pevs = collectEventsForCda(debt, data.executions, data.prescriptionEvents || []).events;
-  if (!pevs.length) return <div className="cx-empty-row">Sem eventos lançados.</div>;
+  if (!pevs.length) return <div className="cx-empty-row">Nenhum evento lançado.</div>;
   const inferredEnds = inferParcelamentoEnds(pevs);
   return <ul className="cx-cd-events">
     {pevs.map(ev => {
@@ -6903,7 +6903,7 @@ function EditionClaudeCdaDrawer(p) {
         </CxBlock> : null}
 
         <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggleBlock('notas')}>
-          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => {
+          {notes.length === 0 ? <div className="cx-empty-row">Nenhuma nota.</div> : notes.map((n, i) => {
             const text = typeof n === 'string' ? n : ((n && (n.text || n.content || n.body)) || '');
             return <div key={i} className="cx-pd-note">{linkify ? linkify(text) : text}</div>;
           })}
@@ -7010,7 +7010,7 @@ function cxPrescDisplay(cdas, prazosByDebt) {
   if (hasTerm) {
     const d = worst.prescDays;
     const target = addCalendarDays(localIso(new Date()), d);
-    text = (d <= 0 ? Math.abs(d) + 'd vencido' : d + ' dias') + ' · ' + cxDM(target);
+    text = cxHorizonTxt(d) + ' · ' + cxDM(target);
   }
   return { riskClass: rm.riskClass, text, bar: hasTerm ? <CxHorizonBar days={worst.prescDays} group={worst.group} /> : null };
 }
@@ -7897,7 +7897,7 @@ function EditionClaudePersonDrawer({ s, data, onClose, setModal, onOpenCda }) {
           </>}
         </CxBlock>
         <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggle('notas')}>
-          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
+          {notes.length === 0 ? <div className="cx-empty-row">Nenhuma nota.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
         </CxBlock>
       </div>
       <div className="cx-dr-foot">
@@ -8051,10 +8051,10 @@ function EditionClaudeAssetDrawer({ asset: a, data, opId, onClose, setModal }) {
           <dt>Analytics</dt><dd>{a.analyticsRegistered ? <span className="cx-tag green">Registrado</span> : <span className="cx-tag orange">Pendente</span>}</dd>
         </dl>
         <CxBlock title="Descrição" open={!!blocks.desc} onToggle={() => toggle('desc')}>
-          {a.description ? <p className="cx-bf-work-txt">{a.description}</p> : <div className="cx-empty-row">Sem descrição.</div>}
+          {a.description ? <p className="cx-bf-work-txt">{a.description}</p> : <div className="cx-empty-row">Nenhuma descrição.</div>}
         </CxBlock>
         <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggle('notas')}>
-          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
+          {notes.length === 0 ? <div className="cx-empty-row">Nenhuma nota.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
         </CxBlock>
       </div>
       <div className="cx-dr-foot">
@@ -8336,7 +8336,7 @@ function EditionClaudeDocDrawer({ doc: d, data, onClose, setModal, onOpenIntim }
         </CxBlock>}
         {d.description ? <CxBlock title="Descrição" open={!!blocks.desc} onToggle={() => toggle('desc')}><p className="cx-bf-work-txt">{d.description}</p></CxBlock> : null}
         <CxBlock title="Notas" count={notes.length} open={!!blocks.notas} onToggle={() => toggle('notas')}>
-          {notes.length === 0 ? <div className="cx-empty-row">Sem notas.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
+          {notes.length === 0 ? <div className="cx-empty-row">Nenhuma nota.</div> : notes.map((n, i) => <div key={i} className="cx-pd-note">{n}</div>)}
         </CxBlock>
       </div>
       <div className="cx-dr-foot">
@@ -8772,7 +8772,7 @@ function CxActDetail({ ev, full, onOpen, onRestore }) {
           <td>{opLbl[d.op] || d.op}{(d.fields || []).length ? ': ' + d.fields.join(', ') : ''}</td>
           <td className="r">{can ? <button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'row', row: d })}><CxIcon n="history" s={12} />{d.op === 'create' ? 'Desfazer' : 'Restaurar'}</button> : null}</td>
         </tr>)}
-        {!rowsAll.length ? <tr><td colSpan={3} className="cx-muted">Sem detalhe por item neste registro.</td></tr> : null}
+        {!rowsAll.length ? <tr><td colSpan={3} className="cx-muted">Nenhum detalhe por item neste registro.</td></tr> : null}
       </tbody></table>
       {rowsAll.length > rows.length ? <div className="cx-act-links"><button type="button" className="cx-link-btn" onClick={() => setAllRows(true)}>Mostrar os {rowsAll.length} itens</button></div> : null}
       {ev.batch.detailsCut ? <div className="cx-act-links">A lista de itens foi encurtada para caber no registro; “Desfazer importação inteira” cobre todos.</div> : null}
@@ -8912,7 +8912,7 @@ function CxActRestoreModal({ req, activity, onClose, onDone }) {
         {st.loading ? <div className="cx-act-mn">Conferindo o que muda…</div> : null}
         {st.error ? <div className="cx-act-mn warn">Não foi possível restaurar: {st.error}</div> : null}
         {st.r && !conf.length && !nothing ? <div className="cx-act-mn">{cxPl(st.r.applied, 'item será atualizado', 'itens serão atualizados')}. A restauração fica registrada como uma nova linha em “Minha atividade” (origem: restauração) e dá para restaurar de novo se mudar de ideia.</div> : null}
-        {nothing ? <div className="cx-act-mn">Nada a restaurar: os dados já estão como estavam antes desta alteração.</div> : null}
+        {nothing ? <div className="cx-act-mn">Nenhum item a restaurar: os dados já estão como estavam antes desta alteração.</div> : null}
         {conf.length ? <div className="cx-act-mn warn">Alguns itens foram <b>alterados depois por você</b>, então restaurar sobrescreve o que está lá agora:
           <ul>{conf.slice(0, 8).map((c, i) => <li key={i}>{c.label && cxNorm(c.label).indexOf(cxNorm(cxActColName(c.col, 1))) === 0 ? c.label : cxCap(cxActColName(c.col, 1)) + (c.label ? ' ' + c.label : '')} — {c.motivo}</li>)}</ul>
           {conf.length > 8 ? <div>… e mais {conf.length - 8}.</div> : null}
@@ -9128,7 +9128,7 @@ function EditionClaudeAtividade(p) {
 
     {loading && !events.length ? <div className="cx-act-list"><div className="cx-act-empty">Carregando o registro…</div></div>
       : err ? <div className="cx-act-list"><div className="cx-act-empty">Não foi possível carregar o registro: {err}<div style={{ marginTop: 10 }}><button type="button" className="cx-btn sm" onClick={() => setTick(t => t + 1)}>Tentar de novo</button></div></div></div>
-      : !filtered.length ? <div className="cx-act-list"><div className="cx-act-empty">{filtersOn ? 'Nenhum registro com esses filtros.' : !vis.length && nMinor ? 'Só há ajustes menores neste período (' + nMinor + ' ocultos).' : 'Nada registrado neste período.'}</div></div>
+      : !filtered.length ? <div className="cx-act-list"><div className="cx-act-empty">{filtersOn ? 'Nenhum registro com esses filtros.' : !vis.length && nMinor ? 'Só há ajustes menores neste período (' + nMinor + ' ocultos).' : 'Nenhum registro neste período.'}</div></div>
       : groups.map(g => { const l = cxActDayLabel(g.day, today); return <div key={g.day}>
         <div className="cx-act-day">{l.main}{l.sub ? <span>{l.sub}</span> : null}</div>
         <div className="cx-act-list">{g.items.map(e => <CxActRow key={e.id} ev={e} open={openIds.has(e.id)} full={fulls[e.id]} opObj={e.op ? opById.get(e.op.id) : null}
