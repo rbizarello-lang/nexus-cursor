@@ -4971,12 +4971,36 @@ function EditionClaudeMesa(p) {
    prescrição, Inscrições, Partes e bens, Tarefas, Arquivos, Importar).
    O conteúdo das abas é o do app, com o visual Prumo aplicado pelo CSS.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* Contador da aba só para o que pede ação (sem contador quando é zero): intimações vencidas na Visão geral e tarefas
+   vencidas em Tarefas (vermelho); CDAs no alarme de prescrição em Processos e prescrição (violeta, a cor do alarme
+   no resumo do cabeçalho). Números de opStats; nenhum cálculo novo. */
+function cxOpTabAlert(tab, s) {
+  if (!s) return null;
+  if (tab === 'visao' && s.overdueIntims) return { n: s.overdueIntims, tone: 'late', txt: cxPl(s.overdueIntims, 'intimação vencida', 'intimações vencidas') };
+  if (tab === 'tarefas' && s.overdueTasks) return { n: s.overdueTasks, tone: 'late', txt: cxPl(s.overdueTasks, 'tarefa vencida', 'tarefas vencidas') };
+  if (tab === 'prescricao_v2' && s.prescA) return { n: s.prescA, tone: 'presc', txt: cxPl(s.prescA, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição') };
+  return null;
+}
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
   const rs = isSubstituicaoOp(op) ? { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' } : cxRS(op);
   const cls = getOpClassifications(op);
   const [intimDrawer, setIntimDrawer] = React.useState(false);
   const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
+  /* Barra de abas: `fits` desliga o esmaecer das bordas quando todas cabem; a aba ativa rola para a vista (celular). */
+  const tabsRef = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = tabsRef.current; if (!el) return;
+    const m = () => el.classList.toggle('fits', el.scrollWidth <= el.clientWidth + 1);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    return () => { if (ro) ro.disconnect(); };
+  }, [op.id]);
+  React.useEffect(() => {
+    const el = tabsRef.current; const on = el && el.querySelector('button.on');
+    if (on && el.scrollWidth > el.clientWidth + 1 && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, op.id]);
   if (isSubstituicaoOp(op)) {
     const onProc = activeTab !== 'docs';
     return <div className="cx cx-oph">
@@ -5026,9 +5050,13 @@ function EditionClaudeOpHeader(p) {
     </div>
     <div className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
     {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
-    <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
-      <button type="button" className={cxTabOn(activeTab, 'visao') ? 'on' : ''} aria-current={cxTabOn(activeTab, 'visao') ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, 'visao')) p.onTab('visao'); }}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}</button>)}
+    <nav ref={tabsRef} className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
+      {[['visao', 'Visão geral']].concat(CX_OP_TABS).map(t => {
+        const on = cxTabOn(activeTab, t[0]);
+        const al = cxOpTabAlert(t[0], s);
+        return <button key={t[0]} type="button" className={on ? 'on' : ''} aria-current={on ? 'page' : undefined} aria-label={al ? t[1] + ', ' + al.txt : undefined} title={al ? al.txt : undefined}
+          onClick={() => { if (!on) p.onTab(t[0]); }}>{t[1]}{al ? <span className={'cx-tab-al ' + al.tone} aria-hidden="true">{al.n}</span> : null}</button>;
+      })}
     </nav>
   </div>;
 }

@@ -226,6 +226,13 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   - Colunas pela largura da lista (container query): ≥ 1480 px quatro colunas; 860–1479 Tribunal e Notas
     empilhadas; abaixo disso, uma coluna (celular). Cálculos puros em `src/lib/intim-card.js`
     (`test/intim-card.test.mjs`). Nenhum campo novo.
+- **Nexus Prumo — abas da operação, ajuste fino** (09/10/2026) — proposta B do mockup `p1-ajuste-fino.html`, sem
+  contadores de quantidade: faixa de largura total com fio em cima, rótulos em ink-2 com peso fixo (a ativa só
+  escurece e ganha o sublinhado), anel de foco interno, esmaecer nas bordas só quando as abas rolam e a aba ativa
+  rola para a vista no celular. Número só para o que pede ação, a partir de `opStats`: intimações vencidas
+  (Visão geral) e tarefas vencidas (Tarefas) em vermelho; CDAs no alarme de prescrição (Processos e prescrição) em
+  violeta. Sem número quando é zero; o leitor de tela ouve o rótulo com a contagem. Frentes processuais: Evento da
+  fase e Notas em 11,5 px (o nº do processo da tabela é 12 px), mais compactos.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
