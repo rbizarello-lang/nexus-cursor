@@ -1213,36 +1213,60 @@ function cxGroupResolved(items) {
   const order = ['Hoje', 'Últimos 7 dias', 'Este mês', 'Anteriores', 'Sem data de atuação'];
   return order.map(k => ({ key: 'r' + k, label: k, icon: <CxStatusIcon s="analisado" />, items: items.filter(x => bucket(x) === k) })).filter(g => g.items.length);
 }
-function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
-  const notes = cxNotes(intim);
-  const resolved = !!intim.responseAction;
+/* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
+   contagem no tooltip). Quatro zonas: identidade (operação · sinais no topo, situação + parte, nº + sigla + Imp/Compl/peça,
+   esteira) · Tribunal (objeto e teor da decisão) · Minhas notas · Prazo (só tempo: data final e embargos). Cálculos em
+   src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-i-row/cx-c-*. */
+function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
+function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
+  const ra = intim.responseAction;
+  const resolved = !!ra;
   const done = resolved || intim.status === 'analisado';
   const urgent = intimIsUrgent(intim) && !done;
-  const ra = intim.responseAction;
-  return <div className={'cx-i-row' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex={0}
+  const cls = intim.className || '';
+  const sigla = intimClassSigla(cls);
+  const obj = cxIntimObjeto(intim);
+  const teor = intimationDecisionText(intim);
+  const tl = intimTribLines(obj, teor, L.cplTr, L.budTr);
+  const pz = intimPrazo(intim);
+  const emb = intimEmbargos(intim);
+  const notes = cxNotes(intim);
+  const fit = resolved ? null : intimNotesFit(notes, L.cplNt, L.budNt);
+  const hasNt = resolved || fit.shown.length > 0;
+  const flag = intim._importFlag === 'new' ? <span className="cx-tag blue xs">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag xs">Atualizada</span> : null;
+  const tags = urgent || flag || intim.hasPending;
+  const num = intimProcCnj(intim.processNumber);
+  return <div className={'cx-ix' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '') + (hasNt ? '' : ' nt-empty')} role="button" tabIndex={0}
     onClick={() => onOpen(intim.id)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}>
-    <CxStatusIcon s={resolved ? 'analisado' : intim.status} />
-    <div className="cx-i-main">
-      <div className="cx-i-party">
-        {urgent ? <span className="cx-urg">URGENTE</span> : null}
-        <span className="cx-ell">{cxPartyName(intim)}</span>
-        {intim._importFlag === 'new' ? <span className="cx-tag blue">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag">Atualizada</span> : null}
-        {intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}
+    <div className="cx-ix-id">
+      {hideOp && !tags ? null : <div className="cx-it-opl">
+        {hideOp ? <span /> : op
+          ? <button type="button" className="cx-it-op cx-link" onClick={e => { e.stopPropagation(); if (onOpenOp) onOpenOp(op.id); }} title={'Abrir ' + op.name}><CxOpSquare op={op} size={8} /><span className="cx-ell">{cxOpName(op)}</span></button>
+          : <span className="cx-it-op none"><CxOpSquare size={8} /><span className="cx-ell">Sem operação</span></span>}
+        <span className="cx-it-tags">{urgent ? <span className="cx-urg">URGENTE</span> : null}{flag}{intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}</span>
+      </div>}
+      <div className="cx-ix-party"><CxStatusIcon s={resolved ? 'analisado' : intim.status} /><span className="cx-ell" title={cxPartyName(intim)}>{cxPartyName(intim)}</span></div>
+      <div className="cx-ix-pc">
+        <button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={num} uf={intim.jurisdiction} /></button>
+        {sigla ? <span className="cx-ix-sg" title={cls}>{sigla}</span> : null}
+        <span className="cx-ix-sig"><CxImp intim={intim} /><CxDif intim={intim} />{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</span>
       </div>
-      <div className="cx-i-ev"><CxObj intim={intim} /></div>
-      {resolved ? <div className="cx-i-note"><CxIcon n="send" s={12} /><span className="cx-ell">{ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'}{ra.description ? ' · ' + ra.description : ''}</span></div>
-        : notes[0] ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
+      {!sigla && cls ? <div className="cx-ix-cls" title={cls}>{cls}</div> : null}
       <CxEstLine esteira={intim.esteira} />
-      <div className="cx-i-sub"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><CxOpTag op={op} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
     </div>
-    <div className="cx-c-proc"><button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={intim.processNumber} uf={intim.jurisdiction} /></button><span className="cx-cls">{intim.className || '—'}</span></div>
-    <div className="cx-c-op"><CxOpTag op={op} onOpen={onOpenOp} /></div>
-    <div className="cx-c-opdoc">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</div>
-    <div className="cx-c-imp"><CxImp intim={intim} /></div>
-    <div className="cx-c-dif"><CxDif intim={intim} /></div>
-    <div className="cx-c-due">
-      {resolved ? <CxDue doneIso={ra.respondedAt || ''} /> : <CxDue iso={intim.dateDeadline} />}
-      <span className="cx-sub">{resolved ? 'atuação registrada' : intim.dateDeadline ? 'final ' + cxDM(intim.dateDeadline) : 'prazo fechado'}</span>
+    <div className="cx-it-tr">
+      <div className="cx-it-obj" style={{ '--ol': tl.ol }} title={obj || CX_OBJ_UNDEF_TXT}>{obj || <span className="cx-obj-undef">{CX_OBJ_UNDEF_TXT}</span>}</div>
+      {teor ? <div className="cx-it-teor" style={{ '--tl': tl.tl }} title={teor}><span className="lbl">Decisão</span>{teor.replace(/\s*\n+\s*/g, ' ¶ ')}</div> : null}
+    </div>
+    <div className={'cx-it-nt' + (hasNt ? '' : ' empty')} title={resolved ? undefined : notes.join('\n')}>
+      {resolved
+        ? <div className="cx-it-note act" style={{ '--nl': 2 }}><span className="zl">Atuação</span>{cxRaKind(ra)}{ra.description ? ' · ' + ra.description : ''}</div>
+        : <>{fit.shown.map((n, i) => <div key={i} className="cx-it-note" style={{ '--nl': n.l }}>{i === 0 ? <span className="zl">Notas</span> : null}{n.t}</div>)}
+          {fit.rest ? <div className="cx-it-more">+{fit.rest} {fit.rest === 1 ? 'nota anterior' : 'notas anteriores'}</div> : null}</>}
+    </div>
+    <div className="cx-ix-pz">
+      <span className={'cx-due ' + pz.tone} title={pz.title}>{pz.txt}</span>
+      {emb ? <span className={'cx-emb ' + emb.tone} aria-label={emb.aria} title={emb.title}>{emb.txt}</span> : null}
     </div>
   </div>;
 }
@@ -1260,14 +1284,28 @@ function EditionClaudeSubstituicao({ data, op, opsById, onOpen, onOpenOp }) {
   ];
   return <div className="cx cx-page">
     <div className="cx-page-h"><div><h1>Processos</h1><p>{cxPl(abertas.length, 'aberta', 'abertas')} · {cxPl(resolvidas.length, 'resolvida', 'resolvidas')}. O card é o mesmo da aba Intimações.</p></div></div>
-    <CxIntimList items={items} groups={groups} sort="atencao" onOpen={onOpen} onOpenOp={onOpenOp} opsById={opsById} />
+    <CxIntimList items={items} groups={groups} sort="atencao" onOpen={onOpen} onOpenOp={onOpenOp} opsById={opsById} hideOp />
   </div>;
 }
-function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText }) {
+function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText, hideOp }) {
   const [closed, setClosed] = React.useState({});
+  const ref = React.useRef(null);
+  const [w, setW] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const m = () => setW(el.clientWidth);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', m);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', m); };
+  }, [groups.length > 0]);
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
-  return <div className="cx-list">
-    <div className="cx-list-h"><span /><span>Parte · evento · notas</span><span>Processo</span><span className="cx-h-op">Operação</span><span /><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span className="r">Prazo</span></div>
+  const L = intimCardLayout(w || 1200);
+  return <div className="cx-list cx-it-list" ref={ref}>
+    <div className="cx-ix-h"><span className="h-id"><b>Parte</b>processo · esteira</span>
+      <span className="h-tr"><b>Tribunal</b><span className="w-only">objeto · decisão</span><span className="m-only">· minhas notas</span></span>
+      <span className="h-nt"><b>Minhas notas</b>o que fazer</span><span className="h-pz"><b>Prazo</b>embargos</span></div>
     {groups.map(g => {
       const isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
       const sorted = g.items.slice().sort(cxSortFn(sort));
@@ -1275,7 +1313,7 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
         <button type="button" className={'cx-grp' + (isClosed ? ' closed' : '')} aria-expanded={!isClosed} onClick={() => setClosed(c => ({ ...c, [g.key]: !isClosed }))}>
           <span className="cx-caret"><CxIcon n="chevD" s={14} /></span>{g.icon}<span>{g.label}</span><span className="cx-n">{g.items.length}</span>{g.sub ? <span className="cx-grp-sub">· {g.sub}</span> : null}
         </button>
-        {isClosed ? null : sorted.map(x => <CxIntimRow key={x.id} intim={x} op={opsById.get(x.operationId)} sel={selId === x.id} onOpen={onOpen} onOpenOp={onOpenOp} />)}
+        {isClosed ? null : sorted.map(x => <CxIntimRow key={x.id} intim={x} op={opsById.get(x.operationId)} sel={selId === x.id} onOpen={onOpen} onOpenOp={onOpenOp} L={L} hideOp={hideOp} />)}
       </React.Fragment>;
     })}
   </div>;
@@ -4933,12 +4971,36 @@ function EditionClaudeMesa(p) {
    prescrição, Inscrições, Partes e bens, Tarefas, Arquivos, Importar).
    O conteúdo das abas é o do app, com o visual Prumo aplicado pelo CSS.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* Contador da aba só para o que pede ação (sem contador quando é zero): intimações vencidas na Visão geral e tarefas
+   vencidas em Tarefas (vermelho); CDAs no alarme de prescrição em Processos e prescrição (violeta, a cor do alarme
+   no resumo do cabeçalho). Números de opStats; nenhum cálculo novo. */
+function cxOpTabAlert(tab, s) {
+  if (!s) return null;
+  if (tab === 'visao' && s.overdueIntims) return { n: s.overdueIntims, tone: 'late', txt: cxPl(s.overdueIntims, 'intimação vencida', 'intimações vencidas') };
+  if (tab === 'tarefas' && s.overdueTasks) return { n: s.overdueTasks, tone: 'late', txt: cxPl(s.overdueTasks, 'tarefa vencida', 'tarefas vencidas') };
+  if (tab === 'prescricao_v2' && s.prescA) return { n: s.prescA, tone: 'presc', txt: cxPl(s.prescA, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição') };
+  return null;
+}
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
   const rs = isSubstituicaoOp(op) ? { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' } : cxRS(op);
   const cls = getOpClassifications(op);
   const [intimDrawer, setIntimDrawer] = React.useState(false);
   const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
+  /* Barra de abas: `fits` desliga o esmaecer das bordas quando todas cabem; a aba ativa rola para a vista (celular). */
+  const tabsRef = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = tabsRef.current; if (!el) return;
+    const m = () => el.classList.toggle('fits', el.scrollWidth <= el.clientWidth + 1);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    return () => { if (ro) ro.disconnect(); };
+  }, [op.id]);
+  React.useEffect(() => {
+    const el = tabsRef.current; const on = el && el.querySelector('button.on');
+    if (on && el.scrollWidth > el.clientWidth + 1 && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, op.id]);
   if (isSubstituicaoOp(op)) {
     const onProc = activeTab !== 'docs';
     return <div className="cx cx-oph">
@@ -4988,9 +5050,13 @@ function EditionClaudeOpHeader(p) {
     </div>
     <div className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
     {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
-    <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
-      <button type="button" className={cxTabOn(activeTab, 'visao') ? 'on' : ''} aria-current={cxTabOn(activeTab, 'visao') ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, 'visao')) p.onTab('visao'); }}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}</button>)}
+    <nav ref={tabsRef} className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
+      {[['visao', 'Visão geral']].concat(CX_OP_TABS).map(t => {
+        const on = cxTabOn(activeTab, t[0]);
+        const al = cxOpTabAlert(t[0], s);
+        return <button key={t[0]} type="button" className={on ? 'on' : ''} aria-current={on ? 'page' : undefined} aria-label={al ? t[1] + ', ' + al.txt : undefined} title={al ? al.txt : undefined}
+          onClick={() => { if (!on) p.onTab(t[0]); }}>{t[1]}{al ? <span className={'cx-tab-al ' + al.tone} aria-hidden="true">{al.n}</span> : null}</button>;
+      })}
     </nav>
   </div>;
 }

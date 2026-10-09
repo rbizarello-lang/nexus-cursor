@@ -209,6 +209,30 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     (se editado no Clássico, volta o texto simples).
   - Temas Noite e Grafite (⚙ → Tema, chave `cxTheme`), com testes de tokens e contraste WCAG. Fonte do ⚙ passou a
     valer no Prumo; `esteiraTemplate` não some mais ao recarregar.
+- **Nexus Prumo — card de intimação, versão R** (09/10/2026) — só no Prumo (lista de Intimações e Processos ›
+  Substituição); Quadro, Foco, Tarefas e Acompanhar intactos. Combinação recomendada do mockup
+  `prumo-intimacao-card-b2-extremos.html` (D1 + sigla + Geist + prazo com contagem no tooltip), em quatro zonas:
+  - **Identidade:** linha de cima com a operação e os sinais URGENTE / Novo / Atualizada / ⚑ (o nome da parte fica
+    sempre no mesmo lugar); ícone de situação antes do nome; nº do processo na fonte da interface com algarismos
+    tabulares e zero cortado (12,5 px, sempre em CNJ), sigla da classe (IDPJ, EF, ETE, EEF, EE, ET, EPE, CS, AI, AC,
+    PCC, RJ, FAL, MS, MCF; nome completo no tooltip; fora do dicionário, a classe por extenso em linha própria) e
+    Imp. / Compl. / peça à direita; esteira embaixo.
+  - **Tribunal:** objeto e teor da decisão (`decisionSummary`, rótulo "Decisão"). **Minhas notas:** faixa
+    própria, das mais recentes para trás, com "+N notas anteriores"; na resolvida, a atuação. Linhas medidas pela
+    largura da lista.
+  - **Prazo:** só tempo — data final em destaque (dia da semana + dd/mm; a contagem "em N dias (N úteis)" fica no
+    tooltip) e, logo abaixo, o alerta de embargos de declaração (10 dias úteis do início: calmo, atenção ≤ 3 du,
+    HOJE; some se expirado).
+  - Colunas pela largura da lista (container query): ≥ 1480 px quatro colunas; 860–1479 Tribunal e Notas
+    empilhadas; abaixo disso, uma coluna (celular). Cálculos puros em `src/lib/intim-card.js`
+    (`test/intim-card.test.mjs`). Nenhum campo novo.
+- **Nexus Prumo — abas da operação, ajuste fino** (09/10/2026) — proposta B do mockup `p1-ajuste-fino.html`, sem
+  contadores de quantidade: faixa de largura total com fio em cima, rótulos em ink-2 com peso fixo (a ativa só
+  escurece e ganha o sublinhado), anel de foco interno, esmaecer nas bordas só quando as abas rolam e a aba ativa
+  rola para a vista no celular. Número só para o que pede ação, a partir de `opStats`: intimações vencidas
+  (Visão geral) e tarefas vencidas (Tarefas) em vermelho; CDAs no alarme de prescrição (Processos e prescrição) em
+  violeta. Sem número quando é zero; o leitor de tela ouve o rótulo com a contagem. Frentes processuais: Evento da
+  fase e Notas em 11,5 px (o nº do processo da tabela é 12 px), mais compactos.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
