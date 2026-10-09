@@ -26,11 +26,11 @@ const MAX_DETAILS = 2000; // linhas de detalhe de uma importação
 const MAX_CREATES = 200; // criações num commit sem contexto de lote → evento de sistema
 
 const isIgnored = (f) => IGNORED_FIELDS.has(f) || f.charCodeAt(0) === 95; // '_'
-const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+const actIsEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
 
 function deepEqual(a, b) {
   if (a === b) return true;
-  if (isEmpty(a) && isEmpty(b)) return true;
+  if (actIsEmpty(a) && actIsEmpty(b)) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a == null || b == null) return false;
   const aa = Array.isArray(a);
   if (aa !== Array.isArray(b)) return false;
@@ -45,7 +45,7 @@ function deepEqual(a, b) {
   }
   for (const k in b) {
     if (isIgnored(k) || k in a) continue;
-    if (!isEmpty(b[k])) return false;
+    if (!actIsEmpty(b[k])) return false;
   }
   return true;
 }
@@ -61,7 +61,7 @@ function diffFields(a, b, skip) {
   }
   for (const k in b) {
     if (k in a || isIgnored(k) || (skip && skip.has(k))) continue;
-    if (!isEmpty(b[k])) out.push({ f: k, from: undefined, to: b[k] });
+    if (!actIsEmpty(b[k])) out.push({ f: k, from: undefined, to: b[k] });
   }
   return out;
 }
@@ -177,6 +177,33 @@ export function diffForActivity(prev, next) {
   return out;
 }
 
+/**
+ * Junta mudanças cruas de vários commits (um escopo de lote) numa só por item: `before` do primeiro,
+ * `after` do último, campos do primeiro `from` ao último `to`. Criado+excluído e ida-e-volta somem.
+ */
+export function mergeRaw(list) {
+  const m = new Map();
+  for (const r of list || []) {
+    const k = r.col + '' + r.id;
+    const cur = m.get(k);
+    if (!cur) { m.set(k, { ...r, fields: r.fields.map((d) => ({ ...d })) }); continue; }
+    cur.after = r.after;
+    const fm = new Map(cur.fields.map((d) => [d.f, d]));
+    for (const d of r.fields) { const e = fm.get(d.f); if (e) e.to = d.to; else fm.set(d.f, { ...d }); }
+    cur.fields = [...fm.values()].filter((d) => !deepEqual(d.from, d.to));
+  }
+  const out = [];
+  for (const r of m.values()) {
+    const b = r.before, a = r.after;
+    if (!b && !a) continue;
+    r.op = !b ? 'create' : !a ? 'delete' : 'update';
+    if (r.op !== 'update') r.fields = [];
+    else if (!r.fields.length) { r.fields = diffFields(b, a); if (!r.fields.length) continue; }
+    out.push(r);
+  }
+  return out;
+}
+
 // ─── Datas e ids ────────────────────────────────────────────────────────────────────────────
 
 let _dayFmt = null;
@@ -190,10 +217,11 @@ export function dayKey(ts) {
 
 let _seq = 0;
 /** Id ordenável no tempo e único entre máquinas: ev_<ms base36 (9)>_<aparelho>_<seq base36 (4)>. */
-function newEventId(tsMs, device) {
+function newEventId(tsMs, device, tab) {
   _seq = (_seq + 1) % 1679616;
   const t = Math.max(0, Math.floor(tsMs)).toString(36).padStart(9, '0');
-  const dev = String(device || 'x').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'x';
+  const dev = (String(device || 'x').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'x')
+    + String(tab || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4); // sufixo da aba: ids únicos entre abas da mesma máquina
   return `ev_${t}_${dev}_${_seq.toString(36).padStart(4, '0')}`;
 }
 
@@ -279,7 +307,7 @@ function textChange(f, label, from, to, format) {
 }
 
 /** Separa os campos de uma mudança em `changes` (curtos) e `textChanges` (integrais). */
-function splitFields(fields, col, labels, skip) {
+function actSplitFields(fields, col, labels, skip) {
   const changes = [], textChanges = [];
   for (const d of fields) {
     if (skip && skip.has(d.f)) continue;
@@ -324,7 +352,7 @@ function makeCtx(ctx) {
   const cache = {};
   const maps = {};
   return {
-    ts, tsMs: Date.parse(ts), device: c.device || '', labels: c.labels || null, next,
+    ts, tsMs: Date.parse(ts), device: c.device || '', tab: c.tab || '', labels: c.labels || null, next,
     source: SOURCES.includes(c.source) ? c.source : 'manual',
     batchLabel: c.batchLabel || '', batchId: c.batchId || '', batchNoun: c.batchNoun || null,
     compared: c.compared != null ? c.compared : null, replaced: c.replaced || null,
@@ -366,7 +394,7 @@ function entityOf(col, item, c) {
 const opIdOf = (col, item) => (col === 'operations' ? item && item.id : item && item.operationId) || '';
 
 function mkEvent(c, p) {
-  const id = newEventId(c.tsMs, c.device);
+  const id = newEventId(c.tsMs, c.device, c.tab);
   return {
     v: 1, id, ts: c.ts, day: dayKey(c.ts),
     op: p.op || null,
@@ -390,11 +418,11 @@ export function systemEvent(summary, ctx) {
 
 const isIndisp = (s) => typeof s === 'string' && s.startsWith('indisponibilidade');
 const procOf = (x) => (x && x.processNumber) || '';
-const normProc = (s) => String(s == null ? '' : s).replace(/\D/g, '');
+const actNormProc = (s) => String(s == null ? '' : s).replace(/\D/g, '');
 
 /**
  * Transforma mudanças cruas em eventos.
- * ctx: { ts, device, source, batchLabel?, batchId?, batchNoun?:{s,p,f}, compared?, replaced?, labels?, next }
+ * ctx: { ts, device, tab?, source, batchLabel?, batchId?, batchNoun?:{s,p,f}, compared?, replaced?, labels?, next }
  *  - labels: { status:{ [col]:{ [valor]:'Rótulo' | {label} } }, fields:{ [col]:{ [campo]:'rótulo' } } }
  *  - replaced: true/texto → um único evento de sistema (estado inteiro substituído).
  */
@@ -443,10 +471,10 @@ function batchEvent(list, c) {
   parts.push(`${n.create} ${n.create === 1 ? (fem ? 'nova' : 'novo') : (fem ? 'novas' : 'novos')}`);
   if (n.delete) parts.push(ag(n.delete, 'removido', 'removida'));
   const label = c.batchLabel || 'lote';
-  const batch = { id: c.batchId || newEventId(c.tsMs, c.device), label, count: list.length, stats: n, details };
+  const batch = { id: c.batchId || newEventId(c.tsMs, c.device, c.tab), label, count: list.length, stats: n, details };
   return mkEvent(c, {
-    kind: 'importacao', action: c.source === 'importacao' ? 'importar' : 'editar',
-    summary: `Importação ${label}: ${parts.join(', ')}`,
+    kind: 'importacao', action: c.source === 'importacao' ? 'importar' : c.source === 'restauracao' ? 'restaurar' : 'editar',
+    summary: `${c.source === 'importacao' ? 'Importação ' : c.source === 'restauracao' ? 'Restauração ' : c.source === 'desfazer' ? 'Desfez ' : ''}${label}: ${parts.join(', ')}`,
     batch, restore: { items }, minor: false, source: c.source,
   });
 }
@@ -491,8 +519,8 @@ function correlateCascades(list, c, used, events) {
     for (const d of deps) byType[d.col] = (byType[d.col] || 0) + 1;
     const nDeps = deps.length;
     const summary = `Excluiu ${noun}${ent.label ? ' ' + ent.label : ''}` + (nDeps ? ` e ${nDeps} ${nDeps === 1 ? 'item vinculado' : 'itens vinculados'}` : '');
-    const { textChanges } = splitFields(
-      Object.keys(root.before || {}).filter((k) => !isIgnored(k) && (TEXT_FIELDS.has(k)) && !isEmpty(root.before[k])).map((k) => ({ f: k, from: root.before[k], to: '' })),
+    const { textChanges } = actSplitFields(
+      Object.keys(root.before || {}).filter((k) => !isIgnored(k) && (TEXT_FIELDS.has(k)) && !actIsEmpty(root.before[k])).map((k) => ({ f: k, from: root.before[k], to: '' })),
       root.col, c.labels);
     events.push(mkEvent(c, {
       op: c.opRef(opIdOf(root.col, root.before)) || null,
@@ -510,17 +538,17 @@ function correlateResponses(list, c, used, events) {
   for (const r of list) {
     if (used.has(r) || r.col !== 'intimations' || r.op !== 'update') continue;
     const was = r.before && r.before.responseAction, now = r.after && r.after.responseAction;
-    if (isEmpty(now) || (was && was.respondedAt === now.respondedAt)) continue;
+    if (actIsEmpty(now) || (was && was.respondedAt === now.respondedAt)) continue;
     used.add(r);
     const rel = [r];
     const textChanges = [];
     const ra = now || {};
     const kindTxt = (RESP_LABEL[ra.type] || ra.type || 'resposta') + (ra.type === 'peticionamento' && ra.peticionType ? ` (${ra.peticionType})` : '');
     if (ra.description) textChanges.push(textChange('responseAction.description', 'Descrição da resposta', was && was.description, ra.description, 'text'));
-    const proc = normProc(r.after.processNumber);
+    const proc = actNormProc(r.after.processNumber);
     for (const o of list) {
       if (used.has(o)) continue;
-      if (o.col === 'executions' && o.op === 'update' && proc && normProc(o.after.processNumber) === proc && o.fields.some((d) => d.f === 'notesList')) {
+      if (o.col === 'executions' && o.op === 'update' && proc && actNormProc(o.after.processNumber) === proc && o.fields.some((d) => d.f === 'notesList')) {
         used.add(o); rel.push(o);
         const d = o.fields.find((x) => x.f === 'notesList');
         textChanges.push(textChange('notesList', 'Anotações do processo', d.from, d.to, 'text'));
@@ -528,7 +556,7 @@ function correlateResponses(list, c, used, events) {
         used.add(o); rel.push(o);
       }
     }
-    const { changes } = splitFields(r.fields, 'intimations', c.labels, new Set(['responseAction', 'operationId']));
+    const { changes } = actSplitFields(r.fields, 'intimations', c.labels, new Set(['responseAction', 'operationId']));
     const ent = entityOf('intimations', r.after, c);
     events.push(mkEvent(c, {
       op: c.opRef(opIdOf('intimations', r.after)), entity: ent, kind: 'intimacao', action: 'registrar',
@@ -557,7 +585,7 @@ function correlateProactive(list, c, used, events) {
     const a0 = added[0];
     const textChanges = [textChange('proactiveActions.summary', 'Resumo da atuação', '', a0.summary, 'text')];
     if (a0.pecaText) textChanges.push(textChange('proactiveActions.pecaText', 'Texto da peça', '', a0.pecaText, 'text'));
-    const { changes, textChanges: tx } = splitFields(r.fields, 'executions', c.labels, new Set(['proactiveActions']));
+    const { changes, textChanges: tx } = actSplitFields(r.fields, 'executions', c.labels, new Set(['proactiveActions']));
     const ent = entityOf('executions', r.after, c);
     events.push(mkEvent(c, {
       op: c.opRef(r.after.operationId), entity: ent, kind: 'atuacao', action: 'registrar',
@@ -579,7 +607,7 @@ function singleEvents(r, c, events) {
   const lbl = ent.label ? ' ' + ent.label : '';
 
   if (r.op === 'create') {
-    const { textChanges } = splitFields(Object.keys(r.after).filter((k) => !isIgnored(k) && TEXT_FIELDS.has(k) && !isEmpty(r.after[k])).map((k) => ({ f: k, from: '', to: r.after[k] })), col, c.labels);
+    const { textChanges } = actSplitFields(Object.keys(r.after).filter((k) => !isIgnored(k) && TEXT_FIELDS.has(k) && !actIsEmpty(r.after[k])).map((k) => ({ f: k, from: '', to: r.after[k] })), col, c.labels);
     const constr = col === 'assets' && isIndisp(r.after.status);
     const st = constr ? dispValue(c.labels, 'assets', 'status', r.after.status) : '';
     events.push(mkEvent(c, {
@@ -590,7 +618,7 @@ function singleEvents(r, c, events) {
     return;
   }
   if (r.op === 'delete') {
-    const { textChanges } = splitFields(Object.keys(r.before).filter((k) => !isIgnored(k) && TEXT_FIELDS.has(k) && !isEmpty(r.before[k])).map((k) => ({ f: k, from: r.before[k], to: '' })), col, c.labels);
+    const { textChanges } = actSplitFields(Object.keys(r.before).filter((k) => !isIgnored(k) && TEXT_FIELDS.has(k) && !actIsEmpty(r.before[k])).map((k) => ({ f: k, from: r.before[k], to: '' })), col, c.labels);
     events.push(mkEvent(c, { ...base, action: 'excluir', summary: `Excluiu ${noun}${lbl}`, textChanges, minor: col.startsWith('links.') }));
     return;
   }
@@ -598,7 +626,7 @@ function singleEvents(r, c, events) {
   const plain = r.fields.filter((d) => !d.f.startsWith('briefing.'));
   const brf = r.fields.filter((d) => d.f.startsWith('briefing.'));
   if (plain.length) {
-    const { changes, textChanges } = splitFields(plain, col, c.labels);
+    const { changes, textChanges } = actSplitFields(plain, col, c.labels);
     const st = plain.find((d) => d.f === 'status');
     let action = 'editar', k = kind, summary = editSummary(col, ent.label, changes, textChanges);
     if (col === 'tasks' && st) {
@@ -647,7 +675,7 @@ function briefingEvents(r, fields, c, events) {
       } else {
         const before = ((r.before.briefing || {}).entries || []).find((x) => x && x.id === g.id) || null;
         const after = ((r.after.briefing || {}).entries || []).find((x) => x && x.id === g.id) || null;
-        const { changes, textChanges } = splitFields(g.items.map((i) => ({ f: i.f, from: i.from, to: i.to })), 'operations', c.labels);
+        const { changes, textChanges } = actSplitFields(g.items.map((i) => ({ f: i.f, from: i.from, to: i.to })), 'operations', c.labels);
         events.push(mkEvent(c, { ...src, action: 'editar', summary: `Editou entrada do diário${opName ? ' da operação ' + opName : ''}: ${snip((after && after.html) || '', 60)}`,
           changes, textChanges, restore: { items: [{ ...pathOf(path), before, after }] } }));
       }
@@ -672,7 +700,7 @@ function briefingEvents(r, fields, c, events) {
         restore: { items: [{ ...pathOf(d.f), before: d.from === undefined ? null : d.from, after: d.to === undefined ? null : d.to }] },
       }));
     } else {
-      const { changes, textChanges } = splitFields(g.items, 'operations', c.labels);
+      const { changes, textChanges } = actSplitFields(g.items, 'operations', c.labels);
       events.push(mkEvent(c, {
         op: opRef, entity: entityOf('operations', r.after, c), kind: 'operacao', action: 'editar',
         summary: editSummary('operations', opName, changes, textChanges), changes, textChanges, minor: true,
@@ -722,4 +750,127 @@ export function coalesceOutbox(events, windowMs = 10 * 60 * 1000) {
   }
   // ida-e-volta: nenhum campo terminou diferente do começo
   return out.filter((ev) => !(ev.coalesced && ev.changes.every((x) => (x.fromText != null ? x.fromText : x.from) === (x.toText != null ? x.toText : x.to))));
+}
+
+// ─── Restauração ────────────────────────────────────────────────────────────────────────────
+
+const colList = (d, col) => (col.startsWith('links.') ? ((d.links || {})[col.slice(6)] || []) : (d[col] || []));
+const keyOf = (col, x) => (col === 'links.measurePeople' ? x.measureId + '|' + x.personId : col === 'links.measureAssets' ? x.measureId + '|' + x.assetId : x.id);
+const itemLabel = (it) => String((it && (it.name || it.title || it.cdaNumber || it.processNumber || it.description || it.eventDescription || it.type || it.id)) || '');
+
+/** Caminho do briefing ("briefing.entries[e1].html") → passos { k } (chave) ou { id } (item de lista por id). */
+function parsePath(path) {
+  const steps = [];
+  const re = /([^.[\]]+)|\[([^\]]*)\]/g;
+  let m;
+  while ((m = re.exec(path))) steps.push(m[1] != null ? { k: m[1] } : { id: m[2] });
+  return steps;
+}
+function getAt(obj, steps, i = 0) {
+  if (i >= steps.length) return obj;
+  if (obj == null) return undefined;
+  const s = steps[i];
+  const child = s.id != null ? (Array.isArray(obj) ? obj.find((x) => x && String(x.id) === s.id) : undefined) : obj[s.k];
+  return getAt(child, steps, i + 1);
+}
+/** Grava (ou remove, se `val === undefined`) no caminho, sem mutar. */
+function setAt(obj, steps, val, i = 0) {
+  if (i >= steps.length) return val;
+  const s = steps[i];
+  if (s.id != null) {
+    const arr = Array.isArray(obj) ? obj : [];
+    const idx = arr.findIndex((x) => x && String(x.id) === s.id);
+    const nv = setAt(idx >= 0 ? arr[idx] : undefined, steps, val, i + 1);
+    if (nv === undefined) return idx >= 0 ? arr.filter((_, j) => j !== idx) : arr;
+    if (idx >= 0) return arr.map((x, j) => (j === idx ? nv : x));
+    return [...arr, nv];
+  }
+  const base = obj && typeof obj === 'object' ? obj : {};
+  const nv = setAt(base[s.k], steps, val, i + 1);
+  if (nv === undefined) { const c = { ...base }; delete c[s.k]; return c; }
+  return { ...base, [s.k]: nv };
+}
+
+/**
+ * Planeja a restauração de um evento sobre o estado atual (sem aplicar nada além do retorno).
+ * Devolve `{ data, applied, conflicts:[{col,id,label,motivo}] }`; `data` é um estado novo (imutável).
+ *  - update: volta só os campos que o evento mudou para o `before`; conflito se o valor atual ≠ `after`;
+ *  - item excluído: reinsere se o id não existir; item criado (desfazer importação): remove se ainda igual ao `after`;
+ *  - itens com `path` (briefing): restaura só aquele caminho da operação.
+ * opts: { force?:bool (aplica mesmo com conflito), only?:[{col,id,field?}], now?:ISO }
+ */
+export function planRestore(event, data, opts) {
+  const o = opts || {};
+  const items = (event && event.restore && event.restore.items) || [];
+  const now = o.now || new Date().toISOString();
+  const lists = new Map();
+  const get = (col) => { if (!lists.has(col)) lists.set(col, colList(data || {}, col).slice()); return lists.get(col); };
+  const conflicts = [];
+  let applied = 0;
+  const conflict = (it, label, motivo) => conflicts.push({ col: it.col, id: it.id, label: label || '', motivo });
+  const matches = (it) => !o.only || o.only.some((x) => x.col === it.col && String(x.id) === String(it.id));
+  const fieldsOf = (it) => {
+    if (!o.only) return null;
+    const fs = o.only.filter((x) => x.col === it.col && String(x.id) === String(it.id));
+    return fs.some((x) => !x.field) ? null : new Set(fs.map((x) => x.field));
+  };
+
+  for (const it of items) {
+    if (!it || !it.col || !matches(it)) continue;
+    const only = fieldsOf(it);
+    const list = get(it.col);
+    const idx = list.findIndex((x) => x && String(keyOf(it.col, x)) === String(it.id));
+    const cur = idx >= 0 ? list[idx] : null;
+    const hasB = it.before != null, hasA = it.after != null;
+    const lbl = itemLabel(it.before || it.after);
+
+    if (it.path) { // briefing: só o caminho
+      if (only && !only.has(it.path)) continue;
+      if (!cur) { conflict(it, lbl, 'a operação não existe mais'); continue; }
+      const steps = parsePath(it.path);
+      const now0 = getAt(cur, steps);
+      if (deepEqual(now0, it.before == null ? undefined : it.before)) continue;
+      if (!o.force && !deepEqual(now0, it.after == null ? undefined : it.after)) { conflict(it, cur.name || lbl, 'alterado depois do evento'); continue; }
+      list[idx] = setAt(cur, steps, it.before == null ? undefined : it.before);
+      applied++;
+      continue;
+    }
+    if (hasB && hasA) { // campo(s)
+      if (!cur) { conflict(it, lbl, 'o item não existe mais'); continue; }
+      let next = null;
+      let touched = false;
+      for (const d of diffFields(it.before, it.after)) {
+        if (only && !only.has(d.f)) continue;
+        if (deepEqual(cur[d.f], d.from)) continue; // já está como antes
+        if (!o.force && !deepEqual(cur[d.f], d.to)) { conflict(it, lbl, `campo "${d.f}" alterado depois do evento`); continue; }
+        next = next || { ...cur };
+        if (d.from === undefined) delete next[d.f]; else next[d.f] = d.from;
+        touched = true;
+      }
+      if (touched) { next.updatedAt = now; list[idx] = next; applied++; }
+      continue;
+    }
+    if (hasB) { // excluído → reinsere
+      if (cur) continue;
+      list.push(it.before);
+      applied++;
+      continue;
+    }
+    if (hasA) { // criado → remove se ainda igual
+      if (!cur) continue;
+      if (!o.force && !deepEqual(cur, it.after)) { conflict(it, itemLabel(cur) || lbl, 'alterado depois do evento'); continue; }
+      list.splice(idx, 1);
+      applied++;
+    }
+  }
+
+  let out = data || {};
+  if (lists.size) {
+    out = { ...out };
+    for (const [col, arr] of lists) {
+      if (col.startsWith('links.')) out.links = { ...(out.links || {}), [col.slice(6)]: arr };
+      else out[col] = arr;
+    }
+  }
+  return { data: out, applied, conflicts };
 }

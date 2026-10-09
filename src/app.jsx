@@ -27,6 +27,10 @@ import {
   sanitizeImportedExecutionNotes,
   splitOtherProcGroups,
 } from './lib/processes.js';
+import { diffForActivity, interpretActivity, mergeRaw, planRestore, systemEvent } from './lib/activity.js';
+import {
+  createActivityStore, createScopeTracker, flushOutbox, getDeviceName, inDayRange, mergeEvents, newTabId, setDeviceName,
+} from './lib/activity-store.js';
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -3124,8 +3128,161 @@ const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLi
   </div>);
 });
 
+// ─── Registro de trabalho ("Minha atividade"): captura, origem, fila de envio, restauração ───
+// Rótulos legíveis dos status (formato esperado por interpretActivity: labels.status[coleção][valor]).
+const ACTIVITY_LABELS = {
+  status: {
+    debts: DEBT_STATUSES, executions: EXEC_STATUSES, assets: ASSET_STATUSES,
+    intimations: { ...INTIM_STATUS_LEGACY, ...INTIM_STATUSES }, tasks: TASK_STATUSES,
+    watchlist: WATCH_STATUSES, hearings: AUDIENCIA_STATUSES,
+  },
+};
+const ACTIVITY_TAB = newTabId(); // evita colisão de ids entre abas da mesma máquina
+let _activityDevice = null;
+const activityDevice = () => _activityDevice || (_activityDevice = getDeviceName());
+let _activityStore = null;
+const getActivityStore = () => {
+  if (!_activityStore) {
+    _activityStore = createActivityStore();
+    _activityStore.init().then(() => _activityStore.prune()).catch((e) => console.error('trilha: init', e));
+  }
+  return _activityStore;
+};
+const activityEmit = (events) => {
+  if (!events || !events.length) return;
+  getActivityStore().enqueue(events).catch((e) => console.error('trilha: enfileirar', e));
+};
+const activityCtx = (extra) => ({ ts: Date.now(), device: activityDevice(), tab: ACTIVITY_TAB, labels: ACTIVITY_LABELS, ...(extra || {}) });
+// Lote (importação/restauração em bloco): acumula os diffs de vários commits e emite um evento só.
+const activityFinalize = (scope) => {
+  if (!scope || scope.done) return;
+  scope.done = true;
+  try {
+    const raw = mergeRaw(scope.acc);
+    scope.acc = [];
+    if (!raw.length) return;
+    activityEmit(interpretActivity(raw, activityCtx({
+      source: scope.source, batchLabel: scope.batchLabel, batchId: scope.batchId, batchNoun: scope.batchNoun,
+      compared: scope.compared, next: scope.next,
+    })));
+  } catch (e) { console.error('trilha: lote', e); }
+};
+const activityScopes = createScopeTracker();
+/**
+ * Abre um escopo de origem: tudo que mudar nos dados enquanto estiver aberto (inclusive depois de await)
+ * recebe esta origem. Devolve `end()` (use em finally); `end.set({compared})` atualiza o total lido.
+ * Com `batchLabel` vira um evento único de lote. Escopos aninhados: o mais externo vale.
+ */
+const beginActivity = (opts) => activityScopes.begin(opts, (scope) => {
+  if (!scope.batchLabel) return;
+  // o último commit pode ainda não ter passado pelo efeito de captura (que também fecha o lote ao ver o escopo encerrado)
+  setTimeout(() => activityFinalize(scope), 1500);
+});
+const activityGas = () => (typeof google !== 'undefined' && google.script && google.script.run ? google.script.run : null);
+const gasCall = (name, ...args) => new Promise((resolve, reject) => {
+  const run = activityGas();
+  if (!run) { reject(new Error('Disponível só no app publicado.')); return; }
+  try {
+    run.withSuccessHandler(resolve).withFailureHandler((e) => reject(new Error((e && e.message) || String(e)))) [name](...args);
+  } catch (e) { reject(e); }
+});
+const encodeActivityPayload = (obj) => 'GZB64:' + btoa(bytesToBinaryString(pako.gzip(JSON.stringify(obj))));
+const decodeActivityPayload = (payload) => {
+  const b64 = String(payload || '').replace(/^GZB64:/, '');
+  return JSON.parse(pako.ungzip(binaryStringToBytes(atob(b64)), { to: 'string' }));
+};
+const sendActivityBatch = async (batch) => {
+  try { return await gasCall('appendActivity', encodeActivityPayload(batch)); }
+  catch (e) { console.error('trilha: envio', e); return null; }
+};
+
+
+/**
+ * API do registro para as telas (Minha atividade, Hoje, relatório). Objeto estável; lê o estado atual por `getData`.
+ * Métodos assíncronos: list, getFull, previewRestore, restore, exportDoc, exportSheet, flush.
+ */
+const createActivityApi = (getData, setData) => {
+  const api = {
+    /** Eventos do período (AAAA-MM-DD): servidor (leve, só no app publicado) + cópia local + fila, sem duplicar, mais novo primeiro. */
+    async list(fromDay, toDay) {
+      const st = getActivityStore();
+      const [local, outbox] = await Promise.all([st.getLocal(fromDay, toDay), st.getOutbox()]);
+      let remote = [];
+      if (activityGas()) {
+        try {
+          const r = await gasCall('loadActivity', fromDay, toDay, true);
+          if (r && r.success && r.payload) remote = decodeActivityPayload(r.payload);
+        } catch (e) { console.error('trilha: loadActivity', e); }
+      }
+      return mergeEvents(remote, local, inDayRange(outbox, fromDay, toDay));
+    },
+    /** Evento completo (com `restore`): do próprio objeto, da cópia local ou do servidor. */
+    async getFull(event) {
+      if (event && event.restore && event.restore.items && event.restore.items.length) return event;
+      const loc = await getActivityStore().getLocalById(event.id);
+      if (loc) return loc;
+      if (!activityGas()) return event;
+      const r = await gasCall('loadActivityEvent', event.day, event.id);
+      if (r && r.success && r.event) return r.event;
+      throw new Error((r && r.error) || 'Evento não encontrado.');
+    },
+    /** Simula a restauração no estado atual: `{ applied, conflicts }`. opts: { force, only:[{col,id,field?}] }. */
+    async previewRestore(event, opts) {
+      const full = await api.getFull(event);
+      const r = planRestore(full, getData(), opts);
+      return { applied: r.applied, conflicts: r.conflicts };
+    },
+    /** Aplica a restauração (vira novo evento com origem "restauração"). Devolve `{ applied, conflicts }`. */
+    async restore(event, opts) {
+      const full = await api.getFull(event);
+      const plan = planRestore(full, getData(), opts);
+      if (plan.applied > 0) {
+        const imp = full.batch && full.batch.label;
+        const end = beginActivity({ source: 'restauracao', ...(imp ? { batchLabel: 'da importação ' + imp } : {}) });
+        try { setData((prev) => planRestore(full, prev, opts).data); } finally { end(); }
+      }
+      return { applied: plan.applied, conflicts: plan.conflicts };
+    },
+    async _export(fn, payload) {
+      if (!activityGas()) throw new Error('Disponível só no app publicado.');
+      const r = await gasCall(fn, typeof payload === 'string' ? payload : JSON.stringify(payload));
+      if (!r || !r.success) throw new Error((r && r.error) || 'Falha ao exportar.');
+      return { url: r.url };
+    },
+    exportDoc(payload) { return api._export('exportToGoogleDoc', payload); },
+    exportSheet(payload) { return api._export('exportToSpreadsheet', payload); },
+    /** Envia a fila agora (só no app publicado). */
+    flush() { return activityGas() ? flushOutbox(getActivityStore(), sendActivityBatch) : Promise.resolve({ sent: 0, left: getActivityStore().pendingCount() }); },
+    pendingCount() { return getActivityStore().pendingCount(); },
+    get device() { return activityDevice(); },
+    setDevice(name) { _activityDevice = setDeviceName(name) || getDeviceName(); return _activityDevice; },
+  };
+  return api;
+};
+
 function App() {
-  const [data, setData] = useState(loadData);
+  const [data, setDataRaw] = useState(loadData);
+  // Todo setData passa por aqui: fixa a origem (escopo de atividade) vigente no momento da chamada.
+  // Escopo de origem não-lote: guarda quais itens o atualizador mexeu (col|id), para não rotular de "automático" a edição manual do mesmo commit.
+  const setData = useCallback((u) => {
+    try {
+      const sc = activityScopes.current();
+      if (sc && !sc.batchLabel) {
+        if (typeof u === 'function') {
+          const orig = u;
+          u = (prev) => {
+            const nxt = orig(prev);
+            try { if (nxt !== prev) { if (!sc.keys) sc.keys = new Set(); for (const r of diffForActivity(prev, nxt)) sc.keys.add(r.col + '|' + r.id); } } catch (e) { sc.whole = true; }
+            return nxt;
+          };
+        } else sc.whole = true; // valor direto (ex.: desfazer): o commit inteiro tem esta origem
+      }
+      activityScopes.tag();
+    } catch (e) { /* o registro nunca quebra o app */ }
+    setDataRaw(u);
+  }, []);
+  // Atualização automática (propagações, correções do diagnóstico): mesma coisa, com origem "automático".
+  const setDataAuto = (u) => { const end = beginActivity({ source: 'automatico' }); try { setData(u); } finally { end(); } };
   const [activeOpId, setActiveOpId] = useState(null);
   const [search, setSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
@@ -3296,7 +3453,9 @@ function App() {
   };
   const doUndo = () => {
     if (!undoRef.current) return;
-    setData(undoRef.current.snapshot);
+    const undoLabel = String(undoRef.current.label || '');
+    const endAct = beginActivity({ source: 'desfazer', ...(/import/i.test(undoLabel) ? { batchLabel: undoLabel } : {}) });
+    try { setData(undoRef.current.snapshot); } finally { endAct(); }
     undoRef.current = null;
     setUndoToast(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
@@ -3362,8 +3521,42 @@ function App() {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     persistLocal(latestDataRef.current);
   };
+  // Registro de trabalho: estado anterior para o diff e sinalização de "estado inteiro substituído".
+  const activityPrevRef = useRef(data);
+  const stateReplacedRef = useRef(null);
+  const markStateReplaced = (motivo) => { stateReplacedRef.current = motivo || 'Dados substituídos por inteiro'; };
+  const captureActivity = (next) => {
+    try {
+      const prev = activityPrevRef.current;
+      activityPrevRef.current = next;
+      const scope = activityScopes.take();
+      const replaced = stateReplacedRef.current;
+      if (replaced) { // carga/pull/importação de JSON/reset demo: um evento de sistema, sem diff
+        stateReplacedRef.current = null;
+        if (prev !== next) activityEmit([systemEvent(replaced, activityCtx())]);
+        return;
+      }
+      if (!hydratedRef.current || !prev || prev === next) return; // hidratação inicial: só atualiza o anterior
+      const raw = diffForActivity(prev, next);
+      if (!raw.length) return;
+      if (scope && scope.batchLabel) { // lote: acumula e emite um evento só ao encerrar
+        scope.acc.push(...raw);
+        scope.next = next;
+        if (scope.ended) activityFinalize(scope);
+        return;
+      }
+      let mine = [], rest = raw;
+      if (scope) {
+        if (scope.whole || !scope.keys) { mine = raw; rest = []; }
+        else { mine = raw.filter((r) => scope.keys.has(r.col + '|' + r.id)); rest = raw.filter((r) => !scope.keys.has(r.col + '|' + r.id)); }
+      }
+      if (mine.length) activityEmit(interpretActivity(mine, activityCtx({ source: scope.source, compared: scope.compared, next })));
+      if (rest.length) activityEmit(interpretActivity(rest, activityCtx({ source: 'manual', next })));
+    } catch (e) { console.error('trilha: captura', e); }
+  };
   useEffect(() => {
     latestDataRef.current = data;
+    captureActivity(data);
     if (!hydratedRef.current) {
       persistLocal(data);        // primeira hidratação (ou pós-pull da nuvem): save imediato, não marca dirty
       hydratedRef.current = true;
@@ -3386,6 +3579,28 @@ function App() {
     return () => { window.removeEventListener('beforeunload', onHide); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
+  // API do registro de trabalho (estável) + envio da fila: a cada 60 s, ao ocultar a aba e ao fechar.
+  const activityDataRef = useRef(data);
+  activityDataRef.current = data;
+  const activityApiRef = useRef(null);
+  if (!activityApiRef.current) activityApiRef.current = createActivityApi(() => activityDataRef.current, setData);
+  const activityApi = activityApiRef.current;
+  const [activityDeviceName, setActivityDeviceName] = useState(() => activityDevice());
+  useEffect(() => {
+    window.nexusActivity = activityApi; // também acessível fora da árvore React (telas, console)
+    const st = getActivityStore();
+    const flush = () => {
+      try { if (activityGas() && st.pendingCount() > 0) flushOutbox(st, sendActivityBatch).catch((e) => console.error('trilha: flush', e)); }
+      catch (e) { console.error('trilha: flush', e); }
+    };
+    const first = setTimeout(flush, 4000); // sobras da sessão anterior
+    const iv = setInterval(() => { if (navigator.onLine !== false) flush(); }, 60000);
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('beforeunload', flush);
+    return () => { clearTimeout(first); clearInterval(iv); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('beforeunload', flush); };
+  }, []);
+
   // Global search shortcut (Ctrl+K)
   useEffect(() => {
     const handler = (e) => {
@@ -3404,7 +3619,14 @@ function App() {
   useEffect(() => { setShowSettings(false); setBetaMaisOpen(false); }, [viewMode]);
 
   // ─── SIDA / DEBCAD PDF IMPORT (complement only — never overwrites) ───
+  // Registro de trabalho: o import inteiro (SIDA/Debcad) vira um evento de lote.
   const handlePGFNPDFImport = async (e) => {
+    const names = Array.from((e.target && e.target.files) || []).map(f => f.name);
+    const hasS = names.some(n => /sida/i.test(n)), hasD = names.some(n => /debcad/i.test(n));
+    const endAct = beginActivity({ source: 'importacao', batchLabel: hasS && hasD ? 'SIDA + Debcad' : hasS ? 'SIDA' : hasD ? 'Debcad' : 'PDF PGFN', batchNoun: { s: 'CDA', p: 'CDAs', f: true } });
+    try { return await handlePGFNPDFImportInner(e, endAct); } finally { endAct(); }
+  };
+  const handlePGFNPDFImportInner = async (e, endAct) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
@@ -3422,6 +3644,7 @@ function App() {
         }
 
         const records = isSIDA ? await parseSIDAPDF(file) : await parseDebcadPDF(file);
+        endAct.set({ compared: (endAct.scope.compared || 0) + (records || []).length });
         if (!isSIDA) {
           for (const rec of records) {
             const histCount = (rec.history || []).filter(h => h.code !== '999').length;
@@ -3970,6 +4193,8 @@ function App() {
   const handleEprocImport = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'eproc', batchNoun: { s: 'intimação', p: 'intimações', f: true } });
+    let readCount = 0;
     const logs = [];
     let newCount = 0, updCount = 0, unlinkedCount = 0;
     const processFile = (file) => new Promise((resolve) => {
@@ -3978,6 +4203,7 @@ function App() {
         try {
           const wb = XLSX.read(ev.target.result, { type: 'binary' });
           const res = parseEprocXLS(wb);
+          readCount += res.intimations.length;
           logs.push(`📬 ${file.name}: ${res.intimations.length} intimação(ões) [${res.fileType}]`);
           res.errors.forEach(err => logs.push(`⚠️ ${err}`));
           res.intimations.forEach(intim => {
@@ -4049,6 +4275,7 @@ function App() {
       reader.readAsBinaryString(file);
     });
     Promise.all(files.map(processFile)).then(() => {
+      endAct.set({ compared: readCount });
       logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
       if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
       logImport('eproc', {
@@ -4057,7 +4284,7 @@ function App() {
         counts: { new: newCount, updated: updCount }
       });
       setImportResult(logs);
-    });
+    }).finally(() => endAct());
     e.target.value = '';
   };
 
@@ -4251,6 +4478,7 @@ function App() {
                 setData(prev => {
                   // Only load from cloud if local is empty
                   if (!prev.operations || prev.operations.length === 0) {
+                    markStateReplaced('Dados carregados da nuvem');
                     return applyMigrations(parsed);
                   }
                   return prev;
@@ -4378,6 +4606,7 @@ function App() {
           try {
             const parsed = JSON.parse(raw);
             if (parsed.operations) {
+              markStateReplaced('Dados carregados da nuvem');
               setData(applyMigrations(parsed));
               setActiveOpId(null);
               const now = new Date().toLocaleString('pt-BR');
@@ -4429,6 +4658,7 @@ function App() {
           try {
             const parsed = JSON.parse(raw);
             if (parsed.operations && confirm(`Carregar dados da nuvem? (${parsed.operations.length} operações)\nSubstituirá dados locais.`)) {
+              markStateReplaced('Dados carregados da nuvem');
               setData(applyMigrations(parsed)); setActiveOpId(null);
               const now = new Date().toLocaleString('pt-BR');
               setCloudStatus('connected'); setCloudMsg('Carregado ✓');
@@ -4881,7 +5111,7 @@ function App() {
       const now = new Date().toISOString();
       const statusLabel = EXEC_STATUSES[newStatus]?.label || newStatus;
       // Always register a systemAlert on each linked CDA (automatic, cannot be dismissed individually)
-      setData(prev => ({
+      setDataAuto(prev => ({
         ...prev,
         debts: prev.debts.map(d => {
           if (!linkedCdas.some(l => l.id === d.id)) return d;
@@ -4913,7 +5143,7 @@ function App() {
           setTimeout(() => {
             const msg = `O processo ${exec.processNumber || ''} foi marcado como ${statusLabel.toLowerCase()}.\n\n${linkedCdas.length} CDA(s) estão vinculadas a este processo. Um aviso automático foi adicionado a cada uma delas.\n\nDeseja também marcar essas ${linkedCdas.length} CDA(s) como ${newStatus === 'extinta' ? 'extintas' : 'arquivadas'}?`;
             if (confirm(msg)) {
-              setData(prev => ({
+              setDataAuto(prev => ({
                 ...prev,
                 debts: prev.debts.map(d => linkedCdas.some(l => l.id === d.id)
                   ? { ...d, status: newStatus === 'extinta' ? 'extinta' : d.status, prescriptionHandled: newStatus === 'extinta' ? true : d.prescriptionHandled, prescriptionHandledType: newStatus === 'extinta' && !d.prescriptionHandledType ? 'extinta' : d.prescriptionHandledType, prescriptionHandledAt: newStatus === 'extinta' && !d.prescriptionHandledAt ? today : d.prescriptionHandledAt, updatedAt: now }
@@ -4948,7 +5178,7 @@ function App() {
           // Bloqueio para negociação não é adesão: não marca a CDA como parcelada.
           const newStatus = (isBloqueioNegociacaoEvent(cleanEntity) || isIndicacaoParcelamentoEvent(cleanEntity)) ? '' : statusMap[cleanEntity.type];
           if (newStatus) {
-            setData(prev => ({
+            setDataAuto(prev => ({
               ...prev,
               debts: prev.debts.map(d => targetIds.includes(d.id)
                 ? { ...d, status: newStatus, ...(isDemo ? { statusSource: 'auto' } : {}), updatedAt: new Date().toISOString() }
@@ -4977,7 +5207,7 @@ function App() {
               createdAt: now,
               updatedAt: now
             }));
-            setData(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
+            setDataAuto(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
           }
         }
       }
@@ -5006,7 +5236,7 @@ function App() {
               createdAt: now,
               updatedAt: now
             }));
-            setData(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
+            setDataAuto(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
           }
         }
       }
@@ -5044,6 +5274,7 @@ function App() {
   const handleXLSImport = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'planilha XLS' }); // registro de trabalho: um evento por importação
     const logs = [];
     let importCount = 0;
     const knownProcessKeys = new Set(
@@ -5226,6 +5457,7 @@ function App() {
     });
 
     Promise.all(files.map(processFile)).then(() => {
+      endAct.set({ compared: importCount });
       logs.push(`\n📊 Total importado: ${importCount} registros`);
       // Delay para o setData propagar — então computa diff comparando com snapshot pré-import
       setTimeout(() => {
@@ -5261,7 +5493,7 @@ function App() {
         });
       }, 50);
       setImportResult(logs);
-    });
+    }).finally(() => endAct());
     e.target.value = '';
   };
 
@@ -5500,7 +5732,12 @@ function App() {
   };
   const handleAIImport = () => {
     if (!aiText.trim() || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'texto (pessoas e bens)' });
+    try { handleAIImportInner(endAct); } finally { endAct(); }
+  };
+  const handleAIImportInner = (endAct) => {
     const res = parseAIText(aiText);
+    endAct.set({ compared: res.people.length + res.assets.length });
     const logs = [];
     let count = 0;
     res.people.forEach(p => {
@@ -5537,7 +5774,12 @@ function App() {
   // Asset bulk import handler
   const handleAssetBulkImport = () => {
     if (!assetText.trim() || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'bens em lote', batchNoun: { s: 'bem', p: 'bens', f: false } });
+    try { handleAssetBulkImportInner(endAct); } finally { endAct(); }
+  };
+  const handleAssetBulkImportInner = (endAct) => {
     const res = parseAssetsBulk(assetText, data.people, activeOpId);
+    endAct.set({ compared: res.assets.length });
     const logs = [];
     let count = 0;
     res.assets.forEach(a => {
@@ -6069,7 +6311,7 @@ function App() {
     reader.onload = (ev) => {
       try {
         const imp = JSON.parse(ev.target.result);
-        if (imp.operations && confirm('Substituir todos os dados?')) { setData(applyMigrations(imp)); setActiveOpId(null); }
+        if (imp.operations && confirm('Substituir todos os dados?')) { markStateReplaced('Dados importados de arquivo'); setData(applyMigrations(imp)); setActiveOpId(null); }
       } catch { alert('Arquivo inválido.'); }
     };
     reader.readAsText(file); e.target.value = '';
@@ -9379,6 +9621,7 @@ function App() {
     }
     const demo = applyMigrations(generateDemoData());
     // Sempre substitui — nunca mescla (evitar duplicatas ao recarregar).
+    markStateReplaced('Dados de demonstração recarregados');
     setData(demo);
     setActiveOpId(null);
     if (isDemo) setViewMode('hoje');
@@ -9459,6 +9702,11 @@ function App() {
         {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="sync" s={13} />Resetar / carregar dados demo</> : '🧪 Resetar / carregar dados demo'}</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
+      <label style={{display:'block',fontSize:10,color:'var(--text-muted)',marginTop:8}} title="Identifica esta máquina no registro de trabalho (Minha atividade).">Apelido desta máquina
+        <input type="text" maxLength={30} value={activityDeviceName} onChange={e => setActivityDeviceName(e.target.value)}
+          onBlur={() => setActivityDeviceName(activityApi.setDevice(activityDeviceName))}
+          style={{width:'100%',marginTop:2,fontSize:11,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,padding:'4px 6px'}} />
+      </label>
     </div>
     <div className="settings-group">
       <div className="settings-label">Calendário local (prazos processuais)</div>
@@ -10761,6 +11009,7 @@ function App() {
     return String(a.dateDeadline).localeCompare(String(b.dateDeadline));
   }).map(x => x.id) : [];
   const cxDetailActions = {
+    activity: activityApi, // registro de trabalho (Minha atividade) — mesmo objeto de window.nexusActivity
     data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
     esteiraTemplate: appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE,
     onRespond: handleRespondIntim,
@@ -12712,6 +12961,8 @@ function App() {
                         });
                       });
                       const nNew = (prescImport.plan.processes || []).reduce((s, p) => s + (p.newFacts || []).length, 0);
+                      const endAct = beginActivity({ source: 'importacao', batchLabel: 'NEXUS prescrição', compared: (prescImport.plan.processes || []).length, batchNoun: { s: 'processo', p: 'processos', f: false } });
+                      try {
                       setData({
                         ...next,
                         importLogs: [...(next.importLogs || []), {
@@ -12721,6 +12972,7 @@ function App() {
                           counts: { events: nNew }
                         }].slice(-50)
                       });
+                      } finally { endAct(); }
                       setPrescImport({ ...prescImport, after });
                       setAiText('');
                     }}>Confirmar e gravar</button>
@@ -12784,7 +13036,7 @@ function App() {
         const escopo = diagnosticoOpId ? ' desta operação' : '';
         if (!confirm(`Aplicar correção em ${n} registro(s)${escopo}?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
         pushUndo('Correção do diagnóstico: ' + f.titulo);
-        setData(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
+        setDataAuto(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
       };
       return (<div className="global-search-overlay" onClick={() => setShowDiagnostico(false)}>
         <div className="global-search-box" onClick={e => e.stopPropagation()} style={{maxHeight:'85vh',display:'flex',flexDirection:'column',maxWidth:760}}>
