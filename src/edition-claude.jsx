@@ -2093,7 +2093,7 @@ function EditionClaudeOpOverview(p) {
 }
 
 /* ═════════════════════ Prazos extintivos — Mesa ═════════════════════ */
-function CxMesaRow({ r, debt, a }) {
+function CxMesaRow({ r, debt, a, item }) {
   const [snooze, setSnooze] = React.useState(null);
   const [parc, setParc] = React.useState('');
   const cert = mesaCertainty(r);
@@ -2101,19 +2101,31 @@ function CxMesaRow({ r, debt, a }) {
   const act = r.action && r.action.type;
   const actLabel = CX_ACT_LABEL[act] || 'Agir';
   const today = localIso(new Date());
-  const expired = !!(debt && debt.prescSnooze);
-  const horizon = formatPrescHorizon(r.prescDays);
+  const expired = item ? !!item.snoozeExpired : !!(debt && debt.prescSnooze);
+  const snUntil = (debt && debt.prescSnooze && debt.prescSnooze.until) || '';
+  const snLabel = !item ? 'o adiamento venceu'
+    : snUntil && snUntil > today ? 'adiamento furado (era até ' + fmtDate(snUntil) + ')'
+    : snUntil ? 'adiada até ' + fmtDate(snUntil) + ' (venceu)' : 'adiada (venceu)';
+  // Com o item da Mesa por cartões: a data de posição só é prazo quando dateIsDeadline; nunca «há N anos» num piso.
+  const tardeNao = !!(item && item.cedoVencidaTardeNao);
+  const noDeadline = !!(item && !item.dateIsDeadline && !tardeNao);
+  const longe = !!(item && item.ajuizarLonge);
+  const antiga = !!(item && item.card === 'antigas');
+  const tardeDias = tardeNao && r.bandTarde ? daysUntil(r.bandTarde, today) : null;
+  const horizon = tardeNao ? (tardeDias != null ? 'tarde em ' + formatPrescHorizon(tardeDias) : 'sem data tarde')
+    : noDeadline ? '' : antiga ? 'consumada' : formatPrescHorizon(r.prescDays);
   const seg = r.prescSegment || r.clock;
   const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : seg === 'decadencia' ? 'Decadência' : null;
-  const vencido = isG1Vencido(r);
-  return <div className={'cx-mesa-row g' + r.group + (vencido ? ' venc' : '')} style={{ '--c': CX_GROUP_C[r.group] }}>
+  const vencido = isG1Vencido(r) && !antiga;
+  return <div className={'cx-mesa-row g' + r.group + (vencido && !tardeNao ? ' venc' : '')} style={{ '--c': CX_GROUP_C[r.group] }}>
     <div className="cx-mesa-main">
       <div className="cx-mesa-id">
         <span className="cx-gnum" title={'Grupo ' + r.group + ' · ' + (PRAZOS_GROUP_LABELS[r.group] || '')}>{r.group}</span>
         <span className="cx-mono cx-mesa-cda">{r.cdaNumber || 'S/N'}</span>
         <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span>
         {clock ? <span className="cx-tag">{clock}</span> : null}
-        {expired ? <span className="cx-tag orange">o adiamento venceu</span> : null}
+        {tardeNao ? <span className="cx-tag orange" title="A data cedo já passou; a data tarde (tese da União) ainda não.">cedo venceu, tarde não</span> : null}
+        {expired ? <span className="cx-tag orange">{snLabel}</span> : null}
       </div>
       <div className="cx-mesa-why" title={r.basis || undefined}>{betaSafeUiText(r.why || r.prescLabel || r.summary || '') || 'Prazo em acompanhamento.'}</div>
       {debt && a.presc ? <PrescBandRuler seg={a.presc(debt)} mini /> : null}
@@ -2124,8 +2136,11 @@ function CxMesaRow({ r, debt, a }) {
       </div>
     </div>
     <div className="cx-mesa-side">
-      <span className={'cx-mesa-when' + (vencido ? ' red' : '')}>{horizon || (r.keyDate ? cxDM(r.keyDate) : '—')}</span>
-      {r.keyDate && horizon ? <span className="cx-mesa-date" title={r.basis || undefined}>{r.bandHit ? r.keyLabel : fmtDate(r.keyDate)}</span> : null}
+      {noDeadline
+        ? <span className="cx-mesa-when txt" title={r.basis || undefined}>{r.keyLabel || (r.keyDate ? fmtDate(r.keyDate) : '—')}</span>
+        : <span className={'cx-mesa-when' + (vencido && !tardeNao ? ' red' : '') + (longe ? ' gray' : '')}>{horizon || (r.keyDate ? cxDM(r.keyDate) : '—')}</span>}
+      {tardeNao && r.bandTarde ? <span className="cx-mesa-date" title={r.basis || undefined}>{fmtDate(r.bandTarde)}</span> : null}
+      {!tardeNao && !noDeadline && r.keyDate && horizon ? <span className="cx-mesa-date" title={r.basis || undefined}>{r.bandHit ? r.keyLabel : fmtDate(r.keyDate)}</span> : null}
       <span className="cx-mesa-val">{fmtCur(r.value || 0)}</span>
     </div>
     <div className="cx-mesa-acts">
@@ -2137,7 +2152,7 @@ function CxMesaRow({ r, debt, a }) {
       <button type="button" className="cx-btn sm" onClick={() => a.openEvent(r)}>Evento</button>
       <button type="button" className="cx-btn sm" onClick={() => a.openCda(r)}>Abrir</button>
       <button type="button" className="cx-btn sm ghost" onClick={() => a.applyAction({ ...r, action: { type: 'conferir_autos' } })}>Conferir</button>
-      <button type="button" className="cx-btn sm ghost" onClick={() => setSnooze(snooze ? null : { reason: 'aguardando_certidao', until: snoozeMaxUntil(r.group, today), note: '' })} aria-expanded={!!snooze}>Adiar…</button>
+      {item && (item.card === 'antigas' || item.card === 'tratadas') ? null : <button type="button" className="cx-btn sm ghost" onClick={() => setSnooze(snooze ? null : { reason: 'aguardando_certidao', until: snoozeMaxUntil(r.group, today), note: '' })} aria-expanded={!!snooze}>Adiar…</button>}
     </div>
     {snooze ? <form className="cx-snooze" onSubmit={e => { e.preventDefault(); if (snooze.reason === 'outro' && !snooze.note.trim()) return; a.snooze(r, snooze.reason, snooze.until, snooze.note); setSnooze(null); }}>
       <label>Motivo<select id={'cx-sz-r-' + r.id} className="cx-input" value={snooze.reason} onChange={e => setSnooze({ ...snooze, reason: e.target.value })}>{Object.entries(PRESC_SNOOZE_REASONS).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}</select></label>
@@ -2148,108 +2163,165 @@ function CxMesaRow({ r, debt, a }) {
     </form> : null}
   </div>;
 }
+const CX_PZ_TONE = { calculo: 'orange', ajuizar: 'red', fato: 'orange', vigencia: 'blue', dado: 'neutral' };
+const CX_HANDLED_LABEL = { aguardando_reconhecimento: 'Aguardando reconhecimento', declarada: 'Declarada', analisada_nao_consumada: 'Analisada — não houve prescrição', extinta: 'Extinta', reconhecida: 'Reconhecida' };
+const CX_PZ_PAGE = 150;
+/** Item da Mesa sem linha do radar (tratadas, adiadas, ordinária derivada, sem dados, parcelada). */
+function CxMesaLite({ item, a, opName, personName, sil }) {
+  const d = item.debt;
+  const today = localIso(new Date());
+  let chips = null, why = '', when = null, date = '', reopen = false;
+  if (item.card === 'tratadas') {
+    const t = (item.row && item.row.prescKind === 'aguardando_reconhecimento' && !d.prescriptionHandledType) ? 'aguardando_reconhecimento' : d.prescriptionHandledType;
+    why = CX_HANDLED_LABEL[t] || 'Tratada';
+    date = item.handledAt ? fmtDate(item.handledAt) : '';
+  } else if (item.card === 'adiadas') {
+    const sz = d.prescSnooze || {};
+    why = PRESC_SNOOZE_REASONS[sz.reason] || (sil && PRESC_SNOOZE_REASONS[sil.reason]) || (sil && sil.label) || 'Adiada';
+    when = item.until ? 'volta em ' + cxDM(item.until) : null;
+    reopen = true;
+  } else if (item.derived) {
+    chips = <><span className="cx-tag">Ordinária</span><span className="cx-tag" title="A ordinária só entra na lista de alarmes a até 90 dias do prazo; esta ainda está fora.">fora dos 90 dias</span></>;
+    why = 'Ordinária ainda não ajuizada' + (item.sortDate ? ' · data-alvo ' + fmtDate(item.sortDate) : '');
+    const dias = item.sortDate ? daysUntil(item.sortDate, today) : null;
+    when = dias != null ? 'em ' + formatPrescHorizon(dias) : null;
+  } else if (item.card === 'dado') {
+    why = 'Sem dados para calcular';
+  } else if (sil && (sil.reason === 'parcelamento_vigente' || sil.reason === 'parcelada_ficha')) {
+    why = sil.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : 'Parcelada na ficha';
+  } else {
+    why = betaSafeUiText((item.prescResult && (item.prescResult.summary || item.prescResult.detail)) || '') || 'Sem alarme';
+  }
+  return <div className={'cx-mesa-row cx-mesa-lite' + (item.ajuizarLonge ? ' longe' : '')}>
+    <div className="cx-mesa-main">
+      <div className="cx-mesa-id">
+        <span className="cx-mono cx-mesa-cda">{d.cdaNumber || 'S/N'}</span>
+        {chips}
+      </div>
+      <div className="cx-mesa-why">{why}{date ? ' · ' + date : ''}</div>
+      <div className="cx-mesa-meta">
+        {opName ? <span className="cx-op-tag"><CxOpSquare opId={d.operationId} /><span className="cx-ell">{String(opName).replace(/^Opera[çc][ãa]o\s+/i, '')}</span></span> : null}
+        {d.processNumber ? <CxProc num={d.processNumber} /> : <span className="cx-muted">sem processo</span>}
+        {personName ? <span className="cx-ell cx-muted">{personName}</span> : null}
+      </div>
+    </div>
+    <div className="cx-mesa-side">
+      {when ? <span className={'cx-mesa-when txt' + (item.ajuizarLonge ? ' gray' : '')}>{when}</span> : null}
+      <span className="cx-mesa-val">{fmtCur(item.value || 0)}</span>
+    </div>
+    <div className="cx-mesa-acts">
+      {reopen ? <button type="button" className="cx-btn sm primary" onClick={() => a.clearSnooze(d.id)}>Reabrir agora</button> : null}
+      <button type="button" className="cx-btn sm" onClick={() => a.openCda(d)}>Abrir</button>
+    </div>
+  </div>;
+}
 function EditionClaudePrazos(p) {
   const { data, prazosRadar, pf, setPf, a } = p;
-  const [overOpen, setOverOpen] = React.useState(false);
-  const [restOpen, setRestOpen] = React.useState(false);
-  const [penOpen, setPenOpen] = React.useState(false);
-  const [silOpen, setSilOpen] = React.useState(false);
+  const [sec, setSec] = React.useState('');
+  const [openMap, setOpenMap] = React.useState({});
+  const [limMap, setLimMap] = React.useState({});
+  const [join, setJoin] = React.useState(false);
   const today = localIso(new Date());
   const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
-  let rows = [...(prazosRadar.rows || [])];
-  if (pf.operationId) rows = rows.filter(r => r.operationId === pf.operationId);
+  const mc = React.useMemo(() => buildMesaCards({ data, radar: prazosRadar, prescLookup: a.presc, today }), [data, prazosRadar, a.presc, today]);
+  const peopleById = React.useMemo(() => new Map((data.people || []).map(x => [x.id, x])), [data.people]);
+  const opsById = React.useMemo(() => new Map((data.operations || []).map(o => [o.id, o])), [data.operations]);
+  const silById = React.useMemo(() => { const m = new Map(); (prazosRadar.silenced || []).forEach(x => { if (x && x.debtId && !m.has(x.debtId)) m.set(x.debtId, x); }); return m; }, [prazosRadar.silenced]);
+  const personOf = (d) => ((peopleById.get(d.personId) || {}).name) || d.devedor || '';
+  const opNameOf = (id) => { const o = opsById.get(id); return o ? cxOpName(o) : ''; };
+  // Filtros (operação, pessoa, busca) valem para os itens; os totais dos cartões são refeitos a partir deles.
   const personIds = (pf.personId && pf.personId !== 'all') ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId) : null;
-  if (personIds) rows = rows.filter(r => personIds.has(r.id));
-  const consumadas = rows.filter(r => r.group === 6 && rowShowsInConsumada(r)).length;
-  rows = rows.filter(r => r.group !== 6);
-  if (pf.q) {
-    const raw = String(pf.q).toLowerCase(), qd = raw.replace(/\D/g, '');
-    rows = rows.filter(r => (r.cdaNumber || '').toLowerCase().includes(raw) || (qd && (r.processNumber || '').replace(/\D/g, '').includes(qd)) || (r.personName || '').toLowerCase().includes(raw) || (r.opName || '').toLowerCase().includes(raw));
-  }
-  const split = splitMesaRows(rows, today);
+  const raw = String(pf.q || '').toLowerCase(), qd = raw.replace(/\D/g, '');
+  const keep = (it) => {
+    const d = it.debt;
+    if (pf.operationId && d.operationId !== pf.operationId) return false;
+    if (personIds && !personIds.has(d.id)) return false;
+    if (raw) {
+      const op = opsById.get(d.operationId);
+      const ok = (d.cdaNumber || '').toLowerCase().includes(raw) || (qd && (d.processNumber || '').replace(/\D/g, '').includes(qd))
+        || personOf(d).toLowerCase().includes(raw) || ((op && op.name) || '').toLowerCase().includes(raw);
+      if (!ok) return false;
+    }
+    return true;
+  };
+  const by = {}, tot = {};
+  MESA_CARDS.forEach(c => { by[c.id] = mc.byCard[c.id].filter(keep); tot[c.id] = { n: 0, value: 0, nLonge: 0, valueLonge: 0 }; });
+  MESA_CARDS.forEach(c => by[c.id].forEach(it => {
+    const t = tot[c.id];
+    if (c.id === 'ajuizar' && it.ajuizarLonge) { t.nLonge++; t.valueLonge += it.value; } else { t.n++; t.value += it.value; }
+  }));
   const notesByProc = new Map();
   (prazosRadar.processNotes || []).forEach(n => { const k = normProc(n.processNumber); if (!k) return; if (!notesByProc.has(k)) notesByProc.set(k, []); notesByProc.get(k).push(n); });
-  const drawer = mesaDrawerItems({ rows, silenced: prazosRadar.silenced || [], hideG5: true });
-  const dueWeek = countSnoozeDueThisWeek(prazosRadar.silenced || [], today);
-  const debtById = new Map((data.debts || []).map(d => [d.id, d]));
-  const opName = (id) => { const o = (data.operations || []).find(x => x.id === id); return o ? cxOpName(o) : ''; };
-  const needs = split.needsYou.concat(split.overCap);
-  const needsValue = needs.reduce((s, r) => s + (r.value || 0), 0);
-  const restByGroup = [1, 2, 3, 4].map(g => ({ g, rows: split.rest.filter(r => r.group === g) })).filter(x => x.rows.length);
+  const isOpen = (c) => sec === c.id || (sec === '' && (openMap[c.id] != null ? openMap[c.id] : c.fileira === 1));
+  const toggleOpen = (c) => setOpenMap(m => ({ ...m, [c.id]: !isOpen(c) }));
+  const pick = (id) => setSec(cur => cur === id ? '' : id);
+  const card = (c) => {
+    const t = tot[c.id], zero = t.n === 0, only = c.id === 'ajuizar' && zero && t.nLonge > 0;
+    const sub = t.n ? cxMoneyShort(t.value) : (only ? 'nenhuma nos 60 dias' : 'nenhum agora');
+    const empty = by[c.id].length === 0;
+    return <button key={c.id} type="button" className={'cx-pz-card ' + (c.fileira === 1 ? CX_PZ_TONE[c.id] : 'neutral') + (sec === c.id ? ' on' : '') + (zero ? ' zero' : '') + (only ? ' longe' : '')}
+      title={c.tip} aria-pressed={sec === c.id} disabled={empty && sec !== c.id} onClick={() => pick(c.id)}>
+      <span className="cx-pz-card-n">{t.n}</span>
+      <span className="cx-pz-card-t">
+        <span className="cx-pz-card-l">{c.nome}</span>
+        <span className="cx-pz-card-s">{sub}</span>
+        {c.id === 'ajuizar' ? <span className="cx-pz-card-g"><b>+{t.nLonge}</b> entre 60 e 180 dias</span> : null}
+      </span>
+    </button>;
+  };
+  const renderItem = (it) => it.row
+    ? <CxMesaRow key={it.debtId} r={it.row} debt={it.debt} a={a} item={it} />
+    : <CxMesaLite key={it.debtId} item={it} a={a} opName={opNameOf(it.debt.operationId)} personName={personOf(it.debt)} sil={silById.get(it.debtId)} />;
+  const renderList = (list) => {
+    if (!join) return list.map(renderItem);
+    const withRow = list.filter(it => it.row), byId = new Map(withRow.map(it => [it.debtId, it]));
+    return cxMesaGroups(withRow.map(it => it.row), notesByProc, r => renderItem(byId.get(r.id))).concat(list.filter(it => !it.row).map(renderItem));
+  };
+  const section = (c) => {
+    const list = by[c.id];
+    if (!list.length || (sec && sec !== c.id)) return null;
+    const t = tot[c.id], open = isOpen(c), lim = limMap[c.id] || CX_PZ_PAGE;
+    const shown = list.slice(0, lim);
+    const sumV = t.value + t.valueLonge;
+    const principal = c.id === 'ajuizar' ? shown.filter(it => !it.ajuizarLonge) : shown;
+    const longeL = c.id === 'ajuizar' ? shown.filter(it => it.ajuizarLonge) : [];
+    return <section key={c.id} className="cx-card cx-pz-block" id={'cx-pz-sec-' + c.id}>
+      <button type="button" className="cx-pz-fold" onClick={() => toggleOpen(c)} aria-expanded={open} title={c.tip}>
+        <span className="cx-caret" style={{ transform: open ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
+        <b>{c.nome}</b><span className="cx-n">{list.length}</span>
+        <span className="cx-pz-fold-s">{cxMoneyShort(sumV)}{c.id === 'ajuizar' && t.nLonge ? ' · +' + t.nLonge + ' entre 60 e 180 dias' : ''}</span>
+      </button>
+      {open ? <>
+        {renderList(principal)}
+        {longeL.length ? <div className="cx-pz-gh longe">Entre 60 e 180 dias<span className="cx-n">{t.nLonge}</span></div> : null}
+        {longeL.length ? renderList(longeL) : null}
+        {list.length > lim ? <button type="button" className="cx-pz-more" onClick={() => setLimMap(m => ({ ...m, [c.id]: lim + CX_PZ_PAGE }))}>Mostrar mais {Math.min(CX_PZ_PAGE, list.length - lim)} de {list.length - lim} restantes<CxIcon n="chevD" s={13} /></button> : null}
+      </> : null}
+    </section>;
+  };
+  const anyItem = MESA_CARDS.some(c => by[c.id].length);
   return <div className="cx cx-page">
     <div className="cx-page-h">
-      <div><h1>Prazos extintivos</h1><p>Vermelho só no que pede ato hoje. O resto fica à vista, contado e sem alarme. Nada some: o que sai da fila vai para Silenciados, com data para voltar.</p></div>
+      <div><h1>Prazos extintivos</h1><p>Cada CDA aparece uma só vez, na seção da providência que ela pede. Clique num cartão para ver só aquela seção; clique de novo para voltar a todas.</p></div>
       <div className="cx-acts">
         <button type="button" className="cx-btn ghost" onClick={p.onOpenRules}><CxIcon n="book" s={14} />Regras</button>
         <CxSeg className="lg" label="Modo" value="mesa" onChange={v => { if (v === 'lista') p.onLista(); }} options={[['mesa', 'Mesa de prazos'], ['lista', 'Lista completa']]} />
       </div>
     </div>
-    <div className="cx-pz-sum">
-      <button type="button" className="cx-pz-tile need" onClick={() => document.getElementById('cx-pz-need') && document.getElementById('cx-pz-need').scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-        <span className="cx-pz-l">Precisa de você</span><span className="cx-pz-v">{needs.length}</span><span className="cx-pz-s">{needs.length ? cxMoneyShort(needsValue) + ' em jogo' : 'nada exige decisão agora'}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={() => setRestOpen(true)}>
-        <span className="cx-pz-l">No radar, sem alarme</span><span className="cx-pz-v">{split.rest.length}</span><span className="cx-pz-s">{[1, 2, 3, 4].map(g => 'G' + g + ' ' + split.rest.filter(r => r.group === g).length).join(' · ')}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={() => setSilOpen(true)}>
-        <span className="cx-pz-l">Silenciados</span><span className="cx-pz-v">{drawer.length}</span><span className={'cx-pz-s' + (dueWeek ? ' orange' : '')}>{dueWeek ? cxPl(dueWeek, 'volta esta semana', 'voltam esta semana') : 'parcelados, adiados e ainda impossíveis'}</span>
-      </button>
-      <button type="button" className="cx-pz-tile" onClick={p.onConsumadas} disabled={!consumadas}>
-        <span className="cx-pz-l">Consumadas</span><span className="cx-pz-v">{consumadas}</span><span className="cx-pz-s">para análise, fora do alarme</span>
-      </button>
+    <div className="cx-pz-cards" role="group" aria-label="Seções da Mesa de prazos">
+      <div className="cx-pz-row1">{MESA_CARDS.filter(c => c.fileira === 1).map(card)}</div>
+      <div className="cx-pz-row2">{MESA_CARDS.filter(c => c.fileira === 2).map(card)}</div>
     </div>
     <div className="cx-toolbar">
       <CxSelect id="cx-pz-op" pre="Operação" value={pf.operationId || ''} onChange={v => setPf({ operationId: v, personId: 'all' })} options={[['', 'Todas']].concat(opsOpen.map(o => [o.id, cxOpName(o)]))} />
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-pz-q" value={pf.q || ''} onChange={e => setPf({ q: e.target.value })} placeholder="CDA, processo ou devedor" aria-label="Buscar CDA" /></label>
+      <label className="cx-pz-join" title="Agrupa as linhas de cada seção por processo (análise conjunta). Os números dos cartões continuam por CDA."><input id="cx-pz-join" type="checkbox" checked={join} onChange={e => setJoin(e.target.checked)} />Juntar por processo</label>
     </div>
     {pf.operationId ? <div className="cx-pz-people"><PersonSubtabs data={data} opId={pf.operationId} currentFilter={pf.personId || 'all'} onChange={id => setPf({ personId: id })} mode="cda" /></div> : null}
 
-    <section className="cx-card cx-pz-block" id="cx-pz-need">
-      <div className="cx-card-h"><h2>Precisa de você</h2><div className="cx-aside"><span className="cx-muted cx-small">pela data cedo; no empate, o maior valor</span></div></div>
-      {split.needsYou.length === 0 && split.overCap.length === 0 ? <div className="cx-empty-row">Nada exige decisão agora. O restante está abaixo, sem alarme.</div> : null}
-      {cxMesaGroups(split.needsYou, notesByProc, r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />)}
-      {split.overCap.length ? <button type="button" className="cx-pz-more" onClick={() => setOverOpen(v => !v)} aria-expanded={overOpen}>{overOpen ? 'Esconder' : 'Mostrar'} {cxPl(split.overCap.length, 'item acima do limite', 'itens acima do limite')}<CxIcon n={overOpen ? 'chevU' : 'chevD'} s={13} /></button> : null}
-      {overOpen ? split.overCap.map(r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />) : null}
-    </section>
+    {MESA_CARDS.map(section)}
+    {!anyItem || (sec && !by[sec].length) ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA neste recorte.</div></div> : null}
 
-    {split.penhoraAntiga.length ? <section className="cx-card cx-pz-block">
-      <button type="button" className="cx-pz-fold" onClick={() => setPenOpen(v => !v)} aria-expanded={penOpen}>
-        <span className="cx-caret" style={{ transform: penOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
-        <b>Penhora antiga — analisar</b><span className="cx-n">{split.penhoraAntiga.length}</span>
-        <span className="cx-pz-fold-s">penhora ou bloqueio há mais de 6 anos, sem outro fato lançado; análise caso a caso</span>
-      </button>
-      {penOpen ? cxMesaGroups(split.penhoraAntiga, notesByProc, r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />) : null}
-    </section> : null}
-
-    <section className="cx-card cx-pz-block">
-      <button type="button" className="cx-pz-fold" onClick={() => setRestOpen(v => !v)} aria-expanded={restOpen}>
-        <span className="cx-caret" style={{ transform: restOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
-        <b>No radar, sem alarme</b><span className="cx-n">{split.rest.length}</span>
-        <span className="cx-pz-fold-s">{restByGroup.map(x => (PRAZOS_GROUP_LABELS[x.g] || 'G' + x.g) + ' ' + x.rows.length).join(' · ')}{split.hiddenG5.length ? ' · ainda impossível ' + split.hiddenG5.length + ' (em Silenciados)' : ''}</span>
-      </button>
-      {restOpen ? (restByGroup.length ? restByGroup.map(x => <div key={x.g}>
-        <div className="cx-pz-gh"><span className="cx-gnum" style={{ '--c': CX_GROUP_C[x.g] }}>{x.g}</span>{PRAZOS_GROUP_LABELS[x.g]}<span className="cx-n">{x.rows.length}</span></div>
-        {cxMesaGroups(x.rows, notesByProc, r => <CxMesaRow key={r.id} r={r} debt={debtById.get(r.id)} a={a} />)}
-      </div>) : <div className="cx-empty-row">Nada neste recorte além do bloco de cima.</div>) : null}
-    </section>
-
-    <section className="cx-card cx-pz-block">
-      <button type="button" className="cx-pz-fold" onClick={() => setSilOpen(v => !v)} aria-expanded={silOpen}>
-        <span className="cx-caret" style={{ transform: silOpen ? 'none' : 'rotate(-90deg)' }}><CxIcon n="chevD" s={14} /></span>
-        <b>Silenciados</b><span className="cx-n">{drawer.length}</span>
-        {dueWeek ? <span className="cx-pz-fold-s orange">{cxPl(dueWeek, 'adiamento vence', 'adiamentos vencem')} esta semana</span> : <span className="cx-pz-fold-s">fora do alarme, com motivo e data para voltar</span>}
-      </button>
-      {silOpen ? (drawer.length ? drawer.map(item => {
-        const d = debtById.get(item.debtId);
-        const reason = PRESC_SNOOZE_REASONS[item.reason] || (item.reason === 'aguardando_reconhecimento' ? 'Aguardando decisão' : item.reason === 'ainda_impossivel' ? 'Ainda impossível' : item.reason === 'parcelamento_vigente' ? 'Parcelamento vigente' : item.reason === 'parcelada_ficha' ? 'Parcelada na ficha' : (item.reason || 'Fora da fila'));
-        return <div key={item.id} className="cx-sil-row">
-          <span className="cx-mono cx-mesa-cda">{(d && d.cdaNumber) || item.debtId}</span>
-          <span className="cx-sil-why cx-ell">{item.label && item.label !== reason ? item.label : [d && d.operationId && opName(d.operationId), d && (d.tribute || d.origin)].filter(Boolean).join(' · ') || reason}</span>
-          <span className="cx-sil-until">{reason}{item.until ? ' · até ' + fmtDate(item.until) : ''}</span>
-          {item.canReopen ? <button type="button" className="cx-btn sm" onClick={() => a.clearSnooze(item.debtId)}>Reabrir agora</button> : <span />}
-        </div>;
-      }) : <div className="cx-empty-row">Nada silenciado.</div>) : null}
-    </section>
     <div className="cx-pz-legend">
       <span><span className="cx-cert calculado">Calculado</span>{CX_CERT_TIP.calculado}</span>
       <span><span className="cx-cert estimado">Estimado</span>{CX_CERT_TIP.estimado}</span>

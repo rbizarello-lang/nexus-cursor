@@ -4496,6 +4496,42 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .cx-pz-tile.need .cx-pz-v { color: var(--cx-red); }
 .cx-pz-tile.need .cx-pz-l { color: var(--cx-ink); font-weight: 500; }
 .cx-pz-people { margin: -4px 0 12px; }
+.cx-pz-cards { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.cx-pz-row1, .cx-pz-row2 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.cx-pz-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 11px; align-items: center; min-width: 0; padding: 10px 12px 10px 16px; background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; text-align: left; cursor: pointer; --c: var(--cx-line-strong); }
+.cx-pz-card::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c); }
+.cx-pz-card:hover:not(:disabled) { background: var(--cx-hover); }
+.cx-pz-card:disabled { cursor: default; }
+.cx-pz-card.on { background: var(--cx-hover); box-shadow: inset 0 0 0 1.5px var(--cx-ink); }
+.cx-pz-card.orange { --c: var(--cx-orange); }
+.cx-pz-card.red { --c: var(--cx-red); }
+.cx-pz-card.blue { --c: var(--cx-blue); }
+.cx-pz-card.neutral { --c: var(--cx-ink-3); }
+.cx-pz-card-n { min-width: 24px; text-align: center; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c); }
+.cx-pz-card-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cx-pz-card-l { font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--cx-ink); }
+.cx-pz-card-s { font-size: 11px; line-height: 1.3; color: var(--cx-ink-3); font-variant-numeric: tabular-nums; }
+.cx-pz-card-g { font-size: 11px; line-height: 1.3; color: var(--cx-ink-3); font-variant-numeric: tabular-nums; }
+.cx-pz-card-g b { font-weight: 600; }
+.cx-pz-card.zero { background: transparent; }
+.cx-pz-card.zero::before { background: var(--cx-line-strong); opacity: 0.6; }
+.cx-pz-card.zero .cx-pz-card-n { color: var(--cx-ink-3); font-weight: 500; }
+.cx-pz-card.zero .cx-pz-card-l { color: var(--cx-ink-2); font-weight: 500; }
+.cx-pz-row2 .cx-pz-card { padding: 6px 10px 6px 14px; background: var(--cx-surface-2); }
+.cx-pz-row2 .cx-pz-card::before { top: 7px; bottom: 7px; background: var(--cx-line-strong); }
+.cx-pz-row2 .cx-pz-card:hover:not(:disabled) { background: var(--cx-hover); }
+.cx-pz-row2 .cx-pz-card.on { background: var(--cx-surface); }
+.cx-pz-row2 .cx-pz-card-n { min-width: 20px; font-size: 18px; font-weight: 500; color: var(--cx-ink-2); }
+.cx-pz-row2 .cx-pz-card-l { font-size: 12px; font-weight: 500; color: var(--cx-ink-2); }
+.cx-pz-row2 .cx-pz-card.zero { background: transparent; }
+.cx-pz-row2 .cx-pz-card.zero .cx-pz-card-n { color: var(--cx-ink-3); }
+.cx-pz-join { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--cx-line); border-radius: 7px; background: var(--cx-surface); color: var(--cx-ink-2); font-size: 12.5px; white-space: nowrap; cursor: pointer; }
+.cx-pz-join input { margin: 0; accent-color: var(--cx-accent); }
+.cx-pz-gh.longe { color: var(--cx-ink-3); }
+.cx-mesa-when.txt { font: 500 12px var(--cx-font); white-space: normal; max-width: 220px; }
+.cx-mesa-when.gray { color: var(--cx-ink-3); }
+.cx-mesa-lite::before { background: var(--cx-line-strong); }
+.cx-mesa-lite.longe .cx-mesa-cda { color: var(--cx-ink-2); }
 .cx-pz-block { margin-bottom: 14px; overflow: hidden; scroll-margin-top: 16px; }
 .cx-pz-more { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 9px 14px; border-top: 1px solid var(--cx-line); color: var(--cx-ink-2); font-size: 12.5px; cursor: pointer; }
 .cx-pz-more:hover { background: var(--cx-hover); color: var(--cx-ink); }
@@ -4567,6 +4603,13 @@ select.cx-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
   .cx-sil-row { grid-template-columns: minmax(0, 1fr) auto; }
   .cx-sil-row .cx-sil-why { grid-column: 1 / -1; grid-row: 2; }
   .cx-pz-fold-s { display: none; }
+}
+@media (max-width: 900px) {
+  .cx-pz-row1, .cx-pz-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cx-pz-card { padding: 8px 10px 8px 14px; column-gap: 9px; }
+  .cx-pz-card-n { font-size: 24px; min-width: 20px; }
+  .cx-pz-row2 .cx-pz-card-n { font-size: 17px; }
+  .cx-mesa-when.txt { max-width: 150px; }
 }
 
 /* ═══ Fase 3 · Tarefas, Agenda, Mesa de trabalho ═══ */
