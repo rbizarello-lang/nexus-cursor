@@ -392,11 +392,11 @@ const generateDemoData = () => {
   ];
 
   const stickyNotes = [
-    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', updatedAt: ts(-1), createdAt: ts(-3) },
+    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', dueDate: iso(4), updatedAt: ts(-1), createdAt: ts(-3) },
     { id:'sn-4', operationId:'op-demo-3', content:'Avaliar se embargos obstam nova fase de constrição.', color:'yellow', updatedAt: ts(-4), createdAt: ts(-10) },
     { id:'sn-5', operationId:'op-demo-2', content:'Sisbajud parcial — renovar ciclo em 14 dias.', color:'blue', updatedAt: ts(-1), createdAt: ts(-2) },
     { id:'sn-6', operationId:'op-demo-4', content:'Garantia cobre crédito principal; CSLL ainda em parcelamento.', color:'yellow', updatedAt: ts(-2), createdAt: ts(-5) },
-    { id:'sn-7', operationId:'op-demo-5', content:'CDA 000882 — prazo prescricional apertado (45d). Priorizar.', color:'red', updatedAt: ts(0), createdAt: ts(-1) },
+    { id:'sn-7', operationId:'op-demo-5', content:'CDA 000882 — prazo prescricional apertado (45d). Priorizar.', color:'red', dueDate: iso(-2), updatedAt: ts(0), createdAt: ts(-1) },
     { id:'sn-8', operationId:'op-demo-5', content:'Diligência fazenda: confirmar benfeitorias e máquinas.', color:'blue', updatedAt: ts(-3), createdAt: ts(-3) },
   ];
 
@@ -1643,11 +1643,15 @@ const NOTE_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})$/i;
 const NOTE_COLOR_KEYWORDS = /^(inherit|initial|unset|revert|revert-layer|transparent|currentcolor)$/i;
 const sanitizeNoteHtml = (html, opts) => {
   const allowColor = !!(opts && opts.color);
+  // { links: true } (opt-in, só Prumo): mantém <a> com href http(s)/mailto, sempre com rel/target seguros.
+  const allowLinks = !!(opts && opts.links);
+  const okHref = (el) => /^(https?:\/\/|mailto:)/i.test(String(el.getAttribute('href') || '').trim());
   const ALLOWED = new Set(['B','STRONG','I','EM','U','BR','UL','OL','LI','DIV','P','SPAN','S','STRIKE']);
+  if (allowLinks) ALLOWED.add('A');
   const tpl = document.createElement('template');
   tpl.innerHTML = String(html || '');
   tpl.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(n => n.remove());
-  const findBad = () => { for (const el of tpl.content.querySelectorAll('*')) { if (!ALLOWED.has(el.tagName)) return el; } return null; };
+  const findBad = () => { for (const el of tpl.content.querySelectorAll('*')) { if (!ALLOWED.has(el.tagName) || (el.tagName === 'A' && !okHref(el))) return el; } return null; };
   let bad, guard = 0;
   while ((bad = findBad()) && guard++ < 500) {
     const parent = bad.parentNode;
@@ -1661,7 +1665,9 @@ const sanitizeNoteHtml = (html, opts) => {
     const takeStyle = (isSpan || allowColor) && el.style;
     const bg = takeStyle ? el.style.backgroundColor : '';
     const fg = allowColor && takeStyle ? String(el.style.color || '').trim() : '';
+    const href = el.tagName === 'A' ? String(el.getAttribute('href') || '').trim() : '';
     [...el.attributes].forEach(a => el.removeAttribute(a.name));
+    if (href) { el.setAttribute('href', href); el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener noreferrer'); }
     const css = [];
     if (fg && NOTE_COLOR_RE.test(fg) && !NOTE_COLOR_KEYWORDS.test(fg)) css.push(`color:${fg}`);
     if (bg && bg !== 'transparent') css.push(`background-color:${bg};border-radius:2px;padding:0 2px`);
@@ -15804,6 +15810,9 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
               onClick={() => set('color',c)} style={{flex:1}}>{l}</button>
           ))}
         </div>
+      </div>
+      <div className="form-group"><label>Data (opcional)</label>
+        <input type="date" value={form.dueDate||''} onChange={e=>set('dueDate',e.target.value)} />
       </div>
       {Actions()}
     </>);
