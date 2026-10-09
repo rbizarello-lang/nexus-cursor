@@ -4493,6 +4493,7 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 @container lst (min-width: 860px) and (max-width: 1479.98px) {
   .cx-it-nt { border-top: 1px dashed var(--zone-edge); padding-top: 7px; padding-bottom: 8px; }
   .cx-it-nt.empty { display: none; }
+  .cx-ix.nt-empty .cx-it-tr { grid-row: 1 / span 2; }   /* sem notas, o fio do Tribunal desce até o fim da linha */
 }
 /* Celular: identidade e prazo lado a lado no topo, depois Tribunal, depois Notas */
 @container lst (max-width: 859.98px) {
@@ -4502,6 +4503,11 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
   .cx-ix-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 17px; }
   .cx-ix-pz { padding: 8px 0 0 8px; }
   .cx-ix-id { padding-right: 8px; }
+  /* Celular estreito: o nº pode quebrar no hífen e Imp./Compl./peça descem para a linha de baixo, em vez de cortar */
+  .cx-ix-pc { flex-wrap: wrap; row-gap: 3px; }
+  .cx-ix-pc .cx-proc-copy { flex: 0 1 auto; min-width: 0; }
+  .cx-ix .cx-proc { white-space: normal; }
+  .cx-ix-sig { margin-left: 0; }
 }
 .cx-board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
 .cx-b-col { background: var(--cx-surface-2); border: 1px solid var(--cx-line); border-radius: 10px; display: flex; flex-direction: column; min-width: 0; }

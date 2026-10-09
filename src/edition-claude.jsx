@@ -1236,7 +1236,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
   const flag = intim._importFlag === 'new' ? <span className="cx-tag blue xs">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag xs">Atualizada</span> : null;
   const tags = urgent || flag || intim.hasPending;
   const num = intimProcCnj(intim.processNumber);
-  return <div className={'cx-ix' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex={0}
+  return <div className={'cx-ix' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '') + (hasNt ? '' : ' nt-empty')} role="button" tabIndex={0}
     onClick={() => onOpen(intim.id)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}>
     <div className="cx-ix-id">
       {hideOp && !tags ? null : <div className="cx-it-opl">
