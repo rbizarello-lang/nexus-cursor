@@ -79,3 +79,16 @@ describe('exportação: erro de cota', () => {
     assert.equal(g('exportErrorMessage_')(new Error('quota')), 'Limite diário do Google para criar documentos atingido. Tente amanhã.');
   });
 });
+
+describe('trilha: ids por regex', () => {
+  it('extrai o id do começo da linha, com escape e fallback', () => {
+    const ids = g('trilhaIdsFromText_')([
+      JSON.stringify({ v: 1, id: 'abc', ts: 'x', changes: [{ id: 'nao' }] }),
+      JSON.stringify({ v: 1, id: 'com"aspas', day: '2026-03-05' }),
+      JSON.stringify({ kind: 'x', pad: 'y'.repeat(400), id: 'tarde' }),
+      'lixo {',
+      '',
+    ].join('\n'));
+    assert.deepEqual(Object.keys(plain(ids)).sort(), ['abc', 'com"aspas', 'tarde']);
+  });
+});

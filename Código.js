@@ -478,9 +478,18 @@ function trilhaIdsFromText_(text) {
   var ids = {};
   var lines = String(text || '').split('\n');
   for (var i = 0; i < lines.length; i++) {
-    if (!lines[i]) continue;
+    var line = lines[i];
+    if (!line) continue;
+    // O cliente grava {"v":1,"id":"...",...}: o id está no começo da linha, dispensa o JSON.parse inteiro.
+    var m = /"id":"((?:[^"\\]|\\.)*)"/.exec(line.length > 200 ? line.slice(0, 200) : line);
+    if (m) {
+      var id = m[1];
+      if (id.indexOf('\\') >= 0) { try { id = JSON.parse('"' + id + '"'); } catch (e0) { /* mantém cru */ } }
+      ids[String(id)] = true;
+      continue;
+    }
     try {
-      var ev = JSON.parse(lines[i]);
+      var ev = JSON.parse(line);
       if (ev && ev.id != null) ids[String(ev.id)] = true;
     } catch (e) { /* linha corrompida: ignora */ }
   }
@@ -574,9 +583,18 @@ function appendActivity(payload) {
   if (!lock.tryLock(10000)) {
     return { success: false, error: 'Outra gravação em andamento.', retry: true };
   }
+  var events;
+  try { // payload ilegível é recusa definitiva; o resto (Drive, cota, tempo) é transitório
+    events = JSON.parse(decodeSavePayload_(payload));
+  } catch (errParse) {
+    try { lock.releaseLock(); } catch (e3) { /* ignora */ }
+    return { success: false, retry: false, error: 'Payload inválido: ' + String(errParse && errParse.message != null ? errParse.message : errParse) };
+  }
+  if (!Array.isArray(events)) {
+    try { lock.releaseLock(); } catch (e4) { /* ignora */ }
+    return { success: false, retry: false, error: 'Payload inválido: esperado array de eventos.' };
+  }
   try {
-    var events = JSON.parse(decodeSavePayload_(payload));
-    if (!Array.isArray(events)) return { success: false, error: 'Payload inválido: esperado array de eventos.' };
     var byDay = {}, invalid = 0, i;
     for (i = 0; i < events.length; i++) {
       if (!trilhaValidEvent_(events[i])) { invalid++; continue; }
@@ -606,7 +624,7 @@ function appendActivity(payload) {
     });
     return { success: true, appended: appended, duplicates: duplicates, invalid: invalid };
   } catch (err) {
-    return { success: false, error: String(err && err.message != null ? err.message : err) };
+    return { success: false, retry: true, error: String(err && err.message != null ? err.message : err) };
   } finally {
     try { lock.releaseLock(); } catch (e2) { /* ignora */ }
   }
@@ -674,9 +692,11 @@ function moveToRelatorios_(id) {
 }
 
 function exportToGoogleDoc(payload) {
+  var docId = '';
   try {
     var spec = JSON.parse(decodeSavePayload_(payload));
     var doc = DocumentApp.create(String(spec.title || 'Relatório NEXUS'));
+    docId = doc.getId();
     var body = doc.getBody();
     var H = { h1: DocumentApp.ParagraphHeading.HEADING1, h2: DocumentApp.ParagraphHeading.HEADING2, h3: DocumentApp.ParagraphHeading.HEADING3 };
     (spec.blocks || []).forEach(function (b) {
@@ -695,17 +715,28 @@ function exportToGoogleDoc(payload) {
         var data = [b.header || []].concat(b.rows || []).map(function (r) {
           return r.map(function (c) { return String(c == null ? '' : c); });
         });
+        var MAX_ROWS = 1500; // célula a célula estoura o tempo em tabela grande
+        var cortada = data.length - 1 > MAX_ROWS;
+        if (cortada) data = data.slice(0, MAX_ROWS + 1);
         var table = body.appendTable(data);
         var mono = b.mono || [];
-        for (var r = 0; r < table.getNumRows(); r++) {
+        // formata só o cabeçalho e as colunas mono
+        var hrow = table.getRow(0);
+        for (var c = 0; c < hrow.getNumCells(); c++) {
+          var hc = hrow.getCell(c);
+          if (hc.getText()) hc.editAsText().setBold(true);
+          hc.setBackgroundColor('#EEEEEE');
+        }
+        for (var r = 1; r < table.getNumRows() && mono.length; r++) {
           var row = table.getRow(r);
-          for (var c = 0; c < row.getNumCells(); c++) {
-            var cell = row.getCell(c);
-            if (r === 0) { if (cell.getText()) cell.editAsText().setBold(true); cell.setBackgroundColor('#EEEEEE'); }
-            else if (mono.indexOf(c) >= 0 && cell.getText()) cell.editAsText().setFontFamily('Courier New');
+          for (var mi = 0; mi < mono.length; mi++) {
+            if (mono[mi] < 0 || mono[mi] >= row.getNumCells()) continue;
+            var cell = row.getCell(mono[mi]);
+            if (cell.getText()) cell.editAsText().setFontFamily('Courier New');
           }
         }
         if (b.widths) for (var w = 0; w < b.widths.length; w++) { if (b.widths[w]) table.setColumnWidth(w, b.widths[w]); }
+        if (cortada) body.appendParagraph('Tabela cortada em 1.500 linhas — a lista completa está na planilha.').setHeading(DocumentApp.ParagraphHeading.NORMAL).setItalic(true);
       } else if (b.type === 'pagebreak') {
         body.appendPageBreak();
       }
@@ -719,6 +750,7 @@ function exportToGoogleDoc(payload) {
     var file = moveToRelatorios_(doc.getId());
     return { success: true, url: file.getUrl(), id: file.getId() };
   } catch (err) {
+    if (docId) { try { DriveApp.getFileById(docId).setTrashed(true); } catch (e2) { /* ignora */ } } // não deixa Doc pela metade
     return { success: false, error: exportErrorMessage_(err) };
   }
 }
@@ -738,12 +770,11 @@ function exportToSpreadsheet(payload) {
         var out = [];
         for (var c = 0; c < ncols; c++) {
           var v = c < r.length && r[c] != null ? r[c] : '';
-          if (typeof v === 'string' && v.charAt(0) === '=') v = "'" + v; // texto, não fórmula
-          out.push(v);
+          out.push(v); // o intervalo vai em formato texto ('@'): sem fórmula e sem perder zeros; apóstrofo apareceria na célula
         }
         return out;
       });
-      sh.getRange(1, 1, values.length, ncols).setValues(values);
+      sh.getRange(1, 1, values.length, ncols).setNumberFormat('@').setValues(values); // texto: não perde zeros à esquerda
       sh.setFrozenRows(1);
       sh.getRange(1, 1, 1, ncols).setFontWeight('bold').setBackground('#EEEEEE');
       sh.getRange(1, 1, values.length, ncols).createFilter();

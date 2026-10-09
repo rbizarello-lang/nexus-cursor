@@ -91,7 +91,7 @@ function collectBaseRecords(input, frontOfExec, execByProc) {
   };
   const push = (r) => {
     const d = toDayKey(r.date);
-    if (!d) return;
+    if (!d && r.kind !== 'Constrição') return; // constrição sem data entra como "sem data"
     out.push({ teor: '', value: null, link: '', outcome: '', tipo: '', ...r, date: d, seq: out.length });
   };
 
@@ -177,10 +177,19 @@ function collectBaseRecords(input, frontOfExec, execByProc) {
   return out;
 }
 
+// Listas de entrada podem trazer buracos (null/undefined): descarta antes de usar.
+const _RB_LISTS = ['people', 'intimations', 'executions', 'assets', 'documents', 'hearings', 'debts', 'entries', 'measures', 'prescriptionEvents', 'changeLog'];
+function _rbClean(input) {
+  const out = { ...(input || {}) };
+  _RB_LISTS.forEach(k => { if (Array.isArray(out[k])) out[k] = out[k].filter(Boolean); });
+  return out;
+}
+
 const _rbTable = (header, rows, mono) => ({ type: 'table', header, rows, mono: mono || [] });
 
 /** Monta a Base do relatório. Ver o cabeçalho do arquivo. */
-export function buildBaseRelatorio(input, opts) {
+export function buildBaseRelatorio(input0, opts) {
+  const input = _rbClean(input0);
   const { op = {}, debts = [], executions = [], people = [], deps = {} } = input || {};
   const { EXEC_STATUSES = {} } = deps;
   const o = opts || {};
@@ -194,11 +203,12 @@ export function buildBaseRelatorio(input, opts) {
   const execByProc = new Map();
   executions.forEach(e => { const k = normProc(e.processNumber); if (k && !execByProc.has(k)) execByProc.set(k, e); });
   const all = collectBaseRecords(input, frontOfExec, execByProc)
-    .filter(r => r.date >= fromIso && r.date <= toIso)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));
+    .filter(r => !r.date || (r.date >= fromIso && r.date <= toIso)) // sem data: o período não se aplica
+    .sort((a, b) => (a.date === b.date ? a.seq - b.seq : !a.date ? 1 : !b.date ? -1 : a.date < b.date ? -1 : 1)); // sem data no fim
   const frontLabel = (k) => (k === BASE_GERAL ? BASE_GERAL_LABEL : BASE_FRONTS[k] || k);
   const recs = all.filter(r => r.front === BASE_GERAL || chosen.has(r.front));
-  const D = (r) => fmtDate(r.date);
+  const D = (r) => (r.date ? fmtDate(r.date) : 'sem data');
+  const dated = recs.filter(r => r.date); // seções 2 e 6 só com fatos datados
 
   const blocks = [];
   const name = _rbStr(op.name) || 'Operação';
@@ -238,7 +248,7 @@ export function buildBaseRelatorio(input, opts) {
   const frontKeys = [...allKeys.filter(k => chosen.has(k)), BASE_GERAL];
   const perFront = {};
   frontKeys.forEach(k => {
-    const list = recs.filter(r => r.front === k);
+    const list = dated.filter(r => r.front === k);
     perFront[k] = list.length;
     if (k === BASE_GERAL && !list.length) return;
     const ps = executions.filter(e => (frontOfExec[e.id] || 'efs') === k).map(e => maskCnjNumber(e.processNumber)).filter(Boolean);
@@ -273,7 +283,7 @@ export function buildBaseRelatorio(input, opts) {
   // 6. Cronologia completa (anexo)
   blocks.push({ type: 'pagebreak' });
   blocks.push({ type: 'h2', text: '6. Cronologia completa' });
-  const cronoRows = recs.map(r => [D(r), r.proc, frontLabel(r.front), r.kind, r.fact, r.teor, baseMoney(r.value), r.link, r.source]);
+  const cronoRows = dated.map(r => [D(r), r.proc, frontLabel(r.front), r.kind, r.fact, r.teor, baseMoney(r.value), r.link, r.source]);
   if (cronoRows.length) blocks.push(_rbTable(BASE_CRONO_HEADER, cronoRows, [1]));
   else blocks.push({ type: 'p', text: 'Nenhum registro no período.', italic: true });
 

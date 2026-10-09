@@ -507,3 +507,25 @@ describe('desempenho (banco fictício ≥ 20 MB)', () => {
     assert.ok(d < 300, `(d) ${d} ms`);
   });
 });
+
+describe('coalesceOutbox — conteúdo real (ida-e-volta)', () => {
+  const stEv = (from, to, ts) => run(
+    deepFreeze(withCol(base(), 'debts', [{ ...CDA, status: from }])),
+    deepFreeze(withCol(base(), 'debts', [{ ...CDA, status: to }])), { ts })[0];
+  it('valor longo A→B→C só com o final diferente não é apagado', () => {
+    const long = 'x'.repeat(300);
+    const a = stEv(long + 'A', long + 'B', '2026-10-08T15:00:00Z');
+    const b = stEv(long + 'B', long + 'C', '2026-10-08T15:01:00Z');
+    assert.equal(coalesceOutbox([a, b]).length, 1);
+  });
+  it('lista com o mesmo nº de itens mas conteúdo diferente não é apagada', () => {
+    const mk = (from, to, ts) => run(
+      deepFreeze(withCol(base(), 'executions', [{ ...EXEC, proactiveActions: from }])),
+      deepFreeze(withCol(base(), 'executions', [{ ...EXEC, proactiveActions: to }])), { ts })[0];
+    const x1 = [{ id: 'a1', summary: 'um' }], x2 = [{ id: 'a1', summary: 'dois' }], x3 = [{ id: 'a1', summary: 'três' }];
+    const out = coalesceOutbox([mk(x1, x2, '2026-10-08T15:00:00Z'), mk(x2, x3, '2026-10-08T15:01:00Z')]);
+    assert.equal(out.length, 1);
+    const back = coalesceOutbox([mk(x1, x2, '2026-10-08T15:00:00Z'), mk(x2, x1, '2026-10-08T15:01:00Z')]);
+    assert.equal(back.length, 0);
+  });
+});

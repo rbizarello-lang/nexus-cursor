@@ -3216,6 +3216,12 @@ const createActivityApi = (getData, setData) => {
       }
       return mergeEvents(remote, local, inDayRange(outbox, fromDay, toDay));
     },
+    /** Só cópia local + fila (sem consultar o servidor): para cartões que atualizam a cada edição. */
+    async listLocal(fromDay, toDay) {
+      const st = getActivityStore();
+      const [local, outbox] = await Promise.all([st.getLocal(fromDay, toDay), st.getOutbox()]);
+      return mergeEvents(local, inDayRange(outbox, fromDay, toDay));
+    },
     /** Evento completo (com `restore`): do próprio objeto, da cópia local ou do servidor. */
     async getFull(event) {
       if (event && event.restore && event.restore.items && event.restore.items.length) return event;
@@ -3267,17 +3273,25 @@ function App() {
   const setData = useCallback((u) => {
     try {
       const sc = activityScopes.current();
+      let tagLater = false;
       if (sc && !sc.batchLabel) {
         if (typeof u === 'function') {
           const orig = u;
+          tagLater = true; // só marca a origem se o atualizador de fato mudar o estado
           u = (prev) => {
             const nxt = orig(prev);
-            try { if (nxt !== prev) { if (!sc.keys) sc.keys = new Set(); for (const r of diffForActivity(prev, nxt)) sc.keys.add(r.col + '|' + r.id); } } catch (e) { sc.whole = true; }
+            try {
+              if (nxt !== prev) {
+                activityScopes.tagScope(sc);
+                if (!sc.keys) sc.keys = new Set();
+                for (const r of diffForActivity(prev, nxt)) sc.keys.add(r.col + '|' + r.id);
+              }
+            } catch (e) { sc.whole = true; }
             return nxt;
           };
         } else sc.whole = true; // valor direto (ex.: desfazer): o commit inteiro tem esta origem
       }
-      activityScopes.tag();
+      if (!tagLater) activityScopes.tag();
     } catch (e) { /* o registro nunca quebra o app */ }
     setDataRaw(u);
   }, []);
@@ -6152,6 +6166,12 @@ function App() {
       deps: { getStageRecords, resolveStageDef, isEfStylePanoramaCard, PROCESS_STAGES, CENTRAL_STAGES, getBriefingEntries, BRIEFING_ENTRY_TYPES, CX_HEARING, ASSET_STATUSES, EXEC_STATUSES, ASSET_SUBTYPES },
     }, { fromIso, toIso, periodLabel, fronts: Object.keys(BASE_FRONTS).filter(k => !off.includes(k)) });
   };
+  // Prévia da Base: só recalcula quando muda a operação, o período, as frentes ou os dados; erro vira aviso na janela.
+  const baseCounts = useMemo(() => {
+    if (!reportModalOp || reportModel !== 'base') return null;
+    try { return { bc: buildBaseFor(reportModalOp, reportPeriod, reportBase.off).counts }; }
+    catch (e) { console.error('base do relatório', e); return { err: String((e && e.message) || e) }; }
+  }, [reportModalOp, reportModel, reportPeriod, reportBase.off, data]); // eslint-disable-line react-hooks/exhaustive-deps
   const downloadBaseHtml = (op, period, off) => {
     const base = buildBaseFor(op, period, off);
     downloadBlob(new Blob([renderBaseHtml(base, new Date().toLocaleString('pt-BR'))], { type: 'text/html;charset=utf-8' }), reportFileName('base', op.name, new Date().toISOString().slice(0, 10)));
@@ -6207,7 +6227,11 @@ function App() {
     ];
     const isBase = reportModel === 'base';
     const baseOff = reportBase.off;
-    const bc = isBase ? buildBaseFor(op, reportPeriod, baseOff).counts : null;
+    const baseErr = isBase && baseCounts && baseCounts.err ? baseCounts.err : '';
+    const bc = !isBase ? null : (baseCounts && baseCounts.bc) || {
+      total: 0, geral: 0, sections: { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, s6: 0 },
+      fronts: Object.keys(BASE_FRONTS).map(k => ({ key: k, label: BASE_FRONTS[k], count: 0, processes: 0 })),
+    };
     const sectionChips = [
       ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
       ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
@@ -6269,6 +6293,7 @@ function App() {
           {isBase && (
             <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>Prévia do que entra</div>
+              {baseErr && <div style={{ fontSize: 12, color: 'var(--danger, #c0392b)' }}>Não foi possível montar a prévia: {baseErr}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {[[bc.total, 'registros'], [bc.sections.s1, 'processos'], [bc.sections.s4, 'constrições']].map(([n, l]) => (
                   <div key={l} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '8px 10px' }}>
@@ -14231,7 +14256,7 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
 
   // Converte entradas virtuais legadas em entradas reais, mantendo ids estáveis (legacy_*)
   const materialize = (list) => list.map(en => en._legacy
-    ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
+    ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', ...(typeof en.inReport === 'boolean' ? { inReport: en.inReport } : {}), createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
     : en);
   const persist = (list) => {
     upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } });
@@ -14247,7 +14272,7 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
       persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', ...(typeof x.inReport === 'boolean' ? { inReport: x.inReport } : {}), createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);

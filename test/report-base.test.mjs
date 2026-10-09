@@ -202,3 +202,23 @@ describe('buildBaseRelatorio', () => {
     assert.ok(csv.startsWith('﻿Data;Processo;Frente;Tipo;Fato;Teor/Resumo;Valor;Link;Fonte no app'));
   });
 });
+
+describe('buildBaseRelatorio — robustez e bem sem data', () => {
+  it('ignora buracos (null) nas listas de entrada', () => {
+    const i = input();
+    i.people.push(null); i.executions.push(undefined); i.intimations.push(null); i.assets.push(null);
+    i.documents.push(null); i.hearings.push(null); i.debts.push(null);
+    assert.doesNotThrow(() => buildBaseRelatorio(i, { fromIso: '2026-01-01', toIso: '2026-12-31' }));
+  });
+  it('constrição sem nenhuma data entra no quadro 4 e na aba Constrições como "sem data", no fim', () => {
+    const i = input();
+    i.assets.push({ id: 'a3', description: 'Conta sem data', subtype: 'outro', value: 5, status: 'indisponibilidade_ativa', holderId: 'p1', processRef: P.idpj });
+    const b = buildBaseRelatorio(i, { fromIso: '2026-01-01', toIso: '2026-12-31' });
+    const rows = b.sheets[1].rows;
+    assert.equal(rows[rows.length - 1][0], 'Conta sem data');
+    assert.equal(rows[rows.length - 1][3], 'sem data');
+    assert.equal(b.counts.sections.s4, rows.length);
+    assert.ok(!b.sheets[0].rows.some(r => r[4].includes('Conta sem data'))); // fora da cronologia
+  });
+});
+

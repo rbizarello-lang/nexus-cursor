@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createActivityStore, createScopeTracker, flushOutbox, getDeviceName, inDayRange, mergeEvents, pruneByAge, splitBatches } from '../src/lib/activity-store.js';
+import { pruneOutbox, createActivityStore, createScopeTracker, flushOutbox, getDeviceName, inDayRange, mergeEvents, pruneByAge, splitBatches } from '../src/lib/activity-store.js';
 
 const ev = (id, ts, extra) => ({ id, ts, day: ts.slice(0, 10), summary: id, restore: { items: [] }, ...(extra || {}) });
 
@@ -140,5 +140,39 @@ describe('armazenamento (memória) e envio', () => {
     await st.enqueue([velho, edit('n', new Date().toISOString(), 'y')]);
     await st.prune(45);
     assert.deepEqual((await st.getLocal()).map((e) => e.id), ['n']);
+  });
+});
+
+describe('fila: poda, remoção segura e escopo', () => {
+  it('pruneOutbox descarta por idade e por quantidade (mais antigos primeiro)', () => {
+    const now = Date.parse('2026-10-08T12:00:00Z');
+    const lista = [ev('velho', '2026-08-01T00:00:00Z'), ev('a', '2026-10-01T00:00:00Z'), ev('b', '2026-10-02T00:00:00Z'), ev('c', '2026-10-03T00:00:00Z')];
+    assert.deepEqual(pruneOutbox(lista, { nowMs: now }).keep.map((e) => e.id), ['a', 'b', 'c']);
+    assert.deepEqual(pruneOutbox(lista, { nowMs: now, maxEvents: 2 }).keep.map((e) => e.id), ['b', 'c']);
+    assert.deepEqual(pruneOutbox(lista, { nowMs: now, maxBytes: 1 }).keep.length, 0);
+  });
+  it('removeOutbox não apaga a versão coalescida durante o envio', async () => {
+    const st = createActivityStore({ forceMemory: true });
+    const e = (id, ts, to) => ({
+      v: 1, id, ts, day: ts.slice(0, 10), action: 'editar', source: 'manual', batch: null,
+      entity: { type: 'debts', id: 'c1', col: 'debts', label: 'x' }, changes: [{ f: 'status', from: 'ativa', to }], textChanges: [],
+      restore: { items: [{ col: 'debts', id: 'c1', before: { id: 'c1', status: 'ativa' }, after: { id: 'c1', status: to } }] },
+    });
+    await st.enqueue([e('a', '2026-10-08T10:00:00.000Z', 'suspensa')]);
+    const enviado = await st.getOutbox();
+    await st.enqueue([e('b', '2026-10-08T10:01:00.000Z', 'quitada')]); // coalesce no mesmo id 'a'
+    await st.removeOutbox(enviado);
+    const resto = await st.getOutbox();
+    assert.equal(resto.length, 1);
+    assert.equal(resto[0].changes[0].to, 'quitada');
+  });
+  it('tagScope fixa o escopo mesmo depois de fechado; sem tag, take é nulo', () => {
+    const t = createScopeTracker();
+    const end = t.begin({ source: 'automatico' });
+    const sc = end.scope;
+    assert.equal(t.take(), null);
+    end();
+    t.tagScope(sc);
+    assert.equal(t.take(), sc);
   });
 });

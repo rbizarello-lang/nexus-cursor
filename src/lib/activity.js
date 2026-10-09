@@ -750,7 +750,7 @@ export function coalesceOutbox(events, windowMs = 10 * 60 * 1000) {
       && ev.restore && ev.restore.items && ev.restore.items.length === 1 && ev.restore.items[0].before && ev.restore.items[0].after;
     const ek = ev && ev.entity ? ev.entity.type + '|' + ev.entity.id : '';
     if (!simple || !ek) { if (ek) open.delete(ek); out.push(ev); continue; }
-    const key = ev.source + '|' + ev.changes.map((x) => x.f).sort().join(',');
+    const key = ev.source + '|' + (ev.restore.items[0].path || '') + '|' + ev.changes.map((x) => x.f).sort().join(',');
     const cur = open.get(ek);
     const t = Date.parse(ev.ts);
     if (cur && cur.key === key && t - cur.last <= windowMs) {
@@ -772,8 +772,17 @@ export function coalesceOutbox(events, windowMs = 10 * 60 * 1000) {
     out.push(copy);
     open.set(ek, { key, ev: copy, last: t });
   }
-  // ida-e-volta: nenhum campo terminou diferente do começo
-  return out.filter((ev) => !(ev.coalesced && ev.changes.every((x) => (x.fromText != null ? x.fromText : x.from) === (x.toText != null ? x.toText : x.to))));
+  // ida-e-volta: o item terminou igual ao começo (compara o conteúdo real, não o texto abreviado)
+  return out.filter((ev) => {
+    if (!ev.coalesced) return true;
+    const it = ev.restore && ev.restore.items && ev.restore.items[0];
+    if (!it) return true;
+    const sem = (v) => { // briefing de operação só conta quando o item tem `path`
+      if (it.col === 'operations' && !it.path && v && typeof v === 'object' && 'briefing' in v) { const c = { ...v }; delete c.briefing; return c; }
+      return v;
+    };
+    return !deepEqual(sem(it.before), sem(it.after));
+  });
 }
 
 // ─── Restauração ────────────────────────────────────────────────────────────────────────────
@@ -863,7 +872,7 @@ export function planRestore(event, data, opts) {
       if (!cur) { conflict(it, lbl, 'o item não existe mais'); continue; }
       let next = null;
       let touched = false;
-      for (const d of diffFields(it.before, it.after)) {
+      for (const d of diffFields(it.before, it.after, it.col === 'operations' ? OP_SKIP : null)) { // briefing só por `path`
         if (only && !only.has(d.f)) continue;
         if (deepEqual(cur[d.f], d.from)) continue; // já está como antes
         if (!o.force && !deepEqual(cur[d.f], d.to)) { conflict(it, lbl, `campo "${d.f}" alterado depois do evento`); continue; }
@@ -874,6 +883,7 @@ export function planRestore(event, data, opts) {
       if (touched) { next.updatedAt = now; list[idx] = next; applied++; }
       continue;
     }
+    if (only) continue; // restaurar só um campo não mexe em itens criados/excluídos
     if (hasB) { // excluído → reinsere
       if (cur) continue;
       list.push(it.before);

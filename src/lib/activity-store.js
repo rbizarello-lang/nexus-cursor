@@ -10,6 +10,8 @@ import { coalesceOutbox } from './activity.js';
 
 export const ACTIVITY_DB = 'nexus_trilha';
 export const LOCAL_DAYS = 45;
+export const OUTBOX_MAX_EVENTS = 5000;
+export const OUTBOX_MAX_BYTES = 20 * 1024 * 1024;
 export const MAX_BATCH_BYTES = 4 * 1024 * 1024; // JSON antes do gzip
 
 // ─── Puras ──────────────────────────────────────────────────────────────────────────────────
@@ -34,6 +36,26 @@ export function splitBatches(events, maxBytes = MAX_BATCH_BYTES) {
 export function pruneByAge(events, days = LOCAL_DAYS, nowMs = Date.now()) {
   const min = nowMs - days * 86400000;
   return (events || []).filter((e) => { const t = Date.parse(e && e.ts); return !isNaN(t) && t >= min; });
+}
+
+/**
+ * Poda a fila de saída (cronológica): descarta o que passou de `days` dias (ts inválido fica) e, se ainda
+ * passar de `maxEvents` ou `maxBytes` de JSON, os mais antigos. Devolve `{ keep, dropped }`.
+ */
+export function pruneOutbox(events, opts) {
+  const o = opts || {};
+  const days = o.days != null ? o.days : LOCAL_DAYS;
+  const maxEvents = o.maxEvents != null ? o.maxEvents : OUTBOX_MAX_EVENTS;
+  const maxBytes = o.maxBytes != null ? o.maxBytes : OUTBOX_MAX_BYTES;
+  const min = (o.nowMs != null ? o.nowMs : Date.now()) - days * 86400000;
+  let keep = (events || []).filter((e) => { const t = Date.parse(e && e.ts); return isNaN(t) || t >= min; });
+  let bytes = 0;
+  const sizes = keep.map((e) => { const n = actEvLen(e) + 1; bytes += n; return n; });
+  let from = 0;
+  while (from < keep.length && (keep.length - from > maxEvents || bytes > maxBytes)) { bytes -= sizes[from]; from++; }
+  keep = keep.slice(from);
+  const ids = new Set(keep.map((e) => e.id));
+  return { keep, dropped: (events || []).filter((e) => !ids.has(e.id)) };
 }
 
 const actIsFull = (e) => !!(e && e.restore && e.restore.items && e.restore.items.length);
@@ -109,6 +131,8 @@ export function createScopeTracker() {
       return stack[0] || null;
     },
     tag() { if (this.current()) { if (!tagged) tagged = stack[0]; taggedAt = Date.now(); } },
+    /** Fixa um escopo já conhecido (o atualizador pode rodar depois de o escopo fechar). */
+    tagScope(scope) { if (scope) { if (!tagged) tagged = scope; taggedAt = Date.now(); } },
     /** Escopo fixado pelo último setData (some se passou de `maxAgeMs`: setData sem efeito não deixa resíduo). */
     take(maxAgeMs = 3000) {
       const t = tagged && Date.now() - taggedAt <= maxAgeMs ? tagged : null;
@@ -192,17 +216,33 @@ export function createActivityStore(opts) {
       const novos = (events || []).filter((e) => e && e.id);
       if (!novos.length) return;
       const antigos = await all('outbox');
-      const merged = coalesceOutbox([...antigos, ...novos].sort(actByTs));
+      const todos = [...antigos, ...novos].sort(actByTs);
+      const { keep: merged, dropped } = pruneOutbox(coalesceOutbox(todos));
+      if (dropped.length) console.warn('trilha: fila de envio podada (' + dropped.length + ' eventos antigos descartados)');
       const keep = new Set(merged.map((e) => e.id));
-      const gone = [...antigos, ...novos].map((e) => e.id).filter((id) => !keep.has(id));
-      await write('outbox', merged, gone);
-      await write('local', merged, gone);
+      const gone = [...new Set(todos.map((e) => e.id))].filter((id) => !keep.has(id));
+      // grava só o que é novo ou mudou (coalescido); o resto já está no outbox e na cópia local
+      const velho = new Map(antigos.map((e) => [e.id, e]));
+      const mudou = merged.filter((e) => { const v = velho.get(e.id); return !v || v.ts !== e.ts || (v.coalesced || 0) !== (e.coalesced || 0); });
+      await write('outbox', mudou, gone);
+      await write('local', mudou, gone);
       pending = merged.length;
     }),
-    /** Remove do outbox os ids já enviados. */
-    removeOutbox: (ids) => run(async () => {
+    /**
+     * Remove do outbox o que foi enviado. Aceita ids ou eventos; evento só sai se ainda for idêntico
+     * (`ts` e `coalesced`) — se foi coalescido durante o envio, a versão nova fica para o próximo ciclo.
+     */
+    removeOutbox: (sent) => run(async () => {
+      const cur = new Map((await all('outbox')).map((e) => [e.id, e]));
+      const ids = [];
+      for (const x of sent || []) {
+        if (x && typeof x === 'object') {
+          const c = cur.get(x.id);
+          if (c && c.ts === x.ts && (c.coalesced || 0) === (x.coalesced || 0)) ids.push(x.id);
+        } else ids.push(x);
+      }
       await write('outbox', [], ids);
-      pending = (await all('outbox')).length;
+      pending = cur.size - ids.filter((id) => cur.has(id)).length;
     }),
     /** Cópia local no intervalo de dias. */
     getLocal: (fromDay, toDay) => run(async () => inDayRange(await all('local'), fromDay, toDay)),
@@ -213,6 +253,9 @@ export function createActivityStore(opts) {
       const keep = new Set(pruneByAge(list, days).map((e) => e.id));
       const gone = list.map((e) => e.id).filter((id) => !keep.has(id));
       if (gone.length) await write('local', [], gone);
+      const ob = await all('outbox');
+      const { dropped } = pruneOutbox(ob.sort(actByTs), { days });
+      if (dropped.length) { await write('outbox', [], dropped.map((e) => e.id)); pending = ob.length - dropped.length; }
     }),
     /** Carrega a contagem de pendentes (uma vez, na abertura). */
     init: () => run(async () => { pending = (await all('outbox')).length; return pending; }),
@@ -237,7 +280,7 @@ export async function flushOutbox(store, send, maxBytes = MAX_BATCH_BYTES) {
       let r = null;
       try { r = await send(batch); } catch (e) { r = null; }
       if (r && r.success) {
-        await store.removeOutbox(batch.map((e) => e.id));
+        await store.removeOutbox(batch);
         sent += batch.length;
         continue;
       }
@@ -249,8 +292,8 @@ export async function flushOutbox(store, send, maxBytes = MAX_BATCH_BYTES) {
       for (const ev of batch) {
         let r1 = null;
         try { r1 = await send([ev]); } catch (e) { r1 = null; }
-        if (r1 && r1.success) { await store.removeOutbox([ev.id]); sent++; }
-        else if (r1 && !r1.retry) { console.warn('trilha: evento recusado pelo servidor', ev.id, r1.error); await store.removeOutbox([ev.id]); }
+        if (r1 && r1.success) { await store.removeOutbox([ev]); sent++; }
+        else if (r1 && !r1.retry) { console.warn('trilha: evento recusado pelo servidor', ev.id, r1.error); await store.removeOutbox([ev]); }
         else { stop = true; break; }
       }
       if (stop) break;

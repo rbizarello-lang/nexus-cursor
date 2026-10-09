@@ -178,3 +178,25 @@ describe('mergeRaw — vários commits de um lote', () => {
     assert.deepEqual(mergeRaw([...diffForActivity(s0, s1), ...diffForActivity(s1, s2)]), []);
   });
 });
+
+describe('planRestore — briefing e itens criados/excluídos', () => {
+  it('restaurar alteração do nome da operação não desfaz o diário', () => {
+    const p = base();
+    const n = { ...p, operations: [{ ...OP, name: 'Novo nome' }] };
+    const [ev] = events(p, n);
+    const e0 = deepFreeze({ ...OP, name: 'Novo nome', briefing: { entries: [{ id: 'e1', type: 'observacao', html: 'x' }], processStageV2: {} } });
+    const atual = deepFreeze({ ...n, operations: [e0] });
+    const r = planRestore(ev, atual);
+    assert.equal(r.data.operations[0].name, OP.name);
+    assert.equal(r.data.operations[0].briefing.entries.length, 1);
+  });
+  it('restaurar só um campo não remove/reinsere itens do mesmo evento', () => {
+    const p = base();
+    const n = { ...p, debts: [{ ...CDA, status: 'quitada' }, { id: 'cda2', operationId: 'op1', cdaNumber: '2', status: 'ativa' }] };
+    const evs = events(p, n);
+    const ev = { ...evs[0], restore: { items: evs.flatMap((e) => e.restore.items) } };
+    const r = planRestore(ev, n, { only: [{ col: 'debts', id: 'cda1', field: 'status' }] });
+    assert.equal(r.data.debts.find((d) => d.id === 'cda1').status, 'ativa');
+    assert.ok(r.data.debts.some((d) => d.id === 'cda2')); // criado no mesmo evento: permanece
+  });
+});

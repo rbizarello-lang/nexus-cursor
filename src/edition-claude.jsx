@@ -920,7 +920,7 @@ function EditionClaudeHoje(p) {
     let dead = false;
     const t = setTimeout(() => {
       const day = dayKey(new Date());
-      p.activity.list(day, day).then(r => { if (!dead) setTrail((r || []).filter(e => !e.minor && e.kind !== 'sistema').sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 5)); }).catch(() => { if (!dead) setTrail([]); });
+      (p.activity.listLocal || p.activity.list)(day, day).then(r => { if (!dead) setTrail((r || []).filter(e => !e.minor && e.kind !== 'sistema').sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 5)); }).catch(() => { if (!dead) setTrail([]); });
     }, 1200);
     return () => { dead = true; clearTimeout(t); };
   }, [p.activity, data.changeLog]);
