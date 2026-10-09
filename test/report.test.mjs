@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  diaryEntryInReport,
   escHtml,
   safeUrl,
   sanitizeReportHtml,
@@ -299,5 +300,19 @@ describe('relatório: HTML seguro', () => {
     assert.equal(safeUrl(' data:text/html,x'), '');
     assert.equal(safeUrl('https://drive.google.com/x'), 'https://drive.google.com/x');
     assert.equal(escHtml('a"b\'c<'), 'a&quot;b&#39;c&lt;');
+  });
+});
+
+describe('diaryEntryInReport', () => {
+  it('usa inReport quando definido', () => {
+    assert.equal(diaryEntryInReport({ type: 'decisao', inReport: false }), false);
+    assert.equal(diaryEntryInReport({ type: 'observacao', inReport: true }), true);
+  });
+  it('entradas antigas: decisão judicial e providência contam; demais não', () => {
+    assert.equal(diaryEntryInReport({ type: 'decisao' }), true);
+    assert.equal(diaryEntryInReport({ type: 'providencia' }), true);
+    assert.equal(diaryEntryInReport({ type: 'risco' }), false);
+    assert.equal(diaryEntryInReport({}), false);
+    assert.equal(diaryEntryInReport(null), false);
   });
 });

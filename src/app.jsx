@@ -27,6 +27,10 @@ import {
   sanitizeImportedExecutionNotes,
   splitOtherProcGroups,
 } from './lib/processes.js';
+import { diffForActivity, interpretActivity, mergeRaw, planRestore, systemEvent } from './lib/activity.js';
+import {
+  createActivityStore, createScopeTracker, flushOutbox, getDeviceName, inDayRange, mergeEvents, newTabId, setDeviceName,
+} from './lib/activity-store.js';
 
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -3124,8 +3128,175 @@ const PersonProfileCard = React.memo(function PersonProfileCard({ s, data, allLi
   </div>);
 });
 
+// ─── Registro de trabalho ("Minha atividade"): captura, origem, fila de envio, restauração ───
+// Rótulos legíveis dos status (formato esperado por interpretActivity: labels.status[coleção][valor]).
+const ACTIVITY_LABELS = {
+  status: {
+    debts: DEBT_STATUSES, executions: EXEC_STATUSES, assets: ASSET_STATUSES,
+    intimations: { ...INTIM_STATUS_LEGACY, ...INTIM_STATUSES }, tasks: TASK_STATUSES,
+    watchlist: WATCH_STATUSES, hearings: AUDIENCIA_STATUSES,
+  },
+};
+const ACTIVITY_TAB = newTabId(); // evita colisão de ids entre abas da mesma máquina
+let _activityDevice = null;
+const activityDevice = () => _activityDevice || (_activityDevice = getDeviceName());
+let _activityStore = null;
+const getActivityStore = () => {
+  if (!_activityStore) {
+    _activityStore = createActivityStore();
+    _activityStore.init().then(() => _activityStore.prune()).catch((e) => console.error('trilha: init', e));
+  }
+  return _activityStore;
+};
+const activityEmit = (events) => {
+  if (!events || !events.length) return;
+  getActivityStore().enqueue(events).catch((e) => console.error('trilha: enfileirar', e));
+};
+const activityCtx = (extra) => ({ ts: Date.now(), device: activityDevice(), tab: ACTIVITY_TAB, labels: ACTIVITY_LABELS, ...(extra || {}) });
+// Lote (importação/restauração em bloco): acumula os diffs de vários commits e emite um evento só.
+const activityFinalize = (scope) => {
+  if (!scope || scope.done) return;
+  scope.done = true;
+  try {
+    const raw = mergeRaw(scope.acc);
+    scope.acc = [];
+    if (!raw.length) return;
+    activityEmit(interpretActivity(raw, activityCtx({
+      source: scope.source, batchLabel: scope.batchLabel, batchId: scope.batchId, batchNoun: scope.batchNoun,
+      compared: scope.compared, next: scope.next,
+    })));
+  } catch (e) { console.error('trilha: lote', e); }
+};
+const activityScopes = createScopeTracker();
+/**
+ * Abre um escopo de origem: tudo que mudar nos dados enquanto estiver aberto (inclusive depois de await)
+ * recebe esta origem. Devolve `end()` (use em finally); `end.set({compared})` atualiza o total lido.
+ * Com `batchLabel` vira um evento único de lote. Escopos aninhados: o mais externo vale.
+ */
+const beginActivity = (opts) => activityScopes.begin(opts, (scope) => {
+  if (!scope.batchLabel) return;
+  // o último commit pode ainda não ter passado pelo efeito de captura (que também fecha o lote ao ver o escopo encerrado)
+  setTimeout(() => activityFinalize(scope), 1500);
+});
+const activityGas = () => (typeof google !== 'undefined' && google.script && google.script.run ? google.script.run : null);
+const gasCall = (name, ...args) => new Promise((resolve, reject) => {
+  const run = activityGas();
+  if (!run) { reject(new Error('Disponível só no app publicado.')); return; }
+  try {
+    run.withSuccessHandler(resolve).withFailureHandler((e) => reject(new Error((e && e.message) || String(e)))) [name](...args);
+  } catch (e) { reject(e); }
+});
+const encodeActivityPayload = (obj) => 'GZB64:' + btoa(bytesToBinaryString(pako.gzip(JSON.stringify(obj))));
+const decodeActivityPayload = (payload) => {
+  const b64 = String(payload || '').replace(/^GZB64:/, '');
+  return JSON.parse(pako.ungzip(binaryStringToBytes(atob(b64)), { to: 'string' }));
+};
+const sendActivityBatch = async (batch) => {
+  try { return await gasCall('appendActivity', encodeActivityPayload(batch)); }
+  catch (e) { console.error('trilha: envio', e); return null; }
+};
+
+
+/**
+ * API do registro para as telas (Minha atividade, Hoje, relatório). Objeto estável; lê o estado atual por `getData`.
+ * Métodos assíncronos: list, getFull, previewRestore, restore, exportDoc, exportSheet, flush.
+ */
+const createActivityApi = (getData, setData) => {
+  const api = {
+    /** Eventos do período (AAAA-MM-DD): servidor (leve, só no app publicado) + cópia local + fila, sem duplicar, mais novo primeiro. */
+    async list(fromDay, toDay) {
+      const st = getActivityStore();
+      const [local, outbox] = await Promise.all([st.getLocal(fromDay, toDay), st.getOutbox()]);
+      let remote = [];
+      if (activityGas()) {
+        try {
+          const r = await gasCall('loadActivity', fromDay, toDay, true);
+          if (r && r.success && r.payload) remote = decodeActivityPayload(r.payload);
+        } catch (e) { console.error('trilha: loadActivity', e); }
+      }
+      return mergeEvents(remote, local, inDayRange(outbox, fromDay, toDay));
+    },
+    /** Só cópia local + fila (sem consultar o servidor): para cartões que atualizam a cada edição. */
+    async listLocal(fromDay, toDay) {
+      const st = getActivityStore();
+      const [local, outbox] = await Promise.all([st.getLocal(fromDay, toDay), st.getOutbox()]);
+      return mergeEvents(local, inDayRange(outbox, fromDay, toDay));
+    },
+    /** Evento completo (com `restore`): do próprio objeto, da cópia local ou do servidor. */
+    async getFull(event) {
+      if (event && event.restore && event.restore.items && event.restore.items.length) return event;
+      const loc = await getActivityStore().getLocalById(event.id);
+      if (loc) return loc;
+      if (!activityGas()) return event;
+      const r = await gasCall('loadActivityEvent', event.day, event.id);
+      if (r && r.success && r.event) return r.event;
+      throw new Error((r && r.error) || 'Evento não encontrado.');
+    },
+    /** Simula a restauração no estado atual: `{ applied, conflicts }`. opts: { force, only:[{col,id,field?}] }. */
+    async previewRestore(event, opts) {
+      const full = await api.getFull(event);
+      const r = planRestore(full, getData(), opts);
+      return { applied: r.applied, conflicts: r.conflicts };
+    },
+    /** Aplica a restauração (vira novo evento com origem "restauração"). Devolve `{ applied, conflicts }`. */
+    async restore(event, opts) {
+      const full = await api.getFull(event);
+      const plan = planRestore(full, getData(), opts);
+      if (plan.applied > 0) {
+        const imp = full.batch && full.batch.label;
+        const end = beginActivity({ source: 'restauracao', ...(imp ? { batchLabel: 'da importação ' + imp } : {}) });
+        try { setData((prev) => planRestore(full, prev, opts).data); } finally { end(); }
+      }
+      return { applied: plan.applied, conflicts: plan.conflicts };
+    },
+    async _export(fn, payload) {
+      if (!activityGas()) throw new Error('Disponível só no app publicado.');
+      const r = await gasCall(fn, typeof payload === 'string' ? payload : JSON.stringify(payload));
+      if (!r || !r.success) throw new Error((r && r.error) || 'Falha ao exportar.');
+      return { url: r.url };
+    },
+    exportDoc(payload) { return api._export('exportToGoogleDoc', payload); },
+    exportSheet(payload) { return api._export('exportToSpreadsheet', payload); },
+    /** Envia a fila agora (só no app publicado). */
+    flush() { return activityGas() ? flushOutbox(getActivityStore(), sendActivityBatch) : Promise.resolve({ sent: 0, left: getActivityStore().pendingCount() }); },
+    pendingCount() { return getActivityStore().pendingCount(); },
+    get device() { return activityDevice(); },
+    setDevice(name) { _activityDevice = setDeviceName(name) || getDeviceName(); return _activityDevice; },
+  };
+  return api;
+};
+
 function App() {
-  const [data, setData] = useState(loadData);
+  const [data, setDataRaw] = useState(loadData);
+  // Todo setData passa por aqui: fixa a origem (escopo de atividade) vigente no momento da chamada.
+  // Escopo de origem não-lote: guarda quais itens o atualizador mexeu (col|id), para não rotular de "automático" a edição manual do mesmo commit.
+  const setData = useCallback((u) => {
+    try {
+      const sc = activityScopes.current();
+      let tagLater = false;
+      if (sc && !sc.batchLabel) {
+        if (typeof u === 'function') {
+          const orig = u;
+          tagLater = true; // só marca a origem se o atualizador de fato mudar o estado
+          u = (prev) => {
+            const nxt = orig(prev);
+            try {
+              if (nxt !== prev) {
+                activityScopes.tagScope(sc);
+                if (!sc.keys) sc.keys = new Set();
+                for (const r of diffForActivity(prev, nxt)) sc.keys.add(r.col + '|' + r.id);
+              }
+            } catch (e) { sc.whole = true; }
+            return nxt;
+          };
+        } else sc.whole = true; // valor direto (ex.: desfazer): o commit inteiro tem esta origem
+      }
+      if (!tagLater) activityScopes.tag();
+    } catch (e) { /* o registro nunca quebra o app */ }
+    setDataRaw(u);
+  }, []);
+  // Atualização automática (propagações, correções do diagnóstico): mesma coisa, com origem "automático".
+  const setDataAuto = (u) => { const end = beginActivity({ source: 'automatico' }); try { setData(u); } finally { end(); } };
   const [activeOpId, setActiveOpId] = useState(null);
   const [search, setSearch] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('nexus_sidebar_collapsed') === '1'; } catch { return false; } });
@@ -3138,6 +3309,8 @@ function App() {
   const [reportSections, setReportSectionsS] = useState(() => defaultReportSections());
   const setReportSections = (patch) => setReportSectionsS(prev => ({ ...prev, ...patch }));
   const [reportPeriod, setReportPeriod] = useState({ from: '', to: '', wholeOp: true });
+  // Base do relatório: frentes desmarcadas, envio em andamento e resultado (links ou erro)
+  const [reportBase, setReportBase] = useState({ off: [], busy: '', err: '', links: [] });
   const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
   const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
@@ -3296,7 +3469,9 @@ function App() {
   };
   const doUndo = () => {
     if (!undoRef.current) return;
-    setData(undoRef.current.snapshot);
+    const undoLabel = String(undoRef.current.label || '');
+    const endAct = beginActivity({ source: 'desfazer', ...(/import/i.test(undoLabel) ? { batchLabel: undoLabel } : {}) });
+    try { setData(undoRef.current.snapshot); } finally { endAct(); }
     undoRef.current = null;
     setUndoToast(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
@@ -3362,8 +3537,42 @@ function App() {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     persistLocal(latestDataRef.current);
   };
+  // Registro de trabalho: estado anterior para o diff e sinalização de "estado inteiro substituído".
+  const activityPrevRef = useRef(data);
+  const stateReplacedRef = useRef(null);
+  const markStateReplaced = (motivo) => { stateReplacedRef.current = motivo || 'Dados substituídos por inteiro'; };
+  const captureActivity = (next) => {
+    try {
+      const prev = activityPrevRef.current;
+      activityPrevRef.current = next;
+      const scope = activityScopes.take();
+      const replaced = stateReplacedRef.current;
+      if (replaced) { // carga/pull/importação de JSON/reset demo: um evento de sistema, sem diff
+        stateReplacedRef.current = null;
+        if (prev !== next) activityEmit([systemEvent(replaced, activityCtx())]);
+        return;
+      }
+      if (!hydratedRef.current || !prev || prev === next) return; // hidratação inicial: só atualiza o anterior
+      const raw = diffForActivity(prev, next);
+      if (!raw.length) return;
+      if (scope && scope.batchLabel) { // lote: acumula e emite um evento só ao encerrar
+        scope.acc.push(...raw);
+        scope.next = next;
+        if (scope.ended) activityFinalize(scope);
+        return;
+      }
+      let mine = [], rest = raw;
+      if (scope) {
+        if (scope.whole || !scope.keys) { mine = raw; rest = []; }
+        else { mine = raw.filter((r) => scope.keys.has(r.col + '|' + r.id)); rest = raw.filter((r) => !scope.keys.has(r.col + '|' + r.id)); }
+      }
+      if (mine.length) activityEmit(interpretActivity(mine, activityCtx({ source: scope.source, compared: scope.compared, next })));
+      if (rest.length) activityEmit(interpretActivity(rest, activityCtx({ source: 'manual', next })));
+    } catch (e) { console.error('trilha: captura', e); }
+  };
   useEffect(() => {
     latestDataRef.current = data;
+    captureActivity(data);
     if (!hydratedRef.current) {
       persistLocal(data);        // primeira hidratação (ou pós-pull da nuvem): save imediato, não marca dirty
       hydratedRef.current = true;
@@ -3386,6 +3595,28 @@ function App() {
     return () => { window.removeEventListener('beforeunload', onHide); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
+  // API do registro de trabalho (estável) + envio da fila: a cada 60 s, ao ocultar a aba e ao fechar.
+  const activityDataRef = useRef(data);
+  activityDataRef.current = data;
+  const activityApiRef = useRef(null);
+  if (!activityApiRef.current) activityApiRef.current = createActivityApi(() => activityDataRef.current, setData);
+  const activityApi = activityApiRef.current;
+  const [activityDeviceName, setActivityDeviceName] = useState(() => activityDevice());
+  useEffect(() => {
+    window.nexusActivity = activityApi; // também acessível fora da árvore React (telas, console)
+    const st = getActivityStore();
+    const flush = () => {
+      try { if (activityGas() && st.pendingCount() > 0) flushOutbox(st, sendActivityBatch).catch((e) => console.error('trilha: flush', e)); }
+      catch (e) { console.error('trilha: flush', e); }
+    };
+    const first = setTimeout(flush, 4000); // sobras da sessão anterior
+    const iv = setInterval(() => { if (navigator.onLine !== false) flush(); }, 60000);
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('beforeunload', flush);
+    return () => { clearTimeout(first); clearInterval(iv); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('beforeunload', flush); };
+  }, []);
+
   // Global search shortcut (Ctrl+K)
   useEffect(() => {
     const handler = (e) => {
@@ -3404,7 +3635,14 @@ function App() {
   useEffect(() => { setShowSettings(false); setBetaMaisOpen(false); }, [viewMode]);
 
   // ─── SIDA / DEBCAD PDF IMPORT (complement only — never overwrites) ───
+  // Registro de trabalho: o import inteiro (SIDA/Debcad) vira um evento de lote.
   const handlePGFNPDFImport = async (e) => {
+    const names = Array.from((e.target && e.target.files) || []).map(f => f.name);
+    const hasS = names.some(n => /sida/i.test(n)), hasD = names.some(n => /debcad/i.test(n));
+    const endAct = beginActivity({ source: 'importacao', batchLabel: hasS && hasD ? 'SIDA + Debcad' : hasS ? 'SIDA' : hasD ? 'Debcad' : 'PDF PGFN', batchNoun: { s: 'CDA', p: 'CDAs', f: true } });
+    try { return await handlePGFNPDFImportInner(e, endAct); } finally { endAct(); }
+  };
+  const handlePGFNPDFImportInner = async (e, endAct) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeOpId) { if (!activeOpId) alert('Selecione uma operação primeiro.'); return; }
     const logs = [];
@@ -3422,6 +3660,7 @@ function App() {
         }
 
         const records = isSIDA ? await parseSIDAPDF(file) : await parseDebcadPDF(file);
+        endAct.set({ compared: (endAct.scope.compared || 0) + (records || []).length });
         if (!isSIDA) {
           for (const rec of records) {
             const histCount = (rec.history || []).filter(h => h.code !== '999').length;
@@ -3589,7 +3828,7 @@ function App() {
 
           if (touched) {
             merged.updatedAt = new Date().toISOString();
-            upsert('debts', merged);
+            upsert('debts', merged, { source: 'importacao' });
             cdaUpdated++;
           }
 
@@ -3604,7 +3843,7 @@ function App() {
                 logs.push(`  ⚠️ CDA ${rec.cdaNumber}: ajuizamento diverge — Nexus ${fmtDate(linkedExec.protocolDate)}, Debcad ${fmtDate(rec.protocolDate)}. Mantido o do Nexus; conferir nos autos.`);
               }
               if (rec.juizo && !linkedExec.court) { mergedExec.court = rec.juizo; execTouched = true; }
-              if (execTouched) upsert('executions', mergedExec);
+              if (execTouched) upsert('executions', mergedExec, { source: 'importacao' });
             }
           }
 
@@ -3970,6 +4209,8 @@ function App() {
   const handleEprocImport = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'eproc', batchNoun: { s: 'intimação', p: 'intimações', f: true } });
+    let readCount = 0;
     const logs = [];
     let newCount = 0, updCount = 0, unlinkedCount = 0;
     const processFile = (file) => new Promise((resolve) => {
@@ -3978,6 +4219,7 @@ function App() {
         try {
           const wb = XLSX.read(ev.target.result, { type: 'binary' });
           const res = parseEprocXLS(wb);
+          readCount += res.intimations.length;
           logs.push(`📬 ${file.name}: ${res.intimations.length} intimação(ões) [${res.fileType}]`);
           res.errors.forEach(err => logs.push(`⚠️ ${err}`));
           res.intimations.forEach(intim => {
@@ -4016,7 +4258,7 @@ function App() {
                   merged._importFlag = 'updated';
                   merged._importFlagAt = new Date().toISOString();
                 }
-                upsert('intimations', merged, { keepImportFlag: true });
+                upsert('intimations', merged, { keepImportFlag: true, source: 'importacao' });
                 updCount++;
                 logs.push(`🔄 Atualizado: ${intim.processNumber} (${significantChange ? 'datas/prazo alterados' : 'dados complementares'})`);
               } else {
@@ -4038,7 +4280,7 @@ function App() {
                 unlinkedCount++;
                 logs.push(`◌ Sem vínculo: ${intim.processNumber} não consta em nenhuma operação`);
               }
-              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true });
+              upsert('intimations', { ...intim, id: uid(), _importFlag: 'new', _importFlagAt: new Date().toISOString() }, { keepImportFlag: true, source: 'importacao' });
               newCount++;
               if (!toDayKey(intim.dateDeadline)) logs.push(`⚠️ Sem prazo final: ${intim.processNumber} — não entra na agenda/e-mail até preencher Final Prazo`);
             }
@@ -4049,6 +4291,7 @@ function App() {
       reader.readAsBinaryString(file);
     });
     Promise.all(files.map(processFile)).then(() => {
+      endAct.set({ compared: readCount });
       logs.push(`\n📊 ${newCount} nova(s) · ${updCount} atualizada(s)`);
       if (unlinkedCount > 0) logs.push(`⚠️ ${unlinkedCount} intimação(ões) ficaram SEM operação — o processo não consta em nenhuma operação cadastrada. Vincule manualmente ao editar, se for o caso.`);
       logImport('eproc', {
@@ -4057,7 +4300,7 @@ function App() {
         counts: { new: newCount, updated: updCount }
       });
       setImportResult(logs);
-    });
+    }).finally(() => endAct());
     e.target.value = '';
   };
 
@@ -4251,6 +4494,7 @@ function App() {
                 setData(prev => {
                   // Only load from cloud if local is empty
                   if (!prev.operations || prev.operations.length === 0) {
+                    markStateReplaced('Dados carregados da nuvem');
                     return applyMigrations(parsed);
                   }
                   return prev;
@@ -4315,11 +4559,18 @@ function App() {
           dirtyRef.current = false;
         })
         .withFailureHandler((err) => {
-          setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + err.message);
+          console.error('saveNexusData', err);
+          setCloudStatus('error'); setCloudMsg('Erro ao salvar: ' + ((err && err.message) || String(err) || 'falha de comunicação com o Google'));
         })
         .saveNexusData((() => {
           try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
-          return JSON.stringify(data);
+          const json = JSON.stringify(data);
+          // Envia em gzip+base64: o JSON cru passou de 20 MB e o google.script.run
+          // passou a recusar com 400. O servidor descompacta e grava o JSON legível.
+          if (typeof pako !== 'undefined' && pako.gzip) {
+            try { return 'GZB64:' + btoa(bytesToBinaryString(pako.gzip(json))); } catch (e) { console.error('gzip payload', e); }
+          }
+          return json;
         })(), lastPushRevRef.current, !!opts._force);
       return;
     }
@@ -4371,6 +4622,7 @@ function App() {
           try {
             const parsed = JSON.parse(raw);
             if (parsed.operations) {
+              markStateReplaced('Dados carregados da nuvem');
               setData(applyMigrations(parsed));
               setActiveOpId(null);
               const now = new Date().toLocaleString('pt-BR');
@@ -4422,6 +4674,7 @@ function App() {
           try {
             const parsed = JSON.parse(raw);
             if (parsed.operations && confirm(`Carregar dados da nuvem? (${parsed.operations.length} operações)\nSubstituirá dados locais.`)) {
+              markStateReplaced('Dados carregados da nuvem');
               setData(applyMigrations(parsed)); setActiveOpId(null);
               const now = new Date().toLocaleString('pt-BR');
               setCloudStatus('connected'); setCloudMsg('Carregado ✓');
@@ -4497,18 +4750,9 @@ function App() {
       const idx = list.findIndex(e => e.id === entity.id);
       const now = new Date().toISOString();
       // ─── CHANGE LOG: diffa campos auditáveis em edições (não em criações) ───
-      let logEntries = [];
-      if (idx >= 0 && AUDIT_FIELDS[col]) {
-        const before = list[idx];
-        AUDIT_FIELDS[col].forEach(f => {
-          if (!(f in entity)) return; // campo não tocado neste save
-          const a = before[f], b = entity[f];
-          const norm = (v) => Array.isArray(v) ? v.join(',') : (v === undefined || v === null ? '' : String(v));
-          if (norm(a) !== norm(b)) {
-            logEntries.push({ id: uid(), date: now, col, entityId: entity.id, ref: _entityRef(col, { ...before, ...entity }), operationId: entity.operationId || before.operationId || '', field: f, from: norm(a) || '(vazio)', to: norm(b) || '(vazio)' });
-          }
-        });
-      }
+      const logEntries = (idx >= 0 && AUDIT_FIELDS[col])
+        ? buildChangeLogEntries({ col, before: list[idx], entity, now, source: opts && opts.source, auditFields: AUDIT_FIELDS[col], refFn: _entityRef, uid })
+        : [];
       // Tarefas: completedAt acompanha a situação (concluir grava, reabrir limpa) — vale para todo caminho que salva tarefa.
       let toSave = col === 'tasks' ? applyTaskCompletion(idx >= 0 ? list[idx] : null, entity, now) : entity;
       // Marcador Novo/Atualizada: sai em qualquer edição de verdade. Abrir e só consultar não grava.
@@ -4715,14 +4959,18 @@ function App() {
   };
 
   // Mark intimação as responded — creates Doc entry if peticionamento, then archives intimação
-  const handleRespondIntim = (intim, action) => {
-    // action: { type: 'peticionamento'|'ciencia'|'outra', description, peticionType?, peticionUrl?, docUrl? }
+  const handleRespondIntim = (intim, actionIn) => {
+    // actionIn: { type: 'peticionamento'|'ciencia'|'outra', description, peticionType?, peticionUrl?, docUrl?, decisionSummary? }
+    // O teor da decisão vai para a intimação (decisionSummary), não para responseAction.
+    const { decisionSummary: _teorForm, ...action } = actionIn;
+    const newTeor = decisionSummaryFromAction(intim, actionIn);
     const now = new Date().toISOString();
     const respondedIntim = {
       ...intim,
       responseAction: { ...action, respondedAt: now },
       updatedAt: now
     };
+    if (newTeor !== undefined) respondedIntim.decisionSummary = newTeor;
     // Clear import flag — intimation has been treated
     respondedIntim._importFlag = null;
     respondedIntim._importFlagAt = null;
@@ -4883,7 +5131,7 @@ function App() {
       const now = new Date().toISOString();
       const statusLabel = EXEC_STATUSES[newStatus]?.label || newStatus;
       // Always register a systemAlert on each linked CDA (automatic, cannot be dismissed individually)
-      setData(prev => ({
+      setDataAuto(prev => ({
         ...prev,
         debts: prev.debts.map(d => {
           if (!linkedCdas.some(l => l.id === d.id)) return d;
@@ -4915,7 +5163,7 @@ function App() {
           setTimeout(() => {
             const msg = `O processo ${exec.processNumber || ''} foi marcado como ${statusLabel.toLowerCase()}.\n\n${linkedCdas.length} CDA(s) estão vinculadas a este processo. Um aviso automático foi adicionado a cada uma delas.\n\nDeseja também marcar essas ${linkedCdas.length} CDA(s) como ${newStatus === 'extinta' ? 'extintas' : 'arquivadas'}?`;
             if (confirm(msg)) {
-              setData(prev => ({
+              setDataAuto(prev => ({
                 ...prev,
                 debts: prev.debts.map(d => linkedCdas.some(l => l.id === d.id)
                   ? { ...d, status: newStatus === 'extinta' ? 'extinta' : d.status, prescriptionHandled: newStatus === 'extinta' ? true : d.prescriptionHandled, prescriptionHandledType: newStatus === 'extinta' && !d.prescriptionHandledType ? 'extinta' : d.prescriptionHandledType, prescriptionHandledAt: newStatus === 'extinta' && !d.prescriptionHandledAt ? today : d.prescriptionHandledAt, updatedAt: now }
@@ -4950,7 +5198,7 @@ function App() {
           // Bloqueio para negociação não é adesão: não marca a CDA como parcelada.
           const newStatus = (isBloqueioNegociacaoEvent(cleanEntity) || isIndicacaoParcelamentoEvent(cleanEntity)) ? '' : statusMap[cleanEntity.type];
           if (newStatus) {
-            setData(prev => ({
+            setDataAuto(prev => ({
               ...prev,
               debts: prev.debts.map(d => targetIds.includes(d.id)
                 ? { ...d, status: newStatus, ...(isDemo ? { statusSource: 'auto' } : {}), updatedAt: new Date().toISOString() }
@@ -4979,7 +5227,7 @@ function App() {
               createdAt: now,
               updatedAt: now
             }));
-            setData(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
+            setDataAuto(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
           }
         }
       }
@@ -5008,7 +5256,7 @@ function App() {
               createdAt: now,
               updatedAt: now
             }));
-            setData(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
+            setDataAuto(prev => ({...prev, prescriptionEvents: [...(prev.prescriptionEvents||[]), ...newEvents]}));
           }
         }
       }
@@ -5046,6 +5294,7 @@ function App() {
   const handleXLSImport = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'planilha XLS' }); // registro de trabalho: um evento por importação
     const logs = [];
     let importCount = 0;
     const knownProcessKeys = new Set(
@@ -5125,7 +5374,7 @@ function App() {
                 if (linkedHolderId && !existsAsset.holderId) { updated.holderId = linkedHolderId; assetTouched = true; }
                 if (assetTouched) {
                   updated.updatedAt = new Date().toISOString();
-                  upsert('assets', updated);
+                  upsert('assets', updated, { source: 'importacao' });
                   logs.push(`ℹ️ Bem atualizado (merge): ${a.description}${a.registry?` [${a.registry}]`:''}`);
                 } else {
                   logs.push(`ℹ️ Bem já existe (sem mudanças): ${a.description}${a.registry?` [${a.registry}]`:''}`);
@@ -5146,7 +5395,7 @@ function App() {
                 notes: finalNotes,
                 analyticsRegistered: false
               };
-              upsert('assets', newAsset);
+              upsert('assets', newAsset, { source: 'importacao' });
               importCount++;
               logs.push(`✅ Bem importado: ${a.description}${a.registry?` [${a.registry}]`:''}${linkedHolderId ? ' (vinculado a titular)' : a._titularDoc ? ' ⚠ titular não cadastrado' : ''}`);
             });
@@ -5179,7 +5428,7 @@ function App() {
               res.debts.forEach(d => {
                 const existingDebt = data.debts.find(dd => dd.operationId === activeOpId && dd.cdaNumber === d.cdaNumber);
                 if (!existingDebt) {
-                  upsert('debts', { ...d, id: uid(), operationId: activeOpId, personId });
+                  upsert('debts', { ...d, id: uid(), operationId: activeOpId, personId }, { source: 'importacao' });
                   importCount++;
                 } else {
                   // Merge: update system fields, preserve user data
@@ -5190,7 +5439,7 @@ function App() {
                   if (d.processNumber && d.processNumber !== existingDebt.processNumber) { merged.processNumber = d.processNumber; changed = true; }
                   if (d.inscriptionDate && !existingDebt.inscriptionDate) { merged.inscriptionDate = d.inscriptionDate; changed = true; }
                   if (changed) {
-                    upsert('debts', merged);
+                    upsert('debts', merged, { source: 'importacao' });
                     logs.push(`🔄 CDA atualizada: ${d.cdaNumber}`);
                   } else {
                     logs.push(`ℹ️ CDA sem alteração: ${d.cdaNumber}`);
@@ -5228,6 +5477,7 @@ function App() {
     });
 
     Promise.all(files.map(processFile)).then(() => {
+      endAct.set({ compared: importCount });
       logs.push(`\n📊 Total importado: ${importCount} registros`);
       // Delay para o setData propagar — então computa diff comparando com snapshot pré-import
       setTimeout(() => {
@@ -5263,7 +5513,7 @@ function App() {
         });
       }, 50);
       setImportResult(logs);
-    });
+    }).finally(() => endAct());
     e.target.value = '';
   };
 
@@ -5502,7 +5752,12 @@ function App() {
   };
   const handleAIImport = () => {
     if (!aiText.trim() || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'texto (pessoas e bens)' });
+    try { handleAIImportInner(endAct); } finally { endAct(); }
+  };
+  const handleAIImportInner = (endAct) => {
     const res = parseAIText(aiText);
+    endAct.set({ compared: res.people.length + res.assets.length });
     const logs = [];
     let count = 0;
     res.people.forEach(p => {
@@ -5521,7 +5776,7 @@ function App() {
       }
     });
     res.assets.forEach(a => {
-      upsert('assets', { ...a, id: uid(), operationId: activeOpId });
+      upsert('assets', { ...a, id: uid(), operationId: activeOpId }, { source: 'importacao' });
       logs.push(`✅ Bem: ${a.description}`);
       count++;
     });
@@ -5539,7 +5794,12 @@ function App() {
   // Asset bulk import handler
   const handleAssetBulkImport = () => {
     if (!assetText.trim() || !activeOpId) return;
+    const endAct = beginActivity({ source: 'importacao', batchLabel: 'bens em lote', batchNoun: { s: 'bem', p: 'bens', f: false } });
+    try { handleAssetBulkImportInner(endAct); } finally { endAct(); }
+  };
+  const handleAssetBulkImportInner = (endAct) => {
     const res = parseAssetsBulk(assetText, data.people, activeOpId);
+    endAct.set({ compared: res.assets.length });
     const logs = [];
     let count = 0;
     res.assets.forEach(a => {
@@ -5548,7 +5808,7 @@ function App() {
       if (exists) {
         logs.push(`ℹ️ Já existe (registro ${a.registry}): ${exists.description}`);
       } else {
-        upsert('assets', { ...a, id: uid() });
+        upsert('assets', { ...a, id: uid() }, { source: 'importacao' });
         const holderName = a.holderId ? data.people.find(p => p.id === a.holderId)?.name : a.holderDoc;
         logs.push(`✅ ${ASSET_SUBTYPES[a.subtype] || a.subtype}: ${a.description}${a.registry ? ` [${a.registry}]` : ''}${holderName ? ` — ${holderName}` : ''}${a.source ? ` (${a.source})` : ''}`);
         count++;
@@ -5663,86 +5923,11 @@ function App() {
       const wholeOp = !!period.wholeOp;
       const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
       const toIso = wholeOp ? todayIso : (period.to || todayIso);
-      const inPeriod = (iso) => { const k = toDayKey(iso); return !!k && k >= fromIso && k <= toIso; };
-      const events = [];
-      opIntimsAll.forEach(x => {
-        const respAt = x.responseAction && x.responseAction.respondedAt;
-        const d = respAt ? toDayKey(respAt) : '';
-        if (!d || !inPeriod(d)) return;
-        const a = x.responseAction || {};
-        const typeLabel = a.type === 'peticionamento' ? (a.peticionType || 'Manifestação') : a.type === 'ciencia' ? 'Ciência' : 'Atuação';
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Intimação', text: `${typeLabel}${a.description ? ' — ' + a.description : ''}`, mono: x.processNumber || '' });
-      });
-      // Atuações proativas (execution.proactiveActions): entram como as respostas a intimações — só o resumo (o texto da peça não vai).
-      opExecs.forEach(ex => (Array.isArray(ex.proactiveActions) ? ex.proactiveActions : []).forEach(a => {
-        const d = a && (toDayKey(a.date) || toDayKey(a.createdAt));
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Atuação', text: `Atuação proativa${a.summary ? ' — ' + a.summary : ''}`, mono: ex.processNumber || '' });
-      }));
-      opDocuments.forEach(doc => {
-        const d = doc.createdAt ? toDayKey(doc.createdAt) : '';
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Peça', text: doc.title || doc.type || 'Documento', mono: doc.processNumber || '' });
-      });
-      opExecs.forEach(ex => {
-        const recs = getStageRecords(briefing, ex.id);
-        Object.keys(recs).forEach(k => {
-          const rec = recs[k];
-          if (!rec || !rec.date) return;
-          const d = toDayKey(rec.date);
-          if (!d || !inPeriod(d)) return;
-          const STG = isEfStylePanoramaCard(ex) ? CENTRAL_STAGES : PROCESS_STAGES;
-          const sd = resolveStageDef(STG, k, rec);
-          const isFree = !STG[k];
-          events.push({ date: d, dateLabel: fmtDate(d), kind: isFree ? 'Fase' : 'Fase', text: `${isFree ? 'Evento livre: ' : ''}${sd.label}${rec.texto ? ' — ' + rec.texto : ''}`, mono: ex.processNumber || '' });
-        });
-      });
-      (data.prescriptionEvents || []).forEach(pe => {
-        if (!pe || pe.operationId !== opId) return;
-        const d = pe.date ? toDayKey(pe.date) : '';
-        if (!d || !inPeriod(d)) return;
-        const debt = opDebts.find(x => x.id === pe.debtId);
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Evento lançado: ${pe.type || 'evento'}${debt ? ' · CDA ' + (debt.cdaNumber || debt.id) : ''}` });
-      });
-      opDebts.forEach(dbt => {
-        if (!dbt.prescriptionHandledAt) return;
-        const d = toDayKey(dbt.prescriptionHandledAt);
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Prescrição', text: `Prescrição tratada — CDA ${dbt.cdaNumber || dbt.id}` });
-      });
-      getBriefingEntries(briefing).forEach(en => {
-        const d = en.eventDate ? toDayKey(en.eventDate) : (en.createdAt ? toDayKey(en.createdAt) : '');
-        if (!d || !inPeriod(d)) return;
-        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-        const plain = String(en.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Diário', text: `${t.label}: ${truncate(plain, 140)}` });
-      });
-      opReminders.forEach(rm => {
-        const d = toDayKey(rm.createdAt || rm.updatedAt);
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Lembrete', text: truncate(rm.content || '', 140) });
-      });
-      opHearings.forEach(h => {
-        if (h.status !== 'realizada') return;
-        const d = h.date ? toDayKey(h.date) : '';
-        if (!d || !inPeriod(d)) return;
-        events.push({ date: d, dateLabel: fmtDate(d), kind: 'Audiência', text: `Realizada — ${CX_HEARING[h.hearingType] || 'Audiência'}${h.parties ? ': ' + h.parties : ''}`, mono: h.processNumber || '' });
-      });
-      const taskLabelByCol = { status: 'Status', dueDate: 'Vencimento' };
-      opChangeLog.forEach(le => {
-        const d = le.date ? toDayKey(le.date) : '';
-        if (!d || !inPeriod(d)) return;
-        if (le.col === 'tasks' && le.field === 'status' && le.to === 'concluida') {
-          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Tarefa', text: `Concluída: ${le.ref || ''}` });
-        } else if (le.col === 'assets' && le.field === 'status') {
-          const toLabel = (ASSET_STATUSES[le.to] || {}).label || le.to;
-          events.push({ date: d, dateLabel: fmtDate(d), kind: 'Constrição', text: `${le.ref || 'Bem'} → ${toLabel}` });
-        } else if ((le.col === 'executions' || le.col === 'debts') && le.field === 'status') {
-          const map = le.col === 'executions' ? EXEC_STATUSES : DEBT_STATUSES;
-          const toLabel = (map[le.to] || {}).label || le.to;
-          events.push({ date: d, dateLabel: fmtDate(d), kind: le.col === 'executions' ? 'Fase' : 'Prescrição', text: `${le.ref || ''} → ${toLabel}` });
-        }
-      });
+      const events = collectOperationEvents({
+        op, opDebts, opExecs, opAssets, opIntimsAll, opDocuments, opHearings, opReminders, opChangeLog, briefing,
+        prescriptionEvents: data.prescriptionEvents || [],
+        deps: { getStageRecords, resolveStageDef, isEfStylePanoramaCard, PROCESS_STAGES, CENTRAL_STAGES, getBriefingEntries, BRIEFING_ENTRY_TYPES, CX_HEARING, ASSET_STATUSES, EXEC_STATUSES, DEBT_STATUSES },
+      }, { fromIso, toIso });
       const periodLabel = wholeOp ? `desde o início da operação até ${fmtDate(todayIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
       return {
         model, op: reportOp, sections, generatedAtLabel, periodLabel,
@@ -5965,6 +6150,55 @@ function App() {
     };
   };
 
+  // Base do relatório (4º modelo): dados da operação recortados + período e frentes escolhidos
+  const buildBaseFor = (op, period, off) => {
+    const slices = getOpSlices(op.id);
+    const todayIso = localIso(new Date());
+    const wholeOp = !!period.wholeOp;
+    const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
+    const toIso = wholeOp ? todayIso : (period.to || todayIso);
+    const periodLabel = wholeOp ? `desde o início até ${fmtDate(toIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
+    const mine = (arr) => (arr || []).filter(x => x.operationId === op.id);
+    return buildBaseRelatorio({
+      op, debts: slices.debts, executions: slices.executions, assets: slices.assets, people: slices.people,
+      intimations: mine(data.intimations), hearings: mine(data.hearings), documents: mine(data.documents), measures: mine(data.measures),
+      briefing: op.briefing || {}, prescriptionEvents: data.prescriptionEvents || [], changeLog: mine(data.changeLog),
+      deps: { getStageRecords, resolveStageDef, isEfStylePanoramaCard, PROCESS_STAGES, CENTRAL_STAGES, getBriefingEntries, BRIEFING_ENTRY_TYPES, CX_HEARING, ASSET_STATUSES, EXEC_STATUSES, ASSET_SUBTYPES },
+    }, { fromIso, toIso, periodLabel, fronts: Object.keys(BASE_FRONTS).filter(k => !off.includes(k)) });
+  };
+  // Prévia da Base: só recalcula quando muda a operação, o período, as frentes ou os dados; erro vira aviso na janela.
+  const baseCounts = useMemo(() => {
+    if (!reportModalOp || reportModel !== 'base') return null;
+    try { return { bc: buildBaseFor(reportModalOp, reportPeriod, reportBase.off).counts }; }
+    catch (e) { console.error('base do relatório', e); return { err: String((e && e.message) || e) }; }
+  }, [reportModalOp, reportModel, reportPeriod, reportBase.off, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const downloadBaseHtml = (op, period, off) => {
+    const base = buildBaseFor(op, period, off);
+    downloadBlob(new Blob([renderBaseHtml(base, new Date().toLocaleString('pt-BR'))], { type: 'text/html;charset=utf-8' }), reportFileName('base', op.name, new Date().toISOString().slice(0, 10)));
+  };
+  const downloadBaseCsv = (op, period, off) => {
+    const base = buildBaseFor(op, period, off);
+    const safe = String(op.name || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
+    downloadBlob(new Blob([baseCronologiaCsv(base)], { type: 'text/csv;charset=utf-8' }), `base_relatorio_cronologia_${safe}_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+  // Gera no Drive (Google Doc e/ou planilha) pelo servidor; só funciona no app publicado.
+  const runBaseExport = async (op, period, off, which) => {
+    const base = buildBaseFor(op, period, off);
+    setReportBase(s => ({ ...s, busy: which, err: '', links: [] }));
+    const links = [];
+    try {
+      if (which !== 'sheet') { const r = await activityApi.exportDoc({ title: base.title, blocks: base.blocks }); links.push({ label: 'Google Doc', url: r.url }); }
+      if (which !== 'doc') { const r = await activityApi.exportSheet({ title: base.sheetTitle, sheets: base.sheets }); links.push({ label: 'Planilha da cronologia', url: r.url }); }
+      setReportBase(s => ({ ...s, busy: '', links }));
+      links.forEach(l => { if (l.url) window.open(l.url, '_blank'); });
+    } catch (e) {
+      const m = String((e && e.message) || e || '');
+      const offline = /só no app publicado/i.test(m);
+      setReportBase(s => ({ ...s, busy: '', links, err: offline
+        ? 'Gerar no Google Drive só funciona no app publicado. Aqui você pode baixar a prévia em HTML (imprimível) e a cronologia em CSV.'
+        : /cota|quota/i.test(m) ? 'O Google recusou por limite de cota: ' + m + ' Tente de novo mais tarde.' : 'Não foi possível gerar: ' + (m || 'erro desconhecido') }));
+    }
+  };
   const downloadReport = (op, model, sections, period) => {
     const rd = buildOperationReportData(op, model, sections, period);
     const html = renderReportDocument(rd);
@@ -5989,13 +6223,23 @@ function App() {
       { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.' },
       { id: 'resumo', label: 'Resumo de uma página', hint: 'Só a página 1. Para a chefia ou uma reunião.' },
       { id: 'prestacao', label: 'Prestação de contas', hint: 'Tudo o que foi feito, num período ou desde o início da operação.' },
+      { id: 'base', label: 'Base do relatório', hint: 'Base factual e cronológica, com valores e partes, para você redigir o relatório à chefia no Google Docs.' },
     ];
+    const isBase = reportModel === 'base';
+    const baseOff = reportBase.off;
+    const baseErr = isBase && baseCounts && baseCounts.err ? baseCounts.err : '';
+    const bc = !isBase ? null : (baseCounts && baseCounts.bc) || {
+      total: 0, geral: 0, sections: { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, s6: 0 },
+      fronts: Object.keys(BASE_FRONTS).map(k => ({ key: k, label: BASE_FRONTS[k], count: 0, processes: 0 })),
+    };
     const sectionChips = [
       ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
       ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
     ];
     return (
-      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação">
+      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação" wide={isBase}>
+        {/* Base do relatório: opções à esquerda, prévia à direita (empilha em tela estreita) */}
+        <div style={isBase ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, alignItems: 'start' } : { display: 'grid', gap: 12 }}>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{op.name}</div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -6009,16 +6253,28 @@ function App() {
               </label>
             ))}
           </div>
-          {reportModel === 'prestacao' ? (
+          {(reportModel === 'prestacao' || isBase) ? (
             <div style={{ display: 'grid', gap: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                <input type="checkbox" checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
+              <label style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, fontSize: 12, textAlign: 'left', width: '100%' }}>
+                <input type="checkbox" style={{ width: 'auto', flex: 'none' }} checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
                 Desde o início da operação
               </label>
               {!reportPeriod.wholeOp && (
                 <div style={{ display: 'flex', gap: 10 }}>
                   <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>De <input type="date" value={reportPeriod.from} onChange={e => setReportPeriod({ ...reportPeriod, from: e.target.value })} /></label>
                   <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Até <input type="date" value={reportPeriod.to} onChange={e => setReportPeriod({ ...reportPeriod, to: e.target.value })} /></label>
+                </div>
+              )}
+              {isBase && (
+                <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>Frentes incluídas</div>
+                  {bc.fronts.map(f => (
+                    <label key={f.key} style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, fontSize: 12, textAlign: 'left', width: '100%' }}>
+                      <input type="checkbox" style={{ width: 'auto', flex: 'none' }} checked={!baseOff.includes(f.key)} onChange={e => setReportBase(s => ({ ...s, off: e.target.checked ? s.off.filter(k => k !== f.key) : [...s.off, f.key] }))} />
+                      <span>{f.label}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{f.processes} processo(s) · {f.count} fato(s) no período</span>
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
@@ -6033,11 +6289,52 @@ function App() {
               </div>
             </div>
           )}
+        </div>
+          {isBase && (
+            <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>Prévia do que entra</div>
+              {baseErr && <div style={{ fontSize: 12, color: 'var(--danger, #c0392b)' }}>Não foi possível montar a prévia: {baseErr}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[[bc.total, 'registros'], [bc.sections.s1, 'processos'], [bc.sections.s4, 'constrições']].map(([n, l]) => (
+                  <div key={l} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '8px 10px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{n}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', fontSize: 12, display: 'grid', gap: 3 }}>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>Estrutura do Google Doc</div>
+                {[['1. Visão geral da operação', bc.sections.s1, 'processo(s)'], ['2. Por frente processual', bc.sections.s2, 'fato(s)'], ['3. Quadro de decisões judiciais', bc.sections.s3, ''], ['4. Quadro de constrições e valores', bc.sections.s4, ''], ['5. Quadro de providências e peças', bc.sections.s5, ''], ['6. Cronologia completa (anexo)', bc.sections.s6, '']].map(([t, n, u]) => (
+                  <div key={t} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{t}</span><span style={{ color: 'var(--text-muted)' }}>{n}{u ? ' ' + u : ''}</span></div>
+                ))}
+                <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Planilha: aba Cronologia ({bc.sections.s6} linhas) e aba Constrições ({bc.sections.s4}).</div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Os números mudam com o período e as frentes marcadas.</div>
+              {reportBase.busy && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Gerando no Google Drive… pode levar alguns segundos.</div>}
+              {reportBase.err && <div style={{ fontSize: 12, color: 'var(--red, #c2323d)' }}>{reportBase.err}</div>}
+              {reportBase.links.length > 0 && (
+                <div style={{ fontSize: 12, display: 'grid', gap: 2 }}>
+                  {reportBase.links.map(l => <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}: abrir</a>)}
+                </div>
+              )}
+            </div>
+          )}
+          {isBase ? (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseHtml(op, reportPeriod, baseOff)}>Baixar prévia (HTML)</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseCsv(op, reportPeriod, baseOff)}>Baixar cronologia (CSV)</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'doc')}>Gerar Google Doc</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'sheet')}>Gerar planilha da cronologia</button>
+              <button type="button" className="btn-primary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'both')}>Gerar os dois</button>
+            </div>
+          ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
             <button type="button" className="btn-secondary" onClick={() => downloadReport(op, reportModel, reportSections, reportPeriod)}>Baixar HTML</button>
             <button type="button" className="btn-primary" onClick={() => openReportForPrint(op, reportModel, reportSections, reportPeriod)}>Abrir para imprimir</button>
           </div>
+          )}
         </div>
       </Modal>
     );
@@ -6146,7 +6443,7 @@ function App() {
     reader.onload = (ev) => {
       try {
         const imp = JSON.parse(ev.target.result);
-        if (imp.operations && confirm('Substituir todos os dados?')) { setData(applyMigrations(imp)); setActiveOpId(null); }
+        if (imp.operations && confirm('Substituir todos os dados?')) { markStateReplaced('Dados importados de arquivo'); setData(applyMigrations(imp)); setActiveOpId(null); }
       } catch { alert('Arquivo inválido.'); }
     };
     reader.readAsText(file); e.target.value = '';
@@ -9442,7 +9739,7 @@ function App() {
     } else {
       setViewMode(prev => (prev === 'hoje' ? 'painel' : prev));
     }
-    if (edition !== 'claude') setViewMode(prev => (prev === 'cx_timeline' ? 'operacoes' : prev));
+    if (edition !== 'claude') setViewMode(prev => (prev === 'cx_timeline' ? 'operacoes' : prev === 'cx_atividade' ? 'painel' : prev));
     setCxDrawerId(null);
     setShowSettings(false);
   };
@@ -9456,6 +9753,7 @@ function App() {
     }
     const demo = applyMigrations(generateDemoData());
     // Sempre substitui — nunca mescla (evitar duplicatas ao recarregar).
+    markStateReplaced('Dados de demonstração recarregados');
     setData(demo);
     setActiveOpId(null);
     if (isDemo) setViewMode('hoje');
@@ -9536,6 +9834,11 @@ function App() {
         {!isGAS && <button className="settings-opt" style={{width:'100%'}} onClick={() => { loadDemoData(); setShowSettings(false); }}>{isClaude ? <><CxIcon n="sync" s={13} />Resetar / carregar dados demo</> : '🧪 Resetar / carregar dados demo'}</button>}
       </div>
       {cloudMsg && <div style={{fontSize:10,color:'var(--text-muted)',marginTop:6}}>{cloudMsg}</div>}
+      <label style={{display:'block',fontSize:10,color:'var(--text-muted)',marginTop:8}} title="Identifica esta máquina no registro de trabalho (Minha atividade).">Apelido desta máquina
+        <input type="text" maxLength={30} value={activityDeviceName} onChange={e => setActivityDeviceName(e.target.value)}
+          onBlur={() => setActivityDeviceName(activityApi.setDevice(activityDeviceName))}
+          style={{width:'100%',marginTop:2,fontSize:11,background:'var(--bg-input)',color:'var(--text-primary)',border:'1px solid var(--border)',borderRadius:4,padding:'4px 6px'}} />
+      </label>
     </div>
     <div className="settings-group">
       <div className="settings-label">Calendário local (prazos processuais)</div>
@@ -10820,6 +11123,26 @@ function App() {
     setCxProcFocus({ ...focus, n: Date.now() });
     startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
   };
+  // Minha atividade → "Abrir no Nexus": leva ao item do registro (gaveta da intimação, ficha do processo/CDA, tarefa, audiência) ou, no mínimo, à operação.
+  const cxOpenActivityEntity = (ev) => {
+    const en = (ev && ev.entity) || {};
+    const opId = ev && ev.op && ev.op.id;
+    const find = (col) => (data[col] || []).find(x => x && String(x.id) === String(en.id));
+    const norm = (s) => String(s || '').replace(/\D/g, '');
+    const hit = en.col === 'operations' ? null : find(en.col);
+    if (en.col === 'intimations' && hit) return setCxDrawerId(hit.id);
+    if (en.col === 'executions' && hit) return cxOpenProcDrawer({ execId: hit.id });
+    if (en.col === 'debts' && hit) return cxOpenProcDrawer({ cdaId: hit.id });
+    if (en.col === 'tasks' && hit) return cxOpenTask(hit);
+    if (en.col === 'hearings' && hit) return cxOpenHearing(hit);
+    const tab = { assets: 'bens', people: 'pessoas', documents: 'docs', measures: 'bens' }[en.col];
+    if (tab && hit && hit.operationId) return cxOpenOp(hit.operationId, tab);
+    const pn = norm(en.proc);
+    const ex = pn.length >= 10 ? (data.executions || []).find(x => norm(x.processNumber) === pn) : null;
+    if (ex) return cxOpenProcDrawer({ execId: ex.id });
+    if (opId && (data.operations || []).some(o => o.id === opId)) return cxOpenOp(opId);
+    cxNotify('O item não existe mais no Nexus.');
+  };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
   /* Cabeçalho único da operação (Nexus Prumo): o mesmo componente em todas as abas, inclusive a Visão geral. */
   const cxOpHeaderEl = (isClaude && viewMode === 'operation' && activeOp) ? <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
@@ -10838,6 +11161,7 @@ function App() {
     return String(a.dateDeadline).localeCompare(String(b.dateDeadline));
   }).map(x => x.id) : [];
   const cxDetailActions = {
+    activity: activityApi, // registro de trabalho (Minha atividade) — mesmo objeto de window.nexusActivity
     data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
     esteiraTemplate: appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE,
     onRespond: handleRespondIntim,
@@ -10847,7 +11171,7 @@ function App() {
     onWatch: (intim) => setModal({ type: 'create', entityType: 'watch', initial: { processNumber: intim.processNumber, parties: intim.parties, operationId: intim.operationId, reason: `Origem: ${intim.eventDescription || 'intimação'}`, createdAt: new Date().toISOString() } }),
   };
   const cxCrumbs = (() => {
-    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
+    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel', cx_atividade: 'Minha atividade' };
     if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, activeTab === 'pessoas' ? 'Partes' : activeTab === 'bens' ? 'Bens' : tabLabels[activeTab]].filter(Boolean);
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
@@ -11206,6 +11530,7 @@ function App() {
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }}
         onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }}
         onOpenAgendaDay={(iso) => { setCxAgendaInitialDay(iso); cxGo('audiencias'); }}
+        activity={activityApi} onOpenAtividade={() => cxGo('cx_atividade')}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onReviewed={(op) => { upsert('operations', { ...op, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }} /></div>}
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
@@ -11223,6 +11548,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} /></div>}
+      {viewMode === 'cx_atividade' && isClaude && <div className="cx-scroll"><EditionClaudeAtividade activity={activityApi} data={data} onOpenEntity={cxOpenActivityEntity} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
@@ -12789,6 +13115,8 @@ function App() {
                         });
                       });
                       const nNew = (prescImport.plan.processes || []).reduce((s, p) => s + (p.newFacts || []).length, 0);
+                      const endAct = beginActivity({ source: 'importacao', batchLabel: 'NEXUS prescrição', compared: (prescImport.plan.processes || []).length, batchNoun: { s: 'processo', p: 'processos', f: false } });
+                      try {
                       setData({
                         ...next,
                         importLogs: [...(next.importLogs || []), {
@@ -12798,6 +13126,7 @@ function App() {
                           counts: { events: nNew }
                         }].slice(-50)
                       });
+                      } finally { endAct(); }
                       setPrescImport({ ...prescImport, after });
                       setAiText('');
                     }}>Confirmar e gravar</button>
@@ -12861,7 +13190,7 @@ function App() {
         const escopo = diagnosticoOpId ? ' desta operação' : '';
         if (!confirm(`Aplicar correção em ${n} registro(s)${escopo}?\n\n${f.titulo}\n\nA ação é registrada e pode ser desfeita com Ctrl+Z.`)) return;
         pushUndo('Correção do diagnóstico: ' + f.titulo);
-        setData(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
+        setDataAuto(prev => applyDiagnosticFix(prev, f, diagnosticoOpId ? { operationId: diagnosticoOpId } : {}));
       };
       return (<div className="global-search-overlay" onClick={() => setShowDiagnostico(false)}>
         <div className="global-search-box" onClick={e => e.stopPropagation()} style={{maxHeight:'85vh',display:'flex',flexDirection:'column',maxWidth:760}}>
@@ -12971,7 +13300,7 @@ function App() {
                   <span style={{color:'var(--text-muted)',fontSize:9,fontFamily:'var(--font-mono)'}}>{new Date(le.date).toLocaleString('pt-BR')}</span>
                 </div>
                 <div style={{color:'var(--text-secondary)',marginTop:2}}>
-                  {fieldLabels[le.field] || le.field}: <span style={{color:'var(--text-muted)',textDecoration:'line-through'}}>{truncate(le.from, 40)}</span> → <span style={{color:'var(--gold)',fontWeight:600}}>{truncate(le.to, 40)}</span>
+                  {fieldLabels[le.field] || le.field}{le.source === 'importacao' && <span title="Alteração feita por importação" style={{marginLeft:6,fontSize:9,padding:'0 5px',borderRadius:999,border:'1px solid var(--border)',color:'var(--text-muted)'}}>importação</span>}: <span style={{color:'var(--text-muted)',textDecoration:'line-through'}}>{truncate(le.from, 40)}</span> → <span style={{color:'var(--gold)',fontWeight:600}}>{truncate(le.to, 40)}</span>
                   {op && <span style={{color:'var(--text-muted)',fontSize:9}}> · {op.name}</span>}
                 </div>
               </div>);
@@ -13927,7 +14256,7 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
 
   // Converte entradas virtuais legadas em entradas reais, mantendo ids estáveis (legacy_*)
   const materialize = (list) => list.map(en => en._legacy
-    ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
+    ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', ...(typeof en.inReport === 'boolean' ? { inReport: en.inReport } : {}), createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
     : en);
   const persist = (list) => {
     upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } });
@@ -13943,7 +14272,7 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
       persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', ...(typeof x.inReport === 'boolean' ? { inReport: x.inReport } : {}), createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);
@@ -14026,10 +14355,11 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
 function RespondForm({ intim, type: initialType, onSave, onCancel }) {
   const PETITION_TYPES = ['Manifestação', 'Contestação', 'Impugnação', 'Réplica', 'Contrarrazões', 'Recurso', 'Embargos de Declaração', 'Petição Avulsa', 'Outro'];
   const [type, setType] = React.useState(initialType || '');
-  const [description, setDescription] = React.useState('');
+  const [description, setDescription] = React.useState(initialType === 'ciencia' ? intimationDecisionText(intim) : '');
   const [peticionType, setPeticionType] = React.useState('Manifestação');
   const [peticionUrl, setPeticionUrl] = React.useState('');
   const [docUrl, setDocUrl] = React.useState('');
+  const [teor, setTeor] = React.useState(intimationDecisionText(intim));
 
   const isPeticion = type === 'peticionamento';
   const hasUrl = isPeticion ? !!peticionUrl.trim() : !!docUrl.trim();
@@ -14046,7 +14376,7 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
     </div>
 
     <div className="form-group"><label>Tipo de atuação</label>
-      <select value={type} onChange={e => setType(e.target.value)}>
+      <select value={type} onChange={e => { const v = e.target.value; setType(v); if (v === 'ciencia' && !description.trim()) setDescription(intimationDecisionText(intim)); }}>
         <option value="">— Selecione —</option>
         <option value="peticionamento">📝 Peticionamento</option>
         <option value="ciencia">✓ Ciência</option>
@@ -14074,6 +14404,10 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
           placeholder={isPeticion ? 'Ex: Manifestação solicitando expedição de mandado de penhora' : type === 'ciencia' ? 'Ex: Ciência da decisão monocrática evento 52 — não houve provimento ao recurso, sem necessidade de manifestação' : 'Ex: Encaminhamento ao setor de cálculos para apuração de valores. Aguardando retorno em 10 dias.'} />
       </div>
 
+      {type !== 'ciencia' && <div className="form-group"><label>Teor da decisão (opcional)</label>
+        <input value={teor} onChange={e => setTeor(e.target.value)} placeholder="Ex: Defere a penhora de ativos financeiros" />
+      </div>}
+
       {/* URL field for ciência/outra — optional, creates Doc when filled */}
       {!isPeticion && <div className="form-group">
         <label>📎 Link do documento / peça (opcional)</label>
@@ -14092,7 +14426,7 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
 
     <div className="form-actions">
       <button type="button" className="btn-secondary" onClick={onCancel}>Cancelar</button>
-      <button type="button" className="btn-primary" disabled={!canSave} onClick={() => onSave({ type, description, peticionType, peticionUrl, docUrl })}>{isPeticion ? '📝 Registrar peticionamento' : type === 'ciencia' ? '✓ Confirmar ciência' : '⋯ Confirmar medida'}</button>
+      <button type="button" className="btn-primary" disabled={!canSave} onClick={() => onSave({ type, description, peticionType, peticionUrl, docUrl, ...(type !== 'ciencia' ? { decisionSummary: teor } : {}) })}>{isPeticion ? '📝 Registrar peticionamento' : type === 'ciencia' ? '✓ Confirmar ciência' : '⋯ Confirmar medida'}</button>
     </div>
   </div>);
 }
@@ -14853,6 +15187,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
 
   if (entityType === 'asset') {
     const sisForm = isSisbajudAsset(form);
+    // Ao passar para ativa/requerida com a data de constrição vazia, o padrão é hoje.
+    const setAssetStatus = (v) => {
+      set('status', v);
+      if ((v === 'indisponibilidade_ativa' || v === 'indisponibilidade_requerida') && !form.constrictionDate) set('constrictionDate', localIso(new Date()));
+    };
     const setSource = (v) => {
       set('source', v);
       if (/sisbajud|bacenjud/i.test(String(v || ''))) set('registry', '');
@@ -14861,8 +15200,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     <div className="form-row-3">
       <div className="form-group"><label>Tipo</label><select value={form.subtype||'imovel'} onChange={e=>set('subtype',e.target.value)}>{Object.entries(ASSET_SUBTYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
       <div className="form-group"><label>Valor (R$)</label><input type="number" step="0.01" value={form.value||''} onChange={e=>set('value',parseFloat(e.target.value)||0)} /></div>
-      <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
+      <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>setAssetStatus(e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
+    {(form.status||'indisponibilidade_ativa') !== 'liberado' && (form.status||'indisponibilidade_ativa') !== 'controvertido' && <div className="form-row">
+      <div className="form-group"><label>{(form.status||'indisponibilidade_ativa') === 'indisponibilidade_requerida' ? 'Data do requerimento (opcional)' : 'Indisponível desde (opcional)'}</label><input type="date" value={form.constrictionDate||''} onChange={e=>set('constrictionDate',e.target.value)} /></div>
+    </div>}
     <div className="form-row">
       <div className="form-group"><label>Origem / Sistema</label><input value={form.source||''} onChange={e=>setSource(e.target.value)} placeholder="CNIB, Sisbajud, Renajud, Analytics..." /></div>
       <div className="form-group"><label>Processo Vinculado</label><input value={form.processRef||''} onChange={e=>set('processRef',e.target.value)} placeholder="Nº do processo de constrição" /></div>

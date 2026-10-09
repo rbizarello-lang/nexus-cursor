@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Base do relatório da operação</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ground:#f2f3f5;--panel:#ebedf0;--surface:#fff;--surface-2:#f6f7f9;--hover:#e7e9ed;--line:#dcdfe4;--line-strong:#c7cbd2;--ink:#14161a;--ink-2:#4d535e;--ink-3:#7c828e;--accent:#8a6722;--accent-soft:#f4ecdb;--btn:#1b1e24;
+--font:'Geist','Segoe UI',system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);background:var(--ground);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 24px 80px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:25px;font-weight:600;letter-spacing:-.02em;margin-top:6px}
+.lede{font-size:14px;color:var(--ink-2);max-width:900px;margin-top:8px;line-height:1.55}
+.tabs{display:flex;gap:4px;margin:22px 0 14px;border-bottom:1px solid var(--line-strong)}
+.tab{padding:9px 14px;font:600 13px var(--font);border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none;color:var(--ink-2);cursor:pointer;position:relative;top:1px}
+.tab.on{background:var(--surface);border-color:var(--line-strong);color:var(--ink)}
+.view{display:none}.view.on{display:block}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);font:500 12.5px var(--font);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--btn);color:#fff;border-color:var(--btn)}
+.muted{color:var(--ink-3)}
+.note{font-size:12px;color:var(--ink-2);background:var(--accent-soft);border:1px solid #e6d9b8;border-radius:8px;padding:8px 12px;margin-bottom:12px}
+.scrim{background:rgba(18,20,26,.34);border-radius:12px;padding:28px;display:flex;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 24px 64px rgba(20,24,32,.22);width:100%;max-width:1040px}
+.m-h{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.m-h b{font-size:15px;font-weight:600}.m-h span{color:var(--ink-3);font-size:12px}
+.m-b{display:grid;grid-template-columns:minmax(0,1fr) 380px}
+@media (max-width:900px){.m-b{grid-template-columns:minmax(0,1fr)}}
+.m-l{padding:16px 18px;display:grid;gap:14px;align-content:start;border-right:1px solid var(--line)}
+.m-r{padding:16px 18px;background:var(--surface-2)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.model{display:grid;grid-template-columns:18px 1fr;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
+.model.on{border-color:var(--accent);background:var(--accent-soft)}
+.model b{font-size:13px}.model div div{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input[type=date]{font:12px var(--mono);padding:4px 7px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface)}
+.fr{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;margin-bottom:5px}
+.fr .n{margin-left:auto;font:500 11px var(--mono);color:var(--ink-3)}
+.sw{width:9px;height:9px;border-radius:3px}
+.out{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.out .btn{justify-content:center;height:34px}.out .full{grid-column:1/-1}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.kpi b{display:block;font:600 17px var(--mono)}.kpi span{font-size:10.5px;color:var(--ink-3)}
+.pv{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px}
+.pv h6{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin:8px 0 4px}.pv h6:first-child{margin-top:0}
+.pv li{margin-left:16px;line-height:1.5}
+.gdoc{background:#e9eef6;border:1px solid var(--line-strong);border-radius:12px;overflow:hidden}
+.gd-bar{background:#f9fbfd;border-bottom:1px solid #dadce0;padding:8px 14px;display:flex;gap:14px;align-items:center;font:12px Arial,sans-serif;color:#444}
+.gd-ico{width:22px;height:28px;background:#4285f4;border-radius:3px}
+.gd-bar b{font-size:14px;color:#202124;font-weight:400}
+.gd-scroll{padding:24px 0;max-height:1100px;overflow:auto}
+.page{background:#fff;width:794px;max-width:96%;margin:0 auto 18px;padding:72px 64px;box-shadow:0 1px 3px rgba(60,64,67,.3);font-family:Arial,'Liberation Sans',sans-serif;font-size:11pt;color:#000;line-height:1.35}
+.page h1{font-size:20pt;font-weight:400;letter-spacing:0;margin:0 0 4px}
+.page .sub{color:#5f6368;font-size:11pt;margin-bottom:14px}
+.page h2{font-size:16pt;font-weight:400;margin:22px 0 8px}
+.page h3{font-size:13pt;font-weight:400;color:#434343;margin:16px 0 6px}
+.page table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:8.5pt}
+.page th,.page td{border:1px solid #bdbdbd;padding:3px 5px;vertical-align:top;text-align:left}
+.page th{background:#f3f3f3;font-weight:700}
+.page .cn,.sheet .cn{font-family:'Courier New',monospace;font-size:8pt;white-space:nowrap}
+.page .num{text-align:right;white-space:nowrap}
+.page .toc{font-size:10pt;margin:6px 0 4px;line-height:1.7}.page .toc span{color:#1a73e8}
+.page .kv td:first-child{width:28%;background:#f3f3f3;font-weight:700}
+.page .lk{color:#1155cc;text-decoration:underline}
+.page .dia{background:#fff8e1}
+.mark{display:inline-block;font:700 7pt Arial;background:#fbbc04;color:#000;padding:0 4px;border-radius:2px;margin-right:3px}
+.page .fe{font-size:10pt;color:#5f6368;margin:0 0 4px}
+.sheet{background:#fff;border:1px solid var(--line-strong);border-radius:12px;overflow:hidden;font-family:Arial,sans-serif}
+.sh-top{background:#f9fbfd;padding:8px 14px;border-bottom:1px solid #dadce0;display:flex;gap:14px;align-items:center;font-size:12px;color:#444}
+.sh-ico{width:22px;height:28px;background:#0f9d58;border-radius:3px}
+.sh-tool{display:flex;gap:8px;align-items:center;padding:6px 14px;border-bottom:1px solid #dadce0;font-size:12px;flex-wrap:wrap}
+.sh-tool .f{border:1px solid #dadce0;border-radius:14px;padding:2px 9px;cursor:pointer;background:#fff}
+.sh-tool .f.on{background:#e8f0fe;border-color:#1a73e8;color:#1a73e8}
+.sh-grid{overflow:auto;max-height:640px}
+.sh-grid table{border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:1500px}
+.sh-grid th.col{position:sticky;top:0;background:#f8f9fa;color:#5f6368;font-weight:400;border:1px solid #e0e0e0;text-align:center;font-size:11px;z-index:3;padding:2px}
+.sh-grid th.rn{position:sticky;left:0;background:#f8f9fa;color:#5f6368;font-weight:400;border:1px solid #e0e0e0;width:34px;text-align:center;font-size:11px;z-index:2}
+.sh-grid tr.hd td{position:sticky;top:19px;background:#e8eaed;font-weight:700;border:1px solid #d0d0d0;border-bottom:2px solid #9aa0a6;z-index:2;padding:4px 6px;white-space:nowrap}
+.sh-grid td{border:1px solid #e0e0e0;padding:3px 6px;white-space:nowrap;max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.sh-grid td.w{white-space:normal;min-width:260px}
+.sh-grid td.n{text-align:right;font-variant-numeric:tabular-nums}
+.sheet .cn{font-size:11px}
+.pill{padding:1px 7px;border-radius:9px;font-size:10.5px;font-weight:600}
+.t-Providência{background:#e8f0fe;color:#1a56c4}.t-Decisão{background:#f3e8fd;color:#6a2fb0}.t-Constrição{background:#fce8e6;color:#b3261e}.t-Intimação{background:#fef7e0;color:#8a5a00}.t-Audiência{background:#e0f7fa;color:#00697a}.t-Fase{background:#e6f4ea;color:#137333}.t-Diário{background:#f1f3f4;color:#444}
+.sh-tabs{display:flex;gap:2px;padding:6px 10px;background:#f1f3f4;border-top:1px solid #dadce0;font-size:12px}
+.sh-tabs span{padding:4px 12px;border-radius:4px;color:#444}.sh-tabs .on{background:#fff;color:#0f9d58;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Nexus Prumo · mockup para aprovação · dados fictícios</div>
+  <h1>Base do relatório da operação</h1>
+  <p class="lede">Quarto modelo da janela “Relatório”. O app não redige: entrega a base factual e cronológica (datas, valores, nomes completos) em um Google Doc e/ou numa planilha, para o procurador escrever o relatório à chefia ao encerrar a operação ou sob demanda. Sem pendências, sem prosa analítica.</p>
+
+  <div class="tabs">
+    <button class="tab on" data-v="v1">1 · Janela “Relatório”</button>
+    <button class="tab" data-v="v2">2 · Prévia do Google Doc</button>
+    <button class="tab" data-v="v3">3 · Prévia da planilha</button>
+  </div>
+
+  <section class="view on" id="v1">
+    <div class="scrim"><div class="modal">
+      <div class="m-h"><b>Gerar relatório da operação</b><span>Operação Maré Baixa · Grupo Alfa Cereais</span></div>
+      <div class="m-b">
+        <div class="m-l">
+          <div>
+            <div class="lbl">Modelo</div>
+            <label class="model"><input type="radio" name="m" disabled><div><b>Passagem de serviço</b><div>Leitura, próximos 15 dias, alertas, frentes e anexos.</div></div></label>
+            <label class="model"><input type="radio" name="m" disabled><div><b>Resumo de uma página</b><div>Só a página 1. Para a chefia ou uma reunião.</div></div></label>
+            <label class="model"><input type="radio" name="m" disabled><div><b>Prestação de contas</b><div>Tudo o que foi feito, num período ou desde o início.</div></div></label>
+            <label class="model on"><input type="radio" name="m" checked><div><b>Base do relatório</b><div>Base factual e cronológica, com valores e partes, para você redigir o relatório à chefia no Google Docs.</div></div></label>
+          </div>
+          <div>
+            <div class="lbl">Período</div>
+            <div class="row">
+              <label style="font-size:12px"><input type="checkbox" id="whole" checked> Desde o início da operação</label>
+              <span id="rng" class="row"><label class="muted" style="font-size:11px">De <input type="date" id="dFrom" value="2025-03-10"></label><label class="muted" style="font-size:11px">Até <input type="date" id="dTo" value="2026-10-08"></label></span>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:4px">Início da operação: 10/03/2025 · hoje: 08/10/2026</div>
+          </div>
+          <div>
+            <div class="lbl">Frentes incluídas</div>
+            <div id="frentes"></div>
+          </div>
+          <div>
+            <div class="lbl">Incluir</div>
+            <div class="row" style="font-size:12px">
+              <label><input type="checkbox" checked> Diário marcado “vai para o relatório”</label>
+              <label><input type="checkbox" checked> Links dos documentos</label>
+            </div>
+          </div>
+          <div>
+            <div class="lbl">Saída</div>
+            <div class="out">
+              <button class="btn pri" data-go="v2">Gerar Google Doc</button>
+              <button class="btn pri" data-go="v3">Gerar planilha da cronologia</button>
+              <button class="btn full">Gerar os dois</button>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:6px">Cria os arquivos no seu Drive, na pasta da operação, e abre em nova aba.</div>
+          </div>
+        </div>
+        <div class="m-r">
+          <div class="lbl">Prévia do que entra</div>
+          <div class="kpi"><div><b id="kE">0</b><span>eventos</span></div><div><b id="kP">0</b><span>processos</span></div><div><b id="kV">0</b><span>constrições (R$)</span></div></div>
+          <div class="pv" id="pv"></div>
+          <div class="muted" style="font-size:11px;margin-top:8px">Os números mudam com o período e as frentes marcadas.</div>
+        </div>
+      </div>
+      <div class="m-h" style="border-top:1px solid var(--line);border-bottom:none;justify-content:flex-end"><button class="btn">Cancelar</button></div>
+    </div></div>
+  </section>
+
+  <section class="view" id="v2">
+    <div class="note">Simulação de como o Google Doc nasce. Títulos 2 numerados fixos, Títulos 3 por frente, tabelas nativas. Linhas amarelas = entradas de diário marcadas “vai para o relatório”.</div>
+    <div class="gdoc">
+      <div class="gd-bar"><div class="gd-ico"></div><b>Base do relatório — Operação Maré Baixa (10/03/2025 a 08/10/2026)</b><span>Arquivo&nbsp; Editar&nbsp; Ver&nbsp; Inserir&nbsp; Formatar</span></div>
+      <div class="gd-scroll"><div class="page" id="docpage"></div></div>
+    </div>
+  </section>
+
+  <section class="view" id="v3">
+    <div class="note">Simulação da planilha. Linha 1 congelada, filtro ativo, uma linha por fato, em ordem cronológica. Clique nos filtros de tipo para ver o comportamento.</div>
+    <div class="sheet">
+      <div class="sh-top"><div class="sh-ico"></div><b style="font-weight:400;font-size:14px;color:#202124">Cronologia — Operação Maré Baixa</b><span>Arquivo&nbsp; Editar&nbsp; Ver&nbsp; Dados</span></div>
+      <div class="sh-tool"><span class="muted">Filtro por tipo:</span><span class="f on" data-t="">Todos</span><span id="fchips" class="row"></span><span style="margin-left:auto" class="muted" id="cnt"></span></div>
+      <div class="sh-grid"><table id="sheet"></table></div>
+      <div class="sh-tabs"><span class="on">Cronologia</span><span>Constrições</span><span>Processos</span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const FR={IDPJ:'#6a4fd4','Medida Cautelar Fiscal':'#bf5f16','EF central':'#2d62d3','EFs sem incidente':'#21845a'};
+const P={
+ EF1:{n:'0001234-56.2023.4.99.6100',tipo:'Execução fiscal (central)',vara:'1ª Vara de Execuções Fiscais',sit:'Em curso · penhora e leilão',fr:'EF central'},
+ EF2:{n:'0002345-67.2023.4.99.6100',tipo:'Execução fiscal',vara:'1ª Vara de Execuções Fiscais',sit:'Em curso · aguardando IDPJ',fr:'EFs sem incidente'},
+ EF3:{n:'0003456-78.2024.4.99.6100',tipo:'Execução fiscal',vara:'2ª Vara de Execuções Fiscais',sit:'Suspensa (art. 40 LEF)',fr:'EFs sem incidente'},
+ EF4:{n:'0006789-01.2024.4.99.6100',tipo:'Execução fiscal',vara:'2ª Vara de Execuções Fiscais',sit:'Em curso · citação por edital',fr:'EFs sem incidente'},
+ IDPJ:{n:'0004567-89.2024.4.99.6100',tipo:'IDPJ',vara:'1ª Vara de Execuções Fiscais',sit:'Decisão favorável · agravo negado',fr:'IDPJ'},
+ MCF:{n:'0005678-90.2024.4.99.6100',tipo:'Medida Cautelar Fiscal',vara:'3ª Vara Federal Cível',sit:'Sentença procedente · liminar mantida',fr:'Medida Cautelar Fiscal'}};
+const E=[
+['2025-03-10','EF1','Fase','Início da operação de cobrança do Grupo Alfa','','','','Operações › Dados'],
+['2025-03-18','EF1','Intimação','Intimação da União para dizer sobre certidão negativa de citação','Prazo de 30 dias para indicar endereço.','','https://exemplo.invalid/doc/001','Intimações › Evento 14'],
+['2025-04-02','EF1','Providência','Petição requerendo citação nos endereços dos sócios','Indicados 3 endereços diligenciados.','','https://exemplo.invalid/doc/002','Peças › Pet. 04/2025'],
+['2025-04-29','EF1','Decisão','Deferida citação por oficial de justiça','Determina expedição de mandado nos endereços indicados.','','https://exemplo.invalid/doc/003','Intimações › Evento 21'],
+['2025-05-20','EF1','Fase','Citação efetivada da executada Alfa Cereais Comércio Ltda.','','','','Fases › Citação'],
+['2025-06-11','EF1','Constrição','Bloqueio SISBAJUD em contas da executada','Bloqueio parcial; saldo irrisório nas demais contas.',48210.37,'https://exemplo.invalid/doc/004','Bens › SISBAJUD #1'],
+['2025-06-30','EF1','Diário','Contato com contador da executada: confirma encerramento de fato da filial Sul.','Registrado como indício de dissolução irregular.','','','Diário › 30/06/2025',1],
+['2025-07-14','EF2','Providência','Petição com pedido de redirecionamento (aguarda IDPJ)','Indica o IDPJ nº 0004567-89 como via para os sócios.','','https://exemplo.invalid/doc/005','Peças › Pet. 07/2025'],
+['2025-08-05','IDPJ','Providência','Ajuizado IDPJ contra Beto Fictício Participações Ltda. e Carlos Exemplo','Alega confusão patrimonial e sucessão empresarial.','','https://exemplo.invalid/doc/006','Peças › Inicial IDPJ'],
+['2025-08-26','IDPJ','Decisão','Instaurado o IDPJ e determinada a citação dos requeridos','Suspende o processo principal quanto aos incluídos.','','https://exemplo.invalid/doc/007','Intimações › Evento 5'],
+['2025-09-17','MCF','Providência','Ajuizada Medida Cautelar Fiscal com pedido de liminar','Risco de dilapidação: alienação de 3 imóveis em 2024.','','https://exemplo.invalid/doc/008','Peças › Inicial MCF'],
+['2025-09-19','MCF','Decisão','Liminar deferida: indisponibilidade de bens','Indisponibilidade de bens dos requeridos até o limite do crédito.','','https://exemplo.invalid/doc/009','Intimações › Evento 4'],
+['2025-09-24','MCF','Constrição','Indisponibilidade do imóvel matrícula 11.111 (Cartório Fictício, 1º RI)','Averbação cumprida via CNIB.',1850000.00,'https://exemplo.invalid/doc/010','Bens › Imóvel 11.111'],
+['2025-10-08','MCF','Constrição','Indisponibilidade de veículo (placa AAA-0A00)','Restrição RENAJUD de transferência.',92400.00,'https://exemplo.invalid/doc/011','Bens › Veículo AAA-0A00'],
+['2025-11-12','IDPJ','Intimação','Intimação para réplica à contestação dos requeridos','Prazo de 15 dias.','','https://exemplo.invalid/doc/012','Intimações › Evento 31'],
+['2025-11-27','IDPJ','Providência','Réplica à contestação do IDPJ','Rebate ilegitimidade e prescrição; junta prova de grupo econômico.','','https://exemplo.invalid/doc/013','Peças › Réplica IDPJ'],
+['2025-12-10','EF3','Fase','Suspensão por 1 ano (art. 40 da LEF) — devedor não localizado','','','','Fases › Suspensão'],
+['2026-01-22','MCF','Audiência','Audiência de conciliação (infrutífera)','Requeridos não apresentaram proposta.','','https://exemplo.invalid/doc/014','Agenda › 22/01/2026'],
+['2026-02-18','IDPJ','Decisão','Decisão do IDPJ: desconsideração deferida, incluídos 2 corresponsáveis','Reconhece confusão patrimonial; inclusão de Beto Fictício Participações Ltda. e Carlos Exemplo no polo passivo.','','https://exemplo.invalid/doc/015','Intimações › Evento 58'],
+['2026-03-09','IDPJ','Intimação','Intimação do agravo de instrumento dos corresponsáveis','Prazo de 15 dias para contraminuta.','','https://exemplo.invalid/doc/016','Intimações › Evento 63'],
+['2026-03-24','IDPJ','Providência','Contraminuta ao agravo de instrumento','','','https://exemplo.invalid/doc/017','Peças › Contraminuta'],
+['2026-04-15','EF1','Providência','Petição para extensão da penhora aos corresponsáveis incluídos','Reflexo da decisão do IDPJ de 18/02/2026.','','https://exemplo.invalid/doc/018','Peças › Pet. 04/2026'],
+['2026-05-06','EF1','Constrição','Penhora do imóvel matrícula 22.222 (Cartório Fictício, 2º RI)','Auto de penhora lavrado e registrado.',1240000.00,'https://exemplo.invalid/doc/019','Bens › Imóvel 22.222'],
+['2026-05-27','EF4','Providência','Pedido de citação por edital do executado Delta Transportes Ltda.','Esgotadas diligências nos endereços cadastrados.','','https://exemplo.invalid/doc/020','Peças › Pet. 05/2026'],
+['2026-06-16','MCF','Decisão','Sentença: procedente; mantida a indisponibilidade','Condena em honorários; mantém liminar até garantia da execução.','','https://exemplo.invalid/doc/021','Intimações › Evento 97'],
+['2026-07-08','EF1','Decisão','Deferida avaliação do imóvel 22.222 e designação de leilão','Avaliação por oficial de justiça.','','https://exemplo.invalid/doc/022','Intimações › Evento 112'],
+['2026-07-29','EF1','Fase','Avaliação do imóvel 22.222 juntada (R$ 1.310.000,00)','Valor avaliado superior ao da penhora.',1310000.00,'https://exemplo.invalid/doc/023','Fases › Avaliação'],
+['2026-08-19','IDPJ','Decisão','Agravo de instrumento: negado provimento (acórdão)','Mantida a desconsideração. Prazo para embargos de declaração em curso.','','https://exemplo.invalid/doc/024','Intimações › Evento 140'],
+['2026-09-03','EF1','Audiência','Leilão (1ª praça) designado para 03/11/2026','','','https://exemplo.invalid/doc/025','Agenda › 03/11/2026'],
+['2026-09-22','EF2','Diário','Reunião com a Receita: confirmadas 2 CDAs extintas por pagamento parcial anterior.','Base para a atualização do valor consolidado.','','','Diário › 22/09/2026',1],
+['2026-10-06','EF1','Providência','Manifestação sobre pedido de parcelamento da executada','Contrária; ausência de garantia suficiente.','','https://exemplo.invalid/doc/026','Peças › Manif. 10/2026']
+];
+const D=E.map(e=>({d:e[0],p:e[1],t:e[2],fato:e[3],teor:e[4],v:e[5],link:e[6],fonte:e[7],dia:!!e[8],f:P[e[1]].fr}));
+const BENS=[
+ ['Imóvel matrícula 11.111','Beto Fictício Participações Ltda.','Indisponibilidade (CNIB)','24/09/2025','MCF',1850000,'Mantida pela sentença'],
+ ['Veículo placa AAA-0A00','Carlos Exemplo','Restrição RENAJUD','08/10/2025','MCF',92400,'Mantida pela sentença'],
+ ['Saldo em conta (SISBAJUD)','Alfa Cereais Comércio Ltda.','Bloqueio','11/06/2025','EF1',48210.37,'Convertido em depósito judicial'],
+ ['Imóvel matrícula 22.222','Alfa Cereais Comércio Ltda.','Penhora','06/05/2026','EF1',1240000,'Avaliado em R$ 1.310.000,00; leilão designado']];
+const brl=v=>v===''?'':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2});
+const br=d=>d.split('-').reverse().join('/');
+const cn=k=>`<span class="cn">${P[k].n}</span>`;
+const abbr={IDPJ:'IDPJ','Medida Cautelar Fiscal':'MCF','EF central':'EF central','EFs sem incidente':'EFs'};
+const $=id=>document.getElementById(id);
+
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>go(b.dataset.v));
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+function go(v){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id===v));scrollTo(0,0)}
+
+const frDiv=$('frentes'),frOn={};Object.keys(FR).forEach(k=>frOn[k]=true);
+Object.keys(FR).forEach(k=>{const l=document.createElement('label');l.className='fr';l.innerHTML=`<input type="checkbox" checked><span class="sw" style="background:${FR[k]}"></span>${k}<span class="n"></span>`;l.querySelector('input').onchange=e=>{frOn[k]=e.target.checked;upd()};frDiv.appendChild(l)});
+const whole=$('whole'),dFrom=$('dFrom'),dTo=$('dTo');
+function upd(){
+ $('rng').style.opacity=whole.checked?.4:1;
+ const a=whole.checked?'0000':dFrom.value,b=whole.checked?'9999':dTo.value;
+ const sel=D.filter(e=>frOn[e.f]&&e.d>=a&&e.d<=b);
+ [...frDiv.children].forEach((l,i)=>{const k=Object.keys(FR)[i];l.querySelector('.n').textContent=D.filter(e=>e.f===k&&e.d>=a&&e.d<=b).length+' eventos'});
+ const cons=sel.filter(e=>e.t==='Constrição').reduce((s,e)=>s+(+e.v||0),0);
+ $('kE').textContent=sel.length;$('kP').textContent=new Set(sel.map(e=>e.p)).size;$('kV').textContent=(cons/1e6).toFixed(2).replace('.',',')+' mi';
+ const c=t=>sel.filter(e=>e.t===t).length;
+ $('pv').innerHTML=`<h6>Estrutura do Doc</h6><ol style="margin-left:16px"><li>Visão geral da operação</li><li>Por frente processual (${new Set(sel.map(e=>e.f)).size})</li><li>Quadro de decisões (${c('Decisão')})</li><li>Constrições e valores (${c('Constrição')})</li><li>Providências e peças (${c('Providência')})</li><li>Cronologia completa (${sel.length} linhas)</li></ol><h6>Diário</h6><ul><li>${sel.filter(e=>e.dia).length} entradas marcadas “vai para o relatório”</li></ul>`;
+}
+[whole,dFrom,dTo].forEach(x=>x.onchange=upd);upd();
+
+(function(){
+ const dec=D.filter(e=>e.t==='Decisão'),prov=D.filter(e=>e.t==='Providência');
+ let h=`<h1>Base do relatório da operação</h1><div class="sub">Operação Maré Baixa — Grupo Alfa Cereais · Período: 10/03/2025 a 08/10/2026 · Gerado pelo NEXUS em 08/10/2026</div>
+ <div class="toc"><span>1. Visão geral da operação</span><br><span>2. Por frente processual</span><br><span>3. Quadro de decisões judiciais</span><br><span>4. Quadro de constrições e valores</span><br><span>5. Quadro de providências e peças</span><br><span>6. Cronologia completa da operação</span></div>
+ <h2>1. Visão geral da operação</h2>
+ <table class="kv"><tr><td>Operação</td><td>Maré Baixa — cobrança do Grupo Alfa Cereais</td></tr><tr><td>Início / encerramento</td><td>10/03/2025 / em curso (relatório sob demanda)</td></tr><tr><td>Devedor principal</td><td>Alfa Cereais Comércio Ltda. — CNPJ 00.000.000/0001-91</td></tr><tr><td>Demais devedores</td><td>Beto Fictício Participações Ltda. (CNPJ 00.000.000/0002-72); Carlos Exemplo (CPF 000.000.000-00); Delta Transportes Ltda. (CNPJ 00.000.000/0003-53)</td></tr><tr><td>Situação atual</td><td>IDPJ com decisão favorável (agravo negado); MCF com sentença procedente; EF central com penhora e leilão designado para 03/11/2026.</td></tr></table>
+ <h3>Processos</h3><table><tr><th>Número (CNJ)</th><th>Tipo</th><th>Vara</th><th>Situação</th></tr>`;
+ Object.keys(P).forEach(k=>h+=`<tr><td>${cn(k)}</td><td>${P[k].tipo}</td><td>${P[k].vara}</td><td>${P[k].sit}</td></tr>`);
+ h+=`</table><h3>CDAs</h3><table><tr><th>Quantidade</th><th>Valor total</th><th>Garantido</th><th>Extintas / prescritas</th></tr><tr><td>14 CDAs</td><td class="num">R$ 9.876.543,21</td><td class="num">R$ 3.230.610,37 (32,7%)</td><td>2 extintas (pagamento) · 1 prescrita</td></tr></table>
+ <h2>2. Por frente processual</h2>`;
+ let n=1;
+ Object.keys(FR).forEach(f=>{
+  const ps=Object.keys(P).filter(k=>P[k].fr===f).map(k=>P[k].n).join('; ');
+  h+=`<h3>2.${n++} ${f}</h3><p class="fe">Processos: <span class="cn">${ps}</span></p><table><tr><th style="width:13%">Data</th><th style="width:14%">Tipo</th><th>Fato (processo · teor da decisão · valor)</th></tr>`;
+  D.filter(e=>e.f===f).forEach(e=>h+=`<tr class="${e.dia?'dia':''}"><td>${br(e.d)}</td><td>${e.dia?'<span class="mark">DIÁRIO</span>':''}${e.t}</td><td>${e.fato} <span class="cn">[${P[e.p].n.slice(0,7)}]</span>${e.t==='Decisão'&&e.teor?`<br><i>Teor: ${e.teor}</i>`:''}${e.v!==''?`<br>Valor: ${brl(e.v)}`:''}</td></tr>`);
+  h+=`</table>`});
+ h+=`<h2>3. Quadro de decisões judiciais</h2><table><tr><th>Data</th><th>Processo</th><th>Evento</th><th>Teor resumido</th><th>Desfecho</th></tr>`;
+ dec.forEach(e=>h+=`<tr><td>${br(e.d)}</td><td>${cn(e.p)}</td><td>${e.fato}</td><td>${e.teor}</td><td>Favorável à União</td></tr>`);
+ h+=`</table><h2>4. Quadro de constrições e valores</h2><table><tr><th>Bem</th><th>Titular</th><th>Constrição</th><th>Data</th><th>Valor</th><th>Processo</th><th>Situação</th></tr>`;
+ BENS.forEach(b=>h+=`<tr><td>${b[0]}</td><td>${b[1]}</td><td>${b[2]}</td><td>${b[3]}</td><td class="num">${brl(b[5])}</td><td>${cn(b[4])}</td><td>${b[6]}</td></tr>`);
+ h+=`<tr><td colspan="4"><b>Total constrito</b></td><td class="num"><b>${brl(BENS.reduce((s,b)=>s+b[5],0))}</b></td><td colspan="2"></td></tr></table>
+ <h2>5. Quadro de providências e peças</h2><table><tr><th>Data</th><th>Processo</th><th>Tipo</th><th>Resumo</th><th>Link</th></tr>`;
+ prov.forEach(e=>h+=`<tr><td>${br(e.d)}</td><td>${cn(e.p)}</td><td>${e.fonte.split('› ')[1]||'Petição'}</td><td>${e.fato}</td><td><span class="lk">abrir</span></td></tr>`);
+ h+=`</table><h2>6. Cronologia completa da operação</h2><table><tr><th>Data</th><th>Processo</th><th>Frente</th><th>Tipo</th><th>Fato</th><th>Fonte</th></tr>`;
+ D.forEach(e=>h+=`<tr class="${e.dia?'dia':''}"><td>${br(e.d)}</td><td>${cn(e.p)}</td><td>${abbr[e.f]}</td><td>${e.t}</td><td>${e.fato}</td><td>${e.fonte}</td></tr>`);
+ $('docpage').innerHTML=h+'</table>';
+})();
+
+let tf='';
+const cols=['A','B','C','D','E','F','G','H','I'],heads=['Data','Processo','Frente','Tipo','Fato','Teor / Resumo','Valor','Link','Fonte no app'];
+function sheet(){
+ const rows=D.filter(e=>!tf||e.t===tf);
+ let h='<tr><th class="rn"></th>'+cols.map(c=>`<th class="col">${c}</th>`).join('')+'</tr><tr class="hd"><td style="left:0;position:sticky;z-index:3;background:#f8f9fa;text-align:center;color:#5f6368">1</td>'+heads.map(x=>`<td>${x} <span style="color:#1a73e8;font-size:9px">▼</span></td>`).join('')+'</tr>';
+ rows.forEach((e,i)=>h+=`<tr style="${e.dia?'background:#fff8e1':''}"><th class="rn">${i+2}</th><td>${br(e.d)}</td><td class="cn">${P[e.p].n}</td><td>${abbr[e.f]}</td><td><span class="pill t-${e.t}">${e.t}</span></td><td class="w">${e.fato}</td><td class="w">${e.teor}</td><td class="n">${e.v!==''?brl(e.v):''}</td><td style="color:#1155cc;text-decoration:underline">${e.link?e.link.replace('https://',''):''}</td><td>${e.fonte}</td></tr>`);
+ $('sheet').innerHTML=h;$('cnt').textContent=rows.length+' de '+D.length+' linhas';
+}
+['Providência','Decisão','Constrição','Intimação','Audiência','Fase','Diário'].forEach(t=>{const s=document.createElement('span');s.className='f';s.dataset.t=t;s.textContent=t;$('fchips').appendChild(s)});
+document.querySelectorAll('.sh-tool .f').forEach(s=>s.onclick=()=>{tf=s.dataset.t;document.querySelectorAll('.sh-tool .f').forEach(x=>x.classList.toggle('on',x===s));sheet()});
+sheet();
+</script>
+</body>
+</html>

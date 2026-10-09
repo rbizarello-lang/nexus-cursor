@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ATUACAO_KINDS, applyTaskCompletion, buildUltimasAtuacoes, normalizePecaUrl, planProactiveAction } from '../src/lib/atuacoes.js';
+import { ATUACAO_KINDS, applyTaskCompletion, buildUltimasAtuacoes, decisionSummaryFromAction, intimationDecisionText, normalizePecaUrl, planProactiveAction } from '../src/lib/atuacoes.js';
 
 const NOW = '2026-10-01T15:00:00.000Z';
 
@@ -222,5 +222,22 @@ describe('planProactiveAction — registrar atuação proativa', () => {
     assert.equal(rows[0].title, 'Requereu SISBAJUD');
     assert.equal(rows[0].url, 'https://docs.google.com/document/d/zzz');
     assert.equal(rows[0].hasText, true);
+  });
+});
+
+describe('teor da decisão da intimação', () => {
+  it('intimationDecisionText apara e tolera vazio', () => {
+    assert.equal(intimationDecisionText({ decisionSummary: '  Defere penhora  ' }), 'Defere penhora');
+    assert.equal(intimationDecisionText({}), '');
+    assert.equal(intimationDecisionText(null), '');
+  });
+  it('ciência: a descrição vira o teor só se a intimação não tem um', () => {
+    assert.equal(decisionSummaryFromAction({}, { type: 'ciencia', description: ' Indefere ' }), 'Indefere');
+    assert.equal(decisionSummaryFromAction({ decisionSummary: 'Já tinha' }, { type: 'ciencia', description: 'Outro' }), undefined);
+  });
+  it('peticionamento/outra: grava só se alterado', () => {
+    assert.equal(decisionSummaryFromAction({ decisionSummary: 'A' }, { type: 'peticionamento', decisionSummary: 'A' }), undefined);
+    assert.equal(decisionSummaryFromAction({ decisionSummary: 'A' }, { type: 'outra', decisionSummary: 'B' }), 'B');
+    assert.equal(decisionSummaryFromAction({}, { type: 'outra' }), undefined);
   });
 });
