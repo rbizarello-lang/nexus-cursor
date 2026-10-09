@@ -19,6 +19,11 @@ Mockup: `design/mockups/prazos-unificados/proposta-2-v2.html` (usa `base.css` e 
 8. **Decadência** fica numa seção no fim, só consulta e edição, sem contador de alarme.
 9. **E-mail diário suspenso por enquanto** (executar `removerResumoDiario` no Apps Script; retomar com `instalarResumoDiario`). Não alterar `RESUMO-DIARIO.js`. Retomar depois, seguindo os mesmos cartões.
 10. Premissas gerais: decadência nunca alarma; ordinária só "ajuizar"; consumada antiga fica só em "Consumadas"; nem todo aviso tem ação; editar no lugar; um único conjunto de números, sem dupla contagem.
+11. **Contagem por CDA**, individualmente; o painel permite tratar em bloco e "Juntar por processo" para análise conjunta. CDA sem dados de cálculo vai a "Completar dado". IDPJ "chegando aos 5 anos" usa a janela do motor (90 dias antes, `idpjNotice.active`).
+12. **Clássico e Beta** recebem a mesma Mesa em cartões (a "Lista" com G1–G7 continua no seletor Mesa/Lista).
+13. **Números fora da Mesa pelos cartões**: badge do menu = soma da fileira 1 (Conferir o cálculo + Ajuizar até 60 d + Lançar fato + Confirmar vigência + Completar dado); Hoje e Painel mostram os mesmos cartões; a Lista mantém G1–G7 como coluna técnica.
+14. **Ajuizar** grava nº do processo + data do ajuizamento (vara opcional) nas CDAs (também em lote), cria a execução se não existir ou só vincula se existir com o mesmo número.
+15. **Desfazer**: faixa verde "Feito — foi para «X»" com Desfazer após cada ação na Mesa, até dispensar ou sair da tela. Formulários abrem na própria linha; a ficha completa continua em "Abrir".
 
 ## Achados do levantamento que guiam a construção
 - Hoje: Mesa "332 = 101 (Urgentes) + 202 (A completar) + 29 (Acompanhamento)"; "Consumadas 181 × 194" porque 13 consumadas recentes contam duas vezes; linhas "há 20 anos" são G1 de tese (cedo venceu, tarde futura), não consumadas. Ver `01-superficies.md`.
@@ -32,6 +37,9 @@ Mockup: `design/mockups/prazos-unificados/proposta-2-v2.html` (usa `base.css` e 
 2. **Painel de Filtros** (operação, filtros, busca, chips).
 3. **Edição no lugar** (gaveta/inline) e **Desfazer**; depois **Ajuizar**.
 Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commitar os HTML gerados; não refatorar parsers/prescrição de passagem; as três edições devem seguir compatíveis; testes: `npm test`.
+
+## Andamento
+- Fase 1 (Prumo): feita — `buildMesaCards` em `src/lib/prazos-mesa.js` (testes em `test/prazos-mesa.test.mjs`) e Mesa do Prumo em cartões (`EditionClaudePrazos`).
 
 ## Arquivos
 - `00-brief.md` pedido, premissas e regras comuns · `01-superficies.md` inventário das telas atuais · `02-motor-vocabulario.md` o que o motor devolve · `03-verificacao.md` parecer do revisor, comparativo e correções.
