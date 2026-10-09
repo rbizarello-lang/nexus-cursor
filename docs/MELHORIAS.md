@@ -92,6 +92,31 @@ Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo ún
 
 ---
 
+## 🗂 Prumo · Visão geral centrada nas Frentes processuais (aprovado 09/10/2026)
+
+Maquete aprovada: `design/mockups/prumo-visao-geral-r3-tabela.html` (rodada 3 da versão B "Tabela"). Rodadas anteriores (5 ideias e versões A/B) ficaram fora do repositório. Só o Nexus Prumo muda (`src/edition-claude.jsx` + CSS da edição em `src/Nexus.shell.html`). Clássico, Beta e Demo ficam idênticos. **Não muda:** modelo de dados obrigatório, parsers, prescrição e sync Drive.
+
+**Decisões do usuário:**
+- Moldura e grade iguais às outras abas: cabeçalho `.cx-oph`, página fluida e faixa de briefing `CxKpiStrip` com as duas linhas, sem mudança.
+- Frentes processuais é o centro da página: tabela em largura cheia, sem ordenação e sem filtro.
+- O número do processo copia com um clique no próprio número. Não tem ícone de copiar, "abrir no eproc" nem "só dígitos". A dica muda de "Clique para copiar" para "Copiado ✓". O clique no número não expande a linha.
+- Sinais sutis por frente (intimação, tarefa, audiência, constrição, prescrição) com dica ao passar o mouse. Não há legendas nem textos explicativos.
+- Linha aberta: régua de fases clicável no topo. Abaixo, "Evento da fase" (texto, desfecho, recursos) e "Notas" do processo lado a lado, com o texto como protagonista e um editor rico no lugar. "Em aberto" é só uma linha de atalhos para as abas (Intimações, Tarefas, Audiências, Prescrição). Saem os blocos de constrições, de CDAs e de último registro.
+- Notas: o rótulo "Notas" é discreto e não ocupa uma linha só para ele. A data fica pequena e secundária (ao lado ou no pé). A ênfase é o texto da nota.
+- Editar é só o ícone de lápis (`.cx-icon-btn.cx-sm`).
+- Mural (Diário + Lembretes fundidos em post-its) fica abaixo das Frentes, em largura cheia. Os filtros são ícones sóbrios. É a única peça mais estilizada da página.
+- Embaixo fica o Painel de apoio, um cartão com abas: O que vem · Prazos extintivos · Checklists · Fontes · Atuações recentes (que passa a ter os eventos recentes por processo).
+- "+ Frente" e "+ Nota" são links discretos (`.cx-link-btn`).
+
+**Fases (uma por vez → build → validação):**
+- **V1 — Número copiável e correções de base:** `CxCopyNum`, em que o clique no número copia, com dica, foco por teclado e Enter. Reaproveita `copyText`/`cxCopy`. Corrige o valor da frente EF/Central, que hoje soma só os apensos e deixa de fora as CDAs do próprio processo. Corrige o estado de dobra compartilhado entre frentes.
+- **V2 — Tabela de frentes:** substitui as lanes de `CxBfFronts`. Colunas: Tipo · Processo · Juízo · Fase (selo) · Próximo ato · Sinais · Valor. Os filhos por `parentExecutionId` (apensa, exceção, embargos, recurso) ficam recuados. No fim, linhas "Operação (geral)" e Acompanhar. A linha expandida tem régua, Evento da fase, Notas e a linha de atalhos. A abertura de cada frente é lembrada em `nexus_cx_bf_lanes`.
+- **V3 — Editor rico de eventos e notas:** editor no lugar (negrito, itálico, listas, link, Ctrl+B e Ctrl+I), reaproveitando a sanitização existente. As notas continuam em `exec.notesList` num formato que o Clássico lê como texto simples.
+- **V4 — Mural:** junta `briefing.entries` e `stickyNotes` da operação. "+ Nota" abre o menu Lembrete / Entrada do diário (formulários existentes). Lembrete ganha os campos **opcionais** `dueDate` e `done` (data e caixa de feito), compatíveis com dados antigos. Saem os cartões Diário, Lembretes e a leitura fixada (`CxBfLead`).
+- **V5 — Painel de apoio:** um cartão com abas. "O que vem" reaproveita `CxOqVem` (Horizonte, Narrativa, Mapa). Saem os cartões Intimações abertas, Agenda, Prazos extintivos, Checklists, Fontes e Atuações. `CX_OV_FOLD_IDS` é atualizado.
+
+---
+
 ## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
 **Ainda não implementado.** Pedir por fase: "vamos fazer o P1".
