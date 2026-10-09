@@ -112,6 +112,16 @@ describe('armazenamento (memória) e envio', () => {
     assert.equal(st.pendingCount(), 0);
     assert.equal((await st.getLocal()).length, 1); // a cópia local continua
   });
+  it('recusa definitiva isola o evento ruim e não trava o resto da fila', async () => {
+    const st = createActivityStore({ forceMemory: true });
+    await st.enqueue([edit('a', '2026-10-08T10:00:00.000Z', 'suspensa')]);
+    await st.enqueue([edit('b', '2026-10-08T11:00:00.000Z', 'quitada')]);
+    assert.equal(st.pendingCount(), 2);
+    const r = await flushOutbox(st, async (lote) => (lote.some((e) => e.id === 'a') ? { success: false, error: 'inválido' } : { success: true }));
+    assert.equal(r.sent, 1);
+    assert.equal(st.pendingCount(), 0);
+    assert.equal((await st.getLocal()).length, 2); // o recusado continua na cópia local
+  });
   it('erro mantém no outbox; ida-e-volta é descartada também do local', async () => {
     const st = createActivityStore({ forceMemory: true });
     await st.enqueue([edit('a', '2026-10-08T10:00:00.000Z', 'suspensa')]);

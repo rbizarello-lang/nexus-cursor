@@ -101,13 +101,37 @@ function walkList(a, b, onPair) {
   for (const [id, x] of ma) if (!mb.has(id)) onPair(x, undefined);
 }
 
+const actPlain = (h) => String(h == null ? '' : h).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  .replace(/\s+/g, ' ').trim();
+/**
+ * O diário converte entradas do formato antigo ({title, body}) para {type, html} ao salvar qualquer entrada.
+ * Essa conversão não é edição: compara como se o antigo já estivesse no formato novo.
+ */
+function actNormEntryPair(x, y) {
+  if (!x || !y) return [x, y];
+  const nx = { ...x }, ny = { ...y };
+  delete nx.migrated; delete ny.migrated;
+  if (!x.html && x.body != null) {
+    delete nx.body; delete nx.title; delete ny.body; delete ny.title;
+    const bodyText = String(x.body).replace(/\s+/g, ' ').trim(); // body é texto puro: não remove "tags"
+    nx.html = bodyText === actPlain(y.html) ? y.html : x.body;
+    if (!x.type) nx.type = y.type;
+  }
+  return [nx, ny];
+}
+
 /** Comparador do briefing: diário por id da entrada, fases por execId/stageKey, demais chaves inteiras. */
 function diffBriefing(a, b) {
   const out = [];
   a = a || {}; b = b || {};
   if (a === b) return out;
+  // Primeira gravação do diário: anotações antigas por campo (risks, strategicNotes…) viram entradas legacy_*; não é criação.
+  const firstSave = !Array.isArray(a.entries) && Array.isArray(b.entries);
   walkList(a.entries, b.entries, (x, y) => {
     const id = (x || y).id;
+    if (!x && firstSave && /^legacy_/.test(String(id))) return;
+    [x, y] = actNormEntryPair(x, y);
     if (!x) out.push({ f: `briefing.entries[${id}]`, from: undefined, to: y });
     else if (!y) out.push({ f: `briefing.entries[${id}]`, from: x, to: undefined });
     else for (const d of diffFields(x, y)) out.push({ f: `briefing.entries[${id}].${d.f}`, from: d.from, to: d.to });

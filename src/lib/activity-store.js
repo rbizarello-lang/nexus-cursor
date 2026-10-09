@@ -236,9 +236,24 @@ export async function flushOutbox(store, send, maxBytes = MAX_BATCH_BYTES) {
     for (const batch of splitBatches(pend, maxBytes)) {
       let r = null;
       try { r = await send(batch); } catch (e) { r = null; }
-      if (!r || !r.success) break;
-      await store.removeOutbox(batch.map((e) => e.id));
-      sent += batch.length;
+      if (r && r.success) {
+        await store.removeOutbox(batch.map((e) => e.id));
+        sent += batch.length;
+        continue;
+      }
+      // Sem resposta ou "tente de novo": para e tenta no próximo ciclo.
+      if (!r || r.retry) break;
+      // Recusa definitiva: manda um a um para isolar o evento problemático; o recusado sai da fila
+      // (continua na cópia local) para não travar o resto para sempre.
+      let stop = false;
+      for (const ev of batch) {
+        let r1 = null;
+        try { r1 = await send([ev]); } catch (e) { r1 = null; }
+        if (r1 && r1.success) { await store.removeOutbox([ev.id]); sent++; }
+        else if (r1 && !r1.retry) { console.warn('trilha: evento recusado pelo servidor', ev.id, r1.error); await store.removeOutbox([ev.id]); }
+        else { stop = true; break; }
+      }
+      if (stop) break;
     }
   } catch (e) {
     console.error('flushOutbox', e);
