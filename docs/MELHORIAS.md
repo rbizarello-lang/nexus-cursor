@@ -209,6 +209,23 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     (se editado no Clássico, volta o texto simples).
   - Temas Noite e Grafite (⚙ → Tema, chave `cxTheme`), com testes de tokens e contraste WCAG. Fonte do ⚙ passou a
     valer no Prumo; `esteiraTemplate` não some mais ao recarregar.
+- **Nexus Prumo — card de intimação, versão R** (09/10/2026) — só no Prumo (lista de Intimações e Processos ›
+  Substituição); Quadro, Foco, Tarefas e Acompanhar intactos. Combinação recomendada do mockup
+  `prumo-intimacao-card-b2-extremos.html` (D1 + sigla + Geist + prazo com contagem no tooltip), em quatro zonas:
+  - **Identidade:** linha de cima com a operação e os sinais URGENTE / Novo / Atualizada / ⚑ (o nome da parte fica
+    sempre no mesmo lugar); ícone de situação antes do nome; nº do processo na fonte da interface com algarismos
+    tabulares e zero cortado (12,5 px, sempre em CNJ), sigla da classe (IDPJ, EF, ETE, EEF, EE, ET, EPE, CS, AI, AC,
+    PCC, RJ, FAL, MS, MCF; nome completo no tooltip; fora do dicionário, a classe por extenso em linha própria) e
+    Imp. / Compl. / peça à direita; esteira embaixo.
+  - **Tribunal:** objeto e teor da decisão (`decisionSummary`, rótulo "Decisão"). **Minhas notas:** faixa
+    própria, das mais recentes para trás, com "+N notas anteriores"; na resolvida, a atuação. Linhas medidas pela
+    largura da lista.
+  - **Prazo:** só tempo — data final em destaque (dia da semana + dd/mm; a contagem "em N dias (N úteis)" fica no
+    tooltip) e, logo abaixo, o alerta de embargos de declaração (10 dias úteis do início: calmo, atenção ≤ 3 du,
+    HOJE; some se expirado).
+  - Colunas pela largura da lista (container query): ≥ 1480 px quatro colunas; 860–1479 Tribunal e Notas
+    empilhadas; abaixo disso, uma coluna (celular). Cálculos puros em `src/lib/intim-card.js`
+    (`test/intim-card.test.mjs`). Nenhum campo novo.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
