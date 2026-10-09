@@ -233,6 +233,14 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   (Visão geral) e tarefas vencidas (Tarefas) em vermelho; CDAs no alarme de prescrição (Processos e prescrição) em
   violeta. Sem número quando é zero; o leitor de tela ouve o rótulo com a contagem. Frentes processuais: Evento da
   fase e Notas em 11,5 px (o nº do processo da tabela é 12 px), mais compactos.
+- **Nexus Prumo — Frentes processuais só com o que o usuário escolhe** (09/10/2026) — corrige a V2 da Visão geral,
+  que passou a listar como linhas todos os processos ligados às frentes (apensos, agravos, exceções) e o grupo
+  "Sem incidente". Nenhum dado tinha sido alterado: as escolhas (`inPanorama`) continuavam valendo. Agora a tabela
+  mostra só as frentes (`cxIsBfFront`): IDPJ, MCF e execuções centrais por padrão, a EF de petição incidental como
+  no Panorama do Clássico e qualquer outro processo só se o usuário levar à frente (ficha do processo → "Levar à
+  frente" / "Retirar da frente"). Qualquer frente pode ser retirada, inclusive central e filho. O fio de ligação
+  aparece só quando o processo-pai também é frente. Apensos e demais processos ficam na aba Processos e
+  prescrição; na linha da frente seguem como "cobre N" e no valor.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
