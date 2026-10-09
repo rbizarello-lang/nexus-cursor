@@ -265,6 +265,7 @@
 .nx-groups { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .nx-group { background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: var(--nx-r-lg); min-width: 0; }
 .nx-group-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 42px; padding: 6px 14px; background: var(--nx-surface-2); border-radius: 9px 9px 0 0; list-style: none; cursor: pointer; font-size: 12.5px; min-width: 0; }
+button.nx-group-h { width: 100%; text-align: left; }
 .nx-group-h::-webkit-details-marker { display: none; }
 .nx-group-h:hover { background: var(--nx-hover); }
 .nx-group-toggle { display: inline-flex; align-items: center; gap: 8px; min-width: 0; text-align: left; font-weight: 500; }
