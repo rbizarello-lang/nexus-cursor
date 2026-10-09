@@ -243,7 +243,7 @@ body{font-family:'Geist','Segoe UI',system-ui,-apple-system,sans-serif;font-size
 }
 `;
 
-function htmlShell(title, bodyHtml) {
+export function htmlShell(title, bodyHtml) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: https:">
 <title>${escHtml(title)}</title>
@@ -449,7 +449,7 @@ export function renderReportDocument(rd) {
 
 /** Nome do arquivo baixado, no padrão pedido: passagem_servico_<op>_<data>.html etc. */
 export function reportFileName(model, opName, dateIso) {
-  const prefix = model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
+  const prefix = model === 'base' ? 'base_relatorio' : model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
   const safeName = String(opName || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
   return `${prefix}_${safeName}_${dateIso}.html`;
 }

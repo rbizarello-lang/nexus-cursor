@@ -172,6 +172,8 @@ const jsx = [
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'narrativa.js'), 'utf8')),
   '/* --- src/lib/frentes.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'frentes.js'), 'utf8')),
+  '/* --- src/lib/report-base.js --- */',
+  unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'report-base.js'), 'utf8')),
   '/* --- src/lib/fold.js --- */',
   unwrapModule(fs.readFileSync(path.join(root, 'src', 'lib', 'fold.js'), 'utf8')),
   '/* --- src/lib/textdiff.js --- */',

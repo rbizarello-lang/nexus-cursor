@@ -3295,6 +3295,8 @@ function App() {
   const [reportSections, setReportSectionsS] = useState(() => defaultReportSections());
   const setReportSections = (patch) => setReportSectionsS(prev => ({ ...prev, ...patch }));
   const [reportPeriod, setReportPeriod] = useState({ from: '', to: '', wholeOp: true });
+  // Base do relatório: frentes desmarcadas, envio em andamento e resultado (links ou erro)
+  const [reportBase, setReportBase] = useState({ off: [], busy: '', err: '', links: [] });
   const [exportIds, setExportIds] = useState(() => new Set(DEFAULT_EXPORT_SELECTION));
   const [exportScope, setExportScope] = useState('carteira');
   const [showDiagnostico, setShowDiagnostico] = useState(false);
@@ -6134,6 +6136,49 @@ function App() {
     };
   };
 
+  // Base do relatório (4º modelo): dados da operação recortados + período e frentes escolhidos
+  const buildBaseFor = (op, period, off) => {
+    const slices = getOpSlices(op.id);
+    const todayIso = localIso(new Date());
+    const wholeOp = !!period.wholeOp;
+    const fromIso = wholeOp ? (op.createdAt || '').slice(0, 10) || '0001-01-01' : (period.from || '0001-01-01');
+    const toIso = wholeOp ? todayIso : (period.to || todayIso);
+    const periodLabel = wholeOp ? `desde o início até ${fmtDate(toIso)}` : `${fmtDate(fromIso)} a ${fmtDate(toIso)}`;
+    const mine = (arr) => (arr || []).filter(x => x.operationId === op.id);
+    return buildBaseRelatorio({
+      op, debts: slices.debts, executions: slices.executions, assets: slices.assets, people: slices.people,
+      intimations: mine(data.intimations), hearings: mine(data.hearings), documents: mine(data.documents), measures: mine(data.measures),
+      briefing: op.briefing || {}, prescriptionEvents: data.prescriptionEvents || [], changeLog: mine(data.changeLog),
+      deps: { getStageRecords, resolveStageDef, isEfStylePanoramaCard, PROCESS_STAGES, CENTRAL_STAGES, getBriefingEntries, BRIEFING_ENTRY_TYPES, CX_HEARING, ASSET_STATUSES, EXEC_STATUSES, ASSET_SUBTYPES },
+    }, { fromIso, toIso, periodLabel, fronts: Object.keys(BASE_FRONTS).filter(k => !off.includes(k)) });
+  };
+  const downloadBaseHtml = (op, period, off) => {
+    const base = buildBaseFor(op, period, off);
+    downloadBlob(new Blob([renderBaseHtml(base, new Date().toLocaleString('pt-BR'))], { type: 'text/html;charset=utf-8' }), reportFileName('base', op.name, new Date().toISOString().slice(0, 10)));
+  };
+  const downloadBaseCsv = (op, period, off) => {
+    const base = buildBaseFor(op, period, off);
+    const safe = String(op.name || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
+    downloadBlob(new Blob([baseCronologiaCsv(base)], { type: 'text/csv;charset=utf-8' }), `base_relatorio_cronologia_${safe}_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+  // Gera no Drive (Google Doc e/ou planilha) pelo servidor; só funciona no app publicado.
+  const runBaseExport = async (op, period, off, which) => {
+    const base = buildBaseFor(op, period, off);
+    setReportBase(s => ({ ...s, busy: which, err: '', links: [] }));
+    const links = [];
+    try {
+      if (which !== 'sheet') { const r = await activityApi.exportDoc({ title: base.title, blocks: base.blocks }); links.push({ label: 'Google Doc', url: r.url }); }
+      if (which !== 'doc') { const r = await activityApi.exportSheet({ title: base.sheetTitle, sheets: base.sheets }); links.push({ label: 'Planilha da cronologia', url: r.url }); }
+      setReportBase(s => ({ ...s, busy: '', links }));
+      links.forEach(l => { if (l.url) window.open(l.url, '_blank'); });
+    } catch (e) {
+      const m = String((e && e.message) || e || '');
+      const offline = /só no app publicado/i.test(m);
+      setReportBase(s => ({ ...s, busy: '', links, err: offline
+        ? 'Gerar no Google Drive só funciona no app publicado. Aqui você pode baixar a prévia em HTML (imprimível) e a cronologia em CSV.'
+        : /cota|quota/i.test(m) ? 'O Google recusou por limite de cota: ' + m + ' Tente de novo mais tarde.' : 'Não foi possível gerar: ' + (m || 'erro desconhecido') }));
+    }
+  };
   const downloadReport = (op, model, sections, period) => {
     const rd = buildOperationReportData(op, model, sections, period);
     const html = renderReportDocument(rd);
@@ -6158,13 +6203,17 @@ function App() {
       { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.' },
       { id: 'resumo', label: 'Resumo de uma página', hint: 'Só a página 1. Para a chefia ou uma reunião.' },
       { id: 'prestacao', label: 'Prestação de contas', hint: 'Tudo o que foi feito, num período ou desde o início da operação.' },
+      { id: 'base', label: 'Base do relatório', hint: 'Base factual e cronológica, com valores e partes, para você redigir o relatório à chefia no Google Docs.' },
     ];
+    const isBase = reportModel === 'base';
+    const baseOff = reportBase.off;
+    const bc = isBase ? buildBaseFor(op, reportPeriod, baseOff).counts : null;
     const sectionChips = [
       ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
       ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
     ];
     return (
-      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação">
+      <Modal show={!!reportModalOp} onClose={() => setReportModalOp(null)} title="Gerar relatório da operação" wide={isBase}>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{op.name}</div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -6178,16 +6227,42 @@ function App() {
               </label>
             ))}
           </div>
-          {reportModel === 'prestacao' ? (
+          {(reportModel === 'prestacao' || isBase) ? (
             <div style={{ display: 'grid', gap: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                <input type="checkbox" checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
+              <label style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, fontSize: 12, textAlign: 'left', width: '100%' }}>
+                <input type="checkbox" style={{ width: 'auto', flex: 'none' }} checked={!!reportPeriod.wholeOp} onChange={e => setReportPeriod({ ...reportPeriod, wholeOp: e.target.checked })} />
                 Desde o início da operação
               </label>
               {!reportPeriod.wholeOp && (
                 <div style={{ display: 'flex', gap: 10 }}>
                   <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>De <input type="date" value={reportPeriod.from} onChange={e => setReportPeriod({ ...reportPeriod, from: e.target.value })} /></label>
                   <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Até <input type="date" value={reportPeriod.to} onChange={e => setReportPeriod({ ...reportPeriod, to: e.target.value })} /></label>
+                </div>
+              )}
+              {isBase && (
+                <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>Frentes incluídas</div>
+                  {bc.fronts.map(f => (
+                    <label key={f.key} style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, fontSize: 12, textAlign: 'left', width: '100%' }}>
+                      <input type="checkbox" style={{ width: 'auto', flex: 'none' }} checked={!baseOff.includes(f.key)} onChange={e => setReportBase(s => ({ ...s, off: e.target.checked ? s.off.filter(k => k !== f.key) : [...s.off, f.key] }))} />
+                      <span>{f.label}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{f.processes} processo(s) · {f.count} fato(s) no período</span>
+                    </label>
+                  ))}
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', fontSize: 12, display: 'grid', gap: 3 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12.5 }}>Estrutura do Google Doc · {bc.total} registro(s)</div>
+                    {[['1. Visão geral da operação', bc.sections.s1, 'processo(s)'], ['2. Por frente processual', bc.sections.s2, 'fato(s)'], ['3. Quadro de decisões judiciais', bc.sections.s3, ''], ['4. Quadro de constrições e valores', bc.sections.s4, ''], ['5. Quadro de providências e peças', bc.sections.s5, ''], ['6. Cronologia completa (anexo)', bc.sections.s6, '']].map(([t, n, u]) => (
+                      <div key={t} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{t}</span><span style={{ color: 'var(--text-muted)' }}>{n}{u ? ' ' + u : ''}</span></div>
+                    ))}
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Planilha: aba Cronologia ({bc.sections.s6} linhas) e aba Constrições ({bc.sections.s4}).</div>
+                  </div>
+                  {reportBase.busy && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Gerando no Google Drive… pode levar alguns segundos.</div>}
+                  {reportBase.err && <div style={{ fontSize: 12, color: 'var(--red, #c2323d)' }}>{reportBase.err}</div>}
+                  {reportBase.links.length > 0 && (
+                    <div style={{ fontSize: 12, display: 'grid', gap: 2 }}>
+                      {reportBase.links.map(l => <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}: abrir</a>)}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -6202,11 +6277,22 @@ function App() {
               </div>
             </div>
           )}
+          {isBase ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseHtml(op, reportPeriod, baseOff)}>Baixar prévia (HTML)</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => downloadBaseCsv(op, reportPeriod, baseOff)}>Baixar cronologia (CSV)</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'doc')}>Gerar Google Doc</button>
+              <button type="button" className="btn-secondary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'sheet')}>Gerar planilha da cronologia</button>
+              <button type="button" className="btn-primary" disabled={!!reportBase.busy} onClick={() => runBaseExport(op, reportPeriod, baseOff, 'both')}>Gerar os dois</button>
+            </div>
+          ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <button type="button" className="btn-secondary" onClick={() => setReportModalOp(null)}>Cancelar</button>
             <button type="button" className="btn-secondary" onClick={() => downloadReport(op, reportModel, reportSections, reportPeriod)}>Baixar HTML</button>
             <button type="button" className="btn-primary" onClick={() => openReportForPrint(op, reportModel, reportSections, reportPeriod)}>Abrir para imprimir</button>
           </div>
+          )}
         </div>
       </Modal>
     );
