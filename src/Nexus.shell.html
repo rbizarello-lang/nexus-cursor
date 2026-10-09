@@ -6347,6 +6347,59 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-ov-stack { display: flex; flex-direction: column; gap: 24px; }
 .cx-ov-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
 .cx-ov-main, .cx-ov-rail { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+/* V4 · Mural: post-its em grade (única peça estilizada). Papel claro com tinta escura nos temas claro e escuro — contraste alto. */
+.cx-mu { --pi-ink: #1d2330; --pi-ink-2: #3c4558; --pi-yellow: #fff4b8; --pi-yellow-edge: #e9d672; --pi-red: #ffe0e0; --pi-red-edge: #f0a9ad; --pi-green: #dcf3e4; --pi-green-edge: #9fd3b4; --pi-blue: #e1ebff; --pi-blue-edge: #a9c0ef; --pi-violet: #ebe5ff; --pi-violet-edge: #bfb0f0; --pi-gray: #eef0f3; --pi-gray-edge: #c9ced6; }
+.cx-mu-add { position: relative; display: inline-flex; }
+.cx-mu-add .cx-menu-pop { top: 28px; }
+.cx-mu-comp { padding: 12px 14px; border-top: 1px solid var(--cx-line); display: grid; gap: 8px; }
+.cx-mu-pin { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--cx-ink-2); cursor: pointer; }
+.cx-mu-f { display: flex; align-items: center; gap: 2px; padding: 4px 10px; border-top: 1px solid var(--cx-line); }
+.cx-mu-fb { position: relative; width: 30px; height: 28px; display: grid; place-items: center; color: var(--cx-ink-3); border-radius: 5px; cursor: pointer; }
+.cx-mu-fb:hover { color: var(--cx-ink-2); }
+.cx-mu-fb[aria-pressed="true"] { color: var(--cx-ink); }
+.cx-mu-fb[aria-pressed="true"]::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--cx-ink); }
+.cx-mu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px 16px; padding: 18px 16px 20px; background: var(--cx-surface-2); border-radius: 0 0 9px 9px; }
+.cx-mu-empty { grid-column: 1 / -1; padding: 4px 0; }
+.cx-pi { position: relative; display: flex; flex-direction: column; min-height: 104px; min-width: 0; border-radius: 4px; padding: 10px 12px 9px; background: var(--bg); color: var(--pi-ink); border-bottom: 2px solid var(--edge); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 10px rgba(20,24,32,.10); transition: transform .12s, box-shadow .12s; cursor: pointer; }
+.cx-pi:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 2px; }
+.cx-mu-grid > .cx-pi:nth-child(odd) { transform: rotate(-.6deg); }
+.cx-mu-grid > .cx-pi:nth-child(even) { transform: rotate(.5deg); }
+.cx-mu-grid > .cx-pi:hover { transform: rotate(0) translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 8px 16px rgba(20,24,32,.16); }
+.cx-pi.y { --bg: var(--pi-yellow); --edge: var(--pi-yellow-edge); }
+.cx-pi.r { --bg: var(--pi-red); --edge: var(--pi-red-edge); }
+.cx-pi.g { --bg: var(--pi-green); --edge: var(--pi-green-edge); }
+.cx-pi.b { --bg: var(--pi-blue); --edge: var(--pi-blue-edge); }
+.cx-pi.v { --bg: var(--pi-violet); --edge: var(--pi-violet-edge); }
+.cx-pi.n { --bg: var(--pi-gray); --edge: var(--pi-gray-edge); }
+.cx-pi.pin::before { content: ""; position: absolute; top: -7px; left: 50%; width: 58px; height: 15px; transform: translateX(-50%) rotate(-2deg); background: rgba(255,255,255,.62); border: 1px solid rgba(20,24,32,.07); border-radius: 2px; }
+.cx-pi-h { display: flex; align-items: center; gap: 6px; font: 700 10px var(--cx-font); letter-spacing: .08em; text-transform: uppercase; color: var(--pi-ink-2); }
+.cx-pi-pin { display: inline-flex; color: var(--pi-ink-2); }
+.cx-pi-d { margin-left: auto; font: 500 10.5px var(--cx-mono); letter-spacing: 0; text-transform: none; color: var(--pi-ink-2); }
+.cx-pi-t { font-size: 12.5px; line-height: 1.4; color: var(--pi-ink); margin-top: 4px; overflow-wrap: anywhere; white-space: pre-wrap; max-height: 11.5em; overflow: hidden; }
+.cx-pi-rich { white-space: normal; }
+.cx-pi-rich ul, .cx-pi-rich ol { margin: 2px 0; padding-left: 18px; }
+.cx-pi-rich mark { background: rgba(255,214,10,.55); color: inherit; padding: 0 2px; border-radius: 2px; }
+.cx-pi-f { margin-top: auto; padding-top: 8px; }
+.cx-pi.done { opacity: .55; }
+.cx-pi.done .cx-pi-t { text-decoration: line-through; }
+.cx-rchk { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #5b6577; background: rgba(255,255,255,.4); display: grid; place-items: center; color: transparent; flex: none; padding: 0; cursor: pointer; }
+.cx-rchk:hover { border-color: var(--pi-ink); }
+.cx-rchk .cx-i { stroke-width: 3; }
+.cx-rchk[aria-checked="true"] { background: #2d8a57; border-color: #2d8a57; color: #fff; }
+.cx-pi-pill { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(255,255,255,.7); border: 1px solid rgba(20,24,32,.12); color: var(--pi-ink-2); text-transform: none; letter-spacing: 0; }
+.cx-pi-pill.yellow { background: #ffd95a; border-color: #d9b11f; color: #4a3600; }
+.cx-pi-pill.red { background: #c2323d; border-color: #c2323d; color: #fff; }
+.cx-pi-pill.green { background: #2d8a57; border-color: #2d8a57; color: #fff; }
+/* V5 · Painel de apoio: abas internas, discretas */
+.cx-ap-tabs { display: flex; gap: 2px; padding: 0 10px; border-top: 1px solid var(--cx-line); border-bottom: 1px solid var(--cx-line); overflow-x: auto; overflow-y: hidden; }
+.cx-ap-tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; font-size: 13px; color: var(--cx-ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; cursor: pointer; }
+.cx-ap-tabs button:hover { color: var(--cx-ink); }
+.cx-ap-tabs button[aria-selected="true"] { color: var(--cx-ink); font-weight: 600; border-bottom-color: var(--cx-ink); }
+.cx-ap-n { font: 500 11px var(--cx-mono); color: var(--cx-ink-3); }
+.cx-ap-n.red { color: var(--cx-red); font-weight: 600; }
+.cx-ap-pane { padding: 4px 0 8px; }
+.cx-ap-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 6px 12px 2px; }
+.cx-ap-body > .cx-oq-bare, .cx-ap-body .cx-ap-pane.cx-oq { padding-top: 0; }
 @media (max-width: 1180px) { .cx-ov-grid { grid-template-columns: minmax(0, 1fr); } }
 .cx-panel-grid { gap: 24px; margin-top: 24px; }
 .cx-pp-cards.cx-pp-cards-fold { gap: 24px; }

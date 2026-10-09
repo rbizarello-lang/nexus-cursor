@@ -92,7 +92,7 @@ Trilha **separada** do app: `design/claude-experimental/index.html` (arquivo ún
 
 ---
 
-## 🗂 Prumo · Visão geral centrada nas Frentes processuais (aprovado 09/10/2026)
+## 🗂 Prumo · Visão geral centrada nas Frentes processuais (aprovado 09/10/2026 · V1–V5 feitas ✅ 09/10/2026)
 
 Maquete aprovada: `design/mockups/prumo-visao-geral-r3-tabela.html` (rodada 3 da versão B "Tabela"). Rodadas anteriores (5 ideias e versões A/B) ficaram fora do repositório. Só o Nexus Prumo muda (`src/edition-claude.jsx` + CSS da edição em `src/Nexus.shell.html`). Clássico, Beta e Demo ficam idênticos. **Não muda:** modelo de dados obrigatório, parsers, prescrição e sync Drive.
 
@@ -109,11 +109,24 @@ Maquete aprovada: `design/mockups/prumo-visao-geral-r3-tabela.html` (rodada 3 da
 - "+ Frente" e "+ Nota" são links discretos (`.cx-link-btn`).
 
 **Fases (uma por vez → build → validação):**
-- **V1 — Número copiável e correções de base:** `CxCopyNum`, em que o clique no número copia, com dica, foco por teclado e Enter. Reaproveita `copyText`/`cxCopy`. Corrige o valor da frente EF/Central, que hoje soma só os apensos e deixa de fora as CDAs do próprio processo. Corrige o estado de dobra compartilhado entre frentes.
-- **V2 — Tabela de frentes:** substitui as lanes de `CxBfFronts`. Colunas: Tipo · Processo · Juízo · Fase (selo) · Próximo ato · Sinais · Valor. Os filhos por `parentExecutionId` (apensa, exceção, embargos, recurso) ficam recuados. No fim, linhas "Operação (geral)" e Acompanhar. A linha expandida tem régua, Evento da fase, Notas e a linha de atalhos. A abertura de cada frente é lembrada em `nexus_cx_bf_lanes`.
-- **V3 — Editor rico de eventos e notas:** editor no lugar (negrito, itálico, listas, link, Ctrl+B e Ctrl+I), reaproveitando a sanitização existente. As notas continuam em `exec.notesList` num formato que o Clássico lê como texto simples.
-- **V4 — Mural:** junta `briefing.entries` e `stickyNotes` da operação. "+ Nota" abre o menu Lembrete / Entrada do diário (formulários existentes). Lembrete ganha os campos **opcionais** `dueDate` e `done` (data e caixa de feito), compatíveis com dados antigos. Saem os cartões Diário, Lembretes e a leitura fixada (`CxBfLead`).
-- **V5 — Painel de apoio:** um cartão com abas. "O que vem" reaproveita `CxOqVem` (Horizonte, Narrativa, Mapa). Saem os cartões Intimações abertas, Agenda, Prazos extintivos, Checklists, Fontes e Atuações. `CX_OV_FOLD_IDS` é atualizado.
+- **V1 — Número copiável e correções de base (feita):** `CxCopyNum`, em que o clique no número copia, com dica, foco por teclado e Enter. Reaproveita `copyText`/`cxCopy`. Corrige o valor da frente EF/Central, que hoje soma só os apensos e deixa de fora as CDAs do próprio processo. Corrige o estado de dobra compartilhado entre frentes.
+- **V2 — Tabela de frentes (feita):** substitui as lanes de `CxBfFronts`. Colunas: Tipo · Processo · Juízo · Fase (selo) · Próximo ato · Sinais · Valor. Os filhos por `parentExecutionId` (apensa, exceção, embargos, recurso) ficam recuados. No fim, linhas "Operação (geral)" e Acompanhar. A linha expandida tem régua, Evento da fase, Notas e a linha de atalhos. A abertura de cada frente é lembrada em `nexus_cx_bf_lanes`.
+- **V3 — Editor rico de eventos e notas (feita):** editor no lugar (negrito, itálico, listas, link, Ctrl+B e Ctrl+I), reaproveitando a sanitização existente. As notas continuam em `exec.notesList` num formato que o Clássico lê como texto simples.
+- **V4 — Mural (feita):** junta `briefing.entries` e `stickyNotes` da operação. "+ Nota" abre o menu Lembrete / Entrada do diário (formulários existentes). Lembrete ganha os campos **opcionais** `dueDate` e `done` (data e caixa de feito), compatíveis com dados antigos. Saem os cartões Diário, Lembretes e a leitura fixada (`CxBfLead`).
+- **V5 — Painel de apoio (feita):** um cartão com abas. "O que vem" reaproveita `CxOqVem` (Horizonte, Narrativa, Mapa). Saem os cartões Intimações abertas, Agenda, Prazos extintivos, Checklists, Fontes e Atuações. `CX_OV_FOLD_IDS` é atualizado.
+
+- **Como ficou (09/10/2026):**
+  - Componentes novos em `src/edition-claude.jsx`: `CxCopyNum`, `CxBfFronts` (tabela) + `CxBfFrontX` (linha aberta), `CxRichEdit`, `CxBfMural` e `CxBfApoio`.
+  - Saíram da Visão geral: `CxBfLead`, `CxBfDiary` e `CxBfReminders`, além dos cartões soltos.
+  - As notas do processo usam marcação leve (`src/lib/notes-md.js`, testada em `test/notes-md.test.mjs`).
+  - Lembretes ganharam `dueDate` e `done`, opcionais.
+  - Links no sanitizador só entram por opção (Prumo) e aceitam apenas http(s)/mailto.
+- **Pendências conhecidas:**
+  - As notas de `notesList` são texto e não têm data.
+  - No Clássico, o link de nota aparece como `[texto](url)`.
+  - No Mural, o post-it longo é cortado em cerca de 11 linhas; o texto completo fica no editor.
+  - O Horizonte do "O que vem" continua rolando na horizontal em 1280 px, como antes.
+  - "Próximo ato" e "Sinais" consideram só o processo da linha.
 
 ---
 

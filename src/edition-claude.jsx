@@ -59,6 +59,7 @@ const CX_ICONS = {
   bold: '<path d="M7 4h6a4 4 0 0 1 0 8H7z"/><path d="M7 12h7a4 4 0 0 1 0 8H7z"/>',
   italic: '<path d="M19 4h-9M14 20H5M15 4 9 20"/>',
   listOl: '<path d="M10 6h11M10 12h11M10 18h11"/><path d="M3.5 5.5 5 4.5V9M3.5 14.5c0-1 3-1 3 .6 0 1-3 2.4-3 3.4h3"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/>',
 };
 function CxIcon({ n, s = 16, className = '', style }) {
@@ -3315,7 +3316,7 @@ function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpe
    chamada por cada visão com o que é dela: contagem, resumo (recolhido), extras de cabeçalho e o corpo. */
 const CX_OQ_VIEW = 'nexus_cx_oq_view';
 function cxOqLoadView() { const v = cxLs(CX_OQ_VIEW, 'horizonte'); return v === 'narrativa' || v === 'mapa' ? v : 'horizonte'; }
-function CxOqVem({ op, data, prazosRadar, prescLookup, hz, nr, onOpenTimeline }) {
+function CxOqVem({ op, data, prazosRadar, prescLookup, hz, nr, onOpenTimeline, bare }) {
   const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
   const [saved, setSaved] = React.useState(cxOqLoadView);
   const canMap = React.useMemo(() => frentesHasFronts({ lanes: tl.procs.map(r => ({ incident: r.x.e.processTag === 'idpj' || r.x.e.processTag === 'cautelar_fiscal' })), links: tl.links }), [tl]);
@@ -3324,11 +3325,11 @@ function CxOqVem({ op, data, prazosRadar, prescLookup, hz, nr, onOpenTimeline })
   const sw = <CxSeg className="cx-oq-sw" label="O que mostrar neste cartão" value={view} onChange={pick}
     options={[['horizonte', 'Horizonte'], ['narrativa', 'Narrativa'], ['mapa', 'Mapa de frentes', null, null, canMap ? null : { disabled: true, title: CX_FR_NOHINT }]]} />;
   const tlMode = view === 'mapa' ? 'frentes' : view === 'narrativa' ? 'narrativa' : 'panorama';
-  const shell = ({ cls, count, sub, summary, extras, children }) => <CxFoldCard id="hz" scope="visao" as="h2" className={'cx-oq ' + (cls || '')} title="O que vem" ariaLabel="O que vem" count={count} sub={sub} summary={summary}
+  const shell = ({ cls, count, sub, summary, extras, children }) => <CxFoldOrBare bare={bare} id="hz" scope="visao" as="h2" className={'cx-oq ' + (cls || '')} title="O que vem" ariaLabel="O que vem" count={count} sub={sub} summary={summary}
     actions={<>
       {sw}{extras || null}
       {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={() => onOpenTimeline(tlMode)}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}
-    </>}>{children}</CxFoldCard>;
+    </>}>{children}</CxFoldOrBare>;
   if (view === 'mapa') return <EditionClaudeFrentes key={op.id + '|mapa'} tl={tl} op={op} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} />;
   if (view === 'narrativa') return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} onOpenTask={nr.onOpenTask} onOpenProativa={nr.onOpenProativa} />;
   return <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} shell={shell} onOpenIntim={hz.onOpenIntim} onOpenHearing={hz.onOpenHearing} onOpenTask={hz.onOpenTask} onOpenCda={hz.onOpenCda} />;
@@ -3623,15 +3624,33 @@ function CxAtuProcPicker({ execs, onPick, onClose }) {
     </div>
   </>;
 }
-function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa }) {
+/* Eventos de fase mais recentes de cada processo (briefing.processStageV2): entram em "Atuações recentes" intercalados por data. */
+function cxPhaseRows(op, execs) {
+  const out = [];
+  const briefing = op.briefing || {};
+  (execs || []).forEach(e => {
+    const recs = getStageRecords(briefing, e.id) || {};
+    const { STAGES, keys } = cxBfStages(e);
+    stageMeta(STAGES, keys, recs).forEach(m => {
+      if (!m.has || !m.rec || isDismissedOnlyStageRec(m.rec) || m.sd.multiRecurso) return;
+      const d = toDayKey(m.rec.date) || '';
+      if (!d) return;
+      out.push({ key: 'fase:' + e.id + ':' + m.k, kind: 'fase', kindLabel: 'Fase', date: d, title: (m.sd.label || m.k) + (m.rec.evento ? ' · Ev. ' + m.rec.evento : '') + (m.outcomeLabel ? ' · ' + m.outcomeLabel : ''), processNumber: e.processNumber || '', url: '', executionId: e.id });
+    });
+  });
+  return out;
+}
+function cxAtuRows(op, data, execs) {
+  const base = buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions });
+  return base.concat(cxPhaseRows(op, execs)).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa, onOpenProc, bare }) {
   const [shown, setShown] = React.useState(CX_UA_STEP);
   const [step, setStep] = React.useState(null); // null · 'pick' · { exec } (formulário)
-  const rows = React.useMemo(
-    () => buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }),
-    [op.id, data.intimations, data.tasks, data.executions]
-  );
+  const rows = React.useMemo(() => cxAtuRows(op, data, execs), [op, data.intimations, data.tasks, data.executions, execs]);
   const open = (r) => {
-    if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
+    if (r.kind === 'fase') { if (onOpenProc) onOpenProc(r.executionId); }
+    else if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
     else if (r.kind === 'tarefa') { const t = (data.tasks || []).find(x => x.id === r.taskId); if (t && onOpenTask) onOpenTask(t); }
     else if (onOpenProativa) onOpenProativa(r.executionId, r.actionId);
   };
@@ -3644,7 +3663,7 @@ function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpen
     return '';
   };
   return <>
-    <CxFoldCard id="atuacoes" scope="visao" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
+    <CxFoldOrBare bare={bare} id="atuacoes" scope="visao" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
       summary={rows.length ? 'última: ' + (rows[0].title || rows[0].kindLabel) : 'nenhuma registrada'}
       actions={
         <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
@@ -3665,7 +3684,7 @@ function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpen
     {rows.length > shown
       ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
       : null}
-    </CxFoldCard>
+    </CxFoldOrBare>
     {step === 'pick' ? <CxAtuProcPicker execs={execs} onClose={() => setStep(null)} onPick={(e) => setStep({ exec: e })} /> : null}
     {step && step.exec ? <EditionClaudeAtuacaoForm exec={step.exec} onCancel={() => setStep(null)} onSave={save} /> : null}
   </>;
@@ -4118,7 +4137,7 @@ function CxRichEdit({ html, onSave, onCancel, placeholder, compact, enterSaves, 
 }
 /* Cartões da Visão geral (CxFoldAllBar): o que "Recolher tudo / Expandir tudo" alcança. Os blocos de dentro de cada frente
    (evento, notas, efs) ficam de fora de propósito. */
-const CX_OV_FOLD_IDS = ['hz', 'intim', 'frentes', 'atuacoes', 'diario', 'presc', 'agenda', 'checklists', 'lembretes', 'fontes'];
+const CX_OV_FOLD_IDS = ['frentes', 'mural', 'apoio'];
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
   const rs = cxRS(op);
@@ -4147,12 +4166,9 @@ function EditionClaudeOpOverview(p) {
     revisaoAtrasadaDias: rs.overdue && rs.daysLeft != null ? -rs.daysLeft : null,
     audiencia: nextHearing ? { dias: daysUntil(nextHearing.date), tipo: (CX_HEARING[nextHearing.hearingType] || '').replace(/^Audiência( de)? /i, '').toLowerCase(), iso: toDayKey(nextHearing.date), time: nextHearing.time || '' } : null,
   }) : '';
-  const fold = cxUseFold('visao');
-  const [diaryEditId, setDiaryEditId] = React.useState(null);
   const [proView, setProView] = React.useState(null); // { execId, actionId } — leitura de uma atuação proativa (Atuações recentes e Narrativa)
   const opExecs = React.useMemo(() => (data.executions || []).filter(e => e.operationId === op.id), [data.executions, op.id]);
   const opDebts = React.useMemo(() => (data.debts || []).filter(d => d.operationId === op.id), [data.debts, op.id]);
-  const moreH = Math.max(0, hearings.length - 3), moreT = Math.max(0, tasks.length - 5);
   const proExec = proView ? opExecs.find(x => x.id === proView.execId) : null;
   const proAct = proExec ? (proExec.proactiveActions || []).find(x => x.id === proView.actionId) : null;
   const openProativa = (execId, actionId) => setProView({ execId, actionId });
@@ -4176,52 +4192,14 @@ function EditionClaudeOpOverview(p) {
     </CxKpiStrip> : null}
     <CxFoldAllBar scope="visao" ids={CX_OV_FOLD_IDS} />
     <div className="cx-ov-stack">
-      <CxBfLead op={op} onEdit={(id) => { fold.set('diario', false); setDiaryEditId(id); }} />
-      <CxOqVem op={op} data={data} prazosRadar={prazosRadar} prescLookup={p.prescLookup} onOpenTimeline={p.onOpenTimeline}
-        hz={{ onOpenIntim: p.onOpenIntim, onOpenHearing: p.onOpenHearing, onOpenTask: p.onOpenTask, onOpenCda: p.onOpenCda }}
-        nr={{ onOpenIntim: p.onOpenIntim, onOpenHearing: (h) => p.setModal({ type: 'edit', entityType: 'hearing', initial: h }), onOpenCda: p.onOpenCdaDrawer, onOpenProc: p.onOpenProc, onOpenTask: editTask, onOpenProativa: openProativa }} />
       <CxBfFronts op={op} data={data} opExecs={opExecs} opDebts={opDebts} prazoRows={prazoRows} upsert={p.upsert} setModal={p.setModal}
         onOpenTab={p.onTab} onOpenPrazos={p.onOpenPrazos} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenProc={p.onOpenProc} />
-      <div className="cx-ov-grid">
-        <div className="cx-ov-main">
-          <CxFoldCard id="intim" scope="visao" title="Intimações abertas" count={open.length}
-            summary={lateIntims.length ? cxPl(lateIntims.length, 'vencida', 'vencidas') : open.length ? 'nenhuma vencida' : 'nenhuma aberta'}>
-            {open.length ? open.slice(0, 10).map(i => <button key={i.id} type="button" className="cx-q-row cx-q-compact" onClick={() => p.onOpenIntim(i.id)}>
-              <span className="cx-q-ic"><CxStatusIcon s={i.status} /></span>
-              <span className="cx-q-main"><span className="cx-q-title">{intimIsUrgent(i) ? <span className="cx-urg">URGENTE</span> : null}<b>{cxPartyName(i)}</b></span><span className="cx-q-meta"><CxObj intim={i} /></span></span>
-              <span className="cx-q-glyph"><CxImp intim={i} /></span>
-              <span className="cx-q-due"><CxDue iso={i.dateDeadline} /></span>
-            </button>) : <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
-            {open.length > 10 ? <div className="cx-more">+{open.length - 10} na lista de Intimações</div> : null}
-          </CxFoldCard>
-          <CxBfAtuacoes op={op} data={data} execs={opExecs} upsert={p.upsert} onOpenIntim={p.onOpenIntim} onOpenTask={editTask} onOpenProativa={openProativa} />
-          <CxBfDiary op={op} upsert={p.upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
-        </div>
-        <aside className="cx-ov-rail" aria-label="Apoio da operação">
-          <CxFoldCard id="presc" scope="visao" title="Prazos extintivos"
-            summary={split.needsYou.length ? cxPl(split.needsYou.length, 'CDA exige decisão', 'CDAs exigem decisão') : 'nada exige decisão agora'}
-            actions={<button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button>}>
-            {split.needsYou.length ? split.needsYou.slice(0, 5).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => p.onOpenCda(r)}>
-              <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
-              <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
-              <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
-            </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
-            <div style={{ height: 6 }} />
-          </CxFoldCard>
-          {/* Agenda: audiências e tarefas (absorve as antigas "Próximas tarefas" do Briefing) */}
-          <CxFoldCard id="agenda" scope="visao" title="Agenda" count={hearings.length + tasks.length}
-            summary={cxPl(hearings.length, 'audiência', 'audiências') + ' · ' + cxPl(tasks.length, 'tarefa', 'tarefas')}
-            actions={<button type="button" className="cx-link-btn" onClick={() => p.onTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button>}>
-            {hearings.slice(0, 3).map(h => <button key={h.id} type="button" className="cx-dl-item" onClick={() => p.onOpenHearing(h)}><CxIcon n="gavel" s={13} className="cx-muted" /><span className="cx-t">{(CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : '')}</span><CxDue iso={h.date} /></button>)}
-            {tasks.slice(0, 5).map(t => <button key={t.id} type="button" className="cx-dl-item" onClick={() => p.onOpenTask(t)}><CxPrio v={t.priority} /><span className="cx-t">{t.title || t.description || 'Tarefa'}</span>{t.dueDate ? <CxDue iso={t.dueDate} /> : <span className="cx-muted cx-small">sem data</span>}</button>)}
-            {!hearings.length && !tasks.length ? <div className="cx-empty-row">Sem audiências marcadas nem tarefas abertas.</div> : <div style={{ height: 6 }} />}
-            {moreH || moreT ? <div className="cx-more">+ {[moreH ? cxPl(moreH, 'audiência', 'audiências') : '', moreT ? cxPl(moreT, 'tarefa', 'tarefas') : ''].filter(Boolean).join(' · ')} · veja em Agenda e Tarefas</div> : null}
-          </CxFoldCard>
-          <CxBfChecklists op={op} upsert={p.upsert} />
-          <CxBfReminders data={data} opId={op.id} setModal={p.setModal} />
-          <CxBfSources op={op} upsert={p.upsert} />
-        </aside>
-      </div>
+      <CxBfMural op={op} data={data} upsert={p.upsert} setModal={p.setModal} />
+      <CxBfApoio op={op} data={data} prazosRadar={prazosRadar} prescLookup={p.prescLookup} split={split} execs={opExecs} upsert={p.upsert}
+        onOpenTimeline={p.onOpenTimeline} onOpenPrazos={p.onOpenPrazos} onOpenCda={p.onOpenCda} onOpenProc={p.onOpenProc} onOpenIntim={p.onOpenIntim}
+        onOpenTask={editTask} onOpenProativa={openProativa}
+        hz={{ onOpenIntim: p.onOpenIntim, onOpenHearing: p.onOpenHearing, onOpenTask: p.onOpenTask, onOpenCda: p.onOpenCda }}
+        nr={{ onOpenIntim: p.onOpenIntim, onOpenHearing: (h) => p.setModal({ type: 'edit', entityType: 'hearing', initial: h }), onOpenCda: p.onOpenCdaDrawer, onOpenProc: p.onOpenProc, onOpenTask: editTask, onOpenProativa: openProativa }} />
     </div>
     {proAct ? <EditionClaudeAtuacaoView exec={proExec} action={proAct} onClose={() => setProView(null)} /> : null}
   </div>;
@@ -5236,6 +5214,14 @@ function CxFoldCard({ id, scope, title, count, summary, sub, actions, className 
     {open ? children : null}
   </section>;
 }
+/** Mesmo conteúdo do cartão, mas sem o cartão: dentro do Painel de apoio (aba). As ações do cabeçalho viram uma linha de ferramentas. */
+function CxFoldOrBare({ bare, actions, className = '', children, ...rest }) {
+  if (!bare) return <CxFoldCard {...rest} className={className} actions={actions}>{children}</CxFoldCard>;
+  return <div className={'cx-ap-pane' + (className ? ' ' + className : '')}>
+    {actions ? <div className="cx-ap-tools">{actions}</div> : null}
+    {children}
+  </div>;
+}
 function CxFoldAllBar({ scope, ids, className = '' }) {
   const fold = cxUseFold(scope);
   return <div className={'cx-fold-all' + (className ? ' ' + className : '')}>
@@ -5419,103 +5405,193 @@ function cxStageDelRec(op, upsert, execId, sk) {
 /* Diário — mesma persistência (materialize/persist) e o mesmo formato de
  * briefing.entries que o BriefingStrategyPanel clássico, com outra apresentação:
  * data na margem, filtro por tipo sempre visível (com contagem), editor inline. */
-function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
+/* ─── Mural (Visão geral) ───
+   Une as entradas do Diário da operação (briefing.entries) e os Lembretes (stickyNotes da operação) em post-its. Cor pelo
+   tipo (diário) ou pela cor escolhida (lembrete); o rótulo do tipo vem sempre escrito. Lembrete aceita `dueDate` (AAAA-MM-DD)
+   e `done` (opcionais: ausentes = comportamento antigo). Clique abre o editor existente (diário: compositor daqui; lembrete: modal). */
+const CX_MU_DIARY_CLS = { estrategia: 'y', risco: 'r', decisao: 'b', providencia: 'g', observacao: 'n', replicacao: 'v' };
+const CX_MU_NOTE_CLS = { yellow: 'y', green: 'g', red: 'r', blue: 'b' };
+const CX_MU_FILTERS = [['tudo', 'Tudo', 'layers'], ['lembrete', 'Lembretes', 'clock'], ['estrategia', 'Estratégia', 'flag'], ['risco', 'Risco', 'alert'], ['decisao', 'Decisão judicial', 'gavel'], ['providencia', 'Providência', 'check'], ['observacao', 'Observação', 'eye'], ['replicacao', 'Replicação', 'sync']];
+function cxMuItems(op, data) {
+  const entries = getBriefingEntries(op.briefing || {});
+  const notes = (data.stickyNotes || []).filter(n => n.operationId === op.id);
+  const items = [];
+  entries.forEach(en => {
+    const type = BRIEFING_ENTRY_TYPES[en.type] ? en.type : 'observacao';
+    items.push({ id: 'd:' + en.id, src: 'd', type, label: BRIEFING_ENTRY_TYPES[type].label, cls: CX_MU_DIARY_CLS[type] || 'n', date: en.eventDate || (en.createdAt || '').slice(0, 10), pinned: !!en.pinned, html: en.html || '', entry: en });
+  });
+  notes.forEach(n => {
+    items.push({ id: 'l:' + n.id, src: 'l', type: 'lembrete', label: 'Lembrete', cls: CX_MU_NOTE_CLS[n.color] || 'y', date: (n.updatedAt || n.createdAt || '').slice(0, 10), dueDate: toDayKey(n.dueDate) || '', done: !!n.done, title: n.title || '', text: n.content || '', note: n });
+  });
+  return items;
+}
+/* Ordem: fixadas → lembretes vencidos → lembretes por data → demais por data (desc) → lembretes feitos. */
+function cxMuSort(items, todayIso) {
+  const rank = (it) => {
+    if (it.src === 'd' && it.pinned) return [0, it.date || ''];
+    if (it.src === 'l') {
+      if (it.done) return [4, it.date || ''];
+      if (it.dueDate && it.dueDate < todayIso) return [1, it.dueDate];
+      if (it.dueDate) return [2, it.dueDate];
+      return [2.5, it.date || ''];
+    }
+    return [3, it.date || ''];
+  };
+  return items.slice().sort((a, b) => {
+    const x = rank(a), y = rank(b);
+    if (x[0] !== y[0]) return x[0] - y[0];
+    if (x[0] === 1 || x[0] === 2) return String(x[1]).localeCompare(String(y[1]));
+    return String(y[1]).localeCompare(String(x[1]));
+  });
+}
+function cxMuDuePill(it, todayIso) {
+  if (it.done) return { tone: 'green', txt: 'feito' };
+  const dd = daysUntil(it.dueDate);
+  if (dd === null || dd === undefined) return { tone: '', txt: fmtDate(it.dueDate) };
+  if (it.dueDate < todayIso) return { tone: 'red', txt: 'vencido há ' + cxPl(-dd, 'dia', 'dias') };
+  if (dd === 0) return { tone: 'yellow', txt: 'hoje' };
+  return { tone: '', txt: dd === 1 ? 'amanhã' : 'em ' + dd + ' dias' };
+}
+function CxBfMural({ op, data, upsert, setModal }) {
   const briefing = op.briefing || {};
   const entries = getBriefingEntries(briefing);
+  const todayIso = localIso(new Date());
+  const [filter, setFilter] = React.useState('tudo');
+  const [menu, setMenu] = React.useState(false);
   const [composer, setComposer] = React.useState(null); // null | { mode:'new'|'edit', entry }
   const [draftType, setDraftType] = React.useState('observacao');
   const [draftDate, setDraftDate] = React.useState('');
-  const [filterType, setFilterType] = React.useState('all');
+  const [draftPin, setDraftPin] = React.useState(false);
   const draftHtmlRef = React.useRef('');
+  const items = React.useMemo(() => cxMuItems(op, data), [op, data.stickyNotes]);
+  const hasRepl = items.some(i => i.type === 'replicacao');
+  const sorted = cxMuSort(items, todayIso);
+  const visible = filter === 'tudo' ? sorted : sorted.filter(i => i.type === filter);
+  const countOf = (k) => k === 'tudo' ? items.length : items.filter(i => i.type === k).length;
 
   const materialize = (list) => list.map(en => en._legacy
     ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
-
-  const [pinNext, setPinNext] = React.useState(false);
-  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); setDraftType((opts && opts.type) || 'observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
-  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
+  const openNew = () => { setDraftType('observacao'); setDraftDate(todayIso); setDraftPin(false); setComposer({ mode: 'new', entry: null }); };
+  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setDraftPin(!!en.pinned); setComposer({ mode: 'edit', entry: en }); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
-      setPinNext(false);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);
   };
-  const togglePin = (en) => persist(entries.map(x => x.id === en.id ? { ...x, pinned: !x.pinned, updatedAt: new Date().toISOString() } : x));
-  const removeEntry = (en) => { if (!confirm('Excluir esta entrada?')) return; persist(entries.filter(x => x.id !== en.id)); };
+  const removeEntry = () => { if (!confirm('Excluir esta entrada?')) return; persist(entries.filter(x => x.id !== composer.entry.id)); setComposer(null); };
+  const toggleDone = (it) => upsert('stickyNotes', { ...it.note, done: !it.note.done });
+  const openItem = (it) => { if (it.src === 'd') openEdit(it.entry); else setModal({ type: 'edit', entityType: 'stickyNote', initial: it.note }); };
+  const addReminder = () => { setMenu(false); setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: op.id, color: 'yellow' } }); };
+  const addEntry = () => { setMenu(false); setFilter('tudo'); openNew(); };
 
-  React.useEffect(() => {
-    if (!editRequestId) return;
-    if (editRequestId === 'new') {
-      openNew({ pin: true, type: 'estrategia' });
-      setTimeout(() => { const el = document.querySelector('.cx-bf-diary'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 40);
-    } else {
-      const en = entries.find(e => e.id === editRequestId);
-      if (en) openEdit(en);
-    }
-    if (onEditConsumed) onEditConsumed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editRequestId]);
-
-  const sortKey = (en) => en.eventDate || (en.createdAt || '').slice(0, 10);
-  const sorted = [...entries].sort((a, b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sortKey(b).localeCompare(sortKey(a)); });
-  const countByType = { all: entries.length };
-  Object.keys(BRIEFING_ENTRY_TYPES).forEach(k => { countByType[k] = entries.filter(e => (e.type || 'observacao') === k).length; });
-  const visible = filterType === 'all' ? sorted : sorted.filter(en => (en.type || 'observacao') === filterType);
-
-  const renderComposer = () => (<div className="cx-bf-diary-composer">
-    <div className="cx-bf-diary-composer-hd">
-      <select value={draftType} onChange={e => setDraftType(e.target.value)} className="cx-input" style={{ width: 'auto' }}>
-        {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-      </select>
-      <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
-      <span className="cx-sp" />
-      <button type="button" className="cx-btn sm ghost" onClick={() => { setComposer(null); setPinNext(false); }}>Cancelar</button>
-      <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? '+ Adicionar' : 'Salvar'}</button>
+  return <CxFoldCard id="mural" scope="visao" title="Mural" count={items.length} ariaLabel="Mural" className="cx-mu"
+    summary={items.length ? cxPl(items.length, 'nota', 'notas') : 'nenhuma nota'}
+    actions={<span className="cx-mu-add">
+      <button type="button" className="cx-link-btn" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(v => !v)}><CxIcon n="plus" s={12} />Nota</button>
+      {menu ? <>
+        <div className="cx-menu-scrim" onClick={() => setMenu(false)} />
+        <div className="cx-menu-pop" role="menu">
+          <button type="button" role="menuitem" onClick={addReminder}>Lembrete</button>
+          <button type="button" role="menuitem" onClick={addEntry}>Entrada do diário</button>
+        </div>
+      </> : null}
+    </span>}>
+    {composer ? <div className="cx-mu-comp">
+      <div className="cx-bf-diary-composer-hd">
+        <select value={draftType} onChange={e => setDraftType(e.target.value)} className="cx-input" style={{ width: 'auto' }} aria-label="Tipo da entrada">
+          {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" aria-label="Data do fato" />
+        <label className="cx-mu-pin"><input type="checkbox" checked={draftPin} onChange={e => setDraftPin(e.target.checked)} />Fixar</label>
+        <span className="cx-sp" />
+        {composer.mode === 'edit' ? <button type="button" className="cx-btn sm ghost" onClick={removeEntry}>Excluir</button> : null}
+        <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
+        <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? 'Adicionar' : 'Salvar'}</button>
+      </div>
+      <RichNoteEditor key={composer.mode + (composer.entry ? composer.entry.id : '')} initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
+    </div> : null}
+    <div className="cx-mu-f" role="group" aria-label="Filtrar o mural">
+      {CX_MU_FILTERS.filter(f => f[0] !== 'replicacao' || hasRepl).map(([k, lab, ic]) => <button key={k} type="button" className="cx-mu-fb" aria-pressed={filter === k} aria-label={lab}
+        {...cxHintProps(() => ({ title: lab + ' · ' + countOf(k) }))} onClick={() => setFilter(k)}><CxIcon n={ic} s={14} /></button>)}
     </div>
-    <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
-  </div>);
-
-  return (<CxFoldCard id="diario" scope="visao" title="Diário" summary={cxPl(countByType.all, 'entrada', 'entradas')}
-    actions={<div className="cx-bf-diary-filters">
-      <button type="button" className={filterType === 'all' ? 'on' : ''} onClick={() => setFilterType('all')}>Todos<i>{countByType.all}</i></button>
-      {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <button key={k} type="button" className={filterType === k ? 'on' : ''} onClick={() => setFilterType(k)}>{v.label}<i>{countByType[k] || 0}</i></button>)}
-    </div>}>
-    <div className="cx-bf-diary">
-    {!composer && <div className="cx-bf-diary-compose" onClick={openNew}>✎ Registrar risco, estratégia, decisão, providência…</div>}
-    {composer && composer.mode === 'new' && renderComposer()}
-    {!sorted.length && !composer && <div className="cx-empty-row">Nenhuma entrada. Registre riscos, estratégias, decisões e providências em blocos datados.</div>}
-    {sorted.length > 0 && !visible.length && !composer && <div className="cx-empty-row">Nenhuma entrada do tipo selecionado. <span className="cx-link" onClick={() => setFilterType('all')}>Ver todas</span></div>}
-    <div className="cx-bf-diary-feed">
-      {visible.map(en => {
-        if (composer && composer.mode === 'edit' && composer.entry.id === en.id) return <React.Fragment key={en.id}>{renderComposer()}</React.Fragment>;
-        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-        const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0, 10)) : '');
-        return (<div key={en.id} className="cx-bf-ent">
-          <div className="cx-bf-ent-top">
-            <span className="cx-bf-ent-d">{dt || '—'}</span>
-            <span className="cx-bf-type">{t.label}{en.pinned ? <span className="cx-bf-pin" title="Fixada"> 📌</span> : null}</span>
-            <span className="cx-bf-ent-acts">
-              <button type="button" className="cx-bf-ic" title={en.pinned ? 'Desafixar' : 'Fixar'} onClick={() => togglePin(en)}>📌</button>
-              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => openEdit(en)}>✎</button>
-              <button type="button" className="cx-bf-ic" title="Excluir" onClick={() => removeEntry(en)}>✕</button>
-            </span>
+    <div className="cx-mu-grid">
+      {visible.map(it => {
+        const pill = it.src === 'l' && it.dueDate ? cxMuDuePill(it, todayIso) : null;
+        return <article key={it.id} className={'cx-pi ' + it.cls + (it.pinned ? ' pin' : '') + (it.done ? ' done' : '')} role="button" tabIndex={0}
+          onClick={() => openItem(it)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); openItem(it); } }}>
+          <div className="cx-pi-h">
+            {it.src === 'l' ? <button type="button" className="cx-rchk" role="checkbox" aria-checked={it.done} aria-label={it.done ? 'Reabrir lembrete' : 'Concluir lembrete'}
+              onClick={e => { e.stopPropagation(); toggleDone(it); }} onKeyDown={e => e.stopPropagation()}><CxIcon n="tick" s={9} /></button> : null}
+            {it.pinned ? <span className="cx-pi-pin" title="Fixada" role="img" aria-label="Fixada"><CxIcon n="pin" s={11} /></span> : null}
+            <span className="cx-pi-lab">{it.label}</span>
+            <span className="cx-pi-d">{it.date ? fmtDate(it.date) : ''}</span>
           </div>
-          <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: mapRichTextColors(en.html || '') }} />
-        </div>);
+          {it.src === 'l'
+            ? <div className="cx-pi-t">{it.title ? <b>{it.title}: </b> : null}{it.text}</div>
+            : <div className="cx-pi-t cx-pi-rich" dangerouslySetInnerHTML={{ __html: mapRichTextColors(it.html) }} />}
+          {pill ? <div className="cx-pi-f"><span className={'cx-pi-pill ' + pill.tone}><CxIcon n="clock" s={11} />{fmtDate(it.dueDate)} · {pill.txt}</span></div> : null}
+        </article>;
       })}
+      {!visible.length ? <div className="cx-empty-row cx-mu-empty">{items.length ? 'Nenhuma nota neste filtro.' : 'Nenhuma nota. Use + Nota para registrar um lembrete ou uma entrada do diário.'}</div> : null}
     </div>
+  </CxFoldCard>;
+}
+
+/* ─── Painel de apoio (Visão geral) ───
+   Abas: O que vem · Prazos extintivos · Checklists · Fontes · Atuações recentes. Cada aba mostra o conteúdo dos antigos cartões,
+   sem o cartão em volta. A aba escolhida fica lembrada (localStorage). */
+const CX_AP_TAB_KEY = 'nexus_cx_apoio_tab';
+const CX_AP_TABS = [['vem', 'O que vem'], ['prazos', 'Prazos extintivos'], ['check', 'Checklists'], ['fontes', 'Fontes'], ['atu', 'Atuações recentes']];
+function CxBfApoio({ op, data, prazosRadar, prescLookup, split, execs, upsert, onOpenTimeline, onOpenPrazos, onOpenCda, onOpenProc, onOpenIntim, onOpenTask, onOpenProativa, hz, nr }) {
+  const [tab, setTabS] = React.useState(() => { const v = cxLs(CX_AP_TAB_KEY, 'vem'); return CX_AP_TABS.some(t => t[0] === v) ? v : 'vem'; });
+  const setTab = (v) => { setTabS(v); try { localStorage.setItem(CX_AP_TAB_KEY, v); } catch (e) { /* ignore */ } };
+  const todayIso = localIso(new Date());
+  const vemN = React.useMemo(() => cxBuildHorizon(data, [op.id], prazosRadar, todayIso).items.length, [data, op.id, prazosRadar, todayIso]);
+  const atuN = React.useMemo(() => cxAtuRows(op, data, execs).length, [op, data.intimations, data.tasks, data.executions, execs]);
+  const chk = cxChkCounts(op.briefing);
+  const nSrc = cxBfLinks(op.briefing || {}).length;
+  const needs = split.needsYou;
+  const counts = { vem: vemN, prazos: needs.length, check: chk.done + '/' + chk.total, fontes: nSrc, atu: atuN };
+  const onKey = (e) => {
+    const i = CX_AP_TABS.findIndex(t => t[0] === tab);
+    let j = i;
+    if (e.key === 'ArrowRight') j = (i + 1) % CX_AP_TABS.length; else if (e.key === 'ArrowLeft') j = (i + CX_AP_TABS.length - 1) % CX_AP_TABS.length; else return;
+    e.preventDefault(); setTab(CX_AP_TABS[j][0]);
+    setTimeout(() => { const el = document.getElementById('cx-ap-tab-' + CX_AP_TABS[j][0]); if (el) el.focus(); }, 0);
+  };
+  return <CxFoldCard id="apoio" scope="visao" title="Painel de apoio" ariaLabel="Painel de apoio" className="cx-ap"
+    summary={CX_AP_TABS.map(t => t[1]).join(' · ')}>
+    <div className="cx-ap-tabs" role="tablist" aria-label="Painel de apoio" onKeyDown={onKey}>
+      {CX_AP_TABS.map(([k, lab]) => <button key={k} type="button" role="tab" id={'cx-ap-tab-' + k} aria-selected={tab === k} aria-controls="cx-ap-panel" tabIndex={tab === k ? 0 : -1} onClick={() => setTab(k)}>
+        {lab}<span className={'cx-ap-n' + (k === 'prazos' && needs.length ? ' red' : '')}>{counts[k]}</span>
+      </button>)}
     </div>
-  </CxFoldCard>);
+    <div id="cx-ap-panel" role="tabpanel" aria-labelledby={'cx-ap-tab-' + tab} className="cx-ap-body">
+      {tab === 'vem' ? <CxOqVem bare op={op} data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} onOpenTimeline={onOpenTimeline} hz={hz} nr={nr} /> : null}
+      {tab === 'prazos' ? <div className="cx-ap-pane">
+        <div className="cx-ap-tools"><button type="button" className="cx-link-btn" onClick={onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div>
+        {needs.length ? needs.slice(0, 8).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => onOpenCda(r)}>
+          <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
+          <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
+          <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
+        </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
+        {needs.length > 8 ? <div className="cx-more">+{needs.length - 8} na Mesa de prazos</div> : null}
+      </div> : null}
+      {tab === 'check' ? <CxBfChecklists bare op={op} upsert={upsert} /> : null}
+      {tab === 'fontes' ? <CxBfSources bare op={op} upsert={upsert} /> : null}
+      {tab === 'atu' ? <CxBfAtuacoes bare op={op} data={data} execs={execs} upsert={upsert} onOpenIntim={onOpenIntim} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenProc={onOpenProc} /> : null}
+    </div>
+  </CxFoldCard>;
 }
 
 /* ─── Seções do antigo Briefing, agora parte da Visão geral (P6) ───
@@ -5560,41 +5636,6 @@ function CxBfNews({ data, opId, setData }) {
       </div>
     )}
   </>);
-}
-
-/* Leitura da operação: a entrada fixada mais recente do Diário (mesma regra do relatório). Some quando não há entrada fixada. */
-function CxBfLead({ op, onEdit }) {
-  const [expandedPinned, setExpandedPinned] = React.useState(false);
-  const entries = getBriefingEntries(op.briefing || {});
-  const pinned = entries.filter(e => e && e.pinned);
-  const highlight = pickHighlightEntry(entries);
-  const otherPinned = highlight ? pinned.filter(e => e.id !== highlight.id) : [];
-  if (!highlight) return (
-    <section className="cx-card cx-bf-lead">
-      <div className="cx-bf-lead-empty">
-        <button type="button" className="cx-bf-ic" title="Editar a leitura" aria-label="Editar a leitura" onClick={() => onEdit('new')}><CxIcon n="edit" s={13} /></button>
-      </div>
-    </section>
-  );
-  return (
-    <section className="cx-card cx-bf-lead">
-        <div className="cx-bf-lead-hd">
-          <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
-          <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
-          <span className="cx-sp" />
-          <button type="button" className="cx-bf-ic" title="Editar" onClick={() => onEdit(highlight.id)}>✎</button>
-        </div>
-        <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: mapRichTextColors(highlight.html || '') }} />
-        <div className="cx-bf-lead-ft">
-          <span className="cx-muted cx-small">{(highlight.type === 'estrategia' ? 'Estratégia fixada mais recente' : 'Entrada fixada mais recente')}{otherPinned.length ? ` · mais ${otherPinned.length} fixada${otherPinned.length > 1 ? 's' : ''}` : ''}</span>
-          {otherPinned.length > 0 && <button type="button" className="cx-link" onClick={() => setExpandedPinned(o => !o)}>{expandedPinned ? 'Ocultar ▴' : 'Ver as outras ▾'}</button>}
-        </div>
-        {expandedPinned && otherPinned.map(en => {
-          const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-          return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: mapRichTextColors(en.html || '') }} /></div>;
-        })}
-    </section>
-  );
 }
 
 /* ─── Frentes processuais (Visão geral) — tabela ───
@@ -6087,7 +6128,14 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
 }
 
 /* Fontes: links externos da operação (briefing.externalLinks; migra notebookLmUrl/docUrl antigos) */
-function CxBfSources({ op, upsert }) {
+function cxBfLinks(briefing) {
+  const links = briefing.externalLinks || [];
+  const out = [...links];
+  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) out.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) out.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+  return out;
+}
+function CxBfSources({ op, upsert, bare }) {
   const briefing = op.briefing || {};
   const fold = cxUseFold('visao');
   const [linkAdd, setLinkAdd] = React.useState(false);
@@ -6106,7 +6154,7 @@ function CxBfSources({ op, upsert }) {
     setLinks([...migratedLinks, { label, url }]);
   };
   return (
-    <CxFoldCard id="fontes" scope="visao" title="Fontes"
+    <CxFoldOrBare bare={bare} id="fontes" scope="visao" title="Fontes"
       summary={migratedLinks.length ? cxPl(migratedLinks.length, 'fonte', 'fontes') : 'nenhuma cadastrada'}
       actions={<button type="button" className="cx-link-btn" onClick={() => { fold.set('fontes', false); setLinkAdd(o => !o); }}>+ link</button>}>
       <div className="cx-bf-rail-b">
@@ -6116,33 +6164,18 @@ function CxBfSources({ op, upsert }) {
         {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
         {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
       </div>
-    </CxFoldCard>
-  );
-}
-
-/* Lembretes: anotações soltas (stickyNotes) da operação */
-function CxBfReminders({ data, opId, setModal }) {
-  /* ── Lembretes ── */
-  const reminders = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-  return (
-    <CxFoldCard id="lembretes" scope="visao" title="Lembretes" count={reminders.length}
-      summary={reminders.length ? truncate(reminders[0].title || reminders[0].content || '', 40) : 'nenhum lembrete'}
-      actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button>}>
-      <div className="cx-bf-rail-b">
-        {reminders.length === 0 && <div className="cx-empty-note">Nenhum lembrete.</div>}
-        {reminders.slice(0, 6).map(n => (
-          <div key={n.id} className="cx-bf-rem" onClick={() => setModal({ type: 'edit', entityType: 'stickyNote', initial: n })}>
-            <span>{n.title ? <b>{n.title}: </b> : null}{truncate(n.content || '', 90)}</span>
-            <span className="cx-muted cx-small">{n.updatedAt ? fmtDate(n.updatedAt.slice(0, 10)) : ''}</span>
-          </div>
-        ))}
-      </div>
-    </CxFoldCard>
+    </CxFoldOrBare>
   );
 }
 
 /* Checklists: 1ª vista da operação e decisão final do IDPJ */
-function CxBfChecklists({ op, upsert }) {
+const CX_CHK_IDPJ = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
+const CX_CHK_VISTA = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
+function cxChkCounts(briefing) {
+  const chk = (briefing || {}).checklists || {};
+  return { done: [...CX_CHK_IDPJ, ...CX_CHK_VISTA].filter(([k]) => chk[k]).length, total: CX_CHK_IDPJ.length + CX_CHK_VISTA.length };
+}
+function CxBfChecklists({ op, upsert, bare }) {
   const briefing = op.briefing || {};
   const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
   /* ── Checklists ── */
@@ -6157,7 +6190,7 @@ function CxBfChecklists({ op, upsert }) {
   const checklistDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
   const checklistTotal = idpjItems.length + vistaItems.length;
   return (
-    <CxFoldCard id="checklists" scope="visao" title="Checklists" count={checklistDone + '/' + checklistTotal}
+    <CxFoldOrBare bare={bare} id="checklists" scope="visao" title="Checklists" count={checklistDone + '/' + checklistTotal}
       summary={checklistDone === checklistTotal ? 'tudo feito' : cxPl(checklistTotal - checklistDone, 'item pendente', 'itens pendentes')}>
       <div className="cx-bf-rail-b">
         {checklistGroups.map(g => {
@@ -6173,7 +6206,7 @@ function CxBfChecklists({ op, upsert }) {
           </div>);
         })}
       </div>
-    </CxFoldCard>
+    </CxFoldOrBare>
   );
 }
 

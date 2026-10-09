@@ -388,11 +388,11 @@ const generateDemoData = () => {
   ];
 
   const stickyNotes = [
-    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', updatedAt: ts(-1), createdAt: ts(-3) },
+    { id:'sn-1', operationId:'op-demo-1', content:'Lembrete: audiência IDPJ — levar organograma do grupo.', color:'yellow', dueDate: iso(4), updatedAt: ts(-1), createdAt: ts(-3) },
     { id:'sn-4', operationId:'op-demo-3', content:'Avaliar se embargos obstam nova fase de constrição.', color:'yellow', updatedAt: ts(-4), createdAt: ts(-10) },
     { id:'sn-5', operationId:'op-demo-2', content:'Sisbajud parcial — renovar ciclo em 14 dias.', color:'blue', updatedAt: ts(-1), createdAt: ts(-2) },
     { id:'sn-6', operationId:'op-demo-4', content:'Garantia cobre crédito principal; CSLL ainda em parcelamento.', color:'yellow', updatedAt: ts(-2), createdAt: ts(-5) },
-    { id:'sn-7', operationId:'op-demo-5', content:'CDA 000882 — prazo prescricional apertado (45d). Priorizar.', color:'red', updatedAt: ts(0), createdAt: ts(-1) },
+    { id:'sn-7', operationId:'op-demo-5', content:'CDA 000882 — prazo prescricional apertado (45d). Priorizar.', color:'red', dueDate: iso(-2), updatedAt: ts(0), createdAt: ts(-1) },
     { id:'sn-8', operationId:'op-demo-5', content:'Diligência fazenda: confirmar benfeitorias e máquinas.', color:'blue', updatedAt: ts(-3), createdAt: ts(-3) },
   ];
 
@@ -15475,6 +15475,9 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
               onClick={() => set('color',c)} style={{flex:1}}>{l}</button>
           ))}
         </div>
+      </div>
+      <div className="form-group"><label>Data (opcional)</label>
+        <input type="date" value={form.dueDate||''} onChange={e=>set('dueDate',e.target.value)} />
       </div>
       {Actions()}
     </>);
