@@ -20,7 +20,7 @@ export const TRACKED_COLLECTIONS = [
   'prescriptionEvents', 'intimations', 'tasks', 'stickyNotes', 'watchlist', 'hearings',
 ];
 const LINK_LISTS = ['measurePeople', 'measureAssets', 'cdaResponsibilities'];
-const IGNORED_FIELDS = new Set(['updatedAt', 'createdAt', 'lastAccessed', 'prescriptionSnapshot', 'seen']);
+const IGNORED_FIELDS = new Set(['updatedAt', 'createdAt', 'lastAccessed', 'prescriptionSnapshot', 'mesaCard', 'seen']);
 const MAX_TEXT = 200 * 1024; // limite por texto guardado no evento
 const MAX_DETAILS = 2000; // linhas de detalhe de uma importação
 const MAX_CREATES = 200; // criações num commit sem contexto de lote → evento de sistema
