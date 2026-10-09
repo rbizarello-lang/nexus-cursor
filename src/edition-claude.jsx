@@ -6104,6 +6104,17 @@ function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, o
   </div>;
 }
 
+/* Frente processual da Visão geral do Prumo: a escolha é do usuário (`inPanorama`). Por padrão, IDPJ, MCF e
+   execuções centrais; a EF de petição incidental entra como no Panorama do Clássico; qualquer outro processo
+   (EF, agravo, embargos…) só entra se o usuário levar à frente. Qualquer frente pode ser retirada. */
+function cxIsBfFront(e) {
+  if (!e) return false;
+  const active = e.status !== 'extinta' && e.status !== 'arquivada';
+  if (isIncidentProcess(e)) return e.inPanorama !== false;
+  if (e.processTag === 'central') return active && e.inPanorama !== false;
+  if (isUserPanoramaEf(e)) return true;
+  return active && e.inPanorama === true;
+}
 function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, onOpenTab, onOpenPrazos, onOpenIntim, onOpenHearing, onOpenProc }) {
   const briefing = op.briefing || {};
   const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
@@ -6111,27 +6122,18 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
   const toggleLane = (id) => setLaneOpenMap(prev => { const next = { ...prev, [id]: !(prev[id] === true) }; cxSaveBfLanes(next); return next; });
   const today = localIso(new Date());
 
-  /* ── Frentes: IDPJ + MCF + Central + EF levada ao panorama (mesma regra de sempre) ── */
-  const idpjs = opExecs.filter(isIncidentOnPanorama);
-  const centrais = opExecs.filter(e => e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada');
-  const panoEFs = opExecs.filter(isUserPanoramaEf);
-  const fronts = [...idpjs, ...centrais, ...panoEFs];
+  /* ── Frentes: só o que o usuário mantém na frente (cxIsBfFront). Apensos, recursos e demais processos ficam na aba
+     Processos e prescrição; aqui aparecem no texto da linha ("cobre 7 apensos") e no valor. ── */
+  const fronts = opExecs.filter(cxIsBfFront);
   const frontIds = new Set(fronts.map(f => f.id));
   const coverage = computeIncidentCoverage(opExecs, opDebts);
   const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
-  const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
-  const panoCoveredIds = new Set();
-  idpjs.forEach(ip => (coverage.efsByIncident[ip.id] || []).forEach(ef => panoCoveredIds.add(ef.id)));
-  [...centrais, ...panoEFs].forEach(c => opExecs.filter(e => e.parentExecutionId === c.id && keepCoveredEF(e)).forEach(e => panoCoveredIds.add(e.id)));
   const coveredEFsFor = (front) => isEfStylePanoramaCard(front)
     ? opExecs.filter(e => e.parentExecutionId === front.id && keepCoveredEF(e))
     : (coverage.efsByIncident[front.id] || []);
-  const mainEFs = opExecs.filter(e => (!e.processTag || e.processTag === 'normal') && !e.parentExecutionId && e.status !== 'extinta' && e.status !== 'arquivada');
-  const semIncidenteEFs = mainEFs.filter(ef => !panoCoveredIds.has(ef.id) && isExecucaoFiscalClass(ef) && !ef.inPanorama);
-  const semIncidenteIds = new Set(semIncidenteEFs.map(e => e.id));
-  /* Filhos por parentExecutionId (apensas, exceções, embargos, recursos), em qualquer nível; os arquivados vão para o fim. */
-  const kidsOf = (e) => opExecs.filter(x => x.parentExecutionId === e.id && x.status !== 'extinta' && !frontIds.has(x.id) && !semIncidenteIds.has(x.id))
-    .sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
+  /* Fio de ligação só entre frentes: a frente cujo processo-pai também está na frente fica logo abaixo dele. */
+  const kidsOf = (e) => fronts.filter(x => x.parentExecutionId === e.id && x.id !== e.id);
+  const tops = fronts.filter(f => !f.parentExecutionId || !frontIds.has(f.parentExecutionId) || f.parentExecutionId === f.id);
 
   /* Linhas em ordem; cada grupo (<tbody>) = uma frente com a sua família. */
   const seen = new Set();
@@ -6141,22 +6143,21 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
     const kids = kidsOf(e).map(k => build(k, depth + 1)).filter(Boolean);
     return { e, depth, kids };
   };
-  const groups = fronts.map(f => build(f, 0)).filter(Boolean);
-  const semNodes = semIncidenteEFs.map(f => build(f, 1)).filter(Boolean);
+  const groups = tops.map(f => build(f, 0)).filter(Boolean);
+  fronts.forEach(f => { if (!seen.has(f.id)) { const g = build(f, 0); if (g) groups.push(g); } }); /* ciclo de pais: nenhuma frente se perde */
   const countNodes = (nodes) => nodes.reduce((s, n) => s + 1 + countNodes(n.kids), 0);
-  const execRows = countNodes(groups) + countNodes(semNodes);
+  const execRows = countNodes(groups);
 
   const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada' && !normProc(t.processNumber))
     .sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
   const watches = (data.watchlist || []).filter(w => w.operationId === op.id && w.status !== 'encerrado');
-  const semVal = semNodes.reduce((s, n) => s + cxBfValue(n.e, [], opDebts).val, 0);
 
   /* ── Linha de processo (principal) + sua parte aberta ── */
   const renderNode = (node, last, isTop) => {
     const e = node.e;
     const open = isLaneOpen(e.id);
     const kind = cxBfKind(e);
-    const covered = isTopHub(e) ? coveredEFsFor(e) : [];
+    const covered = coveredEFsFor(e);
     const rel = cxBfRel(e, !!e.parentExecutionId, covered.length);
     const R = cxBfRuler(briefing, e);
     const pd = cxBfPending(e, data, prazoRows, today);
@@ -6164,7 +6165,7 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
     const v = cxBfValue(e, covered, opDebts);
     const hasKids = node.kids.length > 0;
     const rowCls = 'r ' + (isTop ? 'parent' : 'child') + (node.depth > 2 ? ' d2' : '') + (last ? ' last' : '') + (hasKids ? ' has-kids' : '') + (open ? ' open' : '');
-    const retirable = isTop && e.processTag !== 'central' && fronts.some(f => f.id === e.id);
+    const retirable = true;
     const faseTip = () => ({ when: 'Fases registradas', title: R.cur ? R.cur.sd.label + ' (atual)' : 'Nenhuma fase registrada', lines: R.visible.map(m => (R.cur && m.k === R.cur.k ? '▸ ' : '✓ ') + m.sd.label) });
     const mini = R.visible.length ? (() => {
       const idxCur = R.visible.findIndex(m => R.cur && m.k === R.cur.k);
@@ -6196,7 +6197,6 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
       </tr> : null}
     </React.Fragment>;
   };
-  const isTopHub = (e) => frontIds.has(e.id);
   const renderFamily = (node, isTop) => <>
     {renderNode(node, false, isTop)}
     {node.kids.map((k, i) => <React.Fragment key={k.e.id}>{renderFamilyKid(k, i === node.kids.length - 1)}</React.Fragment>)}
@@ -6206,28 +6206,17 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
     {node.kids.map((k, i) => <React.Fragment key={k.e.id}>{renderFamilyKid(k, i === node.kids.length - 1)}</React.Fragment>)}
   </>;
 
-  const semOpen = isLaneOpen('sem-incidente');
   const dueItemOf = (t) => ({ k: 'tar', iso: t.dueDate || '', days: t.dueDate ? daysUntil(t.dueDate) : null });
   const summary = fronts.length ? Array.from(new Set(fronts.map(f => badgeFor(f).label))).join(' · ') : 'nenhuma frente';
-  const empty = !groups.length && !semNodes.length && !opTasks.length && !watches.length;
+  const empty = !groups.length && !opTasks.length && !watches.length;
   return (
     <CxFoldCard id="frentes" scope="visao" className="cx-bf-fronts cx-bft" title="Frentes processuais" count={execRows} summary={summary}
       actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: { operationId: op.id } })}><CxIcon n="plus" s={12} />Frente</button>}>
-      {empty ? <div className="cx-empty-row">Nenhum IDPJ, MCF, execução central ou EF levada ao panorama.</div> : <div className="cx-bft-tw">
+      {empty ? <div className="cx-empty-row">Nenhuma frente. IDPJ, MCF e execuções centrais entram por padrão; outros processos, pela ficha do processo (Levar à frente).</div> : <div className="cx-bft-tw">
         <table className="tt" aria-label="Frentes processuais da operação">
           <colgroup><col className="w-chev" /><col className="w-kind" /><col className="w-proc" /><col className="w-jz" /><col className="w-fase" /><col /><col className="w-sg" /><col className="w-val" /></colgroup>
           <thead><tr><th><span className="sr">Expandir</span></th><th>Tipo</th><th>Processo</th><th>Juízo</th><th>Fase</th><th>Próximo ato</th><th>Sinais</th><th className="r">Valor</th></tr></thead>
           {groups.map(g => <tbody key={g.e.id} className="grp">{renderFamily(g, true)}</tbody>)}
-          {semNodes.length ? <tbody className="grp">
-            <tr className={'r parent quiet' + (semOpen ? ' open' : '') + (semNodes.length ? ' has-kids' : '')} onClick={() => toggleLane('sem-incidente')}>
-              <td className="c1"><button type="button" className="chev" aria-expanded={semOpen} aria-label={(semOpen ? 'Recolher' : 'Expandir') + ' execuções sem incidente'} onClick={ev => { ev.stopPropagation(); toggleLane('sem-incidente'); }}><CxIcon n="chevR" s={13} /></button></td>
-              <td className="c-kind"><span className="kind k-out">EF</span></td>
-              <td className="c-proc"><div className="pr1"><b className="cx-bft-grp">Sem incidente</b></div><div className="pr2"><span className="cls">{cxPl(semNodes.length, 'execução', 'execuções')} fora de IDPJ, MCF e central</span></div></td>
-              <td className="c-jz cx-muted">—</td><td className="c-fase cx-muted">—</td><td className="c-prox cx-muted">—</td><td className="c-sg" />
-              <td className="c-val">{semVal > 0 ? <div className="val">{cxMoneyMi(semVal)}</div> : <div className="val cx-muted">—</div>}<div className="val-s">{cxPl(semNodes.length, 'EF', 'EFs')}</div></td>
-            </tr>
-            {semOpen ? semNodes.map((n, i) => <React.Fragment key={n.e.id}>{renderFamilyKid(n, i === semNodes.length - 1)}</React.Fragment>) : null}
-          </tbody> : null}
           {(opTasks.length || watches.length) ? <tbody className="grp fixed">
             {opTasks.length ? <tr className={'r parent' + (watches.length ? ' has-kids' : '')} onClick={() => onOpenTab('tarefas')}>
               <td className="c1"><span className="sp" aria-hidden="true" /></td>
@@ -6730,6 +6719,8 @@ function EditionClaudeProcDrawer(p) {
         <button type="button" className="cx-btn sm" onClick={batchEventOnGroup} disabled={!cdas.length}>+ Evento nas {cdas.length} CDAs</button>
         <button type="button" className="cx-btn sm" onClick={genTask}>Gerar tarefa</button>
         {e && <button type="button" className="cx-btn sm" onClick={() => setAtuacaoOpen(true)} title="Registrar uma atuação sua neste processo, sem intimação">Registrar atuação</button>}
+        {e && <button type="button" className="cx-btn sm" onClick={() => { const on = cxIsBfFront(e); upsert('executions', { ...e, inPanorama: !on }); cxNotify(on ? 'Retirado das Frentes processuais' : 'Levado às Frentes processuais'); }}
+          title="Frentes processuais da Visão geral: só os processos que você quer acompanhar de perto">{cxIsBfFront(e) ? 'Retirar da frente' : 'Levar à frente'}</button>}
         {e && <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: e })}>Dados do processo</button>}
       </div>
     </aside>
