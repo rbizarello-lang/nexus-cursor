@@ -23,7 +23,9 @@ const sameProc = (a, b) => {
   const x = String(a || '').replace(/\D/g, '');
   return !!x && x === String(b || '').replace(/\D/g, '');
 };
-const isExecucaoFiscalClass = (e) => /^execu[çc][ãa]o\s+fiscal\b/.test((e?.className || '').toLowerCase().trim());
+const { isExecucaoFiscalClass } = new Function(
+  `${extractFunction('isPeticaoIncidenteEf')}\n${extractFunction('isExecucaoFiscalClass')}\nreturn { isExecucaoFiscalClass };`
+)();
 
 const factory = new Function(
   'sameProc',

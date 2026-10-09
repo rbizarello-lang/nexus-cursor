@@ -55,9 +55,14 @@ export function sanitizeReportHtml(html) {
       if (m[0][1] === '/') out += `</${name}>`;
       else if (name === 'br') out += '<br>';
       else {
-        // Marca-texto: só background-color com valor simples, como no editor.
+        // Marca-texto e cor do texto: só background-color / color com valor simples (hex, rgb() ou nome),
+        // como no editor. "color" exige um separador antes ([\s;"']) para não casar com "background-color".
         const bg = name === 'span' ? /background-color\s*:\s*(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})\s*(;|["']|$)/i.exec(m[0]) : null;
-        out += bg ? `<span style="background-color:${bg[1]};border-radius:2px;padding:0 2px">` : `<${name}>`;
+        const fg = name === 'span' ? /[\s;"']color\s*:\s*(#[0-9a-f]{3,8}|rgba?\(\s*[\d.,\s%]+\)|[a-z]{3,20})\s*(;|["']|$)/i.exec(m[0]) : null;
+        const css = [];
+        if (fg) css.push(`color:${fg[1]}`);
+        if (bg) css.push(`background-color:${bg[1]};border-radius:2px;padding:0 2px`);
+        out += css.length ? `<span style="${css.join(';')}">` : `<${name}>`;
       }
     }
     last = tagRe.lastIndex;
@@ -79,6 +84,16 @@ export function pickHighlightEntry(entries) {
   const estrategia = pinned.filter(e => e.type === 'estrategia').sort(byDateDesc);
   if (estrategia.length) return estrategia[0];
   return [...pinned].sort(byDateDesc)[0];
+}
+
+/**
+ * Entrada do diário marcada "No relatório": `inReport` quando definido; nas antigas (sem o campo),
+ * vale como marcada para Decisão judicial e Providência.
+ */
+export function diaryEntryInReport(entry) {
+  if (!entry) return false;
+  if (typeof entry.inReport === 'boolean') return entry.inReport;
+  return entry.type === 'decisao' || entry.type === 'providencia';
 }
 
 // ───────────────────── Próximos 15 dias ─────────────────────
@@ -228,7 +243,7 @@ body{font-family:'Geist','Segoe UI',system-ui,-apple-system,sans-serif;font-size
 }
 `;
 
-function htmlShell(title, bodyHtml) {
+export function htmlShell(title, bodyHtml) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: https:">
 <title>${escHtml(title)}</title>
@@ -434,7 +449,7 @@ export function renderReportDocument(rd) {
 
 /** Nome do arquivo baixado, no padrão pedido: passagem_servico_<op>_<data>.html etc. */
 export function reportFileName(model, opName, dateIso) {
-  const prefix = model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
+  const prefix = model === 'base' ? 'base_relatorio' : model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
   const safeName = String(opName || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
   return `${prefix}_${safeName}_${dateIso}.html`;
 }

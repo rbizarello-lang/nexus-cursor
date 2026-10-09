@@ -23,6 +23,7 @@ const CX_ICONS = {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   scale: '<path d="M12 3v18"/><path d="M7 21h10"/><path d="M4 7h16"/><path d="M4 7l-2.5 6a3 3 0 0 0 5 0z"/><path d="M20 7l-2.5 6a3 3 0 0 0 5 0z"/>',
   book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
   chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
@@ -31,6 +32,8 @@ const CX_ICONS = {
   chevL: '<path d="m15 18-6-6 6-6"/>',
   chevD: '<path d="m6 9 6 6 6-6"/>',
   chevU: '<path d="m18 15-6-6-6 6"/>',
+  expandAll: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  collapseAll: '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>',
@@ -53,10 +56,37 @@ const CX_ICONS = {
   layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
   filter: '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   timeline: '<path d="M3 6h9M3 12h14M3 18h6"/><circle cx="15" cy="6" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>',
+  bold: '<path d="M7 4h6a4 4 0 0 1 0 8H7z"/><path d="M7 12h7a4 4 0 0 1 0 8H7z"/>',
+  italic: '<path d="M19 4h-9M14 20H5M15 4 9 20"/>',
+  listOl: '<path d="M10 6h11M10 12h11M10 18h11"/><path d="M3.5 5.5 5 4.5V9M3.5 14.5c0-1 3-1 3 .6 0 1-3 2.4-3 3.4h3"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/>',
 };
 function CxIcon({ n, s = 16, className = '', style }) {
   return <svg className={'cx-i ' + className} width={s} height={s} viewBox="0 0 24 24" aria-hidden="true" style={style} dangerouslySetInnerHTML={{ __html: CX_ICONS[n] || '' }} />;
+}
+
+function DocsPieceGlyph() {
+  return <svg className="nx-piece-glyph" width="15" height="15" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#4285F4" d="M37 45H11a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h19l10 10v29a3 3 0 0 1-3 3z" />
+    <path fill="#A8C7FA" d="M30 3v9a1 1 0 0 0 1 1h9z" />
+    <path fill="#fff" d="M15 23h18v2.2H15zm0 5h18v2.2H15zm0 5h12v2.2H15z" />
+  </svg>;
+}
+
+/** Texto da nota de atuação e, se houver peça, o ícone que abre o documento. */
+function AtuacaoNoteView({ text, url }) {
+  return <>
+    {text}
+    {url ? <>{' / Peça: '}<a className="nx-piece-link" href={url} target="_blank" rel="noopener noreferrer" title="Abrir peça" aria-label="Abrir peça" onClick={e => e.stopPropagation()}><DocsPieceGlyph /></a></> : null}
+  </>;
+}
+
+function renderProcessNote(note, linkify) {
+  const raw = typeof note === 'string' ? note : ((note && (note.text || note.content || note.body)) || '');
+  const atu = presentAtuacaoProcessNote(raw);
+  if (atu) return <AtuacaoNoteView text={atu.text} url={atu.url} />;
+  return linkify ? linkify(raw) : raw;
 }
 
 /* ─── Helpers de leitura (não gravam nada) ─── */
@@ -77,9 +107,27 @@ const CX_IMP = { alta: 'Alta', normal: 'Média', baixa: 'Baixa' };
 const CX_DIF = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const CX_HEARING = { instrucao: 'Audiência de instrução', conciliacao: 'Audiência de conciliação', una: 'Audiência una', justificacao: 'Audiência de justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
 const CX_OP_COLORS = ['var(--cx-op1)', 'var(--cx-op2)', 'var(--cx-op3)', 'var(--cx-op4)', 'var(--cx-op5)', 'var(--cx-op6)'];
-const CX_OP_TABS = [['notas', 'Briefing'], ['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const CX_OP_TABS = [['prescricao_v2', 'Processos e prescrição'], ['dividas', 'Inscrições'], ['pessoas', 'Partes'], ['bens', 'Bens'], ['tarefas', 'Tarefas'], ['docs', 'Arquivos'], ['importar', 'Importar']];
+const SUBSTITUICAO_OP_ID = 'op-substituicao';
+function isSubstituicaoOp(op) {
+  return !!(op && (op.id === SUBSTITUICAO_OP_ID || op.kind === 'substituicao'));
+}
+function intimDaSubstituicao(x) {
+  return !!(x && x.operationId === SUBSTITUICAO_OP_ID);
+}
+function substituicaoOpRecord() {
+  return {
+    id: SUBSTITUICAO_OP_ID,
+    name: 'EM SUBSTITUIÇÃO',
+    description: 'Feitos no lugar de outro procurador.',
+    status: 'ativa',
+    kind: 'substituicao',
+    createdAt: '2026-10-06T00:00:00.000Z'
+  };
+}
 /* Partes e Bens são abas independentes (antes, uma aba só com seletor interno). */
-function cxTabOn(activeTab, key) { return activeTab === key; }
+/* 'notas' (antiga aba Briefing) virou parte da Visão geral: no Prumo é só um apelido de 'visao'. */
+function cxTabOn(activeTab, key) { return activeTab === key || (key === 'visao' && activeTab === 'notas'); }
 
 /* Registro global de operações por id, atualizado a cada render do App (ver app.jsx, perto de
    `opsById`). Permite que cxOpColor/CxOpSquare recebam só o id em telas que não têm o objeto
@@ -103,7 +151,7 @@ function cxOpColorHash(id) {
 function cxOpColor(opOrId) {
   const op = cxResolveOp(opOrId);
   if (!op) return cxOpColorHash(opOrId);
-  if (op.color) return op.color;
+  if (op.color) return cxMapOpColor(op.color);
   const cls = getOpClassifications(op);
   if (cls.includes('parcelamento_parcial') || cls.includes('parcelamento_integral') || op.opCategory === 'parcelada') return 'var(--cx-opc-parcel)';
   if (!op.priority) return 'var(--cx-opc-none)';
@@ -169,6 +217,15 @@ function cxMoneyShort(v) {
   if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mi';
   if (v >= 1e3) return 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
   return fmtCur(v);
+}
+/* Horizonte de um termo em dias: "em 70 dias", "hoje", "há 4 dias" (acima de 2 anos, em anos, como a Mesa). */
+function cxHorizonTxt(days) {
+  const n = Number(days);
+  if (days == null || !Number.isFinite(n)) return '';
+  if (Math.abs(n) > 730) return formatPrescHorizon(n);
+  if (n < 0) return 'há ' + cxPl(-n, 'dia', 'dias');
+  if (n === 0) return 'hoje';
+  return 'em ' + cxPl(n, 'dia', 'dias');
 }
 function cxPl(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 function cxNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
@@ -252,6 +309,73 @@ function cxCopy(text) {
 function CxNumCopy({ value, children }) {
   return <button type="button" className="cx-proc-copy" title="Copiar número" onClick={e => { e.stopPropagation(); if (value) cxCopy(value); }}>{children}</button>;
 }
+/* Dica flutuante única (reaproveita o visual .cx-tl-tip). Fica dentro do app (herda os tokens do tema) e em posição fixa,
+   então não é cortada por tabelas com rolagem. `d` = { when, title, lines, tone }. */
+let CX_HINT_EL = null;
+function cxHintHide() { if (CX_HINT_EL) CX_HINT_EL.style.display = 'none'; }
+function cxHintShow(target, d) {
+  if (!target || !d || typeof document === 'undefined') return;
+  const host = (target.closest && target.closest('.app-layout')) || document.body;
+  if (!CX_HINT_EL || CX_HINT_EL.parentNode !== host) {
+    if (CX_HINT_EL && CX_HINT_EL.parentNode) CX_HINT_EL.parentNode.removeChild(CX_HINT_EL);
+    CX_HINT_EL = document.createElement('div');
+    CX_HINT_EL.className = 'cx-tl-tip cx-hint';
+    CX_HINT_EL.setAttribute('role', 'tooltip');
+    host.appendChild(CX_HINT_EL);
+  }
+  const el = CX_HINT_EL;
+  el.textContent = '';
+  const add = (cls, txt) => { if (!txt) return; const n = document.createElement('div'); n.className = cls; n.textContent = txt; el.appendChild(n); };
+  add('cx-tl-tip-w' + (d.tone ? ' ' + d.tone : ''), d.when);
+  add('cx-tl-tip-t', d.title);
+  (d.lines || []).forEach(l => add('cx-tl-tip-s', l));
+  el.style.visibility = 'hidden'; el.style.display = 'block';
+  const r = target.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  let left = r.left + r.width / 2 - w / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  let top = r.bottom + 6;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+  el.style.left = left + 'px'; el.style.top = top + 'px'; el.style.visibility = '';
+}
+/* Props de dica (mouse e teclado) para qualquer elemento: `get()` devolve { when, title, lines, tone }. */
+function cxHintProps(get) {
+  return {
+    onMouseEnter: (e) => cxHintShow(e.currentTarget, get()),
+    onMouseLeave: cxHintHide,
+    onFocus: (e) => cxHintShow(e.currentTarget, get()),
+    onBlur: cxHintHide,
+  };
+}
+/* Número do processo copiável: o próprio número é o alvo (sem ícone). Copia COM máscara; o clique não propaga
+   (não expande linha nem abre gaveta). Dica "Clique para copiar" → "Copiado ✓". */
+function CxCopyNum({ num, className = '' }) {
+  const tRef = React.useRef(null);
+  const ref = React.useRef(null);
+  React.useEffect(() => () => { clearTimeout(tRef.current); }, []);
+  const value = String(num || '').trim();
+  if (!value) return <span className="cx-copynum cx-copynum-empty">—</span>;
+  const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(value);
+  const doCopy = (e) => {
+    e.stopPropagation();
+    if (e.type === 'keydown') e.preventDefault();
+    try { copyText(value); } catch (err) { /* ignore */ }
+    const el = ref.current || e.currentTarget;
+    cxHintShow(el, { title: 'Copiado ✓', tone: 'ok' });
+    clearTimeout(tRef.current);
+    tRef.current = setTimeout(() => {
+      const hovered = el && el.matches && (el.matches(':hover') || el === document.activeElement);
+      if (hovered) cxHintShow(el, { title: 'Clique para copiar' }); else cxHintHide();
+    }, 1500);
+  };
+  return <span ref={ref} className={'cx-copynum' + (className ? ' ' + className : '')} role="button" tabIndex={0}
+    aria-label={'Copiar número do processo ' + value}
+    onClick={doCopy} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') doCopy(e); }}
+    onMouseEnter={e => { clearTimeout(tRef.current); cxHintShow(e.currentTarget, { title: 'Clique para copiar' }); }}
+    onFocus={e => { clearTimeout(tRef.current); cxHintShow(e.currentTarget, { title: 'Clique para copiar' }); }}
+    onMouseLeave={() => { clearTimeout(tRef.current); cxHintHide(); }} onBlur={() => { clearTimeout(tRef.current); cxHintHide(); }}>
+    {m ? <>{m[1]}<i>{m[2]}</i></> : value}
+  </span>;
+}
 
 /* ─── Peças visuais ─── */
 function CxStatusIcon({ s }) {
@@ -310,16 +434,118 @@ function CxDocIcon({ url, size = 18 }) {
 }
 function CxSeg({ value, onChange, options, label, className = '' }) {
   return <div className={'cx-seg ' + className} role="group" aria-label={label}>
-    {options.map(o => <button key={o[0]} type="button" className={value === o[0] ? 'on' : ''} aria-pressed={value === o[0]} onClick={() => onChange(o[0])}>
+    {options.map(o => <button key={o[0]} type="button" className={(value === o[0] ? 'on' : '') + (o[4] && o[4].disabled ? ' dis' : '')} aria-pressed={value === o[0]} aria-disabled={o[4] && o[4].disabled ? true : undefined} title={o[4] && o[4].title ? o[4].title : undefined} onClick={() => { if (!(o[4] && o[4].disabled)) onChange(o[0]); }}>
       {o[2] ? <CxIcon n={o[2]} s={13} /> : null}{o[1]}{o[3] != null ? <span className="cx-n">{o[3]}</span> : null}
     </button>)}
   </div>;
+}
+/* Chips de filtro unificados (Polimento · Kit visual): contorno fino, contagem numa caixa cinza e ativo em cinza
+   claro (nunca preto). options: [chave, rótulo, contagem?, cor do ponto?]. Contagem 0 fica apagada, mas clicável. */
+function CxChips({ value, onChange, options, label, sm = false, className = '', group = '' }) {
+  return <div className={'cx-chipset ' + className} role="group" aria-label={label}>
+    {group ? <span className="cx-chip-grp">{group}</span> : null}
+    {options.map(o => <button key={o[0]} type="button" className={'cx-fchip' + (sm ? ' sm' : '') + (value === o[0] ? ' on' : '') + (o[2] === 0 ? ' zero' : '')} aria-pressed={value === o[0]} onClick={() => onChange(o[0])}>
+      {o[3] ? <span className="cx-dot" style={{ background: o[3] }} /> : null}{o[1]}{o[2] != null ? <span className="cx-fcn">{o[2]}</span> : null}
+    </button>)}
+  </div>;
+}
+/* Cartão de KPI (Polimento · K1): rótulo, número, linha descritiva, divisor fino e rodapé com o contexto (ou a
+   comparação, quando existe). Delta só onde há comparação calculável: `delta = { txt, dir: 'up'|'down'|'none', tone:
+   'good'|'bad'|'neutral' }`. `tone` ('red'|'orange'|'violet') colore o número/linha só quando descrevem um estado.
+   Sem `onClick`, o cartão é um bloco; com ele, um botão. */
+function CxKpiCard({ label, value, unit, desc, tone, descTone, side, tag, foot, footTone, footR, footRTone, delta, pair, onClick, nested, on, tip, disabled, pressed, className = '' }) {
+  const top = <>
+    <div className="cx-kc-t"><span className="cx-kc-l" title={typeof label === 'string' ? label : undefined}>{label}</span>{tag || null}</div>
+    <div className="cx-kc-n"><span className={'cx-kc-v' + (tone ? ' ' + tone : '')}>{value}{unit ? <small>{unit}</small> : null}</span>{side || null}</div>
+    <div className={'cx-kc-d' + (descTone ? ' ' + descTone : '')} title={typeof desc === 'string' ? desc : undefined}>{desc}</div>
+  </>;
+  const cls = 'cx-kc' + (onClick ? ' click' : '') + (on ? ' on' : '') + (className ? ' ' + className : '');
+  if (pair) {
+    /* Variante com métrica par no rodapé: duas áreas clicáveis independentes (principal e par). */
+    const pb = <>
+      <span className="cx-pt"><span>{pair.label}</span>{pair.ctx ? <span className="cx-pctx">{pair.ctx}</span> : null}</span>
+      <span className="cx-pv"><b className={pair.tone || ''}>{pair.value}</b><span className={pair.noteTone || ''}>{pair.note}</span></span>
+    </>;
+    return <div className={cls.replace(' click', '') + ' has-pair'}>
+      {onClick ? <button type="button" className="cx-kc-b click" onClick={onClick} title={tip}>{top}</button> : <div className="cx-kc-b" title={tip}>{top}</div>}
+      {pair.onClick ? <button type="button" className="cx-kc-pair click" onClick={pair.onClick} title={pair.tip}>{pb}</button> : <div className="cx-kc-pair" title={pair.tip}>{pb}</div>}
+    </div>;
+  }
+  const body = <>
+    <div className="cx-kc-b">{top}</div>
+    <div className="cx-kc-f"><span className={footTone ? footTone : ''} title={typeof foot === 'string' ? foot : undefined}>{foot}</span>{delta ? <span className={'cx-dl ' + (delta.dir || 'none') + ' ' + (delta.tone || 'neutral')}>{delta.txt}</span> : footR ? <span className={'cx-kc-fr' + (footRTone ? ' ' + footRTone : '')}>{footR}</span> : null}</div>
+  </>;
+  if (onClick && nested) {
+    /* Cartão com botões dentro (ex.: chips de tribunal): não pode ser <button>, vira área clicável acessível. */
+    return <div className={cls} role="button" tabIndex={0} onClick={onClick} title={tip}
+      onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}>{body}</div>;
+  }
+  return onClick
+    ? <button type="button" className={cls} onClick={onClick} title={tip} disabled={disabled} aria-pressed={pressed === undefined ? undefined : !!pressed}>{body}</button>
+    : <div className={cls} title={tip}>{body}</div>;
+}
+/* Anel segmentado (Polimento · K5): só para razão (x de y) ou etapas, sempre com o número escrito ao lado.
+   20 segmentos finos; `pct` 0–100. */
+function CxRing({ pct, size = 44, stroke = 6, color = 'var(--cx-green)', label }) {
+  const n = 20, r = (size - stroke) / 2, c = size / 2;
+  const p = Math.max(0, Math.min(100, pct || 0));
+  let filled = Math.round(p / 100 * n);
+  if (p > 0 && filled === 0) filled = 1;
+  if (p < 100 && filled === n) filled = n - 1;
+  const pt = (deg) => { const a = deg * Math.PI / 180; return (c + r * Math.sin(a)).toFixed(2) + ' ' + (c - r * Math.cos(a)).toFixed(2); };
+  const segs = [];
+  for (let i = 0; i < n; i++) {
+    const a0 = i * 18 + 3, a1 = i * 18 + 15;
+    segs.push(<path key={i} d={'M' + pt(a0) + ' A' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 0 1 ' + pt(a1)} stroke={i < filled ? color : 'var(--cx-line-strong)'} />);
+  }
+  return <svg className="cx-ring" width={size} height={size} viewBox={'0 0 ' + size + ' ' + size} role="img" aria-label={label || (Math.round(p) + '%')} style={{ strokeWidth: stroke, fill: 'none', strokeLinecap: 'butt' }}><title>{label || (Math.round(p) + '%')}</title>{segs}</svg>;
+}
+/* Tile de iniciais na cor da operação (Polimento · K3); anel violeta para operação nova, como o quadradinho. */
+function cxOpInitials(op) {
+  const all = cxOpName(op).split(/\s+/).filter(Boolean);
+  const words = all.filter(w => !/^(d[aeo]s?|e)$/i.test(w));
+  return ((words.length ? words : all).slice(0, 2).map(w => w.charAt(0)).join('') || '?').toUpperCase();
+}
+function CxOpTile({ op, size = 40 }) {
+  const isNew = cxOpIsNew(op);
+  const style = { '--c': cxOpColor(op), '--s': size + 'px' };
+  if (isNew) { style.outline = '2px solid var(--cx-violet)'; style.outlineOffset = '1.5px'; }
+  return <span className="cx-tile" style={style} title={isNew ? 'Nova' : undefined} aria-hidden="true">{cxOpInitials(op)}</span>;
+}
+/* Carteira inteira: dívida e garantia sobre as CDAs não extintas (mesma conta do cartão "Crédito sob gestão") e a
+   indisponibilidade de todos os bens (soma por operação, sem deduplicar). */
+function cxCarteiraTotals(data) {
+  const debts = (data.debts || []).filter(d => d.status !== 'extinta');
+  const total = debts.reduce((t, d) => t + (d.value || 0), 0);
+  const guar = debts.filter(d => d.status === 'garantida').reduce((t, d) => t + (d.value || 0), 0);
+  return { total, guar, pct: total > 0 ? Math.round(guar / total * 100) : null, indisp: indispStats(data.assets || [], total) };
+}
+/* Indisponibilidade (Prumo): anel e texto contam só bens com indisponibilidade ativa ou requerida (src/lib/indisp.js). */
+const CX_INDISP_DUP = 'soma por operação: um mesmo bem lançado em duas operações conta duas vezes';
+const CX_INDISP_RING = 'Parte da dívida (CDAs não extintas) coberta por bens com indisponibilidade, ativa ou requerida.';
+function cxIndispSplit(s) { return indispSplitText(s, cxMoneyShort); }
+/* "47%" no anel/tabela; acima de 100% da dívida, a razão ("2,6×") em vez de um 100% que esconderia o excesso. */
+function cxIndispPctTxt(s) {
+  if (!s || s.pct === null) return '—';
+  if (s.over) return (Math.round(s.ratio * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×';
+  return s.pct + '%';
+}
+/* Linha de Resumo (Polimento · K7): frase montada por regras fixas (src/lib/hoje.js), nunca por IA. */
+function CxResumo({ text, className = '' }) {
+  if (!text) return null;
+  return <div className={'cx-rs ' + className}>
+    <span className="cx-rs-chip" title="Calculado a partir dos dados desta tela, por regras fixas. Sem IA."><CxIcon n="list" s={12} />Resumo</span>
+    <span>{resumoPartes(text).map((x, k) => x.b ? <b key={k}>{x.t}</b> : <React.Fragment key={k}>{x.t}</React.Fragment>)}</span>
+  </div>;
+}
+function CxKpiStrip({ n, dense = true, className = '', children }) {
+  return <div className={'cx-ks' + (dense ? ' dense' : '') + (n >= 5 ? ' many' : '') + (className ? ' ' + className : '')} style={{ '--n': n }}>{children}</div>;
 }
 function CxSelect({ id, pre, value, onChange, options, label }) {
   return <label className="cx-sel">
     {pre ? <span className="cx-pre">{pre}</span> : null}
     <select id={id} value={value} onChange={e => onChange(e.target.value)} aria-label={label || pre} style={pre ? { paddingLeft: (pre.length * 7 + 20) + 'px' } : null}>
-      {options.map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}
+      {options.map(o => <option key={o[0]} value={o[0]} disabled={o[2] === 'dis'} hidden={o[2] === 'dis'}>{o[1]}</option>)}
     </select>
     <CxIcon n="chevD" s={12} />
   </label>;
@@ -344,6 +570,14 @@ function CxToastHost() {
   return <div className="cx-toast" role="status"><CxIcon n="tick" s={14} />{msg}</div>;
 }
 
+/* Estado da sincronização com a Planilha (rodapé do menu e faixa de erro). */
+function cxSyncInfo(s) {
+  const txt = s.status === 'syncing' ? 'Sincronizando…' : s.status === 'error' ? 'Erro na sincronização' : s.lastSync ? 'Planilha · ' + s.lastSync : 'Planilha';
+  const color = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
+  const title = (s.msg ? s.msg + ' · ' : '') + 'Clique para salvar na Planilha agora' + (s.pending ? ' (há alterações não salvas)' : '');
+  return { txt, color, title };
+}
+
 /* ═════════════════════ Menu lateral ═════════════════════ */
 function EditionClaudeSidebar(p) {
   const { data, viewMode, activeOpId, activeTab, counts, opMeta } = p;
@@ -364,7 +598,8 @@ function EditionClaudeSidebar(p) {
     document.addEventListener('keydown', onKey);
     return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [menu]);
-  const ops = (data.operations || []).slice().sort(sortOpsByName);
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
+  const substOp = (data.operations || []).find(isSubstituicaoOp);
   const q = cxNorm(filter.trim());
   const match = (o) => (!q || cxNorm(o.name + ' ' + (o.description || '')).includes(q)) && opMatchesClassFilter(o, cls);
   const active = ops.filter(o => o.status !== 'encerrada' && match(o));
@@ -375,6 +610,8 @@ function EditionClaudeSidebar(p) {
   const clsMeta = cls !== 'all' && cls !== 'encerrada' ? OP_CLASSIFICATIONS[resolveOpClassKey(cls) || cls] : null;
   const pick = (k) => { setCls(k); setMenu(false); };
   const closedOpen = showClosed || cls === 'encerrada';
+  const substOpenCount = substOp ? (data.intimations || []).filter(x => x.operationId === substOp.id && cxIsOpen(x)).length : 0;
+  const showSubst = !!(substOp && cls === 'all' && (!q || cxNorm('em substituição').includes(q)));
   const item = (vm, icon, label, extra, onClick) => {
     const on = viewMode === vm;
     return <button key={vm} type="button" className={'cx-nav-item' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} title={label} onClick={onClick || (() => p.onNav(vm))}>
@@ -396,7 +633,7 @@ function EditionClaudeSidebar(p) {
           : m.alerts > 0 ? <span className="cx-dot" style={{ background: 'var(--cx-violet)' }} title={cxPl(m.alerts, 'CDA a agir nos prazos extintivos', 'CDAs a agir nos prazos extintivos')} /> : null}
       </div>
       {open ? <div className="cx-nav-sub">
-        <button type="button" className={'cx-nav-item' + (onOp && activeTab === 'visao' ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
+        <button type="button" className={'cx-nav-item' + (onOp && cxTabOn(activeTab, 'visao') ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
         {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={'cx-nav-item' + (onOp && cxTabOn(activeTab, t[0]) ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, t[0])}><span className="cx-lbl">{t[1]}</span></button>)}
       </div> : null}
     </div>;
@@ -414,7 +651,7 @@ function EditionClaudeSidebar(p) {
     <div className="cx-side-scroll">
       <nav className="cx-nav">
         {item('hoje', 'home', 'Hoje')}
-        {item('intimacoes', 'inbox', 'Intimações', counts.openIntims ? <span className={'cx-badge' + (counts.lateIntims ? ' red' : '')} title={counts.lateIntims ? cxPl(counts.lateIntims, 'vencida', 'vencidas') : undefined}>{counts.openIntims}</span> : null)}
+        {item('intimacoes', 'inbox', 'Intimações', counts.openIntims ? <>{counts.lateIntims ? <span className="cx-cb red" title={cxPl(counts.lateIntims, 'intimação vencida', 'intimações vencidas')}>{counts.lateIntims} venc.</span> : null}<span className="cx-count">{counts.openIntims}</span></> : null)}
         {item('tarefas_global', 'check', 'Tarefas', counts.openTasks ? <span className="cx-count">{counts.openTasks}</span> : null)}
         {item('mesa', 'desk', 'Mesa de intimações', counts.desk ? <span className="cx-count">{counts.desk}</span> : null)}
         <button type="button" className="cx-nav-item" title="Buscar" onClick={p.onSearch}><CxIcon n="search" /><span className="cx-lbl">Buscar</span><kbd className="cx-kbd">/</kbd></button>
@@ -422,12 +659,13 @@ function EditionClaudeSidebar(p) {
       <div className="cx-nav-sec"><span>Trabalho</span></div>
       <nav className="cx-nav">
         {item('operacoes', 'briefcase', 'Carteira', <span className="cx-count">{totalActive}</span>)}
-        {item('prazos', 'hourglass', 'Prazos extintivos', counts.presc1 ? <span className="cx-badge red">{counts.presc1}</span> : null)}
+        {item('prazos', 'hourglass', 'Prazos extintivos', counts.presc1 ? <span className="cx-cb red" title={cxPl(counts.presc1, 'CDA a agir nos prazos extintivos', 'CDAs a agir nos prazos extintivos')}>{counts.presc1}</span> : null)}
         {item('cx_timeline', 'timeline', 'Linha do tempo')}
         {item('audiencias', 'calendar', 'Agenda', counts.hearings ? <span className="cx-count">{counts.hearings}</span> : null)}
         {item('acompanhar', 'eye', 'Acompanhar', counts.watch ? <span className="cx-count">{counts.watch}</span> : null)}
         {item('modelos', 'book', 'Biblioteca', counts.models ? <span className="cx-count">{counts.models}</span> : null)}
         {item('painel', 'chart', 'Painel')}
+        {item('cx_atividade', 'history', 'Minha atividade')}
         <button type="button" className="cx-nav-item" title="Importar eproc" onClick={p.onImportEproc}><CxIcon n="upload" /><span className="cx-lbl">Importar eproc</span></button>
       </nav>
       <div className="cx-nav-sec"><span>Operações</span><button type="button" className="cx-icon-btn cx-sm" title="Nova operação" aria-label="Nova operação" onClick={p.onNewOp}><CxIcon n="plus" s={14} /></button></div>
@@ -452,39 +690,56 @@ function EditionClaudeSidebar(p) {
       </div> : null}
       <nav className="cx-nav">
         {active.map(renderOp)}
-        {!p.collapsed && active.length === 0 && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
+        {showSubst ? <button type="button" className={'cx-nav-item cx-nav-op' + (viewMode === 'operation' && activeOpId === substOp.id ? ' on' : '')} title="EM SUBSTITUIÇÃO" onClick={() => p.onOpenOp(substOp.id)}>
+          <CxOpSquare op={substOp} title="EM SUBSTITUIÇÃO" />
+          <span className="cx-lbl">EM SUBSTITUIÇÃO</span>
+          {substOpenCount ? <span className="cx-count">{substOpenCount}</span> : null}
+        </button> : null}
+        {!p.collapsed && active.length === 0 && !showSubst && !(cls === 'encerrada' && closed.length) ? <div className="cx-side-empty">{!ops.length ? 'Crie sua primeira operação.' : q ? 'Nenhuma operação com esse nome' + (cls !== 'all' ? ' neste filtro.' : '.') : 'Nenhuma operação neste filtro.'}</div> : null}
         {!p.collapsed && closed.length && cls !== 'encerrada' ? <button type="button" className="cx-nav-item cx-nav-closed" onClick={() => setShowClosed(v => !v)}><span className="cx-chev" style={{ transform: showClosed ? 'rotate(90deg)' : 'none' }}><CxIcon n="chevR" s={12} /></span><span className="cx-lbl">Encerradas</span><span className="cx-count">{closed.length}</span></button> : null}
         {!p.collapsed && closedOpen ? closed.map(renderOp) : null}
       </nav>
     </div>
     <div className="cx-side-foot">
       <span>Nexus Prumo</span>
-      <button type="button" className="cx-link-btn" onClick={p.onSwitchClassic} title="Voltar à edição clássica">Voltar ao Clássico</button>
+      <button type="button" className="cx-link-btn" onClick={p.onCloudPull} title="Trazer o JSON salvo no Drive e substituir os dados desta tela">Carregar da Planilha</button>
+      {p.sync && p.sync.isGAS ? (() => { const si = cxSyncInfo(p.sync); return <button type="button" className="cx-side-sync" onClick={p.sync.onPush} title={si.title} aria-label={si.txt + (p.sync.pending ? ' · pendente' : '') + '. Salvar na Planilha agora'}>
+        <span className="cx-dot" style={{ background: si.color }} />
+        <span className="cx-side-sync-t cx-ell">{si.txt}</span>
+        {p.sync.pending ? <span className="cx-side-sync-p">· pend.</span> : null}
+      </button>; })() : null}
     </div>
   </aside>;
 }
 
 /* ═════════════════════ Barra superior ═════════════════════ */
 function EditionClaudeTopbar(p) {
-  const s = p.sync || {};
-  const syncTxt = s.status === 'syncing' ? 'Sincronizando…' : s.status === 'error' ? 'Erro na sincronização' : s.lastSync ? 'Planilha · ' + s.lastSync : 'Planilha';
-  const syncColor = s.status === 'error' ? 'var(--cx-red)' : s.status === 'syncing' ? 'var(--cx-yellow)' : s.status === 'connected' ? 'var(--cx-green)' : 'var(--cx-ink-3)';
   return <header className="cx cx-top">
     <button type="button" className="cx-icon-btn cx-menu-btn" onClick={p.onMenu} aria-label="Abrir menu"><CxIcon n="menu" /></button>
+    {p.backLabel ? <button type="button" className="cx-back" onClick={p.onBack} title={'Voltar para ' + p.backLabel + ' (Alt+←)'} aria-label={'Voltar para ' + p.backLabel}><span aria-hidden="true">←</span></button> : null}
     <div className="cx-crumb">
       <span>NEXUS</span>
       {p.crumbs.map((c, k) => <React.Fragment key={k}><span className="cx-sep">/</span>{k === p.crumbs.length - 1 ? <b>{c}</b> : <span>{c}</span>}</React.Fragment>)}
     </div>
     <div className="cx-top-r">
-      {s.isGAS ? <button type="button" className="cx-sync" onClick={s.onPush} title={(s.msg ? s.msg + ' · ' : '') + 'Clique para salvar na Planilha agora'}><span className="cx-dot" style={{ background: syncColor }} />{syncTxt}</button> : null}
       <button type="button" className="cx-search" onClick={p.onSearch} aria-label="Buscar"><CxIcon n="search" s={14} /><span className="cx-t">Buscar processo, CDA…</span><kbd className="cx-kbd">Ctrl K</kbd></button>
-      <button type="button" className="cx-btn primary" onClick={p.onNewIntim} title="Nova intimação"><CxIcon n="plus" s={14} /><span className="cx-lbl">Nova intimação</span></button>
+      {p.lastOp ? <button type="button" className="cx-last-op" onClick={p.onOpenLastOp} title={'Voltar para ' + p.lastOp.name}>{p.lastOp.name}</button> : null}
       <div className="cx-settings-anchor">
         <button type="button" className="cx-icon-btn" onClick={p.onToggleSettings} title="Ajustes" aria-label="Ajustes"><CxIcon n="settings" /></button>
         {p.settingsPanel}
       </div>
     </div>
   </header>;
+}
+
+/* Faixa de erro de sincronização: uma falha ao salvar pode significar edições perdidas. */
+function CxSyncErrorBanner({ msg, onRetry }) {
+  return <div className="cx cx-banner cx-banner-err" role="alert">
+    <CxIcon n="alert" s={14} />
+    <b>Não foi possível salvar na Planilha</b>
+    {msg ? <span className="cx-ell">{msg}</span> : null}
+    <button type="button" className="cx-banner-act" onClick={onRetry}>Tentar agora</button>
+  </div>;
 }
 
 /* Aviso de audiência em até 48h (substitui a faixa vermelha do clássico nesta edição). */
@@ -550,9 +805,114 @@ function cxContinueQueue(data) {
   });
   return out;
 }
+/* ─── Carga de prazos (Polimento · Hoje): mapa de pontos, um ponto por item aberto com data ───
+   Cálculo em src/lib/hoje.js (cargaItens/cargaMapa/resumoCarga). Cor = urgência (vencido, até 2 dias, 3 a 7, 8+),
+   forma = tipo (círculo intimação, quadrado tarefa, losango audiência). Dia com mais de 5 itens ganha coluna fina extra:
+   nenhum ponto some. Clicar num dia abre a Agenda só nesse dia. */
+const CX_URG_C = ['var(--cx-red)', 'var(--cx-orange)', 'var(--cx-opc-media)', 'var(--cx-opc-none)'];
+const CX_KIND_SHAPE = { i: 'ki', t: 'kt', h: 'kh' };
+const CX_KIND_NAME = { i: 'Intimação', t: 'Tarefa', h: 'Audiência' };
+function cxDotTitle(it, iso) {
+  return dowDmIso(iso) + ' · ' + CX_KIND_NAME[it.kind] + ' — ' + it.label + (it.sub ? ' · ' + it.sub : '');
+}
+function CxCargaStack({ items, perCol }) {
+  const cols = Math.max(1, Math.ceil(items.length / perCol));
+  const out = [];
+  for (let c = 0; c < cols; c++) {
+    const slots = [];
+    for (let k = 0; k < perCol; k++) {
+      const it = items[c * perCol + k];
+      slots.push(it ? <i key={k} className={'cx-hd ' + CX_KIND_SHAPE[it.kind] + ' u' + it.urg} title={cxDotTitle(it, it.iso)} /> : <i key={k} className="cx-dot7" />);
+    }
+    out.push(<div key={c} className="cx-sc">{slots}</div>);
+  }
+  return <div className="cx-stack">{out}</div>;
+}
+function CxCargaCard({ mapa, weeks, setWeeks, resumo, onOpenDay, onVencidos }) {
+  const long = weeks > 3;
+  const pico = mapa.pico, sp = mapa.semanaPesada;
+  const venc = mapa.vencidos;
+  const tipoLeg = [['i', 'Intimações'], ['t', 'Tarefas'], ['h', 'Audiências']];
+  const sbarColor = { i: 'var(--cx-ink-2)', t: 'var(--cx-opc-none)', h: 'var(--cx-line-strong)' };
+  return <section className="cx-card cx-cg-card" aria-labelledby="cx-h-carga">
+    <div className="cx-cg">
+      <div className="cx-cg-l">
+        <div>
+          <div className="cx-kc-l" style={{ marginBottom: 8 }}>Itens em {weeks} semanas</div>
+          <div className="cx-cg-n"><span className="big">{mapa.total}</span><span className="cap">itens em {weeks * 7} dias</span></div>
+        </div>
+        <div className="cx-sbar" title={tipoLeg.map(t => t[1] + ' ' + mapa.porTipo[t[0]]).join(' · ')}>{tipoLeg.filter(t => mapa.porTipo[t[0]] > 0).map(t => <i key={t[0]} style={{ flex: mapa.porTipo[t[0]], background: sbarColor[t[0]] }} />)}</div>
+        <div className="cx-cg-lg">{tipoLeg.map(t => <div key={t[0]}><span className={'cx-sh ' + CX_KIND_SHAPE[t[0]]} style={{ background: sbarColor[t[0]] }} />{t[1]}<b>{mapa.porTipo[t[0]]}</b></div>)}</div>
+        <div className="cx-ug">{[['vencido', 0], ['até 2 dias', 1], ['3 a 7 dias', 2], ['8 dias ou mais', 3]].map(u => <span key={u[1]}><i className="sw" style={{ background: CX_URG_C[u[1]] }} />{u[0]}</span>)}</div>
+      </div>
+      <div className="cx-cg-r">
+        <div className="cx-cg-h">
+          <h2 id="cx-h-carga" title="Um ponto por item. Clicar num dia abre a Agenda nesse dia.">Carga de prazos</h2>
+          {pico ? <span className="cx-chp"><CxIcon n="flag" s={12} />Pico: <b>{dowDmIso(pico.iso)}</b> · {cxPl(pico.count, 'item', 'itens')}</span> : null}
+          {venc.length ? <button type="button" className="cx-chp red" onClick={onVencidos} title="Ver os vencidos na Fila do dia">{cxPl(venc.length, 'vencido', 'vencidos')}</button> : null}
+          {sp ? <span className="cx-chp">Semana {sp.idx + 1} · <b>{cxPl(sp.count, 'item', 'itens')}</b>{sp.idx > 0 && sp.deltaAtual !== 0 ? <span className={'cx-dl ' + (sp.deltaAtual > 0 ? 'up' : 'down') + ' neutral'} style={{ fontSize: 11 }} title="Contra a semana 1">{(sp.deltaAtual > 0 ? '+' : '−') + Math.abs(sp.deltaAtual)}</span> : null}</span> : null}
+          <CxSelect id="cx-carga-w" value={String(weeks)} onChange={v => setWeeks(Number(v))} options={[['3', '3 semanas'], ['6', '6 semanas']]} label="Horizonte da carga de prazos" />
+        </div>
+        <div className="cx-hm">
+          <div className="cx-hm-v">
+            <div className="cx-wkh"><div style={{ border: 0, paddingLeft: 4 }}><b>Vencidos</b></div></div>
+            <button type="button" className="cx-hc" onClick={onVencidos} disabled={!venc.length} title={cxPl(venc.length, 'item vencido', 'itens vencidos')}>
+              <CxCargaStack items={venc} perCol={mapa.perCol} />
+              <div className={'cx-dlb' + (venc.length ? ' ven' : '')}>venc.<b>{venc.length}</b></div>
+            </button>
+          </div>
+          <div className="cx-hm-wk">
+            <div className="cx-wkh">{mapa.semanas.map(w => <div key={w.idx} style={{ flex: 7 }}>{long ? 'S' + (w.idx + 1) : 'Semana ' + (w.idx + 1)} · {w.from.slice(5, 7) === w.to.slice(5, 7) ? w.from.slice(8, 10) + '–' + dmIso(w.to) : dmIso(w.from) + '–' + dmIso(w.to)} · <b>{long ? w.count : cxPl(w.count, 'item', 'itens')}</b></div>)}</div>
+            <div className="cx-cols">{mapa.days.map(d => <button key={d.iso} type="button" className={'cx-hc' + (d.isWeekend ? ' we' : '') + (d.week > 0 && d.iso === mapa.semanas[d.week].from ? ' wkb' : '')} style={d.cols > 1 ? { minWidth: d.cols * 12 } : null}
+              onClick={() => onOpenDay(d.iso)} title={dowDmIso(d.iso) + ' · ' + cxPl(d.count, 'item', 'itens') + ' · abrir a Agenda neste dia'}>
+              <CxCargaStack items={d.items} perCol={mapa.perCol} />
+              <div className={'cx-dlb' + (d.isToday ? ' today' : '')}>{long ? '' : dowIso(d.iso)}<b>{d.iso.slice(8, 10)}</b></div>
+            </button>)}</div>
+          </div>
+        </div>
+        {resumo ? <CxResumo text={resumo} className="cx-cg-rs" /> : null}
+      </div>
+    </div>
+  </section>;
+}
+/* ─── Precisa de atenção (Polimento · Hoje): CDAs no alarme e operações com a revisão atrasada ─── */
+function CxAtencaoCard({ atencao, today, opsById, onOpenCda, onReviewed, onOpenPrazos, onOpenCarteira }) {
+  const a = atencao;
+  const CAP = 4;
+  const frase = atencaoFrase(a);
+  return <section className="cx-card" aria-labelledby="cx-h-aten">
+    <div className="cx-card-h"><h2 id="cx-h-aten">Precisa de atenção</h2><div className="cx-aside"><span className="cx-count">{a.total}</span></div></div>
+    {a.total ? <>
+      <div className="cx-at-top"><span className="big">{a.total}</span><span className="cap">{frase.replace(/^\d+ /, '')}</span></div>
+      <div className="cx-at-txt"><p>CDAs a agir nos prazos extintivos (fileira de cima da Mesa de prazos), do termo mais próximo ao mais distante, e operações com a revisão fora do prazo.</p></div>
+      {a.cdas.slice(0, CAP).map(r => <div key={'c' + r.id} className="cx-ar">
+        <span className="ico"><CxIcon n="hourglass" s={16} /></span>
+        <div className="cx-minw0">
+          <div className="tt cx-ell"><span className="cx-mono">{r.cdaNumber || 'S/N'}</span><span className="cd">{r.prescDays == null ? 'sem data' : cxHorizonTxt(r.prescDays)}</span></div>
+          <div className="mm">{[cxOpName(opsById.get(r.operationId)), r.prescDays == null ? '' : fmtDate(addCalendarDays(today, r.prescDays)), r.value ? cxMoneyShort(r.value) : ''].filter(Boolean).join(' · ')}</div>
+        </div>
+        <button type="button" className="cx-btn sm" onClick={() => onOpenCda(r)}>Abrir CDA</button>
+      </div>)}
+      {a.revisoes.slice(0, CAP).map(v => <div key={'r' + v.op.id} className="cx-ar">
+        <span className="ico o"><CxIcon n="history" s={16} /></span>
+        <div className="cx-minw0">
+          <div className="tt cx-ell">{cxOpName(v.op)}</div>
+          <div className="mm">Atrasada há {cxPl(v.diasAtraso, 'dia', 'dias')}{v.intervalo ? ' · revisão ' + v.intervalo : ''}</div>
+        </div>
+        <button type="button" className="cx-btn sm" onClick={() => onReviewed(v.op)} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={13} />Revisada</button>
+      </div>)}
+      {a.cdas.length > CAP || a.revisoes.length > CAP ? <div className="cx-more">
+        {a.cdas.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenPrazos}>+{a.cdas.length - CAP} na Mesa de prazos</button> : null}
+        {a.revisoes.length > CAP ? <button type="button" className="cx-link-btn" onClick={onOpenCarteira}>+{a.revisoes.length - CAP} na Carteira</button> : null}
+      </div> : null}
+    </> : <div className="cx-empty-row">Nada pede uma decisão sua agora: nenhuma CDA a agir nos prazos extintivos e nenhuma revisão atrasada.</div>}
+  </section>;
+}
 function EditionClaudeHoje(p) {
   const { data, prazosRadar, prazosByDebt, opsById } = p;
   const [tab, setTab] = React.useState('proximos');
+  const [cargaW, setCargaWS] = React.useState(() => (cxLs('nexus_cx_carga_weeks', '3') === '6' ? 6 : 3));
+  const setCargaW = (v) => { setCargaWS(v); cxLsSet('nexus_cx_carga_weeks', String(v)); };
   const queue = React.useMemo(() => cxBuildQueue(data, prazosByDebt, opsById), [data, prazosByDebt, opsById]);
   const continueQueue = React.useMemo(() => cxContinueQueue(data), [data]);
   const intims = data.intimations || [];
@@ -566,11 +926,22 @@ function EditionClaudeHoje(p) {
   const mesaAct = React.useMemo(() => mesaActionCount(mc.totals), [mc]);
   const n1 = mesaAct.n;
   const riskVal = mesaAct.value;
-  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada');
+  const activeOps = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
   const activeDebts = (data.debts || []).filter(d => d.status !== 'extinta');
   const debtTotal = activeDebts.reduce((s, d) => s + (d.value || 0), 0);
   const guarTotal = activeDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const gpct = debtTotal > 0 ? Math.round(guarTotal / debtTotal * 100) : 0;
+  const cartInd = indispStats(data.assets || [], debtTotal);
+  const todayIso = localIso(new Date());
+  const atuacoes = atuacoesSemana(intims, todayIso);
+  const janela = janelaPrazos(open, todayIso);
+  const mesaRows = React.useMemo(() => cxMesaActionRows(mc, todayIso), [mc, todayIso]);
+  const termo = proximoTermo(mesaRows, todayIso);
+  const cargaIts = React.useMemo(() => cargaItens(data, todayIso, { isOpenIntim: cxIsOpen, isOpenTask: cxTaskOpen, intimLabel: cxPartyName, hearingLabel: h => CX_HEARING[h.hearingType] || 'Audiência', taskLabel: t => t.title || t.description || 'Tarefa' }), [data, todayIso]);
+  const mapa = React.useMemo(() => cargaMapa(cargaIts, { today: todayIso, weeks: cargaW }), [cargaIts, todayIso, cargaW]);
+  const nextAud = cargaIts.filter(x => x.kind === 'h' && x.dd >= 0).sort((a, b) => a.dd - b.dd || String(a.iso).localeCompare(String(b.iso)))[0];
+  const resumoCargaTxt = resumoCarga(mapa, nextAud ? { dias: nextAud.dd, time: nextAud.ref.time || '' } : null);
+  const atencao = React.useMemo(() => atencaoItens({ rows: mesaRows, operations: (data.operations || []).filter(o => !isSubstituicaoOp(o)), reviewOf: (op) => { const rs = cxRS(op); return { overdue: rs.overdue, daysLeft: rs.daysLeft, intervalLabel: ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase() }; } }), [prazosRadar, data.operations]);
 
   // Entradas por dia útil (data de envio do eproc), últimos 14 dias úteis
   const intake = React.useMemo(() => {
@@ -598,10 +969,11 @@ function EditionClaudeHoje(p) {
     const debts = activeDebts.filter(d => d.operationId === o.id);
     const total = debts.reduce((s, d) => s + (d.value || 0), 0);
     const guar = debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
+    const ind = indispStats((data.assets || []).filter(a => a.operationId === o.id), total);
     const nx = open.filter(x => x.operationId === o.id && x.dateDeadline).sort(cxByDeadline)[0];
     const targets = (data.people || []).filter(pp => pp.operationId === o.id && pp.operationRole === 'alvo');
     const cls = getOpClassifications(o)[0];
-    return { o, total, guar, nx, targets, cls };
+    return { o, total, guar, ind, nx, targets, cls };
   }).sort((a, b) => b.total - a.total), [data, activeOps.length]);
 
   const activity = React.useMemo(() => {
@@ -615,6 +987,17 @@ function EditionClaudeHoje(p) {
       return { id: le.id, ref: le.ref, txt, at: le.date, ic: le.col === 'debts' ? 'hourglass' : le.col === 'intimations' ? 'inbox' : le.col === 'tasks' ? 'check' : le.col === 'executions' ? 'scale' : 'history' };
     });
   }, [data.changeLog]);
+  // Cartão "Atividade": 5 últimos registros relevantes de hoje, vindos da trilha; sem trilha, cai para o changeLog acima.
+  const [trail, setTrail] = React.useState(null);
+  React.useEffect(() => {
+    if (!p.activity) return undefined;
+    let dead = false;
+    const t = setTimeout(() => {
+      const day = dayKey(new Date());
+      (p.activity.listLocal || p.activity.list)(day, day).then(r => { if (!dead) setTrail((r || []).filter(e => !e.minor && e.kind !== 'sistema').sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 5)); }).catch(() => { if (!dead) setTrail([]); });
+    }, 1200);
+    return () => { dead = true; clearTimeout(t); };
+  }, [p.activity, data.changeLog]);
   const lastImport = React.useMemo(() => (data.importLogs || []).slice().sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0], [data.importLogs]);
 
   const openItem = (x) => {
@@ -640,31 +1023,31 @@ function EditionClaudeHoje(p) {
       {n1 ? <>. {n1 === 1 ? '1 CDA pede' : n1 + ' CDAs pedem'} providência na Mesa de prazos</> : null}.
     </p>
 
-    <div className="cx-kpis">
-      <div className="cx-kpi" role="button" tabIndex={0} onClick={() => p.onNav('intimacoes')} onKeyDown={e => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onNav('intimacoes'); } }}>
-        <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
-        <span className="cx-kpi-v">{open.length}</span>
-        <span className={'cx-kpi-s' + (late.length ? ' red' : '')}>{cxPl(late.length, 'vencida', 'vencidas')} · {today.length} hoje</span>
-        {tribCounts.length ? <span className="cx-kpi-uf">{tribCounts.map(([j, v]) => <button key={j} type="button" className="cx-kpi-uf-i" onClick={e => { e.stopPropagation(); p.onOpenIntimUf(j); }}>{j} {v.total}</button>)}</span> : null}
-        <span className="cx-spark" title="Intimações recebidas por dia útil (data de envio), últimos 14 dias úteis" aria-hidden="true">{intake.map((v, k) => <i key={k} className={k === intake.length - 1 ? 'last' : ''} style={{ height: Math.max(4, v / intakeMax * 100) + '%' }} />)}</span>
-      </div>
-      <button type="button" className="cx-kpi" onClick={() => p.onNav('intimacoes')}>
-        <span className="cx-kpi-l"><CxIcon n="clock" s={14} />Vencem em 5 dias</span>
-        <span className="cx-kpi-v">{next5.length}</span>
-        <span className="cx-kpi-s orange">{next5.filter(x => intimImpKey(x) === 'alta').length} de importância alta</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => p.onOpenMesa('')} title="Mesmo número do menu: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado">
-        <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Prazos extintivos</span>
-        <span className="cx-kpi-v">{n1}<small>{n1 === 1 ? 'CDA' : 'CDAs'}</small></span>
-        <span className="cx-kpi-s violet">{n1 ? cxMoneyShort(riskVal) + ' pedem providência' : 'Situação controlada'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => p.onNav('operacoes')}>
-        <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
-        <span className="cx-kpi-v">{cxMoneyShort(debtTotal)}</span>
-        <span className="cx-meter" title={gpct + '% garantido'}><i style={{ width: gpct + '%' }} /></span>
-        <span className="cx-kpi-s">{gpct}% garantido · {cxPl(activeOps.length, 'operação', 'operações')}</span>
-      </button>
-    </div>
+    <CxKpiStrip n={4} dense={false} className="cx-hoje-ks">
+      <CxKpiCard label="Intimações abertas" value={open.length} nested onClick={() => p.onNav('intimacoes')}
+        tag={tribCounts.length ? <span className="cx-kc-tribs">{tribCounts.map(([j, v]) => <button key={j} type="button" className="cx-mini" title={'Ver só ' + j + ' em Intimações'} onClick={e => { e.stopPropagation(); p.onOpenIntimUf(j); }}>{j}<b>{v.total}</b></button>)}</span> : null}
+        side={<span className="cx-kc-spark" title="Intimações recebidas por dia útil (data de envio), últimos 14 dias úteis" aria-hidden="true">{intake.map((v, k) => <i key={k} className={k === intake.length - 1 ? 'last' : ''} style={{ height: Math.max(4, v / intakeMax * 100) + '%' }} />)}</span>}
+        desc={<>{late.length ? <span className="cx-red-t">{cxPl(late.length, 'vencida', 'vencidas')}</span> : '0 vencidas'} · {today.length} hoje</>}
+        foot={<>Atuadas em 7 dias: <b>{atuacoes.atual}</b></>}
+        delta={atuacoes.delta !== 0 ? { txt: (atuacoes.delta > 0 ? '+' : '−') + Math.abs(atuacoes.delta) + ' vs. anteriores', dir: atuacoes.delta > 0 ? 'up' : 'down', tone: atuacoes.delta > 0 ? 'good' : 'bad' } : null}
+        footR={atuacoes.delta === 0 && atuacoes.anterior > 0 ? 'igual aos 7 anteriores' : null} />
+      <CxKpiCard label="Vencem em 5 dias" value={next5.length} onClick={() => p.onNav('intimacoes')}
+        desc={<span className="cx-orange-t">{next5.filter(x => intimImpKey(x) === 'alta').length} de importância alta</span>}
+        foot={janela.proximo ? <>Próximo: <b>{cxDue(janela.proximo.dd, janela.proximo.iso).txt}</b></> : 'Nenhum prazo aberto'}
+        delta={janela.delta !== 0 ? { txt: (janela.delta > 0 ? '+' : '−') + Math.abs(janela.delta) + ' nos 5 seguintes', dir: janela.delta > 0 ? 'up' : 'down', tone: 'neutral' } : null} />
+      <CxKpiCard label="Prazos extintivos" value={n1} unit={n1 === 1 ? 'CDA' : 'CDAs'} onClick={() => p.onOpenMesa('')}
+        tip="Mesmo número do menu: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado"
+        desc={<span className="cx-violet-t">{n1 ? cxMoneyShort(riskVal) + ' a agir' : 'Situação controlada'}</span>}
+        foot={termo ? <>Próximo termo: <b>{fmtDate(termo.iso)}</b></> : 'Nenhuma CDA a agir'}
+        footR={termo ? cxHorizonTxt(termo.dias) : null} footRTone="violet" />
+      <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(debtTotal)} onClick={() => p.onNav('operacoes')}
+        tip={[CX_INDISP_RING, cxIndispSplit(cartInd), CX_INDISP_DUP].filter(Boolean).join(' · ')}
+        side={debtTotal > 0 ? <span className="cx-kc-ring"><CxRing pct={cartInd.pct || 0} size={44} stroke={6} label={cxIndispPctTxt(cartInd) + ' indisponível'} /></span> : null}
+        desc={(debtTotal > 0 ? (cartInd.over ? indispRatioText(cartInd.ratio) : cxIndispPctTxt(cartInd)) + ' indisponível' : 'sem dívida') + ' · ' + gpct + '% garantido'}
+        foot={<><b>{cxMoneyShort(cartInd.totalVal)}</b> indisponível</>} footR={cxPl(activeOps.length, 'operação', 'operações')} />
+    </CxKpiStrip>
+
+    <CxCargaCard mapa={mapa} weeks={cargaW} setWeeks={setCargaW} resumo={resumoCargaTxt} onOpenDay={(iso) => p.onOpenAgendaDay(iso)} onVencidos={() => setTab('vencidos')} />
 
     <div className="cx-home-grid">
       <div className="cx-col">
@@ -682,7 +1065,7 @@ function EditionClaudeHoje(p) {
           <div className="cx-card-h">
             <h2 id="cx-h-fila">Fila do dia</h2>
             <div className="cx-aside">
-              <CxSeg label="Filtro da fila" value={tab} onChange={setTab} options={[['proximos', 'Próximos', null, lists.proximos.length], ['vencidos', 'Vencidos', null, lists.vencidos.length], ['feitos', 'Feitos', null, lists.feitos.length]]} />
+              <CxChips sm label="Filtro da fila" value={tab} onChange={setTab} options={[['proximos', 'Próximos', lists.proximos.length], ['vencidos', 'Vencidos', lists.vencidos.length], ['feitos', 'Feitos', lists.feitos.length]]} />
               <button type="button" className="cx-link-btn" onClick={() => p.onStartFocus()} title="Triagem das intimações, uma por vez"><CxIcon n="zap" s={13} />Foco</button>
             </div>
           </div>
@@ -704,14 +1087,15 @@ function EditionClaudeHoje(p) {
         <section className="cx-card" aria-labelledby="cx-h-cart">
           <div className="cx-card-h"><h2 id="cx-h-cart">Carteira</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onNav('operacoes')}>Todas as operações<CxIcon n="chevR" s={13} /></button></div></div>
           {carteira.length ? <div className="cx-tbl-wrap"><table className="cx-tbl">
-            <thead><tr><th>Operação</th><th>Classificação</th><th>Garantido</th><th className="num">Dívida</th><th>Próximo prazo</th><th>Alvos</th></tr></thead>
+            <thead><tr><th>Operação</th><th>Classificação</th><th>Indisponível</th><th className="num">Dívida</th><th>Próximo prazo</th><th>Alvos</th></tr></thead>
             <tbody>{carteira.slice(0, 8).map(r => {
-              const pct = r.total > 0 ? Math.round(r.guar / r.total * 100) : 0;
+              const gp = r.total > 0 ? Math.round(r.guar / r.total * 100) : 0;
               const cls = r.cls ? OP_CLASSIFICATIONS[r.cls] : null;
+              const ipTip = [cxIndispSplit(r.ind) || 'sem bens indisponíveis com valor', gp + '% garantido'].join(' · ');
               return <tr key={r.o.id} className="click" onClick={() => p.onOpenOp(r.o.id)}>
-                <td><span className="cx-op-cell" title={r.o.name}><CxOpSquare op={r.o} /><span className="cx-ell">{cxOpName(r.o)}</span></span></td>
+                <td><span className="cx-op-cell" title={r.o.name}><CxOpTile op={r.o} size={26} /><span className="cx-ell">{cxOpName(r.o)}</span></span></td>
                 <td>{cls ? <span className="cx-pill"><span className="cx-dot" style={{ background: cls.color }} />{cls.label}</span> : <span className="cx-muted">—</span>}</td>
-                <td><span className="cx-cover"><span className="cx-bar"><i style={{ width: pct + '%' }} /></span><span className="cx-pct">{pct}%</span></span></td>
+                <td title={ipTip}><span className="cx-cover"><CxRing pct={r.ind.pct || 0} size={26} stroke={4} label={cxIndispPctTxt(r.ind) + ' indisponível'} /><span className="cx-pct">{r.ind.pct === null ? '0%' : cxIndispPctTxt(r.ind)}</span></span></td>
                 <td className="num cx-mono">{r.total ? cxMoneyShort(r.total) : '—'}</td>
                 <td>{r.nx ? <CxDue iso={r.nx.dateDeadline} /> : <span className="cx-muted">—</span>}</td>
                 <td>{r.targets.length ? <CxAvatars people={r.targets} /> : <span className="cx-muted">—</span>}</td>
@@ -736,6 +1120,8 @@ function EditionClaudeHoje(p) {
           </div>
         </div> : null}
 
+        <CxAtencaoCard atencao={atencao} today={todayIso} opsById={opsById} onOpenCda={p.onOpenCda} onReviewed={p.onReviewed} onOpenPrazos={() => p.onOpenMesa('')} onOpenCarteira={() => p.onNav('operacoes')} />
+
         <section className="cx-card" aria-labelledby="cx-h-prox">
           <div className="cx-card-h"><h2 id="cx-h-prox">Próximos prazos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onNav('audiencias')}><CxIcon n="calendar" s={13} />Agenda</button></div></div>
           {upcoming.length === 0 ? <div className="cx-empty-row">Nada nos próximos 7 dias.</div> : buckets.map(b => b[1].length ? <div key={b[0]}>
@@ -744,7 +1130,7 @@ function EditionClaudeHoje(p) {
               <CxOpSquare opId={x.opId} />
               <span className="cx-t">{x.intim ? (x.sub || x.title) : x.title}</span>
               {x.intim ? <CxImp intim={x.intim} /> : x.prio ? <CxPrio v={x.prio} /> : <CxIcon n={x.ic} s={13} className="cx-muted" />}
-              {b[0] === 'Próximos 7 dias' ? <span className="cx-due later cx-dl-dow">{cxCap(CX_DOW[(cxDate(x.iso) || new Date()).getDay()])}</span> : null}
+              {b[0] === 'Próximos 7 dias' ? <span className="cx-due later cx-dl-dow">{cxCap(CX_DOW[(cxDate(x.iso) || new Date()).getDay()]) + ' ' + cxDM(x.iso)}</span> : null}
             </button>)}
             {b[1].length > 6 ? <div className="cx-more">+{b[1].length - 6} mais</div> : null}
           </div> : null)}
@@ -752,8 +1138,15 @@ function EditionClaudeHoje(p) {
         </section>
 
         <section className="cx-card" aria-labelledby="cx-h-act">
-          <div className="cx-card-h"><h2 id="cx-h-act">Atividade recente</h2><div className="cx-aside">{lastImport ? <span className="cx-muted cx-small" title={'Último import: ' + new Date(lastImport.timestamp).toLocaleString('pt-BR')}>Import {cxRelTime(lastImport.timestamp)}</span> : null}</div></div>
-          {activity.length ? activity.map(a => <div key={a.id} className="cx-act">
+          <div className="cx-card-h"><h2 id="cx-h-act">{trail && trail.length ? 'Atividade' : 'Atividade recente'}</h2><div className="cx-aside">
+            {!(trail && trail.length) && lastImport ? <span className="cx-muted cx-small" title={'Último import: ' + new Date(lastImport.timestamp).toLocaleString('pt-BR')}>Import {cxRelTime(lastImport.timestamp)}</span> : null}
+            {p.onOpenAtividade ? <button type="button" className="cx-link-btn" onClick={p.onOpenAtividade}>ver tudo →</button> : null}
+          </div></div>
+          {trail && trail.length ? trail.map(e => <div key={e.id} className="cx-act">
+            <span className="cx-act-tm" style={{ paddingTop: 2, minWidth: 38 }}>{cxActTime(e.ts)}</span>
+            <div className="cx-minw0"><div style={{ fontWeight: 500 }}>{e.summary}</div>{e.op && e.op.name ? <div className="cx-act-txt cx-ell">{e.op.name}</div> : null}</div>
+          </div>)
+          : activity.length ? activity.map(a => <div key={a.id} className="cx-act">
             <span className="cx-act-ic"><CxIcon n={a.ic} s={12} /></span>
             <div className="cx-minw0"><div className="cx-ell" style={{ fontWeight: 500 }}>{a.ref}</div><div className="cx-act-txt">{a.txt}</div><time>{cxRelTime(a.at)}</time></div>
           </div>) : <div className="cx-empty-row">As mudanças de situação, prazos e atuações aparecem aqui.</div>}
@@ -828,44 +1221,99 @@ function cxGroupResolved(items) {
   const order = ['Hoje', 'Últimos 7 dias', 'Este mês', 'Anteriores', 'Sem data de atuação'];
   return order.map(k => ({ key: 'r' + k, label: k, icon: <CxStatusIcon s="analisado" />, items: items.filter(x => bucket(x) === k) })).filter(g => g.items.length);
 }
-function CxIntimRow({ intim, op, sel, onOpen, onOpenOp }) {
-  const notes = cxNotes(intim);
-  const resolved = !!intim.responseAction;
+/* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
+   contagem no tooltip). Quatro zonas: identidade (operação · sinais no topo, situação + parte, nº + sigla + Imp/Compl/peça,
+   esteira) · Tribunal (objeto e teor da decisão) · Minhas notas · Prazo (só tempo: data final e embargos). Cálculos em
+   src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-i-row/cx-c-*. */
+function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
+function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
+  const ra = intim.responseAction;
+  const resolved = !!ra;
   const done = resolved || intim.status === 'analisado';
   const urgent = intimIsUrgent(intim) && !done;
-  const ra = intim.responseAction;
-  return <div className={'cx-i-row' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '')} role="button" tabIndex={0}
+  const cls = intim.className || '';
+  const sigla = intimClassSigla(cls);
+  const obj = cxIntimObjeto(intim);
+  const teor = intimationDecisionText(intim);
+  const tl = intimTribLines(obj, teor, L.cplTr, L.budTr);
+  const pz = intimPrazo(intim);
+  const emb = intimEmbargos(intim);
+  const notes = cxNotes(intim);
+  const fit = resolved ? null : intimNotesFit(notes, L.cplNt, L.budNt);
+  const hasNt = resolved || fit.shown.length > 0;
+  const flag = intim._importFlag === 'new' ? <span className="cx-tag blue xs">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag xs">Atualizada</span> : null;
+  const tags = urgent || flag || intim.hasPending;
+  const num = intimProcCnj(intim.processNumber);
+  return <div className={'cx-ix' + (urgent ? ' urgent' : '') + (sel ? ' sel' : '') + (done ? ' done' : '') + (hasNt ? '' : ' nt-empty')} role="button" tabIndex={0}
     onClick={() => onOpen(intim.id)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(intim.id); } }}>
-    <CxStatusIcon s={resolved ? 'analisado' : intim.status} />
-    <div className="cx-i-main">
-      <div className="cx-i-party">
-        {urgent ? <span className="cx-urg">URGENTE</span> : null}
-        <span className="cx-ell">{cxPartyName(intim)}</span>
-        {intim._importFlag === 'new' ? <span className="cx-tag blue">Novo</span> : intim._importFlag === 'updated' ? <span className="cx-tag">Atualizada</span> : null}
-        {intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}
+    <div className="cx-ix-id">
+      {hideOp && !tags ? null : <div className="cx-it-opl">
+        {hideOp ? <span /> : op
+          ? <button type="button" className="cx-it-op cx-link" onClick={e => { e.stopPropagation(); if (onOpenOp) onOpenOp(op.id); }} title={'Abrir ' + op.name}><CxOpSquare op={op} size={8} /><span className="cx-ell">{cxOpName(op)}</span></button>
+          : <span className="cx-it-op none"><CxOpSquare size={8} /><span className="cx-ell">Sem operação</span></span>}
+        <span className="cx-it-tags">{urgent ? <span className="cx-urg">URGENTE</span> : null}{flag}{intim.hasPending ? <span className="cx-flag" title="Pendência marcada"><CxIcon n="flag" s={11} /></span> : null}</span>
+      </div>}
+      <div className="cx-ix-party"><CxStatusIcon s={resolved ? 'analisado' : intim.status} /><span className="cx-ell" title={cxPartyName(intim)}>{cxPartyName(intim)}</span></div>
+      <div className="cx-ix-pc">
+        <button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={num} uf={intim.jurisdiction} /></button>
+        {sigla ? <span className="cx-ix-sg" title={cls}>{sigla}</span> : null}
+        <span className="cx-ix-sig"><CxImp intim={intim} /><CxDif intim={intim} />{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</span>
       </div>
-      <div className="cx-i-ev"><CxObj intim={intim} /></div>
-      {resolved ? <div className="cx-i-note"><CxIcon n="send" s={12} /><span className="cx-ell">{ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'}{ra.description ? ' · ' + ra.description : ''}</span></div>
-        : notes[0] ? <div className="cx-i-note" title={notes.join('\n')}><CxIcon n="note" s={12} /><span className="cx-ell">{notes[notes.length - 1]}</span>{notes.length > 1 ? <span className="cx-mono">+{notes.length - 1}</span> : null}</div> : null}
+      {!sigla && cls ? <div className="cx-ix-cls" title={cls}>{cls}</div> : null}
       <CxEstLine esteira={intim.esteira} />
-      <div className="cx-i-sub"><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><CxOpTag op={op} /><CxImp intim={intim} /><CxDif intim={intim} /></div>
     </div>
-    <div className="cx-c-proc"><button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={intim.processNumber} uf={intim.jurisdiction} /></button><span className="cx-cls">{intim.className || '—'}</span></div>
-    <div className="cx-c-op"><CxOpTag op={op} onOpen={onOpenOp} /></div>
-    <div className="cx-c-opdoc">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</div>
-    <div className="cx-c-imp"><CxImp intim={intim} /></div>
-    <div className="cx-c-dif"><CxDif intim={intim} /></div>
-    <div className="cx-c-due">
-      {resolved ? <CxDue doneIso={ra.respondedAt || ''} /> : <CxDue iso={intim.dateDeadline} />}
-      <span className="cx-sub">{resolved ? 'atuação registrada' : intim.dateDeadline ? 'final ' + cxDM(intim.dateDeadline) : 'prazo fechado'}</span>
+    <div className="cx-it-tr">
+      <div className="cx-it-obj" style={{ '--ol': tl.ol }} title={obj || CX_OBJ_UNDEF_TXT}>{obj || <span className="cx-obj-undef">{CX_OBJ_UNDEF_TXT}</span>}</div>
+      {teor ? <div className="cx-it-teor" style={{ '--tl': tl.tl }} title={teor}><span className="lbl">Decisão</span>{teor.replace(/\s*\n+\s*/g, ' ¶ ')}</div> : null}
+    </div>
+    <div className={'cx-it-nt' + (hasNt ? '' : ' empty')} title={resolved ? undefined : notes.join('\n')}>
+      {resolved
+        ? <div className="cx-it-note act" style={{ '--nl': 2 }}><span className="zl">Atuação</span>{cxRaKind(ra)}{ra.description ? ' · ' + ra.description : ''}</div>
+        : <>{fit.shown.map((n, i) => <div key={i} className="cx-it-note" style={{ '--nl': n.l }}>{i === 0 ? <span className="zl">Notas</span> : null}{n.t}</div>)}
+          {fit.rest ? <div className="cx-it-more">+{fit.rest} {fit.rest === 1 ? 'nota anterior' : 'notas anteriores'}</div> : null}</>}
+    </div>
+    <div className="cx-ix-pz">
+      <span className={'cx-due ' + pz.tone} title={pz.title}>{pz.txt}</span>
+      {emb ? <span className={'cx-emb ' + emb.tone} aria-label={emb.aria} title={emb.title}>{emb.txt}</span> : null}
     </div>
   </div>;
 }
-function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText }) {
+function EditionClaudeSubstituicao({ data, op, opsById, onOpen, onOpenOp }) {
+  const items = (data.intimations || []).filter(x => x.operationId === op.id);
+  const abertas = items.filter(cxIsOpen);
+  const resolvidas = items.filter(x => !cxIsOpen(x));
+  if (!items.length) {
+    return <div className="cx cx-page"><div className="cx-page-h"><div><h1>Processos</h1><p>Nenhuma intimação ainda.</p></div></div>
+      <div className="cx-empty-row" style={{ borderTop: 0 }}>Na ficha da intimação, em Operação vinculada, escolha EM SUBSTITUIÇÃO.</div></div>;
+  }
+  const groups = [
+    { key: 'ab', label: 'Abertas', items: abertas, icon: <CxStatusIcon s="pendente_analise" />, closedDefault: false },
+    { key: 'rs', label: 'Resolvidas', items: resolvidas, icon: <CxStatusIcon s="analisado" />, closedDefault: true }
+  ];
+  return <div className="cx cx-page">
+    <div className="cx-page-h"><div><h1>Processos</h1><p>{cxPl(abertas.length, 'aberta', 'abertas')} · {cxPl(resolvidas.length, 'resolvida', 'resolvidas')}. O card é o mesmo da aba Intimações.</p></div></div>
+    <CxIntimList items={items} groups={groups} sort="atencao" onOpen={onOpen} onOpenOp={onOpenOp} opsById={opsById} hideOp />
+  </div>;
+}
+function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, emptyText, hideOp }) {
   const [closed, setClosed] = React.useState({});
+  const ref = React.useRef(null);
+  const [w, setW] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const m = () => setW(el.clientWidth);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', m);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', m); };
+  }, [groups.length > 0]);
   if (!groups.length) return <div className="cx-list"><div className="cx-empty-row" style={{ borderTop: 0 }}>{emptyText || 'Nenhuma intimação com esses filtros.'}</div></div>;
-  return <div className="cx-list">
-    <div className="cx-list-h"><span /><span>Parte · evento · notas</span><span>Processo</span><span className="cx-h-op">Operação</span><span /><span title="Importância">Imp.</span><span title="Complexidade">Compl.</span><span className="r">Prazo</span></div>
+  const L = intimCardLayout(w || 1200);
+  return <div className="cx-list cx-it-list" ref={ref}>
+    <div className="cx-ix-h"><span className="h-id"><b>Parte</b>processo · esteira</span>
+      <span className="h-tr"><b>Tribunal</b><span className="w-only">objeto · decisão</span><span className="m-only">· minhas notas</span></span>
+      <span className="h-nt"><b>Minhas notas</b>o que fazer</span><span className="h-pz"><b>Prazo</b>embargos</span></div>
     {groups.map(g => {
       const isClosed = closed[g.key] != null ? closed[g.key] : !!g.closedDefault;
       const sorted = g.items.slice().sort(cxSortFn(sort));
@@ -873,7 +1321,7 @@ function CxIntimList({ items, groups, sort, onOpen, onOpenOp, selId, opsById, em
         <button type="button" className={'cx-grp' + (isClosed ? ' closed' : '')} aria-expanded={!isClosed} onClick={() => setClosed(c => ({ ...c, [g.key]: !isClosed }))}>
           <span className="cx-caret"><CxIcon n="chevD" s={14} /></span>{g.icon}<span>{g.label}</span><span className="cx-n">{g.items.length}</span>{g.sub ? <span className="cx-grp-sub">· {g.sub}</span> : null}
         </button>
-        {isClosed ? null : sorted.map(x => <CxIntimRow key={x.id} intim={x} op={opsById.get(x.operationId)} sel={selId === x.id} onOpen={onOpen} onOpenOp={onOpenOp} />)}
+        {isClosed ? null : sorted.map(x => <CxIntimRow key={x.id} intim={x} op={opsById.get(x.operationId)} sel={selId === x.id} onOpen={onOpen} onOpenOp={onOpenOp} L={L} hideOp={hideOp} />)}
       </React.Fragment>;
     })}
   </div>;
@@ -966,6 +1414,7 @@ function EditionClaudeIntimacoes(p) {
       </div>
       <div className="cx-acts">
         <button type="button" className="cx-btn" onClick={p.onImportEproc}><CxIcon n="upload" s={14} />Importar eproc</button>
+        <button type="button" className="cx-btn" onClick={p.onNewIntim}><CxIcon n="plus" s={14} />Nova intimação</button>
         <CxSeg className="lg" label="Visualização" value={view} onChange={setView} options={[['lista', 'Lista', 'list'], ['quadro', 'Quadro', 'board'], ['foco', 'Foco', 'zap']]} />
       </div>
     </div>
@@ -973,14 +1422,14 @@ function EditionClaudeIntimacoes(p) {
       <div className="cx-toolbar">
         <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-f-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Parte, processo, evento ou nota" aria-label="Filtrar intimações" /></label>
         <CxSelect id="cx-f-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-        {view === 'lista' ? <CxSeg label="Ativas ou resolvidas" value={scope} onChange={setScope} options={[['ativas', 'Ativas'], ['resolvidas', 'Resolvidas', null, resolvedCount]]} /> : null}
+        {view === 'lista' ? <CxChips sm label="Ativas ou resolvidas" value={scope} onChange={setScope} options={[['ativas', 'Ativas', all.length - resolvedCount], ['resolvidas', 'Resolvidas', resolvedCount]]} /> : null}
         <span className="cx-sp" />
         {view === 'lista' && scope === 'ativas' ? <CxSelect id="cx-f-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['situacao', 'Situação'], ['operacao', 'Operação'], ['uf', 'UF'], ['etapa', 'Etapa']]} /> : null}
         <CxSelect id="cx-f-s" pre="Ordenar" value={sort} onChange={setSort} options={[['atencao', 'Atenção'], ['prazo', 'Prazo final'], ['importancia', 'Importância'], ['complexidade', 'Complexidade']]} />
       </div>
       {view === 'quadro'
         ? <CxBoard items={filtered.filter(cxIsActive)} sort={sort} onOpen={p.onOpenIntim} opsById={opsById} onSetStatus={(id, s) => { const x = all.find(i => i.id === id); if (x && x.status !== s) { p.upsert('intimations', { ...x, status: s }); cxNotify('Situação: ' + CX_ST[s].l); } }} />
-        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Importe o XLS do eproc para começar.'} />}
+        : <CxIntimList items={filtered} groups={groups} sort={sort} onOpen={p.onOpenIntim} onOpenOp={p.onOpenOp} selId={p.drawerId} opsById={opsById} emptyText={all.length ? null : 'Nenhuma intimação ainda. Use Nova intimação ou importe o XLS do eproc.'} />}
     </>}
   </div>;
 }
@@ -1126,13 +1575,13 @@ function CxPecasBlock({ intim, data, a }) {
     setLabel(''); setUrl('');
   };
   const remove = (idx) => { const links = (intim.links || []).filter((_, i) => i !== idx); a.upsert('intimations', { ...intim, links }); };
-  return <div className="cx-pl">
+  return <div className="cx-pecas">
     {items.length ? items.map(it => <div key={it.key} className="cx-pl-row">
       <span className="cx-pl-ic">{(it.label || '?').trim().slice(0, 2).toUpperCase()}</span>
       <div className="cx-minw0"><div className="cx-ell">{it.label}</div><div className="cx-muted cx-small">{it.origin}</div></div>
       {it.custom ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => remove(it.idx)} title="Remover" aria-label="Remover link"><CxIcon n="x" s={12} /></button> : null}
       <a className="cx-a cx-small" href={it.url} target="_blank" rel="noopener noreferrer">Abrir<CxIcon n="arrowUR" s={11} /></a>
-    </div>) : <div className="cx-muted cx-small">Nenhum link ainda.</div>}
+    </div>) : <div className="cx-empty-note">Nenhum link ainda.</div>}
     <form className="cx-pl-add" onSubmit={add}>
       <input className="cx-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="Rótulo (opcional)" aria-label="Rótulo do link" />
       <input className="cx-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" aria-label="URL do link" />
@@ -1151,14 +1600,17 @@ function cxLoadDrawerBlocks() {
   return { ...CX_BLK_DEFAULTS };
 }
 function cxSaveDrawerBlocks(v) { try { localStorage.setItem('nexus_cx_drawer_blocks', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function CxBlock({ title, summary, count, open, onToggle, children }) {
+function CxBlock({ title, summary, count, open, onToggle, aside, children }) {
   return <div className="cx-blk">
-    <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
-      <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
-      <span className="cx-blk-t">{title}</span>
-      {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
-      {count != null ? <span className="cx-blk-n">{count}</span> : null}
-    </button>
+    <div className="cx-blk-bar">
+      <button type="button" className="cx-blk-h" aria-expanded={open} onClick={onToggle}>
+        <span className="cx-blk-chev"><CxIcon n={open ? 'chevD' : 'chevR'} s={13} /></span>
+        <span className="cx-blk-t">{title}</span>
+        {!open ? <span className="cx-blk-s cx-ell">{summary}</span> : <span className="cx-sp" />}
+        {count != null ? <span className="cx-blk-n">{count}</span> : null}
+      </button>
+      {aside || null}
+    </div>
     {open ? <div className="cx-blk-b">{children}</div> : null}
   </div>;
 }
@@ -1213,11 +1665,14 @@ function CxRespondForm({ intim, onSave, onCancel }) {
   const [peticionUrl, setPeticionUrl] = React.useState('');
   const [docUrl, setDocUrl] = React.useState('');
   const [description, setDescription] = React.useState('');
+  const [teor, setTeor] = React.useState(intimationDecisionText(intim));
   const isPet = type === 'peticionamento';
   const canSave = isPet ? !!peticionUrl.trim() : !!description.trim();
-  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl }); }}>
+  // Ciência: a descrição do ato é o teor da decisão (vem pré-preenchida se a intimação já tem um).
+  const pickType = (v) => { setType(v); if (v === 'ciencia' && !description.trim()) setDescription(intimationDecisionText(intim)); };
+  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl, ...(type !== 'ciencia' ? { decisionSummary: teor } : {}) }); }}>
     <h3>Registrar atuação</h3>
-    <CxSeg label="Tipo de atuação" value={type} onChange={setType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
+    <CxSeg label="Tipo de atuação" value={type} onChange={pickType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
     {isPet ? <div className="cx-row2">
       <label>Tipo de peça<select id={'cx-r-piece-' + intim.id} className="cx-input" value={peticionType} onChange={e => setPeticionType(e.target.value)}>{PETITION_TYPES.map(x => <option key={x}>{x}</option>)}</select></label>
       <label>Link da peça (Docs ou arquivo) *<input id={'cx-r-url-' + intim.id} className="cx-input" value={peticionUrl} onChange={e => setPeticionUrl(e.target.value)} placeholder="https://docs.google.com/…" autoFocus /></label>
@@ -1225,6 +1680,7 @@ function CxRespondForm({ intim, onSave, onCancel }) {
     <label>{isPet ? 'Observações (opcional)' : type === 'ciencia' ? 'Qual decisão ou despacho foi objeto da ciência *' : 'Descrição da medida adotada *'}
       <textarea id={'cx-r-desc-' + intim.id} className="cx-input" value={description} onChange={e => setDescription(e.target.value)} rows={3} autoFocus={!isPet} placeholder={isPet ? 'Ex.: manifestação pedindo mandado de penhora' : 'Ex.: ciência da decisão do evento 52, sem necessidade de manifestação'} />
     </label>
+    {type !== 'ciencia' ? <label>Teor da decisão (opcional)<input className="cx-input" value={teor} onChange={e => setTeor(e.target.value)} placeholder="Ex.: defere a penhora de ativos financeiros" /></label> : null}
     <div className="cx-form-note">A intimação será arquivada em Resoluções, como no Clássico. {isPet || docUrl.trim() ? 'O link vai para a aba Arquivos da operação.' : ''}</div>
     {isPet && !canSave ? <div className="cx-form-warn">Informe o link da peça para registrar. Sem o link definitivo, cole uma referência provisória (ex.: “pendente upload”) e edite depois.</div> : null}
     <div className="cx-form-acts"><button type="button" className="cx-btn ghost" onClick={onCancel}>Cancelar</button><button type="submit" className="cx-btn primary" disabled={!canSave}><CxIcon n="tick" s={14} />Registrar e arquivar</button></div>
@@ -1253,6 +1709,29 @@ function CxIntimObjEditable({ intim, upsert }) {
     {v ? v : <span className="cx-obj-undef">Definir objeto…</span>}
   </p>;
 }
+/* Teor da decisão (decisionSummary): linha discreta abaixo do objeto, editável com um clique. Vazio = só o link "Adicionar…". */
+function CxIntimTeorEditable({ intim, upsert }) {
+  const [editing, setEditing] = React.useState(false);
+  const [val, setVal] = React.useState('');
+  const inputRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!editing) return;
+    setVal(intimationDecisionText(intim));
+    const t = setTimeout(() => { if (inputRef.current) inputRef.current.focus(); }, 0);
+    return () => clearTimeout(t);
+  }, [editing, intim.id]);
+  const save = () => { const v = val.trim(); if (v !== intimationDecisionText(intim)) upsert('intimations', { ...intim, decisionSummary: v }); setEditing(false); };
+  if (editing) {
+    return <input ref={inputRef} className="cx-input cx-d-ev-input cx-teor-input" value={val} onChange={e => setVal(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); setEditing(false); } }}
+      onBlur={save} placeholder="Teor da decisão (1–2 linhas)" aria-label="Teor da decisão" />;
+  }
+  const v = intimationDecisionText(intim);
+  return <p className="cx-d-teor" role="button" tabIndex={0} onClick={() => setEditing(true)}
+    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} title="Clique para editar o teor da decisão">
+    {v ? <><span className="cx-teor-k">Teor:</span> {v}</> : <span className="cx-teor-add">Adicionar teor da decisão…</span>}
+  </p>;
+}
 /* Chip do link da peça no topo fixo da gaveta, junto aos demais chips (item 4). */
 function CxPecaChip({ intim, upsert }) {
   const [editing, setEditing] = React.useState(false);
@@ -1278,14 +1757,20 @@ function CxPecaChip({ intim, upsert }) {
   }
   return <button type="button" className="cx-chip cx-peca-add" onClick={() => setEditing(true)}><CxIcon n="plus" s={11} />link da peça</button>;
 }
-function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
+/* Estado dos blocos recolhíveis da gaveta (persistido). Fica na gaveta para o botão "Expandir/Recolher tudo" do cabeçalho. */
+function useCxDrawerBlocks() {
+  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
+  const toggleBlock = React.useCallback((key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; }), []);
+  const setAllBlocks = React.useCallback((open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; }), []);
+  return { blocks, toggleBlock, setAllBlocks, allOpen: Object.keys(CX_BLK_DEFAULTS).every(k => blocks[k]) };
+}
+function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
   const { data, opsById, prazosByDebt } = a;
   const op = opsById.get(intim.operationId);
   const notes = cxNotes(intim);
   const [nt, setNt] = React.useState('');
-  const [blocks, setBlocks] = React.useState(cxLoadDrawerBlocks);
-  const toggleBlock = (key) => setBlocks(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveDrawerBlocks(next); return next; });
-  const setAllBlocks = (open) => setBlocks(() => { const next = {}; Object.keys(CX_BLK_DEFAULTS).forEach(k => { next[k] = open; }); cxSaveDrawerBlocks(next); return next; });
+  const ownBlocks = useCxDrawerBlocks();
+  const { blocks, toggleBlock, setAllBlocks } = blocksCtl || ownBlocks;
   const resolved = !!intim.responseAction;
   const set = (patch) => a.upsert('intimations', { ...intim, ...patch });
   const exec = (data.executions || []).find(e => sameProc(e.processNumber, intim.processNumber) && (!intim.operationId || e.operationId === intim.operationId))
@@ -1296,17 +1781,27 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
   const ra = intim.responseAction;
   const alarmCount = cdas.filter(d => { const row = prazosByDebt.get(d.id); return row && row.group === 1; }).length;
   const showCtx = !!(exec || cdas.length || siblings.length);
+  /* Trilha curta "você está aqui" (M6-B): fases cumpridas do processo, este prazo e o que vem. Só na gaveta. */
+  const trailPts = React.useMemo(() => {
+    if (!exec) return null;
+    const todayIso = localIso(new Date());
+    const tr = cxProcTrail(data, op || (data.operations || []).find(o => o.id === exec.operationId), exec, todayIso);
+    if (!tr || !tr.steps.length) return null;
+    const dl = toDayKey(intim.dateDeadline);
+    const pts = tlMiniTrail(tr, { d: dl || '', label: 'Este prazo', late: !!(dl && !intim.responseAction && daysUntil(dl) < 0) });
+    return pts.length > 1 ? pts : null; // só "este prazo" não conta nada
+  }, [data, op, exec, intim.dateDeadline, intim.responseAction]);
   const pecas = cxPecasList(intim, data);
   const resume = esteiraResumeInfo(intim.esteira);
   const estSummary = esteiraSummary(intim.esteira);
   const template = a.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE;
 
   return <div>
-    <div className="cx-blk-toggle-all">
+    {!blocksCtl ? <div className="cx-blk-toggle-all">
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(true)}>Expandir tudo</button>
       <span className="cx-muted">·</span>
       <button type="button" className="cx-link-btn cx-small" onClick={() => setAllBlocks(false)}>Recolher tudo</button>
-    </div>
+    </div> : null}
     <div className="cx-d-chips">
       <CxOpTag op={op} onOpen={a.onOpenOp} />
       <span className="cx-chip"><CxStatusIcon s={resolved ? 'analisado' : intim.status} />{resolved ? 'Resolvida' : (CX_ST[intim.status] || {}).l || intim.status}</span>
@@ -1316,7 +1811,9 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
     </div>
     <h2 className="cx-d-title">{cxPartyName(intim)}</h2>
     <CxIntimObjEditable intim={intim} upsert={a.upsert} />
+    <CxIntimTeorEditable intim={intim} upsert={a.upsert} />
     <CxRuler intim={intim} />
+    {trailPts ? <div className="cx-mt-wrap"><div className="cx-mt-cap">Onde este prazo cai no processo</div><CxMiniTrail points={trailPts} /></div> : null}
 
     {resume ? <div className="cx-resume">
       <div className="cx-resume-k">Continuar · etapa {resume.index + 1} de {resume.total} · parou {esteiraStoppedLabel(resume.updatedAt, { withTime: true })}</div>
@@ -1344,7 +1841,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
       summary={notes.length ? notes[notes.length - 1] : 'Sem notas ainda'}>
       <div className="cx-notes">
         {notes.map((n, k) => <div key={k} className="cx-note">{a.linkify ? a.linkify(n) : n}</div>)}
-        {notes.length === 0 ? <div className="cx-muted cx-small">Sem notas ainda.</div> : null}
+        {notes.length === 0 ? <div className="cx-empty-note">Sem notas ainda.</div> : null}
         <form className="cx-note-add" onSubmit={e => { e.preventDefault(); const v = nt.trim(); if (!v) return; set({ notesList: [...notes, v] }); setNt(''); cxNotify('Nota adicionada'); }}>
           <textarea id={'cx-nt-' + intim.id} value={nt} onChange={e => setNt(e.target.value)} placeholder="Adicionar nota…" aria-label="Nova nota" onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} />
           <button type="submit" className="cx-btn">Anotar</button>
@@ -1362,6 +1859,15 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond }) {
         <div className="cx-gram-f"><span>Importância</span><CxSeg label="Importância" value={impK} onChange={v => set({ priority: v })} options={[['baixa', 'Baixa'], ['normal', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Complexidade</span><CxSeg label="Complexidade" value={difK} onChange={v => set({ difficulty: v })} options={[['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta']]} /></div>
         <div className="cx-gram-f"><span>Marcação</span><button type="button" className={'cx-urg-t' + (urg ? ' on' : '')} aria-pressed={urg} onClick={() => set(urg ? { urgent: false, priority: (intim.priority === 'urgente' || intim.priority === 'urgent') ? 'alta' : intim.priority } : { urgent: true })}><CxIcon n="flag" s={13} />Urgente</button></div>
+        <div className="cx-gram-f cx-gram-status"><span>Situação</span><div className="cx-gram-status-b">
+          {intim.status === 'em_analise'
+            ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
+            : intim.status !== 'analise_concluida'
+              ? <button type="button" className="cx-btn sm" onClick={() => { set({ status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
+              : null}
+          <button type="button" className="cx-btn sm" onClick={() => set({ status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' })}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
+          <button type="button" className="cx-btn sm" onClick={() => { set({ status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
+        </div></div>
       </div>}
     </CxBlock>
 
@@ -1407,13 +1913,6 @@ function CxDetailActions({ intim, a, onRespond, compact }) {
   const onDesk = a.isOnDesk('intimation', intim.id);
   return <>
     <button type="button" className="cx-btn primary" onClick={onRespond}><CxIcon n="send" s={14} />Registrar atuação{compact ? <kbd className="cx-kbd">R</kbd> : null}</button>
-    {intim.status === 'em_analise'
-      ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'analise_concluida' }); cxNotify('Análise concluída'); }}>Concluir análise</button>
-      : intim.status !== 'analise_concluida'
-        ? <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: 'em_analise' }); cxNotify('Marcada como em análise'); }}>Em análise</button>
-        : null}
-    <button type="button" className="cx-btn" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'peca_edicao' ? 'pendente_analise' : 'peca_edicao' }); }}>{intim.status === 'peca_edicao' ? 'Voltar a pendente' : 'Peça em edição'}</button>
-    <button type="button" className="cx-btn ghost" onClick={() => { a.upsert('intimations', { ...intim, status: intim.status === 'aguardando_subsidios' ? 'pendente_analise' : 'aguardando_subsidios' }); cxNotify(intim.status === 'aguardando_subsidios' ? 'Voltou a pendente de análise' : 'Marcada como aguardando subsídios'); }}>{intim.status === 'aguardando_subsidios' ? 'Subsídios chegaram' : 'Aguardar subsídios'}</button>
     <span className="cx-sp" />
     <button type="button" className={'cx-icon-btn' + (onDesk ? ' on' : '')} onClick={() => { a.toggleDesk('intimation', intim.id, daysUntil(intim.dateDeadline)); cxNotify(onDesk ? 'Removida da Mesa' : 'Enviada para a Mesa'); }} title={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'} aria-label={onDesk ? 'Remover da Mesa' : 'Enviar para a Mesa'}><CxIcon n="desk" /></button>
     <button type="button" className="cx-icon-btn" onClick={() => a.onWatch(intim)} title="Acompanhar este processo" aria-label="Acompanhar este processo"><CxIcon n="eye" /></button>
@@ -1424,6 +1923,7 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
   const intim = (a.data.intimations || []).find(x => x.id === intimId);
   const [showRespond, setShowRespond] = React.useState(false);
   const bodyRef = React.useRef(null);
+  const blocksCtl = useCxDrawerBlocks();
   React.useEffect(() => { setShowRespond(false); if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [intimId]);
   React.useEffect(() => {
     const onKey = (e) => {
@@ -1446,13 +1946,18 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer" role="dialog" aria-modal="true" aria-label={'Intimação · ' + cxPartyName(intim)}>
       <div className="cx-dr-top">
-        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span><b>{op ? cxOpName(op) : 'Sem operação'}</b></div>
+        <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span>
+          {intim.processNumber
+            ? <CxNumCopy value={intim.processNumber}><b className="cx-crumb-proc"><CxProc num={intim.processNumber} /><span className="cx-crumb-copy" aria-hidden="true"><CxIcon n="copy" s={13} /></span></b></CxNumCopy>
+            : <b>{op ? cxOpName(op) : 'Sem operação'}</b>}
+        </div>
+        <button type="button" className="cx-icon-btn" onClick={() => blocksCtl.setAllBlocks(!blocksCtl.allOpen)} title={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'} aria-label={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'}><CxIcon n={blocksCtl.allOpen ? 'collapseAll' : 'expandAll'} /></button>
         {idx >= 0 ? <span className="cx-mono cx-muted cx-small">{idx + 1} de {order.length}</span> : null}
         <button type="button" className="cx-icon-btn" disabled={idx <= 0} onClick={() => a.onOpenIntim(order[idx - 1])} title="Anterior (K)" aria-label="Anterior"><CxIcon n="chevU" /></button>
         <button type="button" className="cx-icon-btn" disabled={idx < 0 || idx >= order.length - 1} onClick={() => a.onOpenIntim(order[idx + 1])} title="Próxima (J)" aria-label="Próxima"><CxIcon n="chevD" /></button>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
-      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} /></div>
+      <div className="cx-dr-body" ref={bodyRef}><CxIntimDetail intim={intim} a={a} showRespond={showRespond} setShowRespond={setShowRespond} blocksCtl={blocksCtl} /></div>
       {!resolved && !showRespond ? <div className="cx-dr-foot"><CxDetailActions intim={intim} a={a} onRespond={() => setShowRespond(true)} /></div> : null}
       {resolved ? <div className="cx-dr-foot"><span className="cx-muted cx-small">Resolvida. Para mudar a atuação, edite a intimação.</span><span className="cx-sp" /><button type="button" className="cx-btn" onClick={() => a.onEditFull(intim)}><CxIcon n="edit" s={14} />Editar</button></div> : null}
     </aside>
@@ -1586,18 +2091,30 @@ function cxOpPrioTag(op, long) {
   const k = normalizeOpPriority(op.priority);
   if (k !== 'maxima' && k !== 'alta') return null;
   const lab = OP_PRIORITIES[k].label;
-  return <span className={'cx-tag ' + (k === 'maxima' ? 'red' : 'orange')}>{long ? 'Prioridade ' + lab.toLowerCase() : lab}</span>;
+  return <span className="cx-tag"><span className="cx-dot cx-dot-s" style={{ background: k === 'maxima' ? 'var(--cx-opc-maxima)' : 'var(--cx-opc-alta)' }} />{long ? 'Prioridade ' + lab.toLowerCase() : lab}</span>;
 }
 function cxClsTag(k) {
   const c = OP_CLASSIFICATIONS[k];
   if (!c) return null;
-  return <span key={k} className="cx-tag cx-cls-tag" style={{ '--c': c.color }}>{c.label}</span>;
+  return <span key={k} className="cx-tag"><span className="cx-dot cx-dot-s" style={{ background: c.color }} />{c.label}</span>;
 }
 
+/* Linhas "no formato do radar" (group 1) para as CDAs da fileira 1 da Mesa de prazos: alimentam o próximo termo e o
+   painel «Precisa de atenção» do Hoje com o mesmo critério do número do menu (cartões «a agir»). */
+function cxMesaActionRows(mc, todayIso) {
+  const out = [];
+  ((mc && mc.items) || []).forEach(it => {
+    if (!mesaIsAction(it)) return;
+    const d = it.debt || {};
+    const dias = it.sortDate ? daysUntil(it.sortDate, todayIso) : (it.row && it.row.prescDays != null ? it.row.prescDays : null);
+    out.push({ ...(it.row || {}), id: d.id || it.debtId, operationId: d.operationId, cdaNumber: d.cdaNumber || (it.row && it.row.cdaNumber) || '', value: it.value, prescDays: dias, group: 1 });
+  });
+  return out;
+}
 /* ─── Índice por operação (uma passada no acervo) ─── */
 function cxOpIndex(data, mesaCards) {
   const idx = {};
-  const get = (id) => idx[id] || (idx[id] = { debts: [], execs: [], open: [], late: 0, risk: 0, riskValue: 0, targets: [], next: null, tasks: 0 });
+  const get = (id) => idx[id] || (idx[id] = { debts: [], execs: [], open: [], late: 0, risk: 0, riskValue: 0, targets: [], next: null, tasks: 0, assets: [] });
   (data.debts || []).forEach(d => {
     if (!d.operationId || d.status === 'extinta') return;
     const x = get(d.operationId); x.debts.push(d);
@@ -1613,34 +2130,61 @@ function cxOpIndex(data, mesaCards) {
   });
   (data.people || []).forEach(p => { if (p.operationId && p.operationRole === 'alvo') get(p.operationId).targets.push(p); });
   (data.tasks || []).forEach(t => { if (t.operationId && t.status !== 'concluida' && t.status !== 'cancelada') get(t.operationId).tasks++; });
+  (data.assets || []).forEach(a => { if (a.operationId) get(a.operationId).assets.push(a); });
   return (id) => get(id);
 }
 
 /* ═════════════════════ Carteira ═════════════════════ */
 function EditionClaudeCarteira(p) {
-  const { data, mesaCards } = p;
+  const { data, mesaCards, prescLookup } = p;
+  const todayIso = localIso(new Date());
   const [localF, setLocalF] = React.useState('all');
   const filter = p.classFilter || localF;
   const setFilter = p.setClassFilter || setLocalF;
   const [q, setQ] = React.useState('');
+  const [prio, setPrio] = React.useState(null); // filtro opcional por prioridade (alterna ao clicar de novo)
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
   const idx = React.useMemo(() => cxOpIndex(data, mesaCards), [data, mesaCards]);
-  const ops = data.operations || [];
+  const ops = (data.operations || []).filter(o => !isSubstituicaoOp(o));
+  /* Pulso de 120 dias de cada operação ativa (M6-A): um cxBuildTimeline por operação, só quando os dados mudam. */
+  const pulses = React.useMemo(() => {
+    const m = new Map();
+    if (!prescLookup) return m;
+    ops.filter(o => o.status !== 'encerrada').forEach(o => { try { m.set(o.id, cxPulseData(data, o, prescLookup, todayIso)); } catch (err) { /* sem pulso */ } });
+    return m;
+  }, [data, prescLookup, todayIso]);
+  const pulseTip = useCxTip(React.useCallback((key) => {
+    const rest = key.replace(/^pl\|/, '');
+    for (const pu of pulses.values()) {
+      const it = pu.items.find(i => i.id === rest); if (!it) continue;
+      const d = cxTlTipData(it.tip, pu.execById);
+      d.lines = (d.lines || []).filter(l => l.indexOf('Clique') !== 0);
+      if (it.kind === 'tar') d.lines.unshift('Tarefa');
+      return d;
+    }
+    return null;
+  }, [pulses]));
   const chips = [['all', 'Todas', ops.filter(o => o.status !== 'encerrada').length]];
   opClassChipKeys(ops, { hideEmpty: true }).forEach(k => { if (OP_CLASSIFICATIONS[k]) chips.push([k, OP_CLASSIFICATIONS[k].label, ops.filter(o => opMatchesClassFilter(o, k)).length]); });
   const nClosed = ops.filter(o => o.status === 'encerrada').length;
   if (nClosed) chips.push(['encerrada', 'Encerradas', nClosed]);
   const toks = cxNorm(q).split(/\s+/).filter(Boolean);
   let list = ops.filter(o => (filter === 'all' ? o.status !== 'encerrada' : opMatchesClassFilter(o, filter)))
-    .filter(o => !toks.length || toks.every(t => cxNorm(o.name + ' ' + (o.description || '')).includes(t)));
+    .filter(o => !toks.length || toks.every(t => cxNorm(o.name + ' ' + (o.description || '')).includes(t)))
+    .filter(o => !prio || normalizeOpPriority(o.priority) === prio);
+  const prioOps = ops.filter(o => o.status !== 'encerrada');
+  const prioChips = ['maxima', 'alta', 'media', 'baixa'].map(k => [k, OP_PRIORITIES[k].label, prioOps.filter(o => normalizeOpPriority(o.priority) === k).length, ({ maxima: 'var(--cx-opc-maxima)', alta: 'var(--cx-opc-alta)', media: 'var(--cx-opc-media)', baixa: 'var(--cx-opc-baixa)' })[k]]);
   const money = (o) => idx(o.id).debts.reduce((s, d) => s + (d.value || 0), 0);
   const guar = (o) => idx(o.id).debts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const cov = (o) => { const t = money(o); return t > 0 ? guar(o) / t : 1; };
+  const indOf = (o) => indispStats(idx(o.id).assets, money(o));
+  const indRatio = (o) => { const r = indOf(o).ratio; return r === null ? 1 : r; };
   const sorters = {
     nome: sortOpsByName,
     valor: (a, b) => money(b) - money(a),
     cobertura: (a, b) => cov(a) - cov(b) || money(b) - money(a),
+    indisp: (a, b) => indRatio(a) - indRatio(b) || money(b) - money(a),
     risco: (a, b) => idx(b.id).risk - idx(a.id).risk || money(b) - money(a),
     revisao: (a, b) => ((cxRS(a).daysLeft ?? 99999) - (cxRS(b).daysLeft ?? 99999)),
     intimacoes: (a, b) => idx(b.id).open.length - idx(a.id).open.length || sortOpsByName(a, b),
@@ -1649,61 +2193,69 @@ function EditionClaudeCarteira(p) {
   const active = ops.filter(o => o.status !== 'encerrada');
   const totalAll = active.reduce((s, o) => s + money(o), 0);
   const guarAll = active.reduce((s, o) => s + guar(o), 0);
+  const indAll = indispStats(active.flatMap(o => idx(o.id).assets), totalAll);
+  const indAllTxt = indispRatioText(indAll.ratio);
   return <div className="cx cx-page">
     <div className="cx-page-h">
-      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. A barra verde é a parte garantida da dívida.</p></div>
+      <div><h1>Carteira</h1><p>{cxPl(active.length, 'operação ativa', 'operações ativas')} · {cxMoneyShort(totalAll)} sob gestão{indAllTxt ? ' · ' + indAllTxt + ' com bens indisponíveis' : ''} · {totalAll ? Math.round(guarAll / totalAll * 100) : 0}% garantido. O anel mostra a parte da dívida coberta por indisponibilidade (ativa e requerida).</p></div>
       <div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNewOp}><CxIcon n="plus" s={14} />Nova operação</button></div>
     </div>
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-cart-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Nome ou descrição da operação" aria-label="Buscar operação" /></label>
       <span className="cx-sp" />
-      <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
+      <CxSelect id="cx-cart-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['nome', 'Nome'], ['valor', 'Maior dívida'], ['indisp', 'Menor indisponibilidade'], ['cobertura', 'Menor garantia'], ['risco', 'Risco prescricional'], ['revisao', 'Revisão mais atrasada'], ['intimacoes', 'Mais intimações']]} />
     </div>
-    <div className="cx-chips" role="group" aria-label="Filtrar por classificação">
-      {chips.map(c => <button key={c[0]} type="button" className={'cx-fchip' + (filter === c[0] ? ' on' : '')} aria-pressed={filter === c[0]} onClick={() => setFilter(c[0])} style={OP_CLASSIFICATIONS[c[0]] ? { '--c': OP_CLASSIFICATIONS[c[0]].color } : null}>
-        {OP_CLASSIFICATIONS[c[0]] ? <span className="cx-dot" style={{ background: OP_CLASSIFICATIONS[c[0]].color }} /> : null}{c[1]}<span className="cx-n">{c[2]}</span>
-      </button>)}
-    </div>
+    <CxChips label="Filtrar por classificação" group="Classificação" className="cx-chips cx-chips-tight" value={filter} onChange={setFilter} options={chips.map(c => [c[0], c[1], c[2], OP_CLASSIFICATIONS[c[0]] ? OP_CLASSIFICATIONS[c[0]].color : null])} />
+    <CxChips label="Filtrar por prioridade" group="Prioridade" className="cx-chips" value={prio} onChange={v => setPrio(prio === v ? null : v)} options={prioChips} />
     {list.length === 0 ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>{ops.length ? 'Nenhuma operação neste filtro.' : 'Nenhuma operação ainda. Crie a primeira.'}</div></div> :
-    <div className="cx-op-grid">{list.map(o => {
+    <div className="cx-op-grid" {...pulseTip.bind}>{list.map(o => {
       const x = idx(o.id);
       const total = money(o), g = guar(o), pct = total > 0 ? Math.round(g / total * 100) : 0;
+      const ind = indOf(o);
+      const ipSplit = cxIndispSplit(ind);
       const cls = getOpClassifications(o);
       const closed = o.status === 'encerrada';
-      return <button key={o.id} type="button" className={'cx-op-card' + (closed ? ' closed' : '')} onClick={() => p.onOpenOp(o.id)}>
-        <span className="cx-op-h">
-          <CxOpSquare op={o} />
-          <span className="cx-op-nm cx-ell" title={o.name}>{cxOpName(o)}</span>
-          {cxOpPrioTag(o)}
-          <span className="cx-sp" />
-          {closed ? <span className="cx-tag">Encerrada</span> : cxReviewTag(o)}
+      const since = o.lastReviewedAt ? cxDaysSince(o.lastReviewedAt) : null;
+      const meta = (closed ? 'Encerrada' : 'Ativa') + ' · ' + (since === null ? 'nunca revisada' : since <= 0 ? 'revisada hoje' : 'revisada há ' + cxPl(since, 'dia', 'dias'));
+      const rv = closed ? null : cxReviewTag(o);
+      return <button key={o.id} type="button" className={'cx-op-card cx-oc' + (closed ? ' closed' : '')} onClick={() => p.onOpenOp(o.id)}>
+        <span className="cx-oc-h">
+          <CxOpTile op={o} size={40} />
+          <span className="cx-minw0">
+            <span className="cx-oc-n"><span className="cx-op-nm cx-ell" title={o.name}>{cxOpName(o)}</span>{cxOpPrioTag(o)}</span>
+            <span className="cx-oc-meta">{meta}</span>
+          </span>
         </span>
+        <span className="cx-oc-rv">{rv}</span>
         <span className="cx-op-desc">{o.description || <span className="cx-muted">Sem descrição.</span>}</span>
-        {cls.length ? <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span> : null}
-        <span className="cx-op-money"><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct">{pct}% garantido</span></span>
-        <span className="cx-bar cx-bar-full"><i style={{ width: pct + '%' }} /></span>
-        <span className="cx-op-meta">
-          <span title="Processos"><CxIcon n="scale" s={13} />{x.execs.length}</span>
-          <span title="CDAs ativas"><CxIcon n="file" s={13} />{x.debts.length}</span>
-          <span title="Intimações abertas" className={x.late ? 'cx-red-t' : ''}><CxIcon n="inbox" s={13} />{x.open.length}{x.late ? ' · ' + x.late + ' venc.' : ''}</span>
-          {x.risk ? <span title="CDAs a agir nos prazos extintivos (cartões da fileira 1 da Mesa)" className="cx-violet-t"><CxIcon n="hourglass" s={13} />{x.risk}</span> : null}
-          <span title="Próximo prazo"><CxIcon n="clock" s={13} />{x.next ? <CxDue iso={x.next.dateDeadline} /> : '—'}</span>
-          <span className="cx-sp" />
-          {x.targets.length ? <CxAvatars people={x.targets} /> : null}
+        <span className="cx-tags">{cls.slice(0, 3).map(cxClsTag)}{cls.length > 3 ? <span className="cx-tag">+{cls.length - 3}</span> : null}</span>
+        <span className="cx-oc-m" title={[ipSplit || 'Sem bens indisponíveis com valor', pct + '% garantido'].join(' · ')}>
+          <CxRing pct={ind.pct || 0} size={40} stroke={5.5} label={cxIndispPctTxt(ind) + ' indisponível'} />
+          <span><b>{total ? cxMoneyShort(total) : '—'}</b><span className="cx-pct ip">{ind.pct === null ? '0%' : cxIndispPctTxt(ind)} indisponível</span><span className="cx-pct">{pct}% garantido</span></span>
+        </span>
+        {pulses.get(o.id) ? <CxPulse pulse={pulses.get(o.id)} todayIso={todayIso} /> : <span className="cx-pulse" aria-hidden="true" />}
+        <span className="cx-oc-f">
+          <span className="cx-pl" title="Processos"><CxIcon n="scale" s={13} /><b>{x.execs.length}</b></span>
+          <span className="cx-pl" title="CDAs ativas"><CxIcon n="file" s={13} /><b>{x.debts.length}</b></span>
+          <span className={'cx-pl' + (x.late ? ' red' : '')} title="Intimações abertas"><CxIcon n="inbox" s={13} /><b>{x.open.length}</b>{x.late ? ' · ' + x.late + ' venc.' : ''}</span>
+          {x.risk ? <span className="cx-pl viol" title="CDAs a agir nos prazos extintivos (cartões da fileira 1 da Mesa)"><CxIcon n="hourglass" s={13} /><b>{x.risk}</b></span> : null}
+          <span className="cx-pl" title="Próximo prazo"><CxIcon n="clock" s={13} />{x.next ? <CxDue iso={x.next.dateDeadline} /> : '—'}</span>
+          {x.targets.length ? <span className="cx-oc-av"><CxAvatars people={x.targets} /></span> : null}
         </span>
       </button>;
     })}</div>}
+    {pulseTip.node}
   </div>;
 }
 
 /* ═════════════════════ Linha do tempo ═════════════════════ */
-const CX_TL_SCALES = { semanas: { ppd: 22 }, meses: { ppd: 3.2 }, anos: { ppd: 0.6 } };
-const CX_TL_ROW = 36, CX_TL_AXIS = 50;
+const CX_TL_AXIS = 56;
 const CX_TAG_C = { idpj: 'var(--cx-red)', cautelar_fiscal: 'var(--cx-yellow)', central: 'var(--cx-violet)', normal: 'var(--cx-cyan)' };
 function cxExecTag(e) {
   if (e.processTag === 'idpj') return 'IDPJ';
   if (e.processTag === 'cautelar_fiscal') return 'MCF';
   if (e.processTag === 'central') return 'CENTRAL';
+  if (e.processTag === 'peticao_incidente_ef') return 'INC';
   const c = cxNorm(e.className);
   if (c.includes('embargos')) return 'EMB';
   if (c.includes('agravo') || c.includes('apela') || c.includes('recurso')) return 'REC';
@@ -1716,7 +2268,7 @@ function cxTagColor(e) {
   const t = cxExecTag(e);
   if (t === 'EMB' || t === 'EXC') return 'var(--cx-orange)';
   if (t === 'REC') return 'var(--cx-blue)';
-  if (t === 'EF') return 'var(--cx-cyan)';
+  if (t === 'EF' || t === 'INC') return 'var(--cx-cyan)';
   return 'var(--cx-ink-3)';
 }
 function cxEvColor(type) {
@@ -1736,7 +2288,6 @@ function cxOutcomeColor(o) {
 }
 const CX_SEV = { prescrito: 9, critico: 8, alerta: 7, correndo: 6, interrompido: 5, suspenso: 4, indeterminado: 3, seguro: 2, sem_dados: 1 };
 const CX_PRESC_TXT = { prescrito: 'vencida', critico: 'crítica', alerta: 'em alerta', correndo: 'correndo', interrompido: 'ciclo encerrado', suspenso: 'pausada', indeterminado: 'sem ciência lançada', seguro: 'sem risco próximo', sem_dados: 'sem dados' };
-/* Monta as linhas da régua a partir dos dados reais. Datas em ISO. */
 /* Mesmas frentes do Briefing: IDPJ/MCF no panorama, execução central, ou EF levada ao panorama
    pelo usuário. Usado para separar "Marcos da operação" e as linhas da régua entre frentes e
    "Outras execuções" (item 7). */
@@ -1744,21 +2295,83 @@ function cxIsFront(e) {
   if (!e) return false;
   return isIncidentOnPanorama(e) || (e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada') || isUserPanoramaEf(e);
 }
+const CX_FLOOR_KIND = { protocolo: 'protocolo', citacao: 'citação', despacho: 'despacho de citação', constricao: 'constrição' };
+const CX_HEARING_SHORT = { instrucao: 'Instrução', conciliacao: 'Conciliação', una: 'Audiência una', justificacao: 'Justificação', inquiricao: 'Inquirição', outra: 'Audiência' };
+/* Número curto do processo ("5001234-56"), como o advogado o cita. */
+function cxExecShortNum(e) { return tlProcShort(e && e.processNumber); }
+/* Devedor do processo: o responsável originário da primeira CDA, o devedor da ficha ou, na falta de CDA
+   (IDPJ, MCF, exceção, recurso), a parte mais citada nas intimações do processo. */
+function cxExecWho(data, e, cdas) {
+  const resp = (data.links && data.links.cdaResponsibilities) || [];
+  for (const d of cdas) {
+    const r = resp.find(x => x.cdaId === d.id && x.role === 'originario');
+    const p = r ? (data.people || []).find(x => x.id === r.personId) : null;
+    if (p && p.name) return p.name;
+    if (d.devedor) return d.devedor;
+  }
+  const cnt = new Map();
+  (data.intimations || []).forEach(i => { if (i.partyName && sameProc(i.processNumber, e.processNumber)) cnt.set(i.partyName, (cnt.get(i.partyName) || 0) + 1); });
+  let best = '', n = 0;
+  cnt.forEach((v, k) => { if (v > n) { best = k; n = v; } });
+  return best;
+}
+/* Papel do processo na operação ("EF principal", "EF apensa", "Exceção de pré-exec."): é o que diferencia duas
+   "Execução Fiscal" lado a lado. A relação com o pai ("apenso de 5001234-56") vai na segunda linha. */
+function cxExecRole(e, parent, hasChildren) {
+  const tag = cxExecTag(e);
+  if (tag === 'IDPJ') return 'Desconsideração (IDPJ)';
+  if (tag === 'MCF') return 'Medida cautelar fiscal';
+  if (tag === 'CENTRAL') return 'EF central';
+  if (tag === 'EF') return parent ? 'EF apensa' : (hasChildren ? 'EF principal' : 'Execução fiscal');
+  if (tag === 'EXC') return 'Exceção de pré-exec.';
+  if (tag === 'EMB') return 'Embargos à execução';
+  if (tag === 'REC') return e.className || 'Recurso';
+  return e.className || 'Processo';
+}
+function cxExecRel(e, parent) {
+  if (!parent) return '';
+  const tag = cxExecTag(e);
+  return (tag === 'EF' || tag === 'CENTRAL' ? 'apenso de ' : 'em ') + cxExecShortNum(parent);
+}
+/* Relação do processo filho com o pai, para o tooltip do conector. */
+function cxLinkText(kind, a, b) {
+  const ta = cxExecTag(a), tb = cxExecTag(b);
+  const na = ta + ' ' + cxExecShortNum(a), nb = tb + ' ' + cxExecShortNum(b);
+  if (kind === 'cover') return na + ' cobre ' + nb;
+  if (tb === 'EF' || tb === 'CENTRAL') return nb + ' é apenso de ' + na;
+  if (tb === 'EXC') return nb + ' é exceção nos autos de ' + na;
+  if (tb === 'REC') return nb + ' é recurso de ' + na;
+  if (tb === 'EMB') return nb + ' é embargos de ' + na;
+  return nb + ' é vinculado a ' + na;
+}
+/* Monta os dados da régua a partir dos dados reais. Datas em ISO.
+   `items` é a lista única de fatos com data (decisão, andamento, audiência, prazo, prescrição, revisão), cada um com
+   `kind` (vocabulário de src/lib/timeline.js), `ref` (o que abrir ao clicar) e `execId` (processo dono, ou null) — é a
+   base dos filtros da legenda e dos modos da página (Panorama hoje; Frentes, Prescrição e Narrativa depois).
+   `procs` são as linhas de processo na ordem da régua (`front`: IDPJ/MCF/central/EF no panorama do Briefing;
+   `depth`: filhos sob o pai); `cdas` as CDAs sem processo a ajuizar (todas: o limite de linhas é da tela); `links` os
+   conectores nomeados (cobre · apenso/exceção/recurso de); `info` guarda por processo o papel, o devedor e a prescrição
+   (`presc`: segmentos, marcos e a faixa até o piso); `allDates` serve ao eixo (`datesWithout(ids)`: o mesmo sem as linhas recolhidas). */
 function cxBuildTimeline(data, op, prescLookup) {
   const execs = (data.executions || []).filter(e => e.operationId === op.id);
   const ids = new Set(execs.map(e => e.id));
+  const execById = new Map(execs.map(e => [e.id, e]));
   const events = data.prescriptionEvents || [];
   const today = localIso(new Date());
   const info = new Map();
+  const items = [];
+  let seq = 0;
+  const nid = (p) => p + '|' + (seq++);
   execs.forEach(e => {
     const stages = getStageRecords(op.briefing, e.id) || {};
     const DEF = (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal') ? PROCESS_STAGES : CENTRAL_STAGES;
     const evs = [];
+    const addEv = (it) => { const x = { id: nid('ev'), execId: e.id, ref: { t: 'exec', id: e.id }, short: it.l, ...it }; evs.push(x); items.push(x); return x; };
     Object.keys(stages).forEach(k => {
       const rec = stages[k]; if (!rec) return;
       const def = resolveStageDef(DEF, k, rec);
-      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) evs.push({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: cxOutcomeColor(r.outcome), k: 'stage' }); });
-      else { const d = toDayKey(rec.date); if (d) evs.push({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', decisive: !!rec.outcome }); }
+      if (def.multiRecurso) getRecursos(rec).forEach(r => { const d = toDayKey(r.date); if (d) addEv({ d, l: def.label + (r.parte === 'adversa' ? ' (parte adversa)' : '') + (r.outcome && RECURSO_OUTCOMES[r.outcome] ? ' · ' + RECURSO_OUTCOMES[r.outcome] : ''), c: (r.outcome === 'provido' && isRecursoAdverso(r)) ? 'var(--cx-red)' : cxOutcomeColor(r.outcome), k: 'stage', sk: k, kind: r.outcome ? 'dec' : 'and', out: r.outcome || '', t: [r.proc ? 'Proc. ' + r.proc : '', String(r.texto || '').trim()].filter(Boolean).join(' · ') }); });
+      else { const d = toDayKey(rec.date); if (d) addEv({ d, l: def.label + (rec.outcome && def.outcomes && def.outcomes[rec.outcome] ? ' · ' + def.outcomes[rec.outcome] : ''), c: cxOutcomeColor(rec.outcome), k: 'stage', sk: k, kind: rec.outcome ? 'dec' : 'and', decisive: !!rec.outcome, out: rec.outcome || '', t: [rec.evento ? 'Ev. ' + rec.evento : '', String(rec.texto || '').trim()].filter(Boolean).join(' · ') }); }
     });
     const seen = new Set();
     events.forEach(pe => {
@@ -1766,7 +2379,7 @@ function cxBuildTimeline(data, op, prescLookup) {
       const d = toDayKey(pe.requestDate || pe.date); if (!d) return;
       const key = pe.type + '|' + d; if (seen.has(key)) return; seen.add(key);
       const t = PRESC_EVENT_TYPES[normalizePrescEventType(pe.type)] || {};
-      evs.push({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc' });
+      addEv({ d, l: t.label || pe.type, c: cxEvColor(pe.type), k: 'presc', kind: 'presc', pcat: t.category || '' });
     });
     const start = toDayKey(e.protocolDate) || (evs.map(x => x.d).sort()[0]) || toDayKey(e.createdAt) || today;
     // Prescrição: pior CDA do processo
@@ -1782,6 +2395,7 @@ function cxBuildTimeline(data, op, prescLookup) {
     if (worst) {
       const segs = [], marks = [];
       const r = worst;
+      const addMark = (m) => { const x = { id: nid('pm'), execId: e.id, ref: { t: 'exec', id: e.id }, kind: 'presc', mark: true, short: m.deadline ? 'Prescrição' : m.l, ...m }; marks.push(x); items.push(x); };
       if (r.segment === 'intercorrente' && r.diesAQuo) {
         const m = (r.memory || []).find(x => /Fim da suspens|Fim do 1º ano/.test(String(x.event || '')));
         let yearEnd = m && toDayKey(m.date);
@@ -1791,8 +2405,8 @@ function cxBuildTimeline(data, op, prescLookup) {
         const interFrom = yearEnd || r.diesAQuo;
         const interTo = stop || toDayKey(r.diesAdQuem);
         if (interTo && interTo > interFrom && (!stop || stop > interFrom)) segs.push({ from: interFrom, to: interTo, t: 'inter' });
-        if (stop) marks.push({ d: stop, l: 'Ciclo encerrado em ' + fmtDate(stop), c: 'var(--cx-cyan)' });
-        else if (r.diesAdQuem) marks.push({ d: toDayKey(r.diesAdQuem), l: 'Termo ' + (r.estimated ? 'estimado' : 'calculado') + ' · ' + fmtDate(r.diesAdQuem), c: 'var(--cx-violet)', big: true, deadline: true });
+        if (stop) addMark({ d: stop, l: 'Ciclo encerrado em ' + fmtDate(stop), c: 'var(--cx-cyan)' });
+        else if (r.diesAdQuem) addMark({ d: toDayKey(r.diesAdQuem), l: 'Termo ' + (r.estimated ? 'estimado' : 'calculado') + ' · ' + fmtDate(r.diesAdQuem), c: 'var(--cx-violet)', big: true, deadline: true });
       }
       let parcEnds = null; try { parcEnds = inferParcelamentoEnds(r.timeline || []); } catch (err) { parcEnds = null; }
       (r.timeline || []).forEach(ev => {
@@ -1804,12 +2418,26 @@ function cxBuildTimeline(data, op, prescLookup) {
         segs.push({ from, to: to < from ? from : to, t: isAdesaoType(ev.type) ? 'pausa' : 'susp2', l: t.label });
       });
       const cedo = r.band && r.band.alarme !== false && r.band.cedo && toDayKey(r.band.cedo.diesAdQuem);
-      if (cedo && cedo !== toDayKey(r.diesAdQuem)) marks.push({ d: cedo, l: 'Data cedo · ' + fmtDate(cedo) + ' (leitura mais desfavorável)', c: 'var(--cx-red)', deadline: true });
-      if (!segs.length && r.bounds && r.bounds.floor) marks.push({ d: toDayKey(r.bounds.floor), l: 'Não pode ter prescrito antes de ' + fmtDate(r.bounds.floor), c: 'var(--cx-ink-3)', hollow: true });
-      presc = { r, debt: worstDebt, n: debts.length, segs, marks };
+      if (cedo && cedo !== toDayKey(r.diesAdQuem)) addMark({ d: cedo, l: 'Data cedo · ' + fmtDate(cedo) + ' (leitura mais desfavorável)', c: 'var(--cx-red)', deadline: true });
+      if (!segs.length && r.bounds && r.bounds.floor) addMark({ d: toDayKey(r.bounds.floor), l: 'Não pode ter prescrito antes de ' + fmtDate(r.bounds.floor), c: 'var(--cx-ink-3)', hollow: true });
+      /* Faixa do piso: do último ato que fecha o ciclo (citação, despacho, constrição) até 6 anos depois. */
+      const fa = r.bounds && r.bounds.floorAnchor, fl = r.bounds && toDayKey(r.bounds.floor);
+      const band = !segs.length && fl && fa && toDayKey(fa.iso) ? { from: toDayKey(fa.iso), to: fl, kind: CX_FLOOR_KIND[fa.kind] || '' } : null;
+      presc = { r, debt: worstDebt, n: debts.length, segs, marks, band };
     }
-    const intims = (data.intimations || []).filter(i => cxIsOpen(i) && i.dateDeadline && sameProc(i.processNumber, e.processNumber));
-    info.set(e.id, { e, evs, start, presc, intims, end: e.status === 'extinta' ? (evs.map(x => x.d).sort().pop() || toDayKey(e.updatedAt)) : null });
+    const intims = (data.intimations || []).filter(i => cxIsOpen(i) && i.dateDeadline && sameProc(i.processNumber, e.processNumber)).map(i => {
+      const end = toDayKey(i.dateDeadline);
+      const it = { id: 'pz|' + i.id, kind: 'prazo', d: end, from: toDayKey(i.dateStart) || toDayKey(i.dateSent) || end, l: i.eventDescription || i.className || 'Intimação', short: 'Prazo', execId: e.id, ref: { t: 'intim', id: i.id }, i, st: i.status };
+      items.push(it);
+      return it;
+    });
+    const cdaVal = debts.reduce((s, d) => s + (d.value || 0), 0);
+    info.set(e.id, { e, evs, start, presc, intims, debts, cdaN: debts.length, cdaVal, who: cxExecWho(data, e, debts), end: e.status === 'extinta' ? (evs.map(x => x.d).sort().pop() || toDayKey(e.updatedAt)) : null });
+  });
+  info.forEach(x => {
+    const parent = x.e.parentExecutionId && ids.has(x.e.parentExecutionId) ? execById.get(x.e.parentExecutionId) : null;
+    x.role = cxExecRole(x.e, parent, execs.some(c => c.parentExecutionId === x.e.id));
+    x.rel = cxExecRel(x.e, parent);
   });
   const byStart = (a, b) => String(info.get(a.id).start).localeCompare(String(info.get(b.id).start));
   const tops = execs.filter(e => !e.parentExecutionId || !ids.has(e.parentExecutionId));
@@ -1817,18 +2445,16 @@ function cxBuildTimeline(data, op, prescLookup) {
   // as demais execuções ficam abaixo de uma divisória ("Outras execuções").
   const frontsTop = tops.filter(cxIsFront).sort(byStart);
   const othersTop = tops.filter(e => !cxIsFront(e)).sort(byStart);
-  const rows = [{ kind: 'ms' }];
-  const pushExec = (e, depth) => {
-    const x = info.get(e.id);
-    rows.push({ kind: 'proc', x, depth });
-    if (x.presc && (x.presc.segs.length || x.presc.marks.length)) rows.push({ kind: 'presc', x, depth });
-    x.intims.forEach(i => rows.push({ kind: 'prazo', i, x, depth }));
-    execs.filter(c => c.parentExecutionId === e.id).sort(byStart).forEach(c => pushExec(c, depth + 1));
+  /* Linhas de processo na ordem da régua: frentes primeiro, cada pai seguido de seus filhos (apensos, exceções, recursos). */
+  const procs = [];
+  const pushExec = (e, depth, front) => {
+    procs.push({ x: info.get(e.id), depth, front });
+    execs.filter(c => c.parentExecutionId === e.id).sort(byStart).forEach(c => pushExec(c, depth + 1, front));
   };
-  frontsTop.forEach(e => pushExec(e, 0));
-  if (frontsTop.length && othersTop.length) rows.push({ kind: 'divider', label: 'Outras execuções' });
-  othersTop.forEach(e => pushExec(e, 0));
-  // CDAs sem processo nesta operação, com o prazo para ajuizar apertado (ordinária)
+  frontsTop.forEach(e => pushExec(e, 0, true));
+  othersTop.forEach(e => pushExec(e, 0, false));
+  // CDAs sem processo nesta operação, com o prazo para ajuizar apertado (ordinária). Todas entram: o limite de
+  // linhas visíveis é da tela (com "+N" que expande), nunca um corte silencioso aqui.
   const cdas = [];
   (data.debts || []).forEach(d => {
     if (d.operationId !== op.id || d.status === 'extinta' || d.prescriptionHandled) return;
@@ -1837,186 +2463,1795 @@ function cxBuildTimeline(data, op, prescLookup) {
     if (!r || r.segment !== 'credito' || !r.diesAdQuem) return;
     if (r.status !== 'critico' && r.status !== 'alerta' && r.status !== 'prescrito') return;
     const end = toDayKey(r.diesAdQuem);
-    cdas.push({ d, r, end, start: toDayKey(r.diesAQuo) || addCalendarYears(end, -5) });
+    const num = d.cdaNumber || 'S/N';
+    const it = { id: 'cda|' + d.id, kind: 'presc', k: 'cda', d: end, l: 'Ajuizar a CDA ' + num + ' até ' + fmtDate(end), short: 'CDA …' + String(num).slice(-9), c: r.status === 'prescrito' ? 'var(--cx-red)' : 'var(--cx-violet)', big: true, ref: { t: 'cda', id: d.id, operationId: d.operationId }, debt: d, r, start: toDayKey(r.diesAQuo) || addCalendarYears(end, -5) };
+    items.push(it);
+    cdas.push({ d, r, end, start: it.start, it });
   });
   cdas.sort((a, b) => a.end.localeCompare(b.end));
-  if (cdas.length) { rows.push({ kind: 'cdah', n: cdas.length }); cdas.slice(0, 10).forEach(c => rows.push({ kind: 'cda', c })); }
-  // Marcos da operação: só IDPJ, MCF e EFs levadas ao panorama do Briefing (mesmas frentes).
-  const ms = [];
-  (data.hearings || []).forEach(h => { if (h.operationId === op.id && h.date && h.status !== 'cancelada') ms.push({ d: toDayKey(h.date), l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), c: 'var(--cx-orange)', hearing: h }); });
-  info.forEach(x => {
-    if (!cxIsFront(x.e)) return;
-    x.evs.forEach(ev => { if (ev.decisive) ms.push({ d: ev.d, l: ev.l, c: ev.c }); });
-    if (x.presc) x.presc.marks.forEach(m => { if (m.deadline) ms.push({ d: m.d, l: 'Prescrição · ' + fmtDate(m.d), c: m.c, big: true }); });
+  // Audiências (do processo, quando o número bate; senão ficam na linha "Operação") e a próxima revisão.
+  (data.hearings || []).forEach(h => {
+    if (h.operationId !== op.id || !h.date || h.status === 'cancelada') return;
+    const owner = execs.find(e => sameProc(e.processNumber, h.processNumber));
+    items.push({ id: 'au|' + h.id, kind: 'aud', d: toDayKey(h.date), tm: h.time || '', l: (CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), short: CX_HEARING_SHORT[h.hearingType] || 'Audiência', c: 'var(--cx-orange)', execId: owner ? owner.id : null, ref: { t: 'hearing', h }, hearing: h, realized: h.status === 'realizada' });
   });
-  cdas.slice(0, 10).forEach(c => ms.push({ d: c.end, l: 'Ajuizar CDA ' + (c.d.cdaNumber || '') + ' até ' + fmtDate(c.end), c: 'var(--cx-violet)', big: true }));
   const rv = cxReviewNext(op);
-  if (rv) ms.push({ d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), c: 'var(--cx-accent)' });
-  ms.sort((a, b) => String(a.d).localeCompare(String(b.d)));
-  const covers = [];
-  execs.forEach(e => (e.linkedExecutionIds || []).forEach(c => { if (ids.has(c)) covers.push([e.id, c]); }));
-  const parents = execs.filter(e => e.parentExecutionId && ids.has(e.parentExecutionId)).map(e => [e.parentExecutionId, e.id]);
-  const allDates = [];
-  info.forEach(x => { allDates.push(x.start); x.evs.forEach(v => allDates.push(v.d)); if (x.presc) { x.presc.segs.forEach(s => { allDates.push(s.from); allDates.push(s.to); }); x.presc.marks.forEach(m => allDates.push(m.d)); } });
-  ms.forEach(m => allDates.push(m.d));
-  cdas.slice(0, 10).forEach(c => { allDates.push(c.start); allDates.push(c.end); });
-  return { rows, ms, covers, parents, allDates: allDates.filter(Boolean), empty: execs.length === 0 && cdas.length === 0 };
-}
-function EditionClaudeTimeline({ data, op, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenCda, compact }) {
-  const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
-  const sc = CX_TL_SCALES[scale] || CX_TL_SCALES.meses;
-  const offs = tl.allDates.map(d => daysUntil(d)).filter(v => v !== null);
-  let from, to;
-  if (scale === 'semanas') { from = -28; to = 49; }
-  else if (scale === 'meses') { from = -300; to = 240; }
-  else { from = Math.max(-365 * 16, Math.min(-365 * 2, ...offs) - 60); to = Math.min(365 * 8, Math.max(365, ...offs) + 120); }
-  const W = Math.round((to - from) * sc.ppd);
-  const x = (off) => (off - from) * sc.ppd;
-  const xi = (iso) => { const o = daysUntil(iso); return o === null ? null : x(o); };
-  const scRef = React.useRef(null);
-  React.useLayoutEffect(() => { const el = scRef.current; if (el) el.scrollLeft = Math.max(0, x(0) - el.clientWidth * 0.45); }, [op.id, scale]);
-  if (tl.empty) return <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Esta operação ainda não tem processos cadastrados. Eles aparecem aqui assim que forem lançados na aba Processos e prescrição.</div></div>;
-  const clamp = (a, b) => { const s = Math.max(a, from), e = Math.min(b, to); return e <= s ? null : { left: x(s), width: Math.max(4, (e - s) * sc.ppd) }; };
-  const clampIso = (fa, tb) => { const a = daysUntil(fa), b = daysUntil(tb); if (a === null || b === null) return null; return clamp(a, b); };
-  const axis = [], grid = [];
-  const base = new Date(); base.setHours(12, 0, 0, 0);
-  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  for (let d = from; d <= to; d++) {
-    const D = new Date(base); D.setDate(D.getDate() + d);
-    const dd = D.getDate(), mm = D.getMonth(), wd = D.getDay();
-    if (scale === 'semanas') {
-      axis.push(<span key={'t' + d} className={'cx-tl-tick' + (wd === 0 || wd === 6 ? ' we' : '')} style={{ left: x(d) + sc.ppd / 2 }}>{dd}</span>);
-      if (wd === 6) grid.push(<span key={'w' + d} className="cx-tl-shade" style={{ left: x(d), width: sc.ppd * 2 }} />);
-      if (dd === 1 || d === from) axis.push(<span key={'m' + d} className="cx-tl-major" style={{ left: x(d) }}>{CX_MES_L[mm]} {D.getFullYear()}</span>);
-      if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
-    } else if (scale === 'meses') {
-      if (dd === 1) { axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 15 * sc.ppd }}>{MES[mm]}</span>); grid.push(<span key={'g' + d} className="cx-tl-grid strong" style={{ left: x(d) }} />); }
-      else if (wd === 1) grid.push(<span key={'g' + d} className="cx-tl-grid" style={{ left: x(d) }} />);
-      if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
-    } else {
-      if (dd === 1 && mm % 3 === 0) { axis.push(<span key={'t' + d} className="cx-tl-tick" style={{ left: x(d) + 45 * sc.ppd }}>{'T' + (mm / 3 + 1)}</span>); grid.push(<span key={'g' + d} className={'cx-tl-grid' + (mm === 0 ? ' strong' : '')} style={{ left: x(d) }} />); }
-      if ((dd === 1 && mm === 0) || d === from) axis.push(<span key={'y' + d} className="cx-tl-major" style={{ left: x(d) }}>{D.getFullYear()}</span>);
-    }
-  }
-  const rowY = {};
-  tl.rows.forEach((r, k) => { if (r.kind === 'proc') rowY[r.x.e.id] = CX_TL_AXIS + k * CX_TL_ROW + CX_TL_ROW / 2; });
-  const H = CX_TL_AXIS + tl.rows.length * CX_TL_ROW;
+  if (rv) items.push({ id: 'rv|' + op.id, kind: 'rev', d: rv, l: 'Revisão ' + ((REVIEW_INTERVALS[op.reviewInterval || 'mensal'] || {}).label || '').toLowerCase(), short: 'Revisão', c: 'var(--cx-accent)', ref: { t: 'op', id: op.id } });
+  // Conectores nomeados: "cobre" (IDPJ/MCF → execução coberta) e "apenso/exceção/recurso de" (pai → filho).
   const links = [];
-  tl.parents.concat(tl.covers).forEach(([a, b]) => {
-    if (rowY[a] == null || rowY[b] == null) return;
-    const rowB = tl.rows.find(r => r.kind === 'proc' && r.x.e.id === b);
-    const xa = rowB ? xi(rowB.x.start) : null;
-    if (xa === null || xa < 0 || xa > W) return;
-    links.push([xa, rowY[a], rowY[b]]);
+  execs.forEach(e => (e.linkedExecutionIds || []).forEach(c => { if (ids.has(c)) links.push({ id: 'lk|cover|' + e.id + '|' + c, type: 'cover', a: e.id, b: c, text: cxLinkText('cover', e, execById.get(c)) }); }));
+  execs.filter(e => e.parentExecutionId && ids.has(e.parentExecutionId)).forEach(e => links.push({ id: 'lk|parent|' + e.parentExecutionId + '|' + e.id, type: 'parent', a: e.parentExecutionId, b: e.id, text: cxLinkText('parent', execById.get(e.parentExecutionId), e) }));
+  /* Datas que importam ao eixo; `skip` (conjunto de ids de processo) deixa de fora as linhas recolhidas na tela. */
+  const datesOf = (skip) => {
+    const out = [];
+    info.forEach((x, id) => {
+      if (skip && skip.has(id)) return;
+      out.push(x.start); x.evs.forEach(v => out.push(v.d));
+      if (x.presc) { x.presc.segs.forEach(s => { out.push(s.from); out.push(s.to); }); x.presc.marks.forEach(m => out.push(m.d)); if (x.presc.band) { out.push(x.presc.band.from); out.push(x.presc.band.to); } }
+    });
+    items.forEach(it => { if (skip && it.execId && skip.has(it.execId)) return; if (it.d) out.push(it.d); if (it.from) out.push(it.from); });
+    cdas.forEach(c => { out.push(c.start); out.push(c.end); });
+    return out.filter(Boolean);
+  };
+  return { procs, items, links, cdas, execById, info, allDates: datesOf(null), datesWithout: datesOf, empty: execs.length === 0 && cdas.length === 0 };
+}
+
+/* ─── Glifo por tipo de fato (SVG): ◆ decisão · ○ andamento · ■ audiência · ▼ prazo · ⬢ prescrição · ◔ revisão ───
+   Mesma forma na régua, na legenda e nos modos futuros. `c` é a cor (resultado, urgência, ato); `ghost` = esperado
+   e sem data (tracejado); `hollow` = piso/não pode ter prescrito antes (vazado). */
+function CxTlGlyph({ kind, c, ghost, hollow, s = 14 }) {
+  const col = c || 'var(--cx-ink-2)';
+  const ring = { fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.8, strokeDasharray: ghost || hollow ? '2.4 2' : undefined };
+  const sf = { stroke: 'var(--cx-surface)', strokeWidth: 1.3, strokeLinejoin: 'round' };
+  let shape;
+  switch (kind) {
+    case 'dec': shape = <rect x="3.1" y="3.1" width="9.8" height="9.8" rx="1.8" transform="rotate(45 8 8)" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'and': shape = <circle cx="8" cy="8" r="4.3" style={{ fill: 'var(--cx-surface)', stroke: ghost ? col : 'var(--cx-ink-2)', strokeWidth: 1.9, strokeDasharray: ghost ? '2.4 2' : undefined }} />; break;
+    case 'aud': shape = <rect x="3.3" y="3.3" width="9.4" height="9.4" rx="2" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'prazo': shape = <path d="M2.4 4.2H13.6L8 12.8Z" style={ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'presc': shape = <polygon points="8,2.2 13,5.1 13,10.9 8,13.8 3,10.9 3,5.1" style={hollow || ghost ? ring : { fill: col, ...sf }} />; break;
+    case 'rev': shape = <g><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.6 }} /><path d="M8 5.2V8l2 1.4" style={{ fill: 'none', stroke: col, strokeWidth: 1.5, strokeLinecap: 'round' }} /></g>; break;
+    /* Só da Narrativa: atuação minha (círculo cheio com visto) e tarefa (caixa; com visto = concluída). */
+    case 'act': shape = <g><circle cx="8" cy="8" r="5.6" style={{ fill: col, stroke: 'var(--cx-surface)', strokeWidth: 1.3 }} /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" style={{ fill: 'none', stroke: 'var(--cx-on-solid)', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
+    case 'tar': shape = <rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} />; break;
+    case 'tarok': shape = <g><rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.4" style={{ fill: 'var(--cx-surface)', stroke: col, strokeWidth: 1.7 }} /><path d="M5.6 8.2l1.7 1.7 3.2-3.6" style={{ fill: 'none', stroke: col, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></g>; break;
+    default: shape = <circle cx="8" cy="8" r="3" style={{ fill: col }} />;
+  }
+  return <svg className="cx-tl-gl" width={s} height={s} viewBox="0 0 16 16" aria-hidden="true">{shape}</svg>;
+}
+/* Cor de um prazo pela urgência (vencido, hoje, até 5 dias, depois). */
+function cxTlPrazoColor(iso) {
+  const info = cxDue(daysUntil(iso), iso);
+  return info.tone === 'late' ? 'var(--cx-red)' : info.tone === 'today' ? 'var(--cx-orange)' : info.tone === 'soon' ? 'var(--cx-yellow)' : 'var(--cx-blue)';
+}
+/* Cor do glifo de um fato. */
+function cxTlColor(it) {
+  if (it.kind === 'prazo') return cxTlPrazoColor(it.d);
+  if (it.kind === 'aud') return it.realized ? 'var(--cx-ink-3)' : 'var(--cx-orange)';
+  return it.c || 'var(--cx-ink-2)';
+}
+/* Medidor de texto (canvas) com a fonte do Prumo; sem canvas, estimativa. */
+const cxTlMeasure = (() => {
+  let ctx = null, fam = '';
+  return (text, px = 11) => {
+    try {
+      if (!ctx) { ctx = document.createElement('canvas').getContext('2d'); const el = document.querySelector('.cx') || document.body; fam = getComputedStyle(el).fontFamily || 'sans-serif'; }
+      ctx.font = '400 ' + px + 'px ' + fam;
+      const w = ctx.measureText(String(text)).width;
+      return w > 0 ? w : tlEstimateWidth(text, px);
+    } catch (err) { return tlEstimateWidth(text, px); }
+  };
+})();
+/* Tooltip leve, sem estado do React: o elemento é preenchido direto no DOM a cada passada do mouse (a régua tem
+   centenas de nós; re-renderizar a cada mousemove seria pesado). `resolve(chave)` devolve { when, title, lines, tone }
+   ou null. Serve também ao foco do teclado. Reutilizável pelos outros modos da Linha do tempo. */
+function useCxTip(resolve) {
+  const ref = React.useRef(null);
+  const keyRef = React.useRef('');
+  const hide = () => { const el = ref.current; if (el) { el.style.display = 'none'; keyRef.current = ''; } };
+  const show = (key, x, y) => {
+    const el = ref.current; if (!el) return;
+    const d = key ? resolve(key) : null;
+    if (!d) { hide(); return; }
+    if (keyRef.current !== key) {
+      keyRef.current = key;
+      el.textContent = '';
+      const add = (cls, txt) => { if (!txt) return; const n = document.createElement('div'); n.className = cls; n.textContent = txt; el.appendChild(n); };
+      add('cx-tl-tip-w' + (d.tone ? ' ' + d.tone : ''), d.when);
+      add('cx-tl-tip-t', d.title);
+      (d.lines || []).forEach(l => add('cx-tl-tip-s', l));
+    }
+    el.style.display = 'block';
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let left = x + 14, top = y + 16;
+    if (left + w > window.innerWidth - 8) left = Math.max(8, x - w - 12);
+    if (top + h > window.innerHeight - 8) top = Math.max(8, y - h - 12);
+    el.style.left = left + 'px'; el.style.top = top + 'px';
+  };
+  const keyOf = (ev) => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-tl]') : null; return t ? t.getAttribute('data-tl') : ''; };
+  const bind = {
+    onMouseMove: (ev) => show(keyOf(ev), ev.clientX, ev.clientY),
+    onMouseLeave: hide,
+    onFocus: (ev) => { const k = keyOf(ev); if (!k) return; const r = ev.target.getBoundingClientRect(); show(k, r.left + r.width / 2, r.bottom); },
+    onBlur: hide,
+  };
+  return { bind, node: <div ref={ref} className="cx-tl-tip" role="tooltip" style={{ display: 'none' }} /> };
+}
+/* Texto do tooltip de um fato da régua. */
+function cxTlTipData(it, execById) {
+  const dd = it.d ? daysUntil(it.d) : null;
+  const dow = it.d ? CX_DOW[cxDate(it.d).getDay()] : '';
+  const rel = dd === null ? '' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd === -1 ? 'ontem' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd);
+  const e = it.execId ? execById.get(it.execId) : null;
+  const lines = [];
+  if (it.kind === 'prazo') lines.push('Prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d));
+  if (e) lines.push(cxExecTag(e) + ' ' + cxExecShortNum(e));
+  if (it.kind === 'aud' && it.hearing && it.hearing.parties) lines.push(it.hearing.parties);
+  if (it.k === 'cda' && it.debt) lines.push((it.debt.tribute || it.debt.system || 'CDA') + ' · ' + cxMoneyShort(it.debt.value) + ' · sem processo');
+  const open = it.ref && it.ref.t === 'op' ? '' : it.ref && it.ref.t === 'hearing' ? 'Clique para abrir a audiência' : it.ref && it.ref.t === 'intim' ? 'Clique para abrir a intimação' : it.ref && it.ref.t === 'cda' ? 'Clique para abrir a CDA' : 'Clique para abrir o processo';
+  if (open) lines.push(open);
+  return { when: (it.d ? dow + ' ' + fmtDate(it.d) + (it.tm ? ' · ' + it.tm : '') + ' · ' + rel : 'sem data'), title: it.l, lines, tone: dd !== null && dd < 0 && it.kind === 'prazo' ? 'late' : '' };
+}
+/* Estado do foco da Panorama, lembrado por operação no navegador (nunca derruba a tela se o storage falhar). */
+const CX_TL_STORE = 'nexus_cx_tl_focus_';
+function cxTlLoadFocus(opId) {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(CX_TL_STORE + opId)); } catch (e) { raw = null; }
+  const n = tlNormalizeFocus(raw);
+  return { w: n.w, c: n.c, hidden: new Set(n.hidden) };
+}
+function cxTlSaveFocus(opId, st) {
+  try { localStorage.setItem(CX_TL_STORE + opId, JSON.stringify({ w: st.w, c: st.c, hidden: Array.from(st.hidden) })); } catch (e) { /* ignore */ }
+}
+/* Prazo: "Manifestar sobre exceção de pré-executividade — 15 dias" → "Manifestar sobre exceção de pré-…". */
+const cxTlShortDesc = (s, n = 26) => tlClip(String(s || '').replace(/\s*[—–-]\s*\d+\s*dias?\s*$/i, ''), n);
+/* Texto do rótulo de um fato na régua. */
+function cxTlLabelText(it) {
+  const dm = cxDM(it.d);
+  if (it.kind === 'prazo') return cxTlShortDesc(it.l) + ' ' + dm;
+  if (it.kind === 'aud') return it.short + ' ' + dm + (it.tm ? ' ' + it.tm : '');
+  if (it.kind === 'rev') return 'Revisão ' + dm;
+  return tlClip(it.short || it.l, 30) + ' ' + dm;
+}
+/* Faixa-resumo acima da régua: o que mais importa na operação, sem abrir nada. */
+function cxTlSummary(tl, todayIso) {
+  const out = [];
+  const pz = tl.items.filter(i => i.kind === 'prazo');
+  const late = pz.filter(i => daysUntil(i.d) < 0).sort((a, b) => a.d.localeCompare(b.d));
+  const soon = pz.filter(i => { const d = daysUntil(i.d); return d >= 0 && d <= 14; });
+  const aud = tl.items.filter(i => i.kind === 'aud' && !i.realized && daysUntil(i.d) >= 0).sort((a, b) => a.d.localeCompare(b.d))[0];
+  const cda = tl.cdas.filter(c => daysUntil(c.end) >= 0)[0] || tl.cdas[0];
+  if (late.length) out.push({ k: 'late', node: <><b className="cx-red-t">{cxPl(late.length, 'prazo vencido', 'prazos vencidos')}</b> · {cxTlShortDesc(late[0].l, 34)}</> });
+  out.push({ k: 'soon', node: <><b>{cxPl(soon.length, 'prazo', 'prazos')}</b> nos próximos 14 dias</> });
+  if (aud) out.push({ k: 'aud', node: <>Próxima audiência: <b>{cxDM(aud.d)}{aud.tm ? ' ' + aud.tm : ''}</b> · {aud.l.replace(/ · .*$/, '')}</> });
+  if (cda) out.push({ k: 'cda', node: <>Primeiro termo para ajuizar: <b>{fmtDate(cda.end)}</b> ({daysUntil(cda.end) < 0 ? 'vencido' : tlDurLabel(daysUntil(cda.end))})</> });
+  return out;
+}
+/* Panorama (M1) — régua com foco no agora. Eixo quebrado (src/lib/timeline.js): o foco (30 d … 1 ano) em escala
+   linear, passado e futuro comprimidos nas laterais, vãos longos sem fato viram quebras hachuradas ("≈ 13 m").
+   Prazos (janela início → final) e audiências ficam na linha do processo; abaixo dela, a faixa de prescrição com
+   o piso/termo. Todo marco é clicável (abre a gaveta que já existe). Estado (janela, posição e tipos ocultos)
+   lembrado por operação. `tl` vem de cxBuildTimeline (compartilhado com os outros modos da página). */
+function EditionClaudeTimelinePanorama({ tl, op, lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
+  const [st, setSt] = React.useState(() => cxTlLoadFocus(op.id));
+  const upd = (patch) => setSt(prev => { const n = { ...prev, ...patch }; cxTlSaveFocus(op.id, n); return n; });
+  const [cdaAll, setCdaAll] = React.useState(false);
+  const rRef = React.useRef(null);
+  const [cw, setCw] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = rRef.current; if (!el) return;
+    const m = () => setCw(el.clientWidth);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', m);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', m); };
+  }, []);
+  const [, setFontTick] = React.useState(0);
+  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  const todayIso = localIso(new Date());
+  const CW = Math.max(520, (cw || 900) - 1);
+  const { f0, f1 } = tlFocusRange(st.w, st.c);
+  const step = tlFocusStep(st.w);
+  /* Execuções extintas (fora das frentes): com 3 ou mais, ficam num grupo recolhido por padrão ("N execuções extintas · mostrar"). */
+  const extIds = React.useMemo(() => tl.procs.filter(r => !r.front && r.x.e.status === 'extinta').map(r => r.x.e.id), [tl]);
+  const extFold = extIds.length >= 3;
+  const [extOpen, setExtOpen] = React.useState(false);
+  const foldedIds = React.useMemo(() => (extFold && !extOpen ? new Set(extIds) : null), [extFold, extOpen, extIds]);
+  const S = React.useMemo(() => {
+    const pts = (foldedIds ? tl.datesWithout(foldedIds) : tl.allDates).map(d => daysUntil(d)).filter(v => v !== null);
+    return tlProjectBroken({ points: pts, f0, f1, width: CW });
+  }, [tl, foldedIds, f0, f1, CW]);
+  const f = S.f, x0 = f(0);
+  const isOff = (iso) => !isBusinessDay(new Date(iso + 'T00:00:00'));
+  const hid = (k) => st.hidden.has(k);
+  const counts = React.useMemo(() => tlCountKinds(tl.items), [tl]);
+  const byId = React.useMemo(() => { const m = new Map(); tl.items.forEach(it => m.set(it.id, it)); return m; }, [tl]);
+  const linkById = React.useMemo(() => { const m = new Map(); tl.links.forEach(l => m.set(l.id, l)); return m; }, [tl]);
+  const brkRef = React.useRef([]);
+  const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('lk|') === 0) { const l = linkById.get(key); return l ? { when: l.type === 'cover' ? 'Cobertura' : 'Vínculo', title: l.text, lines: [] } : null; }
+    if (key.indexOf('bar|') === 0) { const e = tl.execById.get(key.slice(4)); const x = e ? tl.info.get(e.id) : null; return x ? { when: (EXEC_STATUSES[e.status] || {}).label || 'Processo', title: x.role + ' · ' + cxExecShortNum(e), lines: [(e.className || '') + (x.who ? ' · ' + x.who : ''), 'Ajuizado em ' + fmtDate(x.start), 'Clique para abrir o processo'].filter(Boolean) } : null; }
+    if (key.indexOf('seg|') === 0) { const parts = key.split('|'); return { when: 'Prescrição', title: parts[1], lines: [parts[2]] }; }
+    if (key.indexOf('band|') === 0) { const x = tl.info.get(key.slice(5)); const b = x && x.presc && x.presc.band; return b ? { when: 'Prescrição · ' + (CX_PRESC_TXT[x.presc.r.status] || x.presc.r.status), title: 'Não prescreve antes de ' + fmtDate(b.to), lines: ['Último ato do ciclo: ' + fmtDate(b.from) + (b.kind ? ' (' + b.kind + ')' : ''), 'Piso = último ato + 6 anos (não é marco)'] } : null; }
+    if (key.indexOf('brk|') === 0) { const b = brkRef.current[+key.slice(4)]; return b ? { when: b.sq ? 'Eixo espremido' : 'Eixo comprimido', title: 'Sem fatos por ' + b.label, lines: ['De ' + fmtDate(addCalendarDays(todayIso, Math.round(b.a))) + ' a ' + fmtDate(addCalendarDays(todayIso, Math.round(b.b))), b.sq ? 'O vão foi encurtado para caber na lateral' : 'Trecho vazio encurtado: o foco, ao lado, está em escala'] } : null; }
+    const it = byId.get(key); return it ? cxTlTipData(it, tl.execById) : null;
+  }, [byId, linkById, tl, todayIso]));
+  if (tl.empty) return <div><div className="cx-tl-tools">{lead}</div><div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Esta operação ainda não tem processos cadastrados. Eles aparecem aqui assim que forem lançados na aba Processos e prescrição.</div></div></div>;
+  const open = (it) => {
+    const r = it && it.ref; if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+  };
+  const cl = (x) => Math.max(0, Math.min(CW, x));
+  const span = (isoA, isoB) => { const a = daysUntil(isoA), b = daysUntil(isoB); if (a === null || b === null) return null; const xa = cl(f(a)), xb = cl(f(b)); return { left: xa, width: Math.max(3, xb - xa) }; };
+  const inFocus = (iso) => { const o = daysUntil(iso); return o !== null && o >= f0 && o <= f1; };
+  const msTxt = cxTlLabelText;
+  /* ── linhas e geometria ── */
+  const sections = [];
+  const extSet = new Set(extFold ? extIds : []);
+  const procRows = tl.procs.filter(r => !extSet.has(r.x.e.id));
+  const hasFront = procRows.some(r => r.front), hasOther = procRows.some(r => !r.front);
+  let prevFront = null;
+  procRows.forEach(r => {
+    if (r.depth === 0 && r.front !== prevFront) {
+      if (r.front) sections.push({ kind: 'head', label: 'Frentes', sub: 'IDPJ · MCF · execução central' });
+      else if (hasFront || hasOther) sections.push({ kind: 'head', label: hasFront ? 'Outras execuções' : 'Execuções' });
+      prevFront = r.front;
+    }
+    sections.push({ kind: 'proc', x: r.x, depth: r.depth });
   });
-  const minLbl = scale === 'anos' ? 160 : 110;
-  const left = (r, k) => {
-    const pad = { paddingLeft: 12 + (r.depth || 0) * 14 };
-    if (r.kind === 'ms') return <div key={k} className="cx-tl-rl ms"><CxIcon n="flag" s={13} />Marcos da operação<span className="cx-count" style={{ marginLeft: 'auto' }}>{tl.ms.length}</span></div>;
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rl ms">{r.label}</div>;
-    if (r.kind === 'proc') { const e = r.x.e; return <div key={k} className="cx-tl-rl" style={pad} title={(e.className || '') + ' · ' + (e.processNumber || '')}><span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span><span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{e.className || 'Processo'}</span><span className="cx-ell cx-mono cx-tl-who">{e.processNumber || '—'}</span></span></div>; }
-    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rl ms"><CxIcon n="file" s={13} /><span className="cx-ell" title="CDAs desta operação sem processo, com o prazo de 5 anos para ajuizar perto do fim">CDAs sem processo · ajuizar</span><span className="cx-count" style={{ marginLeft: 'auto' }}>{r.n}</span></div>;
-    if (r.kind === 'cda') { const c = r.c; return <div key={k} className={'cx-tl-rl sub' + (onOpenCda ? ' click' : '')} style={{ paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-mono" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-muted">{c.r.status === 'prescrito' ? 'venceu em ' + fmtDate(c.end) : 'até ' + fmtDate(c.end)}</span></div>; }
-    if (r.kind === 'presc') { const pr = r.x.presc; return <div key={k} className="cx-tl-rl sub" style={{ paddingLeft: 26 + (r.depth || 0) * 14 }} title={pr.r.summary || ''}><CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} /><span className="cx-ell">Prescrição · {CX_PRESC_TXT[pr.r.status] || pr.r.status}{pr.n > 1 ? ' · pior de ' + pr.n + ' CDAs' : ''}</span></div>; }
-    return <div key={k} className="cx-tl-rl sub" style={{ paddingLeft: 26 + (r.depth || 0) * 14 }}><CxStatusIcon s={r.i.status} /><span className="cx-ell">{r.i.eventDescription || r.i.className || 'Intimação'}</span></div>;
+  if (extFold) {
+    sections.push({ kind: 'extgrp', n: extIds.length });
+    if (extOpen) tl.procs.filter(r => extSet.has(r.x.e.id)).forEach(r => sections.push({ kind: 'proc', x: r.x, depth: r.depth > 0 && extSet.has(r.x.e.parentExecutionId) ? 1 : 0 }));
+  }
+  const cdaCap = tlCapList(tl.cdas, 10, cdaAll);
+  if (tl.cdas.length && !hid('presc')) {
+    sections.push({ kind: 'head', label: 'CDAs sem processo · ajuizar', sub: tl.cdas.length + ' em risco', icon: 'file' });
+    cdaCap.shown.forEach(c => sections.push({ kind: 'cda', c }));
+    if (cdaCap.more > 0 || (cdaAll && tl.cdas.length > 10)) sections.push({ kind: 'cdamore', n: cdaCap.more });
+  }
+  const orphan = tl.items.filter(i => !i.execId && !hid(i.kind) && (i.kind === 'aud' || i.kind === 'rev'));
+  if (orphan.length) sections.push({ kind: 'op', its: orphan });
+  /* rótulos: dentro do foco, em faixas; perto de "hoje" primeiro */
+  const labelFor = (its) => {
+    const cand = its.filter(it => !hid(it.kind) && inFocus(it.d));
+    const lay = tlLayoutLabels(cand.map(it => ({ id: it.id, x: f(daysUntil(it.d)), w: cxTlMeasure(msTxt(it)) + 8, prio: Math.abs(daysUntil(it.d)) - (TL_KIND_WEIGHT[it.kind] || 0) * 25 })), { minX: S.pastW + 4, maxX: S.pastW + S.focusW - 4, levels: 3 });
+    return { lay, placed: new Map(lay.placed.map(p => [p.id, p])) };
   };
-  const right = (r, k) => {
-    const inner = [];
-    if (r.kind === 'divider') return <div key={k} className="cx-tl-rr ms" />;
-    if (r.kind === 'cdah') return <div key={k} className="cx-tl-rr ms" />;
-    if (r.kind === 'cda') {
-      const c = r.c, b = clampIso(c.start, c.end), o = daysUntil(c.end);
-      if (b) inner.push(<span key="s" className="cx-tl-seg inter" style={{ left: b.left, width: b.width }} title={'Prazo de 5 anos para ajuizar · termo ' + (c.r.estimated ? 'estimado' : 'calculado') + ' em ' + fmtDate(c.end)} />);
-      if (b && b.width > minLbl) inner.push(<span key="sl" className="cx-tl-seg-l" style={{ left: b.left }}>{c.r.diesAQuo ? 'Prazo para ajuizar' : 'Prazo para ajuizar (início estimado)'}</span>);
-      if (o !== null && o >= from && o <= to) inner.push(<span key="m" className="cx-tl-dm lg" style={{ left: x(o), '--c': c.r.status === 'prescrito' ? 'var(--cx-red)' : 'var(--cx-violet)' }} title={'Termo ' + fmtDate(c.end)} />);
-      if (!inner.length) inner.push(<span key="h" className="cx-tl-hint">Termo em {fmtDate(c.end)}, fora desta escala</span>);
-      return <div key={k} className="cx-tl-rr">{inner}</div>;
+  sections.forEach(v => {
+    if (v.kind === 'proc') {
+      const X = v.x;
+      v.its = tl.items.filter(it => it.execId === X.e.id && it.d && !it.mark);
+      v.lab = labelFor(v.its);
+      const L = v.lab.lay.levels;
+      v.by = L ? 24 + 13 * L : 22;
+      v.strip = !!(X.presc && !hid('presc') && (X.presc.segs.length || X.presc.band || X.presc.marks.length));
+      v.h = v.by + (v.strip ? 42 : 18);
+    } else if (v.kind === 'op') {
+      v.lab = labelFor(v.its);
+      const L = v.lab.lay.levels;
+      v.by = L ? 24 + 13 * L : 22;
+      v.h = v.by + 14;
+    } else if (v.kind === 'cda') v.h = 44;
+    else if (v.kind === 'cdamore' || v.kind === 'extgrp') v.h = 32;
+    else v.h = 30;
+  });
+  let yy = CX_TL_AXIS;
+  sections.forEach(v => { v.y = yy; yy += v.h; });
+  const H = yy;
+  const rowY = {};
+  sections.forEach(v => { if (v.kind === 'proc') rowY[v.x.e.id] = v.y + v.by; });
+  const links = [];
+  tl.links.forEach(l => {
+    if (rowY[l.a] == null || rowY[l.b] == null) return;
+    const xa = cl(f(daysUntil(tl.info.get(l.b).start)));
+    links.push({ l, x: xa, ya: rowY[l.a], yb: rowY[l.b] });
+  });
+  /* ── eixo ── */
+  const fa = tlFocusAxis({ f0, f1, ppd: S.ppd, f, todayIso, isOff });
+  const zp = tlZoneTicks(S.zP, 0, todayIso, { labelFirst: true });
+  const zu = tlZoneTicks(S.zU, S.pastW + S.focusW, todayIso, {});
+  /* intervalo em dias de cada quebra (mesma ordem de zp.breaks + zu.breaks), para o tooltip */
+  const brkAll = zp.breaks.concat(zu.breaks).concat(zp.squeezed.map(q => ({ ...q, sq: true })), zu.squeezed.map(q => ({ ...q, sq: true })));
+  brkRef.current = brkAll;
+  const nearToday = (px) => Math.abs(px - x0) < 22;
+  /* rótulos de mês do foco: por extenso se couber (mês largo), abreviado se não; nunca um por cima do outro */
+  const shortM = 30.44 * S.ppd < 92;
+  const mLab = (m) => (shortM ? m.short : m.text);
+  const mLw = (m) => cxTlMeasure(mLab(m), 11.5) + 12;
+  const majors = [];
+  let lastEnd = -1e9;
+  fa.majors.filter(m => !m.partial).forEach(m => { if (m.x >= lastEnd + 4) { majors.push(m); lastEnd = m.x + mLw(m); } });
+  const part = fa.majors.find(m => m.partial);
+  if (part && (!majors.length || part.x + mLw(part) + 4 <= majors[0].x)) majors.unshift(part);
+  /* ── marcador clicável ── */
+  const mk = (it, X, Y) => <button key={it.id + '@' + Y} type="button" className="cx-tl-g" style={{ left: X, top: Y }} data-tl={it.id} aria-label={it.l + (it.d ? ' · ' + fmtDate(it.d) : '')} onClick={() => open(it)}><CxTlGlyph kind={it.kind} c={cxTlColor(it)} hollow={it.hollow} s={it.big ? 16 : 14} /></button>;
+  const labelEls = (v, its, inner) => {
+    its.forEach(it => {
+      const pl = v.lab.placed.get(it.id); if (!pl) return;
+      const X = f(daysUntil(it.d));
+      const top = v.by - 20 - 13 * (pl.level + 1);
+      if (pl.level > 0) inner.push(<span key={'ld' + it.id} className="cx-tl-lead" style={{ left: X, top: top + 13, height: v.by - 18 - (top + 13) }} />);
+      inner.push(<span key={'l' + it.id} className={'cx-tl-dm-l' + (it.kind === 'prazo' && daysUntil(it.d) < 0 ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: pl.x0, top, width: pl.x1 - pl.x0, textAlign: pl.anchor === 'end' ? 'right' : 'left' }}>{msTxt(it)}</span>);
+    });
+    const dropped = v.lab.lay.dropped.length;
+    if (dropped) inner.push(<span key="drop" className="cx-tl-drop" style={{ top: 3 }} title="Marcos sem rótulo: passe o mouse sobre o marcador">+{dropped} sem rótulo</span>);
+  };
+  const left = (v, k) => {
+    const st0 = { height: v.h };
+    if (v.kind === 'head') return <div key={k} className="cx-tl-rl hd" style={st0}>{v.icon ? <CxIcon n={v.icon} s={13} /> : null}<span className="cx-ell">{v.label}</span>{v.sub ? <span className="cx-tl-hsub">{v.sub}</span> : null}</div>;
+    if (v.kind === 'op') return <div key={k} className="cx-tl-rl" style={{ ...st0, alignItems: 'flex-end', paddingBottom: 10 }}><CxIcon n="flag" s={13} /><span className="cx-ell">Operação</span><span className="cx-tl-hsub">audiências · revisão</span></div>;
+    if (v.kind === 'extgrp') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 12 }} role="button" tabIndex={0} aria-expanded={extOpen} onClick={() => setExtOpen(o => !o)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExtOpen(o => !o); } }} title="Execuções extintas ficam recolhidas para não dominar a régua; as datas delas só puxam o eixo quando você as mostra."><span aria-hidden="true" style={{ color: 'var(--cx-ink-3)', fontSize: 11, width: 13, textAlign: 'center' }}>{extOpen ? '▾' : '▸'}</span><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{v.n} execuções extintas · {extOpen ? 'ocultar' : 'mostrar'}</span></div>;
+    if (v.kind === 'cdamore') return <div key={k} className="cx-tl-rl sub click" style={{ ...st0, paddingLeft: 26 }} role="button" tabIndex={0} onClick={() => setCdaAll(a => !a)} onKeyDown={ev => { if (ev.key === 'Enter') setCdaAll(a => !a); }}><span className="cx-ell cx-link-btn" style={{ padding: 0 }}>{cdaAll ? 'Mostrar só as 10 primeiras' : '+' + v.n + (v.n === 1 ? ' CDA' : ' CDAs') + ' · mostrar todas'}</span></div>;
+    if (v.kind === 'cda') {
+      const c = v.c, bar = tlCdaBar({ start: c.start, end: c.end, today: todayIso });
+      return <div key={k} className={'cx-tl-rl pr sub' + (onOpenCda ? ' click' : '')} style={{ ...st0, paddingLeft: 26 }} role={onOpenCda ? 'button' : undefined} tabIndex={onOpenCda ? 0 : undefined} onClick={onOpenCda ? () => onOpenCda({ id: c.d.id, operationId: c.d.operationId }) : undefined} onKeyDown={onOpenCda ? (ev => { if (ev.key === 'Enter') onOpenCda({ id: c.d.id, operationId: c.d.operationId }); }) : undefined} title={c.r.detail || ''}>
+        <CxIcon n="hourglass" s={13} style={{ color: 'var(--cx-violet)' }} />
+        <span className="cx-tl-l2"><span className="cx-mono cx-ell" style={{ fontSize: 11.5 }}>{c.d.cdaNumber || 'S/N'}</span><span className="cx-ell cx-tl-who">{[c.d.tribute || c.d.system, c.d.value ? cxMoneyShort(c.d.value) : '', bar.late ? 'vencida' : 'faltam ' + tlDurLabel(bar.left)].filter(Boolean).join(' · ')}</span></span>
+      </div>;
     }
-    if (r.kind === 'ms') {
-      const vis = tl.ms.filter(m => { const o = daysUntil(m.d); return o !== null && o >= from && o <= to; });
-      vis.forEach((m, j) => {
-        const X = xi(m.d), next = vis[j + 1], room = next ? xi(next.d) - X - 14 : 200;
-        inner.push(<span key={'d' + j} className={'cx-tl-dm' + (m.big ? ' lg' : '')} style={{ left: X, '--c': m.c, cursor: m.hearing ? 'pointer' : 'default' }} title={fmtDate(m.d) + ' · ' + m.l} onClick={m.hearing && onOpenHearing ? () => onOpenHearing(m.hearing) : undefined} />);
-        if (room >= 90) inner.push(<span key={'l' + j} className="cx-tl-dm-l" style={{ left: X, maxWidth: Math.min(room, 220) }}>{m.l}</span>);
-      });
-    } else if (r.kind === 'proc') {
-      const X = r.x, e = X.e;
-      const b = clampIso(X.start, X.end || localIso(new Date(Date.now() + to * 86400000)));
-      if (b) inner.push(<div key="b" className={'cx-tl-bar' + (X.end ? ' ended' : ' open-end')} style={{ left: b.left, width: b.width, '--c': cxTagColor(e) }} title={(e.className || '') + ' · desde ' + fmtDate(X.start)}>{b.width > 70 ? <span className="cx-tl-lbl">{EXEC_STATUSES[e.status] ? EXEC_STATUSES[e.status].label : ''}{X.end ? ' · extinta' : ''}</span> : null}</div>);
-      X.evs.forEach((ev, j) => { const o = daysUntil(ev.d); if (o === null || o < from || o > to) return; inner.push(<span key={'e' + j} className="cx-tl-dm" style={{ left: x(o), '--c': ev.c }} title={fmtDate(ev.d) + ' · ' + ev.l} />); });
-    } else if (r.kind === 'presc') {
-      const pr = r.x.presc;
-      pr.segs.forEach((s, j) => {
-        const b = clampIso(s.from, s.to); if (!b) return;
-        const names = { susp: 'Suspensão de 1 ano', inter: 'Contagem de 5 anos', pausa: 'Parcelamento', susp2: s.l || 'Pausa' };
-        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} style={{ left: b.left, width: b.width }} title={names[s.t] + ' · ' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} />);
-        if (b.width > minLbl * 0.8) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: b.left }}>{names[s.t]}</span>);
-      });
-      pr.marks.forEach((m, j) => { const o = daysUntil(m.d); if (o === null || o < from || o > to) return; inner.push(<span key={'m' + j} className={'cx-tl-dm' + (m.big ? ' lg' : '') + (m.hollow ? ' hollow' : '')} style={{ left: x(o), '--c': m.c }} title={m.l} />); });
-      if (!inner.length || (pr.r.status === 'indeterminado' && !pr.segs.length)) {
-        const fl = pr.marks.find(m => m.hollow);
-        const txt = pr.r.status === 'indeterminado' ? 'A contagem do art. 40 ainda não começou' : 'Nada nesta escala';
-        inner.unshift(<span key="h" className="cx-tl-hint">{txt}{fl ? ' · não prescreve antes de ' + fmtDate(fl.d) : ''}</span>);
+    const e = v.x.e, X = v.x;
+    const sub = [X.rel, X.who, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + (X.cdaVal ? ' · ' + cxMoneyShort(X.cdaVal) : '') : ''].filter(Boolean).join(' · ');
+    const stat = e.status && e.status !== 'ativa' ? (EXEC_STATUSES[e.status] || {}).label : '';
+    const statShort = { arquivada: 'Arquivada', suspensa: 'Suspensa', suspensa_parcelamento: 'Parcelamento', extinta: 'Extinta' }[e.status] || stat;
+    return <div key={k} className={'cx-tl-rl pr' + (onOpenProc ? ' click' : '')} style={{ ...st0, paddingLeft: 12 + (v.depth || 0) * 14, alignItems: 'flex-start', paddingTop: Math.max(4, v.by - 17) }} role={onOpenProc ? 'button' : undefined} tabIndex={onOpenProc ? 0 : undefined}
+      onClick={onOpenProc ? () => onOpenProc(e.id) : undefined} onKeyDown={onOpenProc ? (ev => { if (ev.key === 'Enter') onOpenProc(e.id); }) : undefined}
+      title={[X.role, e.processNumber, X.rel, X.who, e.court, X.cdaN ? cxPl(X.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(X.cdaVal) : '', stat].filter(Boolean).join(' · ')}>
+      <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span>
+      <span className="cx-tl-l2"><span className="cx-ell" style={{ fontWeight: 500 }}>{X.role}{stat ? <span className="cx-tl-stat" title={stat}>{statShort}</span> : null}</span><span className="cx-ell cx-tl-who"><span className="cx-mono">{cxExecShortNum(e)}</span>{sub ? ' · ' + sub : ''}</span></span>
+    </div>;
+  };
+  const right = (v, k) => {
+    const st0 = { height: v.h }, inner = [];
+    if (v.kind === 'head' || v.kind === 'cdamore' || v.kind === 'extgrp') return <div key={k} className={'cx-tl-rr' + (v.kind === 'head' ? ' ms' : '')} style={st0} />;
+    if (v.kind === 'op') {
+      v.its.filter(it => !hid(it.kind)).forEach(it => { const o = daysUntil(it.d); if (o !== null) inner.push(mk(it, cl(f(o)), v.by)); });
+      labelEls(v, v.its, inner);
+      return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
+    }
+    if (v.kind === 'cda') {
+      const c = v.c, it = c.it, bar = tlCdaBar({ start: c.start, end: c.end, today: todayIso }), Y = 30;
+      const a = span(c.start, c.end), o = daysUntil(c.end);
+      if (a) {
+        const xn = Math.max(a.left, Math.min(a.left + a.width, x0));
+        inner.push(<span key="s1" className="cx-tl-seg inter thin" data-tl={it.id} style={{ left: a.left, width: Math.max(2, xn - a.left), top: Y - 4 }} />);
+        if (a.left + a.width > xn + 1) inner.push(<span key="s2" className="cx-tl-seg inter rest thin" data-tl={it.id} style={{ left: xn, width: a.left + a.width - xn, top: Y - 4 }} />);
       }
-    } else {
-      const i = r.i, info = cxDue(daysUntil(i.dateDeadline), i.dateDeadline);
-      const c = info.tone === 'late' ? 'var(--cx-red)' : info.tone === 'today' ? 'var(--cx-orange)' : info.tone === 'soon' ? 'var(--cx-yellow)' : 'var(--cx-ink-3)';
-      const st = toDayKey(i.dateStart) || toDayKey(i.dateSent) || toDayKey(i.dateDeadline);
-      const end = toDayKey(i.dateDeadline);
-      const b = clampIso(st, localIso(new Date(new Date(end + 'T12:00:00').getTime() + 86400000)));
-      if (b) inner.push(<div key="p" className="cx-tl-bar prazo" role="button" tabIndex={0} style={{ left: b.left, width: b.width, '--c': c }} onClick={() => onOpenIntim && onOpenIntim(i.id)} onKeyDown={ev => { if (ev.key === 'Enter' && onOpenIntim) onOpenIntim(i.id); }} title={(i.eventDescription || '') + ' · final ' + fmtDate(end)}>{b.width > 110 ? <span className="cx-tl-lbl">Prazo · final {cxDM(end)}</span> : null}</div>);
+      const X = cl(f(o));
+      const txt = bar.late ? 'venceu há ' + tlDurLabel(-bar.left).replace(/^há /, '') + ' · ' + cxDM(c.end) : 'ajuizar até ' + fmtDate(c.end) + ' · faltam ' + tlDurLabel(bar.left);
+      const w = cxTlMeasure(txt) + 8, lx = Math.max(4, Math.min(X + 8 - w, CW - w - 4));
+      inner.push(mk(it, X, Y));
+      inner.push(<span key="tx" className={'cx-tl-cdal' + (bar.late ? ' late' : '')} data-tl={it.id} onClick={() => open(it)} style={{ left: lx, top: 4, width: w }}>{txt}</span>);
+      return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
     }
-    return <div key={k} className={'cx-tl-rr' + (r.kind === 'ms' ? ' ms' : '')}>{inner}</div>;
+    /* processo */
+    const X = v.x, e = X.e, by = v.by;
+    const bar = span(X.start, X.end || addCalendarDays(todayIso, Math.ceil(S.hi)));
+    if (bar) inner.push(<div key="b" className={'cx-tl-bar thin' + (X.end ? ' ended' : ' open-end')} data-tl={'bar|' + e.id} style={{ left: bar.left, width: bar.width, top: by - 4, '--c': cxTagColor(e) }} />);
+    /* janelas de prazo (início → final) acima da linha, com o ▼ no vencimento */
+    v.its.filter(it => it.kind === 'prazo' && !hid('prazo')).forEach(it => {
+      const w = span(it.from, it.d); if (!w) return;
+      const c = cxTlPrazoColor(it.d);
+      if (w.width >= 6) inner.push(<span key={'w' + it.id} className="cx-tl-win" data-tl={it.id} style={{ left: w.left, width: w.width, top: by - 12, '--c': c }} onClick={() => open(it)} />);
+      inner.push(<button key={'g' + it.id} type="button" className="cx-tl-g" style={{ left: cl(f(daysUntil(it.d))), top: by - 9 }} data-tl={it.id} aria-label={it.l + ' · final ' + fmtDate(it.d)} onClick={() => open(it)}><CxTlGlyph kind="prazo" c={c} s={14} /></button>);
+    });
+    v.its.filter(it => it.kind !== 'prazo' && !hid(it.kind)).forEach(it => { const o = daysUntil(it.d); if (o !== null) inner.push(mk(it, cl(f(o)), by)); });
+    labelEls(v, v.its, inner);
+    /* faixa de prescrição sob a linha */
+    if (v.strip) {
+      const pr = X.presc, sy = by + 18;
+      const mxs = pr.marks.map(m => cl(f(daysUntil(m.d))));
+      pr.segs.forEach((s, j) => {
+        const b = span(s.from, s.to); if (!b) return;
+        const names = { susp: 'Suspensão de 1 ano', inter: 'Contagem de 5 anos', pausa: 'Parcelamento', susp2: s.l || 'Pausa' };
+        inner.push(<span key={'s' + j} className={'cx-tl-seg ' + s.t} data-tl={'seg|' + names[s.t] + '|' + fmtDate(s.from) + ' a ' + fmtDate(s.to)} style={{ left: b.left, width: b.width, top: sy - 7 }} />);
+        const w = cxTlMeasure(names[s.t]) + 6;
+        if (b.width > w + 12) { const gx = tlPickGap(mxs, b.left + 4, b.left + b.width - 4, w, { half: 8 }); if (gx !== null) inner.push(<span key={'sl' + j} className="cx-tl-seg-l" style={{ left: gx - 6, top: sy - 18 }}>{names[s.t]}</span>); }
+      });
+      if (pr.band) {
+        const b = span(pr.band.from, pr.band.to);
+        if (b) {
+          inner.push(<span key="band" className="cx-tl-band" data-tl={'band|' + e.id} style={{ left: b.left, width: b.width, top: sy - 6 }} />);
+          const txt = 'Prescrição · ' + (CX_PRESC_TXT[pr.r.status] || pr.r.status) + ' · piso ' + fmtDate(pr.band.to);
+          const tw = cxTlMeasure(txt, 11) + 6;
+          inner.push(<span key="bandt" className="cx-tl-bandt" style={{ left: Math.max(6, Math.min(Math.max(b.left, b.left < S.pastW ? S.pastW + 6 : 0), CW - tw - 8)), top: sy + 7 }}>{txt}</span>);
+        }
+      }
+      pr.marks.forEach(m => { const o = daysUntil(m.d); if (o !== null && !hid('presc')) inner.push(mk(m, cl(f(o)), sy)); });
+    }
+    return <div key={k} className="cx-tl-rr" style={st0}>{inner}</div>;
   };
-  return <div>
-    {!compact ? null : <div className="cx-tl-tools"><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>}
-    <div className="cx-tl">
-      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · evento</div>{tl.rows.map(left)}</div>
-      <div className="cx-tl-r" ref={scRef}>
-        <div className="cx-tl-cv" style={{ width: W, height: H }}>
-          <div className="cx-tl-axis">{axis}</div>
-          {grid}
-          {tl.rows.map(right)}
-          <svg className="cx-tl-svg" width={W} height={H} aria-hidden="true">{links.map((l, k) => <g key={k}><path d={'M' + l[0] + ' ' + l[1] + ' C ' + (l[0] - 16) + ' ' + l[1] + ', ' + (l[0] - 16) + ' ' + l[2] + ', ' + l[0] + ' ' + l[2]} style={{ fill: 'none', stroke: 'var(--cx-line-strong)', strokeWidth: 1.5 }} /><circle cx={l[0]} cy={l[2]} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>)}</svg>
-          <div className="cx-tl-today" style={{ left: x(0) }}><span>Hoje</span></div>
-        </div>
+  /* ── legenda e ferramentas ── */
+  const legendKinds = TL_KIND_ORDER.filter(k => counts[k] > 0);
+  const kindColor = (k) => (k === 'dec' ? 'var(--cx-green)' : k === 'prazo' ? 'var(--cx-blue)' : k === 'presc' ? 'var(--cx-violet)' : k === 'aud' ? 'var(--cx-orange)' : k === 'rev' ? 'var(--cx-accent)' : undefined);
+  const sum = cxTlSummary(tl, todayIso);
+  const setWindow = (w) => upd({ w, c: tlFocusDefault(w).c });
+  const shift = (d) => upd({ c: st.c + d });
+  const rd = (o) => { const iso = addCalendarDays(todayIso, Math.round(o)); return st.w >= 180 ? fmtDate(iso) : cxDM(iso); };
+  const rangeTxt = rd(f0) + ' → ' + rd(f1);
+  return <div onClick={ev => { const t = ev.target.closest && ev.target.closest('[data-tl]'); if (!t) return; const k = t.getAttribute('data-tl'); if (k.indexOf('bar|') === 0) onOpenProc && onOpenProc(k.slice(4)); }}>
+    <div className="cx-tl-tools cx-tl-pan">
+      {lead}
+      <span className="cx-tl-leg-h" style={{ marginLeft: lead ? 10 : 0 }}>Janela de foco</span>
+      <CxSeg className="lg" label="Janela de foco" value={String(st.w)} onChange={v => setWindow(+v)} options={TL_WINDOWS.map(w => [String(w), tlWindowLabel(w)])} />
+      <span className="cx-sp" />
+      <span className="cx-tl-rng">{rangeTxt}</span>
+      <div className="cx-seg cx-tl-nav" role="group" aria-label="Mover a janela">
+        <button type="button" onClick={() => shift(-step)} title={'Voltar ' + step + ' dias'}>‹ {step} d</button>
+        <button type="button" onClick={() => upd({ c: tlFocusDefault(st.w).c })} title="Voltar o foco para hoje">Hoje</button>
+        <button type="button" onClick={() => shift(step)} title={'Avançar ' + step + ' dias'}>{step} d ›</button>
       </div>
     </div>
-    <div className="cx-tl-legend">
-      <span><i className="cx-lg-sw" style={{ background: 'color-mix(in srgb, var(--cx-cyan) 14%, var(--cx-surface))', border: '1px solid color-mix(in srgb, var(--cx-cyan) 40%, transparent)' }} />Processo</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-green)' }} />Favorável</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-red)' }} />Desfavorável</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-cyan)' }} />Resultado útil</span>
-      <span><i className="cx-tl-dm cx-lg" style={{ '--c': 'var(--cx-orange)' }} />Audiência</span>
+    {sum.length ? <div className="cx-tl-sum">{sum.map(s => <span key={s.k} className={s.k}>{s.node}</span>)}</div> : null}
+    <div className="cx-tl-legend top">
+      <span className="cx-tl-leg-h">Mostrar</span>
+      {legendKinds.map(k => <button key={k} type="button" className={'cx-fchip sm cx-tl-chip' + (hid(k) ? ' off' : ' on')} aria-pressed={!hid(k)} onClick={() => upd({ hidden: tlToggleKind(st.hidden, k) })} title={(hid(k) ? 'Mostrar ' : 'Ocultar ') + TL_KINDS[k].plural.toLowerCase()}>
+        <CxTlGlyph kind={k} c={kindColor(k)} s={14} />{TL_KINDS[k].label}<span className="cx-fcn">{counts[k]}</span>
+      </button>)}
+      <span className="cx-tl-leg-br" />
+      <span className="cx-tl-leg-h">Leitura</span>
+      <span><i className="cx-lg-sw" style={{ background: 'color-mix(in srgb, var(--cx-cyan) 22%, var(--cx-surface))', border: '1px solid color-mix(in srgb, var(--cx-cyan) 45%, transparent)', height: 6 }} />Processo</span>
+      <span><i className="cx-lg-sw cx-tl-win" style={{ position: 'static', '--c': 'var(--cx-blue)', height: 7 }} />Janela do prazo</span>
+      <span><i className="cx-lg-sw cx-tl-band" style={{ position: 'static', height: 10 }} />Faixa até o piso</span>
       <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano</span>
       <span><i className="cx-lg-sw cx-tl-seg inter" />Contagem de 5 anos</span>
       <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento</span>
-      <span><i className="cx-lg-sw cx-tl-seg susp2" />Outra pausa</span>
+      <span><i className="cx-tl-brk-k" aria-hidden="true" />Quebra do eixo</span>
+      <span className="cx-tl-leg-out"><i className="cx-tl-oc" style={{ background: 'var(--cx-green)' }} />favorável<i className="cx-tl-oc" style={{ background: 'var(--cx-red)' }} />desfavorável<i className="cx-tl-oc" style={{ background: 'var(--cx-yellow)' }} />pendente</span>
+    </div>
+    <div className="cx-tl" {...tip.bind}>
+      <div className="cx-tl-l"><div className="cx-tl-hd">Processo · papel · devedor</div>{sections.map((v, k) => left(v, k))}</div>
+      <div className="cx-tl-r" ref={rRef}>
+        <div className="cx-tl-cv" style={{ width: CW, height: H }}>
+          <div className="cx-tl-axis" style={{ height: CX_TL_AXIS }}>
+            {S.pastW ? <span className="cx-tl-zl" style={{ left: 0, width: S.pastW }} /> : null}
+            {S.futW ? <span className="cx-tl-zl" style={{ left: S.pastW + S.focusW, width: S.futW }} /> : null}
+            {S.pastW >= 120 ? <span className="cx-tl-cap" style={{ left: 6 }}>PASSADO · COMPRIMIDO</span> : null}
+            <span className="cx-tl-cap foc" style={{ left: S.pastW + 6 }}>FOCO · {st.w === 365 ? '1 ANO' : st.w + ' DIAS'} · {rangeTxt}</span>
+            {S.futW >= 120 ? <span className="cx-tl-cap" style={{ right: 6 }}>FUTURO · COMPRIMIDO</span> : null}
+            {majors.map((m, i) => <span key={'M' + i} className="cx-tl-major" style={{ left: m.x }}>{mLab(m)}</span>)}
+            {fa.ticks.filter(tk => !nearToday(tk.x)).map((tk, i) => <span key={'T' + i} className={'cx-tl-tick' + (tk.we ? ' we' : '')} style={{ left: tk.x }}>{tk.text}</span>)}
+            {zp.labels.concat(zu.labels).map((lb, i) => <span key={'Z' + i} className="cx-tl-major zn" style={{ left: lb.x }}>{lb.text}</span>)}
+            {brkAll.map((b, i) => {
+              const mid = (b.x0 + b.x1) / 2, hw = Math.max(22, b.x1 - b.x0);
+              return <React.Fragment key={'br' + i}>
+                {b.sq ? <span className="cx-tl-sqb" style={{ left: b.x0, width: Math.max(2, b.x1 - b.x0) }} /> : <span className="cx-tl-brk" style={{ left: mid - 6 }} />}
+                <span className="cx-tl-brk-hit" data-tl={'brk|' + i} style={{ left: mid - hw / 2, width: hw, top: CX_TL_AXIS - 22 }} />
+                {!b.sq && b.showLabel ? <span className="cx-tl-brk-l" style={{ left: mid - Math.max(22, b.x1 - b.x0) / 2, width: Math.max(22, b.x1 - b.x0) }}>{b.label}</span> : null}
+              </React.Fragment>;
+            })}
+          </div>
+          {S.pastW ? <span className="cx-tl-zone" style={{ left: 0, width: S.pastW, top: CX_TL_AXIS }} /> : null}
+          {S.futW ? <span className="cx-tl-zone" style={{ left: S.pastW + S.focusW, width: S.futW, top: CX_TL_AXIS }} /> : null}
+          {fa.shade.map((s, i) => <span key={'sh' + i} className={'cx-tl-shade' + (s.holiday ? ' hol' : '')} style={{ left: s.x, width: s.w }} />)}
+          {fa.grid.map((g, i) => <span key={'g' + i} className={'cx-tl-grid' + (g.strong ? ' strong' : '')} style={{ left: g.x }} />)}
+          {zp.ticks.concat(zu.ticks).map((tk, i) => <span key={'zt' + i} className="cx-tl-grid strong zt" style={{ left: tk.x }} />)}
+          {brkAll.filter(b => !b.sq).map((b, i) => <span key={'bg' + i} className="cx-tl-brk-g" style={{ left: Math.round((b.x0 + b.x1) / 2), top: CX_TL_AXIS }} />)}
+          {sections.map((v, k) => right(v, k))}
+          <svg className="cx-tl-svg" width={CW} height={H}>{links.map((l, k) => { const d = 'M' + l.x + ' ' + l.ya + ' C ' + (l.x - 16) + ' ' + l.ya + ', ' + (l.x - 16) + ' ' + l.yb + ', ' + l.x + ' ' + l.yb; return <g key={k} data-tl={l.l.id}><path d={d} className={'cx-tl-link' + (l.l.type === 'cover' ? ' cover' : '')} /><path d={d} className="cx-tl-link-hit" /><circle cx={l.x} cy={l.yb} r="2.5" style={{ fill: 'var(--cx-ink-3)' }} /></g>; })}</svg>
+          <div className="cx-tl-today" style={{ left: x0 }}><span>Hoje</span></div>
+        </div>
+      </div>
+      {tip.node}
     </div>
   </div>;
 }
-function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, scale, setScale, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda }) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
+/* Modos da página Linha do tempo: Panorama (M1, a régua), Frentes (M3, o mapa de dependências), Prescrição (M4, o relógio por CDA) e Narrativa (M2); um modo
+   novo entra aqui: basta acrescentar [chave, rótulo] a CX_TL_MODES e o componente em CX_TL_VIEWS (recebe { tl, op, lead, … };
+   `lead` é o seletor de operação mais o seletor de modo, e a visão o coloca na própria barra de ferramentas).
+   Com um modo só, o seletor fica escondido. O modo escolhido é lembrado neste navegador. */
+const CX_TL_MODES = [['panorama', 'Panorama'], ['frentes', 'Frentes'], ['prescricao', 'Prescrição'], ['narrativa', 'Narrativa']];
+const CX_TL_VIEWS = { panorama: EditionClaudeTimelinePanorama, frentes: EditionClaudeTimelineFrentes, prescricao: EditionClaudeTimelineClocks, narrativa: EditionClaudeTimelineNarrative };
+const CX_TL_DESC = {
+  panorama: 'Processos, prazos e a contagem da prescrição numa régua com foco no agora: o passado e o futuro distantes ficam comprimidos nas laterais. Clique num marco para abrir o processo, a audiência, a intimação ou a CDA. A faixa de prescrição usa o cálculo do app, pela CDA em pior situação de cada processo.',
+  frentes: 'O que depende de quê: uma raia por processo (IDPJ, MCF, execuções, exceção, agravo, CDAs) numa sequência de acontecimentos, com setas de efeito e de condição. Passe o mouse numa estação para ver o que a originou e o que ela destrava; "Caminho crítico" realça o que ainda precisa acontecer até o que está por decidir. Clique numa estação para abrir o processo, a intimação, a audiência ou a CDA.',
+  prescricao: 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa de prazos; cada barra vale 5 anos (ou 1+5), então dá para comparar CDAs de idades diferentes. Clique numa CDA para abrir a ficha com a memória de cálculo.',
+  narrativa: 'A história da operação em ordem de importância: o que está atrasado e o que vem (do mais próximo ao mais distante), e abaixo do divisor Hoje o que já houve, com as decisões em destaque e o que você mesmo fez. Filtre por natureza ou por processo; clique num cartão para abrir o processo, a intimação, a audiência, a tarefa ou a CDA.',
+};
+const CX_TL_MODE_STORE = 'nexus_cx_tl_mode';
+function cxTlLoadMode() { const m = cxLs(CX_TL_MODE_STORE, 'panorama'); return CX_TL_VIEWS[m] ? m : 'panorama'; }
+function EditionClaudeTimelinePage({ data, opId, setOpId, prescLookup, prazosRadar, onOpenIntim, onOpenHearing, onOpenOp, onOpenCda, onOpenProc, onOpenTask }) {
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o)).slice().sort(sortOpsByName);
   const op = ops.find(o => o.id === opId) || ops[0];
+  const [mode, setModeS] = React.useState(cxTlLoadMode);
+  const setMode = (m) => { setModeS(m); cxLsSet(CX_TL_MODE_STORE, m); };
+  const tl = React.useMemo(() => (op ? cxBuildTimeline(data, op, prescLookup) : null), [data, op, prescLookup]);
+  const View = CX_TL_VIEWS[mode] || CX_TL_VIEWS.panorama;
+  const [proView, setProView] = React.useState(null); // leitura de uma atuação proativa (clique na Narrativa)
+  const proExec = proView ? (data.executions || []).find(x => x.id === proView.execId) : null;
+  const proAct = proExec ? (proExec.proactiveActions || []).find(x => x.id === proView.actionId) : null;
   return <div className="cx cx-page cx-page-wide">
-    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>Processos, prazos e a contagem da prescrição da operação numa mesma régua. A faixa lilás usa o cálculo do app, pela CDA em pior situação de cada processo.</p></div>
+    <div className="cx-page-h"><div><h1>Linha do tempo</h1><p>{CX_TL_DESC[mode] || CX_TL_DESC.panorama}</p></div>
       {op ? <div className="cx-acts"><button type="button" className="cx-btn" onClick={() => onOpenOp(op.id)}>Abrir operação<CxIcon n="chevR" s={13} /></button></div> : null}</div>
     {!op ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma operação ativa.</div></div> : <>
-      <div className="cx-tl-tools">
+      <View key={op.id + '|' + mode} tl={tl} op={op} data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} lead={<>
         <CxSelect id="cx-tl-op" pre="Operação" value={op.id} onChange={setOpId} options={ops.map(o => [o.id, cxOpName(o)])} />
-        <CxSeg className="lg" label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} />
-        <span className="cx-sp" />
-        <span className="cx-muted cx-small">Clique num prazo para abrir a intimação. Use Anos para ver o 1 ano + 5 anos inteiro.</span>
-      </div>
-      <EditionClaudeTimeline data={data} op={op} prescLookup={prescLookup} scale={scale} setScale={setScale} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} />
+        {CX_TL_MODES.length > 1 ? <CxSeg className="lg" label="Modo" value={mode} onChange={setMode} options={CX_TL_MODES} /> : null}
+      </>} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={(execId, actionId) => setProView({ execId, actionId })} />
     </>}
+    {proAct ? <EditionClaudeAtuacaoView exec={proExec} action={proAct} onClose={() => setProView(null)} /> : null}
   </div>;
 }
 
+/* ═════════════════════ Relógio da prescrição por CDA (M4) ═════════════════════
+   "Quanto tempo falta, CDA por CDA? O que já parou ou zerou o relógio, e o que eu precisaria fazer para reiniciá-lo?"
+   Vive em dois lugares: Prazos extintivos (visão "Relógios", todas as operações ou uma) e a Linha do tempo (modo
+   Prescrição, uma operação). Tudo sai do motor e da Mesa (src/lib/clocks.js): onde a Mesa lista a CDA, o termo e os dias
+   são os dela. A barra é normalizada (5 anos, ou 1+5): dá para comparar CDAs de idades diferentes; o calendário de
+   termos mostra as datas absolutas. "E se eu ajuizar hoje?" roda o motor com um ajuizamento hipotético, só na tela. */
+const CX_CLK_TONE = { red: 'var(--cx-red)', orange: 'var(--cx-orange)', yellow: 'var(--cx-yellow)', green: 'var(--cx-green)', cyan: 'var(--cx-cyan)', grey: 'var(--cx-ink-3)' };
+const cxClkTone = (group) => CX_CLK_TONE[(CLK_GROUPS.find(g => g.key === group) || {}).tone] || 'var(--cx-ink-3)';
+const CX_CLK_SIM_TIP = 'Roda o motor de prescrição com um ajuizamento hoje (despacho que ordena a citação), só nesta tela. Nada é gravado.';
+function cxClkCountdown(c) {
+  if (c.kind === 'orig') {
+    const d = c.termDays;
+    if (d == null) return { big: '—', sm: '' };
+    if (d < 0) return { big: 'vencida', sm: tlDurLabel(d) + (c.estimated ? ' (estimado)' : ''), cls: 'late' };
+    return { big: d === 0 ? 'hoje' : d < 366 ? d + (d === 1 ? ' dia' : ' dias') : tlDurLabel(d), sm: 'para ajuizar' + (c.estimated ? ' (est.)' : '') };
+  }
+  if (c.kind === 'inter') {
+    const d = c.termDays;
+    if (d != null && d < 0) return { big: 'vencida', sm: tlDurLabel(d) + (c.estimated ? ' (estimado)' : ''), cls: 'late' };
+    return { big: d == null ? '—' : tlDurLabel(d), sm: 'de prescrição intercorrente' };
+  }
+  if (c.kind === 'parc') {
+    const since = c.since ? tlDurLabel(-daysUntil(c.since)) : '';
+    return { big: 'parado', sm: c.cause === 'pausa' ? 'pausa da exigibilidade' : (since ? since + ' de parcelamento' : 'parcelamento vigente'), small: true };
+  }
+  if (c.kind === 'piso') return { big: c.floor ? c.floor.slice(0, 4) : '—', sm: 'piso · ' + (c.floorDays != null ? tlDurLabel(c.floorDays) : ''), small: true };
+  return { big: '—', sm: 'falta dado', small: true };
+}
+function CxClkBar({ c, todayIso }) {
+  const tone = cxClkTone(c.group);
+  const pc = (a, b, x) => clkPct(a, b, x) * 100;
+  let trk = null, left = null, right = null, hojeP = null, hojeTxt = 'HOJE', term = null;
+  if (c.kind === 'orig') {
+    const p = pc(c.start, c.term, todayIso), late = c.termDays != null && c.termDays < 0;
+    hojeP = p; hojeTxt = 'HOJE · ' + (late ? '100' : Math.round(p)) + '%';
+    trk = <><div className={'cx-clk-fill' + (late ? ' late' : '')} style={{ width: p + '%' }} />{[20, 40, 60, 80].map(t => <i key={t} className="cx-clk-tk" style={{ left: t + '%' }} />)}</>;
+    left = <>{c.startKnown ? 'constituição' : 'início estimado'} <b>{fmtDate(c.start)}</b></>;
+    right = <>{c.estimated ? 'termo estimado' : 'termo'} <b>{fmtDate(c.term)}</b></>;
+    term = <CxTlGlyph kind="presc" c={tone} s={20} />;
+  } else if (c.kind === 'inter') {
+    const p = pc(c.start, c.term, todayIso);
+    hojeP = p;
+    trk = <>{c.segs.map((s, i) => {
+      const a = pc(c.start, c.term, s.from), b = pc(c.start, c.term, s.to);
+      if (s.t === 'susp') return <div key={i} className="cx-clk-sg susp" style={{ left: a + '%', width: Math.max(0.6, b - a) + '%' }} />;
+      return <React.Fragment key={i}><div className="cx-clk-sg rest" style={{ left: a + '%', width: Math.max(0, b - a) + '%' }} /><div className={'cx-clk-fill' + (c.termDays < 0 ? ' late' : '')} style={{ left: a + '%', width: Math.max(0, Math.min(p, b) - a) + '%' }} /></React.Fragment>;
+    })}{[1, 2, 3, 4, 5].map(t => <i key={t} className="cx-clk-tk" style={{ left: (t / 6 * 100) + '%' }} />)}</>;
+    left = <>marco <b>{fmtDate(c.start)}</b> · 1 ano de suspensão</>;
+    right = <>{c.estimated ? 'termo estimado' : 'termo'} <b>{fmtDate(c.term)}</b></>;
+    term = <CxTlGlyph kind="presc" c={tone} s={20} />;
+  } else if (c.kind === 'parc') {
+    hojeP = 46;
+    trk = <><div className="cx-clk-sg parc" style={{ left: 0, width: '46%' }} /><div className="cx-clk-sg ghost" style={{ left: '46%', right: 0 }} /></>;
+    left = c.since ? <>vigente desde <b>{fmtDate(c.since)}</b> · {tlDurLabel(-daysUntil(c.since))}</> : <><b>{c.cause === 'pausa' ? 'pausa vigente' : 'parcelamento vigente'}</b></>;
+    right = c.cause === 'pausa' ? <>volta a correr <b>quando a pausa terminar</b></> : <>novo quinquênio <b>só na rescisão</b></>;
+  } else if (c.kind === 'piso') {
+    const a = (c.anchor && c.anchor.iso) || addCalendarYears(c.floor, -6);
+    const p = Math.max(1.4, pc(a, c.floor, todayIso));
+    hojeP = p;
+    trk = <><div className="cx-clk-sg cyan" style={{ left: 0, width: p + '%' }} /><div className="cx-clk-sg rest" style={{ left: p + '%', right: 0 }} />{[1, 2, 3, 4, 5].map(t => <i key={t} className="cx-clk-tk" style={{ left: (t / 6 * 100) + '%' }} />)}</>;
+    const ak = c.anchor && CX_FLOOR_KIND[c.anchor.kind];
+    left = c.anchor ? <>{ak ? ak : 'ato'} <b>{fmtDate(c.anchor.iso)}</b> encerrou o ciclo{c.simulated ? <> · <b className="cx-clk-simtx">cenário simulado</b></> : null}</> : <>sem relógio ativo</>;
+    right = <>piso <b>{fmtDate(c.floor)}</b> · só há risco depois de novo marco</>;
+    term = <CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={20} />;
+  } else {
+    trk = <div className="cx-clk-sg ghost" style={{ left: 0, right: 0 }} />;
+    left = <>faltam dados para calcular o relógio</>;
+  }
+  return <div className="cx-clk-bar">
+    <div className="cx-clk-trk">
+      <div className="cx-clk-tr">{trk}</div>
+      {hojeP != null ? <div className="cx-clk-hoje" style={{ left: hojeP + '%' }}><span>{hojeTxt}</span></div> : null}
+      {term ? <span className="cx-clk-term">{term}</span> : null}
+    </div>
+    <div className="cx-clk-lbs"><span>{left}</span>{right ? <span className="r">{right}</span> : null}</div>
+  </div>;
+}
+/* Relógios da prescrição (M4). Dois usos: página/aba solta (Prazos extintivos, Linha do tempo) e `embedded` dentro da aba
+   Inscrições da operação — mesma tela, mesma conta; `debtIds` (Set) recorta às CDAs que passaram nos filtros da aba
+   (busca e Pessoa) e `filtered` só ajusta o texto de "nada a mostrar". Sem `onOpenProc`, clicar numa linha com várias CDAs
+   do mesmo processo abre a primeira CDA (na aba, a gaveta da CDA). */
+function EditionClaudeClocks({ data, prazosRadar, prescLookup, opId, lead, onOpenCda, onOpenProc, debtIds, embedded, filtered }) {
+  const todayIso = localIso(new Date());
+  const res = React.useMemo(() => clkBuild({ data, rows: (prazosRadar && prazosRadar.rows) || [], silenced: (prazosRadar && prazosRadar.silenced) || [], lookup: prescLookup, today: todayIso, opId: opId || '', debtIds: debtIds || null }), [data, prazosRadar, prescLookup, opId, debtIds, todayIso]);
+  const [sims, setSims] = React.useState({});
+  const [simErr, setSimErr] = React.useState({});
+  const [calSel, setCalSel] = React.useState(null);
+  React.useEffect(() => { setSims({}); setSimErr({}); }, [opId, data]);
+  React.useEffect(() => { setCalSel(null); }, [opId]);
+  const clocks = React.useMemo(() => clkSort(res.clocks.map(c => (sims[c.id] ? clkApplySim(c, sims[c.id], todayIso) : c))), [res, sims, todayIso]);
+  const kpis = React.useMemo(() => clkKpis(clocks, todayIso), [clocks, todayIso]);
+  const strip = React.useMemo(() => clkStrip(clocks, todayIso), [clocks, todayIso]);
+  const byId = React.useMemo(() => { const m = new Map(); clocks.forEach(c => m.set(c.id, c)); return m; }, [clocks]);
+  const cal = React.useMemo(() => clkQuarterBins(strip.points, todayIso), [strip, todayIso]);
+  /* Células não vazias do calendário, por chave ('over' | 'term|2030-Q3' | 'piso|2030-Q3'): rótulo, pontos e recorte. */
+  const calCells = React.useMemo(() => {
+    const m = new Map();
+    if (cal.overdue.points.length) m.set('over', { lane: 'over', label: 'Vencidos', short: 'Vencidos', cell: cal.overdue, bucket: { lane: 'over' } });
+    cal.cols.forEach(c => ['term', 'piso'].forEach(lane => {
+      if (!c[lane].points.length) return;
+      m.set(lane + '|' + c.key, { lane, label: c.label + (lane === 'piso' ? ' · pisos' : ' · termos'), short: c.label + (lane === 'piso' ? ' · pisos' : ''), cell: c[lane], bucket: { lane, from: c.from, to: c.to } });
+    }));
+    return m;
+  }, [cal]);
+  React.useEffect(() => { if (calSel && !calCells.has(calSel)) setCalSel(null); }, [calCells, calSel]);
+  const selCell = calSel ? calCells.get(calSel) || null : null;
+  const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('cal|') === 0) {
+      const x = calCells.get(key.slice(4)); if (!x) return null;
+      const pts = x.cell.points;
+      const lines = pts.slice(0, 8).map(p => String(p.number).slice(-9) + (p.n > 1 ? ' +' + (p.n - 1) : '') + ' · ' + cxDM(p.d) + '/' + p.d.slice(2, 4) + ' · ' + cxMoneyShort(p.val) + ' · ' + (p.kind === 'piso' ? 'piso' : 'termo'));
+      if (pts.length > 8) { const rest = pts.slice(8); lines.push('+' + rest.length + (rest.length === 1 ? ' relógio' : ' relógios') + ' (' + cxPl(rest.reduce((a, p) => a + (p.n || 1), 0), 'CDA', 'CDAs') + ')'); }
+      lines.push(calSel === key.slice(4) ? 'Clique para limpar o filtro' : 'Clique para filtrar os relógios');
+      return { when: x.label, title: cxPl(x.cell.cdas, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cell.value), lines, tone: x.lane === 'over' ? 'late' : '' };
+    }
+    const c = byId.get(key.replace(/^clk\|/, '')); if (!c) return null;
+    const d = c.kind === 'piso' ? c.floor : c.term;
+    const g = CLK_GROUPS.find(x => x.key === c.group);
+    const dd = d ? daysUntil(d) : null;
+    return { when: (c.kind === 'piso' ? 'Piso · ' : 'Termo · ') + fmtDate(d) + (dd === null ? '' : ' · ' + (dd < 0 ? tlDurLabel(dd) : dd === 0 ? 'hoje' : 'em ' + tlDurLabel(dd))), title: 'CDA ' + c.leadNumber + (c.n > 1 ? ' +' + (c.n - 1) : ''), lines: [(embedded ? '' : cxOpName({ name: c.opName }) + ' · ') + cxMoneyShort(c.value), g ? g.label : '', 'Clique para abrir'].filter(Boolean), tone: c.group === 'crit' ? 'late' : '' };
+  }, [byId, embedded, calCells, calSel]));
+  const open = (c) => {
+    if (c.n > 1 && c.executionId && onOpenProc) onOpenProc(c.executionId);
+    else onOpenCda && onOpenCda({ id: c.leadId, operationId: c.operationId });
+  };
+  const toggleSim = (c) => {
+    if (sims[c.id]) { setSims(prev => { const n = { ...prev }; delete n[c.id]; return n; }); return; }
+    const out = clkSimulateFiling({ debt: c.debt, executions: data.executions || [], events: data.prescriptionEvents || [], today: todayIso });
+    if (!out.ok) { setSimErr(prev => ({ ...prev, [c.id]: out.reason })); return; }
+    setSimErr(prev => { const n = { ...prev }; delete n[c.id]; return n; });
+    setSims(prev => ({ ...prev, [c.id]: out }));
+  };
+  /* ── calendário de termos (faixas por trimestre) ── */
+  const calNext = React.useMemo(() => clkNextDates(strip.points, todayIso, 3), [strip, todayIso]);
+  const calShort = (v) => { v = Number(v) || 0; if (v <= 0) return '—'; if (v >= 1e9) return (Math.round(v / 1e8) / 10).toLocaleString('pt-BR') + ' bi'; if (v >= 995000) { const x = v / 1e6; return (x >= 10 ? String(Math.round(x)) : (Math.round(x * 10) / 10).toLocaleString('pt-BR')) + ' mi'; } if (v >= 1000) return Math.round(v / 1000).toLocaleString('pt-BR') + ' mil'; return 'R$ ' + Math.round(v); };
+  const calPick = (k) => setCalSel(prev => (prev === k ? null : k));
+  const calClear = () => { const k = calSel; setCalSel(null); if (k) { const el = document.querySelector('[data-calk="' + k + '"]'); if (el) el.focus(); } };
+  const calCellBtn = (k, col, row, mark) => {
+    const x = calCells.get(k); if (!x) return null;
+    const on = calSel === k, c = x.cell;
+    return <button key={k} type="button" className={'cx-cal-cc g-' + c.group + (x.lane === 'over' ? ' venc' : '') + (on ? ' sel' : '')} style={{ gridColumn: col, gridRow: row }} data-tl={'cal|' + k} data-calk={k} aria-pressed={on}
+      aria-label={x.label + ': ' + cxPl(c.cdas, 'CDA', 'CDAs') + ', ' + cxMoneyShort(c.value) + (on ? '. Clique para limpar o filtro.' : '. Clique para filtrar os relógios.')} onClick={() => calPick(k)}>
+      {x.lane === 'over' ? <span className="t0">Vencidos</span> : null}
+      <span className="t1"><CxTlGlyph kind="presc" c="var(--c)" hollow={x.lane === 'piso'} s={x.lane === 'over' ? 12 : 11} />{c.cdas}{x.lane === 'over' ? <span className="t2i"> · {calShort(c.value)}</span> : null}</span>
+      {x.lane === 'over' ? null : <span className="t2">{calShort(c.value)}</span>}
+    </button>;
+  };
+  const calOverW = cal.overdue.points.length ? 96 : 74;
+  const calMinW = 50 + calOverW + cal.cols.length * (cal.gran === 'q' ? 36 : cal.gran === 'h' ? 44 : 46);
+  const legend = <div className="cx-tl-legend cx-clk-leg">
+    <span className="cx-tl-leg-h">Leitura</span>
+    <span><i className="cx-lg-sw cx-clk-sw fill" />Tempo decorrido</span>
+    <span><i className="cx-lg-sw cx-clk-sw rest" />Tempo restante</span>
+    <span><i className="cx-lg-sw cx-tl-seg susp" />Suspensão de 1 ano (art. 40)</span>
+    <span><i className="cx-lg-sw cx-tl-seg pausa" />Parcelamento ou pausa vigente</span>
+    <span><i className="cx-lg-sw cx-clk-sw cyan" />Piso: só há risco depois de novo marco</span>
+    <span><CxTlGlyph kind="presc" c="var(--cx-violet)" s={14} />termo<CxTlGlyph kind="presc" c="var(--cx-cyan)" hollow s={14} />piso</span>
+  </div>;
+  const shown = selCell ? clocks.filter(c => clkBucketMatch(c, selCell.bucket, todayIso)) : clocks;
+  const groups = CLK_GROUPS.map(g => ({ g, rows: shown.filter(c => c.group === g.key) })).filter(x => x.rows.length);
+  const mon = (v) => cxMoneyShort(v);
+  const empty = !clocks.length;
+  return <div className={'cx-clk' + (embedded ? ' emb' : '')} {...tip.bind}>
+    {lead ? <div className="cx-tl-tools">{lead}</div> : null}
+    {empty ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA com relógio a mostrar{opId ? ' nesta operação' : ''}{filtered ? ' com os filtros da aba (busca e Pessoa)' : ''}.{res.consumadas ? ' ' + cxPl(res.consumadas, 'consumada está', 'consumadas estão') + ' em Consumadas.' : ''}</div></div> : <>
+      <CxKpiStrip n={4} className="bare cx-ks-sp">
+        <CxKpiCard label="Próximo termo" value={kpis.next ? (kpis.next.days === 0 ? 'hoje' : cxPl(kpis.next.days, 'dia', 'dias')) : '—'} tone={kpis.next && kpis.next.days <= 90 ? 'red' : ''}
+          desc={<>{kpis.next ? 'CDA ' + String(kpis.next.cda).slice(-12) + (kpis.next.n > 1 ? ' +' + (kpis.next.n - 1) : '') + (embedded ? '' : ' · ' + cxOpName({ name: kpis.next.opName })) : 'nenhum termo à frente'}{kpis.overdue.cdas ? <b className="cx-red-t"> · {kpis.overdue.cdas} {kpis.overdue.cdas === 1 ? 'vencida' : 'vencidas'}</b> : null}</>} />
+        <CxKpiCard label="Termo em até 1 ano" value={kpis.near.cdas ? mon(kpis.near.value) : '—'}
+          desc={cxPl(kpis.near.cdas, 'CDA', 'CDAs') + ' com relógio em curso'} />
+        <CxKpiCard label="Relógio parado" value={cxPl(kpis.parc.cdas, 'CDA', 'CDAs')} tone="green"
+          desc={kpis.parc.cdas ? mon(kpis.parc.value) + ' · recomeça na rescisão' : 'nenhum parcelamento ou pausa'} />
+        <CxKpiCard label="Sem relógio ativo · piso" value={kpis.piso.cdas ? mon(kpis.piso.value) : '—'} tone="cyan"
+          desc={kpis.piso.cdas ? cxPl(kpis.piso.cdas, 'CDA', 'CDAs') + ' · piso mais próximo ' + fmtDate(kpis.piso.nearestFloor) : 'nenhum ciclo encerrado'} />
+      </CxKpiStrip>
+      <section className="cx-card cx-clk-strip cx-cal" aria-label="Calendário dos termos">
+        <div className="cx-cal-h">
+          <div><h3>Calendário dos termos</h3><span className="cx-cal-sub">{cxPl(cal.total.cdas, 'CDA', 'CDAs')} · {cxMoneyShort(cal.total.value)}{cal.gran === 'h' ? ' · por semestre' : cal.gran === 'y' ? ' · por ano' : ''}</span></div>
+          <div className="cx-cal-leg" aria-hidden="true">
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" s={13} />termo</span>
+            <span><CxTlGlyph kind="presc" c="var(--cx-ink-2)" hollow s={13} />piso</span>
+            <span className="sep" />
+            <span><i style={{ '--c': 'var(--cx-red)' }} />até 90 dias</span>
+            <span><i style={{ '--c': 'var(--cx-orange)' }} />até 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-yellow)' }} />mais de 1 ano</span>
+            <span><i style={{ '--c': 'var(--cx-cyan)' }} />piso</span>
+          </div>
+        </div>
+        <div className="cx-cal-sc">
+          <div className="cx-cal-grid" role="group" aria-label="Termos e pisos por faixa de tempo" style={{ gridTemplateColumns: '50px ' + calOverW + 'px repeat(' + cal.cols.length + ', minmax(0, 1fr))', minWidth: calMinW }}>
+            <div className="cx-cal-lbg" style={{ gridRow: 2 }} /><div className="cx-cal-lbg" style={{ gridRow: 3 }} />
+            <div className="cx-cal-ll" style={{ gridRow: 2 }}>Termos</div><div className="cx-cal-ll" style={{ gridRow: 3 }}>Pisos</div>
+            <div className="cx-cal-hl">HOJE · {cxDM(todayIso)}</div>
+            {cal.years.map((y, i) => <React.Fragment key={y.year}>
+              <div className="cx-cal-yl" style={{ gridColumn: (3 + y.start) + ' / span ' + y.span, gridRow: 1 }}>{y.year}</div>
+              {i > 0 ? <div className="cx-cal-ys" style={{ gridColumn: 3 + y.start, gridRow: '1 / 5' }} /> : null}
+            </React.Fragment>)}
+            <div className="cx-cal-hoje" style={{ gridColumn: 3, gridRow: '1 / 5' }} />
+            {calCells.has('over') ? calCellBtn('over', 2, 2) : <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 2 }} />}
+            <span className="cx-cal-dot" style={{ gridColumn: 2, gridRow: 3 }} />
+            {cal.cols.map((c, i) => ['term', 'piso'].map((lane, li) => {
+              const k = lane + '|' + c.key;
+              return calCells.has(k) ? calCellBtn(k, 3 + i, 2 + li) : <span key={k} className="cx-cal-dot" style={{ gridColumn: 3 + i, gridRow: 2 + li }} />;
+            }))}
+            {cal.gran === 'y' ? null : cal.cols.map((c, i) => <div key={'q' + c.key} className="cx-cal-ql" style={{ gridColumn: 3 + i, gridRow: 4 }}>{c.short}</div>)}
+          </div>
+        </div>
+        {calNext.length ? <p className="cx-cal-next">Próximos termos: {calNext.map((x, i) => <React.Fragment key={x.d + x.kind}>{i ? ' · ' : ''}<b className={x.kind === 'piso' ? 'piso' : ''}>{cxDM(x.d)}/{x.d.slice(2, 4)}</b> {x.kind === 'piso' ? <span className="piso">piso </span> : null}{String(x.number).slice(-9)}{x.others > 0 ? ' +' + x.others : ''}</React.Fragment>)}</p> : null}
+        <div className="cx-cal-f" aria-live="polite">{selCell ? <span className="cx-cal-fchip">Filtrando: <b>{selCell.short}</b><span className="n"> · {cxPl(selCell.cell.cdas, 'CDA', 'CDAs')}</span><button type="button" aria-label="Limpar filtro do calendário" onClick={calClear}>×</button></span> : null}</div>
+        {cal.skipped ? <p className="cx-cal-note">{cxPl(cal.skipped, 'piso já passou e não aparece', 'pisos já passaram e não aparecem')} no calendário; segue nas linhas abaixo.</p> : null}
+      </section>
+      {groups.map(({ g, rows }) => <section key={g.key} aria-label={g.label}>
+        <div className="cx-clk-g"><i style={{ background: cxClkTone(g.key) }} />{g.label}<span className="ln" /><span>{rows.length}</span></div>
+        {rows.map(c => {
+          const cd = cxClkCountdown(c);
+          const tone = c.simulated ? 'var(--cx-cyan)' : cxClkTone(c.group);
+          const cert = c.hasRow ? mesaCertainty(c.row) : '';
+          const simDisabled = c.kind === 'orig' && c.termDays != null && c.termDays < 0;
+          const canSim = c.kind === 'orig' || c.simulated;
+          return <div key={c.id} className="cx-clk-row" style={{ '--c': tone }} role="button" tabIndex={0} onClick={() => open(c)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) open(c); }}
+            title={c.n > 1 ? c.cdaNumbers.join(' · ') : undefined}>
+            <div className="cx-clk-id">
+              <div className="n cx-mono">{c.leadNumber}{c.n > 1 ? <span className="more"> +{c.n - 1}</span> : null}</div>
+              <div className="m">{embedded ? null : <span className="cx-op-tag"><CxOpSquare opId={c.operationId} /><span className="cx-ell">{cxOpName({ name: c.opName })}</span></span>}{c.tribute ? <span>{embedded ? '' : '· '}{c.tribute}</span> : null}<b>{mon(c.value)}</b>{embedded && c.personName ? <span className="cx-ell">· {c.personName}</span> : null}</div>
+              <div className="m">{c.processNumber ? <CxProc num={c.processNumber} /> : <span className="cx-muted">sem processo</span>}
+                {c.simulated ? <span className="cx-tag cyan">simulado</span> : null}
+                {cert && !c.simulated ? <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span> : null}</div>
+            </div>
+            <CxClkBar c={c} todayIso={todayIso} />
+            <div className={'cx-clk-cd' + (cd.cls ? ' ' + cd.cls : '')}><div className={'big' + (cd.small ? ' sm' : '')}>{cd.big}</div><div className="sm">{cd.sm}</div></div>
+            <div className="cx-clk-act">
+              {canSim ? <button type="button" className="cx-btn sm" disabled={simDisabled} aria-pressed={!!c.simulated} title={simDisabled ? 'O termo já passou: ajuizar hoje não reinicia o prazo. Confira nos autos.' : c.simulated ? 'Voltar ao relógio real' : CX_CLK_SIM_TIP} onClick={e => { e.stopPropagation(); toggleSim(c); }}>{c.simulated ? 'Desfazer simulação' : 'E se eu ajuizar hoje?'}</button> : null}
+              {simErr[c.id] ? <span className="small cx-red-t" role="status">{simErr[c.id]}</span> : null}
+              <span className="small cx-muted">{c.simulated ? 'nada foi gravado' : c.kind === 'orig' ? 'ajuizar' : c.kind === 'parc' ? 'acompanhar rescisão' : c.kind === 'inter' ? 'monitorar' : c.kind === 'piso' ? 'aguardar novo marco' : 'completar o cadastro'}</span>
+            </div>
+          </div>;
+        })}
+      </section>)}
+      {legend}
+      <p className="cx-clk-foot">{res.tratadas ? cxPl(res.tratadas, 'CDA tratada fica', 'CDAs tratadas ficam') + ' fora do relógio. ' : ''}{res.consumadas ? cxPl(res.consumadas, 'prescrição consumada está', 'prescrições consumadas estão') + ' em Consumadas, para análise.' : ''} Termos e dias são os mesmos da Mesa de prazos; o piso é o que a calculadora garante até haver novo marco, não um prazo a cumprir.</p>
+    </>}
+    {tip.node}
+  </div>;
+}
+function EditionClaudeTimelineClocks({ op, lead, data, prazosRadar, prescLookup, onOpenCda, onOpenProc }) {
+  return <EditionClaudeClocks data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} opId={op.id} lead={lead} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
+}
+
+/* ═════════════════════ Narrativa da operação (M2) ═════════════════════
+   "Me conte a história desta operação: o que foi decidido, o que eu já fiz, o que está atrasado e o que vem — na ordem
+   em que importa." Vive na Linha do tempo (modo Narrativa, com o painel de leitura ao lado) e no Briefing (o card que
+   era "Últimas atuações" — veja docs/MELHORIAS.md: um card só, com o passado e o futuro). Mesmos dados da régua
+   (`cxBuildTimeline`) mais as atuações de `buildUltimasAtuacoes` (respostas a intimações, tarefas concluídas, atuações
+   proativas) e as tarefas abertas; a classificação, os filtros e a frase-resumo são de src/lib/narrativa.js. */
+const CX_NARR_KIND = { dec: 'Decisão', and: 'Fase', aud: 'Audiência', prazo: 'Prazo', presc: 'Prescrição', rev: 'Revisão', resposta: 'Resposta à intimação', proativa: 'Atuação proativa', tarefa: 'Tarefa', tarok: 'Tarefa concluída' };
+const CX_NARR_ORDERS = [['foco', 'Próximo → antigo'], ['cron', 'Cronológica']];
+function cxBuildNarrative(data, op, tl, todayIso) {
+  const out = [];
+  const execOfNum = (pn) => { const e = pn ? (tl.procs.map(r => r.x.e).find(x => sameProc(x.processNumber, pn))) : null; return e ? e.id : ''; };
+  tl.items.forEach(it => {
+    const base = { id: it.id, d: it.d || '', execId: it.execId || '', ref: it.ref, color: cxTlColor(it), glyph: it.kind, kindLabel: CX_NARR_KIND[it.kind] || '', title: it.l, text: '', badges: [] };
+    if (it.k === 'stage' && (it.kind === 'dec' || it.kind === 'and')) {
+      const pending = it.out === 'pendente';
+      out.push({ ...base, cat: 'dec', big: it.kind === 'dec' && !pending, pending, out: it.out || '', text: it.t || '' });
+    } else if (it.kind === 'presc' && it.k === 'cda') {
+      const dbt = it.debt || {};
+      out.push({ ...base, cat: 'presc', open: true, deadline: true, big: false, text: [dbt.tribute || dbt.system || '', cxMoneyShort(dbt.value), 'sem processo'].filter(Boolean).join(' · '), glyph: 'presc' });
+    } else if (it.kind === 'presc') {
+      const interrupts = it.pcat === 'interruptiva', suspends = it.pcat === 'suspensiva';
+      out.push({ ...base, cat: 'presc', deadline: !!(it.mark && it.deadline), text: it.mark ? 'Prescrição pela CDA em pior situação do processo' : '', badges: interrupts ? [{ t: '⌛ interrompe a prescrição', c: 'var(--cx-violet)' }] : suspends ? [{ t: 'suspende a prescrição', c: 'var(--cx-blue)' }] : [] });
+    } else if (it.kind === 'prazo') {
+      const dd = daysUntil(it.d);
+      const bd = [];
+      if (intimIsUrgent(it.i)) bd.push({ t: 'URGENTE', c: 'var(--cx-red)' });
+      if (dd !== null && dd < 0) bd.push({ t: 'vencido há ' + tlDurLabel(-dd).replace(/^há /, ''), c: 'var(--cx-red)' });
+      else if (dd !== null && dd <= 7) bd.push({ t: dd === 0 ? 'vence hoje' : 'faltam ' + tlDurLabel(dd), c: cxTlColor(it) });
+      else bd.push({ t: 'prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d), c: cxTlColor(it) });
+      const teorP = intimationDecisionText(it.i);
+      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i) + (teorP ? ' · Teor: ' + teorP : ''), badges: bd });
+    } else if (it.kind === 'aud') {
+      out.push({ ...base, cat: 'aud', tm: it.tm || '', done: !!it.realized, open: !it.realized, text: (it.hearing && it.hearing.parties) || '', badges: it.realized ? [{ t: 'realizada', c: 'var(--cx-ink-3)' }] : [] });
+    } else if (it.kind === 'rev') {
+      const late = daysUntil(it.d) < 0;
+      out.push({ ...base, cat: 'prazo', open: true, title: late ? it.l + ' atrasada' : it.l, text: late ? 'Marque como revisada no cabeçalho da operação depois de conferir prazos e prescrição.' : '', badges: late ? [{ t: 'vencida há ' + tlDurLabel(-daysUntil(it.d)).replace(/^há /, ''), c: 'var(--cx-red)' }] : [], ref: null });
+    }
+  });
+  /* Intimações com teor da decisão que não aparecem como prazo aberto: um item na data da intimação, com o teor como texto. */
+  const comPrazo = new Set(tl.items.filter(it => it.kind === 'prazo' && it.i).map(it => it.i.id));
+  (data.intimations || []).forEach(x => {
+    if (x.operationId !== op.id || comPrazo.has(x.id)) return;
+    const teor = intimationDecisionText(x); if (!teor) return;
+    const d = toDayKey(x.dateStart) || toDayKey(x.dateSent) || toDayKey(x.responseAction && x.responseAction.respondedAt) || toDayKey(x.createdAt); if (!d) return;
+    out.push({ id: 'it|' + x.id, cat: 'dec', glyph: 'and', kindLabel: 'Intimação', d, done: true, execId: execOfNum(x.processNumber), ref: { t: 'intim', id: x.id }, color: 'var(--cx-ink-2)', title: 'Intimação — ' + (x.eventDescription || x.className || 'sem descrição'), text: 'Teor: ' + teor, badges: [], procNum: x.processNumber || '' });
+  });
+  (data.tasks || []).forEach(k => {
+    if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    out.push({ id: 'tk|' + k.id, cat: 'tar', glyph: 'tar', kindLabel: CX_NARR_KIND.tarefa, d, open: true, execId: execOfNum(k.processNumber), ref: { t: 'task', k }, color: 'var(--cx-blue)', title: k.title || k.description || 'Tarefa', text: k.description && k.title ? k.description : '', badges: k.priority === 'urgente' ? [{ t: 'URGENTE', c: 'var(--cx-red)' }] : [], procNum: k.processNumber || '' });
+  });
+  buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions }).forEach(r => {
+    const task = r.kind === 'tarefa';
+    out.push({ id: 'at|' + r.key, cat: 'mine', cats: task ? ['tar'] : undefined, mineKind: r.kind, glyph: task ? 'tarok' : 'act', kindLabel: r.kindLabel, d: r.date || '', done: true, execId: execOfNum(r.processNumber), color: 'var(--cx-green)', title: r.title, text: '', url: r.url, procNum: r.processNumber,
+      ref: r.kind === 'resposta' ? { t: 'intim', id: r.intimationId } : task ? { t: 'taskId', id: r.taskId } : { t: 'pro', execId: r.executionId, actionId: r.actionId },
+      badges: r.kind === 'resposta' ? [{ t: 'respondida', c: 'var(--cx-green)' }] : [] });
+  });
+  return out;
+}
+/* Frase-resumo escrita só com os próprios dados (sem IA, sem campo novo). */
+function cxNarrSentence(sum) {
+  const bits = [];
+  if (sum.late.n) bits.push(<span key="l">Há <b className="cx-red-t">{cxPl(sum.late.n, 'prazo vencido', 'prazos vencidos')}</b>{sum.late.first ? ' (' + cxTlShortDesc(sum.late.first.title, 34) + ')' : ''} e <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
+  else bits.push(<span key="l">Nenhum prazo vencido; <b>{cxPl(sum.soon.n, 'prazo', 'prazos')}</b> nos próximos 14 dias.</span>);
+  if (sum.aud) bits.push(<span key="a">A próxima audiência é <b>{sum.aud.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.aud.days)}</b> ({cxDM(sum.aud.d)}{sum.aud.tm ? ' ' + sum.aud.tm : ''}).</span>);
+  if (sum.decision) bits.push(<span key="d">A última decisão foi <b>{cxTlShortDesc(sum.decision.title, 44)}</b>, em {fmtDate(sum.decision.d)}.</span>);
+  if (sum.term) bits.push(<span key="t">O próximo termo de prescrição é em <b>{fmtDate(sum.term.d)}</b> ({sum.term.days === 0 ? 'hoje' : 'em ' + tlDurLabel(sum.term.days)}).</span>);
+  else bits.push(<span key="t">Nenhum termo de prescrição à frente.</span>);
+  return bits.reduce((a, b, i) => (i ? a.concat([' ', b]) : [b]), []);
+}
+function CxNarrItem({ it, todayIso, onOpen }) {
+  const dd = it.d ? daysUntil(it.d) : null;
+  const late = !!it.open && !it.done && dd !== null && dd < 0;
+  const rel = dd === null ? 'sem data' : dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : dd === -1 ? 'ontem' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd);
+  const c = it.color || 'var(--cx-ink-2)';
+  const clickable = !!it.ref;
+  return <div className={'cx-nr-it' + (it.big ? ' big' : '') + (late ? ' late' : '') + (it.done ? ' done' : '') + (clickable ? ' click' : '')} style={{ '--c': c }}
+    role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => onOpen(it) : undefined}
+    onKeyDown={clickable ? (e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onOpen(it); } }) : undefined}>
+    <span className="cx-nr-mk"><CxTlGlyph kind={it.glyph} c={c} s={18} /></span>
+    <span className="cx-nr-t"><span className="cx-nr-k">{it.kindLabel}</span><span className="cx-nr-tt">{it.title}</span></span>
+    <span className="cx-nr-w">{it.d ? <><b>{CX_DOW[cxDate(it.d).getDay()]} {cxDM(it.d)}{it.tm ? ' · ' + it.tm : ''}</b>{rel}</> : <><b>sem data</b></>}</span>
+    {it.text ? <span className="cx-nr-s">{it.text}</span> : null}
+    <span className="cx-nr-m">
+      {it.badges.map((b, i) => <span key={i} className="cx-nr-b" style={{ '--c': b.c }}>{b.t}</span>)}
+      {it.procLabel ? <><span className="cx-ptag" style={{ '--c': it.procColor }}>{it.procTag}</span><span className="cx-mono cx-small cx-muted">{it.procLabel}</span></> : it.procNum ? <span className="cx-mono cx-small cx-muted">{it.procNum}</span> : null}
+      {it.url ? <CxDocIcon url={it.url} size={16} /> : null}
+    </span>
+  </div>;
+}
+function EditionClaudeNarrative({ tl, op, data, variant = 'page', lead, shell, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa, onOpenTimeline }) {
+  const todayIso = localIso(new Date());
+  const card = variant === 'card';
+  const [cat, setCat] = React.useState('all');
+  const [execId, setExecId] = React.useState('');
+  const [order, setOrder] = React.useState('foco');
+  const [pastShown, setPastShown] = React.useState(NARR_PAST_STEP);
+  const [laterAll, setLaterAll] = React.useState(false);
+  const entries = React.useMemo(() => {
+    const execOf = new Map(tl.procs.map(r => [r.x.e.id, r.x.e]));
+    return cxBuildNarrative(data, op, tl, todayIso).map(it => {
+      const e = it.execId ? execOf.get(it.execId) : null;
+      return e ? { ...it, procTag: cxExecTag(e), procColor: cxTagColor(e), procLabel: cxExecShortNum(e) } : it;
+    });
+  }, [data, op, tl, todayIso]);
+  /* No Briefing o card só olha para frente (atrasado e a vir): o passado é do card "Atuações recentes"; a frase-resumo
+     segue usando tudo. Na Linha do tempo a narrativa é inteira (passado e futuro). */
+  const listed = React.useMemo(() => (card ? entries.filter(it => { const c = narrClassify(it, todayIso); return c === 'late' || c === 'future'; }) : entries), [entries, card, todayIso]);
+  const counts = React.useMemo(() => narrCounts(listed, execId), [listed, execId]);
+  const shown = React.useMemo(() => narrFilter(listed, { cat, execId }), [listed, cat, execId]);
+  const sum = React.useMemo(() => narrSummary(entries, todayIso), [entries, todayIso]);
+  const focus = React.useMemo(() => narrSectionsFocus(shown, todayIso), [shown, todayIso]);
+  const pg = React.useMemo(() => narrPaginate(focus, { pastShown, laterCap: card ? 6 : Infinity, laterExpanded: laterAll }), [focus, pastShown, card, laterAll]);
+  const chrono = React.useMemo(() => (order === 'cron' ? narrSectionsChrono(shown, todayIso) : null), [shown, todayIso, order]);
+  const open = (it) => {
+    const r = it.ref; if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+    else if (r.t === 'task') onOpenTask && onOpenTask(r.k);
+    else if (r.t === 'taskId') { const t = (data.tasks || []).find(x => x.id === r.id); if (t && onOpenTask) onOpenTask(t); }
+    else if (r.t === 'pro') onOpenProativa && onOpenProativa(r.execId, r.actionId);
+  };
+  const items = (list) => list.map(it => <CxNarrItem key={it.id} it={it} todayIso={todayIso} onOpen={open} />);
+  const nowRow = <div className="cx-nr-now"><span className="pin"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" style={{ fill: 'var(--cx-on-solid)' }} /></svg></span><b>Hoje · {CX_DOW[cxDate(todayIso).getDay()]} {fmtDate(todayIso)}</b><span className="ln" /><span className="cx-small cx-muted">acima: o que vem · abaixo: o que já houve</span></div>;
+  const group = (s) => <React.Fragment key={s.key}>
+    <div className={'cx-nr-g' + (s.tone === 'late' ? ' late' : '')}>{s.label}{s.sub ? <span className="sub"> · {s.sub}</span> : null}<span className="cnt">{s.total || s.items.length}</span></div>
+    {items(s.items)}
+  </React.Fragment>;
+  let body;
+  if (!shown.length) body = <div className="cx-empty-row" style={{ borderTop: 0 }}>{listed.length ? 'Nada com esses filtros.' : card ? 'Nada à frente: nenhum prazo, audiência, tarefa ou termo de prescrição à vista.' : 'Esta operação ainda não tem fatos para contar.'}</div>;
+  else if (card) {
+    body = <>
+      {pg.sections.map(group)}
+      {pg.hiddenLater > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setLaterAll(true)}>Mostrar mais {pg.hiddenLater} adiante</button></div> : null}
+    </>;
+  } else if (order === 'cron' && chrono) {
+    body = chrono.sections.map((s, si) => <React.Fragment key={s.key}>
+      <div className="cx-nr-g">{s.label}<span className="cnt">{s.items.length}</span></div>
+      {s.items.map((it, ii) => <React.Fragment key={it.id}>{chrono.nowAt && chrono.nowAt.section === si && chrono.nowAt.index === ii ? nowRow : null}<CxNarrItem it={it} todayIso={todayIso} onOpen={open} /></React.Fragment>)}
+    </React.Fragment>);
+    if (!chrono.nowAt) body.push(<React.Fragment key="now-end">{nowRow}</React.Fragment>);
+  } else {
+    body = <>
+      {pg.sections.slice(0, pg.now).map(group)}
+      {nowRow}
+      {pg.sections.slice(pg.now).map(group)}
+      {pg.hiddenLater > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setLaterAll(true)}>Mostrar mais {pg.hiddenLater} adiante</button></div> : null}
+      {pg.hiddenPast > 0 ? <div className="cx-nr-more"><button type="button" className="cx-link-btn" onClick={() => setPastShown(n => n + NARR_PAST_STEP)}>Mostrar mais {Math.min(NARR_PAST_STEP, pg.hiddenPast)}</button><span className="cx-muted cx-small">{pg.hiddenPast} {pg.hiddenPast === 1 ? 'anterior' : 'anteriores'} ainda fora da lista</span></div> : null}
+    </>;
+  }
+  const chips = <div className="cx-nr-chips">
+    {NARR_CATS.filter(([k]) => !(card && k === 'mine')).map(([k, l]) => <button key={k} type="button" className={'cx-fchip sm' + (cat === k ? ' on' : '') + (counts[k] === 0 && k !== 'all' ? ' zero' : '')} aria-pressed={cat === k} onClick={() => { setCat(k); setPastShown(NARR_PAST_STEP); }}>{l}<span className="cx-fcn">{counts[k]}</span></button>)}
+    <span className="cx-sp" />
+    <CxSelect id={card ? 'cx-nr-proc-card' : 'cx-nr-proc'} pre="Processo" value={execId} onChange={v => { setExecId(v); setPastShown(NARR_PAST_STEP); }} options={[['', 'Todos']].concat(tl.procs.map(r => [r.x.e.id, cxExecTag(r.x.e) + ' ' + cxExecShortNum(r.x.e)]))} />
+  </div>;
+  if (card) {
+    // Dentro do cartão "O que vem" (Visão geral): `shell` monta o cartão, o seletor de visão e o link da Linha do tempo.
+    return shell({ cls: 'cx-bf-nr', count: listed.length, summary: cxNarrSentence(sum), children:
+      <div className="cx-nr-body">
+        <p className="cx-nr-sent">{cxNarrSentence(sum)}</p>
+        {chips}
+        <div className="cx-nr-sc compact"><div className="cx-nr-story">{body}</div></div>
+      </div> });
+  }
+  const pendRec = sum.pendingRec;
+  return <div>
+    <div className="cx-tl-tools">
+      {lead}
+      <span className="cx-sp" />
+      <span className="cx-tl-leg-h">Ordem</span>
+      <CxSeg className="lg" label="Ordem da narrativa" value={order} onChange={setOrder} options={CX_NARR_ORDERS} />
+    </div>
+    <div className="cx-nr-grid">
+      <div className="cx-nr-main">
+        {chips}
+        <div className="cx-nr-sc"><div className="cx-nr-story">{body}</div></div>
+      </div>
+      <aside className="cx-nr-side">
+        <div className="cx-card cx-nr-sc-card"><h5>Em uma frase</h5><p>{cxNarrSentence(sum)}</p></div>
+        <div className="cx-card cx-nr-sc-card"><h5>Panorama</h5><div className="cx-nr-kv">
+          <div><b className={sum.late.n ? 'red' : ''}>{sum.late.n}</b><span>{sum.late.n === 1 ? 'prazo vencido' : 'prazos vencidos'}</span></div>
+          <div><b>{sum.soon.n}</b><span>prazos em 14 dias</span></div>
+          <div><b>{sum.audN}</b><span>{sum.audN === 1 ? 'audiência à frente' : 'audiências à frente'}</span></div>
+          <div><b className={pendRec ? 'yel' : ''}>{pendRec}</b><span>{pendRec === 1 ? 'recurso pendente' : 'recursos pendentes'}</span></div>
+        </div></div>
+        <div className="cx-card cx-nr-sc-card"><h5>O que eu já fiz (30 dias)</h5>
+          {sum.done30.total ? <p className="cx-small"><b>{sum.done30.resp}</b> {sum.done30.resp === 1 ? 'intimação respondida' : 'intimações respondidas'} · <b>{sum.done30.pro}</b> {sum.done30.pro === 1 ? 'atuação proativa' : 'atuações proativas'} · <b>{sum.done30.tar}</b> {sum.done30.tar === 1 ? 'tarefa concluída' : 'tarefas concluídas'}. Último movimento seu: <b>{fmtDate(sum.done30.last.d)}</b>, {sum.done30.last.days === 0 ? 'hoje' : tlDurLabel(-sum.done30.last.days)}.</p> : <p className="cx-small cx-muted">Nenhuma atuação sua registrada nos últimos 30 dias.</p>}</div>
+        <div className="cx-card cx-nr-sc-card"><h5>Como ler</h5><p className="cx-small cx-muted">Cartões com <b>borda grossa</b> são decisões e desfechos; vermelho é vencido. O divisor <b>Hoje</b> separa o que vem (do mais próximo ao mais distante) do que já houve (do mais recente). Tarefas sem data limite não entram.</p></div>
+      </aside>
+    </div>
+  </div>;
+}
+function EditionClaudeTimelineNarrative({ tl, op, lead, data, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc, onOpenTask, onOpenProativa }) {
+  return <EditionClaudeNarrative tl={tl} op={op} data={data} lead={lead} variant="page" onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} />;
+}
+/* Cartão "O que vem" da Visão geral: UM cartão, três visões escolhidas num seletor no cabeçalho — "Horizonte" (os próximos
+   90 dias, em colunas de urgência), "Narrativa" (o que vem, em texto, por prazo) e "Mapa de frentes" (M3). A escolha fica
+   lembrada neste navegador; sem frentes para mapear (nenhum IDPJ/MCF nem processos vinculados), o mapa fica desabilitado.
+   Um só link para a Linha do tempo, que abre no modo da visão (Horizonte → Panorama). `shell` (função) monta o cartão e é
+   chamada por cada visão com o que é dela: contagem, resumo (recolhido), extras de cabeçalho e o corpo. */
+const CX_OQ_VIEW = 'nexus_cx_oq_view';
+function cxOqLoadView() { const v = cxLs(CX_OQ_VIEW, 'horizonte'); return v === 'narrativa' || v === 'mapa' ? v : 'horizonte'; }
+function CxOqVem({ op, data, prazosRadar, prescLookup, hz, nr, onOpenTimeline, bare }) {
+  const tl = React.useMemo(() => cxBuildTimeline(data, op, prescLookup), [data, op, prescLookup]);
+  const [saved, setSaved] = React.useState(cxOqLoadView);
+  const canMap = React.useMemo(() => frentesHasFronts({ lanes: tl.procs.map(r => ({ incident: r.x.e.processTag === 'idpj' || r.x.e.processTag === 'cautelar_fiscal' })), links: tl.links }), [tl]);
+  const view = saved === 'mapa' && !canMap ? 'horizonte' : saved;
+  const pick = (v) => { setSaved(v); cxLsSet(CX_OQ_VIEW, v); };
+  const sw = <CxSeg className="cx-oq-sw" label="O que mostrar neste cartão" value={view} onChange={pick}
+    options={[['horizonte', 'Horizonte'], ['narrativa', 'Narrativa'], ['mapa', 'Mapa de frentes', null, null, canMap ? null : { disabled: true, title: CX_FR_NOHINT }]]} />;
+  const tlMode = view === 'mapa' ? 'frentes' : view === 'narrativa' ? 'narrativa' : 'panorama';
+  const shell = ({ cls, count, sub, summary, extras, children }) => <CxFoldOrBare bare={bare} id="hz" scope="visao" as="h2" className={'cx-oq ' + (cls || '')} title="O que vem" ariaLabel="O que vem" count={count} sub={sub} summary={summary}
+    actions={<>
+      {sw}{extras || null}
+      {onOpenTimeline ? <button type="button" className="cx-link-btn" onClick={() => onOpenTimeline(tlMode)}>Abrir na Linha do tempo<CxIcon n="chevR" s={13} /></button> : null}
+    </>}>{children}</CxFoldOrBare>;
+  if (view === 'mapa') return <EditionClaudeFrentes key={op.id + '|mapa'} tl={tl} op={op} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} />;
+  if (view === 'narrativa') return <EditionClaudeNarrative key={op.id} tl={tl} op={op} data={data} variant="card" shell={shell} onOpenIntim={nr.onOpenIntim} onOpenHearing={nr.onOpenHearing} onOpenCda={nr.onOpenCda} onOpenProc={nr.onOpenProc} onOpenTask={nr.onOpenTask} onOpenProativa={nr.onOpenProativa} />;
+  return <EditionClaudeHorizon data={data} opIds={[op.id]} prazosRadar={prazosRadar} shell={shell} onOpenIntim={hz.onOpenIntim} onOpenHearing={hz.onOpenHearing} onOpenTask={hz.onOpenTask} onOpenCda={hz.onOpenCda} />;
+}
+
+/* ═════════════════════ Mapa de frentes e dependências (M3, estilo metrô) ═════════════════════
+   "O que depende de quê? Quando o IDPJ decidir, o que destrava nas execuções — e qual é o caminho crítico?" Uma raia por
+   processo (IDPJ, MCF, EF principal, EF apensa, exceção, agravo…) e uma para as CDAs sem processo; eixo ORDINAL (cada coluna
+   é um acontecimento, a data vai no rótulo); setas de efeito (verde), de condição (violeta tracejada), de origem (cinza) e
+   de cobertura; estações vazadas = derivadas do vínculo; tracejadas = esperadas, sem data. Passar o mouse numa estação
+   realça o que a originou e o que ela destrava. Tudo sai dos dados que o app já tem (`cxBuildTimeline` + vínculos
+   `parentExecutionId`/`linkedExecutionIds` + registros de fase); grafo, colunas, setas, cadeia e caminho crítico são puros
+   (src/lib/frentes.js). Vive na Linha do tempo (modo Frentes) e no Briefing (card Narrativa, no seletor "Narrativa | Mapa de
+   frentes"). */
+function cxFrParentLabel(e) {
+  if (/agravo/i.test(e.className || '')) return 'agravo';
+  const t = cxExecTag(e);
+  return t === 'EXC' ? 'exceção' : t === 'REC' ? 'recurso' : t === 'EMB' ? 'embargos' : t === 'EF' || t === 'CENTRAL' ? 'apenso' : 'vínculo';
+}
+/* Adapta a régua (`cxBuildTimeline`) às entradas do grafo puro. */
+function cxBuildFrentesGraph(tl, op, todayIso) {
+  const lanes = [], events = [], links = [];
+  let orphans = 0;
+  const execLabel = (e) => cxExecTag(e) + ' ' + cxExecShortNum(e);
+  tl.procs.forEach(r => {
+    const x = r.x, e = x.e;
+    const coveredBy = tl.links.filter(l => l.type === 'cover' && l.b === e.id).map(l => tl.execById.get(l.a)).filter(Boolean);
+    const covers = tl.links.filter(l => l.type === 'cover' && l.a === e.id).length;
+    lanes.push({
+      id: e.id, kind: 'proc', execId: e.id, tag: cxExecTag(e), color: cxTagColor(e), title: x.role, num: cxExecShortNum(e), name: execLabel(e), who: x.who,
+      sub: [x.rel, coveredBy.length ? 'coberta por ' + coveredBy.map(execLabel).join(', ') : '', covers ? 'cobre ' + cxPl(covers, 'execução', 'execuções') : '', x.cdaN ? cxPl(x.cdaN, 'CDA', 'CDAs') + ' · ' + cxMoneyShort(x.cdaVal) : ''].filter(Boolean),
+      incident: e.processTag === 'idpj' ? 'idpj' : e.processTag === 'cautelar_fiscal' ? 'mcf' : '',
+      closed: e.status === 'extinta' || e.status === 'arquivada',
+    });
+  });
+  if (tl.cdas.length) lanes.push({ id: 'cda', kind: 'cda', tag: 'CDA', color: 'var(--cx-violet)', title: 'CDAs sem processo', num: '', name: 'CDAs sem processo', sub: [cxPl(tl.cdas.length, 'a ajuizar', 'a ajuizar')] });
+  tl.links.forEach(l => links.push({ type: l.type, a: l.a, b: l.b, label: l.type === 'parent' ? cxFrParentLabel(tl.execById.get(l.b)) : 'cobre' }));
+  const hasAjuiz = new Set();
+  tl.items.forEach(it => {
+    if (!it.d || it.kind === 'rev') return;
+    if (it.kind === 'presc' && it.mark && !it.deadline) return;
+    const lane = it.k === 'cda' ? 'cda' : it.execId;
+    if (!lane) { if (it.kind === 'aud') orphans++; return; }
+    if (it.sk === 'ajuizamento' || it.sk === 'ajuizamento_ef') hasAjuiz.add(lane);
+    const label = it.k === 'cda' ? 'Ajuizar CDA …' + String((it.debt && it.debt.cdaNumber) || 'S/N').slice(-9) : it.kind === 'aud' ? String(it.l).replace(/ · .*$/, '') : it.kind === 'prazo' ? cxTlShortDesc(it.l, 44) : it.l;
+    events.push({
+      id: it.id, lane, d: it.d, tm: it.tm || '', kind: it.kind, label, color: cxTlColor(it), sk: it.sk || '', out: it.out || '',
+      open: it.kind === 'prazo' || (it.kind === 'aud' && !it.realized) || it.k === 'cda', late: it.kind === 'prazo' && daysUntil(it.d) < 0, ref: it.ref, item: it,
+    });
+  });
+  tl.procs.forEach(r => {
+    const e = r.x.e, d = toDayKey(e.protocolDate);
+    if (!d || hasAjuiz.has(e.id)) return;
+    events.push({ id: 'dist|' + e.id, lane: e.id, d, tm: '', kind: 'and', label: 'Distribuição', color: 'var(--cx-ink-2)', open: false, late: false, ref: { t: 'exec', id: e.id } });
+  });
+  const g = buildFrentesGraph({ lanes, events, links, todayIso: todayIso || localIso(new Date()) });
+  g.orphans = orphans;
+  return g;
+}
+const CX_FR = { LW: 196, PADL: 24, COLW: 62, LH: 108, TOP: 50 };
+const CX_FR_NOHINT = 'Esta operação não tem frentes para mapear: nenhum IDPJ, MCF nem processos vinculados (apenso, exceção, recurso).';
+/* Quebra o rótulo em até 2 linhas que caibam em `maxW` px (reticências no que sobra). */
+function cxFrWrap(text, maxW) {
+  const rest = String(text || '').split(/\s+/).filter(Boolean);
+  const fit = (t) => cxTlMeasure(t, 11) <= maxW;
+  const clip = (t) => { let s = t; while (s.length > 1 && !fit(s + '…')) s = s.slice(0, -1); return s + '…'; };
+  const lines = [];
+  while (rest.length && lines.length < 2) {
+    let cur = '';
+    while (rest.length && fit(cur ? cur + ' ' + rest[0] : rest[0])) cur = cur ? cur + ' ' + rest.shift() : rest.shift();
+    if (!cur) cur = rest.shift(); // palavra maior que a linha
+    lines.push(cur);
+  }
+  const k = lines.length - 1;
+  if (rest.length) lines[k] = clip(lines[k] + ' ' + rest.join(' '));
+  else if (k >= 0 && !fit(lines[k])) lines[k] = clip(lines[k]);
+  return lines;
+}
+const CX_FR_EDGE = { eff: { c: 'var(--cx-green)', mk: 'cx-fr-ar-eff' }, cond: { c: 'var(--cx-violet)', mk: 'cx-fr-ar-cond', dash: '5 4' }, flow: { c: 'var(--cx-ink-3)', mk: 'cx-fr-ar-flow' }, cover: { c: 'var(--cx-ink-3)', mk: 'cx-fr-ar-flow', dash: '2 4' } };
+function CxFrMap({ graph, tl, crit, onlyCrit, onOpen }) {
+  const { LW, PADL, COLW, LH, TOP } = CX_FR;
+  const [hl, setHl] = React.useState('');
+  const wrapRef = React.useRef(null);
+  const ncols = graph.cols.length;
+  const W = PADL + ncols * COLW + 56;
+  const H = TOP + graph.lanes.length * LH + 6;
+  const laneIdx = React.useMemo(() => new Map(graph.lanes.map((l, i) => [l.id, i])), [graph]);
+  const pos = (n) => ({ x: PADL + n.col * COLW + COLW / 2, y: TOP + laneIdx.get(n.lane) * LH + LH / 2 });
+  const todayX = PADL + graph.todayCol * COLW;
+  const labels = React.useMemo(() => frentesColumnLabels(graph), [graph]);
+  const chain = React.useMemo(() => (hl ? frentesChain(graph, hl) : null), [graph, hl]);
+  const lit = chain || (onlyCrit && crit.ids.length ? crit.set : null);
+  const [, setFontTick] = React.useState(0);
+  React.useEffect(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontTick(n => n + 1)); }, []);
+  // Abre com o "hoje" visível (um pouco de passado à esquerda).
+  React.useLayoutEffect(() => { const el = wrapRef.current; if (el) el.scrollLeft = Math.max(0, todayX - el.clientWidth * 0.4); }, [graph]);
+  const tip = useCxTip(React.useCallback((key) => {
+    if (key.indexOf('lane|') === 0) { const l = graph.lanes.find(x => x.id === key.slice(5)); return l ? { when: l.kind === 'cda' ? 'CDAs sem processo' : l.title, title: l.name, lines: [l.who ? 'Devedor: ' + l.who : '', l.sub.join(' · '), l.kind === 'cda' ? '' : 'Clique para abrir o processo'].filter(Boolean) } : null; }
+    if (key.indexOf('ed|') === 0) {
+      const e = graph.edges.find(x => x.id === key); if (!e) return null;
+      const A = graph.byId.get(e.a), B = graph.byId.get(e.b);
+      const ln = (n) => (n.label || '') + ' (' + ((graph.lanes.find(l => l.id === n.lane) || {}).name || '') + ')';
+      return { when: FRENTES_EDGE_LABEL[e.type] || '', title: ln(A) + ' → ' + ln(B), lines: e.type === 'cond' ? ['Só vale se a decisão esperada for favorável'] : [] };
+    }
+    const n = graph.byId.get(key); if (!n) return null;
+    const laneName = (graph.lanes.find(l => l.id === n.lane) || {}).name || '';
+    if (n.item) { const d = cxTlTipData(n.item, tl.execById); if (n.open && !n.ghost && !n.late && n.d > graph.today) d.lines.push('Em aberto: está no caminho de quem depende dele'); return d; }
+    if (n.ghost) return { when: 'Esperado · sem data', title: n.label, lines: [n.note, laneName, 'Clique para abrir o processo'].filter(Boolean) };
+    if (n.derived) return { when: 'Derivado · ' + fmtDate(n.d), title: n.label, lines: [n.note, 'Clique para abrir o processo'] };
+    return { when: CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d), title: n.label, lines: [laneName, 'Clique para abrir o processo'] };
+  }, [graph, tl]));
+  const openNode = (n) => { const r = n && n.ref; if (r) onOpen(r); };
+  const nodeOf = (ev) => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-st]') : null; return t ? t.getAttribute('data-st') : ''; };
+  const dim = (id) => !!lit && !lit.has(id);
+  const o = [];
+  /* faixa do futuro e grade das colunas */
+  o.push(<rect key="fut" x={todayX} y={TOP - 8} width={Math.max(0, W - todayX)} height={H - TOP + 8} style={{ fill: 'var(--cx-surface-2)' }} />);
+  labels.forEach((lb, i) => {
+    const x = PADL + i * COLW + COLW / 2;
+    o.push(<g key={'c' + i}>
+      {lb.top ? <text x={x} y={16} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: 'var(--cx-ink-2)' }}>{lb.top}</text> : null}
+      <text x={x} y={31} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--cx-mono)', fill: 'var(--cx-ink-3)' }}>{lb.bottom || 'a definir'}</text>
+      <line x1={x} x2={x} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-line)', strokeDasharray: '1 4', opacity: 0.7 }} />
+    </g>);
+  });
+  o.push(<line key="axis" x1={0} x2={W} y1={TOP - 8} y2={TOP - 8} style={{ stroke: 'var(--cx-line)' }} />);
+  /* raias (faixas) */
+  graph.lanes.forEach((l, i) => {
+    const y = TOP + i * LH;
+    o.push(<g key={'l' + l.id}><rect x={0} y={y} width={W} height={LH} style={{ fill: i % 2 ? 'transparent' : 'var(--cx-surface-2)', opacity: 0.5 }} /><line x1={0} x2={W} y1={y + LH} y2={y + LH} style={{ stroke: 'var(--cx-line)' }} />
+      {!l.nodes.length ? <text x={PADL + 8} y={y + LH / 2 + 4} style={{ fontSize: 11, fill: 'var(--cx-ink-3)', fontStyle: 'italic' }}>sem fatos datados</text> : null}</g>);
+  });
+  /* arestas: primeiro a sequência das raias, depois as setas entre raias */
+  const laneCol = (id) => { const l = graph.lanes.find(x => x.id === id); return l ? l.color : 'var(--cx-ink-3)'; };
+  graph.edges.filter(e => e.type === 'lane').forEach(e => {
+    const A = graph.byId.get(e.a), B = graph.byId.get(e.b), a = pos(A), b = pos(B);
+    o.push(<line key={e.id} className={lit && !(lit.has(e.a) && lit.has(e.b)) ? 'cx-fr-dim' : ''} x1={a.x} x2={b.x} y1={a.y} y2={b.y} style={{ stroke: laneCol(A.lane), strokeWidth: 3, strokeOpacity: e.ghost ? 0.3 : 0.55, strokeDasharray: e.ghost ? '3 5' : undefined, strokeLinecap: 'round' }} />);
+  });
+  graph.edges.filter(e => e.type !== 'lane').forEach(e => {
+    const A = graph.byId.get(e.a), B = graph.byId.get(e.b), a = pos(A), b = pos(B), st = CX_FR_EDGE[e.type] || CX_FR_EDGE.flow;
+    const down = b.y > a.y, sy = a.y + (down ? 9 : -9), ty = b.y + (down ? -9 : 9);
+    let d, mx, my;
+    if (Math.abs(a.x - b.x) < 3) { const jx = e.label ? 0 : 6; d = 'M' + (a.x + 5 + jx) + ' ' + sy + ' L' + (b.x + 5 + jx) + ' ' + ty; mx = a.x + 5 + jx; my = (sy + ty) / 2; }
+    else { const k = down ? 30 : -30; d = 'M' + a.x + ' ' + sy + ' C' + a.x + ' ' + (sy + k) + ', ' + b.x + ' ' + (ty - k) + ', ' + b.x + ' ' + ty; mx = (a.x + b.x) / 2; my = (sy + ty) / 2; }
+    const faded = lit && !(lit.has(e.a) && lit.has(e.b));
+    o.push(<g key={e.id} className={faded ? 'cx-fr-dim' : ''} data-tl={e.id}>
+      <path d={d} fill="none" style={{ stroke: st.c, strokeWidth: 2, strokeDasharray: st.dash }} markerEnd={'url(#' + st.mk + ')'} />
+      <path d={d} fill="none" style={{ stroke: 'transparent', strokeWidth: 12 }} />
+      {e.label ? <g><rect x={mx + 7} y={my - 8} width={cxTlMeasure(e.label, 10.5) + 10} height={16} rx={4} style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-line)' }} /><text x={mx + 12} y={my + 3.5} style={{ fontSize: 10.5, fill: st.c, fontWeight: 500 }}>{e.label}</text></g> : null}
+    </g>);
+  });
+  /* estações */
+  graph.lanes.forEach((l, li) => {
+    l.nodes.forEach((id, idx) => {
+      const n = graph.byId.get(id), p = pos(n);
+      const above = idx % 2 === 0;
+      const lines = cxFrWrap(n.label, COLW * 2 - 12);
+      const dtxt = n.ghost ? 'a definir' : cxDM(n.d) + (n.tm ? ' ' + n.tm : '');
+      const ty = above ? p.y - 22 - lines.length * 12 : p.y + 25;
+      const col = n.ghost ? 'var(--cx-ink-3)' : n.color || 'var(--cx-ink-2)';
+      const onCrit = crit.set.has(id);
+      o.push(<g key={'s' + id} className={'cx-fr-st' + (dim(id) ? ' cx-fr-dim' : '') + (n.ghost ? ' ghost' : '')} data-st={id} data-tl={id} tabIndex={0} role="button" aria-label={n.label + (n.ghost ? ', esperado, sem data' : ', ' + fmtDate(n.d))}>
+        <circle cx={p.x} cy={p.y} r={15} style={{ fill: hl === id || (onCrit && lit === crit.set) ? 'var(--cx-accent-soft)' : 'transparent' }} />
+        <g transform={'translate(' + (p.x - 9) + ' ' + (p.y - 9) + ')'}>{n.derived
+          ? <svg className="cx-tl-gl" width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-green)', strokeWidth: 1.8 }} /><circle cx="8" cy="8" r="1.8" style={{ fill: 'var(--cx-green)' }} /></svg>
+          : <CxTlGlyph kind={n.kind} c={col} ghost={n.ghost} s={18} />}</g>
+        <text x={p.x} y={ty} textAnchor="middle" className="cx-fr-t" style={{ fontSize: 9.5, fontFamily: 'var(--cx-mono)', fill: n.late ? 'var(--cx-red)' : 'var(--cx-ink-3)' }}>{dtxt}</text>
+        {lines.map((t, i) => <text key={i} x={p.x} y={ty + 12 + i * 12} textAnchor="middle" className="cx-fr-t" style={{ fontSize: 11, fill: n.late ? 'var(--cx-red)' : n.ghost ? 'var(--cx-ink-3)' : 'var(--cx-ink)', fontWeight: n.kind === 'dec' && !n.ghost ? 600 : 500, fontStyle: n.ghost ? 'italic' : undefined }}>{t}</text>)}
+      </g>);
+    });
+  });
+  /* hoje */
+  o.push(<g key="hoje"><line x1={todayX} x2={todayX} y1={TOP - 8} y2={H} style={{ stroke: 'var(--cx-accent)', strokeWidth: 1.6 }} /><rect x={todayX - 22} y={H - 17} width={44} height={15} rx={4} style={{ fill: 'var(--cx-accent)' }} /><text x={todayX} y={H - 6} textAnchor="middle" style={{ fontSize: 10, fontWeight: 600, fill: 'var(--cx-on-solid)', fontFamily: 'var(--cx-mono)' }}>HOJE</text></g>);
+  const mark = (id, c) => <marker key={id} id={id} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style={{ fill: c }} /></marker>;
+  const hoverBind = {
+    onMouseOver: (ev) => { const k = nodeOf(ev); if (k !== hl) setHl(k); },
+    onMouseMove: tip.bind.onMouseMove,
+    onMouseLeave: () => { setHl(''); tip.bind.onMouseLeave(); },
+    onFocus: (ev) => { const k = nodeOf(ev); if (k) setHl(k); tip.bind.onFocus(ev); },
+    onBlur: (ev) => { setHl(''); tip.bind.onBlur(ev); },
+    onClick: (ev) => { const k = nodeOf(ev); if (k) { openNode(graph.byId.get(k)); return; } const lane = ev.target.closest && ev.target.closest('[data-lane]'); if (lane) { const l = graph.lanes.find(x => x.id === lane.getAttribute('data-lane')); if (l && l.execId) onOpen({ t: 'exec', id: l.execId }); } },
+    onKeyDown: (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute && ev.target.getAttribute('data-st')) { ev.preventDefault(); openNode(graph.byId.get(ev.target.getAttribute('data-st'))); } },
+  };
+  return <div className="cx-fr-wrap" ref={wrapRef} {...hoverBind}>
+    <div className="cx-fr-in" style={{ width: LW + W, height: H }}>
+      <div className="cx-fr-lanes" style={{ width: LW, height: H }}>
+        <div className="cx-fr-lh">Frentes <span>{graph.lanes.filter(l => l.kind === 'proc').length}</span></div>
+        {graph.lanes.map((l, i) => <div key={l.id} className={'cx-fr-ln' + (l.closed ? ' off' : '') + (l.execId ? ' click' : '')} style={{ top: TOP + i * LH, height: LH }} data-lane={l.id} data-tl={'lane|' + l.id} role={l.execId ? 'button' : undefined} tabIndex={l.execId ? 0 : undefined}
+          onKeyDown={l.execId ? (ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onOpen({ t: 'exec', id: l.execId }); } }) : undefined}>
+          <span className="cx-ptag" style={{ '--c': l.color }}>{l.tag}</span>
+          <b>{l.title}</b>
+          {l.num ? <span className="cx-mono cx-fr-num">{l.num}</span> : null}
+          {l.sub.slice(0, 2).map((t, k) => <span key={k} className="cx-fr-sub">{t}</span>)}
+        </div>)}
+      </div>
+      <svg className="cx-fr-svg" width={W} height={H} viewBox={'0 0 ' + W + ' ' + H} role="img" aria-label="Mapa de frentes e dependências">
+        <defs>{mark('cx-fr-ar-eff', 'var(--cx-green)')}{mark('cx-fr-ar-cond', 'var(--cx-violet)')}{mark('cx-fr-ar-flow', 'var(--cx-ink-3)')}</defs>
+        {o}
+      </svg>
+    </div>
+    {tip.node}
+  </div>;
+}
+function cxFrLegend() {
+  const ar = (c, dash) => <svg width="30" height="10" viewBox="0 0 30 10" aria-hidden="true"><path d="M1 5H25" style={{ stroke: c, strokeWidth: 2, strokeDasharray: dash }} /><path d="M24 1.5L29 5L24 8.5z" style={{ fill: c }} /></svg>;
+  return <div className="cx-tl-legend top">
+    <span><CxTlGlyph kind="dec" c="var(--cx-blue)" /> decisão</span><span><CxTlGlyph kind="and" /> andamento</span><span><CxTlGlyph kind="aud" c="var(--cx-orange)" /> audiência</span><span><CxTlGlyph kind="prazo" c="var(--cx-yellow)" /> prazo</span><span><CxTlGlyph kind="presc" c="var(--cx-violet)" /> prescrição</span>
+    <span><svg className="cx-tl-gl" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" style={{ fill: 'var(--cx-surface)', stroke: 'var(--cx-green)', strokeWidth: 1.8 }} /><circle cx="8" cy="8" r="1.8" style={{ fill: 'var(--cx-green)' }} /></svg> derivada do vínculo</span>
+    <span><CxTlGlyph kind="dec" c="var(--cx-ink-3)" ghost /> esperada, sem data</span>
+    <span className="cx-tl-leg-br" />
+    <span>{ar('var(--cx-green)')} efeito já ocorrido</span><span>{ar('var(--cx-violet)', '5 4')} condicional</span><span>{ar('var(--cx-ink-3)')} origem (apenso, exceção, recurso)</span><span>{ar('var(--cx-ink-3)', '2 4')} cobertura</span>
+  </div>;
+}
+/* Cartões do caminho crítico (abaixo do mapa): o que falta, em ordem, até o que está por decidir. */
+function CxFrCrit({ graph, crit, onOpen }) {
+  return <div className="cx-fr-crit">{crit.ids.map((id, i) => {
+    const n = graph.byId.get(id), lane = graph.lanes.find(l => l.id === n.lane) || {};
+    const dd = n.d ? daysUntil(n.d) : null;
+    const when = n.ghost ? 'Sem data' : (CX_DOW[cxDate(n.d).getDay()] + ' ' + fmtDate(n.d) + (n.tm ? ' · ' + n.tm : '') + (dd === null ? '' : dd === 0 ? ' · hoje' : dd < 0 ? ' · vencido ' + tlDurLabel(dd) : ' · em ' + tlDurLabel(dd)));
+    return <button key={id} type="button" className={'cx-fr-cr' + (n.ghost ? ' g' : '') + (n.late ? ' late' : '')} onClick={() => n.ref && onOpen(n.ref)}>
+      <span className="n">CAMINHO CRÍTICO · {i + 1}</span><h6>{n.label}</h6><p>{when}</p><p className="cx-muted">{lane.name}{n.ghost && n.note ? ' · ' + n.note.replace(/ Sem data\.$/, '') : ''}</p>
+    </button>;
+  })}</div>;
+}
+function EditionClaudeFrentes({ tl, op, variant = 'page', lead, shell, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
+  const card = variant === 'card';
+  const todayIso = localIso(new Date());
+  const graph = React.useMemo(() => cxBuildFrentesGraph(tl, op, todayIso), [tl, op, todayIso]);
+  const crit = React.useMemo(() => frentesCriticalPath(graph, todayIso), [graph, todayIso]);
+  const [onlyCrit, setOnlyCrit] = React.useState(false);
+  const open = (r) => {
+    if (!r) return;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'cda') onOpenCda && onOpenCda({ id: r.id, operationId: r.operationId });
+    else if (r.t === 'exec') onOpenProc && onOpenProc(r.id);
+  };
+  const critBtn = <button type="button" className={'cx-fchip sm' + (onlyCrit ? ' on' : '') + (!crit.ids.length ? ' zero' : '')} aria-pressed={onlyCrit} disabled={!crit.ids.length}
+    title={crit.ids.length ? 'Realça só o que ainda precisa acontecer até o que está por decidir (a decisão esperada e o que depende dela)' : 'Sem decisão esperada neste mapa (nenhum IDPJ/MCF ou recurso aguardando julgamento): não há caminho crítico a destacar'} onClick={() => setOnlyCrit(v => !v)}><span className="cx-dot" style={{ background: 'var(--cx-accent)' }} />Caminho crítico<span className="cx-fcn">{crit.ids.length}</span></button>;
+  const nReal = graph.nodes.filter(n => !n.ghost && !n.derived).length;
+  const body = !graph.hasFronts
+    ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{CX_FR_NOHINT}</div>
+    : <>
+      {cxFrLegend()}
+      <CxFrMap graph={graph} tl={tl} crit={crit} onlyCrit={onlyCrit} onOpen={open} />
+      {crit.ids.length && (onlyCrit || !card) ? <CxFrCrit graph={graph} crit={crit} onOpen={open} /> : null}
+      <p className="cx-fr-note cx-muted cx-small">Cada coluna é um acontecimento, na ordem das datas (a distância não vale tempo). Setas e estações vazadas ou tracejadas saem dos vínculos entre processos e das fases registradas; nenhuma é fato novo.{graph.orphans ? ' ' + cxPl(graph.orphans, 'audiência sem número de processo fica', 'audiências sem número de processo ficam') + ' fora do mapa.' : ''} Tarefas e revisões não entram.</p>
+    </>;
+  if (card) {
+    return shell({ cls: 'cx-bf-nr cx-bf-fr', count: nReal, sub: 'o que depende de quê', extras: graph.hasFronts ? critBtn : null, children: <div className="cx-nr-body">{body}</div> });
+  }
+  return <div>
+    <div className="cx-tl-tools">{lead}<span className="cx-sp" />{graph.hasFronts ? critBtn : null}</div>
+    <div className="cx-card cx-fr-card">{body}</div>
+  </div>;
+}
+function EditionClaudeTimelineFrentes({ tl, op, lead, onOpenIntim, onOpenHearing, onOpenCda, onOpenProc }) {
+  return <EditionClaudeFrentes tl={tl} op={op} variant="page" lead={lead} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenCda={onOpenCda} onOpenProc={onOpenProc} />;
+}
+
+/* ═════════════════════ Atuações recentes (Visão geral) ═════════════════════
+   O que a operação já recebeu de mim: respostas a intimações, tarefas concluídas e atuações proativas, da mais
+   recente para a mais antiga (agregação pura em src/lib/atuacoes.js), 10 por vez. É o passado, sozinho: a Narrativa
+   do Briefing cuida do que vem. "Registrar atuação" precisa de um processo: abre a escolha do processo e, em seguida,
+   o mesmo formulário da ficha do processo (EditionClaudeAtuacaoForm). */
+const CX_UA_STEP = 10;
+function CxAtuProcPicker({ execs, onPick, onClose }) {
+  const [q, setQ] = React.useState('');
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) { e.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const live = (e) => e.status !== 'extinta' && e.status !== 'arquivada';
+  const sorted = React.useMemo(() => execs.slice().sort((a, b) => (live(b) ? 1 : 0) - (live(a) ? 1 : 0) || String(a.processNumber || '').localeCompare(String(b.processNumber || ''))), [execs]);
+  const needle = q.trim().toLowerCase();
+  const list = needle ? sorted.filter(e => (String(e.processNumber || '') + ' ' + (e.className || '') + ' ' + cxExecTag(e)).toLowerCase().includes(needle)) : sorted;
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <div className="cx cx-pick" role="dialog" aria-modal="true" aria-label="Em qual processo foi a atuação?">
+      <div className="cx-pick-h"><b>Em qual processo foi a atuação?</b><span className="cx-sp" /><button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button></div>
+      <p className="cx-pick-n">A atuação fica registrada no processo: entra nas notas dele, em Arquivos (se houver link) e aqui, em Atuações recentes.</p>
+      {sorted.length > 6 ? <input className="cx-input" autoFocus placeholder="Filtrar por número ou classe" value={q} onChange={ev => setQ(ev.target.value)} aria-label="Filtrar processos" /> : null}
+      <div className="cx-pick-l">
+        {list.map(e => <button key={e.id} type="button" className={'cx-pick-r' + (live(e) ? '' : ' off')} onClick={() => onPick(e)}>
+          <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span>
+          <span className="cx-mono cx-pick-num">{e.processNumber || 'S/N'}</span>
+          <span className="cx-pick-c">{e.className || ''}{live(e) ? '' : ' · ' + ((EXEC_STATUSES[e.status] || {}).label || e.status || '')}</span>
+        </button>)}
+        {!list.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhum processo com esse filtro.</div> : null}
+      </div>
+    </div>
+  </>;
+}
+/* Eventos de fase mais recentes de cada processo (briefing.processStageV2): entram em "Atuações recentes" intercalados por data. */
+function cxPhaseRows(op, execs) {
+  const out = [];
+  const briefing = op.briefing || {};
+  (execs || []).forEach(e => {
+    const recs = getStageRecords(briefing, e.id) || {};
+    const { STAGES, keys } = cxBfStages(e);
+    stageMeta(STAGES, keys, recs).forEach(m => {
+      if (!m.has || !m.rec || isDismissedOnlyStageRec(m.rec) || m.sd.multiRecurso) return;
+      const d = toDayKey(m.rec.date) || '';
+      if (!d) return;
+      out.push({ key: 'fase:' + e.id + ':' + m.k, kind: 'fase', kindLabel: 'Fase', date: d, title: (m.sd.label || m.k) + (m.rec.evento ? ' · Ev. ' + m.rec.evento : '') + (m.outcomeLabel ? ' · ' + m.outcomeLabel : ''), processNumber: e.processNumber || '', url: '', executionId: e.id });
+    });
+  });
+  return out;
+}
+function cxAtuRows(op, data, execs) {
+  const base = buildUltimasAtuacoes({ operationId: op.id, intimations: data.intimations, tasks: data.tasks, executions: data.executions });
+  return base.concat(cxPhaseRows(op, execs)).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpenProativa, onOpenProc, bare }) {
+  const [shown, setShown] = React.useState(CX_UA_STEP);
+  const [step, setStep] = React.useState(null); // null · 'pick' · { exec } (formulário)
+  const rows = React.useMemo(() => cxAtuRows(op, data, execs), [op, data.intimations, data.tasks, data.executions, execs]);
+  const open = (r) => {
+    if (r.kind === 'fase') { if (onOpenProc) onOpenProc(r.executionId); }
+    else if (r.kind === 'resposta') { if (onOpenIntim) onOpenIntim(r.intimationId); }
+    else if (r.kind === 'tarefa') { const t = (data.tasks || []).find(x => x.id === r.taskId); if (t && onOpenTask) onOpenTask(t); }
+    else if (onOpenProativa) onOpenProativa(r.executionId, r.actionId);
+  };
+  const start = () => { if (!execs.length) return; setStep(execs.length === 1 ? { exec: execs[0] } : 'pick'); };
+  const save = (fields) => {
+    const r = cxRegisterAtuacao({ data, upsert, exec: step.exec, fields });
+    if (r.error) return r.error;
+    setStep(null);
+    setShown(CX_UA_STEP);
+    return '';
+  };
+  return <>
+    <CxFoldOrBare bare={bare} id="atuacoes" scope="visao" className="cx-bf-ua" ariaLabel="Atuações recentes" title="Atuações recentes" count={rows.length}
+      summary={rows.length ? 'última: ' + (rows[0].title || rows[0].kindLabel) : 'nenhuma registrada'}
+      actions={
+        <button type="button" className="cx-link-btn" onClick={start} disabled={!execs.length}
+          title={execs.length ? 'Registrar o que você fez por conta própria (petição, diligência…), sem intimação. Escolha o processo e preencha o resumo.' : 'Cadastre um processo nesta operação para registrar atuações.'}><CxIcon n="plus" s={13} />Registrar atuação</button>
+      }>
+    {rows.length === 0
+      ? <div className="cx-empty-row">Nenhuma atuação registrada nesta operação ainda.</div>
+      : <div className="cx-ua-list">
+        {rows.slice(0, shown).map(r => <div key={r.key} className="cx-ua-row" role="button" tabIndex={0} onClick={() => open(r)}
+          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(r); } }}>
+          <span className={'cx-ua-d cx-mono' + (r.date ? '' : ' cx-muted')}>{r.date ? fmtDate(r.date) : 'sem data'}</span>
+          <span className={'cx-ua-chip ' + r.kind}>{r.kindLabel}</span>
+          <span className="cx-ua-t">{r.title}</span>
+          <span className="cx-ua-p cx-mono">{r.processNumber}</span>
+          <span className="cx-ua-l"><CxDocIcon url={r.url} size={16} /></span>
+        </div>)}
+      </div>}
+    {rows.length > shown
+      ? <div className="cx-ua-more"><button type="button" className="cx-link-btn" onClick={() => setShown(n => n + CX_UA_STEP)}>Mostrar mais {CX_UA_STEP}</button><span className="cx-muted cx-small">{shown} de {rows.length}</span></div>
+      : null}
+    </CxFoldOrBare>
+    {step === 'pick' ? <CxAtuProcPicker execs={execs} onClose={() => setStep(null)} onPick={(e) => setStep({ exec: e })} /> : null}
+    {step && step.exec ? <EditionClaudeAtuacaoForm exec={step.exec} onCancel={() => setStep(null)} onSave={save} /> : null}
+  </>;
+}
+
+/* ═════════════════════ Miniaturas (M6) ═════════════════════
+   "Onde estamos neste processo e o que vem aqui — sem sair da tela em que já estou?" O mesmo vocabulário de formas
+   (◆ ○ ■ ▼ ⬢) em três usos: (A) pulso de 120 dias no cartão da Carteira; (B) trilha de 5-6 pontos "você está aqui" na
+   gaveta da intimação (o cartão da lista não muda); (C) trilha vertical de fases + a barra de prescrição na ficha do
+   processo. Cálculo em src/lib/timeline.js (tlPulseLayout, tlPulseSummary, tlPhaseTrail, tlMiniTrail); nada de dado novo. */
+const CX_MT_OUT = { favoravel: 'var(--cx-green)', provido: 'var(--cx-green)', desfavoravel: 'var(--cx-red)', nao_provido: 'var(--cx-red)', pendente: 'var(--cx-yellow)' };
+const cxMtOutColor = (o) => CX_MT_OUT[o] || 'var(--cx-ink-2)';
+/* Trilha de fases do processo (ordem do tipo: IDPJ/MCF ou central), a partir do mesmo `stageMeta` do Briefing. */
+function cxProcTrail(data, op, e, todayIso) {
+  if (!e) return null;
+  const idpj = e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal';
+  const recs = getStageRecords((op && op.briefing) || {}, e.id) || {};
+  const metas = stageMeta(idpj ? PROCESS_STAGES : CENTRAL_STAGES, idpj ? PROCESS_STAGE_KEYS : CENTRAL_STAGE_KEYS, recs);
+  const stages = metas.map(m => ({
+    key: m.k, label: m.sd.label, has: !!m.has, multi: !!m.sd.multiRecurso,
+    d: toDayKey(m.rec && m.rec.date) || '', out: (m.rec && m.rec.outcome) || '', outLabel: m.outcomeLabel || '',
+    text: String((m.rec && m.rec.texto) || '').trim(), textHtml: pickStageTextHtml(m.rec, cxSanitizeDesc), ev: (m.rec && m.rec.evento) || '',
+    recursos: (m.recursos || []).map(r => ({ d: toDayKey(r.date) || '', out: r.outcome || '', outLabel: RECURSO_OUTCOMES[r.outcome] || '', parte: r.parte === 'adversa' ? 'adversa' : 'nossa', texto: String(r.texto || '').trim(), proc: r.proc || '' })),
+  }));
+  const hearings = (data.hearings || []).filter(h => h.date && h.status !== 'cancelada' && h.status !== 'realizada' && sameProc(h.processNumber, e.processNumber) && (!e.operationId || h.operationId === e.operationId))
+    .map(h => ({ d: toDayKey(h.date), tm: h.time || '', label: CX_HEARING_SHORT[h.hearingType] || 'Audiência' }));
+  return tlPhaseTrail({ stages, hearings, todayIso });
+}
+/* (B) Trilha curta da gaveta da intimação. */
+function CxMiniTrail({ points }) {
+  const you = points.findIndex(x => x.k === 'you');
+  return <div className="cx-mt" role="list" aria-label="Onde este prazo cai no processo">
+    {points.map((x, i) => {
+      const c = x.k === 'you' ? (x.late ? 'var(--cx-red)' : 'var(--cx-accent)') : x.k === 'done' ? (x.out ? cxMtOutColor(x.out) : 'var(--cx-ink-2)') : x.hearing ? 'var(--cx-orange)' : 'var(--cx-ink-3)';
+      const kind = x.k === 'you' ? 'prazo' : x.hearing ? 'aud' : x.out ? 'dec' : 'and';
+      const when = x.d ? cxDM(x.d) + (x.tm ? ' ' + x.tm : '') : 'sem data';
+      return <div key={i} role="listitem" className={'cx-mt-s ' + x.k + (i < you ? ' before' : '')} style={{ '--c': c }} title={x.label + ' · ' + (x.d ? fmtDate(x.d) : 'sem data') + (x.k === 'you' ? ' (este prazo)' : x.k === 'ghost' ? ' (fase esperada)' : '')}>
+        <span className="cx-mt-g">{x.k === 'you' ? <span className="cx-mt-ring" /> : null}<CxTlGlyph kind={kind} c={c} ghost={x.k === 'ghost'} s={x.k === 'you' ? 18 : 15} /></span>
+        <span className="cx-mt-l">{x.k === 'you' ? 'Este prazo' : tlClip(x.label, 22)}</span>
+        <span className="cx-mt-d">{x.k === 'you' ? (x.d ? cxDM(x.d) : '') : when}</span>
+      </div>;
+    })}
+  </div>;
+}
+/* Texto da fase na trilha da ficha: prévia de 3 linhas (com os parágrafos e a formatação), "mostrar mais" abre tudo. */
+function CxPtText({ s }) {
+  const [open, setOpen] = React.useState(false);
+  const long = String(s.text || '').length > 170 || /\n/.test(s.text || '');
+  return <div className="cx-pt-tx">
+    {s.ev ? <div className="cx-pt-ev">Ev. {s.ev}</div> : null}
+    {s.text ? <div className={'cx-pt-clamp' + (open ? ' open' : '')}><CxRichText text={s.text} html={s.textHtml} /></div> : null}
+    {s.text && long ? <button type="button" className="cx-link-btn cx-pt-more" onClick={() => setOpen(o => !o)} aria-expanded={open}>{open ? 'mostrar menos' : 'mostrar mais'}</button> : null}
+  </div>;
+}
+/* (C) Trilha vertical de fases. */
+function CxPhaseTrail({ trail, todayIso }) {
+  const { steps, done, total } = trail;
+  const cur = trail.curIndex;
+  const nextDated = steps.find(s => s.state === 'next' && s.d);
+  return <div className="cx-pt">
+    <div className="cx-pt-sum"><span><b>{cur >= 0 ? 'Fase ' + (cur + 1) + ' de ' + total : cxPl(total, 'fase', 'fases')}</b> · {cxPl(done, 'cumprida', 'cumpridas')}</span><span className="cx-muted">{nextDated ? 'próxima com data: ' + fmtDate(nextDated.d) : ''}</span></div>
+    <div className="cx-pt-prog" aria-hidden="true"><i style={{ width: (total ? done / total * 100 : 0) + '%', background: 'var(--cx-green)' }} />{cur >= 0 ? <i style={{ width: (total ? 1 / total * 100 : 0) + '%', background: 'var(--cx-accent)' }} /> : null}</div>
+    <div className="cx-pt-list">
+      {steps.map(s => {
+        const dd = s.d ? daysUntil(s.d) : null;
+        const oc = s.out ? cxMtOutColor(s.out) : '';
+        const dt = s.state === 'skip' ? 'sem registro' : s.d ? fmtDate(s.d) + (s.tm ? ' · ' + s.tm : '') : s.state === 'next' ? 'sem data' : 'sem data';
+        const extra = s.gap ? '+' + s.gap + ' d' : s.state === 'next' && dd !== null ? (dd === 0 ? 'hoje' : dd > 0 ? 'em ' + tlDurLabel(dd) : tlDurLabel(dd)) : '';
+        return <div key={s.id} className={'cx-pt-s ' + s.state} style={{ '--c': oc || 'var(--cx-green)' }}>
+          <span className="cx-pt-nd">{s.state === 'done' ? <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><path d="M1.5 4.6l2 2 4-4.4" fill="none" style={{ stroke: 'var(--cx-on-solid)' }} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.state === 'cur' ? <span className="cx-pt-dot" /> : null}</span>
+          <div className="cx-pt-tt"><span>{s.label}</span>{s.outLabel ? <span className="cx-nr-b" style={{ '--c': oc }}>{s.outLabel}</span> : null}<span className="cx-pt-dt">{dt}{extra ? ' · ' + extra : ''}</span></div>
+          {s.text || s.ev ? <CxPtText s={s} /> : null}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+/* Barra de prescrição da ficha do processo: a pior CDA do processo (ou das EFs cobertas, no IDPJ/MCF), com a mesma
+   leitura da tela de Relógios (CxClkBar). */
+function cxProcPrescMini(data, e, cdas, prazosByDebt, todayIso) {
+  if (!e) return null;
+  let targets = (cdas || []).filter(d => d.status !== 'extinta' && !d.prescriptionHandled);
+  let covered = false;
+  if (!targets.length && (e.processTag === 'idpj' || e.processTag === 'cautelar_fiscal')) {
+    const linked = (e.linkedExecutionIds || []).map(id => (data.executions || []).find(x => x.id === id)).filter(Boolean);
+    targets = (data.debts || []).filter(d => d.status !== 'extinta' && !d.prescriptionHandled && linked.some(x => sameProc(x.processNumber, d.processNumber)));
+    covered = targets.length > 0;
+  }
+  if (!targets.length) return null;
+  let best = null;
+  targets.forEach(d => {
+    let r = null; try { r = computePrescription({ debt: d, executions: data.executions || [], events: data.prescriptionEvents || [] }); } catch (err) { r = null; }
+    if (!r) return;
+    const s = CX_SEV[r.status] || 0, bs = best ? (CX_SEV[best.r.status] || 0) : -1;
+    if (s > bs || (s === bs && (r.daysLeft ?? 1e9) < (best.r.daysLeft ?? 1e9))) best = { d, r };
+  });
+  if (!best) return null;
+  const c = clkClassify({ debt: best.d, r: best.r, row: prazosByDebt && prazosByDebt.get ? prazosByDebt.get(best.d.id) : undefined, today: todayIso });
+  if (!c || c.skip) return null;
+  return { c, n: targets.length, covered, status: best.r.status };
+}
+function CxProcPrescMini({ mini, todayIso }) {
+  if (!mini) return null;
+  return <div className="cx-pt-presc">
+    <div className="cx-pt-presc-h"><span className="cx-pt-cap">Prescrição{mini.covered ? ' das EFs cobertas' : ''}</span><span className="cx-muted cx-small">{mini.n > 1 ? 'pior de ' + cxPl(mini.n, 'CDA', 'CDAs') : '1 CDA'} · {CX_PRESC_TXT[mini.status] || ''}</span></div>
+    <CxClkBar c={mini.c} todayIso={todayIso} />
+  </div>;
+}
+/* (A) Pulso de 120 dias (−30 … +90) do cartão da Carteira: um ponto por prazo, audiência, tarefa, decisão ou termo. */
+function cxPulseData(data, op, prescLookup, todayIso) {
+  const tl = cxBuildTimeline(data, op, prescLookup);
+  const items = [];
+  tl.items.forEach(it => {
+    if (!it.d) return;
+    if (it.kind === 'prazo') items.push({ id: it.id, kind: 'prazo', d: it.d, title: it.l, color: cxTlColor(it), tip: it });
+    else if (it.kind === 'aud') items.push({ id: it.id, kind: 'aud', d: it.d, tm: it.tm || '', title: it.short || it.l, color: cxTlColor(it), tip: it });
+    else if (it.k === 'stage' && it.kind === 'dec' && it.out !== 'pendente') items.push({ id: it.id, kind: 'dec', d: it.d, title: it.l, color: it.c, tip: it });
+    else if (it.kind === 'presc' && (it.k === 'cda' || (it.mark && it.deadline))) items.push({ id: it.id, kind: 'presc', d: it.d, title: it.l, color: 'var(--cx-violet)', tip: it });
+  });
+  (data.tasks || []).forEach(k => {
+    if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    items.push({ id: 'tk|' + k.id, kind: 'tar', d, title: k.title || k.description || 'Tarefa', color: 'var(--cx-blue)', tip: { id: 'tk|' + k.id, kind: 'and', d, l: k.title || k.description || 'Tarefa', ref: { t: 'task' } } });
+  });
+  return { items, layout: tlPulseLayout(items, { todayIso }), sum: tlPulseSummary(items, todayIso), execById: tl.execById };
+}
+function CxPulse({ pulse, todayIso }) {
+  const { layout: L, sum, items } = pulse;
+  const byId = new Map(items.map(i => [i.id, i]));
+  const Y = 38;
+  const rel = (o) => (o === 0 ? 'hoje' : o === 1 ? 'amanhã' : o > 0 ? 'em ' + tlDurLabel(o) : tlDurLabel(o));
+  return <span className="cx-pulse">
+    <svg viewBox={'0 0 ' + L.width + ' 60'} width="100%" role="img" aria-label="Pulso dos próximos 120 dias: de 30 dias atrás a 90 dias à frente">
+      <line x1={L.X0} x2={L.X1} y1={Y} y2={Y} stroke="var(--cx-line-strong)" strokeWidth="1.5" />
+      {L.ticks.map(t => t.type === 'month'
+        ? <g key={'m' + t.o}><line x1={t.x} x2={t.x} y1={Y - 6} y2={Y + 8} stroke="var(--cx-ink-3)" /><text x={t.x + 3} y={Y + 19} className="cx-pulse-mo">{t.label}</text></g>
+        : <line key={'w' + t.o} x1={t.x} x2={t.x} y1={Y - 3} y2={Y + 3} stroke="var(--cx-line-strong)" />)}
+      <rect x={L.next7.x0} y={Y - 8} width={L.next7.x1 - L.next7.x0} height="16" rx="3" fill="var(--cx-accent)" opacity="0.1" />
+      {L.points.map(p => { const it = byId.get(p.id); if (!it) return null; const y = Y - (p.lvl ? 9 * p.lvl + 4 : 0); return <g key={p.id} transform={'translate(' + (p.x - 7.5) + ',' + (y - 7.5) + ')'} data-tl={'pl|' + p.id} className="cx-pulse-pt"><CxTlGlyph kind={it.kind === 'tar' ? 'tar' : it.kind} c={it.color} s={15} /></g>; })}
+      <line x1={L.today} x2={L.today} y1="2" y2="50" stroke="var(--cx-accent)" strokeWidth="1.6" />
+      <text x={L.today + 3} y="9" className="cx-pulse-hj">HOJE</text>
+    </svg>
+    <span className="cx-pulse-ln">{sum.next
+      ? <><span className="cx-dot" style={{ background: (byId.get(sum.next.id) || {}).color || 'var(--cx-ink-3)' }} /><span className="cx-pulse-nx"><span className="cx-pulse-pre">Próximo:</span><b className="cx-ell" title={sum.next.title}>{sum.next.title}</b><span className="cx-pulse-rel">· {rel(sum.next.o)}{sum.next.tm ? ' ' + sum.next.tm : ''}</span></span></>
+      : <span className="cx-muted">Nada agendado à frente.</span>}</span>
+    <span className="cx-pulse-ln sub">{sum.late ? <b className="cx-red-t">{sum.late} vencido{sum.late === 1 ? '' : 's'}</b> : null}{sum.late ? ' · ' : ''}{cxPl(sum.in7, 'item', 'itens')} nos próximos 7 dias{sum.term ? <> · <span className="cx-violet-t">⌛ {sum.term.o <= 90 ? 'termo em ' + tlDurLabel(sum.term.o) : 'próximo termo ' + cxDM(sum.term.d) + '/' + sum.term.d.slice(2, 4)}{sum.term.extra ? ' (+' + sum.term.extra + ')' : ''}</span></> : null}</span>
+  </span>;
+}
+
+/* ═════════════════════ Horizonte de 90 dias (M5) ═════════════════════
+   "O que eu preciso fazer, e em que ordem, nos próximos 90 dias?" Colunas em funil (Atrasados · esta semana ·
+   semanas 2 a 5 · meses · Depois — src/lib/timeline.js, `horizonColumns`) e linhas por natureza (Prazos,
+   Audiências, Tarefas, Prescrição e revisões). Cada cartão abre a gaveta/janela que já existe. Dia com 3 ou mais
+   itens deixa a coluna âmbar e marca "!" no cartão. Dias não úteis vêm de `isBusinessDay` (feriados nacionais,
+   recesso forense e o calendário local de ⚙): nenhuma tabela nova. Não é calendário (isso é a Agenda): é um
+   resumo por urgência. `cxBuildHorizon` aceita várias operações — o componente é reutilizável. */
+function cxBuildHorizon(data, opIds, prazosRadar, todayIso) {
+  const ids = new Set(opIds);
+  const showOp = ids.size > 1;
+  const opSg = (id) => { const o = (data.operations || []).find(x => x.id === id); return o ? String(cxOpName(o)).split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() : ''; };
+  const execOf = (pn) => (data.executions || []).find(e => sameProc(e.processNumber, pn));
+  const procTxt = (pn, fallback) => { const e = pn ? execOf(pn) : null; return e ? cxExecTag(e) + ' ' + cxExecShortNum(e) : (fallback || ''); };
+  const subOf = (opId, txt) => [showOp ? opSg(opId) : '', txt].filter(Boolean).join(' · ');
+  const toneOf = (iso) => cxDue(daysUntil(iso), iso).tone;
+  const items = [];
+  (data.intimations || []).forEach(i => {
+    if (!ids.has(i.operationId) || !cxIsOpen(i) || !i.dateDeadline) return;
+    const d = toDayKey(i.dateDeadline); if (!d) return;
+    items.push({ id: 'i|' + i.id, cat: 'prazo', d, tone: toneOf(d), urgent: intimIsUrgent(i), opId: i.operationId, title: i.eventDescription || i.className || 'Intimação', sub: subOf(i.operationId, procTxt(i.processNumber, cxPartyName(i))), ref: { t: 'intim', id: i.id } });
+  });
+  (data.hearings || []).forEach(h => {
+    if (!ids.has(h.operationId) || !h.date || h.status === 'realizada' || h.status === 'cancelada') return;
+    const d = toDayKey(h.date); if (!d || daysUntil(d) < 0) return;
+    items.push({ id: 'h|' + h.id, cat: 'aud', d, tm: h.time || '', tone: toneOf(d), opId: h.operationId, title: CX_HEARING_SHORT[h.hearingType] || 'Audiência', sub: subOf(h.operationId, procTxt(h.processNumber, h.parties || '')), ref: { t: 'hearing', h } });
+  });
+  (data.tasks || []).forEach(k => {
+    if (!ids.has(k.operationId) || !cxTaskOpen(k) || !k.dueDate) return;
+    const d = toDayKey(k.dueDate); if (!d) return;
+    items.push({ id: 't|' + k.id, cat: 'tar', d, tone: toneOf(d), opId: k.operationId, title: k.title || k.description || 'Tarefa', sub: subOf(k.operationId, k.processNumber ? procTxt(k.processNumber) : ''), ref: { t: 'task', k } });
+  });
+  const rows = ((prazosRadar && prazosRadar.rows) || []).filter(r => ids.has(r.operationId) && r.group !== 6);
+  const split = splitMesaRows(rows, todayIso);
+  split.needsYou.concat(split.overCap).forEach(r => {
+    const d = toDayKey(r.prescDate || r.keyDate); if (!d) return;
+    const late = daysUntil(d) < 0;
+    items.push({ id: 'p|' + r.id, cat: 'presc', d, tone: late ? 'late' : toneOf(d), opId: r.operationId, title: (late ? 'Vencida · ' : 'Termo · ') + (r.cdaNumber || 'S/N'), sub: subOf(r.operationId, [r.value ? cxMoneyShort(r.value) : '', r.processNumber ? procTxt(r.processNumber) : 'sem processo'].filter(Boolean).join(' · ')), ref: { t: 'cda', row: r } });
+  });
+  (data.operations || []).forEach(o => {
+    if (!ids.has(o.id) || o.status === 'encerrada') return;
+    const d = cxReviewNext(o); if (!d) return;
+    const dd = daysUntil(d);
+    items.push({ id: 'r|' + o.id, cat: 'presc', rev: true, d, tone: dd < 0 ? 'late' : 'later', opId: o.id, title: dd < 0 ? 'Revisão atrasada' : 'Revisão da operação', sub: subOf(o.id, dd < 0 ? tlDurLabel(dd).replace(/^há /, '') + ' de atraso' : ((REVIEW_INTERVALS[o.reviewInterval || 'mensal'] || {}).label || '').toLowerCase()), ref: { t: 'rev' } });
+  });
+  const columns = horizonColumns(todayIso);
+  const buckets = horizonBucket(items, columns);
+  const busy = horizonBusyDays(horizonDayCounts(items));
+  return { items, columns, buckets, busy, end: addCalendarDays(todayIso, HORIZON_DAYS) };
+}
+const CX_HZ_TONE = { late: 'var(--cx-red)', today: 'var(--cx-orange)', soon: 'var(--cx-yellow)', later: 'var(--cx-ink-3)', none: 'var(--cx-ink-3)' };
+function EditionClaudeHorizon({ data, opIds, prazosRadar, shell, onOpenIntim, onOpenHearing, onOpenTask, onOpenCda }) {
+  const todayIso = localIso(new Date());
+  const hz = React.useMemo(() => cxBuildHorizon(data, opIds, prazosRadar, todayIso), [data, opIds.join(','), prazosRadar, todayIso]);
+  const [open, setOpen] = React.useState(() => new Set());
+  const toggle = (k) => setOpen(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const isOff = (iso) => !isBusinessDay(new Date(iso + 'T00:00:00'));
+  const act = (it) => {
+    const r = it.ref;
+    if (r.t === 'intim') onOpenIntim && onOpenIntim(r.id);
+    else if (r.t === 'hearing') onOpenHearing && onOpenHearing(r.h);
+    else if (r.t === 'task') onOpenTask && onOpenTask(r.k);
+    else if (r.t === 'cda') onOpenCda && onOpenCda(r.row);
+  };
+  const card = (it, col) => {
+    const wk = col.kind === 'week';
+    const d = it.d, dow = CX_DOW[cxDate(d).getDay()];
+    const dl = (wk ? dow + ' ' + d.slice(8, 10) : cxDM(d)) + (it.tm ? ' · ' + it.tm : '');
+    const busyDay = hz.busy.has(d);
+    const clickable = it.ref.t !== 'rev';
+    const Tag = clickable ? 'button' : 'div';
+    return <Tag key={it.id} type={clickable ? 'button' : undefined} className={'cx-hz-it cat-' + it.cat + ' tone-' + it.tone + (busyDay ? ' crit' : '') + (it.urgent ? ' urg' : '')} style={{ '--ct': CX_HZ_TONE[it.tone] }}
+      onClick={clickable ? () => act(it) : undefined} title={it.title + (it.sub ? ' · ' + it.sub : '') + ' · ' + fmtDate(d) + (busyDay ? ' · dia com ' + hz.items.filter(x => x.d === d).length + ' itens' : '') + (it.ref.t === 'rev' ? ' · use "Revisada" no cabeçalho da operação' : '')}>
+      <span className="cx-hz-d"><span className="cx-hz-dl">{dl}</span>{busyDay ? <b className="cx-hz-bang" aria-label="dia com 3 ou mais itens">!</b> : null}{it.urgent ? <b className="cx-hz-urg">URGENTE</b> : null}</span>
+      <span className="cx-hz-t">{it.title}</span>
+      {it.sub ? <span className="cx-hz-s">{it.sub}</span> : null}
+    </Tag>;
+  };
+  const total = hz.items.length;
+  const lateN = hz.buckets.late.length;
+  const rowsDef = HORIZON_ROWS;
+  const summary = total + (total === 1 ? ' item' : ' itens') + ' nos próximos 90 dias' + (lateN ? ' · ' + lateN + (lateN === 1 ? ' atrasado' : ' atrasados') : '');
+  return shell({ cls: 'cx-hz', summary, extras: <span className="cx-hz-range">{cxDM(todayIso)} → {fmtDate(hz.end)}</span>, children: <>
+    <div className="cx-hz-h">
+      <span className="cx-hz-sum"><b>{total}</b> {total === 1 ? 'item' : 'itens'} nos próximos 90 dias{lateN ? <> · <b className="cx-red-t">{lateN}</b> {lateN === 1 ? 'atrasado' : 'atrasados'}</> : null}</span>
+      <span className="cx-hz-key"><i className="cx-hz-sw busy" />dia com 3 ou mais itens<span className="cx-hz-off-k" title="Dias de semana sem expediente: feriado nacional, recesso forense (20/12 a 20/01) ou dia marcado no calendário local (⚙)">● dia não útil</span></span>
+    </div>
+    <div className="cx-hz-scroll">
+      <div className="cx-hz-grid" style={{ gridTemplateColumns: '112px repeat(' + hz.columns.length + ', minmax(116px, 1fr))' }}>
+        <div className="cx-hz-corner" />
+        {hz.columns.map(c => {
+          const n = hz.buckets[c.key].length, offs = horizonOffRuns(c, isOff);
+          return <div key={c.key} className={'cx-hz-ch ' + c.kind + (c.key === 'w1' ? ' now' : '')}>
+            <b>{c.label}</b><span className="cx-hz-sub">{c.sub}</span>
+            <span className="cx-hz-n">{n} {n === 1 ? 'item' : 'itens'}</span>
+            {offs.map(r => <span key={r.from} className="cx-hz-off" title={(r.n === 1 ? 'Dia de semana sem expediente' : r.n + ' dias de semana sem expediente') + ': feriado, recesso forense ou calendário local (⚙)'}>● {r.from === r.to ? cxDM(r.from) : r.from.slice(8, 10) + '–' + cxDM(r.to)}</span>)}
+          </div>;
+        })}
+        {rowsDef.map(([cat, label, subL]) => <React.Fragment key={cat}>
+          <div className="cx-hz-rl"><b>{label}</b>{subL ? <span>{subL}</span> : null}</div>
+          {hz.columns.map(c => {
+            const list = hz.buckets[c.key].filter(i => i.cat === cat);
+            const cellKey = cat + '|' + c.key;
+            const cap = c.kind === 'week' ? 4 : 3;
+            const cp = tlCapList(list, cap, open.has(cellKey));
+            const crowded = list.some(i => hz.busy.has(i.d));
+            return <div key={c.key} className={'cx-hz-c ' + c.kind + (c.key === 'w1' ? ' now' : '') + (crowded ? ' busy' : '')}>
+              {list.length ? cp.shown.map(i => card(i, c)) : <span className="cx-hz-none">—</span>}
+              {cp.more > 0 ? <button type="button" className="cx-hz-more" onClick={() => toggle(cellKey)}>+ {cp.more} {cp.more === 1 ? 'item' : 'itens'}</button> : (open.has(cellKey) && list.length > cap ? <button type="button" className="cx-hz-more" onClick={() => toggle(cellKey)}>recolher</button> : null)}
+            </div>;
+          })}
+        </React.Fragment>)}
+      </div>
+    </div>
+  </> });
+}
+
 /* ═════════════════════ Visão geral da operação ═════════════════════ */
+/* Descrição da operação no cabeçalho da Visão geral. Texto simples em op.description (busca, Clássico,
+   Beta, relatório e modal "Editar operação" seguem usando só ele) e, quando há formatação, HTML em
+   op.descriptionHtml — exibido (sanitizado de novo) só enquanto o texto simples dele for igual a
+   description; se alguém editar no modal clássico, volta ao texto simples. Edição inline com o mesmo
+   editor rico do Diário (RichNoteEditor), com cor de texto. */
+const cxSanitizeDesc = (h) => sanitizeNoteHtml(h, { color: true, links: true });
+function EditionClaudeOpDesc({ op, upsert }) {
+  const [editing, setEditing] = React.useState(false);
+  const draftRef = React.useRef('');
+  const plain = String(op.description || '').trim();
+  const rich = React.useMemo(() => pickOpDescriptionHtml(op, cxSanitizeDesc), [op.description, op.descriptionHtml]);
+  const cancel = () => setEditing(false);
+  const save = () => {
+    upsert('operations', { ...op, ...buildOpDescriptionPatch(draftRef.current, cxSanitizeDesc) });
+    setEditing(false);
+    cxNotify('Descrição salva');
+  };
+  if (editing) {
+    return <div className="cx-opd cx-opd-edit"
+      onKeyDown={e => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+        else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); save(); }
+      }}>
+      <RichNoteEditor initialHtml={rich || escapeHtmlText(plain)} placeholder="Descreva a operação…" draftRef={draftRef} autoFocus colors />
+      <div className="cx-opd-acts">
+        <span className="cx-muted cx-small">Esc cancela · Ctrl+Enter salva</span>
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm ghost" onClick={cancel}>Cancelar</button>
+        <button type="button" className="cx-btn sm primary" onClick={save}>Salvar</button>
+      </div>
+    </div>;
+  }
+  if (!rich && !plain) {
+    return <div className="cx-opd"><button type="button" className="cx-link-btn cx-opd-add" onClick={() => setEditing(true)}>Adicionar descrição</button></div>;
+  }
+  return <div className="cx-opd">
+    {rich
+      ? <div className="cx-opd-txt cx-opd-rich" dangerouslySetInnerHTML={{ __html: mapRichTextColors(rich) }} />
+      : <p className="cx-opd-txt cx-opd-plain">{plain}</p>}
+    <button type="button" className="cx-icon-btn cx-sm cx-opd-pen" onClick={() => setEditing(true)} title="Editar descrição" aria-label="Editar descrição"><CxIcon n="edit" s={13} /></button>
+  </div>;
+}
+/* Texto de evento/decisão (fases das Frentes processuais e ficha do processo): parágrafos, respiro e formatação.
+   `html` (já validado por pickStageTextHtml) → HTML sanitizado com as cores do editor mapeadas para o tema;
+   senão `text` simples em parágrafos (linha em branco separa; quebra simples vira <br>) — tudo como elementos
+   React, sem innerHTML. */
+function CxRichText({ text, html, className }) {
+  const clean = React.useMemo(() => (html ? cxSanitizeDesc(html) : ''), [html]);
+  const cls = 'cx-rt' + (className ? ' ' + className : '');
+  if (clean) return <div className={cls + ' cx-rt-html'} dangerouslySetInnerHTML={{ __html: mapRichTextColors(clean) }} />;
+  const paras = plainToParagraphs(text);
+  if (!paras.length) return null;
+  return <div className={cls}>{paras.map((lines, i) => <p key={i}>{lines.map((l, j) => <React.Fragment key={j}>{j ? <br /> : null}{l}</React.Fragment>)}</p>)}</div>;
+}
+/* Editor inline do texto da fase: o mesmo editor rico do Diário e da descrição (negrito, itálico, sublinhado, marca-texto,
+   cores, lista) + "Organizar parágrafos" (organizarParagrafos, só espaços/quebras; refaz o texto sem formatação, com Desfazer). */
+function CxStageTextEditor({ texto, textoHtml, onSave, onCancel }) {
+  const draftRef = React.useRef('');
+  const [seed, setSeed] = React.useState(() => ({ n: 0, html: textoHtml || plainToRichHtml(texto) }));
+  const [undo, setUndo] = React.useState(null);
+  const organizar = () => {
+    const before = cxSanitizeDesc(draftRef.current);
+    const next = organizarParagrafos(richHtmlToPlainText(before, { paragraphs: true }));
+    setUndo({ html: before, lost: /<(b|strong|i|em|u|s|strike|span|ul|ol|li)\b/i.test(before) });
+    setSeed(sd => ({ n: sd.n + 1, html: plainToRichHtml(next) }));
+  };
+  const desfazer = () => { if (!undo) return; setSeed(sd => ({ n: sd.n + 1, html: undo.html })); setUndo(null); };
+  return <div className="cx-opd-edit cx-rt-edit"
+    onKeyDown={e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); onSave(draftRef.current); }
+    }}>
+    <RichNoteEditor key={seed.n} initialHtml={seed.html} placeholder="Texto do evento…" draftRef={draftRef} autoFocus colors />
+    <div className="cx-opd-acts">
+      <button type="button" className="cx-btn sm" onClick={organizar} title="Insere linha em branco antes de 1) 2) a) b) I – e de Ante o exposto, DEFIRO, Intime-se… sem alterar as palavras. Refaz o texto sem a formatação (dá para desfazer).">Organizar parágrafos</button>
+      {undo ? <button type="button" className="cx-link-btn" onClick={desfazer}>Desfazer</button> : null}
+      <span className="cx-muted cx-small">{undo ? (undo.lost ? 'Formatação removida · Desfazer volta' : 'Revise antes de salvar') : 'Esc cancela · Ctrl+Enter salva'}</span>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm ghost" onClick={onCancel}>Cancelar</button>
+      <button type="button" className="cx-btn sm primary" onClick={() => onSave(draftRef.current)}>Salvar</button>
+    </div>
+  </div>;
+}
+/* Editor rico mínimo, no lugar (Evento da fase e Notas das Frentes): contenteditable com barra discreta
+   (negrito, itálico, lista, lista numerada, link), Ctrl+B / Ctrl+I, Esc cancela, Ctrl+Enter salva.
+   `enterSaves` (campo de nova nota): Enter salva, Shift+Enter quebra a linha; dentro de uma lista o Enter cria
+   o item (Enter em item vazio sai da lista e o Enter seguinte salva). `actions` mostra Cancelar/Salvar.
+   Devolve o HTML bruto em onSave(html) — quem chama sanitiza (cxSanitizeDesc) ou converte (htmlToMdNote). */
+function cxNormalizeUrl(u) {
+  u = String(u || '').trim();
+  if (!u) return '';
+  if (/^(https?:\/\/|mailto:)/i.test(u)) return u;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u)) return 'mailto:' + u;
+  if (/^[^\s:]+\.[^\s:]+/.test(u) && !/^[a-z][a-z0-9+.-]*:/i.test(u)) return 'https://' + u;
+  return '';
+}
+function CxRichEdit({ html, onSave, onCancel, placeholder, compact, enterSaves, actions, autoFocus, ariaLabel }) {
+  const ref = React.useRef(null);
+  const savedSel = React.useRef(null);
+  const [empty, setEmpty] = React.useState(!html);
+  const [link, setLink] = React.useState(null); // null | string (URL em edição)
+  const sync = () => { const ed = ref.current; if (ed) setEmpty(!String(ed.textContent || '').trim() && !ed.querySelector('li')); };
+  React.useEffect(() => {
+    const ed = ref.current; if (!ed) return;
+    ed.innerHTML = html || '';
+    sync();
+    if (autoFocus) {
+      ed.focus();
+      try { const r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+    }
+  }, []);
+  /* execCommand de lista dentro de <p> gera <p><ul>…</ul></p> (inválido): tira a lista de dentro do parágrafo. */
+  const fixLists = () => {
+    const ed = ref.current; if (!ed) return;
+    ed.querySelectorAll('p > ul, p > ol').forEach(l => {
+      const p = l.parentNode;
+      p.parentNode.insertBefore(l, p.nextSibling);
+      if (!String(p.textContent || '').trim() && !p.querySelector('img')) p.remove();
+    });
+  };
+  const run = (c) => { const ed = ref.current; if (!ed) return; ed.focus(); try { document.execCommand(c, false, null); } catch (e) {} fixLists(); sync(); };
+  const inList = () => {
+    const ed = ref.current; const s = window.getSelection();
+    let n = s && s.anchorNode;
+    while (n && n !== ed) { if (n.nodeName === 'LI') return true; n = n.parentNode; }
+    return false;
+  };
+  const commit = () => { const ed = ref.current; if (!ed) return; fixLists(); onSave(ed.innerHTML); };
+  const openLink = () => {
+    const s = window.getSelection();
+    savedSel.current = s && s.rangeCount && ref.current.contains(s.anchorNode) ? s.getRangeAt(0).cloneRange() : null;
+    setLink('');
+  };
+  const applyLink = () => {
+    const url = cxNormalizeUrl(link);
+    const ed = ref.current; setLink(null);
+    if (!url || !ed) { if (ed) ed.focus(); return; }
+    ed.focus();
+    const s = window.getSelection();
+    if (savedSel.current) { s.removeAllRanges(); s.addRange(savedSel.current); }
+    try {
+      if (s.isCollapsed) document.execCommand('insertHTML', false, '<a href="' + url.replace(/"/g, '%22') + '">' + url.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</a>&nbsp;');
+      else document.execCommand('createLink', false, url);
+    } catch (e) {}
+    sync();
+  };
+  const onKeyDown = (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel && onCancel(); return; }
+    if (mod && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); run('bold'); return; }
+    if (mod && !e.shiftKey && !e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); run('italic'); return; }
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      if (mod) { e.preventDefault(); commit(); return; }
+      if (enterSaves && !e.shiftKey && !inList()) { e.preventDefault(); commit(); }
+    }
+  };
+  const onPaste = (e) => {
+    const t = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (t == null) return;
+    e.preventDefault();
+    try { document.execCommand('insertText', false, t); } catch (er) {}
+    sync();
+  };
+  const btn = (ic, title, fn) => <button type="button" className="cx-icon-btn cx-sm" title={title} aria-label={title} onClick={fn}><CxIcon n={ic} s={14} /></button>;
+  return <div className={'cx-re' + (compact ? ' compact' : '') + (empty ? ' empty' : '')}>
+    <div className="cx-re-tb" role="toolbar" aria-label="Formatação" onMouseDown={e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); }}>
+      {btn('bold', 'Negrito (Ctrl+B)', () => run('bold'))}
+      {btn('italic', 'Itálico (Ctrl+I)', () => run('italic'))}
+      {btn('list', 'Lista', () => run('insertUnorderedList'))}
+      {btn('listOl', 'Lista numerada', () => run('insertOrderedList'))}
+      {btn('link', 'Link', openLink)}
+      {link !== null ? <input className="cx-re-url" autoFocus placeholder="https://… e Enter" aria-label="Endereço do link" value={link}
+        onChange={e => setLink(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); applyLink(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setLink(null); if (ref.current) ref.current.focus(); } }} /> : null}
+    </div>
+    <div ref={ref} className="cx-re-ed" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={ariaLabel || 'Texto'}
+      data-ph={placeholder || ''} onInput={sync} onKeyDown={onKeyDown} onPaste={onPaste} />
+    {actions ? <div className="cx-re-act">
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm ghost" onClick={onCancel}>Cancelar</button>
+      <button type="button" className="cx-btn sm primary" onClick={commit}>Salvar</button>
+    </div> : null}
+  </div>;
+}
+/* Cartões da Visão geral (CxFoldAllBar): o que "Recolher tudo / Expandir tudo" alcança. Os blocos de dentro de cada frente
+   (evento, notas, efs) ficam de fora de propósito. */
+const CX_OV_FOLD_IDS = ['frentes', 'mural', 'apoio'];
 function EditionClaudeOpOverview(p) {
   const { data, op, opStats: s, prazosRadar } = p;
-  const [scale, setScale] = React.useState('anos');
   const rs = cxRS(op);
   const cls = getOpClassifications(op);
   const open = (data.intimations || []).filter(i => i.operationId === op.id && cxIsOpen(i)).sort(cxAttention);
@@ -2024,75 +4259,61 @@ function EditionClaudeOpOverview(p) {
   const prazoRows = (prazosRadar.rows || []).filter(r => r.operationId === op.id && r.group !== 6);
   const split = splitMesaRows(prazoRows, today);
   const hearings = (data.hearings || []).filter(h => h.operationId === op.id && h.date && h.status !== 'realizada' && h.status !== 'cancelada' && daysUntil(h.date) >= 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const indisp = (data.assets || []).filter(x => x.operationId === op.id && (x.status === 'indisponibilidade_ativa' || x.status === 'indisponibilidade_requerida') && x.value > 0).reduce((t, x) => t + x.value, 0);
   const tasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada').sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
-  const stat = (label, value, sub, opts = {}) => {
-    const body = <><span className="cx-stat-l">{label}</span><span className={'cx-stat-v ' + (opts.tone || '')}>{value}</span><span className="cx-stat-s">{sub}</span></>;
-    return opts.onClick
-      ? <button type="button" className="cx-stat click" onClick={opts.onClick} title={opts.tip}>{body}</button>
-      : <div className="cx-stat" title={opts.tip}>{body}</div>;
-  };
+  const cart = cxCarteiraTotals(data);
+  const opPct = s && s.total > 0 ? Math.round(s.guar / s.total * 100) : null;
+  const ind = s ? s.indisp : null;
+  const indDelta = ind && ind.kind === 'valor' ? indispDeltaPp(ind.pct, cart.indisp.pct) : null;
+  const indSplit = ind ? cxIndispSplit(ind) : '';
+  const opCartShare = s && cart.total > 0 ? Math.round(s.total / cart.total * 100) : null;
+  const opExecCount = (data.executions || []).filter(e => e.operationId === op.id).length;
+  const nextTask = tasks.find(t => t.dueDate && daysUntil(t.dueDate) >= 0);
+  const lateIntims = open.map(i => ({ i, dd: daysUntil(i.dateDeadline) })).filter(x => x.dd !== null && x.dd < 0).sort((a, b) => a.dd - b.dd);
+  const nextHearing = hearings[0];
+  const resumo = s ? resumoOperacao({
+    garantiaPct: opPct, carteiraPct: cart.pct,
+    indispPct: ind && ind.kind !== 'sem_avaliacao' ? ind.pct : null, indispCarteiraPct: cart.indisp.pct, indispRatio: ind && ind.kind !== 'sem_avaliacao' ? ind.ratio : null,
+    intimVencidas: lateIntims.length ? { n: lateIntims.length, maisAntigaDias: -lateIntims[0].dd, parte: cxPartyName(lateIntims[0].i) } : null,
+    cdasAlarme: s.prescA || 0,
+    revisaoAtrasadaDias: rs.overdue && rs.daysLeft != null ? -rs.daysLeft : null,
+    audiencia: nextHearing ? { dias: daysUntil(nextHearing.date), tipo: (CX_HEARING[nextHearing.hearingType] || '').replace(/^Audiência( de)? /i, '').toLowerCase(), iso: toDayKey(nextHearing.date), time: nextHearing.time || '' } : null,
+  }) : '';
+  const [proView, setProView] = React.useState(null); // { execId, actionId } — leitura de uma atuação proativa (Atuações recentes e Narrativa)
+  const opExecs = React.useMemo(() => (data.executions || []).filter(e => e.operationId === op.id), [data.executions, op.id]);
+  const opDebts = React.useMemo(() => (data.debts || []).filter(d => d.operationId === op.id), [data.debts, op.id]);
+  const proExec = proView ? opExecs.find(x => x.id === proView.execId) : null;
+  const proAct = proExec ? (proExec.proactiveActions || []).find(x => x.id === proView.actionId) : null;
+  const openProativa = (execId, actionId) => setProView({ execId, actionId });
+  const editTask = (t) => p.setModal({ type: 'edit', entityType: 'task', initial: t });
   return <div className="cx cx-page cx-page-wide cx-op-page">
-    <div className="cx-op-top">
-      <div className="cx-minw0">
-        <div className="cx-eyebrow">Operação{op.status === 'encerrada' ? ' · encerrada' : ''}</div>
-        <div className="cx-op-hero"><CxOpSquare op={op} size={14} className="cx-sq-lg" /><h1>{op.name}</h1>{cxOpPrioTag(op, true)}</div>
-        {op.description ? <p className="cx-lede cx-op-lede">{op.description}</p> : null}
-        <div className="cx-tags" style={{ marginTop: 10 }}>{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
-      </div>
-      <div className="cx-op-actions">
-        <button type="button" className={'cx-btn' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={14} />Revisada</button>
-        <button type="button" className="cx-btn" onClick={p.onEdit}><CxIcon n="edit" s={14} />Editar</button>
-        <button type="button" className="cx-btn ghost" onClick={p.onDiag}>Diagnóstico</button>
-        <button type="button" className="cx-btn ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={14} />Relatório</button>
-      </div>
+    <EditionClaudeOpDesc key={op.id} op={op} upsert={p.upsert} />
+    {s ? <CxResumo text={resumo} className="cx-rs-op" /> : null}
+    <CxBfNews data={data} opId={op.id} setData={p.setData} />
+    {s ? <CxKpiStrip n={4} dense={false} className="cpair">
+      <CxKpiCard label="Dívida total" value={cxMoneyShort(s.total)} desc={cxPl(s.debts, 'CDA', 'CDAs') + (opCartShare !== null ? ' · ' + opCartShare + '% da carteira' : '')} onClick={() => p.onTab('dividas')}
+        pair={{ label: 'Cobertura', value: s.coverageGrand > 0 ? s.covPct + '%' : '—', note: 'pelos incidentes', tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' }} />
+      <CxKpiCard label="Indisponibilidade" value={ind.kind === 'sem_bens' ? 'Sem bens' : ind.kind === 'sem_avaliacao' ? 'Sem avaliação' : cxMoneyShort(ind.totalVal)} onClick={() => p.onTab('bens')}
+        tip={[CX_INDISP_RING, indSplit, ind.semValorN ? cxPl(ind.semValorN, 'bem sem avaliação', 'bens sem avaliação') : ''].filter(Boolean).join(' · ')}
+        side={ind.pct !== null ? <span className="cx-kc-ring"><CxRing pct={ind.pct} size={44} stroke={6} label={(ind.over ? indispRatioText(ind.ratio) : ind.pct + '% da dívida') + ' com bens indisponíveis'} /></span> : null}
+        desc={ind.kind === 'sem_bens' ? 'nenhum bem indisponível' : ind.kind === 'sem_avaliacao' ? cxPl(ind.n, 'bem', 'bens') + ' sem valor lançado' : <>{indispRatioText(ind.ratio) || cxPl(ind.n, 'bem', 'bens')}{indDelta ? <span className={'cx-dl ' + indDelta.dir + ' ' + indDelta.tone} style={{ marginLeft: 8 }}>{indDelta.txt}</span> : null}</>}
+        pair={{ label: 'Garantido (CDA)', value: cxMoneyShort(s.guar), note: opPct !== null ? opPct + '% da dívida' : 'sem dívida', tip: 'CDAs com status Garantida', onClick: () => p.onTab('dividas') }} />
+      <CxKpiCard label="Prescrição · CDAs" value={s.prescA} tone={s.prescA ? 'violet' : ''} desc="a agir" tip="CDAs desta operação nos cartões «a agir» da Mesa de prazos (Conferir o cálculo, Ajuizar até 60 dias, Lançar fato, Confirmar vigência, Completar dado). Mesmo número do ponto no menu." onClick={p.onOpenPrazos}
+        pair={{ label: 'Processos em alerta', value: s.prescExec, tone: s.prescExec ? 'violet' : '', note: 'de ' + cxPl(opExecCount, 'processo', 'processos') + ' · crítico, alerta ou vencido', onClick: () => p.onTab('prescricao_v2') }} />
+      <CxKpiCard label="Intimações" value={s.openIntims} tone={s.overdueIntims ? 'red' : ''} desc={s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={s.overdueIntims ? 'red' : ''}
+        pair={{ label: 'Tarefas', ctx: nextTask ? <>próxima {cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</> : null, value: s.openTasks, note: 'em aberto, ' + (s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'nenhuma vencida'), noteTone: s.overdueTasks ? 'cx-red-t' : '', onClick: () => p.onTab('tarefas') }} />
+    </CxKpiStrip> : null}
+    <CxFoldAllBar scope="visao" ids={CX_OV_FOLD_IDS} />
+    <div className="cx-ov-stack">
+      <CxBfFronts op={op} data={data} opExecs={opExecs} opDebts={opDebts} prazoRows={prazoRows} upsert={p.upsert} setModal={p.setModal}
+        onOpenTab={p.onTab} onOpenPrazos={p.onOpenPrazos} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenProc={p.onOpenProc} />
+      <CxBfMural op={op} data={data} upsert={p.upsert} setModal={p.setModal} />
+      <CxBfApoio op={op} data={data} prazosRadar={prazosRadar} prescLookup={p.prescLookup} split={split} mesaCards={p.mesaCards} execs={opExecs} upsert={p.upsert}
+        onOpenTimeline={p.onOpenTimeline} onOpenPrazos={p.onOpenPrazos} onOpenCda={p.onOpenCda} onOpenProc={p.onOpenProc} onOpenIntim={p.onOpenIntim}
+        onOpenTask={editTask} onOpenProativa={openProativa}
+        hz={{ onOpenIntim: p.onOpenIntim, onOpenHearing: p.onOpenHearing, onOpenTask: p.onOpenTask, onOpenCda: p.onOpenCda }}
+        nr={{ onOpenIntim: p.onOpenIntim, onOpenHearing: (h) => p.setModal({ type: 'edit', entityType: 'hearing', initial: h }), onOpenCda: p.onOpenCdaDrawer, onOpenProc: p.onOpenProc, onOpenTask: editTask, onOpenProativa: openProativa }} />
     </div>
-    <nav className="cx-optabs" aria-label="Abas da operação">
-      <button type="button" className="on" aria-current="page">Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" onClick={() => p.onTab(t[0])}>{t[1]}</button>)}
-    </nav>
-    {s ? <div className="cx-stats">
-      {stat('Dívida total', cxMoneyShort(s.total), cxPl(s.debts, 'CDA', 'CDAs'), { onClick: () => p.onTab('dividas') })}
-      {stat('Garantido (CDA)', cxMoneyShort(s.guar), (s.total ? Math.round(s.guar / s.total * 100) : 0) + '% da dívida', { tip: 'CDAs com status Garantida' })}
-      {stat('Indisponibilidades', s.indispHasValue ? cxMoneyShort(indisp) : s.indispLabel, s.indispCount ? cxPl(s.indispCount, 'bem', 'bens') : 'nenhum bem', { onClick: s.indispCount ? () => p.onTab('bens') : null })}
-      {stat('Cobertura', (s.covPct != null ? s.covPct + '%' : '—'), 'pelos incidentes', { tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' })}
-      {stat('Prescrição · CDAs', s.prescA, 'a agir', { tone: s.prescA ? 'violet' : '', tip: 'CDAs desta operação nos cartões «a agir» da Mesa de prazos (Conferir o cálculo, Ajuizar até 60 dias, Lançar fato, Confirmar vigência, Completar dado). Mesmo número do ponto no menu.', onClick: p.onOpenPrazos })}
-      {stat('Processos em alerta', s.prescExec, 'crítico, alerta ou vencido', { tone: s.prescExec ? 'violet' : '', onClick: () => p.onTab('prescricao_v2') })}
-      {stat('Intimações', s.openIntims, s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida', { tone: s.overdueIntims ? 'red' : '' })}
-      {stat('Tarefas', s.openTasks, s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'em aberto', { tone: s.overdueTasks ? 'red' : '', onClick: () => p.onTab('tarefas') })}
-    </div> : null}
-    <div className="cx-sub-h"><h2>Linha do tempo</h2><span className="cx-sp" /><CxSeg label="Escala" value={scale} onChange={setScale} options={[['semanas', 'Semanas'], ['meses', 'Meses'], ['anos', 'Anos']]} /></div>
-    <EditionClaudeTimeline data={data} op={op} prescLookup={p.prescLookup} scale={scale} setScale={setScale} onOpenIntim={p.onOpenIntim} onOpenHearing={p.onOpenHearing} onOpenCda={p.onOpenCda} />
-    <div className="cx-home-grid" style={{ marginTop: 22 }}>
-      <section className="cx-card">
-        <div className="cx-card-h"><h2>Intimações abertas</h2><div className="cx-aside"><span className="cx-count">{open.length}</span></div></div>
-        {open.length ? open.slice(0, 10).map(i => <button key={i.id} type="button" className="cx-q-row cx-q-compact" onClick={() => p.onOpenIntim(i.id)}>
-          <span className="cx-q-ic"><CxStatusIcon s={i.status} /></span>
-          <span className="cx-q-main"><span className="cx-q-title">{intimIsUrgent(i) ? <span className="cx-urg">URGENTE</span> : null}<b>{cxPartyName(i)}</b></span><span className="cx-q-meta"><CxObj intim={i} /></span></span>
-          <span className="cx-q-glyph"><CxImp intim={i} /></span>
-          <span className="cx-q-due"><CxDue iso={i.dateDeadline} /></span>
-        </button>) : <div className="cx-empty-row">Nenhuma intimação aberta nesta operação.</div>}
-        {open.length > 10 ? <div className="cx-more">+{open.length - 10} na lista de Intimações</div> : null}
-      </section>
-      <div className="cx-col">
-        <section className="cx-card">
-          <div className="cx-card-h"><h2>Prazos extintivos</h2><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
-          {split.needsYou.length ? split.needsYou.slice(0, 5).map(r => <button key={r.id} type="button" className="cx-dl-item" onClick={() => p.onOpenCda(r)}>
-            <span className="cx-gnum" style={{ '--c': CX_GROUP_C[r.group] }}>{r.group}</span>
-            <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{r.cdaNumber || 'S/N'}</span> · {betaSafeUiText(r.why || r.prescLabel || '')}</span>
-            <span className="cx-due late">{formatPrescHorizon(r.prescDays)}</span>
-          </button>) : <div className="cx-empty-row">Nada exige decisão agora{split.rest.length ? ' · ' + cxPl(split.rest.length, 'CDA no radar', 'CDAs no radar') + ', sem alarme' : ''}.</div>}
-          <div style={{ height: 6 }} />
-        </section>
-        <section className="cx-card">
-          <div className="cx-card-h"><h2>Agenda</h2><div className="cx-aside"><span className="cx-count">{hearings.length + tasks.length}</span></div></div>
-          {hearings.slice(0, 3).map(h => <button key={h.id} type="button" className="cx-dl-item" onClick={() => p.onOpenHearing(h)}><CxIcon n="gavel" s={13} className="cx-muted" /><span className="cx-t">{(CX_HEARING[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : '')}</span><CxDue iso={h.date} /></button>)}
-          {tasks.slice(0, 5).map(t => <button key={t.id} type="button" className="cx-dl-item" onClick={() => p.onOpenTask(t)}><CxPrio v={t.priority} /><span className="cx-t">{t.title || t.description || 'Tarefa'}</span>{t.dueDate ? <CxDue iso={t.dueDate} /> : <span className="cx-muted cx-small">sem data</span>}</button>)}
-          {!hearings.length && !tasks.length ? <div className="cx-empty-row">Sem audiências marcadas nem tarefas abertas.</div> : null}
-          <div style={{ height: 6 }} />
-        </section>
-      </div>
-    </div>
+    {proAct ? <EditionClaudeAtuacaoView exec={proExec} action={proAct} onClose={() => setProView(null)} /> : null}
   </div>;
 }
 
@@ -2235,8 +4456,11 @@ function CxMesaPainel({ pf, setPf, cedoN, onClose }) {
 }
 function EditionClaudePrazos(p) {
   const { data, prazosRadar, pf, setPf, a } = p;
+  /* Visão da página: a Mesa (padrão, em cartões) ou os Relógios por CDA (M4). Lembrada neste navegador. */
+  const [view, setViewS] = React.useState(() => (cxLs('nexus_cx_prazos_view', 'mesa') === 'relogios' ? 'relogios' : 'mesa'));
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_prazos_view', v); };
   const [sec, setSec] = React.useState(p.initialSec || '');
-  React.useEffect(() => { if (p.initialSec && p.onInitialSecConsumed) p.onInitialSecConsumed(); }, []);
+  React.useEffect(() => { if (p.initialSec && p.onInitialSecConsumed) { setView('mesa'); p.onInitialSecConsumed(); } }, []);
   const [openMap, setOpenMap] = React.useState({});
   const [limMap, setLimMap] = React.useState({});
   const [painel, setPainel] = React.useState(false);
@@ -2298,14 +4522,23 @@ function EditionClaudePrazos(p) {
     </section>;
   };
   const anyItem = MESA_CARDS.some(c => by[c.id].length);
-  return <div className="cx cx-page">
-    <div className="cx-page-h">
-      <div><h1>Prazos extintivos</h1><p>Cada CDA aparece uma só vez, na seção da providência que ela pede. Clique num cartão para ver só aquela seção; clique de novo para voltar a todas.</p></div>
+  const head = <div className="cx-page-h">
+      <div><h1>Prazos extintivos</h1><p>{view === 'relogios' ? 'Quanto tempo falta, CDA por CDA: o que já parou ou zerou o relógio e o que reiniciaria a contagem. Termos e dias são os da Mesa; a barra de cada CDA vale 5 anos (ou 1+5), para comparar CDAs de idades diferentes.' : 'Cada CDA aparece uma só vez, na seção da providência que ela pede. Clique num cartão para ver só aquela seção; clique de novo para voltar a todas.'}</p></div>
       <div className="cx-acts">
         <button type="button" className="cx-btn ghost" onClick={p.onOpenRules}><CxIcon n="book" s={14} />Regras</button>
-        <CxSeg className="lg" label="Modo" value="mesa" onChange={v => { if (v === 'lista') p.onLista(); }} options={[['mesa', 'Mesa de prazos'], ['lista', 'Lista completa']]} />
+        <CxSeg className="lg" label="Modo" value={view} onChange={v => { if (v === 'lista') p.onLista(); else setView(v); }} options={[['mesa', 'Mesa de prazos'], ['relogios', 'Relógios'], ['lista', 'Lista completa']]} />
       </div>
-    </div>
+    </div>;
+  if (view === 'relogios') {
+    return <div className="cx cx-page cx-page-wide">
+      {head}
+      <EditionClaudeClocks data={data} prazosRadar={prazosRadar} prescLookup={a.presc} opId={pf.operationId || ''}
+        lead={<CxSelect id="cx-pz-op" pre="Operação" value={pf.operationId || ''} onChange={v => setPf({ operationId: v, personId: 'all' })} options={[['', 'Todas']].concat(opsOpen.map(o => [o.id, cxOpName(o)]))} />}
+        onOpenCda={p.onOpenCdaDrawer || ((r) => a.openCda(r))} onOpenProc={p.onOpenProcDrawer} />
+    </div>;
+  }
+  return <div className="cx cx-page">
+    {head}
     <div className="cx-pz-cards" role="group" aria-label="Seções da Mesa de prazos">
       <div className="cx-pz-row1">{MESA_CARDS.filter(c => c.fileira === 1).map(card)}</div>
       <div className="cx-pz-row2">{MESA_CARDS.filter(c => c.fileira === 2).map(card)}</div>
@@ -2344,8 +4577,24 @@ function EditionClaudePrazos(p) {
 const CX_PRIO_ORDER = { urgente: 0, alta: 1, media: 2, baixa: 3 };
 const CX_TASK_ST_ORDER = ['pendente', 'em_andamento', 'concluida'];
 const CX_TASK_ST = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
-function cxLs(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
-function cxLsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+/* Sub-estados que o histórico (← Voltar) trata como "outra tela": modo da Linha do tempo, visão dos Prazos extintivos
+   e visão das Inscrições. Cada um já vive em localStorage (lido ao montar o componente). Para o histórico poder
+   observá-los e restaurá-los sem levantar estado, os setters passam por cxLsSet, que mantém um espelho em memória
+   (vale mesmo sem localStorage) e avisa o app com o evento 'nexus-cx-nav'; cxLs lê o espelho antes do storage. */
+const CX_NAV_KEYS = { nexus_cx_tl_mode: 1, nexus_cx_prazos_view: 1, nexus_cx_insc_view: 1 };
+const cxNavMirror = {};
+function cxLs(k, d) {
+  if (CX_NAV_KEYS[k] && cxNavMirror[k]) return cxNavMirror[k];
+  try { return localStorage.getItem(k) || d; } catch (e) { return d; }
+}
+function cxLsSet(k, v) {
+  if (CX_NAV_KEYS[k]) {
+    const changed = cxNavMirror[k] !== v;
+    cxNavMirror[k] = v;
+    if (changed) { try { window.dispatchEvent(new Event('nexus-cx-nav')); } catch (e) { /* ignore */ } }
+  }
+  try { localStorage.setItem(k, v); } catch (e) { /* ignore */ }
+}
 function cxTaskNotes(t) { return Array.isArray(t.notesList) ? t.notesList : (t.notes ? [t.notes] : []); }
 /* Mesma regra da tela clássica: sem operação, global ou legado aparecem na lista geral; "interna" fica só na operação. */
 function cxTaskIsGlobal(t) { return !t.operationId || t.taskVisibility !== 'operation'; }
@@ -2391,7 +4640,7 @@ function CxTaskRow({ t, op, onOpen, onToggle, onOpenOp, deskOn, onDesk }) {
       {done ? null : cxDeskBtn(deskOn, onDesk)}
     </div>
     <div className="cx-c-due">
-      {t.status === 'concluida' ? <span className="cx-due done">✓ {t.updatedAt ? cxDM(t.updatedAt) : ''}</span> : <CxDue iso={t.dueDate} />}
+      {t.status === 'concluida' ? <span className="cx-due done">✓ {t.completedAt || t.updatedAt ? cxDM(t.completedAt || t.updatedAt) : ''}</span> : <CxDue iso={t.dueDate} />}
       <span className="cx-sub">{t.status === 'concluida' ? 'concluída' : t.dueDate ? 'limite ' + cxDM(t.dueDate) : 'sem data'}</span>
     </div>
   </div>;
@@ -2462,7 +4711,7 @@ function EditionClaudeTarefas(p) {
     return toks.every(tk => hay.includes(tk));
   });
   const open = filtered.filter(cxTaskOpen);
-  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
   const openAll = inScope.filter(cxTaskOpen);
   const late = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
   const week = openAll.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
@@ -2499,7 +4748,7 @@ function EditionClaudeTarefas(p) {
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-task-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Título, descrição, processo ou nota" aria-label="Filtrar tarefas" /></label>
       <CxSelect id="cx-task-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-      <CxSeg label="Quais tarefas" value={scope} onChange={setScope} options={[['globais', 'Globais e avulsas'], ['todas', 'Todas', null, hidden || null]]} />
+      <CxChips sm label="Quais tarefas" value={scope} onChange={setScope} options={[['globais', 'Globais e avulsas'], ['todas', 'Todas', hidden || null]]} />
       <span className="cx-sp" />
       {view === 'lista' ? <CxSelect id="cx-task-g" pre="Agrupar" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Data limite'], ['prioridade', 'Prioridade'], ['operacao', 'Operação']]} /> : null}
     </div>
@@ -2591,16 +4840,25 @@ function CxHearingRow({ h, op, onOpen, onOpenOp, deskOn, onDesk }) {
 }
 function EditionClaudeAgenda(p) {
   const { data, opsById, prazosRadar } = p;
-  const [view, setViewS] = React.useState(() => cxLs('nexus_cx_ag_view', 'semana'));
-  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_ag_view', v); };
-  const [anchor, setAnchor] = React.useState(() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; });
+  const [viewState, setViewS] = React.useState(() => cxLs('nexus_cx_ag_view', 'semana'));
+  /* Foco num dia (vindo do mapa "Carga de prazos" da Hoje): mostra só esse dia, em lista. Trocar a visão, "Hoje"
+     ou o × do chip desfaz o foco; ‹ › andam um dia. */
+  const [dayFocus, setDayFocus] = React.useState(() => p.initialDay || null);
+  React.useEffect(() => { if (p.initialDay && p.onInitialDayConsumed) p.onInitialDayConsumed(); }, []);
+  const view = dayFocus ? 'lista' : viewState;
+  const [anchor, setAnchor] = React.useState(() => { const d = p.initialDay ? new Date(p.initialDay + 'T12:00:00') : new Date(); d.setHours(12, 0, 0, 0); return d; });
+  const setView = (v) => { if (dayFocus) { setAnchor(new Date(dayFocus + 'T12:00:00')); setDayFocus(null); } setViewS(v); cxLsSet('nexus_cx_ag_view', v); };
   const [kinds, setKindsS] = React.useState(() => { try { const v = JSON.parse(localStorage.getItem('nexus_cx_ag_kinds') || 'null'); return v && typeof v === 'object' ? v : { aud: true, prazo: true, tarefa: true, presc: true }; } catch (e) { return { aud: true, prazo: true, tarefa: true, presc: true }; } });
   const setKinds = (v) => { setKindsS(v); cxLsSet('nexus_cx_ag_kinds', JSON.stringify(v)); };
   const [opFRaw, setOpF] = React.useState('all');
   const [pastOpen, setPastOpen] = React.useState(false);
   const todayIso = localIso(new Date());
   let days, label;
-  if (view === 'mes') {
+  if (dayFocus) {
+    const fd = new Date(dayFocus + 'T12:00:00');
+    days = [fd];
+    label = cxCap(CX_DOW_L[fd.getDay()]) + ', ' + fd.getDate() + ' de ' + CX_MES_L[fd.getMonth()] + ' de ' + fd.getFullYear();
+  } else if (view === 'mes') {
     const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 12);
     const start = cxMonday(first);
     const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 12);
@@ -2623,8 +4881,8 @@ function EditionClaudeAgenda(p) {
   const byDay = {};
   const counts = { aud: 0, prazo: 0, tarefa: 0, presc: 0 };
   Object.keys(byDayAll).forEach(k => { byDayAll[k].forEach(it => { counts[it.kind]++; }); byDay[k] = byDayAll[k].filter(it => kinds[it.kind]); });
-  const shift = (n) => { const d = new Date(anchor); if (view === 'mes') { d.setDate(1); d.setMonth(d.getMonth() + n); } else d.setDate(d.getDate() + (view === 'lista' ? 30 : 7) * n); setAnchor(d); };
-  const goToday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setAnchor(d); };
+  const shift = (n) => { if (dayFocus) { setDayFocus(localIso(cxAddDays(new Date(dayFocus + 'T12:00:00'), n))); return; } const d = new Date(anchor); if (view === 'mes') { d.setDate(1); d.setMonth(d.getMonth() + n); } else d.setDate(d.getDate() + (view === 'lista' ? 30 : 7) * n); setAnchor(d); };
+  const goToday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); setAnchor(d); setDayFocus(null); };
   const open = (it) => {
     if (it.kind === 'aud') p.onOpenHearing(it.ref);
     else if (it.kind === 'prazo') p.onOpenIntim(it.ref.id);
@@ -2660,17 +4918,18 @@ function EditionClaudeAgenda(p) {
       <CxSelect id="cx-ag-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
     </div>
     <div className="cx-chips" role="group" aria-label="Mostrar na agenda">
-      {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '')} style={{ '--c': k[2] }} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
-        <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-n">{counts[k[0]]}</span>
+      {CX_AG_KINDS.map(k => <button key={k[0]} type="button" className={'cx-fchip' + (kinds[k[0]] ? ' on' : '') + (counts[k[0]] === 0 ? ' zero' : '')} aria-pressed={!!kinds[k[0]]} onClick={() => setKinds({ ...kinds, [k[0]]: !kinds[k[0]] })}>
+        <span className="cx-dot" style={{ background: k[2] }} />{k[1]}<span className="cx-fcn">{counts[k[0]]}</span>
       </button>)}
-      <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} neste período</span>
+      {dayFocus ? <button type="button" className="cx-fchip sm on" onClick={() => { setAnchor(new Date(dayFocus + 'T12:00:00')); setDayFocus(null); }} title="Voltar à visão da agenda">Só este dia<span className="cx-fcn">✕</span></button> : null}
+      <span className="cx-muted cx-small cx-ag-total">{cxPl(total, 'item', 'itens')} {dayFocus ? 'neste dia' : 'neste período'}</span>
     </div>
     {view === 'lista' ? <div className="cx-list cx-ag-list">
       {days.filter(d => (byDay[localIso(d)] || []).length).map(d => { const k = localIso(d); return <div key={k} className="cx-ag-lday">
         <div className={'cx-ag-lh' + (k === todayIso ? ' today' : '')}>{dayHead(d)}<span className="cx-muted cx-small">{CX_DOW_L[d.getDay()]}, {d.getDate()} de {CX_MES_L[d.getMonth()]}</span><span className="cx-n" style={{ marginLeft: 'auto' }}>{byDay[k].length}</span></div>
         <div className="cx-ag-lits">{byDay[k].map(it => <CxAgItem key={it.id} it={it} opsById={opsById} onOpen={open} />)}</div>
       </div>; })}
-      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nada nos próximos 30 dias com esses filtros.</div> : null}
+      {!total ? <div className="cx-empty-row" style={{ borderTop: 0 }}>{dayFocus ? 'Nada neste dia com esses filtros.' : 'Nada nos próximos 30 dias com esses filtros.'}</div> : null}
     </div> : <div className={'cx-ag-grid' + (view === 'mes' ? ' month' : '')}>
       {view === 'mes' ? ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(n => <div key={n} className="cx-ag-mh">{n}</div>) : null}
       {days.map(d => {
@@ -2805,15 +5064,58 @@ function EditionClaudeMesa(p) {
    prescrição, Inscrições, Partes e bens, Tarefas, Arquivos, Importar).
    O conteúdo das abas é o do app, com o visual Prumo aplicado pelo CSS.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* Contador da aba só para o que pede ação (sem contador quando é zero): intimações vencidas na Visão geral e tarefas
+   vencidas em Tarefas (vermelho); CDAs no alarme de prescrição em Processos e prescrição (violeta, a cor do alarme
+   no resumo do cabeçalho). Números de opStats; nenhum cálculo novo. */
+function cxOpTabAlert(tab, s) {
+  if (!s) return null;
+  if (tab === 'visao' && s.overdueIntims) return { n: s.overdueIntims, tone: 'late', txt: cxPl(s.overdueIntims, 'intimação vencida', 'intimações vencidas') };
+  if (tab === 'tarefas' && s.overdueTasks) return { n: s.overdueTasks, tone: 'late', txt: cxPl(s.overdueTasks, 'tarefa vencida', 'tarefas vencidas') };
+  if (tab === 'prescricao_v2' && s.prescA) return { n: s.prescA, tone: 'presc', txt: cxPl(s.prescA, 'CDA a agir nos prazos extintivos', 'CDAs a agir nos prazos extintivos') };
+  return null;
+}
 function EditionClaudeOpHeader(p) {
   const { op, opStats: s, activeTab } = p;
-  const rs = cxRS(op);
+  const rs = isSubstituicaoOp(op) ? { overdue: false, daysLeft: null, label: '', color: 'var(--text-muted)' } : cxRS(op);
   const cls = getOpClassifications(op);
   const [intimDrawer, setIntimDrawer] = React.useState(false);
   const opOpenIntims = React.useMemo(() => (p.data && p.data.intimations || []).filter(x => x.operationId === op.id && !x.responseAction && intimIsOpenWork(x)), [p.data, op.id]);
+  /* Barra de abas: `fits` desliga o esmaecer das bordas quando todas cabem; a aba ativa rola para a vista (celular). */
+  const tabsRef = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = tabsRef.current; if (!el) return;
+    const m = () => el.classList.toggle('fits', el.scrollWidth <= el.clientWidth + 1);
+    m();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : null;
+    if (ro) ro.observe(el);
+    return () => { if (ro) ro.disconnect(); };
+  }, [op.id]);
+  React.useEffect(() => {
+    const el = tabsRef.current; const on = el && el.querySelector('button.on');
+    if (on && el.scrollWidth > el.clientWidth + 1 && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, op.id]);
+  if (isSubstituicaoOp(op)) {
+    const onProc = activeTab !== 'docs';
+    return <div className="cx cx-oph">
+      <div className="cx-oph-top">
+        <div className="cx-minw0 cx-oph-main">
+          <div className="cx-oph-name">
+            <CxOpSquare op={op} size={14} className="cx-sq-lg" />
+            <h1 className="cx-ell" title={op.name}>{op.name}</h1>
+          </div>
+        </div>
+      </div>
+      <div className="cx-oph-sum"><span>Feitos no lugar de outro procurador. Não entra na carteira.</span></div>
+      <nav className="cx-optabs cx-oph-tabs" aria-label="Abas de EM SUBSTITUIÇÃO">
+        <button type="button" className={onProc ? 'on' : ''} aria-current={onProc ? 'page' : undefined} onClick={() => { if (!onProc) p.onTab('subst'); }}>Processos</button>
+        <button type="button" className={activeTab === 'docs' ? 'on' : ''} aria-current={activeTab === 'docs' ? 'page' : undefined} onClick={() => { if (activeTab !== 'docs') p.onTab('docs'); }}>Arquivos</button>
+      </nav>
+    </div>;
+  }
   const sum = [];
   if (s) {
     sum.push(<span key="d"><b>{cxMoneyShort(s.total)}</b> em dívida</span>);
+    if (s.indisp && s.indisp.kind === 'valor') sum.push(<span key="ix" title={cxIndispSplit(s.indisp)}><b>{cxMoneyShort(s.indisp.totalVal)}</b> indisponível{indispRatioText(s.indisp.ratio) ? ' · ' + indispRatioText(s.indisp.ratio) : ''}</span>);
     sum.push(<span key="g">{s.total ? Math.round(s.guar / s.total * 100) : 0}% garantido</span>);
     sum.push(<span key="c">{cxPl(s.debts, 'CDA', 'CDAs')}</span>);
     sum.push(<span key="e">{cxPl(s.execs, 'processo', 'processos')}</span>);
@@ -2830,20 +5132,24 @@ function EditionClaudeOpHeader(p) {
           <h1 className="cx-ell" title={op.name}>{op.name}</h1>
           {op.status === 'encerrada' ? <span className="cx-tag">Encerrada</span> : null}
           {cxOpPrioTag(op)}
-          <span className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</span>
         </div>
-        {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
       </div>
       <div className="cx-op-actions">
-        <button type="button" className={'cx-btn sm' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={13} />Revisada</button>
-        <button type="button" className="cx-btn sm" onClick={p.onEdit}><CxIcon n="edit" s={13} />Editar</button>
-        <button type="button" className="cx-btn sm ghost" onClick={p.onDiag}>Diagnóstico</button>
-        <button type="button" className="cx-btn sm ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={13} />Relatório</button>
+        <button type="button" className={'cx-btn' + (rs.overdue ? ' primary' : '')} onClick={p.onReviewed} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={14} />Revisada</button>
+        <button type="button" className="cx-btn" onClick={p.onEdit}><CxIcon n="edit" s={14} />Editar</button>
+        <button type="button" className="cx-btn ghost" onClick={p.onDiag}>Diagnóstico</button>
+        <button type="button" className="cx-btn ghost" onClick={p.onReport} title="Relatório de passagem de serviço (HTML)"><CxIcon n="file" s={14} />Relatório</button>
       </div>
     </div>
-    <nav className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
-      <button type="button" onClick={() => p.onTab('visao')}>Visão geral</button>
-      {CX_OP_TABS.map(t => <button key={t[0]} type="button" className={cxTabOn(activeTab, t[0]) ? 'on' : ''} aria-current={cxTabOn(activeTab, t[0]) ? 'page' : undefined} onClick={() => { if (!cxTabOn(activeTab, t[0])) p.onTab(t[0]); }}>{t[1]}{t[0] === 'pessoas' && s && s.people ? <span className="cx-n">{s.people}</span> : t[0] === 'bens' && s && s.assets ? <span className="cx-n">{s.assets}</span> : null}</button>)}
+    <div className="cx-oph-tags">{cls.map(cxClsTag)}{cxReviewTag(op)}</div>
+    {sum.length ? <div className="cx-oph-sum">{sum}</div> : null}
+    <nav ref={tabsRef} className="cx-optabs cx-oph-tabs" aria-label="Abas da operação">
+      {[['visao', 'Visão geral']].concat(CX_OP_TABS).map(t => {
+        const on = cxTabOn(activeTab, t[0]);
+        const al = cxOpTabAlert(t[0], s);
+        return <button key={t[0]} type="button" className={on ? 'on' : ''} aria-current={on ? 'page' : undefined} aria-label={al ? t[1] + ', ' + al.txt : undefined} title={al ? al.txt : undefined}
+          onClick={() => { if (!on) p.onTab(t[0]); }}>{t[1]}{al ? <span className={'cx-tab-al ' + al.tone} aria-hidden="true">{al.n}</span> : null}</button>;
+      })}
     </nav>
   </div>;
 }
@@ -2972,23 +5278,22 @@ function EditionClaudeAcompanhar(p) {
   const opOptions = [['all', 'Todas'], ['none', 'Avulsos']].concat(opIds.map(id => opsById.get(id)).filter(Boolean).sort(sortOpsByName).map(o => [o.id, cxOpName(o)]));
   const check = (w) => { p.upsert('watchlist', { ...w, lastCheckedAt: new Date().toISOString() }); cxNotify('Verificado hoje'); };
   const setStatus = (w, s) => { if (s === w.status) return; p.upsert('watchlist', { ...w, status: s }); cxNotify('Situação: ' + CX_WATCH[s].l); };
-  const tile = (k, label, n, sub, tone) => <button key={k} type="button" className={'cx-pz-tile' + (scope === k ? ' on' : '')} onClick={() => setScope(k)} aria-pressed={scope === k}>
-    <span className="cx-pz-l">{label}</span><span className={'cx-pz-v' + (tone ? ' ' + tone : '')}>{n}</span><span className="cx-pz-s">{sub}</span></button>;
+  const tile = (k, label, n, sub, tone) => <CxKpiCard key={k} label={label} value={n} tone={tone} desc={sub} on={scope === k} pressed={scope === k} onClick={() => setScope(k)} />;
   return <div className="cx cx-page">
     <div className="cx-page-h">
       <div><h1>Acompanhar</h1><p>Processos que você monitora depois de uma manifestação pontual, quando não há garantia de nova intimação. O que passa de {CX_WATCH_STALE} dias sem conferência sobe na lista.</p></div>
       <div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNew}><CxIcon n="plus" s={14} />Acompanhar processo</button></div>
     </div>
-    <div className="cx-pz-sum cx-w-sum">
+    <CxKpiStrip n={4} className="bare cx-ks-sp">
       {tile('abertos', 'Em acompanhamento', counts.abertos, cxPl(counts.aguardando, 'aguardando', 'aguardando') + ' · ' + counts.movimentado + ' movimentado' + (counts.movimentado === 1 ? '' : 's'))}
       {tile('atencao', 'Sem conferência há ' + CX_WATCH_STALE + '+ dias', counts.atencao, counts.atencao ? 'vale abrir o eproc' : 'tudo conferido na semana', counts.atencao ? 'orange' : '')}
       {tile('movimentado', 'Movimentados', counts.movimentado, 'houve andamento; decida o próximo passo')}
       {tile('encerrados', 'Encerrados', counts.encerrados, 'histórico')}
-    </div>
+    </CxKpiStrip>
     <div className="cx-toolbar">
       <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-watch-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Processo, partes, motivo ou nota" aria-label="Filtrar acompanhamentos" /></label>
       <CxSelect id="cx-watch-op" pre="Operação" value={opF} onChange={setOpF} options={opOptions} label="Filtrar por operação" />
-      <CxSeg label="Situação" value={scope} onChange={setScope} options={[['abertos', 'Abertos'], ['aguardando', 'Aguardando'], ['movimentado', 'Movimentados'], ['encerrados', 'Encerrados']]} />
+      <CxChips sm label="Situação" value={scope} onChange={setScope} options={[['abertos', 'Abertos', counts.abertos], ['aguardando', 'Aguardando', counts.aguardando], ['movimentado', 'Movimentados', counts.movimentado], ['encerrados', 'Encerrados', counts.encerrados]]} />
       <span className="cx-sp" />
       <CxSelect id="cx-watch-sort" pre="Ordenar" value={sort} onChange={setSort} options={[['verificacao', 'Conferência mais antiga'], ['situacao', 'Situação'], ['recentes', 'Mais recentes']]} />
     </div>
@@ -3000,16 +5305,18 @@ function EditionClaudeAcompanhar(p) {
 }
 
 /* ═════════════════════ Painel da carteira ═════════════════════ */
-/* Mesmas opções e rótulos da ordenação do Painel clássico (estado carteiraSort do app). */
+/* Mesmas opções e rótulos da ordenação do Painel clássico (estado carteiraSort do app), mais 'indisp_asc' (só Prumo;
+   o app volta a 'valor_desc' ao sair do Prumo). */
 const CX_PANEL_SORTS = [
-  ['Financeiro', [['valor_desc', 'Maior valor de crédito'], ['valor_asc', 'Menor valor de crédito'], ['cobertura_asc', 'Menor cobertura de garantia']]],
+  ['Financeiro', [['valor_desc', 'Maior valor de crédito'], ['valor_asc', 'Menor valor de crédito'], ['indisp_asc', 'Menor indisponibilidade'], ['cobertura_asc', 'Menor cobertura de garantia']]],
   ['Risco e urgência', [['presc', 'Mais CDAs a agir (prazos extintivos)'], ['intims', 'Mais intimações abertas'], ['tasks', 'Mais tarefas pendentes']]],
   ['Atividade', [['acesso_recente', 'Acessadas recentemente'], ['revisao_atrasada', 'Revisão mais atrasada']]],
   ['Estratégico', [['idpj', 'Mais IDPJs e cautelares'], ['nome', 'Nome (A a Z)']]],
 ];
+const CX_PANEL_GROUPS = [[1, 'Urgentes'], [2, 'A conferir'], [3, 'A completar'], [4, 'Em acompanhamento'], [5, 'Ainda impossível'], [6, 'Consumadas']];
 function cxPanelAnalytics(data, prazosByDebt, mesaCards) {
-  const ops = (data.operations || []).filter(o => o.status !== 'encerrada');
-  const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
+  const ops = (data.operations || []).filter(o => o.status !== 'encerrada' && !isSubstituicaoOp(o));
+  const by = new Map(ops.map(o => [o.id, { op: o, totalValue: 0, guaranteedValue: 0, assets: [], ind: null, prescRisk: 0, openIntims: 0, lateIntims: 0, openTasks: 0, debtsCount: 0, execsCount: 0, assetsCount: 0, idpjCount: 0, cautelarCount: 0, daysSinceAccess: null }]));
   (data.debts || []).forEach(d => {
     const x = by.get(d.operationId); if (!x || d.status === 'extinta') return;
     x.debtsCount++; x.totalValue += d.value || 0;
@@ -3017,7 +5324,12 @@ function cxPanelAnalytics(data, prazosByDebt, mesaCards) {
     if (mesaCards ? mesaIsAction(mesaCards.byDebt.get(d.id)) : [1, 2].includes((prazosByDebt.get(d.id) || {}).group)) x.prescRisk++;
   });
   (data.executions || []).forEach(e => { const x = by.get(e.operationId); if (!x) return; x.execsCount++; if (e.processTag === 'idpj') x.idpjCount++; if (e.processTag === 'cautelar_fiscal') x.cautelarCount++; });
-  (data.assets || []).forEach(a => { const x = by.get(a.operationId); if (x) x.assetsCount++; });
+  (data.assets || []).forEach(a => {
+    const x = by.get(a.operationId); if (!x) return;
+    x.assetsCount++;
+    x.assets.push(a);
+  });
+  by.forEach(x => { x.ind = indispStats(x.assets, x.totalValue); });
   (data.intimations || []).forEach(i => {
     const x = by.get(i.operationId); if (!x || !intimIsOpenWork(i)) return;
     x.openIntims++;
@@ -3030,6 +5342,7 @@ function cxPanelAnalytics(data, prazosByDebt, mesaCards) {
 }
 function cxPanelSortFn(k) {
   const cov = (o) => (o.totalValue > 0 ? o.guaranteedValue / o.totalValue : 1);
+  const ind = (o) => (o.ind && o.ind.ratio !== null ? o.ind.ratio : 1);
   const fns = {
     valor_desc: (a, b) => b.totalValue - a.totalValue,
     valor_asc: (a, b) => a.totalValue - b.totalValue,
@@ -3037,6 +5350,7 @@ function cxPanelSortFn(k) {
     intims: (a, b) => b.openIntims - a.openIntims || b.totalValue - a.totalValue,
     tasks: (a, b) => b.openTasks - a.openTasks || b.totalValue - a.totalValue,
     cobertura_asc: (a, b) => cov(a) - cov(b),
+    indisp_asc: (a, b) => ind(a) - ind(b) || b.totalValue - a.totalValue,
     acesso_recente: (a, b) => (a.daysSinceAccess === null ? 99999 : a.daysSinceAccess) - (b.daysSinceAccess === null ? 99999 : b.daysSinceAccess),
     revisao_atrasada: (a, b) => (cxRS(a.op).daysLeft ?? 99999) - (cxRS(b.op).daysLeft ?? 99999),
     nome: (a, b) => (a.op.name || '').localeCompare(b.op.name || '', 'pt-BR'),
@@ -3044,31 +5358,97 @@ function cxPanelSortFn(k) {
   };
   return fns[k] || fns.valor_desc;
 }
-/* Cartões do Painel recolhíveis; o estado fica no navegador (só apresentação, não entra nos dados). */
-const CX_PANEL_FOLD_KEY = 'nexus.cxPanelFold';
+/* ═════════════════════ Cartões recolhíveis (um só idioma) ═════════════════════
+ * cxUseFold(escopo) + CxFoldCard + CxFoldAllBar. Estado em localStorage 'nexus.cxFold' ({ escopo: { id: true=recolhido } },
+ * lógica pura em src/lib/fold.js), compartilhado entre os componentes da página (barra "Recolher tudo" e cartões).
+ * Só apresentação: não entra nos dados. Sem localStorage vale só nesta sessão. */
+let cxFoldStore = null;
+const cxFoldSubs = new Set();
+function cxFoldLoad() {
+  if (cxFoldStore) return cxFoldStore;
+  let raw = null;
+  try { raw = localStorage.getItem(FOLD_KEY); } catch (e) { raw = null; }
+  let st;
+  if (raw !== null) st = foldParse(raw);
+  else {
+    // 1ª vez: traz o que as chaves antigas guardavam (Painel, cartões do Briefing, Horizonte) e passa a ler só a nova.
+    const legacy = {};
+    try { legacy.painel = localStorage.getItem(FOLD_LEGACY_KEYS.painel); legacy.briefing = localStorage.getItem(FOLD_LEGACY_KEYS.briefing); legacy.horizonte = localStorage.getItem(FOLD_LEGACY_KEYS.horizonte); } catch (e) { /* sem armazenamento */ }
+    st = foldMigrateLegacy({}, legacy);
+  }
+  // P6: os cartões do Briefing passaram para a Visão geral (escopo 'visao'); copia o que estava recolhido, sem sobrescrever.
+  const moved = foldMigrateBriefingToVisao(st);
+  cxFoldStore = moved;
+  if (raw === null || moved !== st) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(cxFoldStore)); } catch (e) { /* ignore */ } }
+  return cxFoldStore;
+}
+function cxFoldCommit(next) {
+  cxFoldStore = next;
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(next)); } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
+  cxFoldSubs.forEach(fn => fn());
+}
+/** Estado de um escopo (uma tela). isOpen(id, defaultOpen=true) · toggle(id, defaultOpen=true) · set(id, collapsed) ·
+ *  setAll(ids, collapsed) (recolher/expandir tudo). */
+function cxUseFold(scope) {
+  const [, bump] = React.useReducer(n => n + 1, 0);
+  React.useEffect(() => { cxFoldSubs.add(bump); return () => { cxFoldSubs.delete(bump); }; }, []);
+  const st = cxFoldLoad();
+  const isOpen = (id, defaultOpen = true) => foldIsOpen(st, scope, id, defaultOpen);
+  return {
+    isOpen,
+    toggle: (id, defaultOpen = true) => cxFoldCommit(foldSet(cxFoldLoad(), scope, id, foldIsOpen(cxFoldLoad(), scope, id, defaultOpen))),
+    set: (id, collapsed) => cxFoldCommit(foldSet(cxFoldLoad(), scope, id, collapsed)),
+    setAll: (ids, collapsed) => cxFoldCommit(foldSetAll(cxFoldLoad(), scope, ids, collapsed)),
+  };
+}
+/** Cartão com cabeçalho clicável (recolhe/expande). `summary` aparece só recolhido; `sub` sempre; `actions` à direita
+ *  (cliques em botão/link/campo dentro dele não alternam). `domId` vira o id do <section> (para rolar até o cartão). */
+function CxFoldCard({ id, scope, title, count, summary, sub, actions, className = '', defaultOpen = true, as = 'h2', domId, ariaLabel, children }) {
+  const fold = cxUseFold(scope);
+  const open = fold.isOpen(id, defaultOpen);
+  const flip = () => fold.toggle(id, defaultOpen);
+  const onClick = (e) => {
+    const hit = e.target.closest ? e.target.closest('button, a, input, select, textarea, label') : null;
+    if (hit && hit !== e.currentTarget && e.currentTarget.contains(hit)) return;
+    flip();
+  };
+  const onKeyDown = (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); }
+  };
+  return <section className={'cx-card cx-fold' + (open ? '' : ' folded') + (className ? ' ' + className : '')} id={domId} aria-label={ariaLabel}>
+    <div className="cx-card-h cx-fold-h" role="button" tabIndex={0} aria-expanded={open} title={open ? 'Recolher' : 'Expandir'} onClick={onClick} onKeyDown={onKeyDown}>
+      <span className="cx-fold-chev" aria-hidden="true"><CxIcon n="chevD" s={13} /></span>
+      {React.createElement(as, { className: 'cx-fold-title' }, title)}
+      {count != null ? <span className="cx-count">{count}</span> : null}
+      {sub ? <span className="cx-muted cx-small cx-fold-sub">{sub}</span> : null}
+      {!open && summary ? <span className="cx-fold-sum cx-ell">{summary}</span> : null}
+      {actions ? <div className="cx-aside cx-fold-act">{actions}</div> : null}
+    </div>
+    {open ? children : null}
+  </section>;
+}
+/** Mesmo conteúdo do cartão, mas sem o cartão: dentro do Painel de apoio (aba). As ações do cabeçalho viram uma linha de ferramentas. */
+function CxFoldOrBare({ bare, actions, className = '', children, ...rest }) {
+  if (!bare) return <CxFoldCard {...rest} className={className} actions={actions}>{children}</CxFoldCard>;
+  return <div className={'cx-ap-pane' + (className ? ' ' + className : '')}>
+    {actions ? <div className="cx-ap-tools">{actions}</div> : null}
+    {children}
+  </div>;
+}
+function CxFoldAllBar({ scope, ids, className = '' }) {
+  const fold = cxUseFold(scope);
+  return <div className={'cx-fold-all' + (className ? ' ' + className : '')}>
+    <button type="button" className="cx-fold-all-b" onClick={() => fold.setAll(ids, true)}>Recolher tudo</button>
+    <span aria-hidden="true">·</span>
+    <button type="button" className="cx-fold-all-b" onClick={() => fold.setAll(ids, false)}>Expandir tudo</button>
+  </div>;
+}
 const CX_PANEL_OPS_LIMIT = 10;
-function cxUsePanelFold() {
-  const [folded, setFolded] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(CX_PANEL_FOLD_KEY) || '[]')); } catch (e) { return new Set(); }
-  });
-  const toggle = (k) => setFolded(prev => {
-    const n = new Set(prev);
-    if (n.has(k)) n.delete(k); else n.add(k);
-    try { localStorage.setItem(CX_PANEL_FOLD_KEY, JSON.stringify([...n])); } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
-    return n;
-  });
-  return [folded, toggle];
-}
-function CxFoldTitle({ k, folded, onToggle, children }) {
-  const open = !folded.has(k);
-  return <button type="button" className="cx-fold-t" aria-expanded={open} onClick={() => onToggle(k)} title={open ? 'Recolher' : 'Expandir'}>
-    <span className="cx-chev sm">{open ? '▾' : '▸'}</span><h2>{children}</h2>
-  </button>;
-}
 function EditionClaudePainel(p) {
   const { data, prazosRadar, prazosByDebt, mesaCards } = p;
   const rows = React.useMemo(() => cxPanelAnalytics(data, prazosByDebt, mesaCards), [data, prazosByDebt, mesaCards]);
-  const [folded, toggleFold] = cxUsePanelFold();
+  const fold = cxUseFold('painel');
   const [allOps, setAllOps] = React.useState(false);
   const sort = p.sort || 'valor_desc';
   const sorted = rows.slice().sort(cxPanelSortFn(sort));
@@ -3080,9 +5460,9 @@ function EditionClaudePainel(p) {
   const kpiCredito = liveDebts.reduce((s, d) => s + (d.value || 0), 0);
   const kpiGarantido = liveDebts.filter(d => d.status === 'garantida').reduce((s, d) => s + (d.value || 0), 0);
   const pctGar = kpiCredito > 0 ? Math.round(kpiGarantido / kpiCredito * 100) : 0;
+  const kpiInd = indispStats(data.assets || [], kpiCredito);
   const totalCredito = rows.reduce((s, o) => s + o.totalValue, 0);
-  const totalGarantido = rows.reduce((s, o) => s + o.guaranteedValue, 0);
-  const pctGarAtivas = totalCredito > 0 ? Math.round(totalGarantido / totalCredito * 100) : 0;
+  const totalInd = indispStats(rows.flatMap(o => o.assets), totalCredito);
   const nExecs = (data.executions || []).length;
   const openIntims = (data.intimations || []).filter(x => intimIsOpenWork(x));
   const lateIntims = openIntims.filter(x => { const dd = daysUntil(x.dateDeadline); return dd !== null && dd < 0; }).length;
@@ -3098,58 +5478,43 @@ function EditionClaudePainel(p) {
     prazo: (data.intimations || []).filter(x => intimPrazoNaAgenda(x) && inWeek(x.dateDeadline)).length,
     tarefa: (data.tasks || []).filter(tk => tk.dueDate && cxTaskOpen(tk) && inWeek(tk.dueDate)).length,
   };
-  const colSort = (k, extra) => ({ onClick: () => p.setSort(k), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.setSort(k); } }, tabIndex: 0, className: 'cx-th-sort' + (sort === k ? ' on' : '') + (extra ? ' ' + extra : ''), 'aria-sort': sort === k ? (k === 'valor_asc' || k === 'cobertura_asc' || k === 'nome' || k === 'acesso_recente' || k === 'revisao_atrasada' ? 'ascending' : 'descending') : undefined });
+  const colSort = (k, extra) => ({ onClick: () => p.setSort(k), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.setSort(k); } }, tabIndex: 0, className: 'cx-th-sort' + (sort === k ? ' on' : '') + (extra ? ' ' + extra : ''), 'aria-sort': sort === k ? (k === 'valor_asc' || k === 'cobertura_asc' || k === 'indisp_asc' || k === 'nome' || k === 'acesso_recente' || k === 'revisao_atrasada' ? 'ascending' : 'descending') : undefined });
   if (!(data.operations || []).length) return <div className="cx cx-page"><div className="cx-page-h"><div><h1>Painel</h1><p>Crie a primeira operação para ver a carteira em números.</p></div><div className="cx-acts"><button type="button" className="cx-btn primary" onClick={p.onNewOp}><CxIcon n="plus" s={14} />Nova operação</button></div></div></div>;
   return <div className="cx cx-page cx-page-wide">
     <div className="cx-page-h">
-      <div><h1>Painel</h1><p>A carteira inteira em números: onde está o crédito, quanto está garantido e onde está o risco. Clique numa operação para abri-la.</p></div>
+      <div><h1>Painel</h1><p>A carteira inteira em números: onde está o crédito, quanto dele tem bens indisponíveis e onde está o risco. Clique numa operação para abri-la.</p></div>
     </div>
-    <div className="cx-kpis cx-kpis-5">
-      <div className="cx-kpi cx-kpi-static">
-        <span className="cx-kpi-l"><CxIcon n="briefcase" s={14} />Crédito sob gestão</span>
-        <span className="cx-kpi-v">{cxMoneyShort(kpiCredito)}</span>
-        <span className="cx-kpi-s">{cxPl(liveDebts.length, 'CDA', 'CDAs')} · {cxPl(rows.length, 'operação ativa', 'operações ativas')}{(data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : ''} · {cxPl(nExecs, 'processo', 'processos')}</span>
-      </div>
-      <div className="cx-kpi cx-kpi-static" title={'Soma das CDAs com status Garantida: ' + fmtCur(kpiGarantido)}>
-        <span className="cx-kpi-l"><CxIcon n="check" s={14} />Garantido</span>
-        <span className="cx-kpi-v">{pctGar}<small>%</small></span>
-        <span className="cx-meter" aria-hidden="true"><i style={{ width: pctGar + '%' }} /></span>
-        <span className="cx-kpi-s">{cxMoneyShort(kpiGarantido)} em CDAs garantidas</span>
-      </div>
-      <button type="button" className="cx-kpi" onClick={p.onOpenPrazos} title="Mesmo número do menu e da Mesa de prazos: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado">
-        <span className="cx-kpi-l"><CxIcon n="hourglass" s={14} />Risco prescricional</span>
-        <span className="cx-kpi-v">{riskN}<small>{riskN === 1 ? 'CDA' : 'CDAs'}</small></span>
-        <span className={'cx-kpi-s' + (riskN ? ' violet' : '')}>{riskN ? cxMoneyShort(riskV) + ' pedem providência' : 'situação controlada'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={p.onOpenIntims}>
-        <span className="cx-kpi-l"><CxIcon n="inbox" s={14} />Intimações abertas</span>
-        <span className="cx-kpi-v">{openIntims.length}</span>
-        <span className={'cx-kpi-s' + (lateIntims ? ' red' : '')}>{lateIntims ? cxPl(lateIntims, 'vencida', 'vencidas') : 'nenhuma vencida'}</span>
-      </button>
-      <button type="button" className="cx-kpi" onClick={() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-        <span className="cx-kpi-l"><CxIcon n="history" s={14} />Revisões devidas</span>
-        <span className="cx-kpi-v">{due.length}</span>
-        <span className={'cx-kpi-s' + (due.length ? ' orange' : '')}>{due.length ? 'operações com revisão atrasada' : 'todas em dia'}</span>
-      </button>
-    </div>
+    <CxKpiStrip n={5} className="bare cx-ks-sp">
+      <CxKpiCard label="Crédito sob gestão" value={cxMoneyShort(kpiCredito)}
+        desc={cxPl(liveDebts.length, 'CDA', 'CDAs') + ' · ' + cxPl(rows.length, 'operação ativa', 'operações ativas') + ((data.operations || []).length > rows.length ? ' de ' + (data.operations || []).length : '') + ' · ' + cxPl(nExecs, 'processo', 'processos')} />
+      <CxKpiCard label="Indisponível" value={kpiInd.pct === null ? '—' : kpiInd.over ? Math.round(kpiInd.ratio * 10) / 10 : kpiInd.pct} unit={kpiInd.pct === null ? '' : kpiInd.over ? '×' : '%'}
+        tip={[CX_INDISP_RING, cxIndispSplit(kpiInd), CX_INDISP_DUP].filter(Boolean).join(' · ')}
+        side={kpiInd.pct !== null ? <span className="cx-kc-ring"><CxRing pct={kpiInd.pct} size={44} stroke={6} label={cxIndispPctTxt(kpiInd) + ' da dívida indisponível'} /></span> : null}
+        desc={cxMoneyShort(kpiInd.totalVal) + ' indisponível · ' + pctGar + '% garantido'} />
+      <CxKpiCard label="Risco prescricional" value={riskN} unit={riskN === 1 ? 'CDA' : 'CDAs'} tone={riskN ? 'violet' : ''} onClick={p.onOpenPrazos} tip="Mesmo número do menu e da Mesa de prazos: soma dos cartões Conferir o cálculo, Ajuizar (até 60 dias), Lançar fato, Confirmar vigência e Completar dado"
+        desc={riskN ? cxMoneyShort(riskV) + ' a agir' : 'situação controlada'} descTone={riskN ? 'violet' : ''} />
+      <CxKpiCard label="Intimações abertas" value={openIntims.length} tone={lateIntims ? 'red' : ''} onClick={p.onOpenIntims}
+        desc={lateIntims ? cxPl(lateIntims, 'vencida', 'vencidas') : 'nenhuma vencida'} descTone={lateIntims ? 'red' : ''} />
+      <CxKpiCard label="Revisões devidas" value={due.length} tone={due.length ? 'orange' : ''} onClick={() => { fold.set('rev', false); setTimeout(() => { const el = document.getElementById('cx-panel-rev'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30); }}
+        desc={due.length ? 'operações com revisão atrasada' : 'todas em dia'} descTone={due.length ? 'orange' : ''} />
+    </CxKpiStrip>
 
-    <section className="cx-card cx-panel-ops">
-      <div className="cx-card-h">
-        <CxFoldTitle k="ops" folded={folded} onToggle={toggleFold}>Operações</CxFoldTitle><span className="cx-muted cx-small">{sortLabel} · {cxPl(rows.length, 'ativa', 'ativas')}</span>
-        {!folded.has('ops') && <div className="cx-aside">
-          <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Garantido<i className="cx-lg-n" />Sem garantia</span>
-          <label className="cx-sel"><span className="cx-pre">Ordenar</span>
-            <select id="cx-panel-sort" value={sort} onChange={e => p.setSort(e.target.value)} aria-label="Ordenar operações" style={{ paddingLeft: '72px' }}>
-              {CX_PANEL_SORTS.map(g => <optgroup key={g[0]} label={g[0]}>{g[1].map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}</optgroup>)}
-            </select><CxIcon n="chevD" s={12} /></label>
-        </div>}
-      </div>
-      {!folded.has('ops') && <div className="cx-tbl-wrap">
+    <CxFoldCard id="ops" scope="painel" title="Operações" className="cx-panel-ops"
+      sub={sortLabel + ' · ' + cxPl(rows.length, 'ativa', 'ativas')}
+      summary={cxMoneyShort(totalCredito) + ' sob gestão' + (totalCredito > 0 ? ' · ' + cxIndispPctTxt(totalInd) + ' indisponível' : '')}
+      actions={fold.isOpen('ops') ? <>
+        <span className="cx-panel-legend" aria-hidden="true"><i className="cx-lg-g" />Indisponível<i className="cx-lg-n" />Descoberta</span>
+        <label className="cx-sel"><span className="cx-pre">Ordenar</span>
+          <select id="cx-panel-sort" value={sort} onChange={e => p.setSort(e.target.value)} aria-label="Ordenar operações" style={{ paddingLeft: '72px' }}>
+            {CX_PANEL_SORTS.map(g => <optgroup key={g[0]} label={g[0]}>{g[1].map(o => <option key={o[0]} value={o[0]}>{o[1]}</option>)}</optgroup>)}
+          </select><CxIcon n="chevD" s={12} /></label>
+      </> : null}>
+      <div className="cx-tbl-wrap">
         <table className="cx-tbl cx-panel-tbl">
           <thead><tr>
             <th scope="col" {...colSort('nome')}>Operação</th>
             <th scope="col" {...colSort('valor_desc')}>Crédito</th>
-            <th scope="col" {...colSort('cobertura_asc', 'num')}>Garantia</th>
+            <th scope="col" {...colSort('indisp_asc', 'num')} title="Parte da dívida coberta por bens com indisponibilidade, ativa ou requerida">Indisponível</th>
             <th scope="col" {...colSort('presc', 'num')} title="CDAs que pedem providência na Mesa de prazos (fileira de cima dos cartões)">Prescrição</th>
             <th scope="col" {...colSort('intims', 'num')}>Intimações</th>
             <th scope="col" {...colSort('tasks', 'num')}>Tarefas</th>
@@ -3159,15 +5524,16 @@ function EditionClaudePainel(p) {
           <tbody>{shownOps.map((o, i) => {
             const pctW = o.totalValue / maxV * 100;
             const gPct = o.totalValue > 0 ? o.guaranteedValue / o.totalValue * 100 : 0;
+            const iPct = o.ind.pct === null ? 0 : o.ind.pct;
             const rs = cxRS(o.op);
             return <tr key={o.op.id} className="click" onClick={() => p.onOpenOp(o.op.id)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) p.onOpenOp(o.op.id); }}>
               <td><span className="cx-op-cell"><span className="cx-panel-rank">{i + 1}</span><CxOpSquare op={o.op} /><span className="cx-ell" title={o.op.name}>{cxOpName(o.op)}</span>{cxOpPrioTag(o.op)}</span>
                 <span className="cx-panel-sub">{cxPl(o.debtsCount, 'CDA', 'CDAs')} · {o.execsCount} proc. · {cxPl(o.assetsCount, 'bem', 'bens')}</span></td>
-              <td className="cx-panel-bar-td" title={'Crédito ' + fmtCur(o.totalValue) + ' · garantido ' + fmtCur(o.guaranteedValue) + ' (' + Math.round(gPct) + '%)'}>
+              <td className="cx-panel-bar-td" title={'Crédito ' + fmtCur(o.totalValue) + ' · ' + (cxIndispSplit(o.ind) || 'sem bens indisponíveis com valor') + ' (' + cxIndispPctTxt(o.ind) + ') · garantido ' + Math.round(gPct) + '%'}>
                 <span className="cx-panel-val">{cxMoneyShort(o.totalValue)}</span>
-                <span className="cx-panel-bar" style={{ width: Math.max(2, pctW) + '%' }}>{o.guaranteedValue > 0 ? <i className="g" style={{ width: gPct + '%' }} /> : null}{gPct < 100 ? <i className="n" /> : null}</span>
+                <span className="cx-panel-bar" style={{ width: Math.max(2, pctW) + '%' }}>{iPct > 0 ? <i className="g" style={{ width: iPct + '%' }} /> : null}{iPct < 100 ? <i className="n" /> : null}</span>
               </td>
-              <td className="num"><span className={'cx-pct' + (o.totalValue > 0 && gPct < 25 ? ' cx-orange-t' : '')}>{o.totalValue > 0 ? Math.round(gPct) + '%' : '—'}</span></td>
+              <td className="num"><span className={'cx-pct' + (o.totalValue > 0 && iPct < 25 ? ' cx-orange-t' : '')}>{o.totalValue > 0 ? cxIndispPctTxt(o.ind) : '—'}</span></td>
               <td className="num">{o.prescRisk ? <span className="cx-violet-t cx-mono">{o.prescRisk}</span> : <span className="cx-muted">—</span>}</td>
               <td className="num">{o.openIntims ? <span className="cx-mono">{o.openIntims}{o.lateIntims ? <span className="cx-red-t"> · {o.lateIntims} venc.</span> : null}</span> : <span className="cx-muted">—</span>}</td>
               <td className="num">{o.openTasks ? <span className="cx-mono">{o.openTasks}</span> : <span className="cx-muted">—</span>}</td>
@@ -3183,7 +5549,7 @@ function EditionClaudePainel(p) {
           <tfoot><tr>
             <td>Total das ativas</td>
             <td><span className="cx-panel-val">{cxMoneyShort(totalCredito)}</span></td>
-            <td className="num">{pctGarAtivas}%</td>
+            <td className="num" title={CX_INDISP_DUP}>{totalCredito > 0 ? cxIndispPctTxt(totalInd) : '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.prescRisk, 0) || '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.openIntims, 0) || '—'}</td>
             <td className="num">{rows.reduce((s, o) => s + o.openTasks, 0) || '—'}</td>
@@ -3191,33 +5557,35 @@ function EditionClaudePainel(p) {
             <td>{due.length ? cxPl(due.length, 'atrasada', 'atrasadas') : 'em dia'}</td>
           </tr></tfoot>
         </table>
-      </div>}
-    </section>
+      </div>
+    </CxFoldCard>
 
-    <section className="cx-card cx-panel-presc">
-      <div className="cx-card-h"><CxFoldTitle k="presc" folded={folded} onToggle={toggleFold}>Prescrição na carteira</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={() => p.onOpenMesa('')}>Mesa<CxIcon n="chevR" s={13} /></button></div></div>
-      {!folded.has('presc') && <><div className="cx-pz-embed"><CxMesaStrip mc={mesaCards} onOpen={p.onOpenMesa} /></div>
-      <div className="cx-more">Mesmos cartões da Mesa de prazos. Clique num cartão para abrir a seção.</div></>}
-    </section>
+    <CxFoldCard id="presc" scope="painel" title="Prescrição na carteira" className="cx-panel-presc"
+        summary={riskN ? cxPl(riskN, 'CDA a agir', 'CDAs a agir') + ' · ' + cxMoneyShort(riskV) : 'situação controlada'}
+        actions={<button type="button" className="cx-link-btn" onClick={() => p.onOpenMesa('')}>Mesa<CxIcon n="chevR" s={13} /></button>}>
+        <><div className="cx-pz-embed"><CxMesaStrip mc={mesaCards} onOpen={p.onOpenMesa} /></div>
+        <div className="cx-more">Mesmos cartões da Mesa de prazos. Clique num cartão para abrir a seção.</div></>
+    </CxFoldCard>
     <div className="cx-panel-grid two">
-      <section className="cx-card" id="cx-panel-rev">
-        <div className="cx-card-h"><CxFoldTitle k="rev" folded={folded} onToggle={toggleFold}>Revisões devidas</CxFoldTitle><div className="cx-aside"><span className="cx-count">{due.length}</span></div></div>
-        {folded.has('rev') ? null : due.length ? due.map(o => <div key={o.op.id} className="cx-panel-rev">
+      <CxFoldCard id="rev" scope="painel" title="Revisões devidas" domId="cx-panel-rev" count={due.length}
+        summary={due.length ? 'operações com revisão atrasada' : 'todas em dia'}>
+        {due.length ? due.map(o => <div key={o.op.id} className="cx-panel-rev">
           <button type="button" className="cx-op-tag cx-link" onClick={() => p.onOpenOp(o.op.id)} title={'Abrir ' + o.op.name}><CxOpSquare op={o.op} /><span className="cx-ell">{cxOpName(o.op)}</span></button>
           <span className="cx-orange-t cx-small">{o.rs.label}</span>
           <button type="button" className="cx-btn sm" onClick={() => p.onReviewed(o.op)} title="Marcar a operação como revisada hoje"><CxIcon n="tick" s={12} />Revisada</button>
         </div>) : <div className="cx-empty-row">Nenhuma revisão atrasada.</div>}
         <div style={{ height: 6 }} />
-      </section>
-      <section className="cx-card">
-        <div className="cx-card-h"><CxFoldTitle k="week" folded={folded} onToggle={toggleFold}>Próximos 7 dias</CxFoldTitle><div className="cx-aside"><button type="button" className="cx-link-btn" onClick={p.onOpenAgenda}>Agenda<CxIcon n="chevR" s={13} /></button></div></div>
-        {!folded.has('week') && <><div className="cx-panel-week">
+      </CxFoldCard>
+      <CxFoldCard id="week" scope="painel" title="Próximos 7 dias"
+        summary={cxPl(wk.aud, 'audiência', 'audiências') + ' · ' + cxPl(wk.prazo, 'prazo', 'prazos') + ' · ' + cxPl(wk.tarefa, 'tarefa', 'tarefas')}
+        actions={<button type="button" className="cx-link-btn" onClick={p.onOpenAgenda}>Agenda<CxIcon n="chevR" s={13} /></button>}>
+        <><div className="cx-panel-week">
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.aud }} /><span className="cx-lbl">Audiências</span><b className="cx-mono">{wk.aud}</b></button>
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.prazo }} /><span className="cx-lbl">Finais de prazo</span><b className="cx-mono">{wk.prazo}</b></button>
           <button type="button" onClick={p.onOpenAgenda}><span className="cx-dot" style={{ background: CX_AG_C.tarefa }} /><span className="cx-lbl">Tarefas com data limite</span><b className="cx-mono">{wk.tarefa}</b></button>
         </div>
-        <div className="cx-more">O calendário completo, com a prescrição, fica na Agenda.</div></>}
-      </section>
+        <div className="cx-more">O calendário completo, com a prescrição, fica na Agenda.</div></>
+      </CxFoldCard>
     </div>
   </div>;
 }
@@ -3245,246 +5613,227 @@ function cxStageDelRec(op, upsert, execId, sk) {
 /* Diário — mesma persistência (materialize/persist) e o mesmo formato de
  * briefing.entries que o BriefingStrategyPanel clássico, com outra apresentação:
  * data na margem, filtro por tipo sempre visível (com contagem), editor inline. */
-function EditionClaudeBriefingDiary({ op, upsert, editRequestId, onEditConsumed }) {
+/* ─── Mural (Visão geral) ───
+   Une as entradas do Diário da operação (briefing.entries) e os Lembretes (stickyNotes da operação) em post-its. Cor pelo
+   tipo (diário) ou pela cor escolhida (lembrete); o rótulo do tipo vem sempre escrito. Lembrete aceita `dueDate` (AAAA-MM-DD)
+   e `done` (opcionais: ausentes = comportamento antigo). Clique abre o editor existente (diário: compositor daqui; lembrete: modal). */
+const CX_MU_DIARY_CLS = { estrategia: 'y', risco: 'r', decisao: 'b', providencia: 'g', observacao: 'n', replicacao: 'v' };
+const CX_MU_NOTE_CLS = { yellow: 'y', green: 'g', red: 'r', blue: 'b' };
+const CX_MU_FILTERS = [['tudo', 'Tudo', 'layers'], ['lembrete', 'Lembretes', 'clock'], ['estrategia', 'Estratégia', 'flag'], ['risco', 'Risco', 'alert'], ['decisao', 'Decisão judicial', 'gavel'], ['providencia', 'Providência', 'check'], ['observacao', 'Observação', 'eye'], ['replicacao', 'Replicação', 'sync']];
+function cxMuItems(op, data) {
+  const entries = getBriefingEntries(op.briefing || {});
+  const notes = (data.stickyNotes || []).filter(n => n.operationId === op.id);
+  const items = [];
+  entries.forEach(en => {
+    const type = BRIEFING_ENTRY_TYPES[en.type] ? en.type : 'observacao';
+    items.push({ id: 'd:' + en.id, src: 'd', type, label: BRIEFING_ENTRY_TYPES[type].label, cls: CX_MU_DIARY_CLS[type] || 'n', date: en.eventDate || (en.createdAt || '').slice(0, 10), pinned: !!en.pinned, html: en.html || '', entry: en });
+  });
+  notes.forEach(n => {
+    items.push({ id: 'l:' + n.id, src: 'l', type: 'lembrete', label: 'Lembrete', cls: CX_MU_NOTE_CLS[n.color] || 'y', date: (n.updatedAt || n.createdAt || '').slice(0, 10), dueDate: toDayKey(n.dueDate) || '', done: !!n.done, title: n.title || '', text: n.content || '', note: n });
+  });
+  return items;
+}
+/* Ordem: fixadas → lembretes vencidos → lembretes por data → demais por data (desc) → lembretes feitos. */
+function cxMuSort(items, todayIso) {
+  const rank = (it) => {
+    if (it.src === 'd' && it.pinned) return [0, it.date || ''];
+    if (it.src === 'l') {
+      if (it.done) return [4, it.date || ''];
+      if (it.dueDate && it.dueDate < todayIso) return [1, it.dueDate];
+      if (it.dueDate) return [2, it.dueDate];
+      return [2.5, it.date || ''];
+    }
+    return [3, it.date || ''];
+  };
+  return items.slice().sort((a, b) => {
+    const x = rank(a), y = rank(b);
+    if (x[0] !== y[0]) return x[0] - y[0];
+    if (x[0] === 1 || x[0] === 2) return String(x[1]).localeCompare(String(y[1]));
+    return String(y[1]).localeCompare(String(x[1]));
+  });
+}
+function cxMuDuePill(it, todayIso) {
+  if (it.done) return { tone: 'green', txt: 'feito' };
+  const dd = daysUntil(it.dueDate);
+  if (dd === null || dd === undefined) return { tone: '', txt: fmtDate(it.dueDate) };
+  if (it.dueDate < todayIso) return { tone: 'red', txt: 'vencido há ' + cxPl(-dd, 'dia', 'dias') };
+  if (dd === 0) return { tone: 'yellow', txt: 'hoje' };
+  return { tone: '', txt: dd === 1 ? 'amanhã' : 'em ' + dd + ' dias' };
+}
+function CxBfMural({ op, data, upsert, setModal }) {
   const briefing = op.briefing || {};
   const entries = getBriefingEntries(briefing);
+  const todayIso = localIso(new Date());
+  const [filter, setFilter] = React.useState('tudo');
+  const [menu, setMenu] = React.useState(false);
   const [composer, setComposer] = React.useState(null); // null | { mode:'new'|'edit', entry }
   const [draftType, setDraftType] = React.useState('observacao');
   const [draftDate, setDraftDate] = React.useState('');
-  const [filterType, setFilterType] = React.useState('all');
+  const [draftPin, setDraftPin] = React.useState(false);
+  const [draftInReport, setDraftInReport] = React.useState(false);
+  const inReportManual = React.useRef(false); // depois do clique do usuário, trocar o tipo não mexe mais na marca
   const draftHtmlRef = React.useRef('');
+  const items = React.useMemo(() => cxMuItems(op, data), [op, data.stickyNotes]);
+  const hasRepl = items.some(i => i.type === 'replicacao');
+  const sorted = cxMuSort(items, todayIso);
+  const visible = filter === 'tudo' ? sorted : sorted.filter(i => i.type === filter);
+  const countOf = (k) => k === 'tudo' ? items.length : items.filter(i => i.type === k).length;
 
   const materialize = (list) => list.map(en => en._legacy
     ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
-
-  const openNew = () => { setDraftType('observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
-  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
+  const openNew = () => { setDraftType('observacao'); setDraftDate(todayIso); setDraftPin(false); inReportManual.current = false; setDraftInReport(diaryEntryInReport({ type: 'observacao' })); setComposer({ mode: 'new', entry: null }); };
+  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setDraftPin(!!en.pinned); inReportManual.current = typeof en.inReport === 'boolean'; setDraftInReport(diaryEntryInReport(en)); setComposer({ mode: 'edit', entry: en }); };
+  const pickType = (t) => { setDraftType(t); if (!inReportManual.current) setDraftInReport(diaryEntryInReport({ type: t })); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: false, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', inReport: draftInReport, createdAt: now, updatedAt: now }, ...entries]);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', inReport: draftInReport, createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);
   };
-  const togglePin = (en) => persist(entries.map(x => x.id === en.id ? { ...x, pinned: !x.pinned, updatedAt: new Date().toISOString() } : x));
-  const removeEntry = (en) => { if (!confirm('Excluir esta entrada?')) return; persist(entries.filter(x => x.id !== en.id)); };
+  const removeEntry = () => { if (!confirm('Excluir esta entrada?')) return; persist(entries.filter(x => x.id !== composer.entry.id)); setComposer(null); };
+  const toggleDone = (it) => upsert('stickyNotes', { ...it.note, done: !it.note.done });
+  const openItem = (it) => { if (it.src === 'd') openEdit(it.entry); else setModal({ type: 'edit', entityType: 'stickyNote', initial: it.note }); };
+  const addReminder = () => { setMenu(false); setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: op.id, color: 'yellow' } }); };
+  const addEntry = () => { setMenu(false); setFilter('tudo'); openNew(); };
 
-  React.useEffect(() => {
-    if (!editRequestId) return;
-    const en = entries.find(e => e.id === editRequestId);
-    if (en) openEdit(en);
-    if (onEditConsumed) onEditConsumed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editRequestId]);
-
-  const sortKey = (en) => en.eventDate || (en.createdAt || '').slice(0, 10);
-  const sorted = [...entries].sort((a, b) => { const p = (!!b.pinned) - (!!a.pinned); if (p) return p; return sortKey(b).localeCompare(sortKey(a)); });
-  const countByType = { all: entries.length };
-  Object.keys(BRIEFING_ENTRY_TYPES).forEach(k => { countByType[k] = entries.filter(e => (e.type || 'observacao') === k).length; });
-  const visible = filterType === 'all' ? sorted : sorted.filter(en => (en.type || 'observacao') === filterType);
-
-  const renderComposer = () => (<div className="cx-bf-diary-composer">
-    <div className="cx-bf-diary-composer-hd">
-      <select value={draftType} onChange={e => setDraftType(e.target.value)} className="cx-input" style={{ width: 'auto' }}>
-        {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-      </select>
-      <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
-      <span className="cx-sp" />
-      <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
-      <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? '+ Adicionar' : 'Salvar'}</button>
-    </div>
-    <RichNoteEditor initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
-  </div>);
-
-  return (<div className="cx-bf-diary">
-    <div className="cx-bf-diary-hd">
-      <h5>Diário</h5>
-      <div className="cx-bf-diary-filters">
-        <button type="button" className={filterType === 'all' ? 'on' : ''} onClick={() => setFilterType('all')}>Todos<i>{countByType.all}</i></button>
-        {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <button key={k} type="button" className={filterType === k ? 'on' : ''} onClick={() => setFilterType(k)}>{v.label}<i>{countByType[k] || 0}</i></button>)}
+  return <CxFoldCard id="mural" scope="visao" title="Mural" count={items.length} ariaLabel="Mural" className="cx-mu"
+    summary={items.length ? cxPl(items.length, 'nota', 'notas') : 'nenhuma nota'}
+    actions={<span className="cx-mu-add">
+      <button type="button" className="cx-link-btn" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(v => !v)}><CxIcon n="plus" s={12} />Nota</button>
+      {menu ? <>
+        <div className="cx-menu-scrim" onClick={() => setMenu(false)} />
+        <div className="cx-menu-pop" role="menu">
+          <button type="button" role="menuitem" onClick={addReminder}>Lembrete</button>
+          <button type="button" role="menuitem" onClick={addEntry}>Entrada do diário</button>
+        </div>
+      </> : null}
+    </span>}>
+    {composer ? <div className="cx-mu-comp">
+      <div className="cx-bf-diary-composer-hd">
+        <select value={draftType} onChange={e => pickType(e.target.value)} className="cx-input" style={{ width: 'auto' }} aria-label="Tipo da entrada">
+          {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" aria-label="Data do fato" />
+        <button type="button" className={'cx-bf-inrep' + (draftInReport ? ' on' : '')} aria-pressed={draftInReport} title="No relatório" aria-label="No relatório" onClick={() => { inReportManual.current = true; setDraftInReport(v => !v); }}><CxIcon n="file" s={13} /></button>
+        <label className="cx-mu-pin"><input type="checkbox" checked={draftPin} onChange={e => setDraftPin(e.target.checked)} />Fixar</label>
+        <span className="cx-sp" />
+        {composer.mode === 'edit' ? <button type="button" className="cx-btn sm ghost" onClick={removeEntry}>Excluir</button> : null}
+        <button type="button" className="cx-btn sm ghost" onClick={() => setComposer(null)}>Cancelar</button>
+        <button type="button" className="cx-btn sm primary" onClick={saveComposer}>{composer.mode === 'new' ? 'Adicionar' : 'Salvar'}</button>
       </div>
+      <RichNoteEditor key={composer.mode + (composer.entry ? composer.entry.id : '')} initialHtml={composer.mode === 'edit' ? (composer.entry.html || '') : ''} placeholder="Registrar risco, estratégia, decisão, providência…" draftRef={draftHtmlRef} autoFocus />
+    </div> : null}
+    <div className="cx-mu-f" role="group" aria-label="Filtrar o mural">
+      {CX_MU_FILTERS.filter(f => f[0] !== 'replicacao' || hasRepl).map(([k, lab, ic]) => <button key={k} type="button" className="cx-mu-fb" aria-pressed={filter === k} aria-label={lab}
+        {...cxHintProps(() => ({ title: lab + ' · ' + countOf(k) }))} onClick={() => setFilter(k)}><CxIcon n={ic} s={14} /></button>)}
     </div>
-    {!composer && <div className="cx-bf-diary-compose" onClick={openNew}>✎ Registrar risco, estratégia, decisão, providência…</div>}
-    {composer && composer.mode === 'new' && renderComposer()}
-    {!sorted.length && !composer && <div className="cx-empty-row">Nenhuma entrada. Registre riscos, estratégias, decisões e providências em blocos datados.</div>}
-    {sorted.length > 0 && !visible.length && !composer && <div className="cx-empty-row">Nenhuma entrada do tipo selecionado. <span className="cx-link" onClick={() => setFilterType('all')}>Ver todas</span></div>}
-    <div className="cx-bf-diary-feed">
-      {visible.map(en => {
-        if (composer && composer.mode === 'edit' && composer.entry.id === en.id) return <React.Fragment key={en.id}>{renderComposer()}</React.Fragment>;
-        const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-        const dt = en.eventDate ? fmtDate(en.eventDate) : (en.createdAt ? fmtDate(en.createdAt.slice(0, 10)) : '');
-        return (<div key={en.id} className="cx-bf-ent">
-          <div className="cx-bf-ent-top">
-            <span className="cx-bf-ent-d">{dt || '—'}</span>
-            <span className="cx-bf-type">{t.label}{en.pinned ? <span className="cx-bf-pin" title="Fixada"> 📌</span> : null}</span>
-            <span className="cx-bf-ent-acts">
-              <button type="button" className="cx-bf-ic" title={en.pinned ? 'Desafixar' : 'Fixar'} onClick={() => togglePin(en)}>📌</button>
-              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => openEdit(en)}>✎</button>
-              <button type="button" className="cx-bf-ic" title="Excluir" onClick={() => removeEntry(en)}>✕</button>
-            </span>
+    <div className="cx-mu-grid">
+      {visible.map(it => {
+        const pill = it.src === 'l' && it.dueDate ? cxMuDuePill(it, todayIso) : null;
+        return <article key={it.id} className={'cx-pi ' + it.cls + (it.pinned ? ' pin' : '') + (it.done ? ' done' : '')} role="button" tabIndex={0}
+          onClick={() => openItem(it)} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); openItem(it); } }}>
+          <div className="cx-pi-h">
+            {it.src === 'l' ? <button type="button" className="cx-rchk" role="checkbox" aria-checked={it.done} aria-label={it.done ? 'Reabrir lembrete' : 'Concluir lembrete'}
+              onClick={e => { e.stopPropagation(); toggleDone(it); }} onKeyDown={e => e.stopPropagation()}><CxIcon n="tick" s={9} /></button> : null}
+            {it.pinned ? <span className="cx-pi-pin" title="Fixada" role="img" aria-label="Fixada"><CxIcon n="pin" s={11} /></span> : null}
+            <span className="cx-pi-lab">{it.label}</span>
+            {it.src === 'd' && diaryEntryInReport(it.entry) ? <span className="cx-pi-rep" title="Entra na Base do relatório" role="img" aria-label="No relatório"><CxIcon n="file" s={10} /></span> : null}
+            <span className="cx-pi-d">{it.date ? fmtDate(it.date) : ''}</span>
           </div>
-          <div className="cx-bf-ent-txt" dangerouslySetInnerHTML={{ __html: en.html || '' }} />
-        </div>);
+          {it.src === 'l'
+            ? <div className="cx-pi-t">{it.title ? <b>{it.title}: </b> : null}{it.text}</div>
+            : <div className="cx-pi-t cx-pi-rich" dangerouslySetInnerHTML={{ __html: mapRichTextColors(it.html) }} />}
+          {pill ? <div className="cx-pi-f"><span className={'cx-pi-pill ' + pill.tone}><CxIcon n="clock" s={11} />{fmtDate(it.dueDate)} · {pill.txt}</span></div> : null}
+        </article>;
       })}
+      {!visible.length ? <div className="cx-empty-row cx-mu-empty">{items.length ? 'Nenhuma nota neste filtro.' : 'Nenhuma nota. Use + Nota para registrar um lembrete ou uma entrada do diário.'}</div> : null}
     </div>
-  </div>);
+  </CxFoldCard>;
 }
 
-/* Estado (localStorage) do recolher/expandir de cada frente processual (por id da frente — item 11)
-   e dos três cartões da área de trabalho da fase (mesmo tipo em todas as frentes — item 12). */
+/* ─── Painel de apoio (Visão geral) ───
+   Abas: O que vem · Prazos extintivos · Checklists · Fontes · Atuações recentes. Cada aba mostra o conteúdo dos antigos cartões,
+   sem o cartão em volta. A aba escolhida fica lembrada (localStorage). */
+const CX_AP_TAB_KEY = 'nexus_cx_apoio_tab';
+const CX_AP_TABS = [['vem', 'O que vem'], ['prazos', 'Prazos extintivos'], ['check', 'Checklists'], ['fontes', 'Fontes'], ['atu', 'Atuações recentes']];
+function CxBfApoio({ op, data, prazosRadar, prescLookup, split, mesaCards, execs, upsert, onOpenTimeline, onOpenPrazos, onOpenCda, onOpenProc, onOpenIntim, onOpenTask, onOpenProativa, hz, nr }) {
+  const [tab, setTabS] = React.useState(() => { const v = cxLs(CX_AP_TAB_KEY, 'vem'); return CX_AP_TABS.some(t => t[0] === v) ? v : 'vem'; });
+  const setTab = (v) => { setTabS(v); try { localStorage.setItem(CX_AP_TAB_KEY, v); } catch (e) { /* ignore */ } };
+  const todayIso = localIso(new Date());
+  const vemN = React.useMemo(() => cxBuildHorizon(data, [op.id], prazosRadar, todayIso).items.length, [data, op.id, prazosRadar, todayIso]);
+  const atuN = React.useMemo(() => cxAtuRows(op, data, execs).length, [op, data.intimations, data.tasks, data.executions, execs]);
+  const chk = cxChkCounts(op.briefing);
+  const nSrc = cxBfLinks(op.briefing || {}).length;
+  /* Prazos extintivos da operação: as CDAs dos cartões «a agir» da Mesa (fileira 1), na ordem dos cartões — o mesmo número do menu. */
+  const needs = React.useMemo(() => {
+    const out = [];
+    MESA_CARDS.filter(c => c.fileira === 1).forEach(c => ((mesaCards && mesaCards.byCard[c.id]) || []).forEach(it => { if (mesaIsAction(it) && it.debt && it.debt.operationId === op.id) out.push(it); }));
+    return out;
+  }, [mesaCards, op.id]);
+  const vigiarN = ((mesaCards && mesaCards.byCard.vigiar) || []).filter(it => it.debt && it.debt.operationId === op.id).length;
+  const counts = { vem: vemN, prazos: needs.length, check: chk.done + '/' + chk.total, fontes: nSrc, atu: atuN };
+  const onKey = (e) => {
+    const i = CX_AP_TABS.findIndex(t => t[0] === tab);
+    let j = i;
+    if (e.key === 'ArrowRight') j = (i + 1) % CX_AP_TABS.length; else if (e.key === 'ArrowLeft') j = (i + CX_AP_TABS.length - 1) % CX_AP_TABS.length; else return;
+    e.preventDefault(); setTab(CX_AP_TABS[j][0]);
+    setTimeout(() => { const el = document.getElementById('cx-ap-tab-' + CX_AP_TABS[j][0]); if (el) el.focus(); }, 0);
+  };
+  return <CxFoldCard id="apoio" scope="visao" title="Painel de apoio" ariaLabel="Painel de apoio" className="cx-ap"
+    summary={CX_AP_TABS.map(t => t[1]).join(' · ')}>
+    <div className="cx-ap-tabs" role="tablist" aria-label="Painel de apoio" onKeyDown={onKey}>
+      {CX_AP_TABS.map(([k, lab]) => <button key={k} type="button" role="tab" id={'cx-ap-tab-' + k} aria-selected={tab === k} aria-controls="cx-ap-panel" tabIndex={tab === k ? 0 : -1} onClick={() => setTab(k)}>
+        {lab}<span className={'cx-ap-n' + (k === 'prazos' && needs.length ? ' red' : '')}>{counts[k]}</span>
+      </button>)}
+    </div>
+    <div id="cx-ap-panel" role="tabpanel" aria-labelledby={'cx-ap-tab-' + tab} className="cx-ap-body">
+      {tab === 'vem' ? <CxOqVem bare op={op} data={data} prazosRadar={prazosRadar} prescLookup={prescLookup} onOpenTimeline={onOpenTimeline} hz={hz} nr={nr} /> : null}
+      {tab === 'prazos' ? <div className="cx-ap-pane">
+        <div className="cx-ap-tools"><button type="button" className="cx-link-btn" onClick={onOpenPrazos}>Mesa<CxIcon n="chevR" s={13} /></button></div>
+        {needs.length ? needs.slice(0, 8).map(it => { const ck = mesaItemClock(it, todayIso); return <button key={it.debtId} type="button" className="cx-dl-item" onClick={() => onOpenCda({ id: it.debtId, operationId: op.id })}>
+          <CxIcon n="hourglass" s={13} className="cx-muted" />
+          <span className="cx-t"><span className="cx-mono" style={{ fontSize: 11.5 }}>{(it.debt && it.debt.cdaNumber) || 'S/N'}</span> · {mesaCardName(it.card)}</span>
+          {ck ? <span className={'cx-due' + (ck.late ? ' late' : '')}>{ck.text}</span> : null}
+        </button>; }) : <div className="cx-empty-row">Nada a agir agora{vigiarN ? ' · ' + cxPl(vigiarN, 'CDA só em vigilância', 'CDAs só em vigilância') : ''}.</div>}
+        {needs.length > 8 ? <div className="cx-more">+{needs.length - 8} na Mesa de prazos</div> : null}
+      </div> : null}
+      {tab === 'check' ? <CxBfChecklists bare op={op} upsert={upsert} /> : null}
+      {tab === 'fontes' ? <CxBfSources bare op={op} upsert={upsert} /> : null}
+      {tab === 'atu' ? <CxBfAtuacoes bare op={op} data={data} execs={execs} upsert={upsert} onOpenIntim={onOpenIntim} onOpenTask={onOpenTask} onOpenProativa={onOpenProativa} onOpenProc={onOpenProc} /> : null}
+    </div>
+  </CxFoldCard>;
+}
+
+/* ─── Seções do antigo Briefing, agora parte da Visão geral (P6) ───
+   Cada seção é um componente próprio: lê `op.briefing`/os dados e grava pelas mesmas funções do app (upsert, setModal,
+   setData), como o Briefing fazia. Os cartões usam o escopo de recolher/expandir 'visao' (cxUseFold). A aba "Briefing"
+   deixou de existir no Prumo ('notas' é só um apelido de 'visao'); o Clássico e a Beta seguem com o painel antigo. */
+
+/* Estado (localStorage) do recolher/expandir de cada frente processual (por id da frente — item 11).
+   Os três blocos da área de trabalho da fase (item 12: evento, notas, efs) e os cartões da página usam cxUseFold('visao'). */
 function cxLoadBfLanes() {
   try { const raw = JSON.parse(localStorage.getItem('nexus_cx_bf_lanes') || 'null'); if (raw && typeof raw === 'object') return raw; } catch (e) { /* ignore */ }
   return {};
 }
 function cxSaveBfLanes(v) { try { localStorage.setItem('nexus_cx_bf_lanes', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-const CX_BF_CARD_DEFAULTS = { evento: true, notas: true, efs: true };
-function cxLoadBfCards() {
-  try { const raw = JSON.parse(localStorage.getItem('nexus_cx_bf_cards') || 'null'); if (raw && typeof raw === 'object') return { ...CX_BF_CARD_DEFAULTS, ...raw }; } catch (e) { /* ignore */ }
-  return { ...CX_BF_CARD_DEFAULTS };
-}
-function cxSaveBfCards(v) { try { localStorage.setItem('nexus_cx_bf_cards', JSON.stringify(v)); } catch (e) { /* ignore */ } }
-function EditionClaudeBriefing(p) {
-  const { op, data, opId, opDebts, opExecs, opAssets, opTasks, opIntims, upsert, setData, setModal, setActiveTab } = p;
-  const briefing = op.briefing || {};
-  const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
-  const isLaneOpen = (frontId) => laneOpenMap[frontId] === true;
-  const toggleLane = (frontId) => setLaneOpenMap(prev => { const next = { ...prev, [frontId]: !isLaneOpen(frontId) }; cxSaveBfLanes(next); return next; });
-  const [bfCards, setBfCards] = React.useState(cxLoadBfCards);
-  const toggleBfCard = (key) => setBfCards(prev => { const next = { ...prev, [key]: !prev[key] }; cxSaveBfCards(next); return next; });
-  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
-  const [expandedPinned, setExpandedPinned] = React.useState(false);
-  const [selected, setSelected] = React.useState({}); // execId -> stage key selecionada
-  const [popup, setPopup] = React.useState(null); // { execId, sk }
-  const [addMenu, setAddMenu] = React.useState(null); // execId
-  const [laneMenu, setLaneMenu] = React.useState(null); // execId
-  const [linkAdd, setLinkAdd] = React.useState(false);
-  const [diaryEditId, setDiaryEditId] = React.useState(null);
 
-  const setRec = (execId, sk, patch) => cxStageSetRec(op, upsert, execId, sk, patch);
-  const delRec = (execId, sk) => cxStageDelRec(op, upsert, execId, sk);
-
-  /* ── Novidades do último import ── */
+/* Novidades do último import (faixa no topo da Visão geral) */
+function CxBfNews({ data, opId, setData }) {
+  const [newsOpen, setNewsOpen] = React.useState(false);
   const opLogs = (data.importLogs || []).filter(l => l.operationId === opId && l.diff && !l.seen).sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   const lastLog = opLogs[0];
-  const [newsOpen, setNewsOpen] = React.useState(false);
   const d = lastLog && lastLog.diff;
   const newsTotal = d ? ((d.newDebts?.length || 0) + (d.newExecs?.length || 0) + (d.newAssets?.length || 0) + (d.newPeople?.length || 0) + (d.changedDebts?.length || 0) + (d.changedAssets?.length || 0)) : 0;
-
-  /* ── Leitura da operação (mesma regra do relatório) ── */
-  const entries = getBriefingEntries(briefing);
-  const pinned = entries.filter(e => e && e.pinned);
-  const highlight = pickHighlightEntry(entries);
-  const otherPinned = highlight ? pinned.filter(e => e.id !== highlight.id) : [];
-
-  /* ── Frentes processuais: IDPJ + MCF + Central + EF levada ao panorama ── */
-  const idpjs = opExecs.filter(isIncidentOnPanorama);
-  const centrais = opExecs.filter(e => e.processTag === 'central' && e.status !== 'extinta' && e.status !== 'arquivada');
-  const panoEFs = opExecs.filter(isUserPanoramaEf);
-  const fronts = [...idpjs, ...centrais, ...panoEFs];
-  const coverage = computeIncidentCoverage(opExecs, opDebts);
-  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
-  const withCda = (ef) => ({ ...ef, _cdaValue: execCdaValue(ef, opDebts) });
-  const panoCoveredIds = new Set();
-  idpjs.forEach(ip => (coverage.efsByIncident[ip.id] || []).forEach(ef => panoCoveredIds.add(ef.id)));
-  const efStyleCards = [...centrais, ...panoEFs];
-  efStyleCards.forEach(c => {
-    opExecs.filter(e => e.parentExecutionId === c.id && keepCoveredEF(e)).forEach(e => panoCoveredIds.add(e.id));
-  });
-  const coveredEFsFor = (front) => {
-    if (isEfStylePanoramaCard(front)) {
-      return opExecs.filter(e => e.parentExecutionId === front.id && keepCoveredEF(e)).map(withCda);
-    }
-    return (coverage.efsByIncident[front.id] || []);
-  };
-  const mainEFs = opExecs.filter(e => (!e.processTag || e.processTag === 'normal') && !e.parentExecutionId && e.status !== 'extinta' && e.status !== 'arquivada');
-  const semIncidenteEFs = mainEFs.filter(ef => !panoCoveredIds.has(ef.id) && isExecucaoFiscalClass(ef) && !ef.inPanorama).map(withCda);
-  const semIncidenteVal = semIncidenteEFs.reduce((s, e) => s + (e._cdaValue || 0), 0);
-
-  const frontRows = fronts.map(front => {
-    const bm = badgeFor(front);
-    const STAGES = isEfStylePanoramaCard(front) ? CENTRAL_STAGES : PROCESS_STAGES;
-    const stageKeys = Object.keys(STAGES);
-    const recs = getStageRecords(briefing, front.id);
-    const metas = stageMeta(STAGES, stageKeys, recs);
-    // Só eventos ocorridos (fases registradas + eventos livres) — sem sugestões tracejadas (item 8).
-    const visible = metas.filter(m => m.has || m.alwaysShow).sort(compareStagesByDate);
-    const covered = coveredEFsFor(front).sort((a, b) => (a.status === 'arquivada' ? 1 : 0) - (b.status === 'arquivada' ? 1 : 0));
-    const coveredVal = covered.reduce((s, e) => s + (e._cdaValue || 0), 0);
-    const withHas = visible.filter(m => m.has);
-    const defaultSel = (withHas.length ? withHas[withHas.length - 1] : visible[visible.length - 1]) || null;
-    const selKey = selected[front.id] || (defaultSel && defaultSel.k) || null;
-    const focused = visible.find(m => m.k === selKey) || defaultSel;
-    return { front, bm, STAGES, stageKeys, recs, metas, visible, covered, coveredVal, focused };
-  });
-
-  /* ── Fontes ── */
-  const links = briefing.externalLinks || [];
-  const migratedLinks = [...links];
-  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migratedLinks.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
-  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migratedLinks.push({ label: 'Resumos e anotações', url: briefing.docUrl });
-  const setLinks = (next) => updateBriefing('externalLinks', next);
-  const removeLink = (idx) => { const next = [...migratedLinks]; next.splice(idx, 1); setLinks(next); };
-  const addLink = (url) => {
-    if (!url) return;
-    let label = 'Link';
-    try { label = new URL(url).hostname.replace('www.', '').split('.')[0]; } catch { /* mantém padrão */ }
-    setLinks([...migratedLinks, { label, url }]);
-  };
-
-  /* ── Lembretes ── */
-  const reminders = (data.stickyNotes || []).filter(n => n.operationId === opId).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-
-  /* ── Checklists ── */
-  const chk = briefing.checklists || {};
-  const toggleChk = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
-  const idpjItems = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
-  const vistaItems = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
-  const checklistGroups = [
-    { label: '1ª vista da operação', items: vistaItems },
-    { label: 'Decisão final do IDPJ', items: idpjItems },
-  ];
-  const checklistDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
-  const checklistTotal = idpjItems.length + vistaItems.length;
-
-  /* ── Próximas tarefas ── */
-  const nextTasks = [...opTasks].filter(t => t.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 3);
-
-  const addStage = (front, sk) => {
-    const sd = front.STAGES ? front.STAGES[sk] : null;
-    const target = sd || (isEfStylePanoramaCard(front.front) ? CENTRAL_STAGES : PROCESS_STAGES)[sk];
-    const patch = target && target.multiRecurso ? { _present: true, recursos: [emptyRecurso()] } : target && target.textOnly ? { _present: true, texto: '' } : { _present: true, date: '', evento: '', texto: '', outcome: '' };
-    setRec(front.front.id, sk, patch);
-    setSelected(prev => ({ ...prev, [front.front.id]: sk }));
-    setPopup({ execId: front.front.id, sk });
-    setAddMenu(null);
-  };
-  const addCustomStage = (front, name) => {
-    const label = String(name || '').trim();
-    if (!label) return;
-    const sk = 'custom_' + uid();
-    setRec(front.front.id, sk, { _present: true, _custom: true, label, date: '', evento: '', texto: '', outcome: '' });
-    setSelected(prev => ({ ...prev, [front.front.id]: sk }));
-    setPopup({ execId: front.front.id, sk });
-    setAddMenu(null);
-  };
-  const addRecursoStage = (front) => {
-    const unused = front.metas.find(m => m.sd.multiRecurso && !m.has);
-    if (unused) { addStage(front, unused.k); return; }
-    const sk = 'recurso_' + uid();
-    setRec(front.front.id, sk, { _present: true, _custom: true, multiRecurso: true, label: 'Recurso', recursos: [emptyRecurso()] });
-    setSelected(prev => ({ ...prev, [front.front.id]: sk }));
-    setPopup({ execId: front.front.id, sk });
-    setAddMenu(null);
-  };
-  return (<div className="cx cx-page cx-page-wide cx-bf">
+  return (<>
     {lastLog && newsTotal > 0 && (
       <div className="cx-bf-news">
         <span className="cx-bf-news-ic">{newsTotal}</span>
@@ -3505,245 +5854,568 @@ function EditionClaudeBriefing(p) {
         {d.changedAssets?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedAssets.length} bem(ns) alterado(s)</b></div>}
       </div>
     )}
+  </>);
+}
 
-    <div className="cx-bf-grid">
-      <div className="cx-bf-main">
-        {/* Leitura da operação */}
-        <section className="cx-card cx-bf-lead">
-          {highlight ? (<>
-            <div className="cx-bf-lead-hd">
-              <span className="cx-bf-type" style={{ color: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).color, background: (BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).bg }}>{(BRIEFING_ENTRY_TYPES[highlight.type] || BRIEFING_ENTRY_TYPES.observacao).label}</span>
-              <span className="cx-muted cx-small">{highlight.eventDate ? 'fixada · ' + fmtDate(highlight.eventDate) : (highlight.createdAt ? 'fixada · ' + fmtDate(highlight.createdAt.slice(0, 10)) : 'fixada')}</span>
-              <span className="cx-sp" />
-              <button type="button" className="cx-bf-ic" title="Editar" onClick={() => setDiaryEditId(highlight.id)}>✎</button>
+/* ─── Frentes processuais (Visão geral) — tabela ───
+   Linhas: IDPJ + MCF + Central + EF levada ao panorama (ordem de sempre), cada uma com os processos ligados por
+   parentExecutionId recuados logo abaixo; depois o grupo "Sem incidente", "Operação (geral)" e os Acompanhar da operação.
+   A linha aberta traz a régua de fases, "Evento da fase", "Notas" e uma linha de atalhos. */
+const CX_BF_KIND_MAP = { APL: 'AP', EPE: 'EXC', AG: 'AI', PROC: 'PROC', OUTROS: '···' };
+/* Tipo curto (chip) de um processo. */
+function cxBfKind(e) {
+  const tag = e && e.processTag;
+  if (tag === 'idpj') return { code: 'IDPJ', cls: 'idpj', label: 'Incidente de desconsideração da personalidade jurídica' };
+  if (tag === 'cautelar_fiscal') return { code: 'MCF', cls: 'mcf', label: 'Medida cautelar fiscal' };
+  if (tag === 'central') return { code: 'Central', cls: 'central', label: 'Execução fiscal de destaque' };
+  if (isPeticaoIncidenteEf(e)) return { code: 'INC', cls: 'inc', label: 'Petição cível — incidente em execução fiscal' };
+  if (isExecucaoFiscalClass(e)) return { code: 'EF', cls: 'ef', label: 'Execução fiscal' };
+  const sp = otherSpecies(e);
+  const code = CX_BF_KIND_MAP[sp.code] || sp.code;
+  const cls = code === 'EMB' || code === 'ET' || code === 'ED' ? 'emb' : code === 'EXC' ? 'exc' : (code === 'AI' || code === 'AP' || code === 'AGI' || code === 'RI' || code === 'RESP' || code === 'RE' || code === 'RN') ? 'rec' : 'out';
+  return { code, cls, label: sp.label };
+}
+/* Etiqueta de vínculo da linha (principal, apensa, incidental, recurso ou "cobre N EFs"). */
+function cxBfRel(e, hasParent, coveredN) {
+  const tag = e && e.processTag;
+  if (tag === 'idpj' || tag === 'cautelar_fiscal') return coveredN ? 'cobre ' + cxPl(coveredN, 'EF', 'EFs') : 'sem EF vinculada';
+  if (tag === 'central') return coveredN ? 'principal · cobre ' + cxPl(coveredN, 'apenso', 'apensos') : 'principal';
+  if (!hasParent) return coveredN ? 'principal · cobre ' + cxPl(coveredN, 'apenso', 'apensos') : 'principal';
+  if (isExecucaoFiscalClass(e) && !isPeticaoIncidenteEf(e)) return 'apensa';
+  const code = cxBfKind(e).code;
+  if (code === 'AI' || code === 'AP' || code === 'AGI' || code === 'RI' || code === 'RESP' || code === 'RE' || code === 'RN') return 'recurso';
+  if (code === 'EMB' || code === 'EXC' || code === 'ET' || code === 'ED' || code === 'INC') return 'incidental';
+  return 'vinculada';
+}
+/* Fases de um processo: fases da EF (central) para execuções fiscais e centrais; do processo comum para o resto. */
+function cxBfStages(e) {
+  const efStyle = isEfStylePanoramaCard(e) || (isExecucaoFiscalClass(e) && !isIncidentProcess(e));
+  return efStyle ? { STAGES: CENTRAL_STAGES, keys: Object.keys(CENTRAL_STAGES) } : { STAGES: PROCESS_STAGES, keys: Object.keys(PROCESS_STAGES) };
+}
+/* Régua de um processo: só eventos ocorridos (fases registradas + eventos livres), em ordem de data; `cur` = a mais recente. */
+function cxBfRuler(briefing, e) {
+  const { STAGES, keys } = cxBfStages(e);
+  const recs = getStageRecords(briefing, e.id);
+  const metas = stageMeta(STAGES, keys, recs);
+  const visible = metas.filter(m => m.has || m.alwaysShow).sort(compareStagesByDate);
+  const withHas = visible.filter(m => m.has);
+  const cur = (withHas.length ? withHas[withHas.length - 1] : visible[visible.length - 1]) || null;
+  return { STAGES, keys, recs, metas, visible, cur };
+}
+const CX_BF_CON_STATUS = new Set(['indisponibilidade_ativa', 'indisponibilidade_requerida']);
+/* O que está em aberto num processo: intimações, tarefas, audiências, constrições e prescrição (pelo nº CNJ). */
+function cxBfPending(e, data, prazoRows, today) {
+  const num = e && e.processNumber;
+  const has = !!normProc(num);
+  const sameOp = (x) => !e.operationId || !x.operationId || x.operationId === e.operationId;
+  const intims = has ? (data.intimations || []).filter(x => intimIsOpenWork(x) && sameProc(x.processNumber, num) && sameOp(x)).sort(cxAttention) : [];
+  const tasks = has ? (data.tasks || []).filter(t => taskMatchesExec(e, t)).sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'))) : [];
+  const hearings = has ? (data.hearings || []).filter(h => h.date && h.status !== 'realizada' && h.status !== 'cancelada' && sameProc(h.processNumber, num) && sameOp(h) && daysUntil(h.date) >= 0).sort((a, b) => String(a.date).localeCompare(String(b.date))) : [];
+  const assets = has ? (data.assets || []).filter(a => a.operationId === e.operationId && a.processRef && sameProc(a.processRef, num) && CX_BF_CON_STATUS.has(a.status)) : [];
+  const presc = has ? (prazoRows || []).filter(r => (r.group === 1 || r.group === 2) && sameProc(r.processNumber, num)).sort((a, b) => (a.prescDays == null ? 1e9 : a.prescDays) - (b.prescDays == null ? 1e9 : b.prescDays)) : [];
+  const items = [];
+  intims.forEach(i => items.push({ k: 'int', iso: i.dateDeadline || '', days: i.dateDeadline ? daysUntil(i.dateDeadline) : null, txt: 'Intimação · ' + cxIntimObjetoText(i), ref: i }));
+  tasks.forEach(t => items.push({ k: 'tar', iso: t.dueDate || '', days: t.dueDate ? daysUntil(t.dueDate) : null, txt: t.title || t.description || 'Tarefa', ref: t }));
+  hearings.forEach(h => items.push({ k: 'aud', iso: h.date, days: daysUntil(h.date), txt: (CX_HEARING_SHORT[h.hearingType] || 'Audiência') + (h.time ? ' · ' + h.time : ''), ref: h }));
+  if (presc.length) {
+    const r = presc[0];
+    items.push({ k: 'pre', iso: r.prescDays == null ? '' : addCalendarDays(today, r.prescDays), days: r.prescDays == null ? null : r.prescDays, txt: 'Prescrição · CDA ' + (r.cdaNumber || 'S/N'), ref: r });
+  }
+  items.sort((a, b) => (a.days == null ? 1e9 : a.days) - (b.days == null ? 1e9 : b.days));
+  const conN = assets.length || (execShowsConstriction(e, data) ? 1 : 0);
+  return { intims, tasks, hearings, assets, presc, items, conN };
+}
+/* Pílula de prazo da coluna "Próximo ato". */
+function CxBfDue({ it }) {
+  if (!it) return null;
+  let tone = 'later', txt;
+  if (it.k === 'pre' && it.days != null && Math.abs(it.days) > 60) { tone = it.days < 0 ? 'late' : 'later'; txt = formatPrescHorizon(it.days); }
+  else if (it.days == null) { tone = 'none'; txt = 'sem prazo'; }
+  else { const c = cxDue(it.days, it.iso); tone = c.tone; txt = c.txt; }
+  return <span className={'cx-bft-due ' + tone}>{txt}</span>;
+}
+const CX_BF_SIG = [
+  ['int', 'inbox', 'Intimações abertas'],
+  ['tar', 'check', 'Tarefas em aberto'],
+  ['aud', 'gavel', 'Audiências marcadas'],
+  ['con', 'lock', 'Constrições'],
+  ['pre', 'hourglass', 'Prescrição'],
+];
+function cxBfSigTip(k, e, pd) {
+  const dm = (iso) => iso ? cxDM(iso) : 'sem prazo';
+  if (k === 'int') return { title: cxPl(pd.intims.length, 'intimação aberta', 'intimações abertas'), lines: pd.intims.slice(0, 6).map(i => dm(i.dateDeadline) + ' · ' + cxPartyName(i) + ' · ' + cxIntimObjetoText(i)).concat(pd.intims.length > 6 ? ['+' + (pd.intims.length - 6)] : []) };
+  if (k === 'tar') return { title: cxPl(pd.tasks.length, 'tarefa em aberto', 'tarefas em aberto'), lines: pd.tasks.slice(0, 6).map(t => dm(t.dueDate) + ' · ' + (t.title || t.description || 'Tarefa')).concat(pd.tasks.length > 6 ? ['+' + (pd.tasks.length - 6)] : []) };
+  if (k === 'aud') return { title: cxPl(pd.hearings.length, 'audiência marcada', 'audiências marcadas'), lines: pd.hearings.slice(0, 6).map(h => cxDM(h.date) + (h.time ? ' ' + h.time : '') + ' · ' + (CX_HEARING[h.hearingType] || 'Audiência')) };
+  if (k === 'con') return { title: pd.assets.length ? cxPl(pd.assets.length, 'bem com constrição', 'bens com constrição') : 'Constrição registrada no processo', lines: pd.assets.slice(0, 6).map(a => a.description || a.name || 'Bem') };
+  return { title: cxPl(pd.presc.length, 'CDA com prazo extintivo a decidir', 'CDAs com prazo extintivo a decidir'), lines: pd.presc.slice(0, 6).map(r => (r.cdaNumber || 'S/N') + ' · ' + (r.prescDays == null ? '—' : formatPrescHorizon(r.prescDays))) };
+}
+function CxBfSignals({ e, pd }) {
+  const n = { int: pd.intims.length, tar: pd.tasks.length, aud: pd.hearings.length, con: pd.conN, pre: pd.presc.length };
+  const red = {
+    int: pd.intims.some(i => i.dateDeadline && daysUntil(i.dateDeadline) < 0),
+    tar: pd.tasks.some(t => t.dueDate && daysUntil(t.dueDate) < 0),
+    aud: false, con: false,
+    pre: pd.presc.some(r => r.prescDays != null && r.prescDays < 0),
+  };
+  return <div className="cx-bft-sg">
+    {CX_BF_SIG.map(([k, ic, label]) => n[k] ? <span key={k} className={'s' + (red[k] ? ' red' : '')} role="img" tabIndex={0}
+      aria-label={label + ': ' + n[k]} {...cxHintProps(() => { const t = cxBfSigTip(k, e, pd); return { when: label, title: t.title, lines: t.lines, tone: red[k] ? 'late' : '' }; })}>
+      <CxIcon n={ic} s={13} /><b>{n[k]}</b>
+    </span> : <span key={k} className="s e" />)}
+  </div>;
+}
+/* Valor da frente: CDAs do próprio processo + as dos cobertos (sem contar duas vezes). */
+function cxBfValue(e, covered, opDebts) {
+  const seen = new Set([e.id]);
+  let val = execCdaValue(e, opDebts);
+  let n = (opDebts || []).filter(d => sameProc(d.processNumber, e.processNumber)).length;
+  (covered || []).forEach(c => {
+    if (!c || seen.has(c.id)) return;
+    seen.add(c.id);
+    val += execCdaValue(c, opDebts);
+    n += (opDebts || []).filter(d => sameProc(d.processNumber, c.processNumber)).length;
+  });
+  return { val, n };
+}
+function cxMoneyMi(v) {
+  v = v || 0;
+  if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' mi';
+  return cxMoneyShort(v);
+}
+function cxNoteText(raw) { return typeof raw === 'string' ? raw : ((raw && (raw.text || raw.content || raw.body)) || ''); }
+function cxNoteDate(raw) {
+  if (!raw || typeof raw === 'string') return '';
+  const d = raw.date || raw.createdAt || '';
+  return d ? fmtDate(String(d).slice(0, 10)) : '';
+}
+
+/* Parte aberta de uma linha: régua + Evento da fase + Notas + atalhos. */
+function CxBfFrontX({ e, op, data, upsert, setModal, pd, prazoRows, retirable, onOpenTab, onOpenPrazos, onOpenIntim, onOpenHearing, onOpenProc }) {
+  const briefing = op.briefing || {};
+  const R = cxBfRuler(briefing, e);
+  const [sel, setSel] = React.useState(null);
+  const [popup, setPopup] = React.useState(null);
+  const [addMenu, setAddMenu] = React.useState(false);
+  const [noteEdit, setNoteEdit] = React.useState(null); // { idx, val, atu } — atu: nota de atuação (edição em texto puro)
+  const [evEdit, setEvEdit] = React.useState(null); // chave da fase cujo texto está em edição inline
+  const [noteDel, setNoteDel] = React.useState(null); // índice da nota aguardando confirmação de exclusão
+  const [composeKey, setComposeKey] = React.useState(0);
+  const focused = R.visible.find(m => m.k === sel) || R.cur;
+  const setRec = (sk, patch) => cxStageSetRec(op, upsert, e.id, sk, patch);
+  const delRec = (sk) => cxStageDelRec(op, upsert, e.id, sk);
+  const pick = (sk) => { setSel(sk); setPopup(sk); setAddMenu(false); };
+  const addStage = (sk) => {
+    const sd = R.STAGES[sk];
+    const patch = sd && sd.multiRecurso ? { _present: true, recursos: [emptyRecurso()] } : sd && sd.textOnly ? { _present: true, texto: '' } : { _present: true, date: '', evento: '', texto: '', outcome: '' };
+    setRec(sk, patch); pick(sk);
+  };
+  const addCustomStage = (name) => {
+    const label = String(name || '').trim(); if (!label) return;
+    const sk = 'custom_' + uid();
+    setRec(sk, { _present: true, _custom: true, label, date: '', evento: '', texto: '', outcome: '' }); pick(sk);
+  };
+  const addRecursoStage = () => {
+    const unused = R.metas.find(m => m.sd.multiRecurso && !m.has);
+    if (unused) { addStage(unused.k); return; }
+    const sk = 'recurso_' + uid();
+    setRec(sk, { _present: true, _custom: true, multiRecurso: true, label: 'Recurso', recursos: [emptyRecurso()] }); pick(sk);
+  };
+  const rawNotes = e.notesList || (e.notes ? [e.notes] : []);
+  const notes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
+  const setNotes = (arr) => upsert('executions', { ...e, notesList: arr });
+  /* Notas: texto com marcação leve (**negrito**, *itálico*, "- ", "1. ", [texto](url)) — o Clássico mostra o texto legível. */
+  const addNote = (html) => {
+    const md = htmlToMdNote(html);
+    if (!md) return;
+    setNotes([...rawNotes, md]);
+    setComposeKey(k => k + 1);
+  };
+  const startEdit = (idx, raw) => {
+    const txt = cxNoteText(raw);
+    const atu = presentAtuacaoProcessNote(txt);
+    setNoteDel(null);
+    setNoteEdit({ idx, val: atu ? atu.text : txt, atu: !!atu });
+  };
+  const saveRichEdit = (html) => {
+    if (!noteEdit) return;
+    const md = htmlToMdNote(html);
+    const idx = noteEdit.idx;
+    setNoteEdit(null);
+    if (!md) return;
+    setNotes(replaceNoteText(rawNotes, idx, md));
+  };
+  const saveEdit = () => {
+    if (!noteEdit) return;
+    const next = noteEdit.val.trim();
+    const raw = rawNotes[noteEdit.idx];
+    if (!noteEdit.atu) return;
+    setNoteEdit(null);
+    if (!next) return;
+    const txt = cxNoteText(raw);
+    const atu = presentAtuacaoProcessNote(txt);
+    let stored = next;
+    if (atu && atu.url) {
+      const body = next.replace(/^Registro de atuação:\s*/, '').trim();
+      stored = (body ? `Registro de atuação: ${body}` : 'Registro de atuação') + ` / Peça: ${atu.url}`;
+    }
+    const arr = rawNotes.slice();
+    if (raw && typeof raw === 'object') { const key = ['text', 'content', 'body'].find(k => raw[k] != null) || 'text'; arr[noteEdit.idx] = { ...raw, [key]: stored }; }
+    else arr[noteEdit.idx] = stored;
+    setNotes(arr);
+  };
+  const m = focused;
+  const phaseTitle = m ? m.sd.label : '';
+  const outcomeCls = (o) => (o === 'favoravel' || o === 'provido') ? 'fav' : (o === 'desfavoravel' || o === 'nao_provido') ? 'des' : o === 'pendente' ? 'par' : '';
+  const nearestPresc = pd.presc.length && pd.presc[0].prescDays != null ? addCalendarDays(localIso(new Date()), pd.presc[0].prescDays) : '';
+  const lateIntims = pd.intims.filter(i => i.dateDeadline && daysUntil(i.dateDeadline) < 0).length;
+  const shortcuts = [];
+  if (pd.intims.length) shortcuts.push(<button key="i" type="button" className={'cx-link-btn' + (lateIntims ? ' red' : '')} onClick={() => onOpenIntim(pd.intims[0].id)}><CxIcon n="inbox" s={12} />Intimações <b>{pd.intims.length}</b>{lateIntims ? ' · ' + cxPl(lateIntims, 'vencida', 'vencidas') : ''}</button>);
+  if (pd.tasks.length) shortcuts.push(<button key="t" type="button" className="cx-link-btn" onClick={() => onOpenTab('tarefas')}><CxIcon n="check" s={12} />Tarefas <b>{pd.tasks.length}</b></button>);
+  if (pd.hearings.length) shortcuts.push(<button key="a" type="button" className="cx-link-btn" onClick={() => onOpenHearing(pd.hearings[0])}><CxIcon n="gavel" s={12} />Audiências <b>{pd.hearings.length}</b></button>);
+  if (pd.presc.length) shortcuts.push(<button key="p" type="button" className={'cx-link-btn' + (pd.presc[0].prescDays != null && pd.presc[0].prescDays < 0 ? ' red' : '')} onClick={onOpenPrazos}><CxIcon n="hourglass" s={12} />Prescrição{nearestPresc ? ' ' + cxDM(nearestPresc) : ''}</button>);
+  return <div className="cx-bfx">
+    <div className="cx-bfx-r">
+      <ol className="cx-bfx-ruler" aria-label="Fases do processo">
+        {R.visible.map(s => {
+          const isCur = R.cur && R.cur.k === s.k;
+          const idxCur = R.visible.findIndex(x => x.k === (R.cur && R.cur.k));
+          const idx = R.visible.indexOf(s);
+          const state = isCur ? 'cur' : idx < idxCur ? 'done' : 'done';
+          const d = stageEventDate(s);
+          const l2 = [d ? fmtDate(d) : '', s.rec && s.rec.evento ? 'Ev. ' + s.rec.evento : ''].filter(Boolean).join(' · ') || (s.sd.multiRecurso && (s.recursos || []).length ? cxPl(s.recursos.length, 'julgamento', 'julgamentos') : '');
+          const compl = (s.k === 'constricoes' || s.k === 'garantia') && s.rec && s.rec.texto ? String(s.rec.texto).trim().split(/\n/)[0].slice(0, 26) : '';
+          const on = focused && focused.k === s.k;
+          return <li key={s.k} className={'rs ' + state + (on ? ' sel' : '')}>
+            <button type="button" className="bt" aria-pressed={on} aria-label={s.sd.label + (isCur ? ' (atual)' : '')} onClick={() => { setSel(s.k); setEvEdit(null); }}>
+              <span className="rd" /><span className="rl">{s.sd.label}</span><span className="re">{l2 || '\u00a0'}</span>
+              {compl ? <span className="rt"><CxIcon n="lock" s={10} />{compl}</span> : null}
+            </button>
+          </li>;
+        })}
+        <li className="rs add">
+          <button type="button" className="bt" aria-expanded={addMenu} onClick={() => setAddMenu(v => !v)}><span className="rd"><CxIcon n="plus" s={9} /></span><span className="rl">Evento</span><span className="re">{'\u00a0'}</span></button>
+          {addMenu ? <>
+            <div className="cx-menu-scrim" onClick={() => setAddMenu(false)} />
+            <div className="cx-menu-pop cx-bf-addmenu">
+              <input autoFocus placeholder="digite o nome e Enter (evento livre)" onKeyDown={ev => { if (ev.key === 'Enter' && ev.target.value.trim()) addCustomStage(ev.target.value.trim()); else if (ev.key === 'Escape') setAddMenu(false); }} />
+              <button type="button" onClick={addRecursoStage}>Recurso</button>
+              {R.metas.filter(x => !x.has && !x.alwaysShow && !x.sd.custom && !x.sd.multiRecurso).map(x => <button key={x.k} type="button" onClick={() => addStage(x.k)}>{x.sd.label}</button>)}
             </div>
-            <div className="cx-bf-lead-txt" dangerouslySetInnerHTML={{ __html: highlight.html || '' }} />
-            <div className="cx-bf-lead-ft">
-              <span className="cx-muted cx-small">{(highlight.type === 'estrategia' ? 'Estratégia fixada mais recente' : 'Entrada fixada mais recente')}{otherPinned.length ? ` · mais ${otherPinned.length} fixada${otherPinned.length > 1 ? 's' : ''}` : ''}</span>
-              {otherPinned.length > 0 && <button type="button" className="cx-link" onClick={() => setExpandedPinned(o => !o)}>{expandedPinned ? 'Ocultar ▴' : 'Ver as outras ▾'}</button>}
-            </div>
-            {expandedPinned && otherPinned.map(en => {
-              const t = BRIEFING_ENTRY_TYPES[en.type] || BRIEFING_ENTRY_TYPES.observacao;
-              return <div key={en.id} className="cx-bf-lead-other"><span className="cx-bf-type" style={{ color: t.color, background: t.bg }}>{t.label}</span><div dangerouslySetInnerHTML={{ __html: en.html || '' }} /></div>;
-            })}
-          </>) : null}
-        </section>
-
-        {/* Frentes processuais */}
-        <section className="cx-card cx-bf-fronts">
-          <div className="cx-card-h"><h5>Frentes processuais</h5><span className="cx-count">{fronts.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setActiveTab('prescricao_v2')}>Processos e prescrição<CxIcon n="chevR" s={13} /></button></div>
-          {fronts.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF, execução central ou EF levada ao panorama.</div>}
-          {frontRows.map(fr => {
-            const front = fr.front;
-            const addOpen = addMenu === front.id;
-            const menuOpen = laneMenu === front.id;
-            const laneOpen = isLaneOpen(front.id);
-            return (
-              <div key={front.id} className="cx-bf-lane">
-                <div className="cx-bf-lane-h" role="button" tabIndex={0} aria-expanded={laneOpen}
-                  onClick={() => toggleLane(front.id)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) toggleLane(front.id); }}>
-                  <span className="cx-chev cx-bf-lane-chev"><CxIcon n={laneOpen ? 'chevD' : 'chevR'} s={13} /></span>
-                  <span className="cx-bf-kind" style={{ color: fr.bm.color, background: fr.bm.bg }}>{fr.bm.label}</span>
-                  <div className="cx-bf-lane-t">
-                    <div className="cx-bf-lane-title">{fr.bm.title || front.className || fr.bm.label} <span className="cx-mono cx-muted cx-small">{front.processNumber}</span></div>
-                    <div className="cx-bf-lane-sub cx-muted cx-small">{front.court || 'juízo não informado'}{front.status ? ' · ' + ((EXEC_STATUSES[front.status] || {}).label || front.status) : ''}</div>
-                  </div>
-                  {!laneOpen && fr.focused && <div className="cx-bf-lane-m"><small>Fase</small><strong>{fr.focused.sd.label}{fr.focused.outcomeLabel ? ' · ' + fr.focused.outcomeLabel : ''}</strong></div>}
-                  <div className="cx-bf-lane-m"><small>Cobre</small><strong>{fr.covered.length} {fr.bm.unit}{fr.covered.length !== 1 ? 's' : ''}</strong></div>
-                  <div className="cx-bf-lane-m"><small>Valor</small><strong>{fr.coveredVal > 0 ? fmtCur(fr.coveredVal) : '—'}</strong></div>
-                  <div className="cx-bf-lane-menu" onClick={e => e.stopPropagation()}>
-                    <button type="button" className="cx-bf-ic" title="Menu" onClick={() => setLaneMenu(menuOpen ? null : front.id)}>⋯</button>
-                    {menuOpen && (<>
-                      <div className="cx-menu-scrim" onClick={() => setLaneMenu(null)} />
-                      <div className="cx-menu-pop">
-                        <button type="button" onClick={() => { setModal({ type: 'edit', entityType: 'execution', initial: front }); setLaneMenu(null); }}>Dados</button>
-                        <button type="button" onClick={() => { upsert('executions', { ...front, inPanorama: false }); setLaneMenu(null); }}>Retirar</button>
-                      </div>
-                    </>)}
-                  </div>
-                </div>
-
-                {laneOpen && <>
-                <div className="cx-bf-ruler">
-                  {fr.visible.map(m => {
-                    const isCustom = !!(m.rec && m.rec._custom) && !m.sd.multiRecurso;
-                    const color = m.sd.multiRecurso ? m.c : (isCustom ? 'var(--cx-violet)' : m.c);
-                    const meta = stageCompactMeta(m);
-                    return (
-                      <button key={m.k} type="button" className={'cx-bf-stp' + (fr.focused && fr.focused.k === m.k ? ' now' : '')} style={{ '--c': color }} onClick={() => setSelected(s => ({ ...s, [front.id]: m.k }))} title={m.sd.label}>
-                        <span className="d" />
-                        <span className="l">{m.sd.label}{m.outcomeLabel ? ' · ' + m.outcomeLabel : ''}</span>
-                        <span className="w">{meta || (isCustom ? 'evento livre' : '')}</span>
-                      </button>
-                    );
-                  })}
-                  <span className="cx-bf-stp add">
-                    <button type="button" onClick={() => setAddMenu(addOpen ? null : front.id)}>+ Evento</button>
-                    {addOpen && (<>
-                      <div className="cx-menu-scrim" onClick={() => setAddMenu(null)} />
-                      <div className="cx-menu-pop cx-bf-addmenu">
-                        <input autoFocus placeholder="digite o nome e Enter (evento livre)" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) addCustomStage(fr, e.target.value.trim()); else if (e.key === 'Escape') setAddMenu(null); }} />
-                        <button type="button" onClick={() => addRecursoStage(fr)}>Recurso</button>
-                        {fr.metas.filter(m => !m.has && !m.alwaysShow && !m.sd.custom && !m.sd.multiRecurso).map(m => <button key={m.k} type="button" onClick={() => addStage(fr, m.k)}>{m.sd.label}</button>)}
-                      </div>
-                    </>)}
-                  </span>
-                </div>
-
-                {fr.focused && (() => {
-                  const m = fr.focused;
-                  const noteTxt = (m.rec?.texto && String(m.rec.texto).trim()) || '';
-                  const phaseTitle = m.sd.label + (m.outcomeLabel ? ' · ' + m.outcomeLabel : '');
-                  const meta = stageCompactMeta(m);
-                  const rawNotes = front.notesList || (front.notes ? [front.notes] : []);
-                  const cardNotes = rawNotes.map((n, idx) => ({ n, idx })).filter(({ n }) => !isRedundantImportedProcessNote(n));
-                  const setNotes = (arr) => upsert('executions', { ...front, notesList: arr });
-                  return (
-                    <div className="cx-bf-work">
-                      <div className="cx-bf-editphase-wrap">
-                        <CxBlock title="Texto do evento" open={!!bfCards.evento} onToggle={() => toggleBfCard('evento')}
-                          summary={phaseTitle + (meta ? ' · ' + meta : '')}>
-                          <div className="cx-bf-work-k">
-                            <span style={{ color: m.c }}>{phaseTitle}</span>
-                          </div>
-                          {meta ? <div className="cx-muted cx-small">{meta}</div> : null}
-                        {m.sd.multiRecurso ? (
-                          (m.recursos || []).length ? <ol className="cx-bf-work-list">{(m.recursos || []).map((r, ri) => {
-                            const bits = [];
-                            if (r.outcome && m.sd.outcomes[r.outcome]) bits.push(m.sd.outcomes[r.outcome]);
-                            if (r.date) bits.push(fmtDate(r.date));
-                            if (r.proc) bits.push(r.proc);
-                            return <li key={ri}>{bits.join(' · ') || (r.texto || '—')}</li>;
-                          })}</ol> : <div className="cx-muted cx-small">Sem julgamentos listados.</div>
-                        ) : (
-                          <p className="cx-bf-work-txt">{noteTxt || '—'}</p>
-                        )}
-                        </CxBlock>
-                        <button type="button" className="cx-bf-editphase" title="Editar fase" aria-label="Editar fase"
-                          onClick={e => { e.stopPropagation(); setPopup({ execId: front.id, sk: m.k }); }}>
-                          <CxIcon n="edit" s={13} />
-                        </button>
-                      </div>
-                      <CxBlock title="Notas" count={cardNotes.length} open={!!bfCards.notas} onToggle={() => toggleBfCard('notas')}
-                        summary={cardNotes.length ? cardNotes[cardNotes.length - 1].n : 'Nenhuma nota'}>
-                        <div className="cx-bf-work-k">
-                          <span>Notas do processo</span><span className="cx-sp" />
-                          <button type="button" className="cx-bf-ic" title="Adicionar nota" onClick={() => { const t = prompt('Nova nota:'); if (t && t.trim()) setNotes([...rawNotes, t.trim()]); }}>+</button>
-                        </div>
-                        {cardNotes.length ? cardNotes.map(({ n, idx }) => (
-                          <div key={idx} className="cx-bf-note"><span>{n}</span><button type="button" className="cx-bf-ic" onClick={() => setNotes(rawNotes.filter((_, j) => j !== idx))}>✕</button></div>
-                        )) : <div className="cx-muted cx-small">Nenhuma nota.</div>}
-                      </CxBlock>
-                      <CxBlock title="EFs cobertas" count={fr.covered.length} open={!!bfCards.efs} onToggle={() => toggleBfCard('efs')}
-                        summary={fr.covered.length ? cxPl(fr.covered.length, fr.bm.unit, fr.bm.unit + 's') : 'Nenhuma'}>
-                        {fr.covered.length ? fr.covered.slice(0, 8).map(ef => (
-                          <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
-                            <span className="cx-mono">{ef.processNumber || '—'}</span>
-                            <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
-                            <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
-                          </button>
-                        )) : <div className="cx-muted cx-small">{isEfStylePanoramaCard(front) ? 'Nenhum apenso fiscal.' : `Nenhuma ${fr.bm.unit} vinculada.`}</div>}
-                      </CxBlock>
-                    </div>
-                  );
-                })()}
-                {popup && popup.execId === front.id && (() => {
-                  const m = fr.metas.find(x => x.k === popup.sk);
-                  if (!m) return null;
-                  return <StagePopup key={'cxstagepop-' + front.id + '-' + m.k} sd={m.sd} rec={m.rec}
-                    onCommit={(patch) => setRec(front.id, m.k, { ...patch, _present: true })}
-                    onDelete={() => { delRec(front.id, m.k); setPopup(null); }}
-                    onAddNote={(text) => { upsert('executions', { ...front, notesList: [...(front.notesList || []), text] }); }}
-                    onClose={() => setPopup(null)} />;
-                })()}
-                </>}
-              </div>
-            );
-          })}
-          {semIncidenteEFs.length > 0 && (
-            <div className="cx-bf-lane quiet">
-              <div className="cx-bf-lane-h">
-                <span className="cx-bf-kind" style={{ color: 'var(--cx-ink-3)', background: 'var(--cx-line-soft, rgba(0,0,0,.06))' }}>EF</span>
-                <div className="cx-bf-lane-t"><div className="cx-bf-lane-title">Sem incidente</div><div className="cx-bf-lane-sub cx-muted cx-small">{semIncidenteEFs.length} execuç{semIncidenteEFs.length !== 1 ? 'ões' : 'ão'} fora de IDPJ, MCF e central</div></div>
-                <div className="cx-bf-lane-m"><small>EFs</small><strong>{semIncidenteEFs.length}</strong></div>
-                <div className="cx-bf-lane-m"><small>Valor</small><strong>{semIncidenteVal > 0 ? fmtCur(semIncidenteVal) : '—'}</strong></div>
-              </div>
-              <div className="cx-bf-quiet-list">
-                {semIncidenteEFs.map(ef => (
-                  <button key={ef.id} type="button" className="cx-bf-cov" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: ef })}>
-                    <span className="cx-mono">{ef.processNumber || '—'}</span>
-                    <span className="cx-mono">{ef._cdaValue > 0 ? fmtCur(ef._cdaValue) : '—'}</span>
-                    <span className="cx-tag">{(EXEC_STATUSES[ef.status] || {}).label || ef.status || ''}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Diário */}
-        <section className="cx-card">
-          <EditionClaudeBriefingDiary op={op} upsert={upsert} editRequestId={diaryEditId} onEditConsumed={() => setDiaryEditId(null)} />
-        </section>
-      </div>
-
-      {/* Coluna de apoio */}
-      <aside className="cx-bf-rail">
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Fontes</h5><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setLinkAdd(o => !o)}>+ link</button></div>
-          <div className="cx-bf-rail-b">
-            {migratedLinks.map((lnk, idx) => (
-              <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
-            ))}
-            {!migratedLinks.length && !linkAdd && <div className="cx-muted cx-small">Nenhuma fonte cadastrada.</div>}
-            {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
-          </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Lembretes</h5><span className="cx-count">{reminders.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'stickyNote', initial: { operationId: opId, color: 'yellow' } })}>+</button></div>
-          <div className="cx-bf-rail-b">
-            {reminders.length === 0 && <div className="cx-muted cx-small">Nenhum lembrete.</div>}
-            {reminders.slice(0, 6).map(n => (
-              <div key={n.id} className="cx-bf-rem" onClick={() => setModal({ type: 'edit', entityType: 'stickyNote', initial: n })}>
-                <span>{n.title ? <b>{n.title}: </b> : null}{truncate(n.content || '', 90)}</span>
-                <span className="cx-muted cx-small">{n.updatedAt ? fmtDate(n.updatedAt.slice(0, 10)) : ''}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Checklists</h5><span className="cx-count">{checklistDone}/{checklistTotal}</span></div>
-          <div className="cx-bf-rail-b">
-            {checklistGroups.map(g => {
-              const done = g.items.filter(([k]) => chk[k]).length;
-              return (<div key={g.label} className="cx-bf-chk-group">
-                <div className="cx-bf-chk-row-hd"><span>{g.label}</span><span className="cx-mono cx-muted cx-small">{done}/{g.items.length}</span></div>
-                <div className="cx-bar"><i style={{ width: (g.items.length ? Math.round(done / g.items.length * 100) : 0) + '%' }} /></div>
-                {g.items.map(([k, l]) => (
-                  <div key={k} className={'cx-bf-chk-item' + (chk[k] ? ' done' : '')} onClick={() => toggleChk(k)}>
-                    <span className="ck">{chk[k] ? '✓' : '○'}</span><span>{l}</span>
-                  </div>
-                ))}
-              </div>);
-            })}
-          </div>
-        </section>
-        <section className="cx-card cx-bf-rail-card">
-          <div className="cx-card-h"><h5>Próximas tarefas</h5><span className="cx-count">{opTasks.length}</span><span className="cx-sp" /><button type="button" className="cx-link-btn" onClick={() => setActiveTab('tarefas')}>Tarefas<CxIcon n="chevR" s={13} /></button></div>
-          <div className="cx-bf-rail-b">
-            {nextTasks.length === 0 && <div className="cx-muted cx-small">Nenhuma tarefa com data.</div>}
-            {nextTasks.map(t => (
-              <div key={t.id} className="cx-bf-task" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: t })}>
-                <span className={'p' + (daysUntil(t.dueDate) < 0 ? ' late' : '')} />
-                <span className="cx-ell">{t.title}</span>
-                <span className="cx-mono cx-small cx-muted">{fmtDate(t.dueDate)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </aside>
+          </> : null}
+        </li>
+      </ol>
     </div>
-  </div>);
+    <div className="cx-bfx-box cx-bfx-ev">
+      <div className="cx-bfx-bh"><h3>Evento da fase</h3><span className="push" />
+        {m && !m.sd.multiRecurso ? <>
+          <button type="button" className={'cx-icon-btn cx-sm' + (evEdit === m.k ? ' on' : '')} title="Editar o texto da fase" aria-label="Editar o texto da fase" onClick={() => setEvEdit(evEdit === m.k ? null : m.k)}><CxIcon n="edit" s={13} /></button>
+          <button type="button" className="cx-icon-btn cx-sm" title="Data, evento, desfecho e outros campos" aria-label="Data, evento, desfecho e outros campos da fase" onClick={() => setPopup(m.k)}><CxIcon n="settings" s={13} /></button>
+        </> : null}
+        {m && m.sd.multiRecurso ? <button type="button" className="cx-icon-btn cx-sm" title="Editar fase" aria-label="Editar fase" onClick={() => setPopup(m.k)}><CxIcon n="edit" s={13} /></button> : null}
+      </div>
+      {m ? <>
+        <div className="cx-bfx-evh">
+          <strong>{phaseTitle}</strong>
+          {!m.sd.multiRecurso && m.rec && m.rec.date ? <span className="m">{fmtDate(m.rec.date)}</span> : null}
+          {!m.sd.multiRecurso && m.rec && m.rec.evento ? <span className="evn">Ev. {m.rec.evento}</span> : null}
+          {m.outcomeLabel ? <span className={'oc ' + outcomeCls(m.rec.outcome)}>{m.outcomeLabel}</span> : null}
+        </div>
+        {m.sd.multiRecurso ? (
+          (m.recursos || []).length ? <ol className="cx-bfx-rec">{m.recursos.map((r, ri) => {
+            const rt = String(r.texto || '').trim();
+            const oc = r.outcome && m.sd.outcomes[r.outcome];
+            return <li key={ri}>
+              <div className="rh">{oc ? <span className={'oc ' + outcomeCls(r.outcome)}>{oc}</span> : null}{r.parte === 'adversa' ? <span className="oc">adversa</span> : null}{r.date ? <span className="m">{fmtDate(r.date)}</span> : null}{r.proc ? <span className="m">{r.proc}</span> : null}</div>
+              {rt ? <CxRichText text={rt} className="cx-bfx-rt" /> : null}
+            </li>;
+          })}</ol> : <div className="cx-bfx-empty">Sem julgamentos listados.</div>
+        ) : (
+          evEdit === m.k
+            ? <CxRichEdit key={'ev-' + e.id + '-' + m.k} actions autoFocus placeholder="Texto do evento…" ariaLabel={'Texto da fase ' + phaseTitle}
+                html={pickStageTextHtml(m.rec, cxSanitizeDesc) || plainToRichHtml(m.rec && m.rec.texto)}
+                onCancel={() => setEvEdit(null)}
+                onSave={(h) => { setRec(m.k, { ...buildStageTextPatch(h, cxSanitizeDesc), _present: true }); setEvEdit(null); }} />
+            : (m.rec && String(m.rec.texto || '').trim())
+              ? <CxRichText className="cx-bfx-rt" text={String(m.rec.texto).trim()} html={pickStageTextHtml(m.rec, cxSanitizeDesc)} />
+              : <div className="cx-bfx-empty">Sem texto neste evento. <button type="button" className="cx-link-btn" onClick={() => setEvEdit(m.k)}>Escrever</button></div>
+        )}
+      </> : <div className="cx-bfx-empty">Nenhuma fase registrada. Use “+ Evento” na régua.</div>}
+    </div>
+    <div className="cx-bfx-box cx-bfx-nt">
+      <div className="cx-bfx-bh"><h3>Notas</h3><span className="cx-bfx-n">{notes.length}</span></div>
+      <div className="cx-bfx-nl">
+        {[...notes].reverse().map(({ n, idx }) => { /* gravadas em sequência; exibidas da mais recente para a mais antiga */
+          const dt = cxNoteDate(n);
+          const editing = noteEdit && noteEdit.idx === idx;
+          const atu = presentAtuacaoProcessNote(cxNoteText(n));
+          return <div key={idx} className="cx-bfx-note">
+            {editing && noteEdit.atu
+              ? <input className="cx-bfx-ni" autoFocus value={noteEdit.val} onChange={ev => setNoteEdit({ ...noteEdit, val: ev.target.value })}
+                  onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); saveEdit(); } else if (ev.key === 'Escape') setNoteEdit(null); }} onBlur={saveEdit} />
+              : editing
+                ? <CxRichEdit key={'ne-' + idx} actions autoFocus ariaLabel="Editar nota" html={mdNoteToHtml(cxNoteText(n))} onCancel={() => setNoteEdit(null)} onSave={saveRichEdit} />
+                : atu
+                  ? <div className="t">{renderProcessNote(n)}</div>
+                  : <div className="t cx-nt-rich" dangerouslySetInnerHTML={{ __html: mdNoteToHtml(cxNoteText(n)) }} />}
+            {!editing || noteEdit.atu ? <div className="f">
+              {dt ? <time>{dt}</time> : null}
+              {noteDel === idx
+                ? <span className="cx-bfx-del" role="group" aria-label="Confirmar exclusão">Excluir esta nota?
+                    <button type="button" className="cx-link-btn red" autoFocus onClick={() => { setNotes(rawNotes.filter((_, j) => j !== idx)); setNoteDel(null); }}>Excluir</button>
+                    <button type="button" className="cx-link-btn" onClick={() => setNoteDel(null)}>Manter</button></span>
+                : <span className="na">
+                    <button type="button" className="cx-icon-btn cx-sm" title="Editar nota" aria-label="Editar nota" onMouseDown={ev => ev.preventDefault()} onClick={() => startEdit(idx, n)}><CxIcon n="edit" s={12} /></button>
+                    <button type="button" className="cx-icon-btn cx-sm del" title="Excluir nota" aria-label="Excluir nota" onClick={() => setNoteDel(idx)}><CxIcon n="x" s={12} /></button>
+                  </span>}
+            </div> : null}
+          </div>;
+        })}
+        {!notes.length ? <div className="cx-bfx-empty">Nenhuma nota.</div> : null}
+      </div>
+      <div className="cx-bfx-compose">
+        <CxRichEdit key={'nc-' + composeKey} compact enterSaves autoFocus={composeKey > 0} ariaLabel="Nova nota do processo"
+          placeholder="Escrever nota…" onSave={addNote} onCancel={() => setComposeKey(k => k + 1)} />
+      </div>
+    </div>
+    <div className="cx-bfx-o">
+      {shortcuts}
+      <span className="push" />
+      <button type="button" className="cx-link-btn" onClick={() => onOpenProc(e.id)}>Ficha</button>
+      <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: e })}>Dados</button>
+      {retirable ? <button type="button" className="cx-link-btn" onClick={() => upsert('executions', { ...e, inPanorama: false })}>Retirar</button> : null}
+    </div>
+    {popup && (() => {
+      const pm = R.metas.find(x => x.k === popup);
+      if (!pm) return null;
+      return <StagePopup key={'cxstagepop-' + e.id + '-' + pm.k} sd={pm.sd} rec={pm.rec}
+        onCommit={(patch) => setRec(pm.k, { ...patch, _present: true })}
+        onDelete={() => { delRec(pm.k); setPopup(null); setSel(null); }}
+        onAddNote={(text) => { upsert('executions', { ...e, notesList: [...(e.notesList || []), text] }); }}
+        onClose={() => setPopup(null)} />;
+    })()}
+  </div>;
+}
+
+/* Frente processual da Visão geral do Prumo: a escolha é do usuário (`inPanorama`). Por padrão, IDPJ, MCF e
+   execuções centrais; a EF de petição incidental entra como no Panorama do Clássico; qualquer outro processo
+   (EF, agravo, embargos…) só entra se o usuário levar à frente. Qualquer frente pode ser retirada. */
+function cxIsBfFront(e) {
+  if (!e) return false;
+  const active = e.status !== 'extinta' && e.status !== 'arquivada';
+  if (isIncidentProcess(e)) return e.inPanorama !== false;
+  if (e.processTag === 'central') return active && e.inPanorama !== false;
+  if (isUserPanoramaEf(e)) return true;
+  return active && e.inPanorama === true;
+}
+function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, onOpenTab, onOpenPrazos, onOpenIntim, onOpenHearing, onOpenProc }) {
+  const briefing = op.briefing || {};
+  const [laneOpenMap, setLaneOpenMap] = React.useState(cxLoadBfLanes);
+  const isLaneOpen = (id) => laneOpenMap[id] === true;
+  const toggleLane = (id) => setLaneOpenMap(prev => { const next = { ...prev, [id]: !(prev[id] === true) }; cxSaveBfLanes(next); return next; });
+  const today = localIso(new Date());
+
+  /* ── Frentes: só o que o usuário mantém na frente (cxIsBfFront). Apensos, recursos e demais processos ficam na aba
+     Processos e prescrição; aqui aparecem no texto da linha ("cobre 7 apensos") e no valor. ── */
+  const fronts = opExecs.filter(cxIsBfFront);
+  const frontIds = new Set(fronts.map(f => f.id));
+  const coverage = computeIncidentCoverage(opExecs, opDebts);
+  const keepCoveredEF = (e) => e && !isIncidentProcess(e) && isExecucaoFiscalClass(e) && e.status !== 'extinta';
+  const coveredEFsFor = (front) => isEfStylePanoramaCard(front)
+    ? opExecs.filter(e => e.parentExecutionId === front.id && keepCoveredEF(e))
+    : (coverage.efsByIncident[front.id] || []);
+  /* Fio de ligação só entre frentes: a frente cujo processo-pai também está na frente fica logo abaixo dele. */
+  const kidsOf = (e) => fronts.filter(x => x.parentExecutionId === e.id && x.id !== e.id);
+  const tops = fronts.filter(f => !f.parentExecutionId || !frontIds.has(f.parentExecutionId) || f.parentExecutionId === f.id);
+
+  /* Linhas em ordem; cada grupo (<tbody>) = uma frente com a sua família. */
+  const seen = new Set();
+  const build = (e, depth) => {
+    if (seen.has(e.id) || depth > 3) return null;
+    seen.add(e.id);
+    const kids = kidsOf(e).map(k => build(k, depth + 1)).filter(Boolean);
+    return { e, depth, kids };
+  };
+  const groups = tops.map(f => build(f, 0)).filter(Boolean);
+  fronts.forEach(f => { if (!seen.has(f.id)) { const g = build(f, 0); if (g) groups.push(g); } }); /* ciclo de pais: nenhuma frente se perde */
+  const countNodes = (nodes) => nodes.reduce((s, n) => s + 1 + countNodes(n.kids), 0);
+  const execRows = countNodes(groups);
+
+  const opTasks = (data.tasks || []).filter(t => t.operationId === op.id && t.status !== 'concluida' && t.status !== 'cancelada' && !normProc(t.processNumber))
+    .sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
+  const watches = (data.watchlist || []).filter(w => w.operationId === op.id && w.status !== 'encerrado');
+
+  /* ── Linha de processo (principal) + sua parte aberta ── */
+  const renderNode = (node, last, isTop) => {
+    const e = node.e;
+    const open = isLaneOpen(e.id);
+    const kind = cxBfKind(e);
+    const covered = coveredEFsFor(e);
+    const rel = cxBfRel(e, !!e.parentExecutionId, covered.length);
+    const R = cxBfRuler(briefing, e);
+    const pd = cxBfPending(e, data, prazoRows, today);
+    const px = pd.items[0], more = pd.items.length - 1;
+    const v = cxBfValue(e, covered, opDebts);
+    const hasKids = node.kids.length > 0;
+    const rowCls = 'r ' + (isTop ? 'parent' : 'child') + (node.depth > 2 ? ' d2' : '') + (last ? ' last' : '') + (hasKids ? ' has-kids' : '') + (open ? ' open' : '');
+    const retirable = true;
+    const faseTip = () => ({ when: 'Fases registradas', title: R.cur ? R.cur.sd.label + ' (atual)' : 'Nenhuma fase registrada', lines: R.visible.map(m => (R.cur && m.k === R.cur.k ? '▸ ' : '✓ ') + m.sd.label) });
+    const mini = R.visible.length ? (() => {
+      const idxCur = R.visible.findIndex(m => R.cur && m.k === R.cur.k);
+      const w = R.visible.length > 1 ? Math.round(64 * Math.max(0, idxCur) / (R.visible.length - 1)) : 0;
+      return <div className="mr" aria-hidden="true"><span className="pg" style={{ width: w + 'px' }} />{R.visible.slice(0, 9).map((m, i) => <span key={m.k} className={'d' + (i === idxCur ? ' cur' : i < idxCur ? ' done' : '')} />)}</div>;
+    })() : null;
+    return <React.Fragment key={e.id}>
+      <tr className={rowCls} data-id={e.id} onClick={() => toggleLane(e.id)}>
+        <td className="c1"><button type="button" className="chev" aria-expanded={open} aria-controls={'cx-bfx-' + e.id}
+          aria-label={(open ? 'Recolher' : 'Expandir') + ' detalhes de ' + (e.processNumber || 'processo sem número')} onClick={ev => { ev.stopPropagation(); toggleLane(e.id); }}><CxIcon n="chevR" s={13} /></button></td>
+        <td className="c-kind"><span className={'kind k-' + kind.cls} {...cxHintProps(() => ({ title: kind.label }))}>{kind.code}</span></td>
+        <td className="c-proc"><div className="pr1"><CxCopyNum num={e.processNumber} /></div>
+          <div className="pr2"><span className="cls">{e.className || kind.label}</span><span className="rel">{rel}</span></div></td>
+        <td className="c-jz" {...(e.court ? cxHintProps(() => ({ title: e.court })) : {})}>{e.court || '—'}</td>
+        <td className="c-fase" {...cxHintProps(faseTip)}>{R.cur ? <>{mini}<span className="fase">{R.cur.sd.label}</span></> : <span className="cx-muted">—</span>}</td>
+        <td className="c-prox">{px ? <>
+          <div><CxBfDue it={px} /></div>
+          <div className="nxt"><span className="t">{px.txt}</span>{more > 0 ? <span className="more" {...cxHintProps(() => ({ title: more === 1 ? '1 outro item em aberto' : more + ' outros itens em aberto', lines: pd.items.slice(1, 7).map(it => (it.iso ? cxDM(it.iso) + ' · ' : '') + it.txt) }))}>+{more}</span> : null}</div>
+        </> : <span className="cx-muted cx-bft-none">Nada em aberto</span>}</td>
+        <td className="c-sg"><CxBfSignals e={e} pd={pd} /></td>
+        <td className="c-val">{v.val > 0 ? <div className="val" {...cxHintProps(() => ({ title: fmtCur(v.val) }))}>{cxMoneyMi(v.val)}</div> : <div className="val cx-muted">—</div>}
+          <div className="val-s">{v.n ? cxPl(v.n, 'CDA', 'CDAs') : (covered.length ? 'cobre' : '')}{v.n && covered.length ? ' · cobre' : ''}</div></td>
+      </tr>
+      {open ? <tr className={'x' + (hasKids ? ' pass' : '')} id={'cx-bfx-' + e.id}>
+        <td className="gut" /><td className="xc" colSpan={7}>
+          <CxBfFrontX e={e} op={op} data={data} upsert={upsert} setModal={setModal} pd={pd} prazoRows={prazoRows} retirable={retirable}
+            onOpenTab={onOpenTab} onOpenPrazos={onOpenPrazos} onOpenIntim={onOpenIntim} onOpenHearing={onOpenHearing} onOpenProc={onOpenProc} />
+        </td>
+      </tr> : null}
+    </React.Fragment>;
+  };
+  const renderFamily = (node, isTop) => <>
+    {renderNode(node, false, isTop)}
+    {node.kids.map((k, i) => <React.Fragment key={k.e.id}>{renderFamilyKid(k, i === node.kids.length - 1)}</React.Fragment>)}
+  </>;
+  const renderFamilyKid = (node, last) => <>
+    {renderNode(node, last, false)}
+    {node.kids.map((k, i) => <React.Fragment key={k.e.id}>{renderFamilyKid(k, i === node.kids.length - 1)}</React.Fragment>)}
+  </>;
+
+  const dueItemOf = (t) => ({ k: 'tar', iso: t.dueDate || '', days: t.dueDate ? daysUntil(t.dueDate) : null });
+  const summary = fronts.length ? Array.from(new Set(fronts.map(f => badgeFor(f).label))).join(' · ') : 'nenhuma frente';
+  const empty = !groups.length && !opTasks.length && !watches.length;
+  return (
+    <CxFoldCard id="frentes" scope="visao" className="cx-bf-fronts cx-bft" title="Frentes processuais" count={execRows} summary={summary}
+      actions={<button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: { operationId: op.id } })}><CxIcon n="plus" s={12} />Frente</button>}>
+      {empty ? <div className="cx-empty-row">Nenhuma frente. IDPJ, MCF e execuções centrais entram por padrão; outros processos, pela ficha do processo (Levar à frente).</div> : <div className="cx-bft-tw">
+        <table className="tt" aria-label="Frentes processuais da operação">
+          <colgroup><col className="w-chev" /><col className="w-kind" /><col className="w-proc" /><col className="w-jz" /><col className="w-fase" /><col /><col className="w-sg" /><col className="w-val" /></colgroup>
+          <thead><tr><th><span className="sr">Expandir</span></th><th>Tipo</th><th>Processo</th><th>Juízo</th><th>Fase</th><th>Próximo ato</th><th>Sinais</th><th className="r">Valor</th></tr></thead>
+          {groups.map(g => <tbody key={g.e.id} className="grp">{renderFamily(g, true)}</tbody>)}
+          {(opTasks.length || watches.length) ? <tbody className="grp fixed">
+            {opTasks.length ? <tr className={'r parent' + (watches.length ? ' has-kids' : '')} onClick={() => onOpenTab('tarefas')}>
+              <td className="c1"><span className="sp" aria-hidden="true" /></td>
+              <td className="c-kind"><span className="kind k-op" {...cxHintProps(() => ({ title: 'Operação (sem processo)' }))}>OP</span></td>
+              <td className="c-proc"><div className="pr1"><b className="cx-bft-grp">Operação (geral)</b></div><div className="pr2"><span className="cls">sem processo vinculado</span></div></td>
+              <td className="c-jz cx-muted">—</td><td className="c-fase cx-muted">—</td>
+              <td className="c-prox"><div><CxBfDue it={dueItemOf(opTasks[0])} /></div><div className="nxt"><span className="t">{opTasks[0].title || opTasks[0].description || 'Tarefa'}</span>{opTasks.length > 1 ? <span className="more">+{opTasks.length - 1}</span> : null}</div></td>
+              <td className="c-sg"><div className="cx-bft-sg"><span className={'s' + (opTasks.some(t => t.dueDate && daysUntil(t.dueDate) < 0) ? ' red' : '')} role="img" tabIndex={0} aria-label={'Tarefas em aberto: ' + opTasks.length}
+                {...cxHintProps(() => ({ when: 'Tarefas em aberto', title: cxPl(opTasks.length, 'tarefa', 'tarefas'), lines: opTasks.slice(0, 6).map(t => (t.dueDate ? cxDM(t.dueDate) : 'sem prazo') + ' · ' + (t.title || t.description || 'Tarefa')) }))}><CxIcon n="check" s={13} /><b>{opTasks.length}</b></span></div></td>
+              <td className="c-val"><div className="val cx-muted">—</div></td>
+            </tr> : null}
+            {watches.map((w, i) => <tr key={w.id} className={'r child' + (i === watches.length - 1 ? ' last' : '')}>
+              <td className="c1" />
+              <td className="c-kind"><span className="kind k-acp" {...cxHintProps(() => ({ title: 'Acompanhar' }))}><CxIcon n="eye" s={12} /></span></td>
+              <td className="c-proc"><div className="pr1"><CxCopyNum num={w.processNumber} /></div><div className="pr2"><span className="cls">{w.parties || 'Em acompanhamento'}</span>{w.reason ? <span className="rel">{w.reason}</span> : null}</div></td>
+              <td className="c-jz cx-muted">—</td><td className="c-fase cx-muted">—</td><td className="c-prox cx-muted">—</td>
+              <td className="c-sg"><div className="cx-bft-sg"><span className="s" role="img" tabIndex={0} aria-label="Em acompanhamento" {...cxHintProps(() => ({ when: 'Acompanhar', title: (CX_WATCH[w.status || 'aguardando'] || CX_WATCH.aguardando).l, lines: [w.reason, w.parties].filter(Boolean) }))}><CxIcon n="eye" s={13} /><b>1</b></span></div></td>
+              <td className="c-val"><div className="val cx-muted">—</div></td>
+            </tr>)}
+          </tbody> : null}
+        </table>
+      </div>}
+    </CxFoldCard>
+  );
+}
+
+/* Fontes: links externos da operação (briefing.externalLinks; migra notebookLmUrl/docUrl antigos) */
+function cxBfLinks(briefing) {
+  const links = briefing.externalLinks || [];
+  const out = [...links];
+  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) out.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) out.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+  return out;
+}
+function CxBfSources({ op, upsert, bare }) {
+  const briefing = op.briefing || {};
+  const fold = cxUseFold('visao');
+  const [linkAdd, setLinkAdd] = React.useState(false);
+  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
+  /* ── Fontes ── */
+  const links = briefing.externalLinks || [];
+  const migratedLinks = [...links];
+  if (briefing.notebookLmUrl && !links.some(l => l.url === briefing.notebookLmUrl)) migratedLinks.push({ label: 'NotebookLM', url: briefing.notebookLmUrl });
+  if (briefing.docUrl && !links.some(l => l.url === briefing.docUrl)) migratedLinks.push({ label: 'Resumos e anotações', url: briefing.docUrl });
+  const setLinks = (next) => updateBriefing('externalLinks', next);
+  const removeLink = (idx) => { const next = [...migratedLinks]; next.splice(idx, 1); setLinks(next); };
+  const addLink = (url) => {
+    if (!url) return;
+    let label = 'Link';
+    try { label = new URL(url).hostname.replace('www.', '').split('.')[0]; } catch { /* mantém padrão */ }
+    setLinks([...migratedLinks, { label, url }]);
+  };
+  return (
+    <CxFoldOrBare bare={bare} id="fontes" scope="visao" title="Fontes"
+      summary={migratedLinks.length ? cxPl(migratedLinks.length, 'fonte', 'fontes') : 'nenhuma cadastrada'}
+      actions={<button type="button" className="cx-link-btn" onClick={() => { fold.set('fontes', false); setLinkAdd(o => !o); }}>+ link</button>}>
+      <div className="cx-bf-rail-b">
+        {migratedLinks.map((lnk, idx) => (
+          <div key={idx} className="cx-bf-src"><a href={lnk.url} target="_blank" rel="noopener noreferrer">{lnk.label || 'Link'}</a><button type="button" className="cx-bf-ic" onClick={() => removeLink(idx)}>✕</button></div>
+        ))}
+        {!migratedLinks.length && !linkAdd && <div className="cx-empty-note">Nenhuma fonte cadastrada.</div>}
+        {linkAdd && <input autoFocus placeholder="colar URL e Enter" className="cx-input" onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addLink(e.target.value.trim()); e.target.value = ''; setLinkAdd(false); } else if (e.key === 'Escape') setLinkAdd(false); }} onBlur={() => setLinkAdd(false)} />}
+      </div>
+    </CxFoldOrBare>
+  );
+}
+
+/* Checklists: 1ª vista da operação e decisão final do IDPJ */
+const CX_CHK_IDPJ = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
+const CX_CHK_VISTA = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
+function cxChkCounts(briefing) {
+  const chk = (briefing || {}).checklists || {};
+  return { done: [...CX_CHK_IDPJ, ...CX_CHK_VISTA].filter(([k]) => chk[k]).length, total: CX_CHK_IDPJ.length + CX_CHK_VISTA.length };
+}
+function CxBfChecklists({ op, upsert, bare }) {
+  const briefing = op.briefing || {};
+  const updateBriefing = (field, value) => upsert('operations', { ...op, briefing: { ...briefing, [field]: value } });
+  /* ── Checklists ── */
+  const chk = briefing.checklists || {};
+  const toggleChk = (key) => updateBriefing('checklists', { ...chk, [key]: !chk[key] });
+  const idpjItems = [['idpj_efs', 'EFs da inicial abrangidas'], ['idpj_requeridos', 'Requeridos incluídos'], ['idpj_preclusao', 'Sem termo "preclusão"'], ['idpj_formulario', 'Formulário de indisponib.'], ['idpj_saj', 'Corresponsáveis no SAJ']];
+  const vistaItems = [['vista_triar', 'Triar a operação'], ['vista_formulario', 'Formulário de indisponib.'], ['vista_bens', 'Bens do IDPJ indisponib.'], ['vista_analisar', 'Analisar com calma']];
+  const checklistGroups = [
+    { label: '1ª vista da operação', items: vistaItems },
+    { label: 'Decisão final do IDPJ', items: idpjItems },
+  ];
+  const checklistDone = [...idpjItems, ...vistaItems].filter(([k]) => chk[k]).length;
+  const checklistTotal = idpjItems.length + vistaItems.length;
+  return (
+    <CxFoldOrBare bare={bare} id="checklists" scope="visao" title="Checklists" count={checklistDone + '/' + checklistTotal}
+      summary={checklistDone === checklistTotal ? 'tudo feito' : cxPl(checklistTotal - checklistDone, 'item pendente', 'itens pendentes')}>
+      <div className="cx-bf-rail-b">
+        {checklistGroups.map(g => {
+          const done = g.items.filter(([k]) => chk[k]).length;
+          return (<div key={g.label} className="cx-bf-chk-group">
+            <div className="cx-bf-chk-row-hd"><span>{g.label}</span><span className="cx-mono cx-muted cx-small">{done}/{g.items.length}</span></div>
+            <div className="cx-bar"><i style={{ width: (g.items.length ? Math.round(done / g.items.length * 100) : 0) + '%' }} /></div>
+            {g.items.map(([k, l]) => (
+              <div key={k} className={'cx-bf-chk-item' + (chk[k] ? ' done' : '')} onClick={() => toggleChk(k)}>
+                <span className="ck">{chk[k] ? '✓' : '○'}</span><span>{l}</span>
+              </div>
+            ))}
+          </div>);
+        })}
+      </div>
+    </CxFoldOrBare>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3755,13 +6427,13 @@ function EditionClaudeBriefing(p) {
 
 /* ─── Sinais (mesmos desenhos/cores/ordem do ProcRowSymbols — app.jsx) ─── */
 const CX_SIG_DEFS = [
+  { k: 'task', label: 'Tarefa aberta' },
+  { k: 'intim', label: 'Intimação aberta' },
   { k: 'star', label: 'Relevante' },
   { k: 'pin', label: 'Meu acervo' },
   { k: 'watch', label: 'Acompanhar' },
   { k: 'copy', label: 'Cópia na pasta' },
   { k: 'lock', label: 'Constrição' },
-  { k: 'task', label: 'Tarefa aberta' },
-  { k: 'intim', label: 'Intimação aberta' },
 ];
 const CX_SIG_FIELD = { star: 'isRelevant', pin: 'meuAcervo', watch: 'acompanhar', copy: 'copiaNaPasta' };
 function cxSigFlags(exec, data) {
@@ -3776,14 +6448,14 @@ function cxSigFlags(exec, data) {
     intim: execHasOpenIntim(exec, data),
   };
 }
-function CxSigGlyph({ k }) {
+function CxSigGlyph({ k, tone }) {
   switch (k) {
     case 'star': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z" /></svg>;
     case 'pin': return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 11.2 12 4.2l8.5 7" /><path d="M6 10.6V19.5h12V10.6" /><path d="M10 19.5v-5h4v5" /></svg>;
     case 'watch': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z" /></svg>;
     case 'copy': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z" /></svg>;
     case 'lock': return <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z" /></svg>;
-    case 'task': return <span className="cx-sig-dot cx-sig-dot-task" aria-hidden="true" />;
+    case 'task': return <span className={'cx-sig-dot cx-sig-dot-task' + (tone === 'hi' ? ' cx-sig-dot-task-hi' : '')} aria-hidden="true" />;
     case 'intim': return <span className="cx-sig-dot cx-sig-dot-intim" aria-hidden="true" />;
     default: return null;
   }
@@ -3808,6 +6480,7 @@ function cxProcKind(exec) {
   if (exec.processTag === 'idpj') return { label: 'IDPJ', cls: 'idpj' };
   if (exec.processTag === 'cautelar_fiscal') return { label: 'MCF', cls: 'idpj' };
   if (exec.processTag === 'central') return { label: 'Central', cls: 'cen' };
+  if (exec.processTag === 'peticao_incidente_ef') return { label: 'Incidente', cls: 'ef' };
   if (isExecucaoFiscalClass(exec)) return { label: 'EF', cls: 'ef' };
   const bucket = otherProcBucket(exec);
   if (bucket === 'recursos') return { label: (otherSpecies(exec).code || 'Recurso'), cls: 'rec' };
@@ -3829,13 +6502,144 @@ function cxSortCdasByPresc(cdas, prazosByDebt) {
   });
 }
 
+/* ═════════════ Atuação proativa (ficha do processo) ═════════════
+   "Registrar atuação" no rodapé da ficha do processo: o que o usuário fez por conta própria, sem
+   intimação. Gaveta (e não janela) porque o campo da peça recebe um texto longo colado. A gravação —
+   nota no card do processo, execution.proactiveActions e, com link, o documento em Arquivos — é de
+   planProactiveAction (src/lib/atuacoes.js), chamada por EditionClaudeProcDrawer. */
+/* Grava uma atuação proativa: mesmas consequências de responder uma intimação (nota no card, registro no processo,
+   documento em Arquivos quando há link). Uma única gravação da execução (nota + registro) para não sobrescrever uma à
+   outra. Usada pela ficha do processo e pelo card "Atuações recentes" do Briefing. Devolve { ok } ou { error }. */
+function cxRegisterAtuacao({ data, upsert, exec, fields }) {
+  const latest = (data.executions || []).find(x => x.id === exec.id) || exec;
+  const plan = planProactiveAction({ exec: latest, fields, ids: { action: uid(), doc: uid() }, nowIso: new Date().toISOString() });
+  if (plan.error) return { error: plan.error };
+  upsert('executions', plan.execution);
+  if (plan.document) upsert('documents', plan.document);
+  cxNotify('Atuação registrada: nota do processo e Atuações recentes' + (plan.document ? ' · peça em Arquivos' : ''));
+  return { ok: true };
+}
+function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
+  const [date, setDate] = React.useState(() => localIso(new Date()));
+  const [summary, setSummary] = React.useState('');
+  const [pecaText, setPecaText] = React.useState('');
+  const [pecaUrl, setPecaUrl] = React.useState('');
+  const [err, setErr] = React.useState('');
+  const summaryRef = React.useRef(null);
+  const dirty = !!(summary.trim() || pecaText.trim() || pecaUrl.trim());
+  const dirtyRef = React.useRef(false);
+  dirtyRef.current = dirty;
+  // Um clique ou Esc sem querer não pode jogar fora um texto longo colado: pede confirmação se há algo digitado.
+  const cancel = () => { if (dirtyRef.current && !confirm('Descartar o que foi digitado?')) return; onCancel(); };
+  const cancelRef = React.useRef(cancel);
+  cancelRef.current = cancel;
+  React.useEffect(() => {
+    if (summaryRef.current) summaryRef.current.focus();
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) { e.preventDefault(); cancelRef.current(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const urlBad = !!pecaUrl.trim() && !normalizePecaUrl(pecaUrl);
+  const canSave = !!summary.trim() && !urlBad;
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!canSave) return;
+    const msg = onSave({ date, summary, pecaText, pecaUrl });
+    if (msg) setErr(msg);
+  };
+  return <>
+    <div className="cx-scrim" onClick={cancel} />
+    <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Registrar atuação">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className="cx-pd-kind">Registrar atuação</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <button type="button" className="cx-icon-btn" onClick={cancel} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <form id="cx-atu-form" className="cx-dr-body cx-atu-form" onSubmit={submit}>
+        <label className="cx-atu-date">Data da atuação
+          <input type="date" className="cx-input" value={date} onChange={ev => setDate(ev.target.value)} />
+        </label>
+        <label>Resumo da atuação *
+          <textarea ref={summaryRef} className="cx-input" rows={3} value={summary} onChange={ev => setSummary(ev.target.value)} placeholder="Ex.: Petição requerendo SISBAJUD e penhora de faturamento" />
+        </label>
+        <label>Peça (texto integral, opcional)
+          <textarea className="cx-input cx-atu-peca" value={pecaText} onChange={ev => setPecaText(ev.target.value)} placeholder="Cole aqui o texto completo da peça. Fica guardado no processo e pode ser lido depois em Atuações recentes, no Briefing." />
+          {pecaText.trim() ? <span className="cx-form-note">{pecaText.length.toLocaleString('pt-BR')} caracteres</span> : null}
+        </label>
+        <label>Link da peça (opcional)
+          <input className="cx-input" value={pecaUrl} onChange={ev => setPecaUrl(ev.target.value)} placeholder="https://docs.google.com/…" />
+        </label>
+        {urlBad ? <div className="cx-form-warn">O link da peça precisa começar com http:// ou https://.</div> : null}
+        {err ? <div className="cx-form-warn">{err}</div> : null}
+        <div className="cx-form-note">O resumo vai para as notas deste processo e para Atuações recentes, na Visão geral. {pecaUrl.trim() && !urlBad ? 'O link também vai para a aba Arquivos da operação.' : ''}</div>
+      </form>
+      <div className="cx-dr-foot">
+        <button type="button" className="cx-btn ghost" onClick={cancel}>Cancelar</button>
+        <span className="cx-sp" />
+        <button type="submit" form="cx-atu-form" className="cx-btn primary" disabled={!canSave}><CxIcon n="tick" s={14} />Registrar atuação</button>
+      </div>
+    </aside>
+  </>;
+}
+
+/* Leitura de uma atuação proativa (clique na linha em Atuações recentes, ou em "Minhas atuações" da Narrativa da Linha do tempo): resumo, data, link e o texto
+   da peça colado, em bloco rolável. O texto é sempre exibido como texto puro (nunca como HTML). */
+function EditionClaudeAtuacaoView({ exec, action, onClose }) {
+  const [blocks, setBlocks] = React.useState({ resumo: true, peca: true });
+  const toggle = (k) => setBlocks(prev => ({ ...prev, [k]: !prev[k] }));
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const url = safeUrl(action.pecaUrl);
+  const text = String(action.pecaText || '');
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Atuação proativa">
+      <div className="cx-dr-top">
+        <div className="cx-crumb"><span className="cx-pd-kind">Atuação proativa</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
+      </div>
+      <div className="cx-dr-body">
+        <dl className="cx-pd-facts">
+          <dt>Data</dt><dd>{action.date ? fmtDate(action.date) : '—'}</dd>
+          <dt>Processo</dt><dd><span className="cx-mono cx-small">{exec.processNumber || 'S/N'}</span>{exec.className ? ' · ' + exec.className : ''}</dd>
+          <dt>Peça</dt><dd>{url ? <a className="cx-a cx-a-flush" href={url} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{url.includes('docs.google') ? 'Google Docs' : 'Abrir peça'}</a> : <span className="cx-muted">Sem link</span>}</dd>
+          {action.createdAt ? <><dt>Registrada</dt><dd className="cx-muted">{new Date(action.createdAt).toLocaleString('pt-BR')}</dd></> : null}
+        </dl>
+        <CxBlock title="Resumo" open={!!blocks.resumo} onToggle={() => toggle('resumo')} summary={action.summary}>
+          <p className="cx-bf-work-txt cx-atu-sum">{action.summary}</p>
+        </CxBlock>
+        <CxBlock title="Texto da peça" open={!!blocks.peca} onToggle={() => toggle('peca')}
+          count={text ? text.length.toLocaleString('pt-BR') + ' car.' : null} summary={text ? text.slice(0, 80) : 'Nenhum texto colado'}>
+          {text
+            ? <>
+              <div className="cx-atu-tools"><button type="button" className="cx-link-btn" onClick={() => { cxCopy(text); cxNotify('Texto da peça copiado'); }}><CxIcon n="copy" s={13} />Copiar texto</button></div>
+              <div className="cx-atu-text" tabIndex={0} aria-label="Texto da peça">{text}</div>
+            </>
+            : <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhum texto da peça foi colado nesta atuação.</div>}
+        </CxBlock>
+      </div>
+      <div className="cx-dr-foot">
+        {url ? <a className="cx-btn sm primary" href={url} target="_blank" rel="noopener noreferrer">Abrir peça ↗</a> : null}
+        <span className="cx-sp" />
+        <button type="button" className="cx-btn sm ghost" onClick={onClose}>Fechar</button>
+      </div>
+    </aside>
+  </>;
+}
+
 /* ═════════════ Ficha lateral (8a) — processo ou CDA avulsa ═════════════ */
 function EditionClaudeProcDrawer(p) {
   const { group, data, opId, hubLabel, apensoNums, prazosByDebt, selectedCDAs, setSelectedCDAs, setModal, setData, upsert, onClose, onOpenExec, onOpenCda, relatedOthers, linkify } = p;
   const [tab, setTab] = React.useState('resumo');
-  React.useEffect(() => { setTab('resumo'); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
+  const [atuacaoOpen, setAtuacaoOpen] = React.useState(false); // formulário "Registrar atuação" (atuação proativa)
+  const atuacaoOpenRef = React.useRef(false);
+  atuacaoOpenRef.current = atuacaoOpen;
+  React.useEffect(() => { setTab('resumo'); setAtuacaoOpen(false); }, [group && group.type === 'exec' ? group.exec.id : (group && group.cdas && group.cdas[0] && group.cdas[0].id)]);
   React.useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
+    // Com o formulário aberto, o Esc é dele (confirma antes de descartar o que foi digitado).
+    const onKey = (e) => { if (e.key === 'Escape' && !atuacaoOpenRef.current && !document.querySelector('.modal-overlay, .global-search-overlay')) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
@@ -3873,9 +6677,22 @@ function EditionClaudeProcDrawer(p) {
     const evs = (data.prescriptionEvents || []).filter(ev => ev.executionId === e.id || cdaIds.has(ev.cdaId) || (ev.batchCdaIds || []).some(id => cdaIds.has(id)));
     return { r, notice, redir: redirecionamentoInfo({ exec: e, events: evs }) };
   })();
+  /* Trilha de fases e barra de prescrição da ficha (M6-C). */
+  const todayIso = localIso(new Date());
+  const trail = e ? cxProcTrail(data, (data.operations || []).find(o => o.id === (e.operationId || opId)), e, todayIso) : null;
+  const prescMini = e ? cxProcPrescMini(data, e, cdas, prazosByDebt, todayIso) : null;
   const copyProcNum = () => { try { navigator.clipboard.writeText(e ? (e.processNumber || '') : ''); } catch { } };
   const batchEventOnGroup = () => setModal({ type: 'create', entityType: 'prescriptionEvent', initial: { batchCdaIds: cdas.map(d => d.id) } });
   const genTask = () => setModal({ type: 'create', entityType: 'task', initial: { operationId: opId, processNumber: e ? e.processNumber : '', title: e ? `Providência — ${e.className || 'processo'}` : 'Providência', priority: 'media', status: 'pendente', taskVisibility: 'operation' } });
+  // Atuação proativa (gravação em cxRegisterAtuacao, compartilhada com o card "Atuações recentes" do Briefing).
+  const registerAtuacao = (fields) => {
+    const r = cxRegisterAtuacao({ data, upsert, exec: e, fields });
+    if (r.error) return r.error;
+    setAtuacaoOpen(false);
+    setTab('notas');
+    return '';
+  };
+  if (atuacaoOpen && e) return <EditionClaudeAtuacaoForm exec={e} onCancel={() => setAtuacaoOpen(false)} onSave={registerAtuacao} />;
   return <>
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Processo">
@@ -3895,7 +6712,7 @@ function EditionClaudeProcDrawer(p) {
         </div>}
         {e && (sig.lock || openTasks.length > 0 || openIntims.length > 0) && <div className="cx-pd-sigauto">
           {sig.lock && <span className="cx-pd-auto"><CxSigGlyph k="lock" />Constrição{linkedAssets.length ? `: ${linkedAssets.length} ${linkedAssets.length === 1 ? 'bem' : 'bens'} (${[...new Set(linkedAssets.map(a => a.source).filter(Boolean))].join(', ') || '—'})` : ''}</span>}
-          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
+          {openTasks.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'task', initial: openTasks[0] })}><CxSigGlyph k="task" tone={openTasks.some(t => t.priority === 'urgente' || t.priority === 'alta') ? 'hi' : 'lo'} />{openTasks.length} {openTasks.length === 1 ? 'tarefa' : 'tarefas'}</button>}
           {openIntims.length > 0 && <button type="button" className="cx-pd-auto cx-pd-auto-btn" onClick={() => setModal({ type: 'edit', entityType: 'intimation', initial: openIntims[0] })}><CxSigGlyph k="intim" />{openIntims.length} {openIntims.length === 1 ? 'intimação' : 'intimações'}{openIntims[0].dateDeadline ? ' · prazo ' + fmtDate(openIntims[0].dateDeadline) : ''}</button>}
         </div>}
         {e && <dl className="cx-pd-facts">
@@ -3919,6 +6736,10 @@ function EditionClaudeProcDrawer(p) {
           {procPresc && procPresc.r && procPresc.r.segment === 'intercorrente' && <div className="cx-pd-ruler"><span className="cx-muted cx-small">Intercorrente</span><PrescBandRuler seg={procPresc.r} /></div>}
           {procPresc && procPresc.notice && <div className="cx-pd-notice">{betaSafeUiText(procPresc.notice.text)}</div>}
           {procPresc && procPresc.redir && <div className="cx-pd-sum-row cx-pd-redir" title={procPresc.redir.basis}><span>Redirecionamento</span><b className="cx-small">{procPresc.redir.text}</b></div>}
+          {e && ((trail && trail.done > 0) || prescMini) ? <div className="cx-pd-trail">
+            {trail && trail.done > 0 ? <><div className="cx-pt-cap">Fases do processo</div><CxPhaseTrail trail={trail} todayIso={todayIso} /></> : null}
+            <CxProcPrescMini mini={prescMini} todayIso={todayIso} />
+          </div> : null}
         </div>}
         {tab === 'cdas' && <div className="cx-pd-tabpane cx-pd-cdas">
           {cdas.length === 0 && <div className="cx-empty-row">Sem CDAs vinculadas.</div>}
@@ -3989,6 +6810,9 @@ function EditionClaudeProcDrawer(p) {
       <div className="cx-dr-foot">
         <button type="button" className="cx-btn sm" onClick={batchEventOnGroup} disabled={!cdas.length}>+ Evento nas {cdas.length} CDAs</button>
         <button type="button" className="cx-btn sm" onClick={genTask}>Gerar tarefa</button>
+        {e && <button type="button" className="cx-btn sm" onClick={() => setAtuacaoOpen(true)} title="Registrar uma atuação sua neste processo, sem intimação">Registrar atuação</button>}
+        {e && <button type="button" className="cx-btn sm" onClick={() => { const on = cxIsBfFront(e); upsert('executions', { ...e, inPanorama: !on }); cxNotify(on ? 'Retirado das Frentes processuais' : 'Levado às Frentes processuais'); }}
+          title="Frentes processuais da Visão geral: só os processos que você quer acompanhar de perto">{cxIsBfFront(e) ? 'Retirar da frente' : 'Levar à frente'}</button>}
         {e && <button type="button" className="cx-btn sm ghost" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: e })}>Dados do processo</button>}
       </div>
     </aside>
@@ -4315,7 +7139,7 @@ function cxHubStageInfo(exec, briefing) {
 function EditionClaudeProcessos(p) {
   const { opId, data, briefing, classified, execs, allDebts, prazosByDebt, openIntimsByProc, openTasksByProc,
     selectedCDAs, setSelectedCDAs, setModal, setData, upsert, togglePrescCheck,
-    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people, linkify } = p;
+    procCdaQuery, setProcCdaQuery, cdaPersonFilter, setCdaPersonFilter, people, linkify, focus, onFocusDone } = p;
   const { hubs, coveredByHub, uncoveredEFs, extinct, others, othersByParent, apensosByParent, unlinked, duplicates } = classified;
 
   const [sigActive, setSigActive] = React.useState(() => new Set());
@@ -4323,10 +7147,20 @@ function EditionClaudeProcessos(p) {
   const [sortBy, setSortBy] = React.useState('valor');
   const [drawerExecId, setDrawerExecId] = React.useState(null);
   const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null — exclusivo com drawerExecId
-  const [cardGroupSel, setCardGroupSel] = React.useState({ inc: 'all' });
-  const [bandsOn, setBandsOn] = React.useState(() => ({ ativa: true, suspensa: true, suspensa_parcelamento: true, arquivada: true, nao_ajuizada: true, extinta: false }));
+  const [showExtinct, setShowExtinct] = React.useState(false);
+  /* Faixas de situação recolhidas (linha de grupo clicável); lembrado entre sessões. */
+  const [bandsClosed, setBandsClosed] = React.useState(() => {
+    try { const v = JSON.parse(localStorage.getItem('nexus_cx_bands_closed') || 'null'); if (v && typeof v === 'object') return v; } catch (e) {}
+    return { suspensa: true, arquivada: true };
+  });
+  const toggleBand = (k) => setBandsClosed(prev => {
+    const n = { ...prev, [k]: !prev[k] };
+    try { localStorage.setItem('nexus_cx_bands_closed', JSON.stringify(n)); } catch (e) {}
+    return n;
+  });
   const [showMore, setShowMore] = React.useState({});
-  const [collapsedCards, setCollapsedCards] = React.useState(() => new Set(['emb', 'out']));
+  const fold = cxUseFold('processos'); // Embargos e Outros nascem fechados (como antes); o resto, abertos; a escolha fica lembrada
+  const CARD_OPEN = { inc: true, semv: true, na: true, rec: true, emb: false, out: false };
   const [peopleOpen, setPeopleOpen] = React.useState(false);
   const [hubOpenOverride, setHubOpenOverride] = React.useState({});
 
@@ -4365,6 +7199,7 @@ function EditionClaudeProcessos(p) {
   const incValue = [...hubs, ...Object.values(coveredByHub).flat()].filter(g => passSig(g.exec)).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const semVincValue = uncoveredVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
   const naValue = unlinkedVisible.reduce((s, d) => s + (d.value || 0), 0);
+  const naHeaderValue = unlinkedCdas.reduce((s, d) => s + (d.value || 0), 0);
   const embargosOpenPrazo = (otherBuckets.embargos || []).some(g => (openIntimsByProc.get(normProc(g.exec.processNumber)) || []).length > 0);
 
   // Só uma ficha por vez: abrir a do processo fecha a da CDA e vice-versa.
@@ -4373,7 +7208,14 @@ function EditionClaudeProcessos(p) {
   const openCdaDrawer = (cdaId, execId) => { setDrawerCda({ id: cdaId, execId: execId || null }); setDrawerExecId(null); };
   const closeCdaDrawer = () => setDrawerCda(null);
   const drawerOpen = !!drawerExecId || !!drawerCda;
-  const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (collapsedCards.has(id)) setCollapsedCards(prev => { const n = new Set(prev); n.delete(id); return n; }); };
+  /* Pedido de fora (Linha do tempo): abre a ficha do processo ou da CDA e avisa que consumiu o pedido. */
+  React.useEffect(() => {
+    if (!focus) return;
+    if (focus.cdaId) openCdaDrawer(focus.cdaId, focus.execId || null);
+    else if (focus.execId) openDrawerFor(focus.execId);
+    if (onFocusDone) onFocusDone();
+  }, [focus && focus.n]);
+  const scrollToCard = (id) => { const el = document.getElementById('cx-pcard-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (!fold.isOpen(id, CARD_OPEN[id])) fold.set(id, false); };
 
   const toggleGroupSelect = (cdas) => setSelectedCDAs(prev => { const n = new Set(prev); const all = cdas.every(d => n.has(d.id)); cdas.forEach(d => all ? n.delete(d.id) : n.add(d.id)); return n; });
   const toggleCdaSel = (id) => setSelectedCDAs(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -4392,7 +7234,8 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>{apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
+          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          {apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{(g.cdas || []).length}</td>}
@@ -4403,12 +7246,18 @@ function EditionClaudeProcessos(p) {
     </React.Fragment>;
   };
 
-  const ProcTableHead = ({ first = 'Processo', sig = true, counts = true }) => (
-    <thead><tr><th className="cx-pt-ck"></th><th>{first}</th>{!drawerOpen && sig && <th className="cx-pt-sig">Marcadores</th>}<th>Situação</th>{!drawerOpen && counts && <th className="cx-pt-r">CDAs</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  /* Colunas fixas e compartilhadas (A5): as seis tabelas empilhadas da aba usam o mesmo <colgroup>, então Situação, CDAs,
+     Valor e Prescrição ficam alinhados de um cartão para o outro. `blank` (CDAs não ajuizadas) mantém as colunas
+     Marcadores e CDAs, só que vazias, para Situação/Valor/Prescrição caírem nos mesmos x. */
+  const ProcTableHead = ({ first = 'Processo', blank = false }) => (
+    <>
+      <colgroup><col className="cx-pt-c-ck" /><col />{!drawerOpen && <col className="cx-pt-c-sig" />}<col className="cx-pt-c-st" />{!drawerOpen && <col className="cx-pt-c-n" />}<col className="cx-pt-c-val" /><col className="cx-pt-c-presc" /></colgroup>
+      <thead><tr><th className="cx-pt-ck"></th><th>{first}</th>{!drawerOpen && <th className="cx-pt-sig">{blank ? '' : 'Marcadores'}</th>}<th>Situação</th>{!drawerOpen && <th className="cx-pt-r">{blank ? '' : 'CDAs'}</th>}<th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+    </>
   );
 
   /* Grupo com linha de subtotal + "mostrar mais" após 8 linhas. */
-  const GroupBlock = ({ groupKey, label, rows, extra, depth = 0 }) => {
+  const GroupBlock = ({ groupKey, label, rows, extra, depth = 0, collapsed = false, onToggle = null }) => {
     const sorted = [...rows].sort(cmp);
     const shown = showMore[groupKey] || 8;
     const visible = sorted.slice(0, shown);
@@ -4418,26 +7267,27 @@ function EditionClaudeProcessos(p) {
     const groupCdas = rows.flatMap(g => g.cdas || []);
     const restVal = sorted.slice(shown).reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0);
     return <React.Fragment>
-      {label && <tr className="cx-pt-band">
-        <td className="cx-pt-ck"></td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
+      {label && <tr className={'cx-pt-band' + (onToggle ? ' tgl' : '')} onClick={onToggle || undefined}>
+        <td className="cx-pt-ck">{onToggle && <span className="cx-chev sm" aria-hidden="true">{collapsed ? '▸' : '▾'}</span>}</td><td colSpan={drawerOpen ? 2 : 3}><b>{label}</b> <span className="cx-muted cx-small">{rows.length} {rows.length === 1 ? 'processo' : 'processos'}</span></td>
         {!drawerOpen && <td className="cx-pt-r">{cdaCount}</td>}
         <td className="cx-pt-r cx-mono">{fmtCur(totals)}</td>
         <CxPrescCell cdas={groupCdas} prazosByDebt={prazosByDebt} />
       </tr>}
-      {visible.map((g, i) => <ProcRow key={rowKey(g)} g={g} depth={depth} isLast={i === visible.length - 1 && rest === 0} />)}
-      {rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
+      {!collapsed && visible.map((g, i) => <ProcRow key={rowKey(g)} g={g} depth={depth} isLast={i === visible.length - 1 && rest === 0} />)}
+      {!collapsed && rest > 0 && <tr className="cx-pt-more"><td colSpan={7}><button type="button" className="cx-link-btn" onClick={() => setShowMore(prev => ({ ...prev, [groupKey]: shown + 20 }))}>Mostrar mais {rest} · {fmtCur(restVal)}</button></td></tr>}
       {extra}
     </React.Fragment>;
   };
 
   /* ── Cartão: Incidentes e execução de destaque ── */
   const incGroups = hubs.map(h => ({ h, covered: filterRows(coveredByHub[h.exec.id] || []) }));
-  const incSel = cardGroupSel.inc || 'all';
-  const incVisibleHubs = incSel === 'all' ? incGroups : incGroups.filter(x => x.h.exec.id === incSel);
+  const incVisibleHubs = incGroups;
   const isHubOpen = (id) => hubOpenOverride.hasOwnProperty(id)
     ? hubOpenOverride[id]
     : (incVisibleHubs.length === 1 || id === (hubs[0] && hubs[0].exec.id));
   const toggleHubOpen = (id) => setHubOpenOverride(prev => ({ ...prev, [id]: !isHubOpen(id) }));
+  const allHubsOpen = incGroups.length > 0 && incGroups.every(x => isHubOpen(x.h.exec.id));
+  const setAllHubsOpen = (open) => setHubOpenOverride(Object.fromEntries(incGroups.map(x => [x.h.exec.id, open])));
   /* Linha de grupo do hub (IDPJ/MCF/Central): fase atual, "cobre N EFs/apensos", sinais, subtotal e
      pior prescrição do próprio hub + tudo o que ele cobre (incl. apensos aninhados). Recolhível. */
   const HubGroupRow = ({ h, covered }) => {
@@ -4478,8 +7328,7 @@ function EditionClaudeProcessos(p) {
   };
   const semVincBands = bandOf(uncoveredVisible);
 
-  const cardCollapsed = (id) => collapsedCards.has(id);
-  const toggleCard = (id) => setCollapsedCards(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const cardCollapsed = (id) => !fold.isOpen(id, CARD_OPEN[id]); // o corpo só é montado com o cartão aberto; as guardas abaixo são redundantes, de propósito
 
   /* ── Ficha lateral: monta o group/relacionados do exec aberto ── */
   const drawerCtx = React.useMemo(() => {
@@ -4509,6 +7358,21 @@ function EditionClaudeProcessos(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
+    <CxKpiStrip n={6}>
+      <CxKpiCard label="Incidentes e destaque" value={hubs.length} desc={fmtCur(incValue)} onClick={() => scrollToCard('inc')}
+        foot={incAlarms > 0 ? cxPl(incAlarms, 'no alarme', 'no alarme') : 'Nenhum no alarme'} footTone={incAlarms > 0 ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Execuções sem vínculo" value={uncoveredEFs.length} desc={fmtCur(semVincValue)} onClick={() => scrollToCard('semv')}
+        foot={semVincAlarms > 0 ? cxPl(semVincAlarms, 'no alarme', 'no alarme') : 'Nenhuma no alarme'} footTone={semVincAlarms > 0 ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Não ajuizadas" value={unlinkedCdas.length + ' CDAs'} desc={fmtCur(naValue)} onClick={() => scrollToCard('na')}
+        foot={naRisk.riskClass === 'critical' ? 'No alarme' : 'Fora do alarme'} footTone={naRisk.riskClass === 'critical' ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Recursos" value={otherBuckets.recursos.length} desc="pelo processo principal" onClick={() => scrollToCard('rec')}
+        foot={otherBuckets.recursos.length + ' de ' + cxPl(execs.length, 'processo', 'processos')} />
+      <CxKpiCard label="Embargos" value={otherBuckets.embargos.length} desc="à execução e de terceiro" onClick={() => scrollToCard('emb')}
+        foot={embargosOpenPrazo ? 'Prazo aberto' : 'Nenhum prazo aberto'} footTone={embargosOpenPrazo ? 'cx-red-t' : ''} />
+      <CxKpiCard label="Outros" value={otherBuckets.outros.length} desc="demais processos" onClick={() => scrollToCard('out')}
+        foot={otherBuckets.outros.length + ' de ' + cxPl(execs.length, 'processo', 'processos')} />
+    </CxKpiStrip>
+
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar processo ou CDA" />
       <div className="cx-pp-person">
@@ -4520,21 +7384,8 @@ function EditionClaudeProcessos(p) {
       </div>
       <CxSigFilterBar counts={sigCounts} active={sigActive} onToggle={toggleSigFilter} />
       <span className="cx-sp" />
-      <select className="cx-sel sm" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-        <option value="valor">Ordenar: valor</option>
-        <option value="prescricao">Ordenar: prescrição</option>
-        <option value="numero">Ordenar: número</option>
-      </select>
+      <CxSelect pre="Ordenar" label="Ordenar processos" value={sortBy} onChange={setSortBy} options={[['valor', 'Valor'], ['prescricao', 'Prescrição'], ['numero', 'Número']]} />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'execution', initial: {} })}>+ Processo</button>
-    </div>
-
-    <div className="cx-pp-summary">
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('inc')}><small>Incidentes e destaque</small><b>{hubs.length}</b><em>{fmtCur(incValue)}</em>{incAlarms > 0 && <i className="al">{incAlarms} no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('semv')}><small>Execuções sem vínculo</small><b>{uncoveredEFs.length}</b><em>{fmtCur(semVincValue)}</em>{semVincAlarms > 0 && <i className="al">{semVincAlarms} no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('na')}><small>Não ajuizadas</small><b>{unlinkedCdas.length} CDAs</b><em>{fmtCur(naValue)}</em>{naRisk.riskClass === 'critical' && <i className="al">no alarme</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('rec')}><small>Recursos</small><b>{otherBuckets.recursos.length}</b></button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('emb')}><small>Embargos</small><b>{otherBuckets.embargos.length}</b>{embargosOpenPrazo && <i className="al">prazo aberto</i>}</button>
-      <button type="button" className="cx-pp-sum-cell" onClick={() => scrollToCard('out')}><small>Outros</small><b>{otherBuckets.outros.length}</b></button>
     </div>
 
     {duplicates && duplicates.length > 0 && (
@@ -4542,58 +7393,37 @@ function EditionClaudeProcessos(p) {
     )}
 
     <div className="cx-pp-body">
-      <div className="cx-pp-cards">
+      <div className="cx-pp-cards cx-pp-cards-fold">
         {/* Incidentes e execução de destaque */}
-        <section className="cx-card cx-pcard" id="cx-pcard-inc">
-          <div className="cx-card-h" onClick={() => toggleCard('inc')}>
-            <span className="cx-chev">{cardCollapsed('inc') ? '▸' : '▾'}</span><h5>Incidentes e execução de destaque</h5><span className="cx-count">{hubs.length}</span>
-            <span className="cx-muted cx-small">· IDPJ, cautelar e central com as EFs cobertas</span>
-          </div>
+        <CxFoldCard id="inc" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-inc" title="Incidentes e execução de destaque" count={hubs.length} sub="· IDPJ, cautelar e central com as EFs cobertas"
+          summary={cxPl(hubs.length, 'incidente', 'incidentes')} actions={hubs.length >= 4 ? <button type="button" className="cx-link-btn cx-card-h-act" onClick={ev => { ev.stopPropagation(); setAllHubsOpen(!allHubsOpen); }}>{allHubsOpen ? 'recolher todos' : 'expandir todos'}</button> : null}>
           {!cardCollapsed('inc') && hubs.length > 0 && <>
-            <div className="cx-pp-grpbar">
-              <button type="button" className={incSel === 'all' ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: 'all' }))}>Todos <i>{hubs.length}</i></button>
-              {incGroups.map(({ h, covered }) => (
-                <button key={h.exec.id} type="button" className={incSel === h.exec.id ? 'on' : ''} onClick={() => setCardGroupSel(s => ({ ...s, inc: h.exec.id }))}>
-                  <em className={'cx-pd-kind ' + cxProcKind(h.exec).cls}>{cxProcKind(h.exec).label}</em>{h.exec.processNumber} <i>{covered.length} EFs · {fmtCur(cxEfMeta(h, prazosByDebt).total + covered.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))}</i>
-                </button>
-              ))}
-            </div>
-            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+            <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
               {incVisibleHubs.map(({ h, covered }) => <HubGroupRow key={h.exec.id} h={h} covered={covered} />)}
             </tbody></table></div>
           </>}
           {!cardCollapsed('inc') && hubs.length === 0 && <div className="cx-empty-row">Nenhum IDPJ, MCF ou execução central levada ao panorama.</div>}
-        </section>
+        </CxFoldCard>
 
         {/* Execuções sem vínculo */}
-        <section className="cx-card cx-pcard" id="cx-pcard-semv">
-          <div className="cx-card-h" onClick={() => toggleCard('semv')}>
-            <span className="cx-chev">{cardCollapsed('semv') ? '▸' : '▾'}</span><h5>Execuções sem vínculo</h5><span className="cx-count">{uncoveredEFs.length}</span>
-            <span className="cx-muted cx-small">· fora de IDPJ, cautelar e central</span>
-          </div>
+        <CxFoldCard id="semv" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-semv" title="Execuções sem vínculo" count={uncoveredEFs.length} sub="· fora de IDPJ, cautelar e central"
+          summary={cxPl(uncoveredEFs.length, 'execução', 'execuções')}>
           {!cardCollapsed('semv') && <>
-            <div className="cx-pp-grpbar">
-              {EF_BANDS.map(b => (
-                <button key={b.key} type="button" className={bandsOn[b.key] ? 'on' : 'off'} onClick={() => setBandsOn(s => ({ ...s, [b.key]: !s[b.key] }))}>{b.label} <i>{(semVincBands[b.key] || []).length}</i></button>
-              ))}
-            </div>
-            <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
-              {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => bandsOn[k] && (semVincBands[k] || []).length).map(k => {
+            {uncoveredEFs.length === 0 && extinctVisible.length === 0 ? <div className="cx-empty-row">Nenhuma execução fora de IDPJ, cautelar e central.</div> :
+            <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
+              {['ativa', 'suspensa', 'suspensa_parcelamento', 'arquivada'].filter(k => (semVincBands[k] || []).length).map(k => {
                 const bd = EF_BANDS.find(b => b.key === k);
-                return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} />;
+                return <GroupBlock key={k} groupKey={'sv-' + k} label={bd.label} rows={semVincBands[k] || []} collapsed={!!bandsClosed[k]} onToggle={() => toggleBand(k)} />;
               })}
-              {bandsOn.extinta && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} />}
-              {!bandsOn.extinta && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setBandsOn(s => ({ ...s, extinta: true }))}>mostrar</button></td></tr>}
-            </tbody></table></div>
+              {showExtinct && extinctVisible.length > 0 && <GroupBlock groupKey="sv-ext" label="Extintas" rows={extinctVisible} onToggle={() => setShowExtinct(false)} />}
+              {!showExtinct && extinctVisible.length > 0 && <tr className="cx-pt-more dim"><td colSpan={7}>{extinctVisible.length} extintas ocultas · {fmtCur(extinctVisible.reduce((s, g) => s + cxEfMeta(g, prazosByDebt).total, 0))} <button type="button" className="cx-link-btn" onClick={() => setShowExtinct(true)}>mostrar</button></td></tr>}
+            </tbody></table></div>}
           </>}
-        </section>
+        </CxFoldCard>
 
-        <section className="cx-card cx-pcard" id="cx-pcard-na">
-          <div className="cx-card-h" onClick={() => toggleCard('na')}>
-            <span className="cx-chev">{cardCollapsed('na') ? '▸' : '▾'}</span><h5>CDAs não ajuizadas</h5><span className="cx-count">{unlinkedCdas.length}</span>
-            <span className="cx-muted cx-small">· sem processo</span>
-          </div>
-          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead first="Inscrição" sig={false} counts={false} /><tbody>
+        <CxFoldCard id="na" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-na" title="CDAs não ajuizadas" count={unlinkedCdas.length} sub="· sem processo"
+          summary={unlinkedCdas.length ? fmtCur(naHeaderValue) : 'nenhuma'}>
+          {!cardCollapsed('na') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead first="Inscrição" blank /><tbody>
             {unlinkedVisible.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhuma CDA não ajuizada.</td></tr>}
             {unlinkedVisible.length > 0 && (() => {
               const shownN = showMore['na'] || 8;
@@ -4606,7 +7436,9 @@ function EditionClaudeProcessos(p) {
                   return <tr key={d.id} className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => openCdaDrawer(d.id)}>
                     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
                     <td className="cx-pt-num"><CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
+                    {!drawerOpen && <td className="cx-pt-sig"></td>}
                     <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
+                    {!drawerOpen && <td className="cx-pt-r"></td>}
                     <td className="cx-pt-r cx-mono">{fmtCur(d.value)}</td>
                     <CxPrescCell cdas={[d]} prazosByDebt={prazosByDebt} />
                   </tr>;
@@ -4615,15 +7447,12 @@ function EditionClaudeProcessos(p) {
               </React.Fragment>;
             })()}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Recursos */}
-        <section className="cx-card cx-pcard" id="cx-pcard-rec">
-          <div className="cx-card-h" onClick={() => toggleCard('rec')}>
-            <span className="cx-chev">{cardCollapsed('rec') ? '▸' : '▾'}</span><h5>Recursos</h5><span className="cx-count">{otherBuckets.recursos.length}</span>
-            <span className="cx-muted cx-small">· agrupados pelo processo principal</span>
-          </div>
-          {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+        <CxFoldCard id="rec" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-rec" title="Recursos" count={otherBuckets.recursos.length} sub="· agrupados pelo processo principal"
+          summary={cxPl(otherBuckets.recursos.length, 'recurso', 'recursos')}>
+          {!cardCollapsed('rec') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             {(() => {
               const byParent = new Map();
               filterRows(otherBuckets.recursos).forEach(g => { const pid = g.exec.parentExecutionId || '—'; if (!byParent.has(pid)) byParent.set(pid, []); byParent.get(pid).push(g); });
@@ -4636,32 +7465,25 @@ function EditionClaudeProcessos(p) {
             })()}
             {otherBuckets.recursos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum recurso.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Embargos */}
-        <section className="cx-card cx-pcard" id="cx-pcard-emb">
-          <div className="cx-card-h" onClick={() => toggleCard('emb')}>
-            <span className="cx-chev">{cardCollapsed('emb') ? '▸' : '▾'}</span><h5>Embargos</h5><span className="cx-count">{otherBuckets.embargos.length}</span>
-            <span className="cx-muted cx-small">· embargos à execução, à execução fiscal e de terceiro</span>
-            {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}
-          </div>
-          {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+        <CxFoldCard id="emb" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-emb" title="Embargos" count={otherBuckets.embargos.length} sub={<>· embargos à execução, à execução fiscal e de terceiro {embargosOpenPrazo && <span className="cx-badge red">prazo aberto</span>}</>} defaultOpen={false}
+          summary={embargosOpenPrazo ? 'prazo aberto' : cxPl(otherBuckets.embargos.length, 'embargo', 'embargos')}>
+          {!cardCollapsed('emb') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="emb-all" label={null} rows={filterRows(otherBuckets.embargos)} />
             {otherBuckets.embargos.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum embargo.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
 
         {/* Outros */}
-        <section className="cx-card cx-pcard" id="cx-pcard-out">
-          <div className="cx-card-h" onClick={() => toggleCard('out')}>
-            <span className="cx-chev">{cardCollapsed('out') ? '▸' : '▾'}</span><h5>Outros</h5><span className="cx-count">{otherBuckets.outros.length}</span>
-            <span className="cx-muted cx-small">· cumprimento, procedimento comum e demais</span>
-          </div>
-          {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt"><ProcTableHead /><tbody>
+        <CxFoldCard id="out" scope="processos" as="h5" className="cx-pcard" domId="cx-pcard-out" title="Outros" count={otherBuckets.outros.length} sub="· cumprimento, procedimento comum e demais" defaultOpen={false}
+          summary={cxPl(otherBuckets.outros.length, 'processo', 'processos')}>
+          {!cardCollapsed('out') && <div className="cx-pt-wrap"><table className="cx-pt cx-pt-fx"><ProcTableHead /><tbody>
             <GroupBlock groupKey="out-all" label={null} rows={filterRows(otherBuckets.outros)} />
             {otherBuckets.outros.length === 0 && <tr><td colSpan={7} className="cx-empty-row">Nenhum outro processo.</td></tr>}
           </tbody></table></div>}
-        </section>
+        </CxFoldCard>
       </div>
 
       {drawerCda ? (() => {
@@ -4823,6 +7645,9 @@ function EditionClaudeInscricoes(p) {
   }
 
   const [drawerCda, setDrawerCda] = React.useState(null); // { id, execId } | null
+  /* Visão da aba: Tabela (padrão) ou Relógios (M4, só as CDAs desta operação). Lembrada neste navegador. */
+  const [view, setViewS] = React.useState(() => (cxLs('nexus_cx_insc_view', 'tabela') === 'relogios' ? 'relogios' : 'tabela'));
+  const setView = (v) => { setViewS(v); cxLsSet('nexus_cx_insc_view', v); };
   const [peopleOpen, setPeopleOpen] = React.useState(false);
   const [showMore, setShowMore] = React.useState({});
 
@@ -4864,6 +7689,15 @@ function EditionClaudeInscricoes(p) {
   })() : null;
 
   const { groups, unajuizadas } = React.useMemo(() => cxCdaGroupsByProcess(sorted, opExecs), [sorted, opExecs]);
+  /* Relógios: as CDAs que sobraram dos filtros da aba (busca e Pessoa); agrupar/ordenar da tabela não se aplicam. */
+  const clkKey = items.map(d => d.id).join('|');
+  const clkIds = React.useMemo(() => new Set(items.map(d => d.id)), [clkKey]);
+  const clkFiltered = items.length !== allDebts.length;
+  const openCdaFromClock = ({ id }) => {
+    const d = allDebts.find(x => x.id === id);
+    const exec = d && d.processNumber ? (opExecs || []).find(e => e.processNumber && sameProc(e.processNumber, d.processNumber)) : null;
+    openDrawer(id, exec ? exec.id : null);
+  };
 
   // "Abrir" vindo de Prazos/Mesa: abre a ficha da CDA e garante a linha visível além do "Mostrar mais".
   const { focusCda, onFocusCdaDone } = p;
@@ -4908,7 +7742,10 @@ function EditionClaudeInscricoes(p) {
     cxNotify(`Memória técnica copiada — ${entries.length} CDA(s).`);
   };
 
-  const IncTableHead = () => <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>;
+  const IncTableHead = () => <>
+    <colgroup><col className="cx-pt-c-ck" /><col className="cx-pt-c-cda" /><col /><col className="cx-pt-c-st" /><col className="cx-pt-c-val" /><col className="cx-pt-c-presc" /></colgroup>
+    <thead><tr><th className="cx-pt-ck"></th><th>CDA</th><th>Devedor · responsáveis</th><th>Situação</th><th className="cx-pt-r">Valor</th><th>Prescrição</th></tr></thead>
+  </>;
 
   const SubGroupBlock = ({ g, sg, isLast = true }) => {
     const isSameAsUmbrella = sg.subExec.id === g.umbrella.id;
@@ -4992,15 +7829,16 @@ function EditionClaudeInscricoes(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Total ativo</small><b>{fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))}</b><em>{cxPl(totalAtivo.length, 'CDA', 'CDAs')}</em></div>
-      <div className="cx-pp-sum-cell"><small>Ajuizadas</small><b>{ajuizadas.length}</b><em>{fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>Não ajuizadas</small><b>{naoAjuizadas.length}</b><em>{fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small title="CDAs nos cartões «a agir» da Mesa de prazos">A agir</small><b style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{noAlarme.length}</b><em style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>Tratadas</small><b>{tratadas.length}</b><em>aguardando reconhecimento: {aguardando.length}</em></div>
-    </div>
+    <CxKpiStrip n={5}>
+      <CxKpiCard label="Total ativo" value={fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))} desc={cxPl(totalAtivo.length, 'CDA', 'CDAs')} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs') + ' na operação'} />
+      <CxKpiCard label="Ajuizadas" value={ajuizadas.length} desc={fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="Não ajuizadas" value={naoAjuizadas.length} desc={fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="A agir" tip="CDAs nos cartões «a agir» da Mesa de prazos" value={noAlarme.length} tone={noAlarme.length ? 'red' : ''} desc={fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))} descTone={noAlarme.length ? 'red' : ''} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+      <CxKpiCard label="Tratadas" value={tratadas.length} desc={'aguardando reconhecimento: ' + aguardando.length} foot={'de ' + cxPl(allDebts.length, 'CDA', 'CDAs')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
+      <CxSeg className="sm" label="Visão das inscrições" value={view} onChange={setView} options={[['tabela', 'Tabela'], ['relogios', 'Relógios']]} />
       <input className="cx-tab-q" value={procCdaQuery} onChange={e => setProcCdaQuery(e.target.value)} placeholder="Filtrar CDA ou processo" />
       <div className="cx-pp-person">
         <button type="button" className={'cx-btn sm' + (cdaPersonFilter !== 'all' ? ' primary' : '')} onClick={() => setPeopleOpen(v => !v)}>Pessoa: {cdaPersonFilter === 'all' ? 'todas' : ((data.people || []).find(x => x.id === cdaPersonFilter) || {}).name || '—'}</button>
@@ -5009,27 +7847,19 @@ function EditionClaudeInscricoes(p) {
           {personCounts.map(({ person, count }) => <button key={person.id} type="button" onClick={() => { setCdaPersonFilter(person.id); setPeopleOpen(false); }}>{person.name} · {count}</button>)}
         </div>}
       </div>
-      <select className="cx-sel sm" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
-        <option value="" disabled>Agrupar…</option>
-        <option value="por_processo">Agrupar: Processo</option>
-        <option value="status">Agrupar: Situação</option>
-        <option value="devedor">Agrupar: Devedor</option>
-        <option value="tribute">Agrupar: Tributo</option>
-        <option value="ajuizada">Agrupar: Ajuizada / não</option>
-      </select>
-      <select className="cx-sel sm" value={SORT_MODES.includes(cdaSort) ? cdaSort : ''} onChange={e => { if (e.target.value) setCdaSort(e.target.value); }}>
-        <option value="">Ordenar…</option>
-        <option value="value_desc">Ordenar: valor ↓</option>
-        <option value="value_asc">Ordenar: valor ↑</option>
-        <option value="prescription">Ordenar: prescrição</option>
-      </select>
+      {view === 'tabela' ? <>
+      <CxSelect pre="Agrupar" label="Agrupar inscrições" value={GROUP_MODES.includes(cdaSort) ? cdaSort : ''} onChange={v => { if (v) setCdaSort(v); }}
+        options={[['', '—', 'dis'], ['por_processo', 'Processo'], ['status', 'Situação'], ['devedor', 'Devedor'], ['tribute', 'Tributo'], ['ajuizada', 'Ajuizada / não']]} />
+      <CxSelect pre="Ordenar" label="Ordenar inscrições" value={SORT_MODES.includes(cdaSort) ? cdaSort : ''} onChange={v => { if (v) setCdaSort(v); }}
+        options={[['', '—', 'dis'], ['value_desc', 'Valor ↓'], ['value_asc', 'Valor ↑'], ['prescription', 'Prescrição']]} />
+      </> : null}
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'debt', initial: {} })}>+ Inscrição</button>
     </div>
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><IncTableHead />
+        {view === 'relogios' ? <EditionClaudeClocks embedded data={data} prazosRadar={p.prazosRadar} prescLookup={p.prescLookup} opId={opId} debtIds={clkIds} filtered={clkFiltered} onOpenCda={openCdaFromClock} /> : <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx"><IncTableHead />
           <tbody>
             {cdaSort === 'por_processo' ? <>
               {groups.map(g => <GroupHeaderRow key={g.umbrella.id} g={g} />)}
@@ -5050,7 +7880,7 @@ function EditionClaudeInscricoes(p) {
               </>;
             })()}
           </tbody>
-        </table></div>
+        </table></div>}
       </div>
       {drawerCda && (() => {
         const d = allDebts.find(x => x.id === drawerCda.id);
@@ -5202,31 +8032,30 @@ function EditionClaudePartes(p) {
     </tr>;
   };
 
-  const PersonTableHead = () => <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>;
+  const PersonTableHead = () => <>
+    <colgroup><col /><col className="cx-pt-c-role" /><col className="cx-pt-c-n" /><col className="cx-pt-c-val" /><col className="cx-pt-c-n" /><col className="cx-pt-c-presc" /></colgroup>
+    <thead><tr><th>Pessoa</th><th>Papel</th><th className="cx-pt-r">CDAs</th><th className="cx-pt-r">Responde por</th><th className="cx-pt-r">Bens</th><th>Prescrição</th></tr></thead>
+  </>;
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Crédito da operação</small><b>{fmtCur(grandTotalUnique)}</b><em>{cxPl(cdasInOp.size, 'CDA ativa', 'CDAs ativas')} · total único</em></div>
-      <div className="cx-pp-sum-cell"><small>Alvos</small><b>{alvos.length}</b><em>{cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PJ').length, 'PJ', 'PJ')} · {cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PF').length, 'PF', 'PF')}</em></div>
-      <div className="cx-pp-sum-cell"><small>Relacionadas</small><b>{relacionadas.length}</b><em>subsídio analítico</em></div>
-      <div className="cx-pp-sum-cell"><small>Patrimônio identificado</small><b>{fmtCur(allAssetsValue)}</b><em>{cxPl(allAssetsIdentified, 'bem', 'bens')}</em></div>
-    </div>
-    {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Crédito da operação" value={fmtCur(grandTotalUnique)} desc={cxPl(cdasInOp.size, 'CDA ativa', 'CDAs ativas') + ' · total único'} foot={'de ' + cxPl(opDebts.length, 'CDA', 'CDAs') + ' na operação'} />
+      <CxKpiCard label="Alvos" value={alvos.length} desc={cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PJ').length, 'PJ', 'PJ') + ' · ' + cxPl(stats.filter(s => (s.person.subtype || 'PF') === 'PF').length, 'PF', 'PF')} foot={'de ' + cxPl(stats.length, 'pessoa', 'pessoas') + ' na operação'} />
+      <CxKpiCard label="Relacionadas" value={relacionadas.length} desc="subsídio analítico" foot={'de ' + cxPl(stats.length, 'pessoa', 'pessoas') + ' na operação'} />
+      <CxKpiCard label="Patrimônio identificado" value={fmtCur(allAssetsValue)} desc={cxPl(allAssetsIdentified, 'bem', 'bens')} foot={'de ' + cxPl((data.assets || []).filter(a => a.operationId === opId).length, 'bem', 'bens') + ' na operação'} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar nome ou CPF/CNPJ" />
-      <select className="cx-sel sm" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-        <option value="all">Tipo: todos</option>
-        <option value="PJ">Tipo: PJ</option>
-        <option value="PF">Tipo: PF</option>
-      </select>
+      <CxSelect pre="Tipo" label="Filtrar por tipo de parte" value={typeFilter} onChange={setTypeFilter} options={[['all', 'Todos'], ['PJ', 'PJ'], ['PF', 'PF']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'person', initial: {} })}>+ Pessoa</button>
     </div>
+    {sumOfExposures > grandTotalUnique * 1.01 && <div className="cx-pp-dup" style={{ background: 'var(--cx-yellow-soft)', color: 'var(--cx-yellow)' }}>ⓘ As exposições individuais somam {fmtCur(sumOfExposures)} — a diferença vem de responsabilidade compartilhada entre pessoas (mesma CDA contada para cada responsável). Para o crédito da operação, vale o total único acima.</div>}
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt"><PersonTableHead />
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx"><PersonTableHead />
           <tbody>
             {alvos.length > 0 && <tr className="cx-pt-band"><td colSpan={6}>Alvos diretos <span className="cx-muted cx-small">· {alvos.length}</span></td></tr>}
             {alvos.map(s => <PersonRow key={s.person.id} s={s} />)}
@@ -5296,7 +8125,7 @@ function EditionClaudeAssetDrawer({ asset: a, data, opId, onClose, setModal }) {
       <div className="cx-dr-body">
         <dl className="cx-pd-facts">
           <dt>Valor</dt><dd className="cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</dd>
-          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></dd>
+          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <span className="cx-muted cx-small" style={{ marginLeft: 8 }}>{assetConstrictionLine(a)}</span> : null}</dd>
           <dt>Titular</dt><dd>{holder ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'person', initial: holder })}>{holder.name}{holder.cpfCnpj ? ' · ' + holder.cpfCnpj : ''}<CxIcon n="chevR" s={12} /></button> : (a.holderDoc || '—')}</dd>
           <dt>Processo</dt><dd>{a.processRef ? (linkedExec ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: linkedExec })}>{a.processRef}<CxIcon n="chevR" s={12} /></button> : <span className="cx-mono cx-small">{a.processRef}</span>) : <span className="cx-muted">Sem processo vinculado</span>}</dd>
           <dt>Origem</dt><dd>{a.source || '—'}</dd>
@@ -5380,7 +8209,7 @@ function EditionClaudeBens(p) {
       <td>{holder ? <>{holder.name} <span className="cx-mono cx-small cx-muted">{holder.cpfCnpj}</span></> : (a.holderDoc ? <span className="cx-muted cx-small">{a.holderDoc}</span> : <span className="cx-muted">—</span>)}</td>
       <td>{a.processRef ? <><span className="cx-mono cx-small">{a.processRef}</span>{a.source ? <span className="cx-tag" style={{ marginLeft: 6 }}>{a.source}</span> : null}</> : <span className="cx-muted cx-small">sem processo{a.source ? ' · ' + a.source : ''}</span>}</td>
       <td className="cx-pt-r cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</td>
-      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></td>
+      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <div className="cx-muted cx-small">{assetConstrictionLine(a)}</div> : null}</td>
       <td><span className={'cx-tag' + (a.analyticsRegistered ? ' green' : ' orange')}>{a.analyticsRegistered ? 'A' : '!A'}</span></td>
     </tr>;
   };
@@ -5406,33 +8235,30 @@ function EditionClaudeBens(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'all' ? ' on' : '')} onClick={() => setNumFilter('all')}><small>Total</small><b>{fmtCur(totalVal)}</b><em>{cxPl(allAssets.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'ativa' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'ativa' ? 'all' : 'ativa')}><small>Indisponibilidade ativa</small><b style={{ color: 'var(--cx-green)' }}>{fmtCur(ativaList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(ativaList.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'requerida' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'requerida' ? 'all' : 'requerida')}><small>Requerida</small><b>{fmtCur(reqList.reduce((s, a) => s + (a.value || 0), 0))}</b><em>{cxPl(reqList.length, 'bem', 'bens')}</em></button>
-      <button type="button" className={'cx-pp-sum-cell' + (numFilter === 'semAnalytics' ? ' on' : '')} onClick={() => setNumFilter(numFilter === 'semAnalytics' ? 'all' : 'semAnalytics')}><small>Sem Analytics</small><b style={semAnalytics.length ? { color: 'var(--cx-orange)' } : undefined}>{semAnalytics.length}</b><em>registrar</em></button>
-    </div>
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Total" value={fmtCur(totalVal)} desc={cxPl(allAssets.length, 'bem', 'bens')} on={numFilter === 'all'} onClick={() => setNumFilter('all')}
+        foot={ativaList.length + (ativaList.length === 1 ? ' ativa' : ' ativas') + ' · ' + cxPl(reqList.length, 'requerida', 'requeridas')} />
+      <CxKpiCard label="Indisponibilidade ativa" value={fmtCur(ativaList.reduce((s, a) => s + (a.value || 0), 0))} tone="green" desc={cxPl(ativaList.length, 'bem', 'bens')} on={numFilter === 'ativa'} onClick={() => setNumFilter(numFilter === 'ativa' ? 'all' : 'ativa')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+      <CxKpiCard label="Requerida" value={fmtCur(reqList.reduce((s, a) => s + (a.value || 0), 0))} desc={cxPl(reqList.length, 'bem', 'bens')} on={numFilter === 'requerida'} onClick={() => setNumFilter(numFilter === 'requerida' ? 'all' : 'requerida')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+      <CxKpiCard label="Sem Analytics" value={semAnalytics.length} tone={semAnalytics.length ? 'orange' : ''} desc="registrar" on={numFilter === 'semAnalytics'} onClick={() => setNumFilter(numFilter === 'semAnalytics' ? 'all' : 'semAnalytics')}
+        foot={'de ' + cxPl(allAssets.length, 'bem', 'bens')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar descrição, matrícula, placa" />
-      <select className="cx-sel sm" value={mode} onChange={e => setAssetSort(e.target.value)}>
-        <option value="status">Agrupar: Situação</option>
-        <option value="titular">Agrupar: Titular</option>
-        <option value="processo">Agrupar: Processo</option>
-        <option value="tipo">Agrupar: Tipo</option>
-      </select>
-      <select className="cx-sel sm" value={SORT_MODES.includes(assetSort) ? assetSort : ''} onChange={e => { if (e.target.value) setAssetSort(e.target.value); }}>
-        <option value="">Ordenar…</option>
-        <option value="valor_desc">Ordenar: valor ↓</option>
-        <option value="valor_asc">Ordenar: valor ↑</option>
-      </select>
+      <CxSelect pre="Agrupar" label="Agrupar bens" value={mode} onChange={setAssetSort} options={[['status', 'Situação'], ['titular', 'Titular'], ['processo', 'Processo'], ['tipo', 'Tipo']]} />
+      <CxSelect pre="Ordenar" label="Ordenar bens" value={SORT_MODES.includes(assetSort) ? assetSort : ''} onChange={v => { if (v) setAssetSort(v); }}
+        options={[['', '—', 'dis'], ['valor_desc', 'Valor ↓'], ['valor_asc', 'Valor ↑']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'asset', initial: {} })}>+ Bem</button>
     </div>
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
-        <div className="cx-card cx-pt-wrap"><table className="cx-pt">
+        <div className="cx-card cx-pt-wrap"><table className="cx-pt cx-pt-fx">
+          <colgroup><col className="cx-pt-c-ck" /><col /><col className="cx-pt-c-tit" /><col className="cx-pt-c-proc" /><col className="cx-pt-c-val" /><col className="cx-pt-c-st" /><col className="cx-pt-c-an" /></colgroup>
           <thead><tr><th className="cx-pt-ck"></th><th>Bem</th><th>Titular</th><th>Processo · origem</th><th className="cx-pt-r">Valor</th><th>Situação</th><th>Analytics</th></tr></thead>
           <tbody>
             {groupEntries.map(g => <GroupBlock key={g.key} g={g} />)}
@@ -5451,10 +8277,8 @@ function EditionClaudeBens(p) {
       <div className="cx-pp-bulk">
         <b>{cxPl(selectedAssets.size, 'bem selecionado', 'bens selecionados')}</b>
         <span className="cx-sp" />
-        <select className="cx-sel sm" onChange={e => { if (e.target.value) { bulkUpdateAssets('status', e.target.value); e.target.value = ''; } }} defaultValue="">
-          <option value="" disabled>Alterar situação…</option>
-          {Object.entries(ASSET_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
+        <CxSelect label="Alterar situação dos bens selecionados" value="" onChange={v => { if (v) bulkUpdateAssets('status', v); }}
+          options={[['', 'Alterar situação…', 'dis']].concat(Object.entries(ASSET_STATUSES).map(([k, v]) => [k, v.label]))} />
         <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', true)}>✓ Marcar Analytics</button>
         <button type="button" className="cx-btn sm" onClick={() => bulkUpdateAssets('analyticsRegistered', false)}>✗ Desmarcar</button>
         <button type="button" className="cx-btn sm" onClick={() => bulkDelete('assets', selectedAssets)}>Excluir</button>
@@ -5484,9 +8308,10 @@ function EditionClaudeOpTarefas(p) {
     return toks.every(tk => hay.includes(tk));
   });
   const open = filtered.filter(cxTaskOpen);
-  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  const done = filtered.filter(t => t.status === 'concluida').sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
   const late = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d < 0; }).length;
   const weekToday = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0 && d <= 7; }).length;
+  const nextTask = open.filter(t => { const d = daysUntil(t.dueDate); return d !== null && d >= 0; }).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))[0];
 
   const toggle = (t) => { const next = t.status === 'concluida' ? 'pendente' : 'concluida'; upsert('tasks', { ...t, status: next }); cxNotify(next === 'concluida' ? 'Tarefa concluída' : 'Tarefa reaberta'); };
   const addTask = (e) => {
@@ -5500,11 +8325,21 @@ function EditionClaudeOpTarefas(p) {
   const row = (t) => <CxTaskRow key={t.id} t={t} op={opsById.get(t.operationId)} onOpen={onOpenTask} onToggle={toggle} onOpenOp={null} deskOn={isOnDesk('task', t.id)} onDesk={() => toggleDesk('task', t.id, daysUntil(t.dueDate))} />;
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Abertas</small><b>{open.length}</b><em>{cxPl(all.length, 'tarefa', 'tarefas')} no total</em></div>
-      <div className="cx-pp-sum-cell"><small>Vencidas</small><b style={late ? { color: 'var(--cx-red)' } : undefined}>{late}</b><em style={late ? { color: 'var(--cx-red)' } : undefined}>{late ? 'atenção' : 'nenhuma'}</em></div>
-      <div className="cx-pp-sum-cell"><small>Hoje / semana</small><b style={weekToday ? { color: 'var(--cx-orange)' } : undefined}>{weekToday}</b><em>próximos 7 dias</em></div>
-      <div className="cx-pp-sum-cell"><small>Concluídas</small><b>{done.length}</b><em>histórico</em></div>
+    <CxKpiStrip n={4}>
+      <CxKpiCard label="Abertas" value={open.length} desc={cxPl(all.length, 'tarefa', 'tarefas') + ' no total'}
+        foot={nextTask ? <>próxima: <b>{cxDue(daysUntil(nextTask.dueDate), nextTask.dueDate).txt}</b></> : 'nenhuma com data limite'} />
+      <CxKpiCard label="Vencidas" value={late} tone={late ? 'red' : ''} desc={late ? 'atenção' : 'nenhuma'} descTone={late ? 'red' : ''} foot={'de ' + cxPl(open.length, 'aberta', 'abertas')} />
+      <CxKpiCard label="Hoje / semana" value={weekToday} tone={weekToday ? 'orange' : ''} desc="próximos 7 dias" foot={'de ' + cxPl(open.length, 'aberta', 'abertas')} />
+      <CxKpiCard label="Concluídas" value={done.length} desc="histórico" foot={'de ' + cxPl(all.length, 'tarefa', 'tarefas')} />
+    </CxKpiStrip>
+
+    <div className="cx-pp-toolbar">
+      <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar tarefa" aria-label="Buscar tarefa" />
+      <CxChips sm label="Situação das tarefas" value={seg} onChange={setSeg} options={[['abertas', 'Abertas', open.length], ['concluidas', 'Concluídas', done.length]]} />
+      <CxSelect pre="Agrupar" label="Agrupar tarefas" value={groupBy} onChange={setGroupBy} options={[['prazo', 'Prazo'], ['prioridade', 'Prioridade']]} />
+      <span className="cx-muted cx-small">🌐 = aparece também na tela Tarefas</span>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm" onClick={onNewTask}>+ Tarefa completa</button>
     </div>
 
     <form className="cx-quick" onSubmit={addTask}>
@@ -5513,18 +8348,6 @@ function EditionClaudeOpTarefas(p) {
       <input type="date" className="cx-input cx-quick-d" value={draft.dueDate} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} aria-label="Data limite" title="Data limite (opcional)" />
       <button type="submit" className="cx-btn sm primary" disabled={!draft.title.trim()}>Criar</button>
     </form>
-
-    <div className="cx-pp-toolbar">
-      <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar tarefa" aria-label="Buscar tarefa" />
-      <CxSeg value={seg} onChange={setSeg} options={[['abertas', 'Abertas', null, open.length], ['concluidas', 'Concluídas', null, done.length]]} />
-      <select className="cx-sel sm" value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Agrupar tarefas">
-        <option value="prazo">Agrupar: Prazo</option>
-        <option value="prioridade">Agrupar: Prioridade</option>
-      </select>
-      <span className="cx-muted cx-small">🌐 = aparece também na tela Tarefas</span>
-      <span className="cx-sp" />
-      <button type="button" className="cx-btn sm" onClick={onNewTask}>+ Tarefa completa</button>
-    </div>
 
     <div className="cx-pp-body">
       <div className="cx-pp-cards">
@@ -5659,19 +8482,16 @@ function EditionClaudeArquivos(p) {
   };
 
   return <div className="cx cx-page cx-page-wide cx-pp">
-    <div className="cx-pp-summary" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
-      <div className="cx-pp-sum-cell"><small>Total</small><b>{all.length}</b><em>{cxPl(all.length, 'documento', 'documentos')}</em></div>
-      <div className="cx-pp-sum-cell"><small>De intimações</small><b>{nIntim}</b><em>registrados automaticamente</em></div>
-      <div className="cx-pp-sum-cell"><small>Incluídos</small><b>{nManual}</b><em>adicionados à mão</em></div>
-    </div>
+    <CxKpiStrip n={3}>
+      <CxKpiCard label="Total" value={all.length} desc={cxPl(all.length, 'documento', 'documentos')} foot={cxPl(new Set(all.map(d => cxDocGroupKey(d, 'tipo'))).size, 'tipo', 'tipos') + ' de documento'} />
+      <CxKpiCard label="De intimações" value={nIntim} desc="registrados automaticamente" foot={'de ' + cxPl(all.length, 'documento', 'documentos')} />
+      <CxKpiCard label="Incluídos" value={nManual} desc="adicionados à mão" foot={'de ' + cxPl(all.length, 'documento', 'documentos')} />
+    </CxKpiStrip>
 
     <div className="cx-pp-toolbar">
       <input className="cx-tab-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar título ou processo" aria-label="Buscar documento" />
-      <CxSeg value={origin} onChange={setOrigin} options={[['all', 'Todos', null, all.length], ['intim', 'De intimações', null, nIntim], ['manual', 'Incluídos', null, nManual]]} />
-      <select className="cx-sel sm" value={groupMode} onChange={e => setGroupMode(e.target.value)} aria-label="Agrupar documentos">
-        <option value="tipo">Agrupar: Tipo</option>
-        <option value="processo">Agrupar: Processo</option>
-      </select>
+      <CxChips sm label="Origem dos arquivos" value={origin} onChange={setOrigin} options={[['all', 'Todos', all.length], ['intim', 'De intimações', nIntim], ['manual', 'Incluídos', nManual]]} />
+      <CxSelect pre="Agrupar" label="Agrupar documentos" value={groupMode} onChange={setGroupMode} options={[['tipo', 'Tipo'], ['processo', 'Processo']]} />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm primary" onClick={() => setModal({ type: 'create', entityType: 'document', initial: {} })}>+ Documento</button>
     </div>
@@ -5769,7 +8589,7 @@ function EditionClaudeImportar(p) {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('over'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('over')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('over'); handleXLSImport({ target: { files: e.dataTransfer.files } }); }}>
-                  <b>📂 Solte os arquivos ou clique</b>
+                  <b><CxIcon n="upload" s={14} /> Solte os arquivos ou clique</b>
                   <span className="cx-mono cx-small">RelatorioAbaInscricoes*.xls · RelatorioAbaProcessosJudiciais*.xls</span>
                 </div>
                 <input ref={xlsInputRef} type="file" accept=".xls,.xlsx" multiple style={{ display: 'none' }} onChange={handleXLSImport} />
@@ -5780,7 +8600,7 @@ function EditionClaudeImportar(p) {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('over'); }}
                   onDragLeave={e => e.currentTarget.classList.remove('over')}
                   onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('over'); handleEprocImport({ target: { files: e.dataTransfer.files } }); }}>
-                  <b>📬 Solte os arquivos ou clique</b>
+                  <b><CxIcon n="upload" s={14} /> Solte os arquivos ou clique</b>
                   <span className="cx-mono cx-small">citacaoIntimacao*.xls</span>
                 </div>
               </div>
@@ -5865,5 +8685,542 @@ function EditionClaudeImportar(p) {
         </div>
       </div>
     </div>
+  </div>;
+}
+
+/* ═════════════════════ Minha atividade ═════════════════════
+   Registro de trabalho: lista corrida do que foi alterado no Nexus, com antes e depois e restauração.
+   Dados vêm de `activityApi` (src/app.jsx → createActivityApi); o diff de texto é de src/lib/textdiff.js. */
+const CX_ACT_TYPES = {
+  atuacao: 'Atuação', intimacao: 'Intimação', cda: 'CDA', bem: 'Bem/constrição', processo: 'Processo', fase: 'Fase', decisao: 'Decisão',
+  diario: 'Diário', tarefa: 'Tarefa', lembrete: 'Lembrete', parte: 'Parte', documento: 'Documento', prescricao: 'Prescrição',
+  acompanhamento: 'Acompanhar', audiencia: 'Audiência', operacao: 'Operação', vinculo: 'Vínculo', importacao: 'Importação',
+  exclusao: 'Exclusão', restauracao: 'Restauração', sistema: 'Sistema',
+};
+const CX_ACT_ORIGIN = { importacao: 'importação', automatico: 'automático', desfazer: 'desfazer', restauracao: 'restauração', bot: 'bot', sistema: 'sistema' };
+const CX_ACT_COLS = {
+  operations: ['operação', 'operações'], people: ['parte', 'partes'], debts: ['CDA', 'CDAs'], executions: ['processo', 'processos'],
+  measures: ['medida', 'medidas'], assets: ['bem', 'bens'], documents: ['documento', 'documentos'],
+  prescriptionEvents: ['evento de prescrição', 'eventos de prescrição'], intimations: ['intimação', 'intimações'],
+  tasks: ['tarefa', 'tarefas'], stickyNotes: ['lembrete', 'lembretes'], watchlist: ['item de acompanhamento', 'itens de acompanhamento'],
+  hearings: ['audiência', 'audiências'],
+};
+function cxActColName(col, n) { const c = String(col || '').startsWith('links.') ? ['vínculo', 'vínculos'] : (CX_ACT_COLS[col] || ['item', 'itens']); return n === 1 ? c[0] : c[1]; }
+const CX_ACT_KPIS = [
+  ['atuacoes', 'Atuações', (e) => e.kind === 'atuacao'],
+  ['cdas', 'CDAs alteradas', (e) => cxActCdaIds(e).length > 0],
+  ['diario', 'Entradas no diário', (e) => e.kind === 'diario' && e.action !== 'excluir'],
+  ['tarefas', 'Tarefas concluídas', (e) => e.kind === 'tarefa' && e.action === 'concluir'],
+  ['excluidos', 'Itens excluídos', (e) => e.action === 'excluir' && e.kind !== 'sistema'],
+];
+
+function cxActType(ev) {
+  if (ev.kind === 'sistema') return 'sistema';
+  if (ev.source === 'restauracao') return 'restauracao';
+  if (ev.kind === 'importacao') return 'importacao';
+  if (ev.action === 'excluir') return 'exclusao';
+  if (ev.kind === 'constricao') return 'bem';
+  if (ev.kind === 'frente') return 'fase';
+  return CX_ACT_TYPES[ev.kind] ? ev.kind : 'sistema';
+}
+function cxActCdaIds(ev) {
+  if (ev.batch) return (ev.batch.details || []).filter(d => d.col === 'debts' && d.op !== 'delete').map(d => String(d.id));
+  return ev.entity && ev.entity.col === 'debts' && ev.kind === 'cda' && ev.action !== 'excluir' ? [String(ev.entity.id)] : [];
+}
+function cxActMask(s) {
+  const d = String(s || '').replace(/\D/g, '');
+  return d.length === 20 ? d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16) : String(s || '');
+}
+function cxActTime(ts) {
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+}
+const cxActDmy = (day) => (/^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day.slice(8) + '/' + day.slice(5, 7) + '/' + day.slice(0, 4) : String(day || ''));
+function cxActDayLabel(day, today) {
+  const d = new Date(day + 'T12:00:00');
+  const full = (isNaN(d.getTime()) ? '' : CX_DOW_L[d.getDay()].split('-')[0] + ', ') + cxActDmy(day);
+  if (day === today) return { main: 'Hoje', sub: full };
+  if (day === addCalendarDays(today, -1)) return { main: 'Ontem', sub: full };
+  return { main: full, sub: '' };
+}
+function cxActVal(v) {
+  if (v == null) return '';
+  const s = String(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(s);
+  if (!m || !/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(s)) return s;
+  if (!m[4]) return m[3] + '/' + m[2] + '/' + m[1];
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).replace(',', '');
+}
+const cxActShown = (c, side) => cxActVal(side === 'from' ? (c.fromText != null ? c.fromText : c.from) : (c.toText != null ? c.toText : c.to));
+const cxActPlain = (tc, side) => (tc.format === 'html' ? textdiffPlain(tc[side]) : String(tc[side] == null ? '' : tc[side]));
+const cxActSnip = (s, n) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+
+/* Período: [de, até] em AAAA-MM-DD e o rótulo do passo. */
+function cxActRange(per, off, cust, today) {
+  if (per === 'hoje') {
+    const d = addCalendarDays(today, off);
+    const lb = off === 0 ? 'Hoje' : off === -1 ? 'Ontem' : cxActDayLabel(d, today).main;
+    return { from: d, to: d, label: lb + (off === 0 || off === -1 ? ' · ' + cxActDmy(d).slice(0, 5) : '') };
+  }
+  if (per === 'semana') {
+    const base = addCalendarDays(today, 7 * off);
+    const dow = new Date(base + 'T12:00:00').getDay();
+    const mon = addCalendarDays(base, -((dow + 6) % 7));
+    const sun = addCalendarDays(mon, 6);
+    return { from: mon, to: sun, label: 'Semana · ' + cxActDmy(mon).slice(0, 5) + ' a ' + cxActDmy(sun).slice(0, 5) };
+  }
+  if (per === 'mes') {
+    const t = new Date(today + 'T12:00:00');
+    const a = new Date(t.getFullYear(), t.getMonth() + off, 1), b = new Date(t.getFullYear(), t.getMonth() + off + 1, 0);
+    return { from: localIso(a), to: localIso(b), label: cxCap(CX_MES_L[a.getMonth()]) + ' de ' + a.getFullYear() };
+  }
+  const f = cust.from || today, t2 = cust.to || today;
+  const lo = f <= t2 ? f : t2, hi = f <= t2 ? t2 : f;
+  return { from: lo, to: hi, label: cxActDmy(lo) + ' a ' + cxActDmy(hi) };
+}
+function cxActBlob(ev) {
+  const parts = [ev.summary, ev.op && ev.op.name, ev.entity && ev.entity.label, ev.entity && ev.entity.proc, ev.batch && ev.batch.label];
+  (ev.changes || []).forEach(c => parts.push(c.label, cxActShown(c, 'from'), cxActShown(c, 'to')));
+  (ev.textChanges || []).forEach(t => parts.push(t.label, cxActPlain(t, 'from'), cxActPlain(t, 'to')));
+  if (ev.batch) (ev.batch.details || []).forEach(d => parts.push(d.label, d.proc, (d.fields || []).join(' ')));
+  return cxNorm(parts.filter(Boolean).join(' \n '));
+}
+function cxActDigits(ev) {
+  const parts = [ev.summary, ev.entity && ev.entity.label, ev.entity && ev.entity.proc];
+  if (ev.batch) (ev.batch.details || []).forEach(d => parts.push(d.label, d.proc));
+  (ev.changes || []).forEach(c => parts.push(cxActShown(c, 'from'), cxActShown(c, 'to')));
+  return parts.filter(Boolean).map(x => String(x).replace(/\D/g, '')).filter(Boolean);
+}
+const cxActHasRestore = (ev) => ev.kind !== 'sistema' && (ev.restore ? (ev.restore.items || []).length > 0 : true);
+/* Itens do `only` de planRestore para restaurar só um campo: itens de briefing casam pelo caminho, os demais pelo campo de nível 1. */
+function cxActOnly(full, f) {
+  const out = [];
+  ((full.restore && full.restore.items) || []).forEach(it => {
+    if (it.path) { if (f === it.path || String(f).indexOf(it.path) === 0 || it.path.indexOf(String(f)) === 0) out.push({ col: it.col, id: it.id, field: it.path }); }
+    else out.push({ col: it.col, id: it.id, field: String(f).split('.')[0].replace(/\[.*$/, '') });
+  });
+  return out;
+}
+function cxActEvRow(ev) {
+  const antes = [], depois = [];
+  (ev.changes || []).forEach(c => { antes.push(c.label + ': ' + (cxActShown(c, 'from') || '—')); depois.push(c.label + ': ' + (cxActShown(c, 'to') || '—')); });
+  (ev.textChanges || []).forEach(t => { antes.push(t.label + ': ' + cxActSnip(cxActPlain(t, 'from'), 500)); depois.push(t.label + ': ' + cxActSnip(cxActPlain(t, 'to'), 500)); });
+  const org = ev.source && ev.source !== 'manual' ? (CX_ACT_ORIGIN[ev.source] || ev.source) + (ev.source === 'importacao' && ev.batch ? ' ' + ev.batch.label : '') : 'manual';
+  return [cxActDmy(ev.day), cxActTime(ev.ts), (ev.op && ev.op.name) || '', cxActMask(ev.entity && ev.entity.proc), CX_ACT_TYPES[cxActType(ev)], ev.action || '', ev.summary || '', antes.join('\n'), depois.join('\n'), org];
+}
+const CX_ACT_HEADER = ['Data', 'Hora', 'Operação', 'Processo', 'Tipo', 'Ação', 'Resumo', 'Antes', 'Depois', 'Origem'];
+/* "Excluiu o bem X e 2 itens vinculados" → "bem X". */
+function cxActItemName(ev) { return String(ev.summary || '').replace(/^Excluiu\s+(o|a)\s+/, '').replace(/\s+e \d+ (item vinculado|itens vinculados)$/, ''); }
+function cxActCsv(rows) {
+  const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  return '﻿' + [CX_ACT_HEADER].concat(rows).map(r => r.map(q).join(';')).join('\r\n');
+}
+function cxActDownload(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function CxActTextDiff({ tc }) {
+  const sides = React.useMemo(() => diffSides(cxActPlain(tc, 'from'), cxActPlain(tc, 'to')), [tc]);
+  const render = (parts, tag) => parts.map((x, i) => (x.hl ? React.createElement(tag, { key: i }, x.s) : <React.Fragment key={i}>{x.s}</React.Fragment>));
+  return <div className="cx-act-dg">
+    <div className="cx-act-db"><h4>Antes</h4><div className="tx">{sides.before.length ? render(sides.before, 'del') : <i className="cx-muted">(vazio)</i>}</div></div>
+    <div className="cx-act-db"><h4>Depois</h4><div className="tx">{sides.after.length ? render(sides.after, 'ins') : <i className="cx-muted">(vazio)</i>}</div></div>
+  </div>;
+}
+
+function CxActDetail({ ev, full, onOpen, onRestore }) {
+  const src = full && typeof full === 'object' ? full : ev;
+  const [allRows, setAllRows] = React.useState(false);
+  const can = cxActHasRestore(ev);
+  const en = ev.entity || {};
+  const entName = en.type === 'diario' ? 'Diário' : en.type === 'fase' ? 'Fase' : cxCap(cxActColName(en.col, 1));
+  const changes = ev.changes || [];
+  const texts = src.textChanges || ev.textChanges || [];
+  const casc = ev.cascade && ev.cascade.byType ? Object.keys(ev.cascade.byType).map(k => [k, ev.cascade.byType[k]]) : [];
+  const rowsAll = ev.batch ? (ev.batch.details || []) : [];
+  const rows = allRows ? rowsAll : rowsAll.slice(0, 100);
+  const opLbl = { create: 'nova', update: 'alterada', delete: 'removida' };
+  const single = ev.action === 'criar' || ev.action === 'excluir' || ev.kind === 'importacao';
+  return <div className="cx-act-rd">
+    {ev.batch ? <>
+      <table className="cx-act-tab"><thead><tr><th>Item</th><th>Alteração</th><th /></tr></thead><tbody>
+        {rows.map((d, i) => <tr key={i}>
+          <td>{cxCap(cxActColName(d.col, 1))} <b>{d.label || cxActMask(d.proc) || d.id}</b>{d.proc && d.label !== d.proc ? <span className="cx-muted cx-mono"> · {cxActMask(d.proc)}</span> : null}</td>
+          <td>{opLbl[d.op] || d.op}{(d.fields || []).length ? ': ' + d.fields.join(', ') : ''}</td>
+          <td className="r">{can ? <button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'row', row: d })}><CxIcon n="history" s={12} />{d.op === 'create' ? 'Desfazer' : 'Restaurar'}</button> : null}</td>
+        </tr>)}
+        {!rowsAll.length ? <tr><td colSpan={3} className="cx-muted">Sem detalhe por item neste registro.</td></tr> : null}
+      </tbody></table>
+      {rowsAll.length > rows.length ? <div className="cx-act-links"><button type="button" className="cx-link-btn" onClick={() => setAllRows(true)}>Mostrar os {rowsAll.length} itens</button></div> : null}
+      {ev.batch.detailsCut ? <div className="cx-act-links">A lista de itens foi encurtada para caber no registro; “Desfazer importação inteira” cobre todos.</div> : null}
+    </> : null}
+    {changes.length ? <table className="cx-act-tab"><thead><tr><th>Campo</th><th>Antes</th><th>Depois</th><th /></tr></thead><tbody>
+      {changes.map((c, i) => <tr key={i}>
+        <td>{cxCap(c.label)}</td>
+        <td className="b"><span>{cxActShown(c, 'from') || '—'}</span></td>
+        <td className="a"><span>{cxActShown(c, 'to') || '—'}</span></td>
+        <td className="r">{can && !single && cxActShown(c, 'from') !== '' ? <button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'field', f: c.f, change: c })}><CxIcon n="history" s={12} />Restaurar este campo</button> : null}</td>
+      </tr>)}
+    </tbody></table> : null}
+    {texts.map((tc, i) => {
+      const loading = tc.cut && !(full && typeof full === 'object');
+      return <div key={i}>
+        <div className="cx-act-dl">{tc.label} · texto completo, com diferenças{tc.truncated ? ' (texto muito longo, guardado só até 200 KB)' : ''}</div>
+        {loading ? <div className="cx-muted cx-small" style={{ marginTop: 6 }}>{full === 'erro' ? 'Não foi possível carregar o texto completo.' : 'Carregando o texto completo…'}</div> : <CxActTextDiff tc={tc} />}
+        {can && !single && tc.from ? <div className="cx-act-acts" style={{ marginTop: 6 }}><button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'text', f: tc.f, tc })}><CxIcon n="history" s={12} />Restaurar texto anterior</button></div> : null}
+      </div>;
+    })}
+    {ev.action === 'excluir' && ev.kind !== 'sistema' ? <div className="cx-act-casc"><b>Apagado:</b> {cxActItemName(ev)}
+      {casc.length ? <>
+        <br />Também foi junto:
+        <ul>{casc.map(([k, n]) => <li key={k}>{n} {cxActColName(k, n)}</li>)}</ul>
+      </> : null}
+    </div> : null}
+    <div className="cx-act-links">
+      <span>Ligado a:</span>
+      <button type="button" className="cx-act-link" onClick={() => onOpen(ev)}>{entName}{en.label ? ' ' + en.label : ''}</button>
+      {en.proc && en.col !== 'executions' ? <span className="cx-mono">Processo {cxActMask(en.proc)}</span> : null}
+      {ev.op && ev.op.name ? <span>{ev.op.name}</span> : null}
+    </div>
+    <div className="cx-act-acts">
+      {ev.kind !== 'sistema' ? <button type="button" className="cx-btn primary sm" onClick={() => onOpen(ev)}><CxIcon n="arrowUR" s={12} />Abrir no Nexus</button> : null}
+      {can && ev.batch ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'batch' })}><CxIcon n="history" s={12} />Desfazer importação inteira</button> : null}
+      {can && !ev.batch && ev.action === 'excluir' ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'recover' })}><CxIcon n="history" s={12} />Recuperar item</button> : null}
+      {can && !ev.batch && ev.action === 'criar' ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'event' })}><CxIcon n="history" s={12} />Desfazer criação</button> : null}
+      {can && !ev.batch && !single && (changes.length + texts.length) > 1 ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'event' })}><CxIcon n="history" s={12} />Restaurar valor anterior (alteração inteira)</button> : null}
+    </div>
+  </div>;
+}
+
+function CxActRow({ ev, open, full, opObj, onToggle, onOpen, onRestore }) {
+  const ty = cxActType(ev);
+  const en = ev.entity || {};
+  const org = ev.source && ev.source !== 'manual' ? (CX_ACT_ORIGIN[ev.source] || ev.source) + (ev.source === 'importacao' && ev.batch && ev.batch.label ? ' · ' + ev.batch.label : '') : '';
+  const proc = en.proc ? cxActMask(en.proc) : '';
+  return <div className={'cx-act-row' + (open ? ' open' : '')}>
+    <div className="cx-act-rh" role="button" tabIndex={0} aria-expanded={open} onClick={onToggle}
+      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(); } }}>
+      <span className="cx-act-tm">{cxActTime(ev.ts)}</span>
+      <span className={'cx-act-b t-' + ty}>{CX_ACT_TYPES[ty]}</span>
+      <span className="cx-minw0">
+        <span className="cx-act-ph">{ev.summary}</span>
+        <span className="cx-act-meta">
+          {ev.op && ev.op.name ? <span className="cx-act-opc"><span className="cx-dot" style={{ background: opObj ? cxOpColor(opObj) : 'var(--cx-line-strong)' }} />{opObj ? cxOpName(opObj) : ev.op.name}</span> : null}
+          {proc ? <CxNumCopy value={proc}><span className="cx-act-proc"><span className="cx-mono">{proc}</span><CxIcon n="copy" s={12} /></span></CxNumCopy> : null}
+          {org ? <span className={'cx-act-org' + (ev.source === 'restauracao' ? ' res' : '')}>{org}</span> : null}
+          {ev.minor ? <span className="cx-act-min">ajuste menor</span> : null}
+          {ev.coalesced > 1 ? <span className="cx-act-min">{ev.coalesced} ajustes juntos</span> : null}
+        </span>
+      </span>
+      <span className="cx-act-chev"><CxIcon n="chevR" s={14} /></span>
+    </div>
+    {open ? <CxActDetail ev={ev} full={full} onOpen={onOpen} onRestore={onRestore} /> : null}
+  </div>;
+}
+
+/* Confirmação de restauração: simula antes (previewRestore), mostra o que volta e os conflitos, só então aplica. */
+function CxActRestoreModal({ req, activity, onClose, onDone }) {
+  const { ev, mode } = req;
+  const [st, setSt] = React.useState({ loading: true });
+  const [busy, setBusy] = React.useState(false);
+  const optsFor = (full, force) => {
+    const o = {};
+    if (mode === 'field' || mode === 'text') o.only = cxActOnly(full, req.f);
+    else if (mode === 'row') o.only = [{ col: req.row.col, id: req.row.id }];
+    if (force) o.force = true;
+    return o;
+  };
+  React.useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const full = await activity.getFull(ev);
+        const r = await activity.previewRestore(full, optsFor(full, false));
+        if (!dead) setSt({ full, r });
+      } catch (e) { if (!dead) setSt({ error: String((e && e.message) || e) }); }
+    })();
+    return () => { dead = true; };
+  }, []);
+  React.useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', k);
+    return () => document.removeEventListener('keydown', k);
+  }, []);
+  const go = async (force) => {
+    setBusy(true);
+    try { onDone(await activity.restore(st.full, optsFor(st.full, force))); }
+    catch (e) { setSt(s => ({ ...s, error: String((e && e.message) || e) })); setBusy(false); }
+  };
+  const full = st.full || ev;
+  const T = { field: ['Restaurar o valor anterior?', 'Restaurar'], text: ['Restaurar o texto anterior?', 'Restaurar'], event: [ev.action === 'criar' ? 'Desfazer a criação?' : 'Restaurar a alteração inteira?', ev.action === 'criar' ? 'Desfazer criação' : 'Restaurar'],
+    recover: ['Recuperar item excluído?', 'Recuperar tudo'], batch: ['Desfazer a importação inteira?', 'Desfazer importação'], row: ['Restaurar este item da importação?', 'Restaurar'] }[mode];
+  const casc = ev.cascade && ev.cascade.byType ? Object.keys(ev.cascade.byType).map(k => ev.cascade.byType[k] + ' ' + cxActColName(k, ev.cascade.byType[k])) : [];
+  const rev = [];
+  if (mode === 'field') rev.push([req.change.label, cxActShown(req.change, 'to') || '(vazio)', cxActShown(req.change, 'from') || '(vazio)']);
+  else if (mode === 'text') {
+    const tc = (full.textChanges || []).find(x => x.f === req.f) || req.tc;
+    rev.push([tc.label, '(texto atual, ' + cxActPlain(tc, 'to').length + ' caracteres)', '(texto anterior, ' + cxActPlain(tc, 'from').length + ' caracteres)']);
+  } else if (mode === 'event' && ev.action !== 'criar') {
+    (ev.changes || []).forEach(c => rev.push([c.label, cxActShown(c, 'to') || '(vazio)', cxActShown(c, 'from') || '(vazio)']));
+    (full.textChanges || ev.textChanges || []).forEach(tc => rev.push([tc.label, '(texto atual)', '(texto anterior, ' + cxActPlain(tc, 'from').length + ' caracteres)']));
+  } else if (mode === 'row') rev.push([cxCap(cxActColName(req.row.col, 1)), req.row.label || req.row.id, req.row.op === 'create' ? 'será removido' : req.row.op === 'delete' ? 'será recuperado' : 'volta ao valor anterior']);
+  const stats = ev.batch && ev.batch.stats;
+  const conf = st.r ? st.r.conflicts : [];
+  const nothing = st.r && st.r.applied === 0 && !conf.length;
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <div className="cx cx-act-modal" role="dialog" aria-modal="true" aria-label={T[0]}>
+      <div className="cx-act-mh"><h2>{T[0]}</h2><p>{ev.summary}{ev.entity && ev.entity.proc ? ' · ' + cxActMask(ev.entity.proc) : ''}</p></div>
+      <div className="cx-act-mb">
+        {rev.length ? <div className="cx-act-rev">{rev.map((r, i) => <div className="it" key={i}><span className="k">{r[0]}</span><span><span className="now">{r[1]}</span> &nbsp;→&nbsp; <span className="back">{r[2]}</span></span></div>)}</div> : null}
+        {mode === 'recover' ? <div className="cx-act-rev">
+          <div className="it"><span className="k">Item principal</span><span className="back">{cxActItemName(ev)}</span></div>
+          {casc.map((c, i) => <div className="it" key={i}><span className="k">Vai junto</span><span className="back">{c}</span></div>)}
+          {ev.op && ev.op.name ? <div className="it"><span className="k">Operação</span><span>{ev.op.name}</span></div> : null}
+        </div> : null}
+        {mode === 'batch' ? <div className="cx-act-rev">
+          <div className="it"><span className="k">Importação</span><span>{ev.batch.label} · {cxActDmy(ev.day)} às {cxActTime(ev.ts)}</span></div>
+          {stats ? <>
+            {stats.update ? <div className="it"><span className="k">Alterados</span><span className="back">{stats.update} voltam ao valor anterior</span></div> : null}
+            {stats.create ? <div className="it"><span className="k">Novos</span><span className="back">{stats.create} serão removidos</span></div> : null}
+            {stats.delete ? <div className="it"><span className="k">Removidos</span><span className="back">{stats.delete} serão recuperados</span></div> : null}
+          </> : null}
+        </div> : null}
+        {st.loading ? <div className="cx-act-mn">Conferindo o que muda…</div> : null}
+        {st.error ? <div className="cx-act-mn warn">Não foi possível restaurar: {st.error}</div> : null}
+        {st.r && !conf.length && !nothing ? <div className="cx-act-mn">{cxPl(st.r.applied, 'item será atualizado', 'itens serão atualizados')}. A restauração fica registrada como uma nova linha em “Minha atividade” (origem: restauração) e dá para restaurar de novo se mudar de ideia.</div> : null}
+        {nothing ? <div className="cx-act-mn">Nada a restaurar: os dados já estão como estavam antes desta alteração.</div> : null}
+        {conf.length ? <div className="cx-act-mn warn">Alguns itens foram <b>alterados depois por você</b>, então restaurar sobrescreve o que está lá agora:
+          <ul>{conf.slice(0, 8).map((c, i) => <li key={i}>{c.label && cxNorm(c.label).indexOf(cxNorm(cxActColName(c.col, 1))) === 0 ? c.label : cxCap(cxActColName(c.col, 1)) + (c.label ? ' ' + c.label : '')} — {c.motivo}</li>)}</ul>
+          {conf.length > 8 ? <div>… e mais {conf.length - 8}.</div> : null}
+          {st.r.applied > 0 ? <div style={{ marginTop: 4 }}>{cxPl(st.r.applied, 'item não tem conflito', 'itens não têm conflito')} e pode voltar sem sobrescrever nada.</div> : null}
+        </div> : null}
+      </div>
+      <div className="cx-act-mf">
+        <button type="button" className="cx-btn" onClick={onClose}>Cancelar</button>
+        {conf.length && st.r.applied > 0 ? <button type="button" className="cx-btn" disabled={busy} onClick={() => go(false)}>Restaurar o que não conflita</button> : null}
+        {conf.length ? <button type="button" className="cx-btn primary" disabled={busy} onClick={() => go(true)}><CxIcon n="history" s={14} />Restaurar mesmo assim</button>
+          : <button type="button" className="cx-btn primary" disabled={busy || !st.r || nothing} onClick={() => go(false)}><CxIcon n="history" s={14} />{T[1]}</button>}
+      </div>
+    </div>
+  </>;
+}
+
+function EditionClaudeAtividade(p) {
+  const { activity, data } = p;
+  const today = React.useMemo(() => dayKey(new Date()), []);
+  const [per, setPer] = React.useState('hoje');
+  const [off, setOff] = React.useState(0);
+  const [cust, setCust] = React.useState(() => ({ from: addCalendarDays(today, -6), to: today }));
+  const [opId, setOpId] = React.useState('');
+  const [q, setQ] = React.useState('');
+  const [types, setTypes] = React.useState(() => new Set());
+  const [minor, setMinor] = React.useState(false);
+  const [kpi, setKpi] = React.useState(null);
+  const [openIds, setOpenIds] = React.useState(() => new Set());
+  const [events, setEvents] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState('');
+  const [tick, setTick] = React.useState(0);
+  const [fulls, setFulls] = React.useState({});
+  const [restoreReq, setRestoreReq] = React.useState(null);
+  const [menu, setMenu] = React.useState(null); // 'tipo' | 'exp'
+  const [exp, setExp] = React.useState(null); // { busy } | { err, csv } | { url, kind }
+  const [shown, setShown] = React.useState(200);
+  const [pending, setPending] = React.useState(0);
+  const wrapRef = React.useRef(null);
+  const fetching = React.useRef(new Set());
+  const blobs = React.useRef(new WeakMap());
+  const range = React.useMemo(() => cxActRange(per, off, cust, today), [per, off, cust, today]);
+
+  React.useEffect(() => {
+    let dead = false;
+    setLoading(true); setErr('');
+    activity.list(range.from, range.to).then(r => {
+      if (dead) return;
+      setEvents((r || []).slice().sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : a.id < b.id ? 1 : -1)));
+      setLoading(false);
+    }).catch(e => { if (!dead) { setErr(String((e && e.message) || e)); setLoading(false); } });
+    return () => { dead = true; };
+  }, [range.from, range.to, tick, activity]);
+  React.useEffect(() => { setShown(200); }, [range.from, range.to, opId, q, kpi, minor, types]);
+  React.useEffect(() => {
+    const gas = typeof activityGas === 'function' && activityGas();
+    const read = () => setPending(gas ? activity.pendingCount() : 0);
+    read();
+    const t = setInterval(read, 4000);
+    return () => clearInterval(t);
+  }, [activity, tick]);
+  React.useEffect(() => {
+    if (!menu) return undefined;
+    const down = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setMenu(null); };
+    const key = (e) => { if (e.key === 'Escape') setMenu(null); };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
+  }, [menu]);
+  // Ao abrir um registro de lista leve com texto cortado, busca o evento completo.
+  React.useEffect(() => {
+    events.forEach(ev => {
+      if (!openIds.has(ev.id) || fulls[ev.id] || fetching.current.has(ev.id)) return;
+      if (!(ev.textChanges || []).some(t => t.cut)) return;
+      fetching.current.add(ev.id);
+      activity.getFull(ev).then(f => setFulls(s => ({ ...s, [ev.id]: f }))).catch(() => setFulls(s => ({ ...s, [ev.id]: 'erro' })));
+    });
+  }, [openIds, events]);
+
+  const opById = React.useMemo(() => new Map((data.operations || []).map(o => [o.id, o])), [data.operations]);
+  const base = React.useMemo(() => events.filter(e => !opId || (e.op && e.op.id === opId)), [events, opId]);
+  const nMinor = base.filter(e => e.minor).length;
+  const vis = React.useMemo(() => (minor ? base : base.filter(e => !e.minor)), [base, minor]);
+  const typeCount = React.useMemo(() => { const m = {}; vis.forEach(e => { const t = cxActType(e); m[t] = (m[t] || 0) + 1; }); return m; }, [vis]);
+  const typeKeys = React.useMemo(() => { const s = new Set(base.map(cxActType)); types.forEach(t => s.add(t)); return Object.keys(CX_ACT_TYPES).filter(t => s.has(t)); }, [base, types]);
+  const kpiVals = React.useMemo(() => {
+    const cda = new Set();
+    vis.forEach(e => cxActCdaIds(e).forEach(i => cda.add(i)));
+    return CX_ACT_KPIS.map(k => (k[0] === 'cdas' ? cda.size : vis.filter(k[2]).length));
+  }, [vis]);
+  const filtered = React.useMemo(() => {
+    const kp = kpi ? CX_ACT_KPIS.find(k => k[0] === kpi) : null;
+    const qs = q.trim();
+    const qn = cxNorm(qs);
+    const qd = /^[\d.\-/\s]+$/.test(qs) ? qs.replace(/\D/g, '') : '';
+    return vis.filter(e => {
+      if (types.size && !types.has(cxActType(e))) return false;
+      if (kp && !kp[2](e)) return false;
+      if (qs) {
+        let b = blobs.current.get(e);
+        if (!b) { b = { t: cxActBlob(e), d: cxActDigits(e) }; blobs.current.set(e, b); }
+        if (!(b.t.includes(qn) || (qd.length >= 4 && b.d.some(x => x.includes(qd))))) return false;
+      }
+      return true;
+    });
+  }, [vis, types, kpi, q]);
+
+  const setPeriod = (v) => { setPer(v); setOff(0); };
+  const toggleType = (t) => setTypes(s => { const n = new Set(s); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+  const toggleOpen = (id) => setOpenIds(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const reloadSoon = () => { setTick(t => t + 1); setTimeout(() => setTick(t => t + 1), 900); setTimeout(() => setTick(t => t + 1), 2800); };
+  const onDone = (res) => {
+    setRestoreReq(null);
+    cxNotify(res && res.applied > 0 ? 'Restaurado. Nova linha adicionada ao registro.' : 'Nada mudou: já estava como antes.');
+    reloadSoon();
+  };
+
+  const title = 'Minha atividade — ' + range.label;
+  const exportSheet = async () => {
+    setMenu(null); setExp({ busy: true });
+    const rows = filtered.map(cxActEvRow);
+    try {
+      const r = await activity.exportSheet({ title, sheets: [{ name: 'Atividade', header: CX_ACT_HEADER, rows, mono: [3] }] });
+      setExp({ url: r.url, kind: 'Planilha' });
+      try { window.open(r.url, '_blank', 'noopener'); } catch (e) { /* o aviso tem o link */ }
+    } catch (e) { setExp({ err: String((e && e.message) || e), kind: 'Planilha' }); }
+  };
+  const exportDoc = async () => {
+    setMenu(null); setExp({ busy: true });
+    const blocks = [{ type: 'h1', text: title }, { type: 'p', text: filtered.length + ' registros · gerado em ' + new Date().toLocaleString('pt-BR'), small: true }];
+    const byDay = new Map();
+    filtered.slice().reverse().forEach(e => { if (!byDay.has(e.day)) byDay.set(e.day, []); byDay.get(e.day).push(e); });
+    Array.from(byDay.keys()).sort().forEach(day => {
+      const l = cxActDayLabel(day, today);
+      blocks.push({ type: 'h2', text: l.sub || l.main });
+      blocks.push({ type: 'table', header: ['Hora', 'Operação', 'Processo', 'Tipo', 'Resumo', 'Origem'], mono: [2],
+        rows: byDay.get(day).map(e => { const r = cxActEvRow(e); return [r[1], r[2], r[3], r[4], r[6], r[9]]; }) });
+    });
+    try {
+      const r = await activity.exportDoc({ title, blocks });
+      setExp({ url: r.url, kind: 'Google Doc' });
+      try { window.open(r.url, '_blank', 'noopener'); } catch (e) { /* o aviso tem o link */ }
+    } catch (e) { setExp({ err: String((e && e.message) || e), kind: 'Google Doc' }); }
+  };
+  const downloadCsv = () => { cxActDownload('minha-atividade_' + range.from + '_' + range.to + '.csv', cxActCsv(filtered.map(cxActEvRow))); setExp(null); };
+
+  const list = filtered.slice(0, shown);
+  const groups = [];
+  list.forEach(e => { const g = groups[groups.length - 1]; if (g && g.day === e.day) g.items.push(e); else groups.push({ day: e.day, items: [e] }); });
+  const filtersOn = !!(q.trim() || types.size || kpi);
+  const kpiName = kpi ? CX_ACT_KPIS.find(k => k[0] === kpi)[1] : '';
+
+  return <div className="cx cx-page" ref={wrapRef}>
+    <div className="cx-page-h">
+      <div><h1>Minha atividade</h1><p>Tudo o que você alterou no Nexus, com antes e depois. Dá para conferir e, se precisar, restaurar.</p></div>
+      <div className="cx-acts">
+        {pending > 0 ? <span className="cx-muted cx-small" title="Ficam guardadas neste aparelho e seguem para o Drive quando houver conexão.">{cxPl(pending, 'alteração aguardando envio', 'alterações aguardando envio')}</span> : null}
+        <span className="cx-act-pw">
+          <button type="button" className="cx-btn" aria-haspopup="true" aria-expanded={menu === 'exp'} disabled={!filtered.length || (exp && exp.busy)} onClick={() => setMenu(menu === 'exp' ? null : 'exp')}><CxIcon n="upload" s={14} />Exportar período<CxIcon n="chevD" s={12} /></button>
+          {menu === 'exp' ? <div className="cx-act-pop r" role="menu">
+            <small>{range.label} · {cxPl(filtered.length, 'registro', 'registros')}</small>
+            <button type="button" role="menuitem" onClick={exportSheet}><CxIcon n="list" s={14} />Planilha (Google Sheets)</button>
+            <button type="button" role="menuitem" onClick={exportDoc}><CxIcon n="file" s={14} />Google Doc</button>
+            <hr /><small>Exporta o que está filtrado na tela.</small>
+          </div> : null}
+        </span>
+      </div>
+    </div>
+
+    {exp && (exp.busy || exp.url || exp.err) ? <div className="cx-act-note" role="status">
+      {exp.busy ? <span>Gerando arquivo…</span> : null}
+      {exp.url ? <><span>{exp.kind} criada no seu Drive.</span><a className="cx-act-link" href={exp.url} target="_blank" rel="noopener noreferrer">Abrir {exp.kind === 'Planilha' ? 'a planilha' : 'o documento'}</a></> : null}
+      {exp.err ? <><span>{/app publicado/.test(exp.err) ? 'A exportação para o Google só funciona no app publicado (aberto pelo Apps Script).' : 'Não foi possível exportar: ' + exp.err}</span><button type="button" className="cx-btn sm" onClick={downloadCsv}><CxIcon n="upload" s={12} />Baixar CSV</button></> : null}
+      {!exp.busy ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => setExp(null)} aria-label="Fechar aviso"><CxIcon n="x" s={12} /></button> : null}
+    </div> : null}
+
+    <div className="cx-ks cx-act-ks" style={{ '--n': 5 }}>
+      {CX_ACT_KPIS.map((k, i) => <button key={k[0]} type="button" className={'cx-kc click' + (kpi === k[0] ? ' on' : '')} aria-pressed={kpi === k[0]} title={kpi === k[0] ? 'Clique para limpar o filtro' : 'Filtrar a lista por ' + k[1].toLowerCase()} onClick={() => setKpi(kpi === k[0] ? null : k[0])}>
+        <span className="cx-kc-l">{k[1]}</span><span className={'cx-kc-v' + (k[0] === 'excluidos' && kpiVals[i] ? ' red' : '')}>{kpiVals[i]}</span>
+      </button>)}
+    </div>
+
+    <div className="cx-act-fil">
+      <div className="cx-act-fr">
+        <div className="cx-seg lg" role="group" aria-label="Período">
+          {[['hoje', 'Hoje'], ['semana', 'Semana'], ['mes', 'Mês'], ['custom', 'Período…']].map(x => <button key={x[0]} type="button" className={per === x[0] ? 'on' : ''} onClick={() => setPeriod(x[0])}>{x[1]}</button>)}
+        </div>
+        {per === 'custom'
+          ? <span className="cx-act-dates"><input type="date" className="cx-input" aria-label="De" value={cust.from} max={today} onChange={e => e.target.value && setCust(c => ({ ...c, from: e.target.value }))} />até<input type="date" className="cx-input" aria-label="Até" value={cust.to} max={today} onChange={e => e.target.value && setCust(c => ({ ...c, to: e.target.value }))} /></span>
+          : <span className="cx-act-step">
+            <button type="button" className="cx-icon-btn" onClick={() => setOff(off - 1)} aria-label="Período anterior"><CxIcon n="chevL" s={14} /></button>
+            <span className="cx-act-lbl">{range.label}</span>
+            <button type="button" className="cx-icon-btn" disabled={off >= 0} onClick={() => setOff(off + 1)} aria-label="Próximo período"><CxIcon n="chevR" s={14} /></button>
+          </span>}
+        <CxSelect value={opId} onChange={setOpId} label="Operação" options={[['', 'Todas as operações']].concat((data.operations || []).slice().sort(sortOpsByName).map(o => [o.id, cxOpName(o)]))} />
+        <label className="cx-field"><CxIcon n="search" s={14} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar: nº do processo (com ou sem máscara), CDA, texto…" autoComplete="off" aria-label="Buscar na atividade" />
+          {q ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => setQ('')} aria-label="Limpar busca"><CxIcon n="x" s={12} /></button> : null}</label>
+      </div>
+      <div className="cx-act-fr">
+        <span className="cx-act-pw">
+          <button type="button" className="cx-btn" aria-haspopup="true" aria-expanded={menu === 'tipo'} onClick={() => setMenu(menu === 'tipo' ? null : 'tipo')}><CxIcon n="filter" s={13} />Tipo{types.size ? <span className="cx-act-tcount">{types.size}</span> : null}<CxIcon n="chevD" s={12} /></button>
+          {menu === 'tipo' ? <div className="cx-act-pop" role="group" aria-label="Filtrar por tipo">
+            {typeKeys.map(t => <label key={t}><input type="checkbox" checked={types.has(t)} onChange={() => toggleType(t)} />{CX_ACT_TYPES[t]}<em>{typeCount[t] || 0}</em></label>)}
+            {!typeKeys.length ? <small>Nenhum tipo neste período.</small> : null}
+            {types.size ? <><hr /><button type="button" onClick={() => setTypes(new Set())}>Limpar seleção</button></> : null}
+          </div> : null}
+        </span>
+        {types.size ? <span className="cx-muted cx-small">{Array.from(types).map(t => CX_ACT_TYPES[t]).join(', ')}</span> : null}
+        <span className="cx-sp" />
+        <label className="cx-act-tog"><input type="checkbox" checked={minor} onChange={e => setMinor(e.target.checked)} /><span className="tr" />Mostrar também ajustes menores {nMinor ? <em>({minor ? nMinor + ' incluídos' : nMinor + ' ocultos'})</em> : null}</label>
+      </div>
+    </div>
+
+    {loading && !events.length ? <div className="cx-act-list"><div className="cx-act-empty">Carregando o registro…</div></div>
+      : err ? <div className="cx-act-list"><div className="cx-act-empty">Não foi possível carregar o registro: {err}<div style={{ marginTop: 10 }}><button type="button" className="cx-btn sm" onClick={() => setTick(t => t + 1)}>Tentar de novo</button></div></div></div>
+      : !filtered.length ? <div className="cx-act-list"><div className="cx-act-empty">{filtersOn ? 'Nenhum registro com esses filtros.' : !vis.length && nMinor ? 'Só há ajustes menores neste período (' + nMinor + ' ocultos).' : 'Nada registrado neste período.'}</div></div>
+      : groups.map(g => { const l = cxActDayLabel(g.day, today); return <div key={g.day}>
+        <div className="cx-act-day">{l.main}{l.sub ? <span>{l.sub}</span> : null}</div>
+        <div className="cx-act-list">{g.items.map(e => <CxActRow key={e.id} ev={e} open={openIds.has(e.id)} full={fulls[e.id]} opObj={e.op ? opById.get(e.op.id) : null}
+          onToggle={() => toggleOpen(e.id)} onOpen={p.onOpenEntity} onRestore={setRestoreReq} />)}</div>
+      </div>; })}
+    {filtered.length > shown ? <div className="cx-act-more"><button type="button" className="cx-btn sm" onClick={() => setShown(shown + 200)}>Mostrar mais ({filtered.length - shown})</button></div> : null}
+
+    <div className="cx-act-foot">
+      <span>{cxPl(filtered.length, 'registro', 'registros')}{minor ? ' (inclui ajustes menores)' : ' relevantes'}{kpi ? ' · filtrando por ' + kpiName.toLowerCase() : ''}{kpi ? <> · <button type="button" className="cx-link-btn" onClick={() => setKpi(null)}>limpar</button></> : null}</span>
+      <span>O registro é automático. Restaurar nunca apaga o histórico: gera uma nova linha.</span>
+    </div>
+    {restoreReq ? <CxActRestoreModal req={restoreReq} activity={activity} onClose={() => setRestoreReq(null)} onDone={onDone} /> : null}
   </div>;
 }

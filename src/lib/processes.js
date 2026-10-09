@@ -508,23 +508,60 @@ export function filterImportedProcessNotes(notes) {
 }
 
 /** Nota automática no card do processo (aba Processos e Prescrição) após registro de atuação. */
-export function buildAtuacaoProcessNote(intim, action, respondedAt) {
+export function buildAtuacaoProcessNote(_intim, action) {
   const ra = action || {};
-  const typeLabels = { peticionamento: ra.peticionType || 'Peticionamento', ciencia: 'Ciência', outra: 'Outra medida' };
-  const lbl = typeLabels[ra.type] || 'Atuação';
+  const desc = String(ra.description || '').trim();
+  let text = desc ? `Registro de atuação: ${desc}` : 'Registro de atuação';
+  const linkUrl = String((ra.type === 'peticionamento' ? ra.peticionUrl : ra.docUrl) || '').trim();
+  if (linkUrl) text += ` / Peça: ${linkUrl}`;
+  return text;
+}
+
+const ATUACAO_PIECE_TAIL = /\s*(?:\/\s*)?Peça:\s*(https?:\/\/\S+)\s*$/i;
+
+/**
+ * Separa o texto visível da nota de atuação do endereço da peça.
+ * Notas antigas ([Atuação · tipo · data] … (evento) Peça: url) aparecem no formato novo.
+ * Devolve null quando a nota não é de atuação.
+ */
+export function presentAtuacaoProcessNote(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  if (/^Registro de atuação\b/.test(text)) {
+    const piece = text.match(ATUACAO_PIECE_TAIL);
+    const url = piece ? piece[1] : '';
+    let body = piece ? text.slice(0, piece.index).trim() : text;
+    body = body.replace(/\s*\/\s*$/, '').trim();
+    return { text: body, url };
+  }
+  const old = text.match(/^\[Atuação · [^\]]+\]\s*([\s\S]*)$/);
+  if (!old) return null;
+  let body = old[1].trim();
+  const piece = body.match(ATUACAO_PIECE_TAIL);
+  const url = piece ? piece[1] : '';
+  if (piece) body = body.slice(0, piece.index).trim();
+  body = body.replace(/\s+\([^)]*\)\s*$/, '').trim();
+  return { text: body ? `Registro de atuação: ${body}` : 'Registro de atuação', url };
+}
+
+/**
+ * Nota automática no card do processo para uma atuação PROATIVA (sem intimação) — mesmo papel de
+ * buildAtuacaoProcessNote, com o rótulo "Atuação proativa". O texto integral da peça NÃO vai para a
+ * nota (fica em execution.proactiveActions[].pecaText).
+ */
+export function buildProactiveProcessNote(action) {
+  const a = action || {};
   let datePart = '';
-  const iso = String(respondedAt || '').slice(0, 10);
+  const iso = String(a.date || '').slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
     const [y, m, d] = iso.split('-');
     datePart = ` · ${d}/${m}/${y}`;
   }
-  const chunks = [`[Atuação · ${lbl}${datePart}]`];
-  const desc = String(ra.description || '').trim();
-  if (desc) chunks.push(desc);
-  const ev = String(intim?.eventDescription || '').trim();
-  if (ev && !desc.includes(ev)) chunks.push(`(${ev})`);
-  const linkUrl = ra.type === 'peticionamento' ? ra.peticionUrl : ra.docUrl;
-  if (linkUrl && String(linkUrl).trim()) chunks.push(`Peça: ${String(linkUrl).trim()}`);
+  const chunks = [`[Atuação proativa${datePart}]`];
+  const summary = String(a.summary || '').trim();
+  if (summary) chunks.push(summary);
+  const url = String(a.pecaUrl || '').trim();
+  if (url) chunks.push(`Peça: ${url}`);
   return chunks.join(' ');
 }
 

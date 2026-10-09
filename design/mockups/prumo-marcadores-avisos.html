@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Avisos na coluna Marcadores</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cx-ground: #f2f3f5; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722;
+  --cx-red: #c2323d; --cx-yellow: #c99a1a; --cx-blue: #2d62d3;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb;
+  --cx-blue-soft: #e7eefc; --cx-yellow-soft: #f8efd2;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --cx-mono: 'Geist Mono', ui-monospace, Consolas, monospace;
+  --slot: 14px;
+  --gap: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--cx-font); font-size: 13px; line-height: 1.45; color: var(--cx-ink);
+  background: var(--cx-ground); -webkit-font-smoothing: antialiased;
+  padding: 36px 28px 80px;
+}
+.doc { max-width: 1080px; margin: 0 auto; }
+.eyebrow { font: 600 11px var(--cx-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-accent); }
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 8px; }
+.lede { max-width: 680px; color: var(--cx-ink-2); font-size: 14.5px; line-height: 1.55; }
+.lede strong { color: var(--cx-ink); font-weight: 600; }
+
+.legend {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;
+  margin: 22px 0 8px; max-width: 860px;
+}
+.legend .item { display: flex; align-items: flex-start; gap: 10px; }
+.legend .item .ball { margin-top: 5px; }
+.legend .txt { font-size: 13px; }
+.legend .txt b { font-weight: 600; }
+.legend .txt span { display: block; color: var(--cx-ink-3); font-size: 12px; margin-top: 1px; }
+
+.note {
+  margin: 14px 0 28px; max-width: 680px; font-size: 12.5px; color: var(--cx-ink-2); line-height: 1.5;
+}
+
+h2 { font-size: 13px; font-weight: 600; margin: 0 0 4px; }
+.sec { margin-bottom: 28px; }
+.sec p.hint { color: var(--cx-ink-3); font-size: 12.5px; margin-bottom: 10px; max-width: 680px; }
+
+.card {
+  background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(20,24,32,.05);
+  overflow: hidden;
+}
+
+/* Grade de 7 casas: 2 avisos + 5 ícones. A casa vazia continua no lugar. */
+.sig {
+  display: grid;
+  grid-template-columns: repeat(7, var(--slot));
+  column-gap: var(--gap);
+  align-items: center;
+  justify-items: center;
+  height: var(--slot);
+  width: calc(7 * var(--slot) + 6 * var(--gap));
+}
+.sig .ic { width: 14px; height: 14px; color: var(--cx-ink-3); display: block; }
+.sig .ic.star { color: var(--cx-accent); }
+.ball { width: 8px; height: 8px; border-radius: 50%; display: block; }
+.ball.hi { background: var(--cx-red); }
+.ball.lo { background: var(--cx-yellow); }
+.ball.intim { background: var(--cx-blue); }
+
+/* Régua: as duas primeiras colunas com fundo, para a casa vazia ficar visível. */
+.ruler { padding: 6px 16px 8px; }
+.rrow {
+  display: grid;
+  grid-template-columns: 180px calc(7 * var(--slot) + 6 * var(--gap)) 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px dotted var(--cx-line);
+}
+.rrow .who { font-size: 12.5px; color: var(--cx-ink-2); }
+.rrow .who b { display: block; color: var(--cx-ink); font-weight: 500; }
+.lane {
+  background-image: linear-gradient(#e8ebf0, #e8ebf0);
+  background-size: calc(2 * var(--slot) + var(--gap)) 100%;
+  background-repeat: no-repeat;
+  border-radius: 4px;
+  width: calc(7 * var(--slot) + 6 * var(--gap));
+  height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th {
+  text-align: left; font-size: 10.5px; font-weight: 500; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--cx-ink-3);
+  padding: 8px 10px; border-bottom: 1px solid var(--cx-line); background: var(--cx-surface);
+}
+td { padding: 8px 10px; border-bottom: 1px dotted var(--cx-line); vertical-align: middle; color: var(--cx-ink-2); }
+th.r, td.r { text-align: right; }
+.num { font-family: var(--cx-mono); font-size: 12px; font-weight: 500; color: var(--cx-ink); letter-spacing: -.01em; white-space: nowrap; }
+.ap { margin-left: 6px; font-size: 11px; color: var(--cx-ink-3); }
+tr.band td { background: var(--cx-surface-2); border-bottom: 1px solid var(--cx-line); padding-top: 7px; padding-bottom: 7px; }
+tr.band b { color: var(--cx-ink); font-weight: 600; }
+tr.band .n { color: var(--cx-ink-3); font-weight: 400; font-size: 12px; margin-left: 6px; }
+tr.data:hover td { background: var(--cx-hover); }
+.ck { width: 14px; height: 14px; border: 1px solid var(--cx-line-strong); border-radius: 3px; display: inline-block; }
+.badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+.badge.g { background: var(--cx-green-soft); color: var(--cx-green); }
+.badge.b { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.badge.y { background: var(--cx-yellow-soft); color: #946b00; }
+.money, .cdas { font-family: var(--cx-mono); font-size: 12px; color: var(--cx-ink); font-variant-numeric: tabular-nums; }
+.presc { color: var(--cx-ink-3); font-size: 12px; }
+.card-h {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 12px 14px 10px; border-bottom: 1px solid var(--cx-line);
+}
+.card-h b { font-weight: 600; }
+.card-h span { color: var(--cx-ink-3); font-size: 12px; }
+
+.compare { display: grid; grid-template-columns: 72px 1fr; }
+.compare .tag {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--cx-ink-3); padding: 12px 0 12px 14px; border-bottom: 1px dotted var(--cx-line);
+  display: flex; align-items: center;
+}
+.compare .tag.now { color: var(--cx-ink-2); }
+.compare .body { padding: 10px 14px; border-bottom: 1px dotted var(--cx-line); display: flex; align-items: center; gap: 18px; }
+.mini-num { display: flex; align-items: center; min-width: 250px; }
+.dot-old { width: 7px; height: 7px; border-radius: 50%; background: var(--cx-blue); margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="eyebrow">Mockup · Processos</div>
+  <h1>Avisos na frente dos marcadores</h1>
+  <p class="lede">Intimação e tarefa passam a morar na coluna <strong>Marcadores</strong>, uma ao lado da outra, <strong>antes</strong> dos ícones que já existem. Cada aviso ocupa uma casa fixa. Se não houver aviso, a casa continua vazia no mesmo lugar — a linha de baixo não entorta.</p>
+
+  <div class="legend">
+    <div class="item">
+      <span class="ball hi"></span>
+      <div class="txt"><b>Tarefa de alta importância</b><span>Bola vermelha. Se também houver uma baixa, fica a vermelha.</span></div>
+    </div>
+    <div class="item">
+      <span class="ball lo"></span>
+      <div class="txt"><b>Tarefa de baixa importância</b><span>Bola amarela. Uma bola só por processo.</span></div>
+    </div>
+    <div class="item">
+      <span class="ball intim"></span>
+      <div class="txt"><b>Intimação aberta</b><span>Bola azul. Sai de junto do número do processo.</span></div>
+    </div>
+  </div>
+  <p class="note">Importância média entra na bola amarela, junto com a baixa. Urgente entra na vermelha, junto com a alta. A intimação não muda de cor.</p>
+
+  <section class="sec">
+    <h2>As sete casas, sempre na mesma ordem</h2>
+    <p class="hint">As duas primeiras são os avisos. As cinco seguintes são os marcadores de hoje: relevante, meu acervo, acompanhar, cópia na pasta e constrição. A estrela da terceira casa cai no mesmo ponto em todas as linhas.</p>
+    <div class="card">
+        <div class="ruler">
+        <div class="rrow">
+          <div class="who"><b>Tarefa alta e intimação</b>com ícones ao lado</div>
+          <div class="lane"><div class="sig">
+            <i class="ball hi" title="Tarefa de alta importância"></i>
+            <i class="ball intim" title="Intimação aberta"></i>
+            <svg class="ic star" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5l1.76 3.56 3.94.57-2.85 2.78.67 3.92L8 10.48l-3.52 1.85.67-3.92L2.3 5.63l3.94-.57L8 1.5z"/></svg>
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.2 12 4.2l8.5 7"/><path d="M6 10.6V19.5h12V10.6"/><path d="M10 19.5v-5h4v5"/></svg>
+            <span></span><span></span><span></span>
+          </div></div>
+          <div></div>
+        </div>
+        <div class="rrow">
+          <div class="who"><b>Só tarefa baixa</b>a casa da intimação fica vazia</div>
+          <div class="lane"><div class="sig">
+            <i class="ball lo" title="Tarefa de baixa importância"></i>
+            <span></span>
+            <span></span><span></span><span></span>
+            <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+            <span></span>
+          </div></div>
+          <div></div>
+        </div>
+        <div class="rrow">
+          <div class="who"><b>Só intimação</b>a casa da tarefa fica vazia</div>
+          <div class="lane"><div class="sig">
+            <span></span>
+            <i class="ball intim" title="Intimação aberta"></i>
+            <span></span><span></span>
+            <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></svg>
+            <span></span><span></span>
+          </div></div>
+          <div></div>
+        </div>
+        <div class="rrow">
+          <div class="who"><b>Sem aviso</b>os ícones não andam para a esquerda</div>
+          <div class="lane"><div class="sig">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.6A2.9 2.9 0 005.1 4.5V6H4.2A1.2 1.2 0 003 7.2v5.1c0 .66.54 1.2 1.2 1.2h7.6c.66 0 1.2-.54 1.2-1.2V7.2c0-.66-.54-1.2-1.2-1.2h-.9V4.5A2.9 2.9 0 008 1.6zm0 1.3c.9 0 1.6.7 1.6 1.6V6H6.4V4.5c0-.9.7-1.6 1.6-1.6zM8 9.1a1.1 1.1 0 110 2.2A1.1 1.1 0 018 9.1z"/></svg>
+          </div></div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>O que muda na primeira linha da foto</h2>
+    <p class="hint">Hoje a bola azul fica colada no número. Na proposta ela entra na segunda casa de Marcadores, ao lado da tarefa e antes dos ícones.</p>
+    <div class="card compare">
+      <div class="tag">Hoje</div>
+      <div class="body">
+        <div class="mini-num"><span class="num">000309094020138240064</span><i class="dot-old" title="Intimação, hoje ao lado do número"></i><span class="ap">2 ap.</span></div>
+        <div class="sig">
+          <span></span><span></span>
+          <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></svg>
+          <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+          <span></span>
+          <i class="ball lo" title="Tarefa, hoje no fim da fila"></i>
+          <i class="ball intim" title="Intimação, hoje também no fim da fila"></i>
+        </div>
+      </div>
+      <div class="tag now">Proposta</div>
+      <div class="body">
+        <div class="mini-num"><span class="num">000309094020138240064</span><span class="ap">2 ap.</span></div>
+        <div class="sig">
+          <i class="ball lo" title="Tarefa de baixa importância"></i>
+          <i class="ball intim" title="Intimação aberta"></i>
+          <span></span><span></span>
+          <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></svg>
+          <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Na lista</h2>
+    <p class="hint">O recorte usa os processos da foto. As bolas de tarefa são exemplo de posição e de cor. A bola azul da primeira linha é a intimação que hoje aparece ao lado do número.</p>
+    <div class="card">
+      <div class="card-h"><b>Execuções sem vínculo</b><span>7 · fora de IDPJ, cautelar e central</span></div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th>Processo</th>
+            <th>Marcadores</th>
+            <th>Situação</th>
+            <th class="r">CDAs</th>
+            <th class="r">Valor</th>
+            <th>Prescrição</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="band"><td></td><td colspan="2"><b>Ativa</b><span class="n">6 processos</span></td><td></td><td class="r cdas">7</td><td class="r money">R$ 628.951,53</td><td class="presc">consumada</td></tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">000309094020138240064</span><span class="ap">2 ap.</span></td>
+            <td><div class="sig">
+              <i class="ball lo" title="Tarefa de baixa importância"></i>
+              <i class="ball intim" title="Intimação aberta"></i>
+              <span></span><span></span>
+              <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></svg>
+              <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+              <span></span>
+            </div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">4</td><td class="r money">R$ 529.441,77</td><td class="presc">consumada</td>
+          </tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">00091207520138240064</span></td>
+            <td><div class="sig">
+              <i class="ball hi" title="Tarefa de alta importância"></i>
+              <span></span><span></span><span></span><span></span>
+              <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+              <span></span>
+            </div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">2</td><td class="r money">R$ 87.763,35</td><td class="presc">consumada</td>
+          </tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">03014247520148240064</span></td>
+            <td><div class="sig">
+              <span></span><span></span><span></span><span></span><span></span>
+              <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1.5h5.2L13 5.3V14a.8.8 0 01-.8.8H4.8A.8.8 0 014 14V1.5zm5 0v3.2H12L9 1.5zM5.5 8h5v1h-5V8zm0 2.5h5v1h-5v-1z"/></svg>
+              <span></span>
+            </div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">2</td><td class="r money">R$ 119.910,42</td><td class="presc">consumada</td>
+          </tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">50254527620184047200</span></td>
+            <td><div class="sig"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">3</td><td class="r money">R$ 99.509,76</td><td class="presc">consumada</td>
+          </tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">50045671220164047200</span></td>
+            <td><div class="sig"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">0</td><td class="r money">R$ 0,00</td><td class="presc">—</td>
+          </tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">50073906320164047200</span></td>
+            <td><div class="sig"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></td>
+            <td><span class="badge g">Ativa</span></td>
+            <td class="r cdas">0</td><td class="r money">R$ 0,00</td><td class="presc">—</td>
+          </tr>
+          <tr class="band"><td></td><td colspan="2"><b>Suspensão parcelamento</b><span class="n">1 processo</span></td><td></td><td class="r cdas">4</td><td class="r money">R$ 174.827,33</td><td class="presc">—</td></tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">50152841520184047200</span></td>
+            <td><div class="sig">
+              <i class="ball hi" title="Tarefa de alta importância"></i>
+              <i class="ball intim" title="Intimação aberta"></i>
+              <span></span><span></span>
+              <svg class="ic" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3.2C4.6 3.2 1.85 5.85 1.2 8c.65 2.15 3.4 4.8 6.8 4.8s6.15-2.65 6.8-4.8C14.15 5.85 11.4 3.2 8 3.2zm0 8A3.2 3.2 0 118 4.8a3.2 3.2 0 010 6.4zm0-1.7A1.5 1.5 0 108 5.5a1.5 1.5 0 000 3z"/></svg>
+              <span></span><span></span>
+            </div></td>
+            <td><span class="badge b">Suspensão parcelamento</span></td>
+            <td class="r cdas">4</td><td class="r money">R$ 174.827,33</td><td class="presc">—</td>
+          </tr>
+          <tr class="band"><td></td><td colspan="2"><b>Arquivada art. 40</b><span class="n">1 processo</span></td><td></td><td class="r cdas">1</td><td class="r money">R$ 117.962,61</td><td class="presc">consumada</td></tr>
+          <tr class="data">
+            <td><i class="ck"></i></td>
+            <td><span class="num">501082711920194047200</span></td>
+            <td><div class="sig"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></td>
+            <td><span class="badge y">Arquivada art. 40</span></td>
+            <td class="r cdas">1</td><td class="r money">R$ 117.962,61</td><td class="presc">consumada</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</body>
+</html>
