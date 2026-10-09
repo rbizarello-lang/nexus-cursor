@@ -306,9 +306,6 @@ function cxCopy(text) {
   copyText(text);
   cxNotify('Copiado: ' + text);
 }
-function CxNumCopy({ value, children }) {
-  return <button type="button" className="cx-proc-copy" title="Copiar número" onClick={e => { e.stopPropagation(); if (value) cxCopy(value); }}>{children}</button>;
-}
 /* Dica flutuante única (reaproveita o visual .cx-tl-tip). Fica dentro do app (herda os tokens do tema) e em posição fixa,
    então não é cortada por tabelas com rolagem. `d` = { when, title, lines, tone }. */
 let CX_HINT_EL = null;
@@ -346,15 +343,12 @@ function cxHintProps(get) {
     onBlur: cxHintHide,
   };
 }
-/* Número do processo copiável: o próprio número é o alvo (sem ícone). Copia COM máscara; o clique não propaga
-   (não expande linha nem abre gaveta). Dica "Clique para copiar" → "Copiado ✓". */
-function CxCopyNum({ num, className = '' }) {
+/* Texto copiável: o próprio texto é o alvo (sem ícone). Copia o valor; o clique/Enter não propaga (não expande linha
+   nem abre gaveta). Aviso único em todo o Prumo: dica "Clique para copiar" → "Copiado ✓". */
+function CxCopyable({ value, className = '', label, children }) {
   const tRef = React.useRef(null);
   const ref = React.useRef(null);
   React.useEffect(() => () => { clearTimeout(tRef.current); }, []);
-  const value = String(num || '').trim();
-  if (!value) return <span className="cx-copynum cx-copynum-empty">—</span>;
-  const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(value);
   const doCopy = (e) => {
     e.stopPropagation();
     if (e.type === 'keydown') e.preventDefault();
@@ -367,13 +361,13 @@ function CxCopyNum({ num, className = '' }) {
       if (hovered) cxHintShow(el, { title: 'Clique para copiar' }); else cxHintHide();
     }, 1500);
   };
-  return <span ref={ref} className={'cx-copynum' + (className ? ' ' + className : '')} role="button" tabIndex={0}
-    aria-label={'Copiar número do processo ' + value}
+  return <span ref={ref} className={className} role="button" tabIndex={0}
+    aria-label={label || ('Copiar ' + value)}
     onClick={doCopy} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') doCopy(e); }}
     onMouseEnter={e => { clearTimeout(tRef.current); cxHintShow(e.currentTarget, { title: 'Clique para copiar' }); }}
     onFocus={e => { clearTimeout(tRef.current); cxHintShow(e.currentTarget, { title: 'Clique para copiar' }); }}
     onMouseLeave={() => { clearTimeout(tRef.current); cxHintHide(); }} onBlur={() => { clearTimeout(tRef.current); cxHintHide(); }}>
-    {m ? <>{m[1]}<i>{m[2]}</i></> : value}
+    {children}
   </span>;
 }
 
@@ -409,9 +403,17 @@ function CxDue({ iso, dd, doneIso }) {
   const info = cxDue(d, iso);
   return <span className={'cx-due ' + info.tone} title={iso ? 'Prazo final: ' + fmtDate(iso) : 'Prazo ainda não aberto'}>{info.txt}</span>;
 }
-function CxProc({ num, uf }) {
-  const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(num || '');
-  return <span className="cx-proc">{uf ? <span className="cx-uf">{uf}</span> : null}{m ? <>{m[1]}<span className="cx-d">{m[2]}</span></> : (num || '—')}</span>;
+/* Número de processo único do Prumo: Geist Mono, -0.02em, cauda do CNJ (.AAAA.J.TR.OOOO) esmaecida. `size`: sm (listas,
+   cards, subtítulos) · md (tabelas) · lg (título de gaveta/ficha). `copy` (padrão): clicar no número copia (CxCopyable);
+   desligue dentro de um <button> que já é o alvo de outra ação. `fmt={false}` para números que não são CNJ (CDA). */
+function CxProc({ num, uf, size = 'sm', copy = true, fmt = true, empty = '—', className = '' }) {
+  const raw = String(num || '').trim();
+  const value = raw && fmt ? intimProcCnj(raw) : raw;
+  const m = /^(\d{7}-\d{2})(\.\d{4}\.\d\.\d{2}\.\d{4})$/.exec(value);
+  const cls = 'cx-proc' + (size === 'md' ? ' cx-proc-md' : size === 'lg' ? ' cx-proc-lg' : '') + (className ? ' ' + className : '');
+  const body = <>{uf ? <span className="cx-uf">{uf}</span> : null}{m ? <>{m[1]}<span className="cx-d">{m[2]}</span></> : (value || empty)}</>;
+  if (!copy || !value) return <span className={cls}>{body}</span>;
+  return <CxCopyable value={value} className={cls + ' cx-proc-cpy'} label={'Copiar número ' + value}>{body}</CxCopyable>;
 }
 function CxOpTag({ op, onOpen }) {
   if (!op) return <span className="cx-op-tag cx-muted">Sem operação</span>;
@@ -1255,7 +1257,7 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
       </div>}
       <div className="cx-ix-party"><CxStatusIcon s={resolved ? 'analisado' : intim.status} /><span className="cx-ell" title={cxPartyName(intim)}>{cxPartyName(intim)}</span></div>
       <div className="cx-ix-pc">
-        <button type="button" className="cx-proc-copy" title="Copiar número do processo" onClick={e => { e.stopPropagation(); if (intim.processNumber) cxCopy(intim.processNumber); }}><CxProc num={num} uf={intim.jurisdiction} /></button>
+        <CxProc num={num} uf={intim.jurisdiction} />
         {sigla ? <span className="cx-ix-sg" title={cls}>{sigla}</span> : null}
       </div>
       {!sigla && cls ? <div className="cx-ix-cls" title={cls}>{cls}</div> : null}
@@ -1346,7 +1348,7 @@ function CxBoard({ items, sort, onOpen, onSetStatus, opsById }) {
           <span className="cx-b-row" style={{ fontWeight: 500 }}>{intimIsUrgent(x) && !done ? <span className="cx-urg">URGENTE</span> : null}<span className="cx-ell">{cxPartyName(x)}</span></span>
           <span className="cx-b-ev"><CxObj intim={x} /></span>
           {notes.length ? <span className="cx-b-nt">{notes[notes.length - 1]}</span> : null}
-          <span className="cx-b-row"><CxProc num={x.processNumber} /><span className="cx-b-glyphs"><CxImp intim={x} /><CxDif intim={x} /></span></span>
+          <span className="cx-b-row"><CxProc num={x.processNumber} copy={false} /><span className="cx-b-glyphs"><CxImp intim={x} /><CxDif intim={x} /></span></span>
         </button>;
       }) : <div className="cx-b-empty">Arraste um cartão para cá</div>}</div>
     </div>;
@@ -1899,7 +1901,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
     <CxBlock title="Dados" open={!!blocks.dados} onToggle={() => toggleBlock('dados')}
       summary={[intim.className, intim.organ].filter(Boolean).join(' · ') || '—'}>
       <dl className="cx-props">
-        <dt>Processo</dt><dd>{intim.processNumber ? <><CxProc num={intim.processNumber} uf={intim.jurisdiction} /><button type="button" className="cx-copy" title="Copiar número" aria-label="Copiar número" onClick={() => cxCopy(intim.processNumber)}><CxIcon n="copy" s={13} /></button></> : '—'}</dd>
+        <dt>Processo</dt><dd>{intim.processNumber ? <CxProc num={intim.processNumber} uf={intim.jurisdiction} /> : '—'}</dd>
         <dt>Classe</dt><dd>{intim.className || '—'}</dd>
         {intim.organ ? <><dt>Órgão</dt><dd>{intim.organ}</dd></> : null}
         {intim.parties ? <><dt>Partes</dt><dd>{intim.parties}</dd></> : null}
@@ -1951,7 +1953,7 @@ function EditionClaudeDrawer({ intimId, order, a, onClose }) {
       <div className="cx-dr-top">
         <div className="cx-crumb"><span>Intimações</span><span className="cx-sep">/</span>
           {intim.processNumber
-            ? <CxNumCopy value={intim.processNumber}><b className="cx-crumb-proc"><CxProc num={intim.processNumber} /><span className="cx-crumb-copy" aria-hidden="true"><CxIcon n="copy" s={13} /></span></b></CxNumCopy>
+            ? <CxProc num={intim.processNumber} size="lg" />
             : <b>{op ? cxOpName(op) : 'Sem operação'}</b>}
         </div>
         <button type="button" className="cx-icon-btn" onClick={() => blocksCtl.setAllBlocks(!blocksCtl.allOpen)} title={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'} aria-label={blocksCtl.allOpen ? 'Recolher tudo' : 'Expandir tudo'}><CxIcon n={blocksCtl.allOpen ? 'collapseAll' : 'expandAll'} /></button>
@@ -3721,7 +3723,7 @@ function CxAtuProcPicker({ execs, onPick, onClose }) {
       <div className="cx-pick-l">
         {list.map(e => <button key={e.id} type="button" className={'cx-pick-r' + (live(e) ? '' : ' off')} onClick={() => onPick(e)}>
           <span className="cx-ptag" style={{ '--c': cxTagColor(e) }}>{cxExecTag(e)}</span>
-          <span className="cx-mono cx-pick-num">{e.processNumber || 'S/N'}</span>
+          <CxProc num={e.processNumber} size="md" empty="S/N" copy={false} />
           <span className="cx-pick-c">{e.className || ''}{live(e) ? '' : ' · ' + ((EXEC_STATUSES[e.status] || {}).label || e.status || '')}</span>
         </button>)}
         {!list.length ? <div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhum processo com esse filtro.</div> : null}
@@ -3782,7 +3784,7 @@ function CxBfAtuacoes({ op, data, execs, upsert, onOpenIntim, onOpenTask, onOpen
           <span className={'cx-ua-d cx-mono' + (r.date ? '' : ' cx-muted')}>{r.date ? fmtDate(r.date) : 'sem data'}</span>
           <span className={'cx-ua-chip ' + r.kind}>{r.kindLabel}</span>
           <span className="cx-ua-t">{r.title}</span>
-          <span className="cx-ua-p cx-mono">{r.processNumber}</span>
+          <CxProc num={r.processNumber} className="cx-ua-p" />
           <span className="cx-ua-l"><CxDocIcon url={r.url} size={16} /></span>
         </div>)}
       </div>}
@@ -4600,7 +4602,7 @@ function CxTaskBoard({ items, done, opsById, onOpen, onSetStatus }) {
           <span className="cx-b-row" style={{ fontWeight: 500 }}>{t.priority === 'urgente' && s !== 'concluida' ? <span className="cx-urg">URGENTE</span> : null}<span className="cx-ell">{t.title || 'Tarefa'}</span></span>
           {t.description ? <span className="cx-b-ev">{t.description}</span> : null}
           {notes.length ? <span className="cx-b-nt">{notes[notes.length - 1]}</span> : null}
-          <span className="cx-b-row">{t.processNumber ? <CxProc num={t.processNumber} /> : <span className="cx-muted cx-small">sem processo</span>}<span className="cx-b-glyphs"><CxPrio v={t.priority} /></span></span>
+          <span className="cx-b-row">{t.processNumber ? <CxProc num={t.processNumber} copy={false} /> : <span className="cx-muted cx-small">sem processo</span>}<span className="cx-b-glyphs"><CxPrio v={t.priority} /></span></span>
         </button>;
       }) : <div className="cx-b-empty">Arraste uma tarefa para cá</div>}</div>
     </div>;
@@ -5101,7 +5103,7 @@ function EditionClaudeOpIntimDrawer({ op, items, onClose, onOpenIntim }) {
           const overdue = dd != null && dd < 0;
           return <button key={x.id} type="button" className={'cx-opid-card' + (overdue ? ' late' : '')} onClick={() => onOpenIntim(x.id)}>
             <div className="cx-opid-top">
-              <CxProc num={x.processNumber} uf={x.jurisdiction} />
+              <CxProc num={x.processNumber} uf={x.jurisdiction} copy={false} />
               <span className="cx-sp" />
               {x.minutaUrl ? <CxDocIcon url={x.minutaUrl} size={14} /> : null}
             </div>
@@ -5142,8 +5144,7 @@ function CxWatchRow({ w, op, onOpen, onOpenOp, onCheck, onStatus }) {
     onClick={() => onOpen(w)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(w); }}>
     <span className="cx-dot cx-w-dot" style={{ background: st.c }} title={st.l} />
     <div className="cx-i-main">
-      <div className="cx-t-title"><span className="cx-mono cx-w-proc">{w.processNumber ? <CxProc num={w.processNumber} /> : <span className="cx-muted">Sem nº</span>}</span>
-        {w.processNumber ? <button type="button" className="cx-copy" onClick={e => { e.stopPropagation(); cxCopy(w.processNumber); }} title="Copiar o número" aria-label="Copiar o número do processo"><CxIcon n="copy" s={12} /></button> : null}
+      <div className="cx-t-title">{w.processNumber ? <CxProc num={w.processNumber} size="md" /> : <span className="cx-muted">Sem nº</span>}
       </div>
       {w.parties ? <div className="cx-i-ev">{w.parties}</div> : null}
       <div className="cx-w-reason" title={w.reason || ''}><span className="cx-muted">Motivo:</span> {w.reason || '—'}</div>
@@ -5766,7 +5767,7 @@ function CxBfNews({ data, opId, setData }) {
     {newsOpen && d && (
       <div className="cx-bf-news-detail">
         {d.newDebts?.length > 0 && <div><b className="cx-green-t">+ {d.newDebts.length} CDA(s) nova(s)</b>{d.newDebts.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.cdaNumber || 'CDA'} — {fmtCur(x.value || 0)}</div>)}</div>}
-        {d.newExecs?.length > 0 && <div><b className="cx-green-t">+ {d.newExecs.length} processo(s) novo(s)</b>{d.newExecs.slice(0, 6).map(x => <div key={x.id} className="cx-small cx-mono">{x.processNumber || 'S/N'}</div>)}</div>}
+        {d.newExecs?.length > 0 && <div><b className="cx-green-t">+ {d.newExecs.length} processo(s) novo(s)</b>{d.newExecs.slice(0, 6).map(x => <div key={x.id}><CxProc num={x.processNumber} empty="S/N" /></div>)}</div>}
         {d.newAssets?.length > 0 && <div><b className="cx-green-t">+ {d.newAssets.length} bem(ns) novo(s)</b>{d.newAssets.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.description || 'Bem'}</div>)}</div>}
         {d.newPeople?.length > 0 && <div><b className="cx-green-t">+ {d.newPeople.length} pessoa(s) nova(s)</b>{d.newPeople.slice(0, 6).map(x => <div key={x.id} className="cx-small">{x.name}</div>)}</div>}
         {d.changedDebts?.length > 0 && <div><b className="cx-yellow-t">~ {d.changedDebts.length} CDA(s) alterada(s)</b></div>}
@@ -6188,7 +6189,7 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
         <td className="c1"><button type="button" className="chev" aria-expanded={open} aria-controls={'cx-bfx-' + e.id}
           aria-label={(open ? 'Recolher' : 'Expandir') + ' detalhes de ' + (e.processNumber || 'processo sem número')} onClick={ev => { ev.stopPropagation(); toggleLane(e.id); }}><CxIcon n="chevR" s={13} /></button></td>
         <td className="c-kind"><span className={'kind k-' + kind.cls} {...cxHintProps(() => ({ title: kind.label }))}>{kind.code}</span></td>
-        <td className="c-proc"><div className="pr1"><CxCopyNum num={e.processNumber} /></div>
+        <td className="c-proc"><div className="pr1"><CxProc num={e.processNumber} size="md" /></div>
           <div className="pr2"><span className="cls">{e.className || kind.label}</span><span className="rel">{rel}</span></div></td>
         <td className="c-jz" {...(e.court ? cxHintProps(() => ({ title: e.court })) : {})}>{e.court || '—'}</td>
         <td className="c-fase" {...cxHintProps(faseTip)}>{R.cur ? <>{mini}<span className="fase">{R.cur.sd.label}</span></> : <span className="cx-muted">—</span>}</td>
@@ -6242,7 +6243,7 @@ function CxBfFronts({ op, data, opExecs, opDebts, prazoRows, upsert, setModal, o
             {watches.map((w, i) => <tr key={w.id} className={'r child' + (i === watches.length - 1 ? ' last' : '')}>
               <td className="c1" />
               <td className="c-kind"><span className="kind k-acp" {...cxHintProps(() => ({ title: 'Acompanhar' }))}><CxIcon n="eye" s={12} /></span></td>
-              <td className="c-proc"><div className="pr1"><CxCopyNum num={w.processNumber} /></div><div className="pr2"><span className="cls">{w.parties || 'Em acompanhamento'}</span>{w.reason ? <span className="rel">{w.reason}</span> : null}</div></td>
+              <td className="c-proc"><div className="pr1"><CxProc num={w.processNumber} size="md" /></div><div className="pr2"><span className="cls">{w.parties || 'Em acompanhamento'}</span>{w.reason ? <span className="rel">{w.reason}</span> : null}</div></td>
               <td className="c-jz cx-muted">—</td><td className="c-fase cx-muted">—</td><td className="c-prox cx-muted">—</td>
               <td className="c-sg"><div className="cx-bft-sg"><span className="s" role="img" tabIndex={0} aria-label="Em acompanhamento" {...cxHintProps(() => ({ when: 'Acompanhar', title: (CX_WATCH[w.status || 'aguardando'] || CX_WATCH.aguardando).l, lines: [w.reason, w.parties].filter(Boolean) }))}><CxIcon n="eye" s={13} /><b>1</b></span></div></td>
               <td className="c-val"><div className="val cx-muted">—</div></td>
@@ -6470,7 +6471,7 @@ function EditionClaudeAtuacaoForm({ exec, onCancel, onSave }) {
     <div className="cx-scrim" onClick={cancel} />
     <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Registrar atuação">
       <div className="cx-dr-top">
-        <div className="cx-crumb"><span className="cx-pd-kind">Registrar atuação</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <div className="cx-crumb"><span className="cx-pd-kind">Registrar atuação</span><CxProc num={exec.processNumber} size="lg" empty="S/N" /></div>
         <button type="button" className="cx-icon-btn" onClick={cancel} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
       <form id="cx-atu-form" className="cx-dr-body cx-atu-form" onSubmit={submit}>
@@ -6516,13 +6517,13 @@ function EditionClaudeAtuacaoView({ exec, action, onClose }) {
     <div className="cx-scrim" onClick={onClose} />
     <aside className="cx cx-drawer cx-pd cx-atu" role="dialog" aria-modal="true" aria-label="Atuação proativa">
       <div className="cx-dr-top">
-        <div className="cx-crumb"><span className="cx-pd-kind">Atuação proativa</span><span className="cx-mono cx-pd-num">{exec.processNumber || 'S/N'}</span></div>
+        <div className="cx-crumb"><span className="cx-pd-kind">Atuação proativa</span><CxProc num={exec.processNumber} size="lg" empty="S/N" /></div>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
       <div className="cx-dr-body">
         <dl className="cx-pd-facts">
           <dt>Data</dt><dd>{action.date ? fmtDate(action.date) : '—'}</dd>
-          <dt>Processo</dt><dd><span className="cx-mono cx-small">{exec.processNumber || 'S/N'}</span>{exec.className ? ' · ' + exec.className : ''}</dd>
+          <dt>Processo</dt><dd><CxProc num={exec.processNumber} empty="S/N" />{exec.className ? ' · ' + exec.className : ''}</dd>
           <dt>Peça</dt><dd>{url ? <a className="cx-a cx-a-flush" href={url} target="_blank" rel="noopener noreferrer"><CxIcon n="link" s={13} />{url.includes('docs.google') ? 'Google Docs' : 'Abrir peça'}</a> : <span className="cx-muted">Sem link</span>}</dd>
           {action.createdAt ? <><dt>Registrada</dt><dd className="cx-muted">{new Date(action.createdAt).toLocaleString('pt-BR')}</dd></> : null}
         </dl>
@@ -6617,7 +6618,7 @@ function EditionClaudeProcDrawer(p) {
     <aside className="cx cx-drawer cx-pd" role="dialog" aria-modal="true" aria-label="Processo">
       <div className="cx-dr-top">
         <div className="cx-crumb"><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
-          {e ? <Copyable value={e.processNumber || ''} className="cx-mono cx-pd-num">{e.processNumber || 'S/N'}</Copyable> : <b>CDAs sem processo</b>}
+          {e ? <CxProc num={e.processNumber} size="lg" empty="S/N" /> : <b>CDAs sem processo</b>}
         </div>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
@@ -6698,7 +6699,7 @@ function EditionClaudeProcDrawer(p) {
             return (
               <button key={og.exec.id} type="button" className="cx-pd-rel" onClick={() => onOpenExec && onOpenExec(og.exec.id)}>
                 <span className={'cx-pd-kind ' + k2.cls}>{k2.label}</span>
-                <span className="cx-mono cx-small">{og.exec.processNumber || 'S/N'}</span>
+                <CxProc num={og.exec.processNumber} empty="S/N" copy={false} />
                 <span className="cx-sp" />
                 <span className="cx-muted cx-small">{(EXEC_STATUSES[og.exec.status] || {}).label || og.exec.status}</span>
               </button>
@@ -6868,7 +6869,7 @@ function EditionClaudeCdaDrawer(p) {
       <div className="cx-dr-top">
         <div className="cx-crumb">
           <span className="cx-pd-kind">CDA</span>
-          <Copyable value={d.cdaNumber || ''} className="cx-mono cx-pd-num">{d.cdaNumber || 'S/N'}</Copyable>
+          <CxProc num={d.cdaNumber} size="lg" fmt={false} empty="S/N" />
         </div>
         <button type="button" className="cx-icon-btn" onClick={onClose} title="Fechar (Esc)" aria-label="Fechar"><CxIcon n="x" /></button>
       </div>
@@ -7153,7 +7154,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSelect(g.cdas || [])} disabled={!(g.cdas || []).length} /></td>
         <td className={'cx-pt-num' + (depth > 0 ? ' nest' + Math.min(depth, 2) : '')}>
           <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-          <CxNumCopy value={g.exec.processNumber}><span className="cx-mono">{g.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          <CxProc num={g.exec.processNumber} size="md" empty="S/N" />
           {apensos.length > 0 && <span className="cx-pt-apc">{apensos.length} ap.</span>}</td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={g.exec} data={data} fixed /></td>}
         <td className="cx-pt-st"><span className={'badge ' + (meta.st.badge || 'badge-muted')}>{meta.st.label || g.exec.status || '—'}</span></td>
@@ -7226,7 +7227,7 @@ function EditionClaudeProcessos(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><button type="button" className="cx-chev sm" onClick={ev => { ev.stopPropagation(); toggleHubOpen(h.exec.id); }} aria-label={open ? 'Recolher' : 'Expandir'}>{open ? '▾' : '▸'}</button></td>
         <td className="cx-pt-num">
           <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span>
-          <CxNumCopy value={h.exec.processNumber}><span className="cx-mono">{h.exec.processNumber || 'S/N'}</span></CxNumCopy>
+          <CxProc num={h.exec.processNumber} size="md" empty="S/N" />
           <div className="cx-pt-hub-s">{phase ? phase + ' · ' : ''}cobre {unitLabel}</div>
         </td>
         {!drawerOpen && <td className="cx-pt-sig"><ProcRowSymbols exec={h.exec} data={data} fixed /></td>}
@@ -7354,7 +7355,7 @@ function EditionClaudeProcessos(p) {
                   const isOpen = !!drawerCda && drawerCda.id === d.id;
                   return <tr key={d.id} className={'cx-pt-row cx-pt-row-cda' + (isOpen ? ' on' : '')} onClick={() => openCdaDrawer(d.id)}>
                     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleCdaSel(d.id)} /></td>
-                    <td className="cx-pt-num"><CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
+                    <td className="cx-pt-num"><CxProc num={d.cdaNumber} size="md" fmt={false} empty="CDA" /> <span className="cx-muted cx-small">{cdaEspecie(d)}</span></td>
                     {!drawerOpen && <td className="cx-pt-sig"></td>}
                     <td className="cx-pt-st"><span className="badge badge-muted">Não ajuizada</span></td>
                     {!drawerOpen && <td className="cx-pt-r"></td>}
@@ -7531,7 +7532,7 @@ function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, d
     <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={onToggleSel} aria-label={'Selecionar CDA ' + (d.cdaNumber || '')} /></td>
     <td className={'cx-pt-num' + (depth ? ' nest' + Math.min(depth, 2) : '')}>
       <CxTreeMark level={depth} isLast={isLast} parentHasMore={parentHasMore} />
-      <CxNumCopy value={d.cdaNumber}><span className="cx-mono">{d.cdaNumber || 'CDA'}</span></CxNumCopy>
+      <CxProc num={d.cdaNumber} size="md" fmt={false} empty="CDA" />
       <span className="cx-muted cx-small"> · {cdaEspecie(d)}</span>
       {notes.length > 0 && <span className="cx-copy" title={notes.join('\n')} aria-label={notes.length + ' nota(s)'}><CxIcon n="note" s={11} /></span>}
     </td>
@@ -7673,7 +7674,7 @@ function EditionClaudeInscricoes(p) {
     return <React.Fragment key={sg.subExec.id}>
       {!isSameAsUmbrella && <tr className={'cx-pt-band' + cxTreeRowClass(1)}>
         <td className="cx-pt-ck"></td>
-        <td colSpan={3} className="cx-pt-num nest1"><CxTreeMark level={1} isLast={isLast} /><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxNumCopy value={sg.subExec.processNumber}><span className="cx-mono">{sg.subExec.processNumber || 'S/N'}</span></CxNumCopy><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
+        <td colSpan={3} className="cx-pt-num nest1"><CxTreeMark level={1} isLast={isLast} /><span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxProc num={sg.subExec.processNumber} size="md" empty="S/N" /><span className="cx-muted cx-small"> · {cxPl(sg.cdas.length, 'CDA', 'CDAs')}</span></td>
         <td className="cx-pt-r cx-mono">{fmtCur(subTotal)}</td>
         <CxPrescCell cdas={sg.cdas} prazosByDebt={prazosByDebt} />
       </tr>}
@@ -7694,8 +7695,8 @@ function EditionClaudeInscricoes(p) {
         <td className="cx-pt-ck" onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={isSel} onChange={() => toggleGroupSel(g.allCdas.map(d => d.id))} aria-label={'Selecionar grupo ' + (g.umbrella.processNumber || '')} /></td>
         <td colSpan={3}>
           <span className="cx-chev sm">{isCollapsed ? '▸' : '▾'}</span>
-          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxNumCopy value={g.umbrella.processNumber}><span className="cx-mono">{g.umbrella.processNumber || 'S/N'}</span></CxNumCopy>
-          {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <CxNumCopy value={combinedEf.subExec.processNumber}><span className="cx-mono">{combinedEf.subExec.processNumber || 'S/N'}</span></CxNumCopy></> : null}
+          <span className={'cx-pd-kind ' + kind.cls}>{kind.label}</span> <CxProc num={g.umbrella.processNumber} size="md" empty="S/N" />
+          {combinedEf ? <> › <span className={'cx-pd-kind ' + cxProcKind(combinedEf.subExec).cls}>{cxProcKind(combinedEf.subExec).label}</span> <CxProc num={combinedEf.subExec.processNumber} size="md" empty="S/N" /></> : null}
           <span className="cx-muted cx-small"> · {cxPl(g.allCdas.length, 'CDA', 'CDAs')}</span>
           <span className="cx-pp-grpacts">
             <button type="button" className="cx-btn sm ghost" onClick={ev => { ev.stopPropagation(); copyProcMemoria(g.umbrella, g.allCdas); }}>📋 Presc.</button>
@@ -8829,7 +8830,7 @@ function CxActRow({ ev, open, full, opObj, onToggle, onOpen, onRestore }) {
         <span className="cx-act-ph">{ev.summary}</span>
         <span className="cx-act-meta">
           {ev.op && ev.op.name ? <span className="cx-act-opc"><span className="cx-dot" style={{ background: opObj ? cxOpColor(opObj) : 'var(--cx-line-strong)' }} />{opObj ? cxOpName(opObj) : ev.op.name}</span> : null}
-          {proc ? <CxNumCopy value={proc}><span className="cx-act-proc"><span className="cx-mono">{proc}</span><CxIcon n="copy" s={12} /></span></CxNumCopy> : null}
+          {proc ? <CxProc num={proc} /> : null}
           {org ? <span className={'cx-act-org' + (ev.source === 'restauracao' ? ' res' : '')}>{org}</span> : null}
           {ev.minor ? <span className="cx-act-min">ajuste menor</span> : null}
           {ev.coalesced > 1 ? <span className="cx-act-min">{ev.coalesced} ajustes juntos</span> : null}

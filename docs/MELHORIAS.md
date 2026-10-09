@@ -260,6 +260,13 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     KPI label; todos os `th` do Prumo (.cx-tbl, .cx-pt, .cx-bft, .cx-act-tab, tabela de processos) = .cx-cap com padding
     vertical 7 px; datas em dois estilos (`.cx-date` 12/500, `.cx-date-lg` 13/600, tabulares); KPI único 28 px, h1 22 px, título
     de gaveta/foco/operação 19 px; leitura (gaveta/ficha) 13/1,5. Card de intimação e Frentes (.cx-bfx*) intactos em 11,5.
+  - **Auditoria de consistência, fase 3/5 (nº de processo e cópia)** (09/10/2026) — só Prumo. `CxProc` único (Geist Mono,
+    -0.02em, cauda do CNJ em ink-3, CNJ formatado via `intimProcCnj`) com `size` sm 11,5/400 · md 12/500 (tabelas) · lg
+    14/600 (gaveta/ficha) e `copy` ligado por padrão: clicar no número (ou Enter) copia, dica "Clique para copiar" →
+    "Copiado ✓", sem ícone e sem propagar o clique (`CxCopyable`). Saem `CxNumCopy`, `CxCopyNum`, `.cx-copynum`,
+    `.cx-proc-copy`, `.cx-crumb-proc`, `.cx-act-proc`; `Copyable` não é mais usado no Prumo e o 📋 do `.copyable` fica
+    neutro sob `.app-layout.edition-claude`. `copy={false}` só dentro de `<button>` (cartões do Quadro, cartão da
+    operação, seletor de processo).
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
