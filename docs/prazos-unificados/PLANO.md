@@ -55,6 +55,7 @@ Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commit
 - Mockups em `design/mockups/prazos-unificados/` (README.md explica o kit).
 
 ## Publicação do app (lembrete)
+Versão 3.5.0 fixada no `package.json`: publicar com `npm run push:release` (não soma versão). O `npm run push` soma 1 (3.5.1).
 `git stash` · `git checkout master` · `git pull origin master` · `npm run push`. O `push` agora cancela sozinho se a cópia estiver desatualizada.
 
 ## Prompt para iniciar em outra sessão ou no Cursor
