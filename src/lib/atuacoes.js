@@ -178,3 +178,25 @@ export function planProactiveAction({ exec, fields, ids, nowIso } = {}) {
   }
   return { execution, document, action };
 }
+
+/** Teor da decisão da intimação (`decisionSummary`, 1–2 linhas, opcional): texto aparado ou ''. Usado pela Base do relatório. */
+export function intimationDecisionText(intim) {
+  return intim && intim.decisionSummary != null ? String(intim.decisionSummary).trim() : '';
+}
+
+/**
+ * Teor a gravar na intimação ao registrar a atuação, ou `undefined` (nada a mudar).
+ *  - ciência: a descrição do ato vira o teor se a intimação ainda não tem um;
+ *  - peticionamento/outra: o campo opcional "Teor da decisão" (`action.decisionSummary`), se alterado.
+ */
+export function decisionSummaryFromAction(intim, action) {
+  const cur = intimationDecisionText(intim);
+  if (!action) return undefined;
+  if (action.type === 'ciencia') {
+    const d = String(action.description == null ? '' : action.description).trim();
+    return !cur && d ? d : undefined;
+  }
+  if (action.decisionSummary == null) return undefined;
+  const v = String(action.decisionSummary).trim();
+  return v !== cur ? v : undefined;
+}

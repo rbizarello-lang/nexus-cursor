@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectOperationEvents, buildChangeLogEntries, formatChangeLogValue } from '../src/lib/accounting.js';
+import { assetConstrictionLine, collectOperationEvents, buildChangeLogEntries, formatChangeLogValue } from '../src/lib/accounting.js';
 
 const deps = {
   getStageRecords: (briefing, id) => (briefing.stages || {})[id] || {},
@@ -95,6 +95,12 @@ describe('collectOperationEvents — bem já cadastrado em constrição', () => 
     assert.equal(ev[0].kind, 'Constrição');
     assert.match(ev[0].text, /Bem cadastrado como Indisponibilidade Ativa/);
   });
+  it('usa a data da constrição (constrictionDate) no lugar da data de cadastro', () => {
+    const ev = run({ opAssets: [{ ...asset, createdAt: '2026-10-20T10:00:00Z', constrictionDate: '2026-09-15' }] });
+    assert.equal(ev.length, 1);
+    assert.equal(ev[0].date, '2026-09-15');
+    assert.equal(run({ opAssets: [{ ...asset, constrictionDate: '2026-08-15' }] }).length, 0);
+  });
   it('não duplica quando o changeLog já registra o status do bem', () => {
     const ev = run({ opAssets: [asset], opChangeLog: [{ col: 'assets', entityId: 'a1', field: 'status', to: 'indisponibilidade_ativa', date: '2026-09-09T10:00:00Z', ref: 'Bem X' }] });
     assert.equal(ev.length, 1);
@@ -134,5 +140,14 @@ describe('buildChangeLogEntries / formatChangeLogValue', () => {
     assert.equal(mk({ before: { id: 'i1', status: 'a' }, entity: { id: 'i1', responseAction: undefined } }).length, 0);
     assert.equal(mk({ before: { id: 'i1', status: 'a' }, entity: { id: 'i1', status: 'a' } }).length, 0);
     assert.equal(mk({ before: null, entity: { id: 'i1', status: 'a' } }).length, 0);
+  });
+});
+
+describe('assetConstrictionLine', () => {
+  it('ativa e requerida mostram a data; sem data ou liberado, nada', () => {
+    assert.equal(assetConstrictionLine({ status: 'indisponibilidade_ativa', constrictionDate: '2026-09-15' }), 'Indisponível desde 15/09/2026');
+    assert.equal(assetConstrictionLine({ status: 'indisponibilidade_requerida', constrictionDate: '2026-09-15' }), 'Requerida em 15/09/2026');
+    assert.equal(assetConstrictionLine({ status: 'indisponibilidade_ativa' }), '');
+    assert.equal(assetConstrictionLine({ status: 'liberado', constrictionDate: '2026-09-15' }), '');
   });
 });

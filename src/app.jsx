@@ -4943,14 +4943,18 @@ function App() {
   };
 
   // Mark intimação as responded — creates Doc entry if peticionamento, then archives intimação
-  const handleRespondIntim = (intim, action) => {
-    // action: { type: 'peticionamento'|'ciencia'|'outra', description, peticionType?, peticionUrl?, docUrl? }
+  const handleRespondIntim = (intim, actionIn) => {
+    // actionIn: { type: 'peticionamento'|'ciencia'|'outra', description, peticionType?, peticionUrl?, docUrl?, decisionSummary? }
+    // O teor da decisão vai para a intimação (decisionSummary), não para responseAction.
+    const { decisionSummary: _teorForm, ...action } = actionIn;
+    const newTeor = decisionSummaryFromAction(intim, actionIn);
     const now = new Date().toISOString();
     const respondedIntim = {
       ...intim,
       responseAction: { ...action, respondedAt: now },
       updatedAt: now
     };
+    if (newTeor !== undefined) respondedIntim.decisionSummary = newTeor;
     // Clear import flag — intimation has been treated
     respondedIntim._importFlag = null;
     respondedIntim._importFlagAt = null;
@@ -14223,10 +14227,11 @@ function BriefingStrategyPanel({ op, upsert, leftTools }) {
 function RespondForm({ intim, type: initialType, onSave, onCancel }) {
   const PETITION_TYPES = ['Manifestação', 'Contestação', 'Impugnação', 'Réplica', 'Contrarrazões', 'Recurso', 'Embargos de Declaração', 'Petição Avulsa', 'Outro'];
   const [type, setType] = React.useState(initialType || '');
-  const [description, setDescription] = React.useState('');
+  const [description, setDescription] = React.useState(initialType === 'ciencia' ? intimationDecisionText(intim) : '');
   const [peticionType, setPeticionType] = React.useState('Manifestação');
   const [peticionUrl, setPeticionUrl] = React.useState('');
   const [docUrl, setDocUrl] = React.useState('');
+  const [teor, setTeor] = React.useState(intimationDecisionText(intim));
 
   const isPeticion = type === 'peticionamento';
   const hasUrl = isPeticion ? !!peticionUrl.trim() : !!docUrl.trim();
@@ -14243,7 +14248,7 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
     </div>
 
     <div className="form-group"><label>Tipo de atuação</label>
-      <select value={type} onChange={e => setType(e.target.value)}>
+      <select value={type} onChange={e => { const v = e.target.value; setType(v); if (v === 'ciencia' && !description.trim()) setDescription(intimationDecisionText(intim)); }}>
         <option value="">— Selecione —</option>
         <option value="peticionamento">📝 Peticionamento</option>
         <option value="ciencia">✓ Ciência</option>
@@ -14271,6 +14276,10 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
           placeholder={isPeticion ? 'Ex: Manifestação solicitando expedição de mandado de penhora' : type === 'ciencia' ? 'Ex: Ciência da decisão monocrática evento 52 — não houve provimento ao recurso, sem necessidade de manifestação' : 'Ex: Encaminhamento ao setor de cálculos para apuração de valores. Aguardando retorno em 10 dias.'} />
       </div>
 
+      {type !== 'ciencia' && <div className="form-group"><label>Teor da decisão (opcional)</label>
+        <input value={teor} onChange={e => setTeor(e.target.value)} placeholder="Ex: Defere a penhora de ativos financeiros" />
+      </div>}
+
       {/* URL field for ciência/outra — optional, creates Doc when filled */}
       {!isPeticion && <div className="form-group">
         <label>📎 Link do documento / peça (opcional)</label>
@@ -14289,7 +14298,7 @@ function RespondForm({ intim, type: initialType, onSave, onCancel }) {
 
     <div className="form-actions">
       <button type="button" className="btn-secondary" onClick={onCancel}>Cancelar</button>
-      <button type="button" className="btn-primary" disabled={!canSave} onClick={() => onSave({ type, description, peticionType, peticionUrl, docUrl })}>{isPeticion ? '📝 Registrar peticionamento' : type === 'ciencia' ? '✓ Confirmar ciência' : '⋯ Confirmar medida'}</button>
+      <button type="button" className="btn-primary" disabled={!canSave} onClick={() => onSave({ type, description, peticionType, peticionUrl, docUrl, ...(type !== 'ciencia' ? { decisionSummary: teor } : {}) })}>{isPeticion ? '📝 Registrar peticionamento' : type === 'ciencia' ? '✓ Confirmar ciência' : '⋯ Confirmar medida'}</button>
     </div>
   </div>);
 }
@@ -15050,6 +15059,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
 
   if (entityType === 'asset') {
     const sisForm = isSisbajudAsset(form);
+    // Ao passar para ativa/requerida com a data de constrição vazia, o padrão é hoje.
+    const setAssetStatus = (v) => {
+      set('status', v);
+      if ((v === 'indisponibilidade_ativa' || v === 'indisponibilidade_requerida') && !form.constrictionDate) set('constrictionDate', localIso(new Date()));
+    };
     const setSource = (v) => {
       set('source', v);
       if (/sisbajud|bacenjud/i.test(String(v || ''))) set('registry', '');
@@ -15058,8 +15072,11 @@ function EntityFormRouter({ entityType, initial, data, operationId, onSave, onCa
     <div className="form-row-3">
       <div className="form-group"><label>Tipo</label><select value={form.subtype||'imovel'} onChange={e=>set('subtype',e.target.value)}>{Object.entries(ASSET_SUBTYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
       <div className="form-group"><label>Valor (R$)</label><input type="number" step="0.01" value={form.value||''} onChange={e=>set('value',parseFloat(e.target.value)||0)} /></div>
-      <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>set('status',e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
+      <div className="form-group"><label>Status</label><select value={form.status||'indisponibilidade_ativa'} onChange={e=>setAssetStatus(e.target.value)}>{Object.entries(ASSET_STATUSES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
     </div>
+    {(form.status||'indisponibilidade_ativa') !== 'liberado' && (form.status||'indisponibilidade_ativa') !== 'controvertido' && <div className="form-row">
+      <div className="form-group"><label>{(form.status||'indisponibilidade_ativa') === 'indisponibilidade_requerida' ? 'Data do requerimento (opcional)' : 'Indisponível desde (opcional)'}</label><input type="date" value={form.constrictionDate||''} onChange={e=>set('constrictionDate',e.target.value)} /></div>
+    </div>}
     <div className="form-row">
       <div className="form-group"><label>Origem / Sistema</label><input value={form.source||''} onChange={e=>setSource(e.target.value)} placeholder="CNIB, Sisbajud, Renajud, Analytics..." /></div>
       <div className="form-group"><label>Processo Vinculado</label><input value={form.processRef||''} onChange={e=>set('processRef',e.target.value)} placeholder="Nº do processo de constrição" /></div>

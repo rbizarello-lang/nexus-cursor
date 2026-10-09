@@ -126,17 +126,26 @@ export function collectOperationEvents(input, period) {
       events.push({ date: d, dateLabel: fmtDate(d), kind: le.col === 'executions' ? 'Fase' : 'Prescrição', text: `${le.ref || ''} → ${toLabel}` });
     }
   });
-  // Bem já cadastrado em situação de constrição não passa pelo changeLog (criação não é auditada): conta na data do cadastro.
+  // Bem já cadastrado em situação de constrição não passa pelo changeLog (criação não é auditada): conta na data da constrição informada (constrictionDate) ou, sem ela, na do cadastro.
   const assetsWithStatusLog = new Set(opChangeLog.filter(le => le.col === 'assets' && le.field === 'status').map(le => le.entityId));
   opAssets.forEach(a => {
     if (!a || !String(a.status || '').startsWith('indisponibilidade_')) return;
     if (assetsWithStatusLog.has(a.id)) return;
-    const d = a.createdAt ? toDayKey(a.createdAt) : '';
+    const d = toDayKey(a.constrictionDate) || (a.createdAt ? toDayKey(a.createdAt) : '');
     if (!d || !inPeriod(d)) return;
     const label = (ASSET_STATUSES[a.status] || {}).label || a.status;
     events.push({ date: d, dateLabel: fmtDate(d), kind: 'Constrição', text: `Bem cadastrado como ${label}${a.description ? ' — ' + _acShort(a.description, 60) : ''}` });
   });
   return events;
+}
+
+/** Linha do card do bem: "Indisponível desde dd/mm/aaaa" (ativa) ou "Requerida em dd/mm/aaaa"; sem data ou fora dessas situações, ''. */
+export function assetConstrictionLine(a) {
+  const d = a ? toDayKey(a.constrictionDate) : '';
+  if (!d) return '';
+  if (a.status === 'indisponibilidade_ativa') return 'Indisponível desde ' + fmtDate(d);
+  if (a.status === 'indisponibilidade_requerida') return 'Requerida em ' + fmtDate(d);
+  return '';
 }
 
 /** Texto legível de um valor do histórico: `responseAction` vira "Peticionamento (Tipo)"; outros objetos, JSON curto. */

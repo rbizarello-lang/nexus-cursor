@@ -4427,6 +4427,12 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .cx-d-ev-edit { cursor: pointer; border-radius: 5px; padding: 1px 4px; margin: 0 0 0 -4px; }
 .cx-d-ev-edit:hover { background: var(--cx-hover); }
 .cx-d-ev-input { display: block; width: 100%; font: inherit; font-size: 13.5px; color: var(--cx-ink); background: var(--cx-surface); border: 1px solid var(--cx-accent); border-radius: 6px; padding: 4px 7px; margin: 2px 0 3px; }
+/* Teor da decisão na gaveta: linha discreta abaixo do objeto */
+.cx-d-teor { margin: 1px 0 0 -4px; padding: 1px 4px; font-size: 12.5px; color: var(--cx-ink-2); cursor: pointer; border-radius: 5px; line-height: 1.4; }
+.cx-d-teor:hover { background: var(--cx-hover); }
+.cx-teor-k { color: var(--cx-ink-3); }
+.cx-teor-add { color: var(--cx-ink-3); font-size: 12px; }
+.cx-teor-input { font-size: 12.5px; }
 /* Chip do link da peça no topo da gaveta (item 4) */
 .cx-peca-chip { display: inline-flex; align-items: center; gap: 2px; padding-right: 3px; }
 .cx-peca-open { display: inline-flex; align-items: center; gap: 4px; color: inherit; text-decoration: none; }
@@ -5532,6 +5538,11 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-bf-pin { font-size: 11px; }
 .cx-bf-ic { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: none; background: transparent; color: var(--cx-ink-3); cursor: pointer; font-size: 12px; flex: none; }
 .cx-bf-ic:hover { background: var(--cx-hover); color: var(--cx-ink); }
+/* Diário: botão "No relatório" no compositor e indicador na entrada salva */
+.cx-bf-inrep { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--cx-line); background: transparent; color: var(--cx-ink-3); cursor: pointer; flex: none; }
+.cx-bf-inrep:hover { background: var(--cx-hover); color: var(--cx-ink); }
+.cx-bf-inrep.on { color: var(--cx-accent); border-color: var(--cx-accent); background: var(--cx-hover); }
+.cx-bf-inrep-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--cx-accent); }
 .cx-bf-fronts { padding: 10px 12px 14px; }
 /* Atuações recentes (Briefing): data · tipo discreto · resumo · processo · link da peça */
 .cx-bf-ua { padding-bottom: 4px; }

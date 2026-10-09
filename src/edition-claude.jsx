@@ -1547,11 +1547,14 @@ function CxRespondForm({ intim, onSave, onCancel }) {
   const [peticionUrl, setPeticionUrl] = React.useState('');
   const [docUrl, setDocUrl] = React.useState('');
   const [description, setDescription] = React.useState('');
+  const [teor, setTeor] = React.useState(intimationDecisionText(intim));
   const isPet = type === 'peticionamento';
   const canSave = isPet ? !!peticionUrl.trim() : !!description.trim();
-  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl }); }}>
+  // Ciência: a descrição do ato é o teor da decisão (vem pré-preenchida se a intimação já tem um).
+  const pickType = (v) => { setType(v); if (v === 'ciencia' && !description.trim()) setDescription(intimationDecisionText(intim)); };
+  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl, ...(type !== 'ciencia' ? { decisionSummary: teor } : {}) }); }}>
     <h3>Registrar atuação</h3>
-    <CxSeg label="Tipo de atuação" value={type} onChange={setType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
+    <CxSeg label="Tipo de atuação" value={type} onChange={pickType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
     {isPet ? <div className="cx-row2">
       <label>Tipo de peça<select id={'cx-r-piece-' + intim.id} className="cx-input" value={peticionType} onChange={e => setPeticionType(e.target.value)}>{PETITION_TYPES.map(x => <option key={x}>{x}</option>)}</select></label>
       <label>Link da peça (Docs ou arquivo) *<input id={'cx-r-url-' + intim.id} className="cx-input" value={peticionUrl} onChange={e => setPeticionUrl(e.target.value)} placeholder="https://docs.google.com/…" autoFocus /></label>
@@ -1559,6 +1562,7 @@ function CxRespondForm({ intim, onSave, onCancel }) {
     <label>{isPet ? 'Observações (opcional)' : type === 'ciencia' ? 'Qual decisão ou despacho foi objeto da ciência *' : 'Descrição da medida adotada *'}
       <textarea id={'cx-r-desc-' + intim.id} className="cx-input" value={description} onChange={e => setDescription(e.target.value)} rows={3} autoFocus={!isPet} placeholder={isPet ? 'Ex.: manifestação pedindo mandado de penhora' : 'Ex.: ciência da decisão do evento 52, sem necessidade de manifestação'} />
     </label>
+    {type !== 'ciencia' ? <label>Teor da decisão (opcional)<input className="cx-input" value={teor} onChange={e => setTeor(e.target.value)} placeholder="Ex.: defere a penhora de ativos financeiros" /></label> : null}
     <div className="cx-form-note">A intimação será arquivada em Resoluções, como no Clássico. {isPet || docUrl.trim() ? 'O link vai para a aba Arquivos da operação.' : ''}</div>
     {isPet && !canSave ? <div className="cx-form-warn">Informe o link da peça para registrar. Sem o link definitivo, cole uma referência provisória (ex.: “pendente upload”) e edite depois.</div> : null}
     <div className="cx-form-acts"><button type="button" className="cx-btn ghost" onClick={onCancel}>Cancelar</button><button type="submit" className="cx-btn primary" disabled={!canSave}><CxIcon n="tick" s={14} />Registrar e arquivar</button></div>
@@ -1585,6 +1589,29 @@ function CxIntimObjEditable({ intim, upsert }) {
   return <p className="cx-d-ev cx-d-ev-edit" role="button" tabIndex={0} onClick={() => setEditing(true)}
     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} title="Clique para editar o objeto">
     {v ? v : <span className="cx-obj-undef">Definir objeto…</span>}
+  </p>;
+}
+/* Teor da decisão (decisionSummary): linha discreta abaixo do objeto, editável com um clique. Vazio = só o link "Adicionar…". */
+function CxIntimTeorEditable({ intim, upsert }) {
+  const [editing, setEditing] = React.useState(false);
+  const [val, setVal] = React.useState('');
+  const inputRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!editing) return;
+    setVal(intimationDecisionText(intim));
+    const t = setTimeout(() => { if (inputRef.current) inputRef.current.focus(); }, 0);
+    return () => clearTimeout(t);
+  }, [editing, intim.id]);
+  const save = () => { const v = val.trim(); if (v !== intimationDecisionText(intim)) upsert('intimations', { ...intim, decisionSummary: v }); setEditing(false); };
+  if (editing) {
+    return <input ref={inputRef} className="cx-input cx-d-ev-input cx-teor-input" value={val} onChange={e => setVal(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); setEditing(false); } }}
+      onBlur={save} placeholder="Teor da decisão (1–2 linhas)" aria-label="Teor da decisão" />;
+  }
+  const v = intimationDecisionText(intim);
+  return <p className="cx-d-teor" role="button" tabIndex={0} onClick={() => setEditing(true)}
+    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} title="Clique para editar o teor da decisão">
+    {v ? <><span className="cx-teor-k">Teor:</span> {v}</> : <span className="cx-teor-add">Adicionar teor da decisão…</span>}
   </p>;
 }
 /* Chip do link da peça no topo fixo da gaveta, junto aos demais chips (item 4). */
@@ -1666,6 +1693,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
     </div>
     <h2 className="cx-d-title">{cxPartyName(intim)}</h2>
     <CxIntimObjEditable intim={intim} upsert={a.upsert} />
+    <CxIntimTeorEditable intim={intim} upsert={a.upsert} />
     <CxRuler intim={intim} />
     {trailPts ? <div className="cx-mt-wrap"><div className="cx-mt-cap">Onde este prazo cai no processo</div><CxMiniTrail points={trailPts} /></div> : null}
 
@@ -3097,13 +3125,22 @@ function cxBuildNarrative(data, op, tl, todayIso) {
       if (dd !== null && dd < 0) bd.push({ t: 'vencido há ' + tlDurLabel(-dd).replace(/^há /, ''), c: 'var(--cx-red)' });
       else if (dd !== null && dd <= 7) bd.push({ t: dd === 0 ? 'vence hoje' : 'faltam ' + tlDurLabel(dd), c: cxTlColor(it) });
       else bd.push({ t: 'prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d), c: cxTlColor(it) });
-      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i), badges: bd });
+      const teorP = intimationDecisionText(it.i);
+      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i) + (teorP ? ' · Teor: ' + teorP : ''), badges: bd });
     } else if (it.kind === 'aud') {
       out.push({ ...base, cat: 'aud', tm: it.tm || '', done: !!it.realized, open: !it.realized, text: (it.hearing && it.hearing.parties) || '', badges: it.realized ? [{ t: 'realizada', c: 'var(--cx-ink-3)' }] : [] });
     } else if (it.kind === 'rev') {
       const late = daysUntil(it.d) < 0;
       out.push({ ...base, cat: 'prazo', open: true, title: late ? it.l + ' atrasada' : it.l, text: late ? 'Marque como revisada no cabeçalho da operação depois de conferir prazos e prescrição.' : '', badges: late ? [{ t: 'vencida há ' + tlDurLabel(-daysUntil(it.d)).replace(/^há /, ''), c: 'var(--cx-red)' }] : [], ref: null });
     }
+  });
+  /* Intimações com teor da decisão que não aparecem como prazo aberto: um item na data da intimação, com o teor como texto. */
+  const comPrazo = new Set(tl.items.filter(it => it.kind === 'prazo' && it.i).map(it => it.i.id));
+  (data.intimations || []).forEach(x => {
+    if (x.operationId !== op.id || comPrazo.has(x.id)) return;
+    const teor = intimationDecisionText(x); if (!teor) return;
+    const d = toDayKey(x.dateStart) || toDayKey(x.dateSent) || toDayKey(x.responseAction && x.responseAction.respondedAt) || toDayKey(x.createdAt); if (!d) return;
+    out.push({ id: 'it|' + x.id, cat: 'dec', glyph: 'and', kindLabel: 'Intimação', d, done: true, execId: execOfNum(x.processNumber), ref: { t: 'intim', id: x.id }, color: 'var(--cx-ink-2)', title: 'Intimação — ' + (x.eventDescription || x.className || 'sem descrição'), text: 'Teor: ' + teor, badges: [], procNum: x.processNumber || '' });
   });
   (data.tasks || []).forEach(k => {
     if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
@@ -5271,6 +5308,8 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
   const [composer, setComposer] = React.useState(null); // null | { mode:'new'|'edit', entry }
   const [draftType, setDraftType] = React.useState('observacao');
   const [draftDate, setDraftDate] = React.useState('');
+  const [draftInReport, setDraftInReport] = React.useState(false);
+  const inReportManual = React.useRef(false); // depois do clique do usuário, trocar o tipo não mexe mais na marca
   const [filterType, setFilterType] = React.useState('all');
   const draftHtmlRef = React.useRef('');
 
@@ -5280,18 +5319,19 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
 
   const [pinNext, setPinNext] = React.useState(false);
-  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); setDraftType((opts && opts.type) || 'observacao'); setDraftDate(new Date().toISOString().slice(0, 10)); setComposer({ mode: 'new', entry: null }); };
-  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setComposer({ mode: 'edit', entry: en }); };
+  const openNew = (opts) => { setPinNext(!!(opts && opts.pin)); const t0 = (opts && BRIEFING_ENTRY_TYPES[opts.type]) ? opts.type : 'observacao'; /* onClick passa o evento (type 'click') */ setDraftType(t0); setDraftDate(new Date().toISOString().slice(0, 10)); inReportManual.current = false; setDraftInReport(diaryEntryInReport({ type: t0 })); setComposer({ mode: 'new', entry: null }); };
+  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); inReportManual.current = typeof en.inReport === 'boolean'; setDraftInReport(diaryEntryInReport(en)); setComposer({ mode: 'edit', entry: en }); };
+  const pickType = (t) => { setDraftType(t); if (!inReportManual.current) setDraftInReport(diaryEntryInReport({ type: t })); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: !!pinNext, eventDate: draftDate || '', inReport: draftInReport, createdAt: now, updatedAt: now }, ...entries]);
       setPinNext(false);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: !!x.pinned, eventDate: draftDate || '', inReport: draftInReport, createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);
@@ -5320,9 +5360,10 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
 
   const renderComposer = () => (<div className="cx-bf-diary-composer">
     <div className="cx-bf-diary-composer-hd">
-      <select value={draftType} onChange={e => setDraftType(e.target.value)} className="cx-input" style={{ width: 'auto' }}>
+      <select value={draftType} onChange={e => pickType(e.target.value)} className="cx-input" style={{ width: 'auto' }}>
         {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
       </select>
+      <button type="button" className={'cx-bf-inrep' + (draftInReport ? ' on' : '')} aria-pressed={draftInReport} title="No relatório" aria-label="No relatório" onClick={() => { inReportManual.current = true; setDraftInReport(v => !v); }}><CxIcon n="file" s={14} /></button>
       <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" />
       <span className="cx-sp" />
       <button type="button" className="cx-btn sm ghost" onClick={() => { setComposer(null); setPinNext(false); }}>Cancelar</button>
@@ -5350,6 +5391,7 @@ function CxBfDiary({ op, upsert, editRequestId, onEditConsumed }) {
           <div className="cx-bf-ent-top">
             <span className="cx-bf-ent-d">{dt || '—'}</span>
             <span className="cx-bf-type">{t.label}{en.pinned ? <span className="cx-bf-pin" title="Fixada"> 📌</span> : null}</span>
+            {diaryEntryInReport(en) ? <span className="cx-bf-inrep-tag" title="Esta entrada entra na Base do relatório"><CxIcon n="file" s={11} />No relatório</span> : null}
             <span className="cx-bf-ent-acts">
               <button type="button" className="cx-bf-ic" title={en.pinned ? 'Desafixar' : 'Fixar'} onClick={() => togglePin(en)}>📌</button>
               <button type="button" className="cx-bf-ic" title="Editar" onClick={() => openEdit(en)}>✎</button>
@@ -7517,7 +7559,7 @@ function EditionClaudeAssetDrawer({ asset: a, data, opId, onClose, setModal }) {
       <div className="cx-dr-body">
         <dl className="cx-pd-facts">
           <dt>Valor</dt><dd className="cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</dd>
-          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></dd>
+          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <span className="cx-muted cx-small" style={{ marginLeft: 8 }}>{assetConstrictionLine(a)}</span> : null}</dd>
           <dt>Titular</dt><dd>{holder ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'person', initial: holder })}>{holder.name}{holder.cpfCnpj ? ' · ' + holder.cpfCnpj : ''}<CxIcon n="chevR" s={12} /></button> : (a.holderDoc || '—')}</dd>
           <dt>Processo</dt><dd>{a.processRef ? (linkedExec ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: linkedExec })}>{a.processRef}<CxIcon n="chevR" s={12} /></button> : <span className="cx-mono cx-small">{a.processRef}</span>) : <span className="cx-muted">Sem processo vinculado</span>}</dd>
           <dt>Origem</dt><dd>{a.source || '—'}</dd>
@@ -7601,7 +7643,7 @@ function EditionClaudeBens(p) {
       <td>{holder ? <>{holder.name} <span className="cx-mono cx-small cx-muted">{holder.cpfCnpj}</span></> : (a.holderDoc ? <span className="cx-muted cx-small">{a.holderDoc}</span> : <span className="cx-muted">—</span>)}</td>
       <td>{a.processRef ? <><span className="cx-mono cx-small">{a.processRef}</span>{a.source ? <span className="cx-tag" style={{ marginLeft: 6 }}>{a.source}</span> : null}</> : <span className="cx-muted cx-small">sem processo{a.source ? ' · ' + a.source : ''}</span>}</td>
       <td className="cx-pt-r cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</td>
-      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></td>
+      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <div className="cx-muted cx-small">{assetConstrictionLine(a)}</div> : null}</td>
       <td><span className={'cx-tag' + (a.analyticsRegistered ? ' green' : ' orange')}>{a.analyticsRegistered ? 'A' : '!A'}</span></td>
     </tr>;
   };
