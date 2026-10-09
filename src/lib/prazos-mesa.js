@@ -2,8 +2,14 @@
  * Mesa de trabalho dos prazos (edição Beta).
  * Funções puras: seleção da fila, selos, frases da linha da CDA, texto sem jargão.
  */
-import { addCalendarDays, fmtDate } from './dates.js';
-import { PRESC_SNOOZE_REASONS, snoozeLimitDays } from './prescription.js';
+import { addCalendarDays, addCalendarYears, daysBetween, daysUntil, fmtDate } from './dates.js';
+import {
+  PENHORA_ANALISE_VALIDADE,
+  PRESC_SNOOZE_REASONS,
+  createPrescLookup,
+  penhoraAntigaInfo,
+  snoozeLimitDays
+} from './prescription.js';
 
 /** Sem teto: tudo o que precisa de você aparece (resposta F2). */
 export const MESA_CAP = Infinity;
@@ -428,4 +434,283 @@ export function betaEventFamilyDesc(family, destIsIncident) {
   let desc = betaSafeUiText(family.desc || '');
   if (destIsIncident) desc = desc.replace(/resultado útil/gi, 'constrição').replace(/Penhora\s*\/\s*constrição/gi, 'Constrição');
   return desc;
+}
+
+/* ───────── Cartões da Mesa (fase 1): uma CDA, um cartão ───────── */
+
+/** Cartões na ordem de trabalho. Fileira 1 pede ação; fileira 2 é acompanhamento e registro. */
+export const MESA_CARDS = [
+  { id: 'calculo', fileira: 1, nome: 'Conferir o cálculo',
+    tip: 'Consumadas há até 6 meses e análise importada que diverge do cálculo: confira nos autos se algum fato interrompeu o prazo antes de aceitar a consumação.' },
+  { id: 'ajuizar', fileira: 1, nome: 'Ajuizar',
+    tip: 'Ordinária ainda não ajuizada cuja data cedo cai nos próximos 60 dias: ajuíze antes que os 5 anos se consumem. Em cinza, as que vencem entre 60 e 180 dias.' },
+  { id: 'fato', fileira: 1, nome: 'Lançar fato ou ciência',
+    tip: 'Há fato nos autos que o app não conhece (ciência da suspensão, resultado de bloqueio, rescisão de parcelamento): lance-o e o cálculo se refaz.' },
+  { id: 'vigencia', fileira: 1, nome: 'Confirmar vigência',
+    tip: 'Pausa ou parcelamento cujo prazo presume que já acabou: confirme com um clique se ainda vale.' },
+  { id: 'dado', fileira: 1, nome: 'Completar dado',
+    tip: 'Falta dado na ficha para o cálculo fechar: informar as datas ou vincular a CDA à execução certa.' },
+  { id: 'sempressa', fileira: 2, nome: 'Conferir sem pressa',
+    tip: 'Nada vence agora, mas vale olhar: constrição na execução há mais de 4 anos sem outro fato, constrição via IDPJ a menos de 90 dias dos 5 anos, ou «não antes de» passado há mais de 2 anos sem fato lançado.' },
+  { id: 'vigiar', fileira: 2, nome: 'Só vigiar',
+    tip: 'Nada a fazer agora: ciclo encerrado por penhora, parcelamento vigente, IDPJ com constrição recente, prazo ainda impossível ou ordinária ainda longe do prazo.' },
+  { id: 'adiadas', fileira: 2, nome: 'Adiadas',
+    tip: 'Itens que você mesmo adiou, com motivo e data de volta. Quando o adiamento vence, o item volta ao cartão da sua ação.' },
+  { id: 'tratadas', fileira: 2, nome: 'Tratadas',
+    tip: 'Prescrição já tratada (aguardando reconhecimento, reconhecida, analisada). Fica só aqui: não gera aviso nem lembrete.' },
+  { id: 'antigas', fileira: 2, nome: 'Consumadas antigas',
+    tip: 'Consumadas há mais de 6 meses: só registro, sem alarme.' }
+];
+
+/** Ordinária não ajuizada: aviso com alarme até 60 dias; cinza entre 60 e 180. */
+export const AJUIZAR_DIAS = 60;
+export const AJUIZAR_JANELA = 180;
+/** Exibição: constrição na execução sem outro fato vai a «Conferir sem pressa» aos 4 anos (o motor segue com 6). */
+export const PENHORA_SEM_PRESSA_ANOS = 4;
+
+/** Espécies cuja data é um prazo que se aproxima ou venceu (as demais não mostram data de posição). */
+const MESA_DEADLINE_KINDS = new Set([
+  'iminente', 'vencido', 'vencido_estimado', 'correndo', 'pausa_cadastrada', 'pedido_dado'
+]);
+const MESA_PARC_SILENCE = new Set(['parcelamento_vigente', 'parcelada_ficha']);
+
+function mesaPenhoraAnaliseVigente(debt, todayIso) {
+  const at = debt && debt.penhoraAnalise && debt.penhoraAnalise.at;
+  if (!at) return false;
+  const n = daysBetween(at, todayIso);
+  return n < PENHORA_ANALISE_VALIDADE;
+}
+
+function mesaSafeLookup(prescLookup, debt) {
+  try { return prescLookup(debt) || null; } catch (e) { return null; }
+}
+
+/** Cartão de uma linha do radar (regras 3 a 9). Devolve { card, prescResult? }. */
+function mesaCardOfRow(row, debt, prescLookup, todayIso) {
+  const kind = row.prescKind || row.kind;
+  const act = (row.action && row.action.type) || '';
+  let prescResult;
+
+  // 3. Conferir sem pressa, antes das consumadas (o motor marca piso antigo como consumada 'old').
+  if (kind === 'penhora_antiga') return { card: 'sempressa' };
+  if (kind === 'vigiar_interrompido') {
+    prescResult = mesaSafeLookup(prescLookup, debt);
+    const pen = prescResult ? penhoraAntigaInfo(prescResult, todayIso) : null;
+    if (pen && pen.constrictionDate
+      && addCalendarYears(pen.constrictionDate, PENHORA_SEM_PRESSA_ANOS) <= todayIso
+      && !mesaPenhoraAnaliseVigente(debt, todayIso)) {
+      return { card: 'sempressa', prescResult };
+    }
+  }
+  if (row.idpjNotice && row.idpjNotice.active) return { card: 'sempressa', prescResult };
+  if (kind === 'residual_alta' && /não antes de/.test(row.prescLabel || '')) return { card: 'sempressa', prescResult };
+
+  // 4 e 5. Consumadas e divergência da análise importada.
+  if (row.consumada === 'old') return { card: 'antigas', prescResult };
+  if (row.consumada === 'recent' || row.decisionNote) return { card: 'calculo', prescResult };
+
+  // 6. Ordinária.
+  if (row.prescSegment === 'ordinaria') {
+    if (act === 'confirmar_vigencia') return { card: 'vigencia', prescResult };
+    if (act === 'vincular_ef') return { card: 'dado', prescResult };
+    return { card: 'ajuizar', prescResult };
+  }
+
+  // 7. Intercorrente que precisa de você, pela ação.
+  if (mesaNeedsYou(row, todayIso)) {
+    if (act === 'confirmar_vigencia') return { card: 'vigencia', prescResult };
+    if (act === 'corrigir_ficha' || act === 'vincular_ef') return { card: 'dado', prescResult };
+    if (act === 'lancar_ciencia' || act === 'criar_evento' || act === 'conferir_autos') return { card: 'fato', prescResult };
+  }
+  // 8. O resto do grupo 3 (ex.: «correndo» rebaixado por cadastro).
+  if (row.group === 3) return { card: 'dado', prescResult };
+  // 9.
+  return { card: 'vigiar', prescResult };
+}
+
+/** Data de posição, "cedo venceu, tarde não" e se a data é um prazo. */
+function mesaPosition(row, todayIso) {
+  const kind = row.prescKind || row.kind;
+  const dateIsDeadline = MESA_DEADLINE_KINDS.has(kind);
+  if (!dateIsDeadline) return { dateIsDeadline, sortDate: null, cedoVencidaTardeNao: false };
+  const cedo = row.bandCedo || '';
+  const tarde = row.bandTarde || '';
+  if (cedo && cedo <= todayIso && (!tarde || tarde > todayIso) && !row.consumada) {
+    return { dateIsDeadline, sortDate: tarde || null, cedoVencidaTardeNao: true };
+  }
+  return { dateIsDeadline, sortDate: row.prescDate || row.keyDate || null, cedoVencidaTardeNao: false };
+}
+
+function mesaCompareValue(a, b) {
+  return (b.value - a.value) || String(a.debtId).localeCompare(String(b.debtId));
+}
+
+function mesaCompareByDate(a, b) {
+  const ha = !!a.sortDate;
+  const hb = !!b.sortDate;
+  if (ha !== hb) return ha ? -1 : 1;
+  if (ha && a.sortDate !== b.sortDate) return a.sortDate < b.sortDate ? -1 : 1;
+  return mesaCompareValue(a, b);
+}
+
+/** Descendente por texto ISO; vazio por último. */
+function mesaCompareDesc(fa, fb) {
+  return (a, b) => {
+    const x = fa(a) || '';
+    const y = fb(b) || '';
+    if (x !== y) {
+      if (!x) return 1;
+      if (!y) return -1;
+      return x < y ? 1 : -1;
+    }
+    return mesaCompareValue(a, b);
+  };
+}
+
+const MESA_SORTERS = {
+  adiadas: (a, b) => {
+    const x = a.until || '';
+    const y = b.until || '';
+    if (x !== y) {
+      if (!x) return 1;
+      if (!y) return -1;
+      return x < y ? -1 : 1;
+    }
+    return mesaCompareValue(a, b);
+  },
+  tratadas: mesaCompareDesc(i => i.handledAt, i => i.handledAt),
+  antigas: mesaCompareDesc(
+    i => i.row && (i.row.prescDate || i.row.keyDate),
+    i => i.row && (i.row.prescDate || i.row.keyDate)
+  ),
+  vigiar: mesaCompareValue
+};
+
+/**
+ * Cada CDA do universo cai em exatamente um cartão (a primeira regra que casar vale).
+ * Camada de exibição: não altera o motor, só lê radar e cálculo.
+ */
+export function buildMesaCards({ data, radar, prescLookup, today } = {}) {
+  const todayIso = today;
+  const debts = (data && data.debts) || [];
+  const lookup = prescLookup || createPrescLookup(
+    debts, (data && data.executions) || [], (data && data.prescriptionEvents) || [], todayIso
+  );
+  const ops = new Map(((data && data.operations) || []).filter(o => o && o.id).map(o => [o.id, o]));
+  const rowById = new Map(((radar && radar.rows) || []).filter(r => r && r.id).map(r => [r.id, r]));
+  const silById = new Map();
+  ((radar && radar.silenced) || []).forEach(s => {
+    if (s && s.debtId && !silById.has(s.debtId)) silById.set(s.debtId, s);
+  });
+
+  const items = [];
+  const byDebt = new Map();
+  const seen = new Set();
+
+  debts.forEach(debt => {
+    if (!debt || !debt.id || seen.has(debt.id)) return;
+    if (debt.status === 'extinta') return;
+    const op = ops.get(debt.operationId);
+    if (!op || op.status === 'encerrada') return;
+    seen.add(debt.id);
+
+    const row = rowById.get(debt.id) || null;
+    const sil = silById.get(debt.id) || null;
+    const item = {
+      debtId: debt.id,
+      card: '',
+      row,
+      debt,
+      value: Number(debt.value) || 0,
+      sortDate: null,
+      dateIsDeadline: false,
+      cedoVencidaTardeNao: false,
+      ajuizarLonge: false,
+      snoozeExpired: false,
+      derived: false,
+      until: '',
+      handledAt: ''
+    };
+
+    const silSnooze = !!(sil && sil.reason && PRESC_SNOOZE_REASONS[sil.reason]);
+
+    if (debt.prescriptionHandled || (row && row.prescKind === 'aguardando_reconhecimento')) {
+      // 1. Tratadas
+      item.card = 'tratadas';
+      item.handledAt = debt.prescriptionHandledAt || '';
+    } else if (silSnooze) {
+      // 2. Adiadas
+      item.card = 'adiadas';
+      item.until = sil.until || '';
+    } else {
+      // Adiamento furado ou vencido: a CDA tem linha e ainda guarda o adiamento.
+      item.snoozeExpired = !!(row && debt.prescSnooze);
+      if (row) {
+        const res = mesaCardOfRow(row, debt, lookup, todayIso);
+        item.card = res.card;
+        if (res.prescResult) item.prescResult = res.prescResult;
+        const pos = mesaPosition(row, todayIso);
+        item.dateIsDeadline = pos.dateIsDeadline;
+        item.sortDate = pos.sortDate;
+        item.cedoVencidaTardeNao = pos.cedoVencidaTardeNao;
+        // Cedo é o critério de urgência: cedo vencida nunca é "longe", mesmo com a tarde distante.
+        if (item.card === 'ajuizar' && item.sortDate && !item.cedoVencidaTardeNao) {
+          const d = daysUntil(item.sortDate, todayIso);
+          item.ajuizarLonge = d != null && d > AJUIZAR_DIAS;
+        }
+      } else if (sil && MESA_PARC_SILENCE.has(sil.reason)) {
+        // 10. Sem linha: parcelamento vigente ou da ficha
+        item.card = 'vigiar';
+      } else {
+        const r = mesaSafeLookup(lookup, debt);
+        if (r) item.prescResult = r;
+        const open = r && r.segment === 'credito' && r.status !== 'sem_dados'
+          && r.phase !== 'suspenso' && r.phase !== 'interrompido';
+        const target = open ? ((r.band && r.band.cedo && r.band.cedo.diesAdQuem) || r.diesAdQuem || '') : '';
+        const dias = target ? daysUntil(target, todayIso) : null;
+        if (dias != null) {
+          item.dateIsDeadline = true;
+          item.sortDate = target;
+          if (dias <= AJUIZAR_JANELA) {
+            item.card = 'ajuizar';
+            item.derived = true;
+            item.ajuizarLonge = dias > AJUIZAR_DIAS;
+          } else {
+            item.card = 'vigiar';
+          }
+        } else if (!r || r.status === 'sem_dados' || r.phase === 'sem_dados') {
+          item.card = 'dado';
+        } else {
+          item.card = 'vigiar';
+        }
+      }
+    }
+    items.push(item);
+    byDebt.set(debt.id, item);
+  });
+
+  const byCard = {};
+  const totals = {};
+  MESA_CARDS.forEach(c => {
+    byCard[c.id] = [];
+    totals[c.id] = { n: 0, value: 0 };
+  });
+  totals.ajuizar.nLonge = 0;
+  totals.ajuizar.valueLonge = 0;
+  items.forEach(it => {
+    byCard[it.card].push(it);
+    const t = totals[it.card];
+    if (it.card === 'ajuizar' && it.ajuizarLonge) {
+      t.nLonge++;
+      t.valueLonge += it.value;
+    } else {
+      t.n++;
+      t.value += it.value;
+    }
+  });
+  MESA_CARDS.forEach(c => {
+    byCard[c.id].sort(MESA_SORTERS[c.id] || mesaCompareByDate);
+  });
+
+  return { items, byCard, totals, byDebt };
 }

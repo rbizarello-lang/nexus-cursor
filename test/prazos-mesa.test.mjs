@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { UI_FORBIDDEN } from '../src/lib/prescription.js';
+import { UI_FORBIDDEN, buildPrazosRadar, createPrescLookup } from '../src/lib/prescription.js';
 import {
   MESA_CAP,
   mesaCertainty,
@@ -15,6 +15,11 @@ import {
   snoozeMaxUntil,
   betaSafeUiText,
   betaEventFamilyLabel,
+  MESA_CARDS,
+  AJUIZAR_DIAS,
+  AJUIZAR_JANELA,
+  PENHORA_SEM_PRESSA_ANOS,
+  buildMesaCards,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -166,5 +171,342 @@ describe('Mesa — gaveta e adiamento', () => {
   it('validade do adiamento respeita o teto do grupo', () => {
     assert.equal(snoozeMaxUntil(1, '2026-09-18'), '2026-10-02');
     assert.equal(snoozeMaxUntil(3, '2026-09-18'), '2026-09-25');
+  });
+});
+
+describe('Mesa — cartões (fase 1): uma CDA, um cartão', () => {
+  const TODAY = '2026-09-17';
+  const OP = { id: 'op1', name: 'Op', status: 'ativa' };
+  const debt = (id, over = {}) => ({ id, operationId: 'op1', status: 'ativa', value: 100, ...over });
+  const row = (id, over = {}) => ({
+    id, group: 4, value: 100, prescKind: 'correndo', prescSegment: 'intercorrente',
+    action: { type: 'nenhuma' }, ...over
+  });
+  // prescLookup falso: devolve o resultado combinado por id (ou sem dados).
+  const mk = ({ debts, rows = [], silenced = [], results = {}, ops = [OP] }) => {
+    const lookup = d => results[d.id] || { segment: null, phase: 'sem_dados', status: 'sem_dados' };
+    return buildMesaCards({
+      data: { debts, operations: ops, executions: [], prescriptionEvents: [] },
+      radar: { rows, silenced },
+      prescLookup: lookup,
+      today: TODAY
+    });
+  };
+  const cardOf = (out, id) => out.byDebt.get(id).card;
+
+  it('exporta os dez cartões na ordem de trabalho, em duas fileiras', () => {
+    assert.deepEqual(MESA_CARDS.map(c => c.id),
+      ['calculo', 'ajuizar', 'fato', 'vigencia', 'dado', 'sempressa', 'vigiar', 'adiadas', 'tratadas', 'antigas']);
+    assert.deepEqual(MESA_CARDS.map(c => c.fileira), [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+    assert.ok(MESA_CARDS.every(c => c.nome && c.tip));
+    assert.equal(AJUIZAR_DIAS, 60);
+    assert.equal(AJUIZAR_JANELA, 180);
+    assert.equal(PENHORA_SEM_PRESSA_ANOS, 4);
+  });
+
+  it('universo: fora extinta e operação encerrada', () => {
+    const out = mk({
+      debts: [debt('a'), debt('b', { status: 'extinta' }), debt('c', { operationId: 'op2' })],
+      ops: [OP, { id: 'op2', status: 'encerrada' }]
+    });
+    assert.deepEqual(out.items.map(i => i.debtId), ['a']);
+  });
+
+  it('regra 1: tratada (inclusive aguardando reconhecimento e analisada) vence consumada e adiamento', () => {
+    const out = mk({
+      debts: [
+        debt('t1', { prescriptionHandled: true, prescriptionHandledType: 'declarada', prescriptionHandledAt: '2026-01-01' }),
+        debt('t2', { prescriptionHandled: true, prescriptionHandledType: 'analisada_nao_consumada' }),
+        debt('t3'),
+        debt('t4', { prescriptionHandled: true })
+      ],
+      rows: [
+        row('t2', { prescKind: 'vencido', group: 1, consumada: 'recent' }),
+        row('t3', { prescKind: 'aguardando_reconhecimento', group: 4 }),
+        row('t4', { prescKind: 'vencido_estimado', group: 6, consumada: 'old' })
+      ],
+      silenced: [{ debtId: 't1', reason: 'peca_protocolada', until: '2026-10-01' }]
+    });
+    ['t1', 't2', 't3', 't4'].forEach(id => assert.equal(cardOf(out, id), 'tratadas', id));
+  });
+
+  it('regra 2: adiada some da ação; adiamento furado volta ao cartão da ação com snoozeExpired', () => {
+    const out = mk({
+      debts: [debt('s1'), debt('s2', { prescSnooze: { reason: 'peca_protocolada', until: '2026-09-01' } })],
+      rows: [row('s2', { prescKind: 'vencido', group: 1, prescDays: -3, prescDate: '2026-09-14', action: { type: 'conferir_autos' } })],
+      silenced: [{ debtId: 's1', reason: 'outro', until: '2026-10-05', label: 'Outro' }]
+    });
+    assert.equal(cardOf(out, 's1'), 'adiadas');
+    assert.equal(out.byDebt.get('s1').until, '2026-10-05');
+    assert.equal(out.byDebt.get('s1').snoozeExpired, false);
+    assert.equal(cardOf(out, 's2'), 'fato');
+    assert.equal(out.byDebt.get('s2').snoozeExpired, true);
+  });
+
+  it('regra 3a-d: conferir sem pressa; d vence consumada old', () => {
+    const penhoraResult = (constr) => ({
+      segment: 'intercorrente', phase: 'interrompido', interruptVia: 'int_penhora', interruptAt: constr, interruptEffAt: constr
+    });
+    const out = mk({
+      debts: [debt('a'), debt('b'), debt('b2'), debt('b3'), debt('c'), debt('d'), debt('d2')],
+      rows: [
+        row('a', { prescKind: 'penhora_antiga', group: 7 }),
+        row('b', { prescKind: 'vigiar_interrompido' }),
+        row('b2', { prescKind: 'vigiar_interrompido' }),
+        row('b3', { prescKind: 'vigiar_interrompido' }),
+        row('c', { idpjNotice: { active: true } }),
+        row('d', { prescKind: 'residual_alta', group: 6, consumada: 'old', prescLabel: 'Data "não antes de" já passou há mais de 2 anos sem evento datado' }),
+        row('d2', { prescKind: 'residual_alta', group: 2, prescLabel: 'Previsão de planilha, sem ciência lançada' })
+      ],
+      results: { b: penhoraResult('2022-09-17'), b2: penhoraResult('2022-09-18'), b3: penhoraResult('2020-01-01') }
+    });
+    assert.equal(cardOf(out, 'a'), 'sempressa');
+    assert.equal(cardOf(out, 'b'), 'sempressa'); // 4 anos exatos hoje
+    assert.equal(cardOf(out, 'b2'), 'vigiar'); // faltam 1 dia
+    assert.equal(cardOf(out, 'c'), 'sempressa');
+    assert.equal(cardOf(out, 'd'), 'sempressa');
+    assert.equal(cardOf(out, 'd2'), 'vigiar'); // sem a frase, grupo 2 não precisa de você sem ação
+    assert.equal(out.byDebt.get('d').row.consumada, 'old');
+    // 3b com análise vigente (menos de 365 dias) não entra; vencida volta a entrar
+    const vig = mk({
+      debts: [debt('b3', { penhoraAnalise: { at: '2026-03-01' } }), debt('b4', { penhoraAnalise: { at: '2025-09-01' } })],
+      rows: [row('b3', { prescKind: 'vigiar_interrompido' }), row('b4', { prescKind: 'vigiar_interrompido' })],
+      results: { b3: penhoraResult('2020-01-01'), b4: penhoraResult('2020-01-01') }
+    });
+    assert.equal(cardOf(vig, 'b3'), 'vigiar');
+    assert.equal(cardOf(vig, 'b4'), 'sempressa');
+  });
+
+  it('regras 4 e 5: antigas, e consumada recente só em «calculo» (sem dupla contagem)', () => {
+    const out = mk({
+      debts: [debt('o'), debt('r'), debt('n')],
+      rows: [
+        row('o', { prescKind: 'vencido', group: 6, consumada: 'old', alertGroup: 1 }),
+        row('r', { prescKind: 'vencido', group: 1, consumada: 'recent', prescSegment: 'ordinaria' }),
+        row('n', { prescKind: 'correndo', group: 4, decisionNote: 'Análise importada diverge do cálculo' })
+      ]
+    });
+    assert.equal(cardOf(out, 'o'), 'antigas');
+    assert.equal(cardOf(out, 'r'), 'calculo');
+    assert.equal(cardOf(out, 'n'), 'calculo');
+    assert.equal(out.totals.calculo.n, 2);
+    assert.equal(out.totals.antigas.n, 1);
+    assert.equal(out.totals.ajuizar.n + out.totals.ajuizar.nLonge, 0);
+  });
+
+  it('regra 6: ordinária por ação', () => {
+    const o = (id, type, kind = 'vencido') => row(id, { prescSegment: 'ordinaria', prescKind: kind, group: 1, action: { type } });
+    const out = mk({
+      debts: ['v', 'e', 'a1', 'a2', 'a3'].map(id => debt(id)),
+      rows: [
+        o('v', 'confirmar_vigencia', 'pausa_cadastrada'),
+        o('e', 'vincular_ef', 'inconsistencia'),
+        o('a1', 'conferir_autos', 'iminente'),
+        o('a2', 'nenhuma', 'vencido_estimado'),
+        o('a3', 'corrigir_ficha', 'pedido_dado')
+      ]
+    });
+    assert.equal(cardOf(out, 'v'), 'vigencia');
+    assert.equal(cardOf(out, 'e'), 'dado');
+    assert.equal(cardOf(out, 'a1'), 'ajuizar');
+    assert.equal(cardOf(out, 'a2'), 'ajuizar');
+    assert.equal(cardOf(out, 'a3'), 'ajuizar');
+  });
+
+  it('regra 7: intercorrente por ação, só se precisa de você', () => {
+    const g1 = (id, type) => row(id, { group: 1, prescKind: 'vencido', action: { type } });
+    const out = mk({
+      debts: ['v', 'd1', 'd2', 'f1', 'f2', 'f3', 'nn'].map(id => debt(id)),
+      rows: [
+        g1('v', 'confirmar_vigencia'), g1('d1', 'corrigir_ficha'), g1('d2', 'vincular_ef'),
+        g1('f1', 'lancar_ciencia'), g1('f2', 'criar_evento'), g1('f3', 'conferir_autos'),
+        row('nn', { group: 4, prescKind: 'vigiar_interrompido', action: { type: 'lancar_ciencia' } }) // não precisa de você
+      ]
+    });
+    assert.equal(cardOf(out, 'v'), 'vigencia');
+    assert.equal(cardOf(out, 'd1'), 'dado');
+    assert.equal(cardOf(out, 'd2'), 'dado');
+    ['f1', 'f2', 'f3'].forEach(id => assert.equal(cardOf(out, id), 'fato'));
+    assert.equal(cardOf(out, 'nn'), 'vigiar');
+  });
+
+  it('regras 8 e 9: resto do grupo 3 vai a «dado»; linha restante a «vigiar»', () => {
+    const out = mk({
+      debts: [debt('g3'), debt('rest')],
+      rows: [
+        row('g3', { group: 3, prescKind: 'correndo', action: { type: 'conferir_autos' } }),
+        row('rest', { group: 4, prescKind: 'pausa_cadastrada', action: { type: 'confirmar_vigencia' } })
+      ]
+    });
+    assert.equal(cardOf(out, 'g3'), 'dado');
+    assert.equal(cardOf(out, 'rest'), 'vigiar');
+  });
+
+  it('regra 10: sem linha', () => {
+    const credito = (dias, extra = {}) => {
+      const [y, m, d] = TODAY.split('-').map(Number);
+      const iso = new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10);
+      return { segment: 'credito', phase: 'originario', status: 'critico', diesAdQuem: iso, daysLeft: dias, ...extra };
+    };
+    const out = mk({
+      debts: ['p', 'pf', 'o30', 'o100', 'o400', 'ocedo', 'sd', 'int'].map(id => debt(id)),
+      silenced: [
+        { debtId: 'p', reason: 'parcelamento_vigente', until: '2027-01-01' },
+        { debtId: 'pf', reason: 'parcelada_ficha', until: '' }
+      ],
+      results: {
+        o30: credito(30),
+        o100: credito(100),
+        o400: credito(400),
+        ocedo: credito(400, { band: { cedo: { diesAdQuem: '2026-10-17' }, tarde: { diesAdQuem: '2027-10-17' } } }),
+        int: { segment: 'intercorrente', phase: 'correndo', status: 'alerta', diesAdQuem: '2031-01-01' }
+      }
+    });
+    assert.equal(cardOf(out, 'p'), 'vigiar');
+    assert.equal(cardOf(out, 'pf'), 'vigiar');
+    assert.equal(cardOf(out, 'o30'), 'ajuizar');
+    assert.equal(out.byDebt.get('o30').derived, true);
+    assert.equal(out.byDebt.get('o30').ajuizarLonge, false);
+    assert.equal(cardOf(out, 'o100'), 'ajuizar');
+    assert.equal(out.byDebt.get('o100').ajuizarLonge, true);
+    assert.equal(cardOf(out, 'o400'), 'vigiar');
+    assert.equal(out.byDebt.get('o400').derived, false);
+    assert.equal(cardOf(out, 'ocedo'), 'ajuizar'); // pela data cedo da faixa
+    assert.equal(out.byDebt.get('ocedo').ajuizarLonge, false);
+    assert.equal(cardOf(out, 'sd'), 'dado');
+    assert.equal(cardOf(out, 'int'), 'vigiar');
+    // n de ajuizar exclui as longe
+    assert.equal(out.totals.ajuizar.n, 2);
+    assert.equal(out.totals.ajuizar.nLonge, 1);
+    assert.equal(out.byCard.ajuizar.length, 3);
+  });
+
+  it('ajuizar vindo de linha: longe quando a data de posição passa de 60 dias', () => {
+    const out = mk({
+      debts: [debt('n1'), debt('n2')],
+      rows: [
+        row('n1', { prescSegment: 'ordinaria', prescKind: 'iminente', group: 1, prescDate: '2026-10-10', action: { type: 'conferir_autos' } }),
+        row('n2', { prescSegment: 'ordinaria', prescKind: 'iminente', group: 1, prescDate: '2026-12-31', action: { type: 'conferir_autos' } })
+      ]
+    });
+    assert.equal(out.byDebt.get('n1').ajuizarLonge, false);
+    assert.equal(out.byDebt.get('n2').ajuizarLonge, true);
+    assert.equal(out.totals.ajuizar.n, 1);
+    assert.equal(out.totals.ajuizar.nLonge, 1);
+  });
+
+  it('data de posição: cedo venceu e tarde não ordena pela tarde; sem tarde vai ao fim; só prazos mostram data', () => {
+    const ord = (id, over) => row(id, {
+      prescSegment: 'ordinaria', prescKind: 'vencido_estimado', group: 2, action: { type: 'conferir_autos' }, ...over
+    });
+    const out = mk({
+      debts: ['a', 'b', 'c', 'd', 'e'].map(id => debt(id, { value: id === 'c' ? 900 : 100 })),
+      rows: [
+        ord('a', { value: 100, prescDate: '2026-12-01', keyDate: '2026-12-01' }),
+        ord('b', { value: 100, prescDate: '2026-05-01', bandCedo: '2026-05-01', bandTarde: '2026-11-01' }),
+        ord('c', { value: 900, prescDate: '2026-06-01', bandCedo: '2026-06-01', bandTarde: '' }),
+        ord('d', { value: 100, prescDate: '2026-05-01', bandCedo: '2026-05-01', bandTarde: '2026-07-01', consumada: 'recent' }),
+        row('e', { prescKind: 'vigiar_interrompido', group: 1, action: { type: 'conferir_autos' }, prescDate: '2020-01-01', keyDate: '2020-01-01' })
+      ]
+    });
+    const b = out.byDebt.get('b');
+    assert.equal(b.cedoVencidaTardeNao, true);
+    assert.equal(b.sortDate, '2026-11-01');
+    const c = out.byDebt.get('c');
+    assert.equal(c.cedoVencidaTardeNao, true);
+    assert.equal(c.sortDate, null);
+    assert.equal(out.byDebt.get('d').cedoVencidaTardeNao, false); // tarde também venceu
+    assert.equal(out.byDebt.get('d').card, 'calculo');
+    assert.equal(out.byDebt.get('e').sortDate, null);
+    assert.equal(out.byDebt.get('e').dateIsDeadline, false);
+    assert.equal(out.byDebt.get('a').dateIsDeadline, true);
+    // ajuizar: b (tarde 01/11), a (01/12), depois c (sem data)
+    assert.deepEqual(out.byCard.ajuizar.map(i => i.debtId), ['b', 'a', 'c']);
+  });
+
+  it('ordem: adiadas por retorno, tratadas por tratamento recente, antigas por data recente, vigiar por valor', () => {
+    const out = mk({
+      debts: [
+        debt('s1'), debt('s2'), debt('s3'),
+        debt('t1', { prescriptionHandled: true, prescriptionHandledAt: '2026-01-01' }),
+        debt('t2', { prescriptionHandled: true, prescriptionHandledAt: '2026-06-01' }),
+        debt('o1'), debt('o2'),
+        debt('v1', { value: 10 }), debt('v2', { value: 500 }), debt('v3', { value: 50 })
+      ],
+      silenced: [
+        { debtId: 's1', reason: 'peca_protocolada', until: '2026-11-01' },
+        { debtId: 's2', reason: 'peca_protocolada', until: '2026-10-01' },
+        { debtId: 's3', reason: 'outro', until: '2026-10-20' }
+      ],
+      rows: [
+        row('o1', { prescKind: 'vencido', group: 6, consumada: 'old', prescDate: '2024-01-01' }),
+        row('o2', { prescKind: 'vencido', group: 6, consumada: 'old', prescDate: '2025-01-01' }),
+        row('v1', {}), row('v2', {}), row('v3', {})
+      ]
+    });
+    assert.deepEqual(out.byCard.adiadas.map(i => i.debtId), ['s2', 's3', 's1']);
+    assert.deepEqual(out.byCard.tratadas.map(i => i.debtId), ['t2', 't1']);
+    assert.deepEqual(out.byCard.antigas.map(i => i.debtId), ['o2', 'o1']);
+    assert.deepEqual(out.byCard.vigiar.map(i => i.debtId), ['v2', 'v3', 'v1']);
+  });
+
+  it('bloco com data antes do bloco sem data; empate e sem data por maior valor', () => {
+    const f = (id, over) => row(id, { group: 1, prescKind: 'vencido', action: { type: 'conferir_autos' }, ...over });
+    const out = mk({
+      debts: [debt('a', { value: 5 }), debt('b', { value: 50 }), debt('c', { value: 1 }), debt('d', { value: 80 })],
+      rows: [
+        f('a', { value: 5, prescDate: '2026-09-10' }),
+        f('b', { value: 50, prescDate: '2026-09-10' }),
+        f('c', { value: 1, prescDate: '2026-09-01' }),
+        f('d', { value: 80, prescKind: 'vigiar_interrompido', group: 1 })
+      ]
+    });
+    assert.deepEqual(out.byCard.fato.map(i => i.debtId), ['c', 'b', 'a', 'd']);
+  });
+
+  it('soma dos totals = CDAs do universo (motor real, sem dupla contagem)', () => {
+    const asOf = '2026-09-17';
+    const mkD = (id, ins, over = {}) => ({ id, operationId: 'op1', status: 'ativa', inscriptionDate: ins, value: 100, ...over });
+    const debts = [
+      mkD('rec', '2021-08-01'),                // consumada recente, ordinária
+      mkD('hoje', '2021-09-17'),               // vence hoje
+      mkD('o30', '2021-10-17'),                // 30 dias
+      mkD('o100', '2021-12-26'),               // 100 dias
+      mkD('o165', '2022-03-01'),               // 165 dias
+      mkD('o471', '2023-01-01'),               // longe
+      mkD('ef', '2015-01-01', { processNumber: '50011111120154047000' }),
+      mkD('ef2', '2016-01-01', { processNumber: '50011111120164047000' }),
+      mkD('tr', '2015-01-01', { prescriptionHandled: true, prescriptionHandledType: 'declarada' }),
+      mkD('ex', '2015-01-01', { status: 'extinta' }),
+      mkD('snz', '2021-08-01', { prescSnooze: { reason: 'peca_protocolada', until: '2026-10-05', at: '2026-09-10', group: 1 } }),
+      mkD('sd', '')
+    ];
+    const executions = [
+      { id: 'e1', processNumber: '50011111120154047000', protocolDate: '2016-01-01', operationId: 'op1' },
+      { id: 'e2', processNumber: '50011111120164047000', protocolDate: '2017-01-01', operationId: 'op1', status: 'arquivada' }
+    ];
+    const events = [{ id: 'm', executionId: 'e1', type: 'marco_sem_bens', date: '2018-01-01' }];
+    const data = { operations: [OP], debts, executions, prescriptionEvents: events, people: [] };
+    const lookup = createPrescLookup(debts, executions, events, asOf);
+    const radar = buildPrazosRadar(data, asOf, lookup, { policy: 'v2' });
+    const out = buildMesaCards({ data, radar, prescLookup: lookup, today: asOf });
+    const universo = debts.filter(d => d.status !== 'extinta').length;
+    assert.equal(out.items.length, universo);
+    assert.equal(new Set(out.items.map(i => i.debtId)).size, universo);
+    const soma = Object.values(out.totals).reduce((s, t) => s + t.n + (t.nLonge || 0), 0);
+    assert.equal(soma, universo);
+    const somaCards = Object.values(out.byCard).reduce((s, l) => s + l.length, 0);
+    assert.equal(somaCards, universo);
+    assert.equal(out.byDebt.get('rec').card, 'calculo');
+    assert.equal(out.byDebt.get('o30').card, 'ajuizar');
+    assert.equal(out.byDebt.get('o30').ajuizarLonge, false);
+    assert.equal(out.byDebt.get('o100').card, 'ajuizar');
+    assert.equal(out.byDebt.get('o100').derived, true);
+    assert.equal(out.byDebt.get('o100').ajuizarLonge, true);
+    assert.equal(out.byDebt.get('o165').ajuizarLonge, true);
+    assert.equal(out.byDebt.get('o471').card, 'vigiar');
+    assert.equal(out.byDebt.get('tr').card, 'tratadas');
+    assert.equal(out.byDebt.get('snz').card, 'adiadas');
+    assert.equal(out.totals.ajuizar.n, out.byCard.ajuizar.filter(i => !i.ajuizarLonge).length);
   });
 });
