@@ -693,10 +693,8 @@ export function buildMesaCards({ data, radar, prescLookup, today } = {}) {
   const totals = {};
   MESA_CARDS.forEach(c => {
     byCard[c.id] = [];
-    totals[c.id] = { n: 0, value: 0 };
+    totals[c.id] = { n: 0, value: 0, nLonge: 0, valueLonge: 0 };
   });
-  totals.ajuizar.nLonge = 0;
-  totals.ajuizar.valueLonge = 0;
   items.forEach(it => {
     byCard[it.card].push(it);
     const t = totals[it.card];
@@ -718,9 +716,8 @@ export function buildMesaCards({ data, radar, prescLookup, today } = {}) {
 /** Totais por cartão a partir de uma lista de itens (por exemplo, já filtrada por operação, pessoa ou busca). */
 export function mesaTotalsOf(items) {
   const totals = {};
-  MESA_CARDS.forEach(c => { totals[c.id] = { n: 0, value: 0 }; });
-  totals.ajuizar.nLonge = 0;
-  totals.ajuizar.valueLonge = 0;
+  // nLonge/valueLonge em todos os cartões: a UI soma value + valueLonge em qualquer seção.
+  MESA_CARDS.forEach(c => { totals[c.id] = { n: 0, value: 0, nLonge: 0, valueLonge: 0 }; });
   (items || []).forEach(it => {
     const t = totals[it.card];
     if (!t) return;
@@ -847,4 +844,170 @@ export function mesaLiteInfo(item, sil, todayIso) {
     out.why = betaSafeUiText((item.prescResult && (item.prescResult.summary || item.prescResult.detail)) || '') || 'Sem alarme';
   }
   return out;
+}
+
+/* ───────────────────────── Fase 2 · Filtros da Mesa ─────────────────────────
+ * Uma só função de filtro para os cartões e as listas das três Mesas (Prumo, clássico, Beta).
+ * Campos do filtro (todos guardados em prazosFilters): operationId, personId, q, nat, cedoTarde, idpj, minVal, juntar.
+ * Só leem os itens de buildMesaCards; não mudam o motor. */
+
+/** Valores neutros dos campos da Mesa (juntar é exibição, não filtro). */
+export const MESA_FILTER_DEFAULTS = {
+  operationId: '', personId: 'all', q: '', nat: '', cedoTarde: false, idpj: false, minVal: 0, juntar: false
+};
+
+/** Número em formato brasileiro: "500.000" = 500000; "1,5" = 1.5; "1.5" = 1.5. NaN se não for número. */
+function mesaNumBR(t) {
+  const s = String(t || '').replace(/\s/g, '');
+  if (!/^\d[\d.,]*$/.test(s)) return NaN;
+  if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  const parts = s.split('.');
+  if (parts.length > 1 && parts.slice(1).every(p => p.length === 3)) return parseFloat(parts.join(''));
+  return parseFloat(s);
+}
+
+/**
+ * Valor mínimo digitado à mão: "500.000", "500000", "500 mil", "1,5 mi", "2 bilhões", "R$ 1.500,50".
+ * Vazio ou inválido = 0 (sem filtro).
+ */
+export function parseMesaMinVal(text) {
+  const s = String(text == null ? '' : text).toLowerCase().replace(/r\$/g, '').trim();
+  if (!s) return 0;
+  const m = /^(.*?)\s*(bilh(?:ão|ao|ões|oes)|bi|milh(?:ão|ao|ões|oes)|mi|mm|mil|k)\.?$/.exec(s);
+  let n;
+  if (m && m[1]) {
+    const unit = m[2];
+    const mult = /^bi/.test(unit) ? 1e9 : (/^(mil$|k$)/.test(unit) ? 1e3 : 1e6);
+    n = mesaNumBR(m[1]) * mult;
+  } else {
+    n = mesaNumBR(s);
+  }
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+}
+
+/** Número com milhares ("500.000", "1.500,5"), para o campo e os chips. */
+export function formatMesaMinVal(n) {
+  const v = Number(n) || 0;
+  if (v <= 0) return '';
+  const [int, dec] = String(Math.round(v * 100) / 100).split('.');
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (dec ? ',' + dec.padEnd(2, '0') : '');
+}
+
+/** Natureza do item: 'ordinaria', 'intercorrente' ou '' (sem dado: só aparece em «Todas»). Decadência nunca entra. */
+export function mesaItemNature(item, prescLookup) {
+  if (!item) return '';
+  if (item.derived) return 'ordinaria';
+  const rowSeg = item.row && item.row.prescSegment;
+  if (rowSeg === 'ordinaria' || rowSeg === 'intercorrente') return rowSeg;
+  let seg = item.prescResult && item.prescResult.segment;
+  if (!seg && prescLookup && item.debt) seg = (mesaSafeLookup(prescLookup, item.debt) || {}).segment;
+  if (seg === 'credito' || seg === 'ordinaria') return 'ordinaria';
+  if (seg === 'intercorrente') return 'intercorrente';
+  return '';
+}
+
+/** Abrangida por IDPJ ou cautelar (linha com incidente ou execução coberta). */
+export function mesaItemIdpj(item) {
+  const r = item && item.row;
+  return !!(r && (r.incident || r.hasIDPJ));
+}
+
+/**
+ * Filtra itens da Mesa, mantendo a ordem. f: { operationId, personId, q, nat, cedoTarde, idpj, minVal }.
+ * ctx: { personIds: Set|null (CDAs da pessoa escolhida), personOf(debt), opNameOf(opId), prescLookup }.
+ */
+export function filterMesaItems(items, f, ctx) {
+  const o = f || {};
+  const c = ctx || {};
+  const raw = String(o.q || '').trim().toLowerCase();
+  const qd = raw.replace(/\D/g, '');
+  const min = Number(o.minVal) || 0;
+  const personIds = o.personId && o.personId !== 'all' ? (c.personIds || null) : null;
+  return (items || []).filter(it => {
+    const d = it && it.debt;
+    if (!d) return false;
+    if (o.operationId && d.operationId !== o.operationId) return false;
+    if (personIds && !personIds.has(d.id)) return false;
+    if (raw) {
+      const ok = (d.cdaNumber || '').toLowerCase().includes(raw)
+        || (qd && (d.processNumber || '').replace(/\D/g, '').includes(qd))
+        || String((c.personOf && c.personOf(d)) || d.devedor || '').toLowerCase().includes(raw)
+        || String((c.opNameOf && c.opNameOf(d.operationId)) || '').toLowerCase().includes(raw);
+      if (!ok) return false;
+    }
+    if (o.nat && mesaItemNature(it, c.prescLookup) !== o.nat) return false;
+    if (o.cedoTarde && !it.cedoVencidaTardeNao) return false;
+    if (o.idpj && !mesaItemIdpj(it)) return false;
+    if (min && (Number(it.value) || 0) < min) return false;
+    return true;
+  });
+}
+
+/** Aplica o filtro às listas de cada cartão. Devolve { by, items, n, totals } com os totais refeitos. */
+export function filterMesaCards(mc, f, ctx) {
+  const by = {};
+  let all = [];
+  MESA_CARDS.forEach(c => {
+    by[c.id] = filterMesaItems((mc && mc.byCard && mc.byCard[c.id]) || [], f, ctx);
+    all = all.concat(by[c.id]);
+  });
+  return { by, items: all, n: all.length, totals: mesaTotalsOf(all) };
+}
+
+/** Quantas CDAs são «cedo venceu, tarde não» dentro dos outros filtros (contagem ao lado da caixa). */
+export function mesaCedoCount(mc, f, ctx) {
+  const base = filterMesaCards(mc, { ...(f || {}), cedoTarde: false }, ctx);
+  return base.items.filter(it => it.cedoVencidaTardeNao).length;
+}
+
+/** Filtros que valem como corte dos itens (sem a exibição «juntar»). */
+export function mesaHasCut(f) {
+  const o = f || {};
+  return !!(o.operationId || (o.personId && o.personId !== 'all') || String(o.q || '').trim()
+    || o.nat || o.cedoTarde || o.idpj || Number(o.minVal) > 0);
+}
+
+/**
+ * Chips dos filtros ativos: [{ k, t }], k = chave de remoção. names: { opName, personName }.
+ * `panel` marca os que moram no painel (contam no botão «Filtros (N)»).
+ */
+export function mesaActiveFilters(f, names) {
+  const o = f || {};
+  const n = names || {};
+  const l = [];
+  if (o.operationId) l.push({ k: 'op', t: 'Operação: ' + (n.opName || o.operationId), panel: false });
+  if (o.personId && o.personId !== 'all') l.push({ k: 'person', t: 'Pessoa: ' + (n.personName || o.personId), panel: false });
+  if (o.nat) l.push({ k: 'nat', t: 'Natureza: ' + (o.nat === 'ordinaria' ? 'ordinária' : 'intercorrente'), panel: true });
+  if (o.cedoTarde) l.push({ k: 'cedoTarde', t: 'Cedo venceu, tarde não', panel: true });
+  if (o.idpj) l.push({ k: 'idpj', t: 'Só abrangidas por IDPJ ou cautelar', panel: true });
+  if (Number(o.minVal) > 0) l.push({ k: 'minVal', t: 'Valor a partir de R$ ' + formatMesaMinVal(o.minVal), panel: true });
+  if (String(o.q || '').trim()) l.push({ k: 'q', t: 'Busca: «' + String(o.q).trim() + '»', panel: false });
+  if (o.juntar) l.push({ k: 'juntar', t: 'CDAs juntas por processo', panel: true });
+  return l;
+}
+
+/** Remendo de prazosFilters para remover um chip (k de mesaActiveFilters). */
+export function mesaRemovePatch(k) {
+  switch (k) {
+    case 'op': return { operationId: '', personId: 'all' };
+    case 'person': return { personId: 'all' };
+    case 'nat': return { nat: '' };
+    case 'cedoTarde': return { cedoTarde: false };
+    case 'idpj': return { idpj: false };
+    case 'minVal': return { minVal: 0 };
+    case 'q': return { q: '' };
+    case 'juntar': return { juntar: false };
+    default: return {};
+  }
+}
+
+/** Remendo que zera os cortes (operação, pessoa, busca, natureza, marcações, valor). Não mexe na exibição «juntar». */
+export function mesaResetPatch() {
+  const { juntar, ...cuts } = MESA_FILTER_DEFAULTS; // eslint-disable-line no-unused-vars
+  return cuts;
+}
+
+/** «Limpar tudo» do painel: zera os cortes e a exibição. */
+export function mesaClearAllPatch() {
+  return { ...MESA_FILTER_DEFAULTS };
 }

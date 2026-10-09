@@ -26,6 +26,19 @@ import {
   mesaItemClock,
   mesaSnoozeLabel,
   mesaLiteInfo,
+  MESA_FILTER_DEFAULTS,
+  parseMesaMinVal,
+  formatMesaMinVal,
+  mesaItemNature,
+  mesaItemIdpj,
+  filterMesaItems,
+  filterMesaCards,
+  mesaCedoCount,
+  mesaHasCut,
+  mesaActiveFilters,
+  mesaRemovePatch,
+  mesaResetPatch,
+  mesaClearAllPatch,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -545,8 +558,8 @@ describe('mesaActionCount / mesaTotalsOf', () => {
     ];
     const t = mesaTotalsOf(items);
     assert.deepEqual(t.ajuizar, { n: 1, value: 10, nLonge: 1, valueLonge: 5 });
-    assert.deepEqual(t.dado, { n: 1, value: 7 });
-    assert.deepEqual(t.calculo, { n: 0, value: 0 });
+    assert.deepEqual(t.dado, { n: 1, value: 7, nLonge: 0, valueLonge: 0 });
+    assert.deepEqual(t.calculo, { n: 0, value: 0, nLonge: 0, valueLonge: 0 });
     assert.deepEqual(mesaActionCount(t), { n: 2, value: 17 });
   });
 
@@ -609,5 +622,140 @@ describe('Mesa — relógio e linhas das listas', () => {
     assert.equal(dv.whenGray, true);
     assert.match(dv.when, /^em /);
     assert.equal(mesaLiteInfo({ card: 'dado', debt: {} }, null, T).why, 'Sem dados para calcular');
+  });
+});
+
+describe('Mesa — filtros (fase 2)', () => {
+  const dbt = (id, over = {}) => ({ id, operationId: 'op1', cdaNumber: 'CDA ' + id, processNumber: '', personId: 'p1', value: 100, ...over });
+  const mk = (id, card, over = {}, debtOver = {}) => ({
+    debtId: id, card, debt: dbt(id, debtOver), row: null, value: (debtOver.value != null ? debtOver.value : 100),
+    cedoVencidaTardeNao: false, ajuizarLonge: false, derived: false, ...over
+  });
+  const ctx = {
+    personIds: new Set(['a', 'b']),
+    personOf: d => (d.personId === 'p1' ? 'Maria Souza' : 'Empresa Alfa'),
+    opNameOf: id => (id === 'op1' ? 'Operação Tempestade' : 'Operação Brisa')
+  };
+
+  it('parseMesaMinVal: formatos livres em português', () => {
+    assert.equal(parseMesaMinVal('500.000'), 500000);
+    assert.equal(parseMesaMinVal('500000'), 500000);
+    assert.equal(parseMesaMinVal('500 mil'), 500000);
+    assert.equal(parseMesaMinVal('1,5 mi'), 1500000);
+    assert.equal(parseMesaMinVal('1,5 milhões'), 1500000);
+    assert.equal(parseMesaMinVal('2 bi'), 2e9);
+    assert.equal(parseMesaMinVal('R$ 1.500,50'), 1500.5);
+    assert.equal(parseMesaMinVal('1.5'), 1.5);
+    assert.equal(parseMesaMinVal('2k'), 2000);
+    assert.equal(parseMesaMinVal(''), 0);
+    assert.equal(parseMesaMinVal('abc'), 0);
+    assert.equal(parseMesaMinVal(null), 0);
+    assert.equal(parseMesaMinVal('-5'), 0);
+    assert.equal(formatMesaMinVal(500000), '500.000');
+    assert.equal(formatMesaMinVal(1500.5), '1.500,50');
+    assert.equal(formatMesaMinVal(0), '');
+  });
+
+  it('natureza: linha, derivada, resultado do cálculo e consulta; decadência e sem dado ficam só em «Todas»', () => {
+    assert.equal(mesaItemNature(mk('a', 'ajuizar', { row: { prescSegment: 'intercorrente' } })), 'intercorrente');
+    assert.equal(mesaItemNature(mk('a', 'ajuizar', { row: { prescSegment: 'ordinaria' } })), 'ordinaria');
+    assert.equal(mesaItemNature(mk('a', 'ajuizar', { derived: true })), 'ordinaria');
+    assert.equal(mesaItemNature(mk('a', 'tratadas', { prescResult: { segment: 'credito' } })), 'ordinaria');
+    assert.equal(mesaItemNature(mk('a', 'tratadas', { prescResult: { segment: 'intercorrente' } })), 'intercorrente');
+    assert.equal(mesaItemNature(mk('a', 'tratadas', { prescResult: { segment: 'decadencia' } })), '');
+    assert.equal(mesaItemNature(mk('a', 'tratadas'), () => ({ segment: 'credito' })), 'ordinaria');
+    assert.equal(mesaItemNature(mk('a', 'tratadas'), () => { throw new Error('x'); }), '');
+    assert.equal(mesaItemNature(mk('a', 'tratadas')), '');
+  });
+
+  it('IDPJ ou cautelar: incident ou hasIDPJ na linha', () => {
+    assert.equal(mesaItemIdpj(mk('a', 'fato', { row: { incident: { kind: 'idpj' } } })), true);
+    assert.equal(mesaItemIdpj(mk('a', 'fato', { row: { hasIDPJ: true } })), true);
+    assert.equal(mesaItemIdpj(mk('a', 'fato', { row: {} })), false);
+    assert.equal(mesaItemIdpj(mk('a', 'tratadas')), false);
+  });
+
+  it('filtro de operação, pessoa e busca (CDA, processo, devedor, operação), mantendo a ordem', () => {
+    const items = [
+      mk('a', 'fato', {}, { cdaNumber: 'CDA 111', processNumber: '5001234-56.2020.4.04.7000' }),
+      mk('b', 'fato', {}, { cdaNumber: 'CDA 222', operationId: 'op2', personId: 'p2' }),
+      mk('c', 'dado', {}, { cdaNumber: 'CDA 333' }),
+      mk('d', 'dado', {}, { cdaNumber: 'CDA 444' })
+    ];
+    const ids = f => filterMesaItems(items, f, ctx).map(i => i.debtId).join('');
+    assert.equal(ids({}), 'abcd');
+    assert.equal(ids({ operationId: 'op2' }), 'b');
+    assert.equal(ids({ operationId: 'op1', personId: 'x' }), 'a', 'operação e pessoa se somam');
+    assert.equal(filterMesaItems(items, { personId: 'x' }, { ...ctx, personIds: null }).length, 4, 'sem conjunto de CDAs a pessoa não corta');
+    assert.equal(ids({ personId: 'x' }), 'ab', 'só as CDAs da pessoa');
+    assert.equal(ids({ personId: 'all' }), 'abcd');
+    assert.equal(ids({ q: 'cda 22' }), 'b');
+    assert.equal(ids({ q: '5001234' }), 'a');
+    assert.equal(ids({ q: 'alfa' }), 'b');
+    assert.equal(ids({ q: 'maria' }), 'acd');
+    assert.equal(ids({ q: 'brisa' }), 'b');
+    assert.equal(ids({ q: '  ' }), 'abcd');
+    assert.equal(ids({ operationId: 'op1', q: 'cda 44' }), 'd');
+  });
+
+  it('natureza, cedo venceu/tarde não, IDPJ e valor mínimo', () => {
+    const items = [
+      mk('o', 'ajuizar', { row: { prescSegment: 'ordinaria' } }, { value: 1000 }),
+      mk('i', 'fato', { row: { prescSegment: 'intercorrente', incident: {} }, cedoVencidaTardeNao: true }, { value: 600000 }),
+      mk('j', 'fato', { row: { prescSegment: 'intercorrente', hasIDPJ: true } }, { value: 50 }),
+      mk('t', 'tratadas', {}, { value: 2000000 })
+    ];
+    const ids = f => filterMesaItems(items, f, ctx).map(i => i.debtId).join('');
+    assert.equal(ids({ nat: 'ordinaria' }), 'o');
+    assert.equal(ids({ nat: 'intercorrente' }), 'ij');
+    assert.equal(ids({ cedoTarde: true }), 'i');
+    assert.equal(ids({ idpj: true }), 'ij');
+    assert.equal(ids({ minVal: 500000 }), 'it');
+    assert.equal(ids({ minVal: 500000, nat: 'intercorrente', idpj: true, cedoTarde: true }), 'i');
+    assert.equal(ids({ minVal: 5e6 }), '');
+    assert.equal(ids({ nat: '' }), 'oijt');
+  });
+
+  it('filterMesaCards: por cartão, com totais refeitos e contagem «cedo venceu» dentro dos outros filtros', () => {
+    const a = mk('a', 'fato', { cedoVencidaTardeNao: true, row: { prescSegment: 'intercorrente' } }, { value: 10 });
+    const b = mk('b', 'fato', { row: { prescSegment: 'intercorrente' } }, { value: 20 });
+    const c = mk('c', 'ajuizar', { ajuizarLonge: true, derived: true, cedoVencidaTardeNao: true }, { value: 30, operationId: 'op2' });
+    const mc = { byCard: { fato: [b, a], ajuizar: [c] }, items: [a, b, c] };
+    const out = filterMesaCards(mc, { nat: 'intercorrente' }, ctx);
+    assert.deepEqual(out.by.fato.map(i => i.debtId), ['b', 'a']);
+    assert.deepEqual(out.by.ajuizar, []);
+    assert.equal(out.n, 2);
+    assert.deepEqual(out.by.dado, []);
+    assert.equal(out.totals.fato.n, 2);
+    assert.equal(out.totals.fato.value, 30);
+    assert.equal(filterMesaCards(mc, { cedoTarde: true }, ctx).n, 2);
+    assert.equal(mesaCedoCount(mc, {}, ctx), 2);
+    assert.equal(mesaCedoCount(mc, { cedoTarde: true }, ctx), 2, 'a caixa marcada não zera a própria contagem');
+    assert.equal(mesaCedoCount(mc, { operationId: 'op1' }, ctx), 1);
+    assert.equal(mesaCedoCount(mc, { minVal: 25 }, ctx), 1);
+  });
+
+  it('chips, remoção e limpeza', () => {
+    assert.deepEqual(mesaActiveFilters(MESA_FILTER_DEFAULTS), []);
+    assert.equal(mesaHasCut(MESA_FILTER_DEFAULTS), false);
+    assert.equal(mesaHasCut({ ...MESA_FILTER_DEFAULTS, juntar: true }), false, 'juntar é exibição, não corte');
+    const f = { operationId: 'op1', personId: 'p9', q: ' abc ', nat: 'ordinaria', cedoTarde: true, idpj: true, minVal: 500000, juntar: true };
+    const chips = mesaActiveFilters(f, { opName: 'Tempestade', personName: 'Maria' });
+    assert.deepEqual(chips.map(c => c.k), ['op', 'person', 'nat', 'cedoTarde', 'idpj', 'minVal', 'q', 'juntar']);
+    assert.equal(chips[0].t, 'Operação: Tempestade');
+    assert.equal(chips[2].t, 'Natureza: ordinária');
+    assert.equal(chips[5].t, 'Valor a partir de R$ 500.000');
+    assert.equal(chips[6].t, 'Busca: «abc»');
+    assert.equal(chips.filter(c => c.panel).length, 5);
+    assert.equal(mesaHasCut(f), true);
+    assert.deepEqual(mesaRemovePatch('op'), { operationId: '', personId: 'all' });
+    assert.deepEqual(mesaRemovePatch('minVal'), { minVal: 0 });
+    assert.deepEqual(mesaRemovePatch('zzz'), {});
+    chips.forEach(c => assert.notDeepEqual(mesaRemovePatch(c.k), {}));
+    const cleared = { ...f, ...mesaClearAllPatch() };
+    assert.deepEqual(mesaActiveFilters(cleared), []);
+    const reset = { ...f, ...mesaResetPatch() };
+    assert.equal(reset.juntar, true, 'o reinício por navegação não mexe na exibição');
+    assert.equal(mesaHasCut(reset), false);
   });
 });

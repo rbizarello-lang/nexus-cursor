@@ -393,7 +393,7 @@ function EditionClaudeSidebar(p) {
         <CxOpSquare op={o} title={o.name} />
         <span className="cx-lbl" title={o.name}>{cxOpName(o)}</span>
         {m.overdueIntims > 0 ? <span className="cx-dot" style={{ background: 'var(--cx-red)' }} title={cxPl(m.overdueIntims, 'intimação vencida', 'intimações vencidas')} />
-          : m.alerts > 0 ? <span className="cx-dot" style={{ background: 'var(--cx-violet)' }} title={cxPl(m.alerts, 'CDA com prazo extintivo urgente', 'CDAs com prazo extintivo urgente')} /> : null}
+          : m.alerts > 0 ? <span className="cx-dot" style={{ background: 'var(--cx-violet)' }} title={cxPl(m.alerts, 'CDA a agir nos prazos extintivos', 'CDAs a agir nos prazos extintivos')} /> : null}
       </div>
       {open ? <div className="cx-nav-sub">
         <button type="button" className={'cx-nav-item' + (onOp && activeTab === 'visao' ? ' on' : '')} onClick={() => p.onOpenOpTab(o.id, 'visao')}><span className="cx-lbl">Visão geral</span></button>
@@ -1596,14 +1596,13 @@ function cxClsTag(k) {
 }
 
 /* ─── Índice por operação (uma passada no acervo) ─── */
-function cxOpIndex(data, prazosByDebt) {
+function cxOpIndex(data, mesaCards) {
   const idx = {};
   const get = (id) => idx[id] || (idx[id] = { debts: [], execs: [], open: [], late: 0, risk: 0, riskValue: 0, targets: [], next: null, tasks: 0 });
   (data.debts || []).forEach(d => {
     if (!d.operationId || d.status === 'extinta') return;
     const x = get(d.operationId); x.debts.push(d);
-    const row = prazosByDebt.get(d.id);
-    if (row && (row.group === 1 || row.group === 2) && !d.prescriptionHandled) { x.risk++; x.riskValue += d.value || 0; }
+    if (mesaIsAction(mesaCards.byDebt.get(d.id))) { x.risk++; x.riskValue += d.value || 0; }
   });
   (data.executions || []).forEach(e => { if (e.operationId) get(e.operationId).execs.push(e); });
   (data.intimations || []).forEach(i => {
@@ -1620,14 +1619,14 @@ function cxOpIndex(data, prazosByDebt) {
 
 /* ═════════════════════ Carteira ═════════════════════ */
 function EditionClaudeCarteira(p) {
-  const { data, prazosByDebt } = p;
+  const { data, mesaCards } = p;
   const [localF, setLocalF] = React.useState('all');
   const filter = p.classFilter || localF;
   const setFilter = p.setClassFilter || setLocalF;
   const [q, setQ] = React.useState('');
   const [sort, setSortS] = React.useState(() => { try { return localStorage.getItem('nexus_cx_cart_sort') || 'nome'; } catch (e) { return 'nome'; } });
   const setSort = (v) => { setSortS(v); try { localStorage.setItem('nexus_cx_cart_sort', v); } catch (e) { /* ignore */ } };
-  const idx = React.useMemo(() => cxOpIndex(data, prazosByDebt), [data, prazosByDebt]);
+  const idx = React.useMemo(() => cxOpIndex(data, mesaCards), [data, mesaCards]);
   const ops = data.operations || [];
   const chips = [['all', 'Todas', ops.filter(o => o.status !== 'encerrada').length]];
   opClassChipKeys(ops, { hideEmpty: true }).forEach(k => { if (OP_CLASSIFICATIONS[k]) chips.push([k, OP_CLASSIFICATIONS[k].label, ops.filter(o => opMatchesClassFilter(o, k)).length]); });
@@ -1688,7 +1687,7 @@ function EditionClaudeCarteira(p) {
           <span title="Processos"><CxIcon n="scale" s={13} />{x.execs.length}</span>
           <span title="CDAs ativas"><CxIcon n="file" s={13} />{x.debts.length}</span>
           <span title="Intimações abertas" className={x.late ? 'cx-red-t' : ''}><CxIcon n="inbox" s={13} />{x.open.length}{x.late ? ' · ' + x.late + ' venc.' : ''}</span>
-          {x.risk ? <span title="CDAs nos grupos urgentes de prescrição" className="cx-violet-t"><CxIcon n="hourglass" s={13} />{x.risk}</span> : null}
+          {x.risk ? <span title="CDAs a agir nos prazos extintivos (cartões da fileira 1 da Mesa)" className="cx-violet-t"><CxIcon n="hourglass" s={13} />{x.risk}</span> : null}
           <span title="Próximo prazo"><CxIcon n="clock" s={13} />{x.next ? <CxDue iso={x.next.dateDeadline} /> : '—'}</span>
           <span className="cx-sp" />
           {x.targets.length ? <CxAvatars people={x.targets} /> : null}
@@ -2058,7 +2057,7 @@ function EditionClaudeOpOverview(p) {
       {stat('Garantido (CDA)', cxMoneyShort(s.guar), (s.total ? Math.round(s.guar / s.total * 100) : 0) + '% da dívida', { tip: 'CDAs com status Garantida' })}
       {stat('Indisponibilidades', s.indispHasValue ? cxMoneyShort(indisp) : s.indispLabel, s.indispCount ? cxPl(s.indispCount, 'bem', 'bens') : 'nenhum bem', { onClick: s.indispCount ? () => p.onTab('bens') : null })}
       {stat('Cobertura', (s.covPct != null ? s.covPct + '%' : '—'), 'pelos incidentes', { tip: 'Parte do valor das execuções coberta por IDPJ ou cautelar' })}
-      {stat('Prescrição · CDAs', s.prescA, 'nos grupos urgentes', { tone: s.prescA ? 'violet' : '', onClick: p.onOpenPrazos })}
+      {stat('Prescrição · CDAs', s.prescA, 'a agir', { tone: s.prescA ? 'violet' : '', tip: 'CDAs desta operação nos cartões «a agir» da Mesa de prazos (Conferir o cálculo, Ajuizar até 60 dias, Lançar fato, Confirmar vigência, Completar dado). Mesmo número do ponto no menu.', onClick: p.onOpenPrazos })}
       {stat('Processos em alerta', s.prescExec, 'crítico, alerta ou vencido', { tone: s.prescExec ? 'violet' : '', onClick: () => p.onTab('prescricao_v2') })}
       {stat('Intimações', s.openIntims, s.overdueIntims ? cxPl(s.overdueIntims, 'vencida', 'vencidas') : 'nenhuma vencida', { tone: s.overdueIntims ? 'red' : '' })}
       {stat('Tarefas', s.openTasks, s.overdueTasks ? cxPl(s.overdueTasks, 'vencida', 'vencidas') : 'em aberto', { tone: s.overdueTasks ? 'red' : '', onClick: () => p.onTab('tarefas') })}
@@ -2215,13 +2214,43 @@ function CxMesaLite({ item, a, opName, personName, sil }) {
     </div>
   </div>;
 }
+/* Painel de Filtros da Mesa (decisão 7): natureza, marcações, valor mínimo e exibição. Tudo em prazosFilters. */
+function CxMesaPainel({ pf, setPf, cedoN, onClose }) {
+  const min = Number(pf.minVal) || 0;
+  const [txt, setTxt] = React.useState(() => formatMesaMinVal(min));
+  React.useEffect(() => { if (parseMesaMinVal(txt) !== min) setTxt(formatMesaMinVal(min)); }, [min]);
+  return <section className="cx-card cx-pz-painel" id="cx-pz-painel" aria-label="Filtros">
+    <div className="cx-pz-pg"><span className="cx-pz-pl">Natureza</span>
+      <CxSeg label="Natureza" value={pf.nat || ''} onChange={v => setPf({ nat: v })} options={[['', 'Todas'], ['ordinaria', 'Ordinária'], ['intercorrente', 'Intercorrente']]} />
+      <span className="cx-pz-pdica">A decadência não entra nesta escolha: é só consulta.</span>
+    </div>
+    <div className="cx-pz-pg"><span className="cx-pz-pl">Marcações</span>
+      <label className="cx-pz-ck"><input id="cx-pz-ck-cedo" type="checkbox" checked={!!pf.cedoTarde} onChange={e => setPf({ cedoTarde: e.target.checked })} /><span>Só «cedo venceu, tarde não» <span className="cx-n">{cedoN}</span></span></label>
+      <label className="cx-pz-ck"><input id="cx-pz-ck-idpj" type="checkbox" checked={!!pf.idpj} onChange={e => setPf({ idpj: e.target.checked })} /><span>Só abrangidas por IDPJ ou cautelar</span></label>
+    </div>
+    <div className="cx-pz-pg"><span className="cx-pz-pl">Valor a partir de</span>
+      <label className="cx-pz-valor"><span>R$</span><input id="cx-pz-val" className="cx-input cx-mono" type="text" inputMode="decimal" autoComplete="off" placeholder="ex.: 500.000 ou 1,5 mi" aria-label="Valor a partir de, em reais" value={txt} onChange={e => { setTxt(e.target.value); setPf({ minVal: parseMesaMinVal(e.target.value) }); }} /></label>
+      <span className="cx-pz-pdica">Campo livre: some o que for menor que o valor da CDA.</span>
+    </div>
+    <div className="cx-pz-pg"><span className="cx-pz-pl">Exibição</span>
+      <label className="cx-pz-ck"><input id="cx-pz-ck-juntar" type="checkbox" checked={!!pf.juntar} onChange={e => setPf({ juntar: e.target.checked })} /><span>Juntar CDAs por processo</span></label>
+      <span className="cx-pz-pdica">Análise conjunta: agrupa as linhas de cada seção por processo. Os cartões continuam contando por CDA.</span>
+    </div>
+    <div className="cx-pz-painel-f">
+      <button type="button" id="cx-pz-limpar-tudo" className="cx-btn sm ghost" onClick={() => setPf(mesaClearAllPatch())}>Limpar tudo</button>
+      <span className="cx-sp" />
+      <button type="button" className="cx-btn sm primary" onClick={onClose}>Fechar</button>
+    </div>
+  </section>;
+}
 function EditionClaudePrazos(p) {
   const { data, prazosRadar, pf, setPf, a } = p;
   const [sec, setSec] = React.useState(p.initialSec || '');
   React.useEffect(() => { if (p.initialSec && p.onInitialSecConsumed) p.onInitialSecConsumed(); }, []);
   const [openMap, setOpenMap] = React.useState({});
   const [limMap, setLimMap] = React.useState({});
-  const [join, setJoin] = React.useState(false);
+  const [painel, setPainel] = React.useState(false);
+  const join = !!pf.juntar;
   const today = localIso(new Date());
   const opsOpen = (data.operations || []).filter(o => o.status !== 'encerrada').slice().sort(sortOpsByName);
   const mc = React.useMemo(() => p.mesaCards || buildMesaCards({ data, radar: prazosRadar, prescLookup: a.presc, today }), [p.mesaCards, data, prazosRadar, a.presc, today]);
@@ -2230,24 +2259,16 @@ function EditionClaudePrazos(p) {
   const silById = React.useMemo(() => { const m = new Map(); (prazosRadar.silenced || []).forEach(x => { if (x && x.debtId && !m.has(x.debtId)) m.set(x.debtId, x); }); return m; }, [prazosRadar.silenced]);
   const personOf = (d) => ((peopleById.get(d.personId) || {}).name) || d.devedor || '';
   const opNameOf = (id) => { const o = opsById.get(id); return o ? cxOpName(o) : ''; };
-  // Filtros (operação, pessoa, busca) valem para os itens; os totais dos cartões são refeitos a partir deles.
+  // Um só filtro (filterMesaItems) para cartões e listas: operação, pessoa, busca, natureza, marcações e valor.
+  // Os totais dos cartões são refeitos a partir dos itens que passam.
   const personIds = (pf.personId && pf.personId !== 'all') ? cdaIdsForPerson(data.links && data.links.cdaResponsibilities, pf.personId) : null;
-  const raw = String(pf.q || '').toLowerCase(), qd = raw.replace(/\D/g, '');
-  const keep = (it) => {
-    const d = it.debt;
-    if (pf.operationId && d.operationId !== pf.operationId) return false;
-    if (personIds && !personIds.has(d.id)) return false;
-    if (raw) {
-      const op = opsById.get(d.operationId);
-      const ok = (d.cdaNumber || '').toLowerCase().includes(raw) || (qd && (d.processNumber || '').replace(/\D/g, '').includes(qd))
-        || personOf(d).toLowerCase().includes(raw) || ((op && op.name) || '').toLowerCase().includes(raw);
-      if (!ok) return false;
-    }
-    return true;
-  };
-  const by = {};
-  MESA_CARDS.forEach(c => { by[c.id] = mc.byCard[c.id].filter(keep); });
-  const tot = mesaTotalsOf(MESA_CARDS.flatMap(c => by[c.id]));
+  const fctx = { personIds, personOf, opNameOf: (id) => { const o = opsById.get(id); return (o && o.name) || ''; }, prescLookup: a.presc };
+  const fl = filterMesaCards(mc, pf, fctx);
+  const by = fl.by, tot = fl.totals;
+  const cedoN = painel ? mesaCedoCount(mc, pf, fctx) : 0;
+  const chips = mesaActiveFilters(pf, { opName: pf.operationId && opsById.get(pf.operationId) ? cxOpName(opsById.get(pf.operationId)) : '', personName: (peopleById.get(pf.personId) || {}).name });
+  const nPanel = chips.filter(c => c.panel).length;
+  const hasCut = mesaHasCut(pf);
   const notesByProc = new Map();
   (prazosRadar.processNotes || []).forEach(n => { const k = normProc(n.processNumber); if (!k) return; if (!notesByProc.has(k)) notesByProc.set(k, []); notesByProc.get(k).push(n); });
   const isOpen = (c) => sec === c.id || (sec === '' && (openMap[c.id] != null ? openMap[c.id] : c.fileira === 1));
@@ -2300,10 +2321,13 @@ function EditionClaudePrazos(p) {
     </div>
     <div className="cx-toolbar">
       <CxSelect id="cx-pz-op" pre="Operação" value={pf.operationId || ''} onChange={v => setPf({ operationId: v, personId: 'all' })} options={[['', 'Todas']].concat(opsOpen.map(o => [o.id, cxOpName(o)]))} />
-      <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-pz-q" value={pf.q || ''} onChange={e => setPf({ q: e.target.value })} placeholder="CDA, processo ou devedor" aria-label="Buscar CDA" /></label>
-      <label className="cx-pz-join" title="Agrupa as linhas de cada seção por processo (análise conjunta). Os números dos cartões continuam por CDA."><input id="cx-pz-join" type="checkbox" checked={join} onChange={e => setJoin(e.target.checked)} />Juntar por processo</label>
+      <button type="button" id="cx-pz-fbtn" className={'cx-btn cx-pz-fbtn' + (painel ? ' open' : '')} aria-expanded={painel} aria-controls="cx-pz-painel" onClick={() => setPainel(v => !v)}><CxIcon n="filter" s={14} />Filtros{nPanel ? <span className="cx-pz-fn">{nPanel}</span> : null}</button>
+      <label className="cx-field"><CxIcon n="search" s={14} /><input id="cx-pz-q" value={pf.q || ''} onChange={e => setPf({ q: e.target.value })} placeholder="CDA, processo ou devedor" aria-label="Buscar CDA, processo ou devedor" /></label>
     </div>
     {pf.operationId ? <div className="cx-pz-people"><PersonSubtabs data={data} opId={pf.operationId} currentFilter={pf.personId || 'all'} onChange={id => setPf({ personId: id })} mode="cda" /></div> : null}
+    {painel ? <CxMesaPainel pf={pf} setPf={setPf} cedoN={cedoN} onClose={() => setPainel(false)} /> : null}
+    {chips.length ? <div className="cx-pz-chips" id="cx-pz-chips" aria-live="polite">{chips.map(c => <span key={c.k} className="cx-pz-fc"><span title={c.t}>{c.t}</span><button type="button" data-chip={c.k} onClick={() => setPf(mesaRemovePatch(c.k))} aria-label={'Remover filtro: ' + c.t}>&times;</button></span>)}</div> : null}
+    {hasCut ? <div className="cx-pz-mostrando" id="cx-pz-mostrando">Mostrando <b>{fl.n}</b> de <b>{mc.items.length}</b> CDAs<span className="cx-sp" /><button type="button" className="cx-btn sm ghost" id="cx-pz-limpar" onClick={() => setPf(mesaClearAllPatch())}>Limpar</button></div> : null}
 
     {MESA_CARDS.map(section)}
     {!anyItem || (sec && !by[sec].length) ? <div className="cx-card"><div className="cx-empty-row" style={{ borderTop: 0 }}>Nenhuma CDA neste recorte.</div></div> : null}
@@ -2801,7 +2825,7 @@ function EditionClaudeOpHeader(p) {
     sum.push(<span key="c">{cxPl(s.debts, 'CDA', 'CDAs')}</span>);
     sum.push(<span key="e">{cxPl(s.execs, 'processo', 'processos')}</span>);
     sum.push(<button key="i" type="button" className={'cx-oph-link' + (s.overdueIntims ? ' cx-red-t' : '')} onClick={() => setIntimDrawer(true)}>{cxPl(s.openIntims, 'intimação aberta', 'intimações abertas')}{s.overdueIntims ? ' · ' + cxPl(s.overdueIntims, 'vencida', 'vencidas') : ''}</button>);
-    if (s.prescA) sum.push(<button key="p" type="button" className="cx-violet-t cx-oph-link" onClick={p.onOpenPrazos}>{cxPl(s.prescA, 'CDA no alarme de prescrição', 'CDAs no alarme de prescrição')}</button>);
+    if (s.prescA) sum.push(<button key="p" type="button" className="cx-violet-t cx-oph-link" onClick={p.onOpenPrazos}>{cxPl(s.prescA, 'CDA a agir nos prazos extintivos', 'CDAs a agir nos prazos extintivos')}</button>);
   }
   return <div className="cx cx-oph">
     {intimDrawer && <EditionClaudeOpIntimDrawer op={op} items={opOpenIntims} onClose={() => setIntimDrawer(false)}
@@ -2986,7 +3010,7 @@ function EditionClaudeAcompanhar(p) {
 /* Mesmas opções e rótulos da ordenação do Painel clássico (estado carteiraSort do app). */
 const CX_PANEL_SORTS = [
   ['Financeiro', [['valor_desc', 'Maior valor de crédito'], ['valor_asc', 'Menor valor de crédito'], ['cobertura_asc', 'Menor cobertura de garantia']]],
-  ['Risco e urgência', [['presc', 'Maior risco de prescrição'], ['intims', 'Mais intimações abertas'], ['tasks', 'Mais tarefas pendentes']]],
+  ['Risco e urgência', [['presc', 'Mais CDAs a agir (prazos extintivos)'], ['intims', 'Mais intimações abertas'], ['tasks', 'Mais tarefas pendentes']]],
   ['Atividade', [['acesso_recente', 'Acessadas recentemente'], ['revisao_atrasada', 'Revisão mais atrasada']]],
   ['Estratégico', [['idpj', 'Mais IDPJs e cautelares'], ['nome', 'Nome (A a Z)']]],
 ];
@@ -4789,7 +4813,7 @@ function CxIncRow({ d, data, prazosByDebt, isSel, onToggleSel, isOpen, onOpen, d
 }
 
 function EditionClaudeInscricoes(p) {
-  const { opId, data, allDebts, opExecs, prazosByDebt, selectedDebts, setSelectedDebts,
+  const { opId, data, allDebts, opExecs, prazosByDebt, mesaCards, selectedDebts, setSelectedDebts,
     cdaPersonFilter, setCdaPersonFilter, procCdaQuery, setProcCdaQuery, cdaSort, setCdaSort,
     setModal, setData, togglePrescCheck, bulkDelete, linkify, collapsedGroups, toggleGroup } = p;
 
@@ -4815,7 +4839,7 @@ function EditionClaudeInscricoes(p) {
   const totalAtivo = items.filter(d => d.status !== 'extinta');
   const ajuizadas = items.filter(d => d.processNumber);
   const naoAjuizadas = items.filter(d => !d.processNumber);
-  const noAlarme = items.filter(d => !d.prescriptionHandled && cxPrescDisplay([d], prazosByDebt).riskClass === 'critical');
+  const noAlarme = items.filter(d => mesaIsAction(mesaCards.byDebt.get(d.id)));
   const tratadas = items.filter(d => d.prescriptionHandled && d.prescriptionHandledType !== 'aguardando_reconhecimento');
   const aguardando = items.filter(d => d.prescriptionHandled && d.prescriptionHandledType === 'aguardando_reconhecimento');
 
@@ -4979,7 +5003,7 @@ function EditionClaudeInscricoes(p) {
       <div className="cx-pp-sum-cell"><small>Total ativo</small><b>{fmtCur(totalAtivo.reduce((s, d) => s + (d.value || 0), 0))}</b><em>{cxPl(totalAtivo.length, 'CDA', 'CDAs')}</em></div>
       <div className="cx-pp-sum-cell"><small>Ajuizadas</small><b>{ajuizadas.length}</b><em>{fmtCur(ajuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
       <div className="cx-pp-sum-cell"><small>Não ajuizadas</small><b>{naoAjuizadas.length}</b><em>{fmtCur(naoAjuizadas.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
-      <div className="cx-pp-sum-cell"><small>No alarme</small><b style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{noAlarme.length}</b><em style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
+      <div className="cx-pp-sum-cell"><small title="CDAs nos cartões «a agir» da Mesa de prazos">A agir</small><b style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{noAlarme.length}</b><em style={noAlarme.length ? { color: 'var(--cx-red)' } : undefined}>{fmtCur(noAlarme.reduce((s, d) => s + (d.value || 0), 0))}</em></div>
       <div className="cx-pp-sum-cell"><small>Tratadas</small><b>{tratadas.length}</b><em>aguardando reconhecimento: {aguardando.length}</em></div>
     </div>
 
@@ -5062,9 +5086,9 @@ function EditionClaudeInscricoes(p) {
 
 /* ─── Partes: mesmo cálculo de exposição por pessoa da aba clássica (CDAs como
    originária vs corresponsável por papel, valor exposto, bens pelo CPF/CNPJ do
-   titular, risco de prescrição) — só troca isPrazosRisco (closure do app) por
-   cxPrescDisplay/prazosByDebt, já disponíveis aqui. ─── */
-function cxPersonStats(data, opId, prazosByDebt) {
+   titular, CDAs a agir) — o contador de prescrição usa os cartões da Mesa (mesaCards),
+   o mesmo número do menu. ─── */
+function cxPersonStats(data, opId, mesaCards) {
   const items = (data.people || []).filter(p => p.operationId === opId);
   const opDebts = (data.debts || []).filter(d => d.operationId === opId);
   const opAssets = (data.assets || []).filter(a => a.operationId === opId);
@@ -5082,7 +5106,7 @@ function cxPersonStats(data, opId, prazosByDebt) {
     const valCorresp = cdasCorresp.reduce((s, l) => { const d = opDebts.find(dd => dd.id === l.cdaId); return s + (d ? (d.value || 0) : 0); }, 0);
     const myAssets = opAssets.filter(a => a.titularCpfCnpj === p.cpfCnpj);
     const valAssets = myAssets.reduce((s, a) => s + (a.value || 0), 0);
-    const prescRisk = cdasOriginario.filter(d => !d.prescriptionHandled && cxPrescDisplay([d], prazosByDebt).riskClass === 'critical').length;
+    const prescRisk = cdasOriginario.filter(d => mesaIsAction(mesaCards.byDebt.get(d.id))).length;
     return { person: p, cdasOriginario, cdasCorresp, cdasCorrespByRole, valOriginario, valCorresp, valTotal: valOriginario + valCorresp, myAssets, valAssets, prescRisk, totalCdas: cdasOriginario.length + cdasCorresp.length };
   });
 }
@@ -5150,7 +5174,7 @@ function EditionClaudePartes(p) {
   const [drawerCda, setDrawerCda] = React.useState(null);
 
   const opDebts = (data.debts || []).filter(d => d.operationId === opId);
-  const stats = React.useMemo(() => cxPersonStats(data, opId, prazosByDebt), [data, opId, prazosByDebt]);
+  const stats = React.useMemo(() => cxPersonStats(data, opId, p.mesaCards), [data, opId, p.mesaCards]);
   let filtered = stats;
   if (typeFilter !== 'all') filtered = filtered.filter(s => (s.person.subtype || 'PF') === typeFilter);
   if (q.trim()) {
@@ -5181,7 +5205,7 @@ function EditionClaudePartes(p) {
       <td className="cx-pt-r">{s.cdasOriginario.length > 0 ? <span className="cx-tag blue">{s.cdasOriginario.length} orig.</span> : <span className="cx-muted">—</span>}{s.cdasCorresp.length > 0 ? <span className="cx-tag" style={{ marginLeft: 4 }}>{s.cdasCorresp.length} corr.</span> : null}</td>
       <td className="cx-pt-r cx-mono">{s.valTotal > 0 ? fmtCur(s.valTotal) : <span className="cx-muted">—</span>}</td>
       <td className="cx-pt-r cx-small">{s.myAssets.length > 0 ? <>{s.myAssets.length} · <span className="cx-mono">{fmtCur(s.valAssets)}</span></> : <span className="cx-muted">—</span>}</td>
-      <td className="cx-small">{s.prescRisk > 0 ? <span className="cx-risk-critical">{cxPl(s.prescRisk, 'CDA no alarme', 'CDAs no alarme')}</span> : <span className="cx-muted">nenhuma no alarme</span>}</td>
+      <td className="cx-small">{s.prescRisk > 0 ? <span className="cx-risk-critical">{cxPl(s.prescRisk, 'CDA a agir', 'CDAs a agir')}</span> : <span className="cx-muted">nenhuma a agir</span>}</td>
     </tr>;
   };
 
