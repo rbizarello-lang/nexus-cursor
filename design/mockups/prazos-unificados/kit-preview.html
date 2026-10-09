@@ -20,6 +20,7 @@
   #kit-preview .kp-sw span { font: 400 11px var(--nx-mono); color: var(--nx-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #kit-preview .kp-sw b { display: block; font-weight: 500; color: var(--nx-ink); }
   #kit-preview .kp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  #kit-preview .kp-label code { text-transform: none; letter-spacing: 0; }
   #kit-preview .kp-label { font-size: 11px; font-weight: 600; color: var(--nx-ink-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
   #kit-preview .kp-ruler-card { padding: 10px 14px 12px; }
   #kit-preview .kp-ruler-card h3 { font-size: 12.5px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
@@ -29,7 +30,7 @@
   #kit-preview .kp-index a { font-size: 12px; padding: 3px 9px; border: 1px solid var(--nx-line); border-radius: 12px; color: var(--nx-ink-2); background: var(--nx-surface); }
   #kit-preview .kp-index a:hover { background: var(--nx-hover); text-decoration: none; }
   #kit-preview .kp-hoje { font: 500 11.5px var(--nx-mono); color: var(--nx-accent); background: var(--nx-accent-soft); border-radius: 5px; padding: 3px 7px; }
-  @media (max-width: 720px) { #kit-preview .kp-index { padding: 8px 16px; } }
+  @media (max-width: 720px) { #kit-preview .kp-index { padding: 8px 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } #kit-preview .kp-index a { flex: none; } }
 </style>
 </head>
 <body>
@@ -228,13 +229,13 @@
   function renderStats() {
     var base = visiveis(true), tot = { n: base.length, v: NX.soma(base) };
     var sub = {
-      agir: function (l) { var v = l.filter(function (r) { return r.diasRestantes != null && r.diasRestantes < 0; }).length; return v + ' vencidas pela data cedo'; },
-      conferir: function () { return 'consumadas há até 6 meses'; },
+      agir: function (l) { var v = l.filter(function (r) { return r.diasRestantes != null && r.diasRestantes < 0; }).length; return v + (v === 1 ? ' vencida' : ' vencidas'); },
+      conferir: function () { return 'consumadas há ≤ 6 m'; },
       vigiar: function () { return 'sem ação agora'; },
       registro: function () { return 'nunca alarmam'; },
-      adiada: function (l) { var s = l.filter(function (r) { var d = NX.dias(r.adiada && r.adiada.ate); return d != null && d >= 0 && d <= 7; }).length; return s + ' voltam esta semana'; },
-      tratada: function () { return 'aguardando decisão ou baixa'; },
-      impossivel: function () { return 'o piso de 1 + 5 não chegou'; }
+      adiada: function (l) { var s = l.filter(function (r) { var d = NX.dias(r.adiada && r.adiada.ate); return d != null && d >= 0 && d <= 7; }).length; return s + ' voltam em 7 dias'; },
+      tratada: function () { return 'aguardam decisão'; },
+      impossivel: function () { return 'piso não chegou'; }
     };
     var h = '<button type="button" class="nx-stat' + (state.fila === null ? ' is-active' : '') + '" data-fila=""><span class="nx-stat-l">Todas</span><span class="nx-stat-n">' + tot.n + '</span><span class="nx-stat-v">' + NX.fmtMoedaCurta(tot.v) + '</span><span class="nx-stat-s">no recorte atual</span></button>';
     NX.FILAS.forEach(function (f) {
@@ -299,7 +300,7 @@
       c = campo('Nº do processo', '<input class="nx-input nx-mono" placeholder="5001234-56.2026.4.04.7001">', 'grow') + campo('Data do ajuizamento', dataIn(hoje));
       hint = 'Ao ajuizar, a ordinária para de correr e passa a valer a intercorrente.'; ok = 'Registrar ajuizamento';
     } else if (r.acao.tipo === 'lancar_ciencia') {
-      c = campo('Data da ciência', dataIn(r.podeSalvar ? '2020-03-30' : '')) + campo('Forma', '<select class="nx-select"><option>Intimação eletrônica (abertura)</option><option>Intimação eletrônica (10º dia)</option><option>Vista pessoal</option><option>Mandado</option></select>');
+      c = campo('Data da ciência', dataIn(r.podeSalvar ? '2020-03-30' : '')) + campo('Forma', '<select class="nx-select"><option>Eletrônica (abertura)</option><option>Eletrônica (10º dia)</option><option>Vista pessoal</option><option>Mandado</option></select>');
       hint = 'Na ciência eletrônica a data cedo é a disponibilização; a tarde, a abertura.'; ok = 'Lançar ciência';
     } else {
       c = campo('Tipo de fato', '<select class="nx-select"><option>Penhora</option><option>Bloqueio (Sisbajud)</option><option>Indisponibilidade (CNIB)</option><option>Adesão a parcelamento</option><option>Outro</option></select>') + campo('Data', dataIn(hoje)) + campo('Observação', '<input class="nx-input" placeholder="Opcional">', 'grow');
@@ -341,7 +342,8 @@
     $('#kp-folds').innerHTML =
       '<button type="button" class="nx-fold" data-fold="rest" aria-expanded="' + folds.rest + '"><span class="nx-chev"></span><b>O resto</b><span class="nx-n">' + res.length + '</span><span class="nx-fold-s">vigiar ' + D.filter(function (r) { return r.fila === 'vigiar'; }).length + ' · registro ' + D.filter(function (r) { return r.fila === 'registro'; }).length + '</span></button>' +
       (folds.rest ? NX.linhaHTML(res[0], { dense: true, regua: false }) : '') +
-      '<button type="button" class="nx-fold" data-fold="sil" aria-expanded="' + folds.sil + '"><span class="nx-chev"></span><b>Silenciados</b><span class="nx-n">' + sil.length + '</span><span class="nx-fold-s">fora do alarme, com data para voltar</span></button>';
+      '<button type="button" class="nx-fold" data-fold="sil" aria-expanded="' + folds.sil + '"><span class="nx-chev"></span><b>Silenciados</b><span class="nx-n">' + sil.length + '</span><span class="nx-fold-s">fora do alarme, com data para voltar</span></button>' +
+      (folds.sil ? sil.slice(0, 2).map(function (r) { return NX.linhaHTML(r, { dense: true, regua: false }); }).join('') : '');
   }
   $('#kp-folds').addEventListener('click', function (e) { var b = e.target.closest('[data-fold]'); if (!b) return; folds[b.dataset.fold] = !folds[b.dataset.fold]; renderFolds(); });
 
