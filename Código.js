@@ -434,3 +434,333 @@ function testListBackups() {
   var result = listBackups();
   Logger.log('Backups: ' + JSON.stringify(result));
 }
+
+// ══════════════════════════════════════════════════════════════
+// Trilha de atividade (NDJSON diário) e exportações para Docs/Sheets
+// ══════════════════════════════════════════════════════════════
+
+var TRILHA_FOLDER_NAME = 'Trilha';
+var RELATORIOS_FOLDER_NAME = 'Relatórios';
+var TRILHA_MAX_CHARS = 20 * 1024 * 1024;
+var TRILHA_LIGHT_TEXT_MAX = 300;
+var TRILHA_LIGHT_DETAILS_MAX = 50;
+var QUOTA_MSG_ = 'Limite diário do Google para criar documentos atingido. Tente amanhã.';
+
+/** Nome do arquivo do dia; parte 1 sem sufixo, demais com _N. */
+function trilhaFileNameForDay_(day, part) {
+  var p = part == null ? 1 : Number(part);
+  return 'nexus_trilha_' + day + (p > 1 ? '_' + p : '') + '.ndjson';
+}
+
+/** Lê dia e parte de um nome de arquivo da trilha; null se não for. */
+function trilhaParseName_(name) {
+  var m = /^nexus_trilha_(\d{4}-\d{2}-\d{2})(?:_(\d+))?\.ndjson$/.exec(String(name || ''));
+  if (!m) return null;
+  return { day: m[1], part: m[2] ? Number(m[2]) : 1, name: m[0] };
+}
+
+/** Filtra nomes de arquivos no intervalo [from, to] (inclusive) e ordena por dia e parte. */
+function trilhaDaysInRange_(names, from, to) {
+  var out = [];
+  for (var i = 0; i < names.length; i++) {
+    var p = trilhaParseName_(names[i]);
+    if (!p) continue;
+    if (from && p.day < from) continue;
+    if (to && p.day > to) continue;
+    out.push(p);
+  }
+  out.sort(function (a, b) { return a.day < b.day ? -1 : a.day > b.day ? 1 : a.part - b.part; });
+  return out.map(function (p) { return p.name; });
+}
+
+/** Ids presentes num texto NDJSON. */
+function trilhaIdsFromText_(text) {
+  var ids = {};
+  var lines = String(text || '').split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    try {
+      var ev = JSON.parse(lines[i]);
+      if (ev && ev.id != null) ids[String(ev.id)] = true;
+    } catch (e) { /* linha corrompida: ignora */ }
+  }
+  return ids;
+}
+
+/** Acrescenta eventos novos ao texto NDJSON, deduplicando por id (knownIds: ids de outras partes do dia). */
+function trilhaMergeLines_(existingText, events, knownIds) {
+  var seen = trilhaIdsFromText_(existingText);
+  var k;
+  for (k in (knownIds || {})) if (Object.prototype.hasOwnProperty.call(knownIds, k)) seen[k] = true;
+  var text = String(existingText || '');
+  if (text && text.charAt(text.length - 1) !== '\n') text += '\n';
+  var appended = 0, duplicates = 0;
+  for (var i = 0; i < events.length; i++) {
+    var id = String(events[i].id);
+    if (seen[id]) { duplicates++; continue; }
+    seen[id] = true;
+    text += JSON.stringify(events[i]) + '\n';
+    appended++;
+  }
+  return { text: text, appended: appended, duplicates: duplicates };
+}
+
+/** Evento válido: id não vazio e day AAAA-MM-DD. */
+function trilhaValidEvent_(ev) {
+  return !!(ev && typeof ev === 'object' && ev.id != null && String(ev.id) !== '' &&
+    typeof ev.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ev.day));
+}
+
+/** Versão leve do evento para listas: sem restore, textos cortados, detalhes limitados. */
+function trilhaLighten_(event) {
+  var ev = JSON.parse(JSON.stringify(event));
+  delete ev.restore;
+  var cut = function (s) { return typeof s === 'string' && s.length > TRILHA_LIGHT_TEXT_MAX; };
+  if (Array.isArray(ev.textChanges)) {
+    ev.textChanges = ev.textChanges.map(function (tc) {
+      if (!tc || typeof tc !== 'object') return tc;
+      var cutAny = false;
+      ['from', 'to'].forEach(function (f) {
+        if (cut(tc[f])) { tc[f] = tc[f].slice(0, TRILHA_LIGHT_TEXT_MAX); cutAny = true; }
+      });
+      if (cutAny) tc.cut = true;
+      return tc;
+    });
+  }
+  if (ev.batch && Array.isArray(ev.batch.details) && ev.batch.details.length > TRILHA_LIGHT_DETAILS_MAX) {
+    ev.batch.details = ev.batch.details.slice(0, TRILHA_LIGHT_DETAILS_MAX);
+    ev.batch.detailsCut = true;
+  }
+  return ev;
+}
+
+/** Erro de cota/limite do Google? */
+function isQuotaError_(err) {
+  var msg = String(err && err.message != null ? err.message : err || '');
+  return /service invoked too many times|quota|limit/i.test(msg);
+}
+
+function exportErrorMessage_(err) {
+  if (isQuotaError_(err)) return QUOTA_MSG_;
+  return 'Falha ao exportar: ' + String(err && err.message != null ? err.message : err);
+}
+
+/** Subpasta por nome dentro da pasta de dados (cria se faltar). */
+function getSubFolder_(name, create) {
+  var parent = getDataFolder_();
+  var it = parent.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return create ? parent.createFolder(name) : null;
+}
+
+function readFileText_(file) {
+  return file.getBlob().getDataAsString('UTF-8');
+}
+
+/** Partes existentes do dia: [{file, text}] em ordem. */
+function trilhaReadDayParts_(folder, day) {
+  var parts = [];
+  for (var p = 1; ; p++) {
+    var it = folder.getFilesByName(trilhaFileNameForDay_(day, p));
+    if (!it.hasNext()) break;
+    var f = it.next();
+    parts.push({ file: f, text: readFileText_(f) });
+  }
+  return parts;
+}
+
+function appendActivity(payload) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return { success: false, error: 'Outra gravação em andamento.', retry: true };
+  }
+  try {
+    var events = JSON.parse(decodeSavePayload_(payload));
+    if (!Array.isArray(events)) return { success: false, error: 'Payload inválido: esperado array de eventos.' };
+    var byDay = {}, invalid = 0, i;
+    for (i = 0; i < events.length; i++) {
+      if (!trilhaValidEvent_(events[i])) { invalid++; continue; }
+      (byDay[events[i].day] = byDay[events[i].day] || []).push(events[i]);
+    }
+    var folder = getSubFolder_(TRILHA_FOLDER_NAME, true);
+    var appended = 0, duplicates = 0;
+    Object.keys(byDay).forEach(function (day) {
+      var parts = trilhaReadDayParts_(folder, day);
+      var known = {};
+      parts.forEach(function (pt) {
+        var ids = trilhaIdsFromText_(pt.text);
+        for (var k in ids) known[k] = true;
+      });
+      // dedup contra todas as partes; grava só na última
+      var fresh = trilhaMergeLines_('', byDay[day], known);
+      appended += fresh.appended;
+      duplicates += fresh.duplicates;
+      if (!fresh.appended) return;
+      var last = parts.length ? parts[parts.length - 1] : null;
+      if (last && last.text.length + fresh.text.length <= TRILHA_MAX_CHARS) {
+        var sep = last.text && last.text.slice(-1) !== '\n' ? '\n' : '';
+        last.file.setContent(last.text + sep + fresh.text);
+      } else {
+        folder.createFile(trilhaFileNameForDay_(day, parts.length + 1), fresh.text, 'text/plain');
+      }
+    });
+    return { success: true, appended: appended, duplicates: duplicates, invalid: invalid };
+  } catch (err) {
+    return { success: false, error: String(err && err.message != null ? err.message : err) };
+  } finally {
+    try { lock.releaseLock(); } catch (e2) { /* ignora */ }
+  }
+}
+
+function trilhaListNames_(folder) {
+  var names = [], it = folder.getFiles();
+  while (it.hasNext()) names.push(it.next().getName());
+  return names;
+}
+
+function loadActivity(fromDay, toDay, light) {
+  try {
+    var folder = getSubFolder_(TRILHA_FOLDER_NAME, false);
+    var all = [];
+    if (folder) {
+      var names = trilhaDaysInRange_(trilhaListNames_(folder), fromDay, toDay);
+      names.forEach(function (n) {
+        var it = folder.getFilesByName(n);
+        if (!it.hasNext()) return;
+        var lines = readFileText_(it.next()).split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          if (!lines[i]) continue;
+          try {
+            var ev = JSON.parse(lines[i]);
+            all.push(light ? trilhaLighten_(ev) : ev);
+          } catch (e) { /* linha corrompida */ }
+        }
+      });
+    }
+    var gz = Utilities.gzip(Utilities.newBlob(JSON.stringify(all), 'application/json', 'trilha.json'));
+    return { success: true, payload: GZIP_PAYLOAD_PREFIX + Utilities.base64Encode(gz.getBytes()), count: all.length };
+  } catch (err) {
+    return { success: false, error: String(err && err.message != null ? err.message : err) };
+  }
+}
+
+function loadActivityEvent(day, id) {
+  try {
+    var folder = getSubFolder_(TRILHA_FOLDER_NAME, false);
+    if (folder && /^\d{4}-\d{2}-\d{2}$/.test(String(day))) {
+      var parts = trilhaReadDayParts_(folder, day);
+      for (var p = 0; p < parts.length; p++) {
+        var lines = parts[p].text.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          if (!lines[i]) continue;
+          try {
+            var ev = JSON.parse(lines[i]);
+            if (ev && String(ev.id) === String(id)) return { success: true, event: ev };
+          } catch (e) { /* linha corrompida */ }
+        }
+      }
+    }
+    return { success: false, error: 'Evento não encontrado.' };
+  } catch (err) {
+    return { success: false, error: String(err && err.message != null ? err.message : err) };
+  }
+}
+
+/** Move o arquivo recém-criado para a subpasta Relatórios. */
+function moveToRelatorios_(id) {
+  var file = DriveApp.getFileById(id);
+  file.moveTo(getSubFolder_(RELATORIOS_FOLDER_NAME, true));
+  return file;
+}
+
+function exportToGoogleDoc(payload) {
+  try {
+    var spec = JSON.parse(decodeSavePayload_(payload));
+    var doc = DocumentApp.create(String(spec.title || 'Relatório NEXUS'));
+    var body = doc.getBody();
+    var H = { h1: DocumentApp.ParagraphHeading.HEADING1, h2: DocumentApp.ParagraphHeading.HEADING2, h3: DocumentApp.ParagraphHeading.HEADING3 };
+    (spec.blocks || []).forEach(function (b) {
+      if (!b) return;
+      var t = String(b.text == null ? '' : b.text);
+      if (b.type === 'h1' || b.type === 'h2' || b.type === 'h3') {
+        body.appendParagraph(t).setHeading(H[b.type]);
+      } else if (b.type === 'p') {
+        var para = body.appendParagraph(t);
+        para.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+        if (b.italic) para.setItalic(true);
+        if (b.small) para.setFontSize(9);
+      } else if (b.type === 'list') {
+        (b.items || []).forEach(function (it) { body.appendListItem(String(it)).setGlyphType(DocumentApp.GlyphType.BULLET); });
+      } else if (b.type === 'table') {
+        var data = [b.header || []].concat(b.rows || []).map(function (r) {
+          return r.map(function (c) { return String(c == null ? '' : c); });
+        });
+        var table = body.appendTable(data);
+        var mono = b.mono || [];
+        for (var r = 0; r < table.getNumRows(); r++) {
+          var row = table.getRow(r);
+          for (var c = 0; c < row.getNumCells(); c++) {
+            var cell = row.getCell(c);
+            if (r === 0) { if (cell.getText()) cell.editAsText().setBold(true); cell.setBackgroundColor('#EEEEEE'); }
+            else if (mono.indexOf(c) >= 0 && cell.getText()) cell.editAsText().setFontFamily('Courier New');
+          }
+        }
+        if (b.widths) for (var w = 0; w < b.widths.length; w++) { if (b.widths[w]) table.setColumnWidth(w, b.widths[w]); }
+      } else if (b.type === 'pagebreak') {
+        body.appendPageBreak();
+      }
+    });
+    // remove o parágrafo vazio inicial criado pelo Doc
+    if (body.getNumChildren() > 1) {
+      var first = body.getChild(0);
+      if (first.getType() === DocumentApp.ElementType.PARAGRAPH && first.asParagraph().getText() === '') body.removeChild(first);
+    }
+    doc.saveAndClose();
+    var file = moveToRelatorios_(doc.getId());
+    return { success: true, url: file.getUrl(), id: file.getId() };
+  } catch (err) {
+    return { success: false, error: exportErrorMessage_(err) };
+  }
+}
+
+function exportToSpreadsheet(payload) {
+  try {
+    var spec = JSON.parse(decodeSavePayload_(payload));
+    var ss = SpreadsheetApp.create(String(spec.title || 'Relatório NEXUS'));
+    (spec.sheets || []).forEach(function (s, idx) {
+      var sh = idx === 0 ? ss.getSheets()[0] : ss.insertSheet();
+      sh.setName(String(s.name || 'Aba ' + (idx + 1)).slice(0, 99));
+      var header = (s.header || []).map(String);
+      var ncols = header.length;
+      (s.rows || []).forEach(function (r) { if (r.length > ncols) ncols = r.length; });
+      if (!ncols) return;
+      var values = [header].concat(s.rows || []).map(function (r) {
+        var out = [];
+        for (var c = 0; c < ncols; c++) {
+          var v = c < r.length && r[c] != null ? r[c] : '';
+          if (typeof v === 'string' && v.charAt(0) === '=') v = "'" + v; // texto, não fórmula
+          out.push(v);
+        }
+        return out;
+      });
+      sh.getRange(1, 1, values.length, ncols).setValues(values);
+      sh.setFrozenRows(1);
+      sh.getRange(1, 1, 1, ncols).setFontWeight('bold').setBackground('#EEEEEE');
+      sh.getRange(1, 1, values.length, ncols).createFilter();
+      (s.mono || []).forEach(function (c) {
+        if (c >= 0 && c < ncols) sh.getRange(1, c + 1, values.length, 1).setFontFamily('Roboto Mono');
+      });
+      sh.autoResizeColumns(1, ncols);
+      for (var c2 = 1; c2 <= ncols; c2++) {
+        var wpx = s.widths && s.widths[c2 - 1];
+        if (wpx) sh.setColumnWidth(c2, wpx);
+        else if (sh.getColumnWidth(c2) > 400) sh.setColumnWidth(c2, 400);
+      }
+    });
+    SpreadsheetApp.flush();
+    var file = moveToRelatorios_(ss.getId());
+    return { success: true, url: file.getUrl(), id: file.getId() };
+  } catch (err) {
+    return { success: false, error: exportErrorMessage_(err) };
+  }
+}
