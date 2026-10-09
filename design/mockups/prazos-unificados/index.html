@@ -1214,12 +1214,181 @@ details.nx-group:not([open]) > .nx-group-h { border-radius: 9px; }
     #proposta-3 .p3-tool-l .nx-seg-ctl { flex-wrap: wrap; }
   }
 
+
+
+  /* ───────── Versão 2 · Fila de trabalho (todo seletor começa por #proposta-2-v2) ───────── */
+  #proposta-2-v2 .v2-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+  #proposta-2-v2 .v2-top h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  #proposta-2-v2 .v2-top p { margin-top: 4px; color: var(--nx-ink-2); max-width: 74ch; }
+  #proposta-2-v2 .v2-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 5px; background: var(--nx-accent-soft); color: var(--nx-accent); font: 600 11px var(--nx-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  #proposta-2-v2 .v2-ref { font-size: 12px; color: var(--nx-ink-3); }
+
+  /* Comece por + números de topo */
+
+  /* contadores */
+  #proposta-2-v2 .nx-group-n { white-space: normal; min-width: 0; }
+
+  /* seções */
+  #proposta-2-v2 .v2-ord { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--nx-btn); color: var(--nx-btn-ink); font: 600 11px var(--nx-mono); flex: none; }
+  #proposta-2-v2 .v2-ord.off { background: var(--nx-gray-soft); color: var(--nx-ink-3); }
+  #proposta-2-v2 .nx-group-title { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; flex: 1 1 140px; min-width: 0; }
+  #proposta-2-v2 .nx-group-h .v2-q { font-weight: 400; color: var(--nx-ink-3); font-size: 12px; }
+  #proposta-2-v2 .v2-secbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 9px 14px; background: var(--nx-surface); font-size: 12px; color: var(--nx-ink-2); }
+  #proposta-2-v2 .v2-secbar > span:first-child { flex: 1 1 320px; min-width: 0; }
+  #proposta-2-v2 .v2-secbar > span:first-child b { color: var(--nx-ink); font-weight: 600; }
+  #proposta-2-v2 .v2-subh { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 9px 14px 8px; background: var(--nx-surface-2); border-top: 1px solid var(--nx-line); font-size: 12px; }
+  #proposta-2-v2 .v2-subh b { font-size: 12.5px; font-weight: 600; }
+  #proposta-2-v2 .v2-subh span { color: var(--nx-ink-3); }
+  #proposta-2-v2 .v2-vazia { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 10px 14px; border: 1px dashed var(--nx-line-strong); border-radius: var(--nx-r-lg); background: var(--nx-surface); color: var(--nx-ink-2); font-size: 12.5px; }
+  #proposta-2-v2 .v2-vazia b { font-weight: 600; color: var(--nx-ink); }
+  #proposta-2-v2 .v2-vazia i { font-style: normal; color: var(--nx-green); font-weight: 700; }
+
+  /* item */
+  #proposta-2-v2 .v2-item .nx-row-why { max-width: 82ch; }
+  #proposta-2-v2 .v2-prazo { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; min-width: 0; max-width: 210px; }
+  #proposta-2-v2 .v2-prazo-l { font: 600 9.5px var(--nx-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--nx-ink-3); }
+  #proposta-2-v2 .v2-porque { font-size: 11.5px; line-height: 1.3; color: var(--nx-ink-2); margin-top: 2px; }
+  #proposta-2-v2 .v2-prazo .nx-val { margin-top: 3px; font-weight: 600; color: var(--nx-ink); }
+  #proposta-2-v2 .v2-cdas { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  #proposta-2-v2 .v2-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 22px; padding: 1px 8px; border: 1px solid var(--nx-line); border-radius: 5px; background: var(--nx-surface-2); font-size: 11.5px; }
+  #proposta-2-v2 .v2-pill .nx-cda { font-size: 11.5px; }
+  #proposta-2-v2 .v2-pill .nx-val { font-size: 11.5px; }
+  #proposta-2-v2 .v2-nota { font-size: 11.5px; color: var(--nx-ink-2); }
+  #proposta-2-v2 .v2-nota b { font-weight: 600; }
+  #proposta-2-v2 .v2-exp { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px 24px; padding-top: 10px; border-top: 1px dashed var(--nx-line-strong); }
+  #proposta-2-v2 .v2-exp .v2-wide { grid-column: 1 / -1; }
+  #proposta-2-v2 .v2-incl { display: flex; align-items: center; gap: 9px; padding: 5px 9px; border: 1px solid var(--nx-line); border-radius: var(--nx-r); background: var(--nx-surface-2); font-size: 12px; cursor: pointer; flex-wrap: wrap; }
+  #proposta-2-v2 .v2-incl .nx-val { margin-left: auto; }
+  #proposta-2-v2 .v2-incl:has(input:not(:checked)) { opacity: 0.55; }
+  #proposta-2-v2 .v2-feito { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; border-radius: 0; margin: 0; padding: 9px 14px; border-top: 1px solid var(--nx-line); }
+  #proposta-2-v2 .v2-feito .nx-sp { flex: 1 1 8px; }
+  #proposta-2-v2 .v2-flash { animation: v2-flash 1.6s ease-out 1; }
+  @keyframes v2-flash { 0% { box-shadow: inset 0 0 0 2px var(--nx-accent), 0 0 0 4px color-mix(in srgb, var(--nx-accent) 30%, transparent); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
+
+  /* linhas quietas (só vigiar, adiadas, consumadas, decadência) */
+  #proposta-2-v2 .v2-quiet.nx-row.dense.cols { grid-template-columns: minmax(0, 1fr) 168px auto; }
+  #proposta-2-v2 .v2-quiet .v2-prazo { max-width: none; }
+  #proposta-2-v2 .v2-quiet .v2-prazo .nx-val { margin-top: 1px; }
+  #proposta-2-v2 .v2-dup { font-size: 11px; color: var(--nx-orange); font-weight: 500; }
+
+  /* gaveta */
+  #proposta-2-v2 .v2-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+  #proposta-2-v2 .v2-split.has-drawer { grid-template-columns: minmax(0, 1fr) 430px; }
+  #proposta-2-v2 .v2-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  #proposta-2-v2 .v2-drawer { display: none; position: sticky; top: 12px; width: auto; max-height: calc(100vh - 24px); flex-direction: column; box-shadow: var(--nx-shadow); }
+  #proposta-2-v2 .v2-split.has-drawer .v2-drawer { display: flex; }
+  #proposta-2-v2 .v2-scrim { display: none; }
+  #proposta-2-v2 .v2-drawer .nx-drawer-top { height: 44px; }
+  #proposta-2-v2 .v2-drawer .nx-drawer-body { padding: 14px 16px 18px; gap: 15px; }
+  #proposta-2-v2 .v2-drawer .nx-d-title { font-size: 17px; margin-top: 6px; }
+  #proposta-2-v2 .v2-drawer .nx-drawer-foot { padding: 10px 16px; }
+  #proposta-2-v2 .v2-rels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  #proposta-2-v2 .v2-rel { border: 1px solid var(--nx-line); border-radius: var(--nx-r); padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; background: var(--nx-surface-2); font-size: 11.5px; color: var(--nx-ink-3); line-height: 1.35; min-width: 0; }
+  #proposta-2-v2 .v2-rel.on { background: var(--nx-surface); border-color: var(--nx-accent); box-shadow: inset 0 0 0 1px var(--nx-accent); color: var(--nx-ink); }
+  #proposta-2-v2 .v2-rel .nx-chip { align-self: flex-start; }
+  #proposta-2-v2 .v2-rel b { font-weight: 600; }
+  #proposta-2-v2 .v2-drawer .nx-inline-form { background: var(--nx-surface-2); }
+  #proposta-2-v2 .v2-drawer .nx-inline-form .nx-field { flex: 1 1 140px; }
+
+  /* barra de lote e rodapé */
+  #proposta-2-v2 .v2-lote-b { margin-left: 8px; }
+  #proposta-2-v2 .v2-como ol { display: flex; flex-direction: column; gap: 6px; padding-left: 0; counter-reset: p2c; }
+  #proposta-2-v2 .v2-como li { counter-increment: p2c; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 12.5px; color: var(--nx-ink-2); list-style: none; }
+  #proposta-2-v2 .v2-como li::before { content: counter(p2c); display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--nx-gray-soft); color: var(--nx-ink-2); font: 600 11px var(--nx-mono); }
+  #proposta-2-v2 .v2-como li b { color: var(--nx-ink); font-weight: 600; }
+
+  /* cartões: a ordem dos cartões é a ordem de trabalho (1ª fileira = ação; 2ª = sem alarme) */
+  #proposta-2-v2 .v2-cards { display: flex; flex-direction: column; gap: 8px; }
+  #proposta-2-v2 .v2-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  #proposta-2-v2 .v2-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 11px; align-items: center; min-width: 0; padding: 9px 12px 9px 15px; background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: var(--nx-r-lg); text-align: left; cursor: pointer; }
+  #proposta-2-v2 .v2-card::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c, var(--nx-line-strong)); }
+  #proposta-2-v2 .v2-card:hover { background: var(--nx-surface-2); }
+  #proposta-2-v2 .v2-card.is-active { background: var(--nx-surface-2); box-shadow: inset 0 0 0 1.5px var(--nx-ink); }
+  #proposta-2-v2 .v2-card-n { min-width: 24px; text-align: center; font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c, var(--nx-ink-3)); }
+  #proposta-2-v2 .v2-card.is-zero .v2-card-n { color: var(--nx-ink-3); font-weight: 500; }
+  #proposta-2-v2 .v2-card-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  #proposta-2-v2 .v2-card-l { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--nx-ink); }
+  #proposta-2-v2 .v2-card-s { font-size: 11px; line-height: 1.3; color: var(--nx-ink-3); font-variant-numeric: tabular-nums; }
+  #proposta-2-v2 .v2-card-g { font-size: 11px; line-height: 1.3; color: var(--nx-gray); font-variant-numeric: tabular-nums; }
+  #proposta-2-v2 .v2-card-g b { font-weight: 600; }
+  #proposta-2-v2 .v2-row2 .v2-card { padding: 6px 10px 6px 13px; background: var(--nx-surface-2); border-color: var(--nx-line); }
+  #proposta-2-v2 .v2-row2 .v2-card::before { top: 7px; bottom: 7px; background: var(--nx-line-strong); }
+  #proposta-2-v2 .v2-row2 .v2-card:hover { background: var(--nx-hover); }
+  #proposta-2-v2 .v2-row2 .v2-card.is-active { background: var(--nx-surface); }
+  #proposta-2-v2 .v2-row2 .v2-card-n { min-width: 20px; font-size: 18px; font-weight: 500; color: var(--nx-ink-2); }
+  #proposta-2-v2 .v2-row2 .v2-card-l { font-size: 12px; font-weight: 500; color: var(--nx-ink-2); }
+  #proposta-2-v2 .v2-card[data-tip]::after { max-width: min(310px, 76vw); }
+  #proposta-2-v2 .v2-grid > :nth-child(5n+1)[data-tip]::after { left: 0; transform: none; }
+  #proposta-2-v2 .v2-grid > :nth-child(5n)[data-tip]::after { left: auto; right: 0; transform: none; }
+
+  /* três campos + painel de filtros + chips */
+  #proposta-2-v2 .v2-fbtn { height: 30px; gap: 7px; padding: 0 11px; font-size: 12.5px; }
+  #proposta-2-v2 .v2-fbtn[aria-expanded="true"] { background: var(--nx-hover); border-color: var(--nx-line-strong); }
+  #proposta-2-v2 .v2-fn { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--nx-btn); color: var(--nx-btn-ink); font: 600 10.5px var(--nx-mono); }
+  #proposta-2-v2 .v2-fn:empty { display: none; }
+  #proposta-2-v2 .v2-painel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 22px; padding: 13px 16px 12px; }
+  #proposta-2-v2 .v2-pg { display: flex; flex-direction: column; gap: 7px; min-width: 0; align-items: flex-start; }
+  #proposta-2-v2 .v2-pl { font: 600 10.5px var(--nx-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--nx-ink-3); }
+  #proposta-2-v2 .v2-ck { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.35; cursor: pointer; }
+  #proposta-2-v2 .v2-ck input { margin-top: 1px; }
+  #proposta-2-v2 .v2-ck .nx-n { margin-left: 2px; }
+  #proposta-2-v2 .v2-valor { display: flex; align-items: center; gap: 7px; width: 100%; max-width: 210px; }
+  #proposta-2-v2 .v2-valor > span { color: var(--nx-ink-3); font-size: 12.5px; }
+  #proposta-2-v2 .v2-pdica { font-size: 11.5px; color: var(--nx-ink-3); line-height: 1.35; }
+  #proposta-2-v2 .v2-painel-f { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 10px; border-top: 1px solid var(--nx-line); }
+  #proposta-2-v2 .v2-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+  #proposta-2-v2 .v2-chips:empty { display: none; }
+  #proposta-2-v2 .v2-fc { display: inline-flex; align-items: center; gap: 4px; height: 25px; padding: 0 3px 0 10px; border: 1px solid var(--nx-line-strong); border-radius: 13px; background: var(--nx-surface); font-size: 12px; color: var(--nx-ink); max-width: 100%; }
+  #proposta-2-v2 .v2-fc > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #proposta-2-v2 .v2-fc button { flex: none; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 10px; font-size: 15px; line-height: 1; color: var(--nx-ink-3); }
+  #proposta-2-v2 .v2-fc button:hover { background: var(--nx-hover); color: var(--nx-ink); }
+  #proposta-2-v2 .v2-mostrando { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 8px 6px 14px; border: 1px solid var(--nx-line); border-radius: var(--nx-r-lg); background: var(--nx-surface); font-size: 12.5px; color: var(--nx-ink-2); }
+  #proposta-2-v2 .v2-mostrando b { color: var(--nx-ink); font-weight: 600; }
+  #proposta-2-v2 .v2-prox { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; width: 100%; padding: 9px 14px; border-top: 1px solid var(--nx-line); background: var(--nx-surface-2); font-size: 12px; color: var(--nx-ink-2); text-align: left; }
+  #proposta-2-v2 .v2-prox:hover { background: var(--nx-hover); }
+  #proposta-2-v2 .v2-prox b { font-weight: 600; color: var(--nx-gray); }
+  #proposta-2-v2 .v2-prox .nx-chev { flex: none; }
+  #proposta-2-v2 .v2-item.is-suave .v2-prazo .nx-when { font-weight: 500; }
+  #proposta-2-v2 .v2-decad { margin-top: 4px; }
+
+  @media (max-width: 1099px) {
+    #proposta-2-v2 .v2-split.has-drawer { grid-template-columns: minmax(0, 1fr); }
+    #proposta-2-v2 .v2-painel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #proposta-2-v2 .v2-drawer { position: fixed; top: 0; right: 0; bottom: 0; left: auto; width: min(560px, 100%); max-height: none; z-index: 900; border-radius: 0; border-width: 0 0 0 1px; box-shadow: var(--nx-shadow-lg); }
+    #proposta-2-v2 .v2-split.has-drawer .v2-scrim { display: block; position: fixed; inset: 0; z-index: 899; background: var(--nx-scrim); }
+  }
+  @media (max-width: 899px) {
+    #proposta-2-v2 .v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #proposta-2-v2 .v2-grid > :nth-child(odd)[data-tip]::after { left: 0; right: auto; transform: none; }
+    #proposta-2-v2 .v2-grid > :nth-child(even)[data-tip]::after { left: auto; right: 0; transform: none; }
+    #proposta-2-v2 .v2-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    #proposta-2-v2 .v2-painel { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
+    #proposta-2-v2 .v2-card { padding: 8px 10px 8px 13px; column-gap: 9px; }
+    #proposta-2-v2 .v2-card-n { font-size: 24px; min-width: 20px; }
+    #proposta-2-v2 .v2-row2 .v2-card-n { font-size: 17px; }
+    #proposta-2-v2 .v2-fbtn { flex: 1 1 100%; justify-content: center; }
+    #proposta-2-v2 .v2-fc { max-width: 100%; }
+    #proposta-2-v2 .v2-exp { grid-template-columns: minmax(0, 1fr); }
+    #proposta-2-v2 .v2-prazo { align-items: flex-start; text-align: left; max-width: none; }
+    #proposta-2-v2 .v2-quiet.nx-row.dense.cols { grid-template-columns: minmax(0, 1fr); }
+    #proposta-2-v2 .v2-rels { grid-template-columns: minmax(0, 1fr); }
+    #proposta-2-v2 .nx-group-h .v2-q { flex-basis: 100%; }
+    #proposta-2-v2 .v2-top h1 { font-size: 20px; }
+  }
+
+  #proposta-2-v2 .v2-vazia.v2-vazia-in { border: 0; border-top: 1px solid var(--nx-line); border-radius: 0; background: var(--nx-surface); }
+
+
 /* sobreposições da página, depois do CSS dos mockups (mesma especificidade) */
 #proposta-1 .p1-gaveta, #proposta-2 .p2-drawer, #proposta-3 .p3-gaveta-col { top: 60px; }
 #proposta-1 .p1-gaveta .nx-drawer, #proposta-3 .p3-drawer { max-height: calc(100vh - 72px); }
 #proposta-2 .p2-drawer { max-height: calc(100vh - 72px); }
 @media (max-width: 1099px) { #proposta-2 .p2-drawer { max-height: none; } }
 @media (max-width: 1179px) { #proposta-3 .p3-drawer { max-height: none; } }
+#proposta-2-v2 .v2-drawer { top: 60px; max-height: calc(100vh - 72px); }
+@media (max-width: 1099px) { #proposta-2-v2 .v2-drawer { top: 0; max-height: none; } }
 @media (max-width: 1100px) { #proposta-1 .p1-gaveta .nx-drawer { max-height: none; } #proposta-1 .p1-gaveta { top: auto; } }
 </style>
 
@@ -1227,12 +1396,13 @@ details.nx-group:not([open]) > .nx-group-h { border-radius: 9px; }
 <header class="topo wrap">
   <p class="selo">NEXUS · Prazos extintivos</p>
   <h1>Prazos extintivos unificados</h1>
-  <p class="sub">Três formas de mostrar o mesmo problema, lado a lado, para você escolher. Cada proposta tem um mockup clicável; nada é gravado. Nos mockups, “hoje” é 09/10/2026 e todos os dados são fictícios. Depois de ver as três, leia o <a href="#comparativo" data-aba="comparativo">comparativo</a> e responda às <a href="#decisoes" data-aba="decisoes">cinco decisões</a>.</p>
+  <p class="sub">Três formas de mostrar o mesmo problema, lado a lado, para você escolher. Cada proposta tem um mockup clicável; nada é gravado. Nos mockups, “hoje” é 09/10/2026 e todos os dados são fictícios. A primeira aba é a <a href="#v2" data-aba="v2">Versão 2</a>, a Proposta 2 já ajustada às suas decisões; as outras abas continuam como estavam. Depois de ver as três, leia o <a href="#comparativo" data-aba="comparativo">comparativo</a> e responda às <a href="#decisoes" data-aba="decisoes">cinco decisões</a>.</p>
 </header>
 
 <nav class="abas" aria-label="Seções da página">
   <div class="wrap abas-in" role="tablist">
-    <button type="button" role="tab" id="t-resumo" data-aba="resumo" aria-controls="p-resumo" aria-selected="true">Resumo</button>
+    <button type="button" role="tab" id="t-v2" data-aba="v2" aria-controls="p-v2" aria-selected="true"><span class="longo">Versão 2 · escolhida</span><span class="curto">Versão 2</span></button>
+    <button type="button" role="tab" id="t-resumo" data-aba="resumo" aria-controls="p-resumo" aria-selected="false" tabindex="-1">Resumo</button>
     <button type="button" role="tab" id="t-relogio" data-aba="relogio" aria-controls="p-relogio" aria-selected="false" tabindex="-1"><span class="longo">Proposta 1 · Relógio</span><span class="curto">1 · Relógio</span></button>
     <button type="button" role="tab" id="t-fila" data-aba="fila" aria-controls="p-fila" aria-selected="false" tabindex="-1"><span class="longo">Proposta 2 · Fila de trabalho</span><span class="curto">2 · Fila</span></button>
     <button type="button" role="tab" id="t-carteira" data-aba="carteira" aria-controls="p-carteira" aria-selected="false" tabindex="-1"><span class="longo">Proposta 3 · Carteira por natureza</span><span class="curto">3 · Carteira</span></button>
@@ -1243,8 +1413,97 @@ details.nx-group:not([open]) > .nx-group-h { border-radius: 9px; }
 
 <main class="wrap">
 
+<!-- ═════════════════════════ VERSÃO 2 ═════════════════════════ -->
+<section class="painel" id="p-v2" role="tabpanel" aria-labelledby="t-v2">
+
+  <div class="bloco">
+    <h2>O que você decidiu</h2>
+    <ul class="lista">
+      <li><b>Consumadas há pouco abrem a lista.</b> O primeiro cartão é “Conferir o cálculo”: consumadas há até 6 meses e análise importada que diverge do cálculo.</li>
+      <li><b>O critério é a data cedo,</b> mas quando a cedo já venceu e a tarde não, o item fica na posição da tarde, com a marca “cedo venceu, tarde não”. Sem data tarde, vai para o fim, como “sem prazo calculável”. Nunca “há 20 anos” em destaque.</li>
+      <li><b>Ajuizar só nos 60 dias.</b> Ordinária não ajuizada com a cedo em até 60 dias é o aviso; as que vencem entre 60 e 180 dias aparecem como número cinza, sem alarme.</li>
+      <li><b>Constrições antigas viram conferência sem pressa:</b> constrição na execução há mais de 4 anos sem outro fato (era 6), constrição via IDPJ chegando aos 5 anos e “não antes de” passado há mais de 2 anos.</li>
+      <li><b>Aguardando reconhecimento não gera aviso nem lembrete.</b> Fica só em “Tratadas”. Adiamento vencido não é cartão: o item volta ao cartão da sua ação, com a marca “adiada até dd/mm (venceu)”.</li>
+      <li><b>Sem “Comece por” e sem “Base”.</b> A ordem dos cartões é a ordem de trabalho: cinco de ação, depois cinco que não alarmam.</li>
+      <li><b>Três campos de filtro:</b> Operação, Filtros (um painel: natureza, “cedo venceu, tarde não”, abrangidas, valor, juntar CDAs) e Busca. Os filtros ativos viram chips com “×”.</li>
+      <li><b>Decadência mantida no fim da página,</b> só para consulta e edição, sem contador de alarme.</li>
+      <li><b>E-mail diário suspenso por enquanto.</b> Ele continua com a regra antiga; seus números não vão bater com esta tela.</li>
+    </ul>
+    <p class="nota">Os números dos cartões seguem os filtros. Passe o mouse num cartão para ler o critério. Nos mockups, “hoje” é 09/10/2026; os dados são fictícios e nada é gravado.</p>
+  </div>
+
+  <figure class="moldura">
+    <figcaption><b>Mockup com 36 inscrições fictícias (30 do kit e 6 criadas para esta versão);</b> clique para expandir, abrir a gaveta e filtrar.</figcaption>
+    <div class="moldura-in"><main class="nx-mock" id="proposta-2-v2"><div class="nx-page">
+
+  <header class="v2-top">
+    <div>
+      <h1>Prazos extintivos</h1>
+      <p>Fila de trabalho: os cartões estão na ordem em que se trabalha. Clique num cartão para ver só aquela seção; sem clique, a lista traz todas, na mesma ordem.</p>
+    </div>
+    <div class="nx-cluster"><span class="v2-tag">Versão 2 · Fila de trabalho</span><span class="v2-ref">Hoje: <span class="nx-mono" id="v2-hoje"></span> · dados fictícios</span></div>
+  </header>
+
+  <section class="v2-cards" id="v2-cards" aria-label="Seções, na ordem de trabalho"></section>
+
+  <div class="nx-filters v2-filtros" id="v2-filtros" role="group" aria-label="Filtros">
+    <label class="nx-sel"><span>Operação</span><select id="v2-op" aria-label="Operação"></select></label>
+    <button type="button" class="nx-btn v2-fbtn" id="v2-fbtn" data-acao="painel" aria-expanded="false" aria-controls="v2-painel">Filtros <span class="v2-fn" id="v2-fn"></span></button>
+    <label class="nx-search"><input id="v2-q" type="search" placeholder="Busca: CDA, processo ou devedor" aria-label="Busca por CDA, processo ou devedor"></label>
+  </div>
+
+  <section class="nx-card v2-painel" id="v2-painel" aria-label="Filtros" hidden>
+    <div class="v2-pg"><span class="v2-pl">Natureza</span>
+      <div class="nx-seg-ctl" role="group" aria-label="Natureza">
+        <button type="button" data-acao="nat" data-nat="" aria-pressed="true" class="on">Todas</button>
+        <button type="button" data-acao="nat" data-nat="ordinaria" aria-pressed="false">Ordinária</button>
+        <button type="button" data-acao="nat" data-nat="intercorrente" aria-pressed="false">Intercorrente</button>
+      </div>
+      <span class="v2-pdica">A decadência não entra nesta escolha: é só consulta.</span>
+    </div>
+    <div class="v2-pg"><span class="v2-pl">Marcações</span>
+      <label class="v2-ck"><input type="checkbox" class="nx-checkbox" id="v2-ck-cedo"><span>Só «cedo venceu, tarde não» <span class="nx-n" id="v2-n-cedo"></span></span></label>
+      <label class="v2-ck"><input type="checkbox" class="nx-checkbox" id="v2-ck-idpj"><span>Só abrangidas por IDPJ ou cautelar</span></label>
+    </div>
+    <div class="v2-pg"><span class="v2-pl">Valor a partir de</span>
+      <label class="v2-valor"><span>R$</span><input class="nx-input nx-mono" id="v2-val" type="text" inputmode="decimal" placeholder="ex.: 500.000" autocomplete="off" aria-label="Valor a partir de, em reais"></label>
+      <span class="v2-pdica">Campo livre: some o que for menor.</span>
+    </div>
+    <div class="v2-pg"><span class="v2-pl">Exibição</span>
+      <label class="v2-ck"><input type="checkbox" class="nx-checkbox" id="v2-ck-agr" checked><span>Juntar CDAs por processo</span></label>
+      <span class="v2-pdica">CDAs do mesmo processo e da mesma situação viram um item.</span>
+    </div>
+    <div class="v2-painel-f"><button type="button" class="nx-btn sm quiet" data-acao="limpar">Limpar tudo</button><span class="nx-sp"></span><button type="button" class="nx-btn sm primary" data-acao="painel">Fechar</button></div>
+  </section>
+
+  <div class="v2-chips" id="v2-chips" aria-live="polite"></div>
+  <div class="v2-mostrando" id="v2-mostrando" hidden></div>
+
+  <div class="v2-split" id="v2-split">
+    <div class="v2-main" id="v2-secoes"></div>
+    <div class="v2-scrim" data-acao="fechar"></div>
+    <aside class="nx-drawer docked v2-drawer" id="v2-gaveta" aria-label="Detalhe do item"></aside>
+  </div>
+
+  <div class="nx-batch sticky" id="v2-lote" hidden></div>
+
+  <section class="nx-card v2-como" aria-label="Como ler esta tela">
+    <div class="nx-card-h"><h2>Como ler esta tela</h2></div>
+    <div class="nx-card-b" style="padding-top:2px">
+      <ol>
+        <li><span><b>Cada cartão é uma seção, e o número é de ações.</b> CDAs do mesmo processo e da mesma situação formam um item só, com a soma e a ação em lote; cada CDA está em um único lugar.</span></li>
+        <li><span><b>Dentro da seção, vem primeiro a data cedo mais próxima.</b> Se a cedo já venceu e a tarde não, o item fica na posição da tarde; sem data tarde, vai para o fim, como «sem prazo calculável».</span></li>
+        <li><span><b>A segunda fileira e a decadência não pedem nada agora.</b> Aguardando reconhecimento não gera aviso nem lembrete, e adiamento vencido devolve o item ao cartão da sua ação.</span></li>
+      </ol>
+    </div>
+  </section>
+
+</div></main></div>
+  </figure>
+</section>
+
 <!-- ═════════════════════════ RESUMO ═════════════════════════ -->
-<section class="painel" id="p-resumo" role="tabpanel" aria-labelledby="t-resumo">
+<section class="painel" id="p-resumo" role="tabpanel" aria-labelledby="t-resumo" hidden>
 
   <div class="bloco">
     <h2>O problema</h2>
@@ -1944,13 +2203,13 @@ details.nx-group:not([open]) > .nx-group-h { border-radius: 9px; }
 <script>
 (function () {
   'use strict';
-  var TABS = ['resumo', 'relogio', 'fila', 'carteira', 'comparativo', 'decisoes'];
+  var TABS = ['v2', 'resumo', 'relogio', 'fila', 'carteira', 'comparativo', 'decisoes'];
   var btns = Array.prototype.slice.call(document.querySelectorAll('.abas [role="tab"]'));
   var painel = {};
   TABS.forEach(function (t) { painel[t] = document.getElementById('p-' + t); });
   var topo = document.querySelector('.topo');
   function mostra(t, rolar) {
-    if (TABS.indexOf(t) < 0) t = 'resumo';
+    if (TABS.indexOf(t) < 0) t = 'v2';
     TABS.forEach(function (k) { painel[k].hidden = k !== t; });
     btns.forEach(function (b) {
       var on = b.dataset.aba === t;
@@ -5510,6 +5769,799 @@ details.nx-group:not([open]) > .nx-group-h { border-radius: 9px; }
   $('#p3-hoje').textContent = 'hoje (fixo): ' + NX.fmtData(HOJE);
   $('#p3-f-op').innerHTML = '<option value="">Todas</option>' + window.NX_OPERACOES.map(function (o) { return '<option value="' + esc(o.nome) + '">' + esc(o.curto) + '</option>'; }).join('');
   $('#p3-f-cert').innerHTML = '<option value="">Todas</option>' + ['calculado', 'faixa', 'dado', 'analisar'].map(function (c) { return '<option value="' + c + '">' + NX.ROTULOS.certeza[c] + '</option>'; }).join('');
+  render();
+})();
+
+</script>
+<script>
+
+(function () {
+  'use strict';
+  var root = document.getElementById('proposta-2-v2');
+  if (!root || !window.NX || !window.NX_DADOS) return;
+  var HOJE = window.NX_HOJE, esc = NX.esc;
+  var $ = function (s, c) { return (c || root).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || root).querySelectorAll(s)); };
+  var isoMais = function (dias) { return new Date(NX.parse(HOJE) + dias * 864e5).toISOString().slice(0, 10); };
+  var isoMaisAnos = function (iso, a) { var p = String(iso).split('-'); return new Date(Date.UTC(+p[0] + a, +p[1] - 1, +p[2])).toISOString().slice(0, 10); };
+  var plural = function (n, a, b) { return n + ' ' + (n === 1 ? a : b); };
+  var moeda = NX.fmtMoeda, curta = NX.fmtMoedaCurta;
+  $('#v2-hoje').textContent = NX.fmtData(HOJE);
+
+  /* ───────── registros extras (só nesta página; o dados.js do kit não muda) ─────────
+     Casos que o kit não tem: ordinária entre 60 e 180 dias, completar dado, cedo vencida sem data tarde,
+     constrição via IDPJ chegando aos 5 anos, «não antes de» passada há mais de 2 anos e penhora entre 4 e 6 anos. */
+  function extras() {
+    var L = [];
+    L.push({
+      id: 'nx-v2-01', cda: '90.4.22.011874-20', devedor: 'Laticínios Boa Várzea Ltda', operacao: 'Operação Lastro', valor: 1742300, processo: null, abrangidaPor: null,
+      natureza: 'ordinaria', fase: 'Não ajuizada', fila: 'agir',
+      situacao: 'Os 5 anos para ajuizar vencem em 21/02/2027, daqui a 4 meses. Falta ajuizar a execução.',
+      termoCedo: '2027-02-21', termoTarde: '2027-02-21', certeza: 'calculado', podeSalvar: true,
+      acao: { tipo: 'ajuizar', rotulo: 'Ajuizar execução', umClique: false },
+      conferir: ['A entrega da declaração em 21/02/2022 confere com a ficha?', 'Houve pedido de parcelamento ou protesto da CDA desde então? (interrompe o prazo)', 'A CDA já está em alguma petição inicial em preparo?'],
+      eventos: [{ data: '2022-02-21', fato: 'Declaração entregue (DCTF): constituição definitiva', efeito: 'Começa a correr o prazo de 5 anos para ajuizar' }, { data: '2022-06-14', fato: 'Inscrição em dívida ativa', efeito: 'Sem efeito no prazo' }],
+      regua: { inicio: '2022-02-21', fim: '2027-05-23', segmentos: [{ de: '2022-02-21', ate: '2027-02-21', tipo: 'correndo', rotulo: 'Prazo de 5 anos para ajuizar' }], marcas: [{ data: HOJE, rotulo: 'Hoje', tipo: 'hoje' }, { data: '2027-02-21', rotulo: 'Termo', tipo: 'termo' }] }
+    });
+    L.push({
+      id: 'nx-v2-02', cda: '80.6.14.003309-61', devedor: 'Curtume Santa Rita Ltda', operacao: 'Operação Cais do Porto', valor: 318450, processo: '5008844-72.2015.4.04.7001', abrangidaPor: null,
+      natureza: 'intercorrente', fase: 'Falta vincular a execução', fila: 'agir',
+      situacao: 'O processo 5008844-72.2015.4.04.7001 está na ficha, mas não há execução cadastrada com esse número. Sem ela, o cálculo não enxerga os fatos do processo.',
+      termoCedo: null, termoTarde: null, certeza: 'dado', podeSalvar: true,
+      acao: { tipo: 'vincular_ef', rotulo: 'Vincular execução', umClique: false },
+      conferir: ['O número do processo está certo na ficha?', 'A execução já foi cadastrada em outra operação?'],
+      eventos: [{ data: '2015-09-30', fato: 'Ajuizamento da execução fiscal (número informado na ficha)', efeito: 'Sem execução cadastrada: o cálculo não vê este fato' }],
+      regua: null
+    });
+    L.push({
+      id: 'nx-v2-03', cda: '90.3.12.007744-05', devedor: 'Metalúrgica Brasa Viva Ltda', operacao: 'Operação Rota Fria', valor: 596200, processo: '5003390-15.2012.4.04.7001', abrangidaPor: null,
+      natureza: 'intercorrente', fase: 'Falência sem encerramento', fila: 'agir',
+      situacao: 'Falência decretada em 14/03/2019 e ainda sem encerramento nos autos. A data cedo (14/03/2019) já passou; a tarde só existe quando o encerramento for lançado.',
+      termoCedo: '2019-03-14', termoTarde: null, certeza: 'dado', podeSalvar: true,
+      acao: { tipo: 'criar_evento', rotulo: 'Lançar o encerramento da falência', umClique: false },
+      conferir: ['A falência foi encerrada? Há decisão de encerramento ou de extinção das obrigações?', 'A massa falida fez alguma diligência com resultado útil desde 2019?'],
+      eventos: [{ data: '2012-05-08', fato: 'Ajuizamento da execução fiscal', efeito: 'Sem efeito no intercorrente' }, { data: '2019-03-14', fato: 'Falência do devedor decretada', efeito: 'Pausa o prazo até o encerramento; sem encerramento lançado, vale a data cedo' }],
+      regua: { inicio: '2012-05-08', fim: '2027-04-09', segmentos: [{ de: '2012-05-08', ate: '2019-03-14', tipo: 'aguardando', rotulo: 'Sem ciência: sem relógio' }, { de: '2019-03-14', ate: HOJE, tipo: 'pausa', rotulo: 'Falência sem encerramento' }], marcas: [{ data: '2019-03-14', rotulo: 'Data cedo (falência decretada)', tipo: 'cedo' }, { data: HOJE, rotulo: 'Hoje', tipo: 'hoje' }] }
+    });
+    L.push({
+      id: 'nx-v2-04', cda: '90.2.16.004905-37', devedor: 'Usina Santa Helena S.A.', operacao: 'Operação Veredas', valor: 3120000, processo: '5006015-04.2017.4.04.7003', abrangidaPor: 'IDPJ 5002018-91.2021.4.04.7002',
+      natureza: 'intercorrente', fase: 'Interrompida via IDPJ', fila: 'vigiar',
+      situacao: 'Ciclo encerrado pela constrição no IDPJ 5002018-91.2021.4.04.7002 (pedido de 06/12/2021). Aos 5 anos da informação (10/12/2026) o processo pede esclarecimento. Não pode ter prescrito antes de 06/12/2027.',
+      termoCedo: '2027-12-06', termoTarde: '2027-12-06', certeza: 'calculado', podeSalvar: false, acao: null,
+      conferir: ['A constrição do IDPJ teve resultado útil (bloqueio ou indisponibilidade efetivos)?', 'Há nova ciência da Fazenda sobre o resultado, a lançar antes dos 5 anos?'],
+      eventos: [{ data: '2017-03-20', fato: 'Ajuizamento da execução fiscal', efeito: 'Sem efeito no intercorrente' }, { data: '2021-12-06', fato: 'IDPJ: indisponibilidade de bens (pedido)', efeito: 'Vale como interrupção, igual a uma penhora, desde o pedido' }, { data: '2021-12-10', fato: 'IDPJ: constrição informada nos autos da execução', efeito: 'Marco do aviso aos 5 anos (10/12/2026)' }],
+      regua: { inicio: '2017-03-20', fim: '2028-06-05', segmentos: [{ de: '2017-03-20', ate: '2021-12-06', tipo: 'aguardando', rotulo: 'Sem ciência: sem relógio' }, { de: '2021-12-06', ate: '2027-12-06', tipo: 'aguardando', rotulo: 'Ciclo encerrado: aguarda nova ciência' }], marcas: [{ data: '2021-12-06', rotulo: 'Constrição no IDPJ (pedido)', tipo: 'ciclo' }, { data: HOJE, rotulo: 'Hoje', tipo: 'hoje' }, { data: '2026-12-10', rotulo: '5 anos da informação', tipo: 'cedo' }, { data: '2027-12-06', rotulo: 'Piso: não antes de', tipo: 'termo' }] }
+    });
+    L.push({
+      id: 'nx-v2-05', cda: '80.5.13.001882-90', devedor: 'Frigorífico Pampa Sul Ltda', operacao: 'Operação Cais do Porto', valor: 457300, processo: '5001744-33.2013.4.04.7001', abrangidaPor: null,
+      natureza: 'intercorrente', fase: 'Piso já passou', fila: 'vigiar',
+      situacao: 'Não pode ter prescrito antes de 03/05/2024. Essa data já passou há mais de 2 anos e nenhum fato foi lançado desde então: a CDA pode já estar prescrita ou haver fato nos autos que o app não conhece.',
+      termoCedo: '2024-05-03', termoTarde: null, certeza: 'dado', podeSalvar: false, acao: null,
+      conferir: ['Há ciência, penhora, bloqueio ou parcelamento nos autos depois de 03/05/2024?', 'A execução foi arquivada, e quando?'],
+      eventos: [{ data: '2013-08-12', fato: 'Ajuizamento da execução fiscal', efeito: 'Sem efeito no intercorrente' }, { data: '2017-05-03', fato: 'Último ato de citação ou penhora lançado', efeito: 'Mais 1 ano e 5 anos: o piso é 03/05/2024' }, { data: '2024-05-03', fato: 'Piso de 1 + 5 anos', efeito: 'A partir daqui a CDA pode estar prescrita' }],
+      regua: { inicio: '2013-08-12', fim: '2027-01-31', segmentos: [{ de: '2013-08-12', ate: '2024-05-03', tipo: 'aguardando', rotulo: 'Sem ciência: sem relógio' }], marcas: [{ data: '2024-05-03', rotulo: 'Piso: não antes de', tipo: 'termo' }, { data: HOJE, rotulo: 'Hoje', tipo: 'hoje' }] }
+    });
+    L.push({
+      id: 'nx-v2-06', cda: '90.7.15.009051-26', devedor: 'Cerâmica Vale Dourado Ltda', operacao: 'Operação Rota Fria', valor: 874900, processo: '5005127-58.2016.4.04.7001', abrangidaPor: null,
+      natureza: 'intercorrente', fase: 'Penhora antiga', fila: 'vigiar',
+      situacao: 'Penhora há mais de 4 anos (18/05/2022), sem outro fato lançado. Análise caso a caso: houve nova ciência de insuficiência depois dela?',
+      termoCedo: null, termoTarde: null, certeza: 'analisar', podeSalvar: false, acao: null,
+      conferir: ['Houve nova intimação da Fazenda sobre a insuficiência da penhora depois de 18/05/2022?', 'O bem penhorado segue constrito (matrícula atualizada)?'],
+      eventos: [{ data: '2016-08-23', fato: 'Ajuizamento da execução fiscal', efeito: 'Sem efeito no intercorrente' }, { data: '2022-05-18', fato: 'Penhora de veículo, valor insuficiente', efeito: 'Encerra o ciclo. Nova inércia exige nova ciência' }, { data: '2026-05-18', fato: 'Quatro anos da penhora sem outro fato', efeito: 'A CDA entra em «Conferir sem pressa»' }],
+      regua: { inicio: '2016-08-23', fim: '2027-04-20', segmentos: [{ de: '2016-08-23', ate: '2022-05-18', tipo: 'aguardando', rotulo: 'Sem ciência: sem relógio' }, { de: '2022-05-18', ate: HOJE, tipo: 'aguardando', rotulo: 'Ciclo encerrado: aguarda nova ciência' }], marcas: [{ data: '2022-05-18', rotulo: 'Penhora: ciclo encerrado', tipo: 'ciclo' }, { data: HOJE, rotulo: 'Hoje', tipo: 'hoje' }] }
+    });
+    return L.map(function (r) {
+      r.diasRestantes = r.termoCedo ? NX.dias(r.termoCedo) : null;
+      r.consumadaHa = null; r.silenciadaAte = null; r.adiada = null; r.tratada = null;
+      return r;
+    });
+  }
+
+  /* ───────── as dez seções (a ordem é a ordem de trabalho) e a decadência ao fim ───────── */
+  var SEC = {
+    calculo:   { id: 'calculo', n: 1, fila: 1, nome: 'Conferir o cálculo', tom: 'orange', pergunta: 'O cálculo pode estar errado?',
+      dica: 'Consumadas há até 6 meses e casos em que a análise importada diverge do cálculo. Confira nos autos se algum fato interrompeu o prazo; depois de 6 meses a consumada vai para «Consumadas antigas».',
+      tip: 'Consumadas há até 6 meses e análise importada que diverge do cálculo: confira nos autos se algum fato interrompeu o prazo antes de aceitar a consumação.', vazio: 'Nada a conferir no cálculo.' },
+    ajuizar:   { id: 'ajuizar', n: 2, fila: 1, nome: 'Ajuizar', tom: 'red', pergunta: 'A CDA ainda não foi ajuizada: protocolei a execução?',
+      dica: 'Ordinária não ajuizada com a data cedo em até 60 dias. Se já ajuizou, informe o processo e a CDA sai daqui.',
+      tip: 'Ordinária ainda não ajuizada cuja data cedo cai nos próximos 60 dias: ajuíze antes que os 5 anos se consumem. Em cinza, as que vencem entre 60 e 180 dias.', vazio: 'Nenhuma ordinária a ajuizar nos próximos 60 dias.' },
+    fato:      { id: 'fato', n: 3, fila: 1, nome: 'Lançar fato ou ciência', tom: 'orange', pergunta: 'Há um fato nos autos que o app ainda não conhece?',
+      dica: 'Lance o fato ou a data da ciência, ou confira os autos quando a providência é peticionar antes da data cedo: o cálculo se refaz na hora.',
+      tip: 'Há fato nos autos que o app não conhece (ciência da suspensão, resultado de bloqueio, rescisão de parcelamento): lance-o e o cálculo se refaz.', vazio: 'Nenhum fato ou ciência a lançar.' },
+    vigencia:  { id: 'vigencia', n: 4, fila: 1, nome: 'Confirmar vigência', tom: 'blue', pergunta: 'A pausa ou o parcelamento continua valendo?',
+      dica: 'Um clique: grava a conferência de hoje e a CDA sai da fila.',
+      tip: 'Pausa ou parcelamento cujo prazo presume que já acabou: confirme com um clique se ainda vale.', vazio: 'Nenhuma pausa ou parcelamento para conferir.' },
+    dado:      { id: 'dado', n: 5, fila: 1, nome: 'Completar dado', tom: 'muted', pergunta: 'Falta algum dado da ficha para o cálculo fechar?',
+      dica: 'Informar vencimento ou constituição definitiva, ou vincular a CDA à execução certa.',
+      tip: 'Falta dado na ficha para o cálculo fechar: informar as datas ou vincular a CDA à execução certa.', vazio: 'Nenhuma CDA com dado faltando.' },
+    sempressa: { id: 'sempressa', n: 6, fila: 2, nome: 'Conferir sem pressa', tom: 'gray', pergunta: 'vale uma olhada, mas nada vence agora',
+      dica: 'Constrição na execução há mais de 4 anos sem outro fato; constrição via IDPJ chegando aos 5 anos; «não antes de» que passou há mais de 2 anos sem fato lançado.',
+      tip: 'Nada vence agora, mas vale olhar: constrição na execução há mais de 4 anos sem outro fato, constrição via IDPJ chegando aos 5 anos, ou «não antes de» passado há mais de 2 anos sem fato lançado.', vazio: 'Nada para conferir sem pressa.' },
+    vigiar:    { id: 'vigiar', n: 7, fila: 2, nome: 'Só vigiar', tom: 'blue', pergunta: 'sem ação possível agora; o app avisa se algo mudar',
+      dica: '', tip: 'Nada a fazer agora: ciclo encerrado por penhora, parcelamento vigente, IDPJ com constrição recente, prazo ainda impossível ou ordinária ainda longe do prazo.', vazio: 'Nada só para vigiar.' },
+    adiadas:   { id: 'adiadas', n: 8, fila: 2, nome: 'Adiadas', tom: 'orange', pergunta: 'adiadas por você; voltam ao cartão da sua ação na data marcada',
+      dica: '', tip: 'Itens que você mesmo adiou, com motivo e data de volta. Quando o adiamento vence, o item volta ao cartão da sua ação.', vazio: 'Nenhuma adiada.' },
+    tratadas:  { id: 'tratadas', n: 9, fila: 2, nome: 'Tratadas', tom: 'green', pergunta: 'prescrição já tratada; não gera aviso nem lembrete',
+      dica: '', tip: 'Prescrição já tratada (aguardando reconhecimento, reconhecida, analisada). Fica só aqui: não gera aviso nem lembrete.', vazio: 'Nenhuma tratada.' },
+    antigas:   { id: 'antigas', n: 10, fila: 2, nome: 'Consumadas antigas', tom: 'gray', pergunta: 'consumadas há mais de 6 meses; só consulta, sem alarme',
+      dica: '', tip: 'Consumadas há mais de 6 meses: só registro, sem alarme.', vazio: 'Nenhuma consumada antiga.' },
+    decadencia:{ id: 'decadencia', n: 0, fila: 0, nome: 'Decadência', tom: 'gray', pergunta: 'só consulta e edição; nunca gera aviso', dica: '', tip: '', vazio: 'Nenhuma CDA de decadência.' }
+  };
+  var ORDEM = ['calculo', 'ajuizar', 'fato', 'vigencia', 'dado', 'sempressa', 'vigiar', 'adiadas', 'tratadas', 'antigas'];
+  var ATIVAS = ['calculo', 'ajuizar', 'fato', 'vigencia', 'dado'];
+  var MOTIVOS = NX.MOTIVOS_ADIAMENTO;
+  var FORMAS = [['aguardando_reconhecimento', 'Prescrita — aguardando reconhecimento judicial'], ['declarada', 'Declarada e baixada no processo'], ['analisada_nao_consumada', 'Analisada — não houve prescrição'], ['extinta', 'Extinta por prescrição']];
+
+  /* ───────── estado ───────── */
+  var state = {
+    dados: NX.copia().concat(extras()), op: '', nat: '', q: '', idpj: false, minVal: 0, cedo: false, agrupar: true,
+    sec: null, painel: false, proximas: false,
+    aberta: { calculo: true, ajuizar: true, fato: true, vigencia: true, dado: true, sempressa: false, vigiar: false, adiadas: false, tratadas: false, antigas: false, decadencia: false },
+    exp: { 'nx-14': true }, form: { 'nx-14': 'acao' }, sel: {}, excl: {},
+    drawer: 'nx-13', drawerForm: 'acao', feitos: []
+  };
+  if (window.matchMedia && window.matchMedia('(max-width: 1099px)').matches) { state.drawer = null; state.drawerForm = null; }   // em tela estreita a gaveta nasce fechada
+  var byId = function (id) { for (var i = 0; i < state.dados.length; i++) if (state.dados[i].id === id) return state.dados[i]; return null; };
+
+  /* ───────── regras de leitura (só com os campos do registro) ───────── */
+  // «não antes de» e fatos que não são prazo: nunca viram «vencido» nem «cedo venceu»
+  function semPrazo(r) { return NX.semPrazo(r) || /Piso já passou/.test(r.fase || ''); }
+  // cedo venceu, tarde não: a data cedo passou e a tarde (tese da União) ainda não chegou ou não existe
+  function tese(r) { return !semPrazo(r) && NX.tese(r); }
+  // Data que posiciona o item na seção: a cedo; se a cedo já venceu e a tarde não, a tarde; sem data → null («sem prazo calculável»)
+  function dataChave(r) {
+    if (semPrazo(r)) return null;
+    if (tese(r)) return r.termoTarde || null;
+    return r.termoCedo || null;
+  }
+  // 5 anos da informação da constrição via IDPJ (só quando o registro traz o marco)
+  function marco5(r) {
+    for (var i = 0; i < (r.eventos || []).length; i++) if (/IDPJ: constrição informada/.test(r.eventos[i].fato)) return isoMaisAnos(r.eventos[i].data, 5);
+    return null;
+  }
+  // «Conferir sem pressa»: penhora há mais de 4 anos · IDPJ chegando aos 5 anos (faltam até 12 meses) · «não antes de» há mais de 2 anos
+  function kindSP(r) {
+    if (r.tratada || r.consumadaHa != null || r.natureza === 'decadencia' || r.acao) return null;
+    if (r.adiada && !NX.adiamentoVencido(r)) return null;
+    if (r.fase === 'Penhora antiga') return 'penhora';
+    if (r.fase === 'Piso já passou' && r.termoCedo && NX.dias(r.termoCedo) <= -730) return 'piso';
+    if (/Interrompida via IDPJ/.test(r.fase || '')) { var m = marco5(r); if (m && NX.dias(m) <= 365) return 'idpj'; }
+    return null;
+  }
+  // Uma CDA, um lugar. A primeira regra que casar vale.
+  function secaoDe(r) {
+    if (r.natureza === 'decadencia') return 'decadencia';
+    if (r.tratada) return 'tratadas';                                     // inclui «aguardando reconhecimento»: sem aviso e sem lembrete
+    if (r.adiada && !NX.adiamentoVencido(r)) return 'adiadas';           // adiamento vencido não é cartão: o item volta à sua ação
+    if (r.consumadaHa != null) return r.consumadaHa <= 180 ? 'calculo' : 'antigas';
+    if (r.divergencia) return 'calculo';
+    if (r.acao && !r.silenciadaAte) {
+      var t = r.acao.tipo;
+      if (t === 'ajuizar') return r.diasRestantes != null && r.diasRestantes <= 180 ? 'ajuizar' : 'vigiar';
+      if (t === 'corrigir_ficha' || t === 'vincular_ef') return 'dado';
+      if (t === 'confirmar_vigencia') return 'vigencia';
+      if (t === 'lancar_ciencia' || t === 'criar_evento') return 'fato';
+      return r.natureza === 'ordinaria' ? 'ajuizar' : 'fato';             // conferir_autos: confere-se nos autos para lançar o fato
+    }
+    return kindSP(r) ? 'sempressa' : 'vigiar';
+  }
+  function passaBase(r) {
+    if (state.op && r.operacao !== state.op) return false;
+    if (state.nat && r.natureza !== state.nat) return false;
+    if (state.minVal && (r.valor || 0) < state.minVal) return false;
+    if (state.idpj && !r.abrangidaPor) return false;
+    if (state.q) {
+      var q = state.q.toLowerCase(), nq = q.replace(/\D/g, '');
+      var txt = (r.cda + ' ' + r.devedor + ' ' + (r.processo || '')).toLowerCase();
+      if (txt.indexOf(q) < 0 && !(nq.length > 2 && ((r.processo || '') + r.cda).replace(/\D/g, '').indexOf(nq) >= 0)) return false;
+    }
+    return true;
+  }
+  function passa(r) { return passaBase(r) && (!state.cedo || tese(r)); }
+
+  /* texto do caso, sem os destaques que as decisões tiraram (sem «há 20 anos»; sem lembrete de aguardando) */
+  function frase(r) {
+    var t = r.situacao || '';
+    if (tese(r)) t = t.replace(/, o prazo já venceu há [^.]*\./, ', essa data já passou.');
+    if (r.tratada && r.tratada.tipo === 'aguardando_reconhecimento') t = t.replace(/\s*O lembrete de 60 dias venceu[^.]*\./, ' Não gera aviso nem lembrete: fica só em «Tratadas».');
+    return t;
+  }
+  function efeito(r, e) { return (r.tratada && r.tratada.tipo === 'aguardando_reconhecimento') ? String(e.efeito).replace(/;\s*lembrete em 60 dias[^)]*\)/, '') : e.efeito; }
+
+  /* ───────── itens: CDAs do mesmo processo e da mesma situação viram um ───────── */
+  function montarItens(rs, secao) {
+    var mapa = {}, itens = [];
+    rs.forEach(function (r) {
+      var k = state.agrupar && r.processo ? r.operacao + '|' + r.processo + '|' + r.fase : r.id;
+      if (!(k in mapa)) { mapa[k] = { key: r.id, secao: secao, cdas: [], valor: 0 }; itens.push(mapa[k]); }
+      mapa[k].cdas.push(r); mapa[k].valor += r.valor || 0;
+    });
+    itens.forEach(function (it) {
+      it.lead = it.cdas[0]; it.n = it.cdas.length;
+      it.longe = secao === 'ajuizar' && it.lead.diasRestantes != null && it.lead.diasRestantes > 60;   // 60 a 180 dias: número cinza
+      it.ord = ordem(it);
+    });
+    itens.sort(function (a, b) { for (var i = 0; i < 3; i++) if (a.ord[i] !== b.ord[i]) return a.ord[i] - b.ord[i]; return 0; });
+    return itens;
+  }
+  // [bloco, número, -valor]: bloco 0 = tem data; bloco 1 = «sem prazo calculável», no fim da seção
+  function ordem(it) {
+    var r = it.lead, s = it.secao, v = -it.valor;
+    if (s === 'adiadas') return [0, NX.dias(r.adiada.ate), v];
+    if (s === 'tratadas') return [0, -NX.dias(r.tratada.desde), v];
+    if (s === 'antigas') return [0, r.consumadaHa == null ? 99999 : r.consumadaHa, v];
+    if (s === 'vigiar' || s === 'decadencia') return [0, 0, v];
+    if (s === 'sempressa') { var k = kindSP(r); return k === 'idpj' ? [0, NX.dias(marco5(r)), v] : [1, 0, v]; }
+    var d = dataChave(r);
+    return d ? [0, NX.dias(d), v] : [1, 0, v];
+  }
+  function montar() {
+    var lista = state.dados.filter(passa), por = {};
+    Object.keys(SEC).forEach(function (k) { por[k] = []; });
+    lista.forEach(function (r) { por[secaoDe(r)].push(r); });
+    var M = { lista: lista, itens: {} };
+    Object.keys(por).forEach(function (k) { M.itens[k] = montarItens(por[k], k); });
+    return M;
+  }
+  var somaCdas = function (its) { return its.reduce(function (s, it) { return s + it.n; }, 0); };
+  var somaVal = function (its) { return its.reduce(function (s, it) { return s + it.valor; }, 0); };
+  var principais = function (s, its) { return s === 'ajuizar' ? its.filter(function (it) { return !it.longe; }) : its; };
+  var M0 = { itens: {} };
+
+  /* ───────── o prazo da ação: até quando e por quê ───────── */
+  function porque(r, s) {
+    var d = r.diasRestantes, c = r.termoCedo, t = r.termoTarde, tipo = r.acao && r.acao.tipo;
+    if (s === 'ajuizar') return 'fim dos 5 anos para ajuizar';
+    if (s === 'dado') return 'faltam dados da ficha para o cálculo fechar';
+    if (tese(r)) {
+      if (!t) return 'sem a data tarde o prazo não fecha; o fato que falta a define';
+      return r.certeza === 'dado' ? 'a data cedo já passou; a tarde depende do dado que falta' : 'a data cedo já passou; a tarde é a tese da União';
+    }
+    if (tipo === 'confirmar_vigencia') return 'a data cedo presume que a pausa acabou na última conferência';
+    if (r.divergencia) return 'vale o cálculo; a análise importada diz outra coisa';
+    if (r.certeza === 'faixa') return 'peticionar antes da data cedo';
+    if (r.certeza === 'dado') return c === t ? 'vence nessa data se o fato não vier' : 'sem o dado, vale a data cedo (a mais desfavorável)';
+    return 'prazo calculado';
+  }
+  function porqueVigiar(r) {
+    var f = r.fase || '';
+    if (/Parcelamento vigente/.test(f)) return 'parcelamento vigente: o prazo não corre';
+    if (/IDPJ/.test(f)) return 'constrição no incidente interrompeu o prazo; só vigiar';
+    if (/Ciclo encerrado/.test(f)) return 'penhora encerrou o ciclo; só vigiar nova inércia';
+    if (/impossível/.test(f)) return 'ainda não pode ter prescrito';
+    if (r.natureza === 'ordinaria' && r.acao && r.acao.tipo === 'ajuizar') return 'o prazo para ajuizar ainda está longe: o aviso começa 6 meses antes (em cinza) e 60 dias antes (com alarme)';
+    return frase(r);
+  }
+  function porqueSP(r) {
+    var k = kindSP(r);
+    if (k === 'penhora') return 'constrição na execução há mais de 4 anos, sem outro fato lançado';
+    if (k === 'idpj') return 'constrição via IDPJ chegando aos 5 anos';
+    if (k === 'piso') return '«não antes de» passou há mais de 2 anos, sem fato lançado';
+    return '';
+  }
+  function dataPenhora(r) { var m = /\((\d{2}\/\d{2}\/\d{4})\)/.exec(r.situacao || ''); return m ? m[1] : null; }
+  function prazoDe(it) {
+    var r = it.lead, s = it.secao, d = r.diasRestantes, c = r.termoCedo, t = r.termoTarde;
+    var o = { l: 'Prazo da ação', principal: '', tom: 'muted', linhas: [], porque: '' };
+    if (s === 'adiadas') { o.l = 'Volta à fila'; o.principal = NX.fmtDataCurta(r.adiada.ate); o.tom = 'orange'; o.linhas = [NX.fmtDias(NX.dias(r.adiada.ate)), r.adiada.motivo.toLowerCase()]; return o; }
+    if (s === 'tratadas') { o.l = 'Tratada'; o.principal = r.tratada.tipo === 'aguardando_reconhecimento' ? 'aguardando decisão' : 'tratada'; o.tom = r.tratada.tipo === 'aguardando_reconhecimento' ? 'blue' : 'green'; o.linhas = [r.tratada.rotulo, 'desde ' + NX.fmtData(r.tratada.desde)]; return o; }
+    if (s === 'antigas') { o.l = 'Consumada'; o.principal = 'consumada em ' + NX.fmtData(t || c); o.linhas = ['sem alarme']; return o; }
+    if (s === 'decadencia') { o.l = 'Decadência'; o.principal = 'só consulta'; o.linhas = c ? ['data cedo ' + NX.fmtData(c)] : []; return o; }
+    if (s === 'vigiar') {
+      o.l = 'Só vigiar';
+      if (r.silenciadaAte) { o.principal = 'silenciada'; o.linhas = ['volta em ' + NX.fmtData(r.silenciadaAte)]; }
+      else if (r.acao && r.acao.tipo === 'ajuizar') { o.principal = 'prazo em ' + NX.fmtDataCurta(c); o.linhas = ['faltam ' + d + ' dias']; o.tom = 'muted'; }
+      else if (c) { o.principal = NX.fmtDias(d); o.tom = 'blue'; o.linhas = ['termo ' + NX.fmtData(c)]; }
+      else { o.principal = 'sem alarme'; if (/analisada|Ciência|Fato|Ajuizada|vinculada/.test(r.fase)) o.linhas = ['cálculo refeito']; }
+      return o;
+    }
+    if (s === 'sempressa') {
+      var k = kindSP(r); o.l = 'Conferir sem pressa';
+      if (k === 'idpj') { var m = marco5(r), dm = NX.dias(m); o.principal = '5 anos em ' + NX.fmtData(m); o.tom = 'blue'; o.linhas = ['faltam ' + dm + ' dias']; }
+      else if (k === 'piso') { o.principal = 'não antes de ' + NX.fmtData(c); o.linhas = ['sem fato lançado depois']; }
+      else { o.principal = 'penhora de ' + (dataPenhora(r) || '—'); o.linhas = ['sem outro fato lançado']; }
+      o.porque = porqueSP(r);
+      return o;
+    }
+    if (s === 'calculo' && r.consumadaHa != null) {
+      var sai = 180 - r.consumadaHa;
+      o.l = 'Conferir enquanto é recente'; o.principal = 'consumada há ' + NX.fmtDuracao(r.consumadaHa); o.tom = 'orange';
+      o.linhas = ['conferir até ' + NX.fmtData(isoMais(sai)) + ' (' + NX.fmtDias(sai) + ')'];
+      o.porque = 'depois de 6 meses sai do alerta e vai para «Consumadas antigas»';
+      return o;
+    }
+    // seções de ação
+    if (tese(r)) {   // cedo venceu, tarde não: o relógio principal é a tarde; a cedo vira informação, em data, nunca «há 20 anos»
+      if (t) {
+        var dt = NX.dias(t);
+        o.principal = 'tarde em ' + NX.fmtData(t); o.tom = NX.tomDias(dt);
+        o.linhas = ['cedo venceu em ' + NX.fmtData(c), 'a tarde chega ' + NX.fmtDias(dt)];
+      } else {
+        o.principal = 'sem prazo calculável'; o.tom = 'muted';
+        o.linhas = ['tarde sem data', 'cedo venceu em ' + NX.fmtData(c)];
+      }
+      o.porque = porque(r, s); return o;
+    }
+    if (d == null) { o.principal = 'sem prazo calculável'; o.porque = porque(r, s); return o; }
+    o.l = ({ ajuizar: 'Ajuizar até', fato: 'Lançar até', vigencia: 'Confirmar até', dado: 'Completar até', calculo: 'Lançar até' })[s] || o.l;
+    o.principal = NX.fmtDias(d); o.tom = NX.tomDias(d);
+    o.linhas = ['até ' + NX.fmtData(c)];
+    if (t && t !== c) o.linhas.push('tarde ' + NX.fmtData(t) + (r.certeza === 'faixa' ? ' (tese)' : ''));
+    o.porque = porque(r, s);
+    return o;
+  }
+  function tomLinha(it) {
+    var r = it.lead, s = it.secao;
+    if (s === 'calculo' && r.consumadaHa != null) return 'orange';
+    if (s === 'adiadas') return 'orange';
+    if (s === 'vigiar') return 'blue';
+    if (s === 'tratadas') return 'green';
+    if (s === 'sempressa' || s === 'antigas' || s === 'decadencia') return 'gray';
+    var k = dataChave(r); if (!k) return 'gray';
+    var t = NX.tomDias(NX.dias(k)); return t === 'muted' ? 'yellow' : t;
+  }
+  var podeAdiar = function (it) { return ATIVAS.indexOf(it.secao) >= 0 && !(it.secao === 'calculo' && it.lead.consumadaHa != null) && !NX.derivada(it.lead); };
+
+  /* ───────── peças de HTML ───────── */
+  function devedores(it) { var u = []; it.cdas.forEach(function (r) { if (u.indexOf(r.devedor) < 0) u.push(r.devedor); }); return u; }
+  function ids(it) { return it.cdas.map(function (r) { return r.id; }); }
+  function idsLote(it) { return ids(it).filter(function (id) { return !state.excl[id]; }); }
+  // chips do kit, com três ajustes: sem «Fora dos 90 dias»; adiamento vencido = «adiada até dd/mm (venceu)»; aguardando sem lembrete
+  function chips(r, quieto) {
+    var c = Object.assign({}, r);
+    c.adiada = null; c.processo = c.processo || '-';
+    if (r.tratada) c.silenciadaAte = null;
+    var h = NX.chipsHTML(c);
+    if (quieto) h = h.replace(/<span class="nx-chip (calculado|faixa|dado|analisar)[^>]*>[^<]*<\/span>/, '');
+    if (tese(r)) h += '<span class="nx-chip t-orange nx-tip" tabindex="0" data-tip="A data cedo já passou e a tarde (tese da União) ainda não chegou: a CDA ainda se salva. O item fica na posição da data tarde.">Cedo venceu, tarde não</span>';
+    if (r.adiada) {
+      var venc = NX.adiamentoVencido(r);
+      h += '<span class="nx-chip adiada' + (venc ? ' t-red' : '') + '">adiada até ' + NX.fmtDataCurta(r.adiada.ate).slice(0, 5) + (venc ? ' (venceu)' : '') + ' · ' + esc(r.adiada.motivo) + '</span>';
+    }
+    return h;
+  }
+  function prazoHTML(it, p) {
+    var h = '<div class="v2-prazo"><span class="v2-prazo-l">' + esc(p.l) + '</span><span class="nx-when ' + p.tom + '">' + esc(p.principal) + '</span>';
+    p.linhas.forEach(function (l) { h += '<span class="nx-date">' + esc(l) + '</span>'; });
+    if (p.porque) h += '<span class="v2-porque">' + esc(p.porque) + '</span>';
+    return h + '<span class="nx-val">' + moeda(it.valor) + '</span></div>';
+  }
+  function quemHTML(it) {
+    var r = it.lead, op = NX.op(r.operacao), dv = devedores(it);
+    return '<span class="nx-devedor">' + esc(dv.join(' · ')) + '</span><span class="nx-op"><i class="nx-sq" style="--c:' + op.cor + '"></i><span class="nx-ell">' + esc(op.curto) + '</span></span>' +
+      (it.n === 1 ? (r.processo ? '<span class="nx-proc">' + r.processo + '</span>' : '<span class="nx-muted">sem processo</span>') : '');
+  }
+  function pillsHTML(it) {
+    return '<div class="v2-cdas">' + it.cdas.map(function (r) {
+      return '<span class="v2-pill"><span class="nx-cda">' + r.cda + '</span><span class="nx-val">' + moeda(r.valor) + '</span></span>';
+    }).join('') + '</div>';
+  }
+  function notasProcesso(it) {
+    // outras CDAs do mesmo processo que estão em outro lugar (adiadas, p.ex.)
+    var r = it.lead; if (!r.processo) return '';
+    var meus = ids(it), out = [];
+    state.dados.forEach(function (x) { if (x.processo === r.processo && meus.indexOf(x.id) < 0 && x.operacao === r.operacao && passa(x)) out.push(x); });
+    if (!out.length) return '';
+    return '<p class="v2-nota">Neste processo: ' + out.map(function (x) {
+      var s = secaoDe(x), nome = SEC[s].nome.toLowerCase();
+      return '<b>' + x.cda + '</b> está em ' + nome + (x.adiada && !NX.adiamentoVencido(x) ? ' (volta em ' + NX.fmtDataCurta(x.adiada.ate) + ')' : '');
+    }).join('; ') + '.</p>';
+  }
+  function checksHTML(r, max) {
+    return '<div class="nx-checks">' + r.conferir.slice(0, max || 9).map(function (t) { return '<label class="nx-check"><input type="checkbox"><span>' + esc(t) + '</span></label>'; }).join('') + '</div>';
+  }
+  // qual formulário a ação principal abre (null = abre a gaveta, sem formulário)
+  function kindAcao(it) {
+    var r = it.lead, t = r.acao && r.acao.tipo;
+    if (it.secao === 'ajuizar') return 'acao';
+    if (it.secao === 'dado') return 'dado';
+    if (t === 'lancar_ciencia' || t === 'criar_evento') return 'acao';
+    return null;
+  }
+  function rotuloPrimario(it) {
+    var r = it.lead, s = it.secao, n = idsLote(it).length, t = r.acao && r.acao.tipo;
+    if (s === 'ajuizar') return 'Ajuizei — informar processo';
+    if (t === 'confirmar_vigencia') return 'Ainda vale' + (it.n > 1 ? ' nas ' + n + ' CDAs' : '');
+    if (s === 'dado') return r.acao.rotulo;
+    if (t === 'lancar_ciencia' || t === 'criar_evento') return r.acao.rotulo + (it.n > 1 ? ' (' + n + ' CDAs)' : '');
+    if (s === 'calculo' || s === 'fato' || s === 'sempressa') return 'Conferir nos autos';
+    return '';
+  }
+
+  /* formulários no lugar: cada um ligado a uma função que o app já tem */
+  function campo(rot, html, cls) { return '<label class="nx-field' + (cls ? ' ' + cls : '') + '">' + rot + html + '</label>'; }
+  function dataIn(nome, v) { return '<input class="nx-input" type="text" inputmode="numeric" name="' + nome + '" placeholder="dd/mm/aaaa" autocomplete="off" value="' + (v ? NX.fmtData(v) : '') + '">'; }
+  function isoDeBR(t) { var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(t || '').trim()); return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : ''; }
+  function limiteAdiar(it) {
+    var r = it.lead; if (it.secao === 'vigencia' || it.secao === 'dado') return 7;
+    if (r.certeza === 'dado') return r.diasRestantes != null && r.diasRestantes < 0 ? 30 : 7;
+    return 14;
+  }
+  function formHTML(it, kind) {
+    var r = it.lead, c = '', hint = '', ok = 'Salvar', n = idsLote(it).length, tipo = r.acao && r.acao.tipo;
+    if (kind === 'adiar') {
+      var lim = limiteAdiar(it);
+      c = campo('Motivo', '<select class="nx-select" name="motivo">' + MOTIVOS.map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select>') +
+        campo('Volta à fila em', dataIn('ate', isoMais(Math.min(lim, 14)))) +
+        campo('Descreva (obrigatório em “Outro”)', '<input class="nx-input" name="nota" placeholder="Por que adiar">', 'grow');
+      hint = 'Limite para este caso: ' + lim + ' dias. Volta antes se entrar fato novo ou se o caso piorar.'; ok = 'Adiar';
+    } else if (kind === 'tratar') {
+      c = campo('Forma de tratamento', '<select class="nx-select" name="forma">' + FORMAS.map(function (f) { return '<option value="' + f[0] + '">' + f[1] + '</option>'; }).join('') + '</select>', 'grow');
+      hint = 'Depois de conferir nos autos: a CDA sai da fila de ações e fica em «Tratadas». Aguardando reconhecimento não gera aviso nem lembrete.'; ok = 'Tratar';
+    } else if (kind === 'penhora') {
+      c = campo('Conclusão da análise', '<input class="nx-input" name="nota" placeholder="Ex.: houve nova ciência de insuficiência em ...">', 'grow');
+      hint = 'Registra a análise; a CDA só volta a «Conferir sem pressa» com fato novo ou em 365 dias.'; ok = 'Marcar analisada';
+    } else if (kind === 'decad') {
+      c = campo('Período de apuração', '<input class="nx-input" name="periodo" placeholder="mm/aaaa a mm/aaaa" autocomplete="off">') +
+        campo('Modalidade do lançamento', '<select class="nx-select" name="modalidade"><option>De ofício</option><option>Por homologação</option><option>Por declaração</option></select>') +
+        campo('Notificação do lançamento', dataIn('data', ''));
+      hint = 'Só recalcula a decadência e deixa o registro completo. Ela nunca gera aviso.'; ok = 'Salvar e recalcular';
+    } else if (kind === 'dado') {
+      c = campo('Nº do processo da execução', '<input class="nx-input nx-mono" name="processo" placeholder="5001234-56.2015.4.04.7001" value="' + esc(r.processo || '') + '">', 'grow') + campo('Data do ajuizamento', dataIn('data', ''));
+      hint = 'Cadastra a execução com esse número e liga a CDA a ela; o cálculo passa a enxergar os fatos do processo.'; ok = 'Vincular execução';
+    } else if (kind === 'acao' && it.secao === 'ajuizar') {
+      c = campo('Nº do processo', '<input class="nx-input nx-mono" name="processo" placeholder="5001234-56.2026.4.04.7001">', 'grow') + campo('Data do ajuizamento', dataIn('data', HOJE));
+      hint = 'Grava o número na CDA e cria a execução: a ordinária para de correr e passa a valer o prazo intercorrente.'; ok = 'Registrar ajuizamento';
+    } else if (kind === 'acao' && tipo === 'lancar_ciencia') {
+      c = campo('Data da ciência', dataIn('data', '')) + campo('Forma', '<select class="nx-select" name="forma"><option>Eletrônica (abertura)</option><option>Eletrônica (10º dia)</option><option>Vista pessoal</option><option>Mandado</option></select>');
+      hint = it.n > 1 ? 'A mesma ciência vale para as ' + n + ' CDAs marcadas do processo.' : 'Na ciência eletrônica a data cedo é a disponibilização; a tarde, a abertura.';
+      ok = it.n > 1 ? 'Lançar ciência nas ' + n + ' CDAs' : 'Lançar ciência';
+    } else {
+      c = campo('Tipo de fato', '<select class="nx-select" name="tipo"><option>Penhora</option><option>Bloqueio (Sisbajud)</option><option>Indisponibilidade (CNIB)</option><option>Adesão a parcelamento</option><option>Encerramento da falência</option><option>Outro</option></select>') + campo('Data', dataIn('data', HOJE)) + campo('Observação', '<input class="nx-input" name="nota" placeholder="Opcional">', 'grow');
+      hint = 'O fato entra na linha do tempo e refaz o cálculo na hora.'; ok = it.n > 1 ? 'Lançar fato nas ' + n + ' CDAs' : 'Lançar fato';
+    }
+    return '<form class="nx-inline-form" data-form="' + it.key + '" data-kind="' + kind + '">' + c +
+      '<div class="nx-inline-form-acts"><button type="button" class="nx-btn sm quiet" data-acao="cancelar-form" data-key="' + it.key + '">Cancelar</button><button type="submit" class="nx-btn sm primary">' + esc(ok) + '</button></div><span class="nx-hint">' + esc(hint) + '</span></form>';
+  }
+
+  /* item completo (seções de ação) */
+  function itemHTML(it, suave) {
+    var r = it.lead, p = prazoDe(it), tom = tomLinha(it), aberto = !!state.exp[it.key], fm = state.form[it.key], key = it.key;
+    var cls = 'nx-row v2-item nx-c-' + tom + (suave ? ' is-suave is-quiet' : ' is-strong') + (state.drawer === key ? ' is-open' : '') + (state.sel[key] ? ' is-selected' : '');
+    var prim = rotuloPrimario(it), t = r.acao && r.acao.tipo;
+    var h = '<article class="' + cls + '" data-key="' + key + '"><div class="nx-row-main"><div class="nx-row-id">' +
+      (suave ? '' : '<input type="checkbox" class="nx-checkbox" data-sel aria-label="Selecionar"' + (state.sel[key] ? ' checked' : '') + '>');
+    h += it.n > 1 ? '<span class="nx-proc">' + r.processo + '</span><span class="nx-chip t-gray sm">' + it.n + ' CDAs</span>' : '<span class="nx-cda">' + r.cda + '</span>';
+    h += chips(r) + '</div><div class="nx-row-who">' + quemHTML(it) + '</div><p class="nx-row-why">' + esc(frase(r)) + '</p>';
+    if (it.n > 1) h += pillsHTML(it);
+    h += notasProcesso(it);
+    if (r.regua && !aberto) h += NX.reguaHTML(r, { mini: true });
+    h += '</div><div class="nx-row-side">' + prazoHTML(it, p) + '</div><div class="nx-row-acts">';
+    if (prim) h += '<button type="button" class="nx-btn sm' + (suave ? '' : ' primary') + '" data-acao="primaria" data-key="' + key + '"' + (r.acao && r.acao.umClique ? ' title="Um clique: grava a conferência de hoje"' : '') + '>' + esc(prim) + '</button>';
+    if (it.secao === 'calculo' && r.consumadaHa != null) h += '<button type="button" class="nx-btn sm" data-acao="abrir-form" data-kind="tratar" data-key="' + key + '">Confere — tratar…</button>';
+    if (!kindAcao(it) && it.secao !== 'vigencia') h += '<button type="button" class="nx-btn sm quiet" data-acao="abrir-form" data-kind="evento" data-key="' + key + '">+ Evento</button>';
+    if (podeAdiar(it)) h += '<button type="button" class="nx-btn sm quiet" data-acao="abrir-form" data-kind="adiar" data-key="' + key + '">Adiar…</button>';
+    h += '<button type="button" class="nx-btn sm quiet" data-acao="expandir" data-key="' + key + '" aria-expanded="' + aberto + '">' + (aberto ? 'Menos' : 'Detalhes') + '</button>' +
+      '<button type="button" class="nx-btn sm quiet" data-acao="gaveta" data-key="' + key + '">Ver tudo</button></div>';
+    if (aberto) {
+      h += '<div class="v2-exp"><div class="nx-sec"><div class="nx-sec-h">Régua do prazo</div>' + (r.regua ? NX.reguaHTML(r, {}) : '<span class="nx-muted">Sem régua: faltam dados.</span>') + '</div>' +
+        '<div class="nx-sec"><div class="nx-sec-h">Conferir nos autos <span class="nx-n">' + r.conferir.length + '</span></div>' + checksHTML(r, 3) + '</div>';
+      if (it.n > 1) h += '<div class="nx-sec v2-wide"><div class="nx-sec-h">CDAs deste item <span class="nx-n">' + it.n + '</span><span class="nx-muted" style="font-weight:400">desmarque as que não entram no lote</span></div><div class="nx-stack" style="--gap:5px">' + inclHTML(it) + '</div></div>';
+      h += '</div>';
+    }
+    if (fm) h += formHTML(it, fm);
+    return h + '</article>';
+  }
+  function inclHTML(it) {
+    return it.cdas.map(function (r) {
+      return '<label class="v2-incl"><input type="checkbox" class="nx-checkbox" data-incl="' + r.id + '"' + (state.excl[r.id] ? '' : ' checked') + '><span class="nx-cda">' + r.cda + '</span><span class="nx-val">' + moeda(r.valor) + '</span></label>';
+    }).join('');
+  }
+
+  /* linha enxuta (segunda fileira e decadência) */
+  function itemQuietoHTML(it) {
+    var r = it.lead, p = prazoDe(it), tom = tomLinha(it), key = it.key, s = it.secao, fm = state.form[key];
+    var why = s === 'vigiar' ? porqueVigiar(r) : frase(r);
+    var h = '<article class="nx-row dense cols v2-quiet is-quiet nx-c-' + tom + (state.drawer === key ? ' is-open' : '') + '" data-key="' + key + '"><div class="nx-row-main"><div class="nx-row-id">';
+    h += it.n > 1 ? '<span class="nx-proc">' + r.processo + '</span><span class="nx-chip t-gray sm">' + it.n + ' CDAs</span>' : '<span class="nx-cda">' + r.cda + '</span>';
+    h += chips(r, true) + '</div><div class="nx-row-who">' + quemHTML(it) + '</div><p class="nx-row-why" title="' + esc(why) + '">' + esc(why) + '</p></div>';
+    h += '<div class="nx-row-side">' + prazoHTML(it, p) + '</div><div class="nx-row-acts">';
+    if (s === 'adiadas') h += '<button type="button" class="nx-btn sm" data-acao="reabrir" data-key="' + key + '">Reabrir agora</button>';
+    if (s === 'sempressa' && kindSP(r) !== 'idpj') h += '<button type="button" class="nx-btn sm" data-acao="abrir-form" data-kind="penhora" data-key="' + key + '">Marcar analisada…</button>';
+    if (s === 'decadencia') h += '<button type="button" class="nx-btn sm" data-acao="abrir-form" data-kind="decad" data-key="' + key + '">Editar…</button>';
+    h += '<button type="button" class="nx-btn sm quiet" data-acao="gaveta" data-key="' + key + '">Ver tudo</button></div>';
+    if (fm) h += formHTML(it, fm);
+    return h + '</article>';
+  }
+
+  /* seção (cabeçalho com o nome do cartão; corpo com os itens) */
+  function feitoHTML(f) {
+    return '<div class="nx-notice green v2-feito"><b>Feito.</b><span>' + esc(f.texto) + '</span><span class="nx-sp"></span><button type="button" class="nx-btn sm" data-acao="desfazer" data-i="' + f.i + '">Desfazer</button><button type="button" class="nx-btn sm quiet icon" data-acao="ok-feito" data-i="' + f.i + '" aria-label="Dispensar">&times;</button></div>';
+  }
+  function secaoHTML(s, itens) {
+    var def = SEC[s], ativa = ATIVAS.indexOf(s) >= 0, forcada = state.sec === s, dec = s === 'decadencia';
+    var feitos = state.feitos.filter(function (f) { return f.de === s; });
+    var prim = principais(s, itens), longe = itens.filter(function (it) { return it.longe; });
+    var nome = (def.n ? '<span class="v2-ord' + (def.fila === 2 ? ' off' : '') + '">' + def.n + '</span>' : '') + '<span>' + esc(def.nome) + '</span>';
+    if (!itens.length && !feitos.length) {
+      if (!ativa && !forcada && !dec) return '';
+      return '<section class="v2-vazia" id="v2-sec-' + s + '"><i>✓</i>' + (def.n ? '<span class="v2-ord' + (def.fila === 2 ? ' off' : '') + '">' + def.n + '</span>' : '') + '<b>' + esc(def.nome) + '</b><span class="nx-n">0</span><span>' + esc(def.vazio) + '</span></section>';
+    }
+    var corpo = '', n, primeira = '';
+    if (ativa) {
+      if (prim.length) { var pz = prazoDe(prim[0]); primeira = '<span class="nx-chip sm t-' + (pz.tom === 'muted' ? 'gray' : pz.tom) + '">primeiro: ' + esc(pz.principal) + '</span>'; }
+      var ordemTxt = s === 'calculo' ? 'Ordem: data cedo; a consumada que sai do alerta primeiro vem antes.' : 'Ordem: data cedo mais próxima; se a cedo já venceu e a tarde não, vale a tarde; sem data tarde, no fim.';
+      corpo += '<div class="v2-secbar"><span><b>' + esc(def.pergunta) + '</b> ' + esc(def.dica) + ' ' + ordemTxt + '</span>' +
+        (prim.length > 1 ? '<button type="button" class="nx-btn sm quiet" data-acao="selsec" data-sec="' + s + '">Selecionar as ' + prim.length + ' ações</button>' : '') + '</div>';
+      corpo += prim.length ? prim.map(function (it) { return itemHTML(it, false); }).join('') : '<div class="v2-vazia v2-vazia-in"><i>✓</i><span>' + esc(def.vazio) + '</span></div>';
+      if (longe.length) {
+        corpo += '<button type="button" class="v2-prox" data-acao="proximas" aria-expanded="' + !!state.proximas + '"><span class="nx-chev"></span><span><b>+ ' + longe.length + '</b> ' + (longe.length === 1 ? 'vence' : 'vencem') + ' entre 60 e 180 dias</span><span class="nx-muted">em cinza: ainda sem alarme · ' + moeda(somaVal(longe)) + '</span></button>';
+        if (state.proximas) corpo += longe.map(function (it) { return itemHTML(it, true); }).join('');
+      }
+      n = plural(prim.length, 'ação', 'ações') + ' · ' + plural(somaCdas(prim), 'CDA', 'CDAs');
+    } else {
+      corpo += '<div class="v2-secbar"><span>' + esc(def.pergunta.charAt(0).toUpperCase() + def.pergunta.slice(1)) + '.' + (def.dica ? ' ' + esc(def.dica) : '') + '</span></div>';
+      corpo += itens.map(itemQuietoHTML).join('');
+      n = plural(itens.length, 'caso', 'casos') + ' · ' + plural(somaCdas(itens), 'CDA', 'CDAs');
+    }
+    corpo += feitos.map(feitoHTML).join('');
+    var aberta = forcada || feitos.length > 0 || state.aberta[s];
+    return NX.grupoHTML({ id: 'v2-sec-' + s, titulo: nome + primeira, n: n, valor: somaVal(prim), corpo: corpo, colapsado: !aberta });
+  }
+
+  /* cartões: duas fileiras baixas; o número é de ações e segue os filtros */
+  function cartaoHTML(s, M) {
+    var def = SEC[s], its = M.itens[s], prim = principais(s, its), longe = its.filter(function (it) { return it.longe; });
+    var n = prim.length, cdas = somaCdas(prim), val = somaVal(prim), linha2 = def.fila === 2;
+    var sub = n ? plural(cdas, 'CDA', 'CDAs') + ' · ' + curta(val) : (s === 'ajuizar' && longe.length ? 'nenhuma nos 60 dias' : 'nenhum agora');
+    var cor = linha2 || !n ? '' : ' nx-c-' + (def.tom === 'muted' ? 'gray' : def.tom);
+    var h = '<button type="button" class="v2-card nx-tip down' + cor + (n ? '' : ' is-zero') + (state.sec === s ? ' is-active' : '') + '" data-acao="cartao" data-sec="' + s + '" data-tip="' + esc(def.tip) + '" aria-pressed="' + (state.sec === s) + '">' +
+      '<span class="v2-card-n">' + n + '</span><span class="v2-card-t"><span class="v2-card-l"><span class="v2-ord' + (linha2 ? ' off' : '') + '">' + def.n + '</span>' + esc(def.nome) + '</span><span class="v2-card-s">' + esc(sub) + '</span>' +
+      (s === 'ajuizar' ? '<span class="v2-card-g"><b>+' + longe.length + '</b> entre 60 e 180 dias</span>' : '') + '</span></button>';
+    return h;
+  }
+  function cartoesHTML(M) {
+    var l1 = ORDEM.filter(function (s) { return SEC[s].fila === 1; }), l2 = ORDEM.filter(function (s) { return SEC[s].fila === 2; });
+    return '<div class="v2-grid v2-row1">' + l1.map(function (s) { return cartaoHTML(s, M); }).join('') + '</div><div class="v2-grid v2-row2">' + l2.map(function (s) { return cartaoHTML(s, M); }).join('') + '</div>';
+  }
+
+  /* gaveta: tudo da CDA, com edição no lugar */
+  function relogiosHTML(r) {
+    var aj = !!r.processo, cols = [];
+    var ativo = function (k) { return r.natureza === k; };
+    var dt = (r.termoCedo ? 'cedo ' + NX.fmtData(r.termoCedo) : '') + (r.termoTarde && r.termoTarde !== r.termoCedo ? ' · tarde ' + NX.fmtData(r.termoTarde) : (r.termoCedo && r.termoTarde ? ' (termo único)' : ''));
+    cols.push(['decadencia', 'Decadência', ativo('decadencia') ? '<b>' + esc(r.fase) + '</b><br>Só consulta e edição; nunca avisa.' : 'Só consulta e edição. Nunca avisa.']);
+    cols.push(['ordinaria', 'Ordinária', ativo('ordinaria') ? '<b>' + esc(r.fase) + '</b><br>' + esc(dt) : (aj ? 'CDA ajuizada: interrompida pela propositura. Sem alarme.' : 'Sem dado destacado.')]);
+    cols.push(['intercorrente', 'Intercorrente', ativo('intercorrente') ? '<b>' + esc(r.fase) + '</b><br>' + (dt ? esc(dt) : 'sem data') : (aj ? 'Sem dado destacado.' : 'Só começa depois do ajuizamento.')]);
+    return '<div class="v2-rels">' + cols.map(function (c) { return '<div class="v2-rel' + (ativo(c[0]) ? ' on' : '') + '"><span class="nx-chip ' + c[0] + ' sm">' + c[1] + '</span><span>' + c[2] + '</span></div>'; }).join('') + '</div>';
+  }
+  function gavetaHTML() {
+    var it = state.drawer && achaItem(state.drawer);
+    if (!it) return '';
+    var r = it.lead, p = prazoDe(it), op = NX.op(r.operacao), s = it.secao, fm = state.drawerForm, key = it.key;
+    var h = '<div class="nx-drawer-top"><span class="nx-ell">Prazos <span class="nx-muted">›</span> ' + (r.processo ? '<span class="nx-proc">' + r.processo + '</span>' : 'sem processo') + '</span><span class="nx-sp"></span><button type="button" class="nx-btn quiet icon" data-acao="fechar" aria-label="Fechar">&times;</button></div><div class="nx-drawer-body">';
+    h += '<div><div class="nx-chips"><span class="nx-chip t-gray sm">' + esc(SEC[s].nome) + '</span>' + chips(r) + '</div><h3 class="nx-d-title">' + esc(devedores(it).join(' · ')) + '</h3>' +
+      '<div class="nx-d-sub">' + (it.n > 1 ? '<b>' + it.n + ' CDAs</b>' : '<span class="nx-cda">' + r.cda + '</span>') + ' · <span class="nx-op" style="display:inline-flex"><i class="nx-sq" style="--c:' + op.cor + '"></i>' + esc(op.nome) + '</span> · <b>' + moeda(it.valor) + '</b></div></div>';
+    h += '<div class="nx-sec"><div class="nx-sec-h">Situação</div><p class="nx-row-why">' + esc(frase(r)) + '</p>' + (r.abrangidaPor ? '<div class="nx-notice">Abrangida pelo ' + esc(r.abrangidaPor) + ': a constrição no incidente vale como penhora.</div>' : '') + (porqueSP(r) ? '<div class="nx-notice gray">Está em «Conferir sem pressa»: ' + esc(porqueSP(r)) + '.</div>' : '') + '</div>';
+    h += '<div class="nx-sec"><div class="nx-sec-h">Prazo da ação</div><div class="nx-cluster" style="--gap:6px 12px;align-items:baseline"><span class="nx-when ' + p.tom + '" style="font-size:15px">' + esc(p.principal) + '</span>' + p.linhas.map(function (l) { return '<span class="nx-date">' + esc(l) + '</span>'; }).join('') + '</div>' + (p.porque ? '<span class="v2-porque">' + esc(p.porque) + '</span>' : '') + '</div>';
+    if (it.n > 1) h += '<div class="nx-sec"><div class="nx-sec-h">CDAs deste item <span class="nx-n">' + it.n + '</span></div><div class="nx-stack" style="--gap:5px">' + inclHTML(it) + '</div></div>';
+    var formKind = fm === 'acao' && !kindAcao(it) ? null : fm;
+    if (formKind) {
+      var tit = ({ acao: s === 'ajuizar' ? 'Registrar ajuizamento' : r.acao ? r.acao.rotulo : 'Lançar fato', dado: 'Vincular execução', adiar: 'Adiar', tratar: 'Tratar', evento: 'Lançar fato', penhora: 'Marcar analisada', decad: 'Editar a decadência' })[formKind];
+      h += '<div class="nx-sec"><div class="nx-sec-h">' + esc(tit) + '<span class="nx-muted" style="font-weight:400">edição no lugar</span></div>' + formHTML(it, formKind) + '</div>';
+    }
+    h += '<div class="nx-sec"><div class="nx-sec-h">Os três relógios da CDA</div>' + relogiosHTML(r) + '</div>';
+    if (r.regua) h += '<div class="nx-sec"><div class="nx-sec-h">Régua do prazo</div>' + NX.reguaHTML(r, {}) + '</div>';
+    if (r.conferir.length) h += '<div class="nx-sec"><div class="nx-sec-h">Conferir nos autos <span class="nx-n">' + r.conferir.length + '</span></div>' + checksHTML(r) + '</div>';
+    h += '<div class="nx-sec"><div class="nx-sec-h">Ocorrências <span class="nx-n">' + r.eventos.length + '</span></div><ol class="nx-events">' + r.eventos.map(function (e) { return '<li><span class="nx-ev-date">' + NX.fmtData(e.data) + '</span><span class="nx-ev-fato">' + esc(e.fato) + '<span class="nx-ev-efeito">' + esc(efeito(r, e)) + '</span></span></li>'; }).join('') + '</ol></div></div>';
+    h += '<div class="nx-drawer-foot">';
+    var prim = rotuloPrimario(it);
+    if (prim && ATIVAS.indexOf(s) >= 0 && (s === 'vigencia' || !formKind)) h += '<button type="button" class="nx-btn primary" data-acao="primaria" data-key="' + key + '">' + esc(prim) + '</button>';
+    if (podeAdiar(it)) h += '<button type="button" class="nx-btn" data-acao="drawer-form" data-kind="adiar" data-key="' + key + '">Adiar…</button>';
+    if (s === 'calculo' || s === 'fato') h += '<button type="button" class="nx-btn" data-acao="drawer-form" data-kind="tratar" data-key="' + key + '">Tratar…</button>';
+    if (s === 'sempressa' && kindSP(r) !== 'idpj') h += '<button type="button" class="nx-btn" data-acao="drawer-form" data-kind="penhora" data-key="' + key + '">Marcar analisada…</button>';
+    if ((s === 'sempressa' || s === 'vigiar') && !kindAcao(it)) h += '<button type="button" class="nx-btn" data-acao="drawer-form" data-kind="evento" data-key="' + key + '">Lançar ciência ou fato</button>';
+    if (s === 'decadencia') h += '<button type="button" class="nx-btn" data-acao="drawer-form" data-kind="decad" data-key="' + key + '">Editar a decadência…</button>';
+    h += '<button type="button" class="nx-btn quiet" title="Opcional: a edição já pode ser feita aqui">Abrir ficha da CDA</button><span class="nx-sp"></span><button type="button" class="nx-btn quiet" data-acao="fechar">Fechar</button></div>';
+    return h;
+  }
+  function formPadrao(it) { return kindAcao(it); }
+  function achaItem(id) {
+    var ks = Object.keys(M0.itens);
+    for (var i = 0; i < ks.length; i++) { var l = M0.itens[ks[i]]; for (var j = 0; j < l.length; j++) if (l[j].cdas.some(function (r) { return r.id === id; })) return l[j]; }
+    return null;
+  }
+  function achaChave(key) {
+    var ks = Object.keys(M0.itens);
+    for (var i = 0; i < ks.length; i++) { var l = M0.itens[ks[i]]; for (var j = 0; j < l.length; j++) if (l[j].key === key) return l[j]; }
+    return achaItem(key);
+  }
+
+  /* lote */
+  function loteHTML() {
+    var ks = Object.keys(state.sel).filter(function (k) { return state.sel[k]; }).map(achaChave).filter(Boolean);
+    if (!ks.length) return '';
+    var todosVig = ks.every(function (it) { return it.secao === 'vigencia'; }), todosAdiar = ks.every(podeAdiar);
+    return '<span class="nx-batch-n">' + plural(ks.length, 'ação selecionada', 'ações selecionadas') + '</span><span class="nx-batch-s">' + plural(somaCdas(ks), 'CDA', 'CDAs') + ' · ' + moeda(somaVal(ks)) + '</span><span class="nx-sp"></span>' +
+      (todosVig ? '<button type="button" class="nx-btn sm primary" data-acao="lote-vigencia">' + (ks.length === 1 ? 'Ainda vale' : 'Ainda vale nas ' + ks.length) + '</button>' : '') +
+      (todosAdiar ? '<button type="button" class="nx-btn sm' + (todosVig ? '' : ' primary') + '" data-acao="lote-adiar">Adiar (prazo máximo do caso)</button>' : '') + '<button type="button" class="nx-btn sm quiet" data-acao="lote-limpar">Limpar seleção</button>';
+  }
+
+  /* ───────── gravar (simulado): o item sai da seção e o cálculo se refaz ───────── */
+  function aplica(r, kind, v) {
+    var f = NX.fmtData(HOJE);
+    if (kind === 'ajuizar') {
+      r.processo = v.processo || '5009999-00.2026.4.04.7001'; r.natureza = 'intercorrente'; r.fase = 'Ajuizada agora'; r.acao = null; r.termoCedo = r.termoTarde = null; r.diasRestantes = null; r.regua = null; r.certeza = 'calculado'; r.conferir = [];
+      r.situacao = 'Execução registrada em ' + f + '. A prescrição ordinária parou; o prazo intercorrente só começa com a ciência da suspensão.';
+    } else if (kind === 'acao' || kind === 'evento') {
+      var ciencia = r.acao && r.acao.tipo === 'lancar_ciencia' && kind === 'acao';
+      r.fase = ciencia ? 'Ciência lançada' : 'Fato lançado'; r.acao = null; r.certeza = 'calculado'; r.termoCedo = r.termoTarde = null; r.diasRestantes = null; r.silenciadaAte = null; r.conferir = []; r.divergencia = false;
+      r.situacao = (ciencia ? 'Ciência lançada' : 'Fato lançado') + ' em ' + f + ' (simulação). O app refez o cálculo; sem alarme agora e volta à fila se a nova data cair em até 90 dias.';
+    } else if (kind === 'dado') {
+      r.processo = v.processo || r.processo; r.fase = 'Execução vinculada'; r.acao = null; r.certeza = 'calculado'; r.conferir = [];
+      r.situacao = 'Execução ' + r.processo + ' vinculada em ' + f + ' (simulação). O app refez o cálculo com os fatos do processo; sem alarme agora.';
+    } else if (kind === 'vigencia') {
+      r.fase = 'Parcelamento conferido hoje'; r.acao = null; r.silenciadaAte = '2031-07-11'; r.termoCedo = '2031-10-09'; r.termoTarde = null; r.diasRestantes = NX.dias(r.termoCedo); r.conferir = [];
+      r.situacao = 'Vigência conferida em ' + f + '. A data cedo passa a ser a conferência + 5 anos (09/10/2031); volta à fila 90 dias antes.';
+    } else if (kind === 'adiar') {
+      r.adiada = { ate: v.ate, motivo: v.motivo, desde: HOJE };
+    } else if (kind === 'tratar') {
+      var fo = FORMAS.filter(function (x) { return x[0] === v.forma; })[0] || FORMAS[0];
+      r.tratada = { tipo: fo[0], rotulo: fo[1].split(' — ')[0], desde: HOJE }; r.acao = null; r.divergencia = false; r.fase = r.tratada.rotulo;
+    } else if (kind === 'penhora') {
+      r.fase = (r.fase || '') + ' · analisada hoje'; r.situacao = 'Análise registrada em ' + f + (v.nota ? ': ' + v.nota : '') + '. Volta a «Conferir sem pressa» com fato novo ou em 365 dias.';
+    } else if (kind === 'decad') {
+      r.fase = 'Recalculada hoje'; r.certeza = 'calculado';
+      r.situacao = 'Dados da decadência gravados em ' + f + (v.periodo ? ' (período ' + v.periodo + ')' : '') + '. O app recalculou; continua só como consulta e nunca avisa.';
+    }
+  }
+  function concluir(it, kind, v) {
+    v = v || {};
+    var de = it.secao, alvo = idsLote(it);
+    if (!alvo.length) return;
+    var ciencia = !!(it.lead.acao && it.lead.acao.tipo === 'lancar_ciencia' && kind === 'acao');
+    var snaps = alvo.map(function (id) { return JSON.parse(JSON.stringify(byId(id))); });
+    alvo.forEach(function (id) { aplica(byId(id), kind, v); });
+    var para = secaoDe(byId(alvo[0])), nome = SEC[para].nome, n = alvo.length, quando = NX.fmtData(HOJE);
+    var texto = ({
+      ajuizar: 'Execução registrada' + (v.processo ? ' (processo ' + v.processo + ')' : '') + ' em ' + quando + '. A ordinária parou de correr.',
+      acao: (ciencia ? 'Ciência lançada' : 'Fato lançado') + ' em ' + plural(n, 'CDA', 'CDAs') + '. O cálculo foi refeito.',
+      evento: 'Fato lançado em ' + plural(n, 'CDA', 'CDAs') + '. O cálculo foi refeito.',
+      dado: 'Execução vinculada' + (v.processo ? ' (processo ' + v.processo + ')' : '') + '. O cálculo foi refeito.',
+      vigencia: 'Conferência de ' + quando + ' gravada em ' + plural(n, 'CDA', 'CDAs') + '. Volta à fila 90 dias antes da nova data cedo.',
+      adiar: 'Adiada até ' + NX.fmtData(v.ate) + ' (' + (v.motivo || '').toLowerCase() + '). Volta ao cartão da sua ação na data marcada.',
+      tratar: 'Tratada: ' + (byId(alvo[0]).tratada ? byId(alvo[0]).tratada.rotulo.toLowerCase() : '') + '. Não gera aviso nem lembrete.',
+      penhora: 'Análise registrada.',
+      decad: 'Dados da decadência gravados. O cálculo foi refeito.'
+    })[kind] + (para === de ? ' Continua em «' + nome + '»' : ' Foi para «' + nome + '»') + ' (simulação).';
+    state.feitos.push({ i: state.feitos.length, de: de, para: para, texto: texto, snaps: snaps, vivo: true });
+    state.exp[it.key] = false; state.form[it.key] = null; state.sel[it.key] = false;
+    if (state.drawer && ids(it).indexOf(state.drawer) >= 0 && state.drawerForm) state.drawerForm = null;
+    render();
+  }
+
+  /* ───────── filtros: três campos, painel único e chips ───────── */
+  function filtrosAtivos() {
+    var l = [];
+    if (state.op) l.push({ k: 'op', t: 'Operação: ' + NX.op(state.op).curto });
+    if (state.nat) l.push({ k: 'nat', t: 'Natureza: ' + (state.nat === 'ordinaria' ? 'ordinária' : 'intercorrente') });
+    if (state.cedo) l.push({ k: 'cedo', t: 'Cedo venceu, tarde não' });
+    if (state.idpj) l.push({ k: 'idpj', t: 'Só abrangidas por IDPJ ou cautelar' });
+    if (state.minVal > 0) l.push({ k: 'val', t: 'Valor a partir de ' + moeda(state.minVal).replace(',00', '') });
+    if (state.q) l.push({ k: 'q', t: 'Busca: «' + state.q + '»' });
+    if (!state.agrupar) l.push({ k: 'agr', t: 'CDAs separadas por processo' });
+    return l;
+  }
+  function chipsHTML() {
+    var l = filtrosAtivos();
+    if (!l.length) return '';
+    return l.map(function (f) { return '<span class="v2-fc"><span title="' + esc(f.t) + '">' + esc(f.t) + '</span><button type="button" data-acao="rm" data-f="' + f.k + '" aria-label="Remover filtro: ' + esc(f.t) + '">&times;</button></span>'; }).join('') +
+      '<button type="button" class="nx-btn sm quiet" data-acao="limpar">limpar tudo</button>';
+  }
+  function sincControles() {
+    $('#v2-op').value = state.op;
+    $('#v2-q').value = state.q;
+    $('#v2-ck-cedo').checked = state.cedo; $('#v2-ck-idpj').checked = state.idpj; $('#v2-ck-agr').checked = state.agrupar;
+    if (!state.minVal) $('#v2-val').value = '';
+    $$('[data-acao="nat"]').forEach(function (b) { var on = b.dataset.nat === state.nat; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  }
+  var parseValor = function (t) { var s = String(t || '').replace(/R\$|\s|\./g, '').replace(',', '.'); var n = parseFloat(s); return isNaN(n) || n < 0 ? 0 : n; };
+  var selOp = $('#v2-op');
+  selOp.innerHTML = '<option value="">Todas</option>' + NX_OPERACOES.map(function (o) { return '<option value="' + esc(o.nome) + '">' + esc(o.curto) + '</option>'; }).join('');
+
+  /* ───────── desenho ───────── */
+  function render() {
+    var M = montar(); M0 = M;
+    $('#v2-cards').innerHTML = cartoesHTML(M);
+    $('#v2-chips').innerHTML = chipsHTML();
+    var nf = filtrosAtivos().filter(function (f) { return f.k !== 'op' && f.k !== 'q'; }).length;
+    $('#v2-fn').textContent = nf ? nf : '';
+    var pb = $('#v2-fbtn'); pb.setAttribute('aria-expanded', String(state.painel)); $('#v2-painel').hidden = !state.painel;
+    $('#v2-n-cedo').textContent = '(' + plural(state.dados.filter(passaBase).filter(tese).length, 'CDA', 'CDAs') + ')';
+    var mo = $('#v2-mostrando');
+    mo.hidden = !state.sec;
+    mo.innerHTML = state.sec ? '<span>Mostrando só <b>«' + esc(SEC[state.sec].nome) + '»</b>. A decadência fica no fim, para consulta.</span><span class="nx-sp"></span><button type="button" class="nx-btn sm" data-acao="todas">Ver todas as seções</button>' : '';
+    state.feitos = state.feitos.filter(function (f) { return f.vivo; });
+    state.feitos.forEach(function (f, i) { f.i = i; });
+    var lista = (state.sec ? [state.sec] : ORDEM).concat('decadencia');
+    var html = lista.map(function (s) { return secaoHTML(s, M.itens[s]); }).join('');
+    $('#v2-secoes').innerHTML = html || '<div class="nx-empty"><span class="nx-empty-t">Nada neste filtro</span><span class="nx-empty-s">Nenhuma CDA atende aos filtros escolhidos.</span></div>';
+    var temG = state.drawer && achaItem(state.drawer);
+    $('#v2-split').classList.toggle('has-drawer', !!temG);
+    $('#v2-gaveta').innerHTML = temG ? gavetaHTML() : '';
+    var lote = $('#v2-lote'), lh = loteHTML(); lote.hidden = !lh; lote.innerHTML = lh;
+  }
+
+  /* ───────── eventos ───────── */
+  function rola(el) { if (!el) return; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  function limparFiltros() { state.op = ''; state.nat = ''; state.q = ''; state.idpj = false; state.minVal = 0; state.cedo = false; state.agrupar = true; state.sel = {}; sincControles(); }
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-toggle]');
+    if (t) {
+      var g = t.closest('.nx-group'), id = g.id.replace('v2-sec-', ''), abrir = g.classList.contains('is-collapsed');
+      state.aberta[id] = abrir; g.classList.toggle('is-collapsed', !abrir); t.setAttribute('aria-expanded', String(abrir)); return;
+    }
+    var a = e.target.closest('[data-acao]'); if (!a) return;
+    var ac = a.dataset.acao, key = a.dataset.key, it = key ? achaChave(key) : null;
+    if (ac === 'cartao') { var s = a.dataset.sec; state.sec = state.sec === s ? null : s; if (state.sec) state.aberta[s] = true; render(); var el = state.sec ? $('#v2-sec-' + s) : null; if (el && el.getBoundingClientRect().top > window.innerHeight) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (ac === 'todas') { state.sec = null; render(); return; }
+    if (ac === 'painel') { state.painel = !state.painel; render(); if (state.painel) $('#v2-ck-cedo').focus(); return; }
+    if (ac === 'nat') { state.nat = a.dataset.nat; state.sel = {}; sincControles(); render(); return; }
+    if (ac === 'rm') {
+      var f = a.dataset.f;
+      if (f === 'op') state.op = ''; else if (f === 'nat') state.nat = ''; else if (f === 'cedo') state.cedo = false; else if (f === 'idpj') state.idpj = false;
+      else if (f === 'val') state.minVal = 0; else if (f === 'q') state.q = ''; else if (f === 'agr') state.agrupar = true;
+      state.sel = {}; sincControles(); render(); return;
+    }
+    if (ac === 'limpar') { limparFiltros(); render(); return; }
+    if (ac === 'proximas') { state.proximas = !state.proximas; render(); return; }
+    if (ac === 'expandir' && it) { state.exp[key] = !state.exp[key]; render(); return; }
+    if (ac === 'gaveta' && it) { state.drawer = it.key; state.drawerForm = formPadrao(it); render(); return; }
+    if (ac === 'fechar') { state.drawer = null; render(); return; }
+    if (ac === 'abrir-form' && it) { state.form[key] = state.form[key] === a.dataset.kind ? null : a.dataset.kind; render(); var f1 = $('[data-key="' + key + '"] form input, [data-key="' + key + '"] form select'); if (f1) f1.focus(); return; }
+    if (ac === 'cancelar-form') { if (state.form[key]) state.form[key] = null; else state.drawerForm = null; render(); return; }
+    if (ac === 'drawer-form' && it) { state.drawerForm = state.drawerForm === a.dataset.kind ? null : a.dataset.kind; render(); var g1 = $('#v2-gaveta form input, #v2-gaveta form select'); if (g1) g1.focus(); return; }
+    if (ac === 'primaria' && it) {
+      var r = it.lead, k = kindAcao(it);
+      if (r.acao && r.acao.tipo === 'confirmar_vigencia') { concluir(it, 'vigencia'); return; }
+      if (!k) { state.drawer = it.key; state.drawerForm = null; render(); return; }   // conferir nos autos: abre a gaveta
+      if (a.closest('#v2-gaveta')) { state.drawerForm = k; render(); return; }
+      state.form[key] = state.form[key] === k ? null : k; render();
+      var f2 = $('[data-key="' + key + '"] form input'); if (f2) f2.focus(); return;
+    }
+    if (ac === 'selsec') { var sd = a.dataset.sec, lst = principais(sd, M0.itens[sd]); var todos = lst.every(function (x) { return state.sel[x.key]; }); lst.forEach(function (x) { state.sel[x.key] = !todos; }); render(); return; }
+    if (ac === 'reabrir' && it) { it.cdas.forEach(function (r) { r.adiada = null; }); var dest = secaoDe(it.lead); state.feitos.push({ i: 0, de: 'adiadas', para: dest, vivo: true, snaps: null, texto: 'Adiamento encerrado: a CDA voltou ao cartão da sua ação. Foi para «' + SEC[dest].nome + '».' }); state.aberta.adiadas = true; render(); return; }
+    if (ac === 'desfazer') {
+      var fz = state.feitos[+a.dataset.i];
+      if (fz && fz.snaps) fz.snaps.forEach(function (sn) { for (var i = 0; i < state.dados.length; i++) if (state.dados[i].id === sn.id) state.dados[i] = sn; });
+      if (fz) fz.vivo = false; render(); return;
+    }
+    if (ac === 'ok-feito') { var f3 = state.feitos[+a.dataset.i]; if (f3) f3.vivo = false; render(); return; }
+    if (ac === 'lote-limpar') { state.sel = {}; render(); return; }
+    if (ac === 'lote-vigencia') { Object.keys(state.sel).filter(function (k) { return state.sel[k]; }).forEach(function (k) { var x = achaChave(k); if (x) concluir(x, 'vigencia'); }); return; }
+    if (ac === 'lote-adiar') {
+      Object.keys(state.sel).filter(function (k) { return state.sel[k]; }).forEach(function (k) { var x = achaChave(k); if (x) concluir(x, 'adiar', { motivo: 'Não priorizar agora', ate: isoMais(limiteAdiar(x)) }); });
+      state.sel = {}; render(); return;
+    }
+  });
+  root.addEventListener('change', function (e) {
+    var id = e.target.id;
+    if (id === 'v2-op') { state.op = e.target.value; state.sel = {}; render(); return; }
+    if (id === 'v2-ck-cedo') { state.cedo = e.target.checked; render(); return; }
+    if (id === 'v2-ck-idpj') { state.idpj = e.target.checked; render(); return; }
+    if (id === 'v2-ck-agr') { state.agrupar = e.target.checked; state.sel = {}; render(); return; }
+    var c = e.target.closest('[data-sel]');
+    if (c) { var key = c.closest('[data-key]').dataset.key; state.sel[key] = c.checked; var row = c.closest('.nx-row'); row.classList.toggle('is-selected', c.checked); var lote = $('#v2-lote'), lh = loteHTML(); lote.hidden = !lh; lote.innerHTML = lh; return; }
+    var inc = e.target.closest('[data-incl]');
+    if (inc) { state.excl[inc.dataset.incl] = !inc.checked; $$('[data-incl="' + inc.dataset.incl + '"]').forEach(function (x) { x.checked = inc.checked; }); }
+  });
+  root.addEventListener('input', function (e) {
+    if (e.target.id === 'v2-q') { state.q = e.target.value.trim(); render(); return; }
+    if (e.target.id === 'v2-val') { state.minVal = parseValor(e.target.value); render(); }
+  });
+  root.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.painel) { state.painel = false; render(); $('#v2-fbtn').focus(); } });
+  root.addEventListener('submit', function (e) {
+    var f = e.target.closest('form[data-form]'); if (!f) return;
+    e.preventDefault();
+    var it = achaChave(f.dataset.form); if (!it) return;
+    var v = {}; $$('input, select', f).forEach(function (x) { if (x.name) v[x.name] = x.value; });
+    var kind = f.dataset.kind;
+    if (kind === 'acao' && it.secao === 'ajuizar') kind = 'ajuizar';
+    if (kind === 'adiar') { var lim = isoMais(limiteAdiar(it)), d = isoDeBR(v.ate); v.ate = (!d || d < HOJE || d > lim) ? lim : d; }
+    concluir(it, kind, v);
+  });
+
+  sincControles();
   render();
 })();
 
