@@ -86,6 +86,16 @@ export function pickHighlightEntry(entries) {
   return [...pinned].sort(byDateDesc)[0];
 }
 
+/**
+ * Entrada do diário marcada "No relatório": `inReport` quando definido; nas antigas (sem o campo),
+ * vale como marcada para Decisão judicial e Providência.
+ */
+export function diaryEntryInReport(entry) {
+  if (!entry) return false;
+  if (typeof entry.inReport === 'boolean') return entry.inReport;
+  return entry.type === 'decisao' || entry.type === 'providencia';
+}
+
 // ───────────────────── Próximos 15 dias ─────────────────────
 /**
  * Junta prazos, audiências, tarefas e termos de prescrição numa lista só,
@@ -233,7 +243,7 @@ body{font-family:'Geist','Segoe UI',system-ui,-apple-system,sans-serif;font-size
 }
 `;
 
-function htmlShell(title, bodyHtml) {
+export function htmlShell(title, bodyHtml) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: https:">
 <title>${escHtml(title)}</title>
@@ -439,7 +449,7 @@ export function renderReportDocument(rd) {
 
 /** Nome do arquivo baixado, no padrão pedido: passagem_servico_<op>_<data>.html etc. */
 export function reportFileName(model, opName, dateIso) {
-  const prefix = model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
+  const prefix = model === 'base' ? 'base_relatorio' : model === 'prestacao' ? 'prestacao_contas' : model === 'resumo' ? 'resumo' : 'passagem_servico';
   const safeName = String(opName || 'operacao').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 40);
   return `${prefix}_${safeName}_${dateIso}.html`;
 }

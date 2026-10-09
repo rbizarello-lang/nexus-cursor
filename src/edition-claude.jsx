@@ -665,6 +665,7 @@ function EditionClaudeSidebar(p) {
         {item('acompanhar', 'eye', 'Acompanhar', counts.watch ? <span className="cx-count">{counts.watch}</span> : null)}
         {item('modelos', 'book', 'Biblioteca', counts.models ? <span className="cx-count">{counts.models}</span> : null)}
         {item('painel', 'chart', 'Painel')}
+        {item('cx_atividade', 'history', 'Minha atividade')}
         <button type="button" className="cx-nav-item" title="Importar eproc" onClick={p.onImportEproc}><CxIcon n="upload" /><span className="cx-lbl">Importar eproc</span></button>
       </nav>
       <div className="cx-nav-sec"><span>Operações</span><button type="button" className="cx-icon-btn cx-sm" title="Nova operação" aria-label="Nova operação" onClick={p.onNewOp}><CxIcon n="plus" s={14} /></button></div>
@@ -984,6 +985,17 @@ function EditionClaudeHoje(p) {
       return { id: le.id, ref: le.ref, txt, at: le.date, ic: le.col === 'debts' ? 'hourglass' : le.col === 'intimations' ? 'inbox' : le.col === 'tasks' ? 'check' : le.col === 'executions' ? 'scale' : 'history' };
     });
   }, [data.changeLog]);
+  // Cartão "Atividade": 5 últimos registros relevantes de hoje, vindos da trilha; sem trilha, cai para o changeLog acima.
+  const [trail, setTrail] = React.useState(null);
+  React.useEffect(() => {
+    if (!p.activity) return undefined;
+    let dead = false;
+    const t = setTimeout(() => {
+      const day = dayKey(new Date());
+      (p.activity.listLocal || p.activity.list)(day, day).then(r => { if (!dead) setTrail((r || []).filter(e => !e.minor && e.kind !== 'sistema').sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 5)); }).catch(() => { if (!dead) setTrail([]); });
+    }, 1200);
+    return () => { dead = true; clearTimeout(t); };
+  }, [p.activity, data.changeLog]);
   const lastImport = React.useMemo(() => (data.importLogs || []).slice().sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0], [data.importLogs]);
 
   const openItem = (x) => {
@@ -1118,8 +1130,15 @@ function EditionClaudeHoje(p) {
         </section>
 
         <section className="cx-card" aria-labelledby="cx-h-act">
-          <div className="cx-card-h"><h2 id="cx-h-act">Atividade recente</h2><div className="cx-aside">{lastImport ? <span className="cx-muted cx-small" title={'Último import: ' + new Date(lastImport.timestamp).toLocaleString('pt-BR')}>Import {cxRelTime(lastImport.timestamp)}</span> : null}</div></div>
-          {activity.length ? activity.map(a => <div key={a.id} className="cx-act">
+          <div className="cx-card-h"><h2 id="cx-h-act">{trail && trail.length ? 'Atividade' : 'Atividade recente'}</h2><div className="cx-aside">
+            {!(trail && trail.length) && lastImport ? <span className="cx-muted cx-small" title={'Último import: ' + new Date(lastImport.timestamp).toLocaleString('pt-BR')}>Import {cxRelTime(lastImport.timestamp)}</span> : null}
+            {p.onOpenAtividade ? <button type="button" className="cx-link-btn" onClick={p.onOpenAtividade}>ver tudo →</button> : null}
+          </div></div>
+          {trail && trail.length ? trail.map(e => <div key={e.id} className="cx-act">
+            <span className="cx-act-tm" style={{ paddingTop: 2, minWidth: 38 }}>{cxActTime(e.ts)}</span>
+            <div className="cx-minw0"><div style={{ fontWeight: 500 }}>{e.summary}</div>{e.op && e.op.name ? <div className="cx-act-txt cx-ell">{e.op.name}</div> : null}</div>
+          </div>)
+          : activity.length ? activity.map(a => <div key={a.id} className="cx-act">
             <span className="cx-act-ic"><CxIcon n={a.ic} s={12} /></span>
             <div className="cx-minw0"><div className="cx-ell" style={{ fontWeight: 500 }}>{a.ref}</div><div className="cx-act-txt">{a.txt}</div><time>{cxRelTime(a.at)}</time></div>
           </div>) : <div className="cx-empty-row">As mudanças de situação, prazos e atuações aparecem aqui.</div>}
@@ -1600,11 +1619,14 @@ function CxRespondForm({ intim, onSave, onCancel }) {
   const [peticionUrl, setPeticionUrl] = React.useState('');
   const [docUrl, setDocUrl] = React.useState('');
   const [description, setDescription] = React.useState('');
+  const [teor, setTeor] = React.useState(intimationDecisionText(intim));
   const isPet = type === 'peticionamento';
   const canSave = isPet ? !!peticionUrl.trim() : !!description.trim();
-  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl }); }}>
+  // Ciência: a descrição do ato é o teor da decisão (vem pré-preenchida se a intimação já tem um).
+  const pickType = (v) => { setType(v); if (v === 'ciencia' && !description.trim()) setDescription(intimationDecisionText(intim)); };
+  return <form className="cx-form" onSubmit={e => { e.preventDefault(); if (canSave) onSave({ type, description, peticionType, peticionUrl, docUrl, ...(type !== 'ciencia' ? { decisionSummary: teor } : {}) }); }}>
     <h3>Registrar atuação</h3>
-    <CxSeg label="Tipo de atuação" value={type} onChange={setType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
+    <CxSeg label="Tipo de atuação" value={type} onChange={pickType} options={[['peticionamento', 'Peticionamento'], ['ciencia', 'Ciência'], ['outra', 'Outra medida']]} />
     {isPet ? <div className="cx-row2">
       <label>Tipo de peça<select id={'cx-r-piece-' + intim.id} className="cx-input" value={peticionType} onChange={e => setPeticionType(e.target.value)}>{PETITION_TYPES.map(x => <option key={x}>{x}</option>)}</select></label>
       <label>Link da peça (Docs ou arquivo) *<input id={'cx-r-url-' + intim.id} className="cx-input" value={peticionUrl} onChange={e => setPeticionUrl(e.target.value)} placeholder="https://docs.google.com/…" autoFocus /></label>
@@ -1612,6 +1634,7 @@ function CxRespondForm({ intim, onSave, onCancel }) {
     <label>{isPet ? 'Observações (opcional)' : type === 'ciencia' ? 'Qual decisão ou despacho foi objeto da ciência *' : 'Descrição da medida adotada *'}
       <textarea id={'cx-r-desc-' + intim.id} className="cx-input" value={description} onChange={e => setDescription(e.target.value)} rows={3} autoFocus={!isPet} placeholder={isPet ? 'Ex.: manifestação pedindo mandado de penhora' : 'Ex.: ciência da decisão do evento 52, sem necessidade de manifestação'} />
     </label>
+    {type !== 'ciencia' ? <label>Teor da decisão (opcional)<input className="cx-input" value={teor} onChange={e => setTeor(e.target.value)} placeholder="Ex.: defere a penhora de ativos financeiros" /></label> : null}
     <div className="cx-form-note">A intimação será arquivada em Resoluções, como no Clássico. {isPet || docUrl.trim() ? 'O link vai para a aba Arquivos da operação.' : ''}</div>
     {isPet && !canSave ? <div className="cx-form-warn">Informe o link da peça para registrar. Sem o link definitivo, cole uma referência provisória (ex.: “pendente upload”) e edite depois.</div> : null}
     <div className="cx-form-acts"><button type="button" className="cx-btn ghost" onClick={onCancel}>Cancelar</button><button type="submit" className="cx-btn primary" disabled={!canSave}><CxIcon n="tick" s={14} />Registrar e arquivar</button></div>
@@ -1638,6 +1661,29 @@ function CxIntimObjEditable({ intim, upsert }) {
   return <p className="cx-d-ev cx-d-ev-edit" role="button" tabIndex={0} onClick={() => setEditing(true)}
     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} title="Clique para editar o objeto">
     {v ? v : <span className="cx-obj-undef">Definir objeto…</span>}
+  </p>;
+}
+/* Teor da decisão (decisionSummary): linha discreta abaixo do objeto, editável com um clique. Vazio = só o link "Adicionar…". */
+function CxIntimTeorEditable({ intim, upsert }) {
+  const [editing, setEditing] = React.useState(false);
+  const [val, setVal] = React.useState('');
+  const inputRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!editing) return;
+    setVal(intimationDecisionText(intim));
+    const t = setTimeout(() => { if (inputRef.current) inputRef.current.focus(); }, 0);
+    return () => clearTimeout(t);
+  }, [editing, intim.id]);
+  const save = () => { const v = val.trim(); if (v !== intimationDecisionText(intim)) upsert('intimations', { ...intim, decisionSummary: v }); setEditing(false); };
+  if (editing) {
+    return <input ref={inputRef} className="cx-input cx-d-ev-input cx-teor-input" value={val} onChange={e => setVal(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); setEditing(false); } }}
+      onBlur={save} placeholder="Teor da decisão (1–2 linhas)" aria-label="Teor da decisão" />;
+  }
+  const v = intimationDecisionText(intim);
+  return <p className="cx-d-teor" role="button" tabIndex={0} onClick={() => setEditing(true)}
+    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} title="Clique para editar o teor da decisão">
+    {v ? <><span className="cx-teor-k">Teor:</span> {v}</> : <span className="cx-teor-add">Adicionar teor da decisão…</span>}
   </p>;
 }
 /* Chip do link da peça no topo fixo da gaveta, junto aos demais chips (item 4). */
@@ -1719,6 +1765,7 @@ function CxIntimDetail({ intim, a, showRespond, setShowRespond, blocksCtl }) {
     </div>
     <h2 className="cx-d-title">{cxPartyName(intim)}</h2>
     <CxIntimObjEditable intim={intim} upsert={a.upsert} />
+    <CxIntimTeorEditable intim={intim} upsert={a.upsert} />
     <CxRuler intim={intim} />
     {trailPts ? <div className="cx-mt-wrap"><div className="cx-mt-cap">Onde este prazo cai no processo</div><CxMiniTrail points={trailPts} /></div> : null}
 
@@ -3150,13 +3197,22 @@ function cxBuildNarrative(data, op, tl, todayIso) {
       if (dd !== null && dd < 0) bd.push({ t: 'vencido há ' + tlDurLabel(-dd).replace(/^há /, ''), c: 'var(--cx-red)' });
       else if (dd !== null && dd <= 7) bd.push({ t: dd === 0 ? 'vence hoje' : 'faltam ' + tlDurLabel(dd), c: cxTlColor(it) });
       else bd.push({ t: 'prazo de ' + cxDM(it.from) + ' a ' + cxDM(it.d), c: cxTlColor(it) });
-      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i), badges: bd });
+      const teorP = intimationDecisionText(it.i);
+      out.push({ ...base, cat: 'prazo', open: true, text: cxPartyName(it.i) + (teorP ? ' · Teor: ' + teorP : ''), badges: bd });
     } else if (it.kind === 'aud') {
       out.push({ ...base, cat: 'aud', tm: it.tm || '', done: !!it.realized, open: !it.realized, text: (it.hearing && it.hearing.parties) || '', badges: it.realized ? [{ t: 'realizada', c: 'var(--cx-ink-3)' }] : [] });
     } else if (it.kind === 'rev') {
       const late = daysUntil(it.d) < 0;
       out.push({ ...base, cat: 'prazo', open: true, title: late ? it.l + ' atrasada' : it.l, text: late ? 'Marque como revisada no cabeçalho da operação depois de conferir prazos e prescrição.' : '', badges: late ? [{ t: 'vencida há ' + tlDurLabel(-daysUntil(it.d)).replace(/^há /, ''), c: 'var(--cx-red)' }] : [], ref: null });
     }
+  });
+  /* Intimações com teor da decisão que não aparecem como prazo aberto: um item na data da intimação, com o teor como texto. */
+  const comPrazo = new Set(tl.items.filter(it => it.kind === 'prazo' && it.i).map(it => it.i.id));
+  (data.intimations || []).forEach(x => {
+    if (x.operationId !== op.id || comPrazo.has(x.id)) return;
+    const teor = intimationDecisionText(x); if (!teor) return;
+    const d = toDayKey(x.dateStart) || toDayKey(x.dateSent) || toDayKey(x.responseAction && x.responseAction.respondedAt) || toDayKey(x.createdAt); if (!d) return;
+    out.push({ id: 'it|' + x.id, cat: 'dec', glyph: 'and', kindLabel: 'Intimação', d, done: true, execId: execOfNum(x.processNumber), ref: { t: 'intim', id: x.id }, color: 'var(--cx-ink-2)', title: 'Intimação — ' + (x.eventDescription || x.className || 'sem descrição'), text: 'Teor: ' + teor, badges: [], procNum: x.processNumber || '' });
   });
   (data.tasks || []).forEach(k => {
     if (k.operationId !== op.id || !cxTaskOpen(k) || !k.dueDate) return;
@@ -5462,6 +5518,8 @@ function CxBfMural({ op, data, upsert, setModal }) {
   const [draftType, setDraftType] = React.useState('observacao');
   const [draftDate, setDraftDate] = React.useState('');
   const [draftPin, setDraftPin] = React.useState(false);
+  const [draftInReport, setDraftInReport] = React.useState(false);
+  const inReportManual = React.useRef(false); // depois do clique do usuário, trocar o tipo não mexe mais na marca
   const draftHtmlRef = React.useRef('');
   const items = React.useMemo(() => cxMuItems(op, data), [op, data.stickyNotes]);
   const hasRepl = items.some(i => i.type === 'replicacao');
@@ -5473,17 +5531,18 @@ function CxBfMural({ op, data, upsert, setModal }) {
     ? { id: en.id, type: en.type, html: en.html, pinned: !!en.pinned, eventDate: en.eventDate || '', createdAt: en.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), migrated: true }
     : en);
   const persist = (list) => { upsert('operations', { ...op, briefing: { ...briefing, entries: materialize(list) } }); };
-  const openNew = () => { setDraftType('observacao'); setDraftDate(todayIso); setDraftPin(false); setComposer({ mode: 'new', entry: null }); };
-  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setDraftPin(!!en.pinned); setComposer({ mode: 'edit', entry: en }); };
+  const openNew = () => { setDraftType('observacao'); setDraftDate(todayIso); setDraftPin(false); inReportManual.current = false; setDraftInReport(diaryEntryInReport({ type: 'observacao' })); setComposer({ mode: 'new', entry: null }); };
+  const openEdit = (en) => { setDraftType(en.type || 'observacao'); setDraftDate(en.eventDate || ''); setDraftPin(!!en.pinned); inReportManual.current = typeof en.inReport === 'boolean'; setDraftInReport(diaryEntryInReport(en)); setComposer({ mode: 'edit', entry: en }); };
+  const pickType = (t) => { setDraftType(t); if (!inReportManual.current) setDraftInReport(diaryEntryInReport({ type: t })); };
   const saveComposer = () => {
     const clean = sanitizeNoteHtml(draftHtmlRef.current);
     if (!htmlToPlainText(clean)) { alert('A entrada está vazia.'); return; }
     const now = new Date().toISOString();
     if (composer.mode === 'new') {
-      persist([{ id: uid(), type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', createdAt: now, updatedAt: now }, ...entries]);
+      persist([{ id: uid(), type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', inReport: draftInReport, createdAt: now, updatedAt: now }, ...entries]);
     } else {
       persist(entries.map(x => x.id === composer.entry.id
-        ? { id: x.id, type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
+        ? { id: x.id, type: draftType, html: clean, pinned: draftPin, eventDate: draftDate || '', inReport: draftInReport, createdAt: x.createdAt || now, updatedAt: now, migrated: !!(x.migrated || x._legacy) }
         : x));
     }
     setComposer(null);
@@ -5508,10 +5567,11 @@ function CxBfMural({ op, data, upsert, setModal }) {
     </span>}>
     {composer ? <div className="cx-mu-comp">
       <div className="cx-bf-diary-composer-hd">
-        <select value={draftType} onChange={e => setDraftType(e.target.value)} className="cx-input" style={{ width: 'auto' }} aria-label="Tipo da entrada">
+        <select value={draftType} onChange={e => pickType(e.target.value)} className="cx-input" style={{ width: 'auto' }} aria-label="Tipo da entrada">
           {Object.entries(BRIEFING_ENTRY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} className="cx-input" style={{ width: 'auto' }} title="Data do fato (opcional)" aria-label="Data do fato" />
+        <button type="button" className={'cx-bf-inrep' + (draftInReport ? ' on' : '')} aria-pressed={draftInReport} title="No relatório" aria-label="No relatório" onClick={() => { inReportManual.current = true; setDraftInReport(v => !v); }}><CxIcon n="file" s={13} /></button>
         <label className="cx-mu-pin"><input type="checkbox" checked={draftPin} onChange={e => setDraftPin(e.target.checked)} />Fixar</label>
         <span className="cx-sp" />
         {composer.mode === 'edit' ? <button type="button" className="cx-btn sm ghost" onClick={removeEntry}>Excluir</button> : null}
@@ -5534,6 +5594,7 @@ function CxBfMural({ op, data, upsert, setModal }) {
               onClick={e => { e.stopPropagation(); toggleDone(it); }} onKeyDown={e => e.stopPropagation()}><CxIcon n="tick" s={9} /></button> : null}
             {it.pinned ? <span className="cx-pi-pin" title="Fixada" role="img" aria-label="Fixada"><CxIcon n="pin" s={11} /></span> : null}
             <span className="cx-pi-lab">{it.label}</span>
+            {it.src === 'd' && diaryEntryInReport(it.entry) ? <span className="cx-pi-rep" title="Entra na Base do relatório" role="img" aria-label="No relatório"><CxIcon n="file" s={10} /></span> : null}
             <span className="cx-pi-d">{it.date ? fmtDate(it.date) : ''}</span>
           </div>
           {it.src === 'l'
@@ -7915,7 +7976,7 @@ function EditionClaudeAssetDrawer({ asset: a, data, opId, onClose, setModal }) {
       <div className="cx-dr-body">
         <dl className="cx-pd-facts">
           <dt>Valor</dt><dd className="cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</dd>
-          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></dd>
+          <dt>Situação</dt><dd><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <span className="cx-muted cx-small" style={{ marginLeft: 8 }}>{assetConstrictionLine(a)}</span> : null}</dd>
           <dt>Titular</dt><dd>{holder ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'person', initial: holder })}>{holder.name}{holder.cpfCnpj ? ' · ' + holder.cpfCnpj : ''}<CxIcon n="chevR" s={12} /></button> : (a.holderDoc || '—')}</dd>
           <dt>Processo</dt><dd>{a.processRef ? (linkedExec ? <button type="button" className="cx-link-btn" onClick={() => setModal({ type: 'edit', entityType: 'execution', initial: linkedExec })}>{a.processRef}<CxIcon n="chevR" s={12} /></button> : <span className="cx-mono cx-small">{a.processRef}</span>) : <span className="cx-muted">Sem processo vinculado</span>}</dd>
           <dt>Origem</dt><dd>{a.source || '—'}</dd>
@@ -7999,7 +8060,7 @@ function EditionClaudeBens(p) {
       <td>{holder ? <>{holder.name} <span className="cx-mono cx-small cx-muted">{holder.cpfCnpj}</span></> : (a.holderDoc ? <span className="cx-muted cx-small">{a.holderDoc}</span> : <span className="cx-muted">—</span>)}</td>
       <td>{a.processRef ? <><span className="cx-mono cx-small">{a.processRef}</span>{a.source ? <span className="cx-tag" style={{ marginLeft: 6 }}>{a.source}</span> : null}</> : <span className="cx-muted cx-small">sem processo{a.source ? ' · ' + a.source : ''}</span>}</td>
       <td className="cx-pt-r cx-mono">{a.value != null ? fmtCur(a.value) : '—'}</td>
-      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span></td>
+      <td><span className={'badge ' + (st.badge || 'badge-muted')}>{st.label || a.status || '—'}</span>{assetConstrictionLine(a) ? <div className="cx-muted cx-small">{assetConstrictionLine(a)}</div> : null}</td>
       <td><span className={'cx-tag' + (a.analyticsRegistered ? ' green' : ' orange')}>{a.analyticsRegistered ? 'A' : '!A'}</span></td>
     </tr>;
   };
@@ -8475,5 +8536,542 @@ function EditionClaudeImportar(p) {
         </div>
       </div>
     </div>
+  </div>;
+}
+
+/* ═════════════════════ Minha atividade ═════════════════════
+   Registro de trabalho: lista corrida do que foi alterado no Nexus, com antes e depois e restauração.
+   Dados vêm de `activityApi` (src/app.jsx → createActivityApi); o diff de texto é de src/lib/textdiff.js. */
+const CX_ACT_TYPES = {
+  atuacao: 'Atuação', intimacao: 'Intimação', cda: 'CDA', bem: 'Bem/constrição', processo: 'Processo', fase: 'Fase', decisao: 'Decisão',
+  diario: 'Diário', tarefa: 'Tarefa', lembrete: 'Lembrete', parte: 'Parte', documento: 'Documento', prescricao: 'Prescrição',
+  acompanhamento: 'Acompanhar', audiencia: 'Audiência', operacao: 'Operação', vinculo: 'Vínculo', importacao: 'Importação',
+  exclusao: 'Exclusão', restauracao: 'Restauração', sistema: 'Sistema',
+};
+const CX_ACT_ORIGIN = { importacao: 'importação', automatico: 'automático', desfazer: 'desfazer', restauracao: 'restauração', bot: 'bot', sistema: 'sistema' };
+const CX_ACT_COLS = {
+  operations: ['operação', 'operações'], people: ['parte', 'partes'], debts: ['CDA', 'CDAs'], executions: ['processo', 'processos'],
+  measures: ['medida', 'medidas'], assets: ['bem', 'bens'], documents: ['documento', 'documentos'],
+  prescriptionEvents: ['evento de prescrição', 'eventos de prescrição'], intimations: ['intimação', 'intimações'],
+  tasks: ['tarefa', 'tarefas'], stickyNotes: ['lembrete', 'lembretes'], watchlist: ['item de acompanhamento', 'itens de acompanhamento'],
+  hearings: ['audiência', 'audiências'],
+};
+function cxActColName(col, n) { const c = String(col || '').startsWith('links.') ? ['vínculo', 'vínculos'] : (CX_ACT_COLS[col] || ['item', 'itens']); return n === 1 ? c[0] : c[1]; }
+const CX_ACT_KPIS = [
+  ['atuacoes', 'Atuações', (e) => e.kind === 'atuacao'],
+  ['cdas', 'CDAs alteradas', (e) => cxActCdaIds(e).length > 0],
+  ['diario', 'Entradas no diário', (e) => e.kind === 'diario' && e.action !== 'excluir'],
+  ['tarefas', 'Tarefas concluídas', (e) => e.kind === 'tarefa' && e.action === 'concluir'],
+  ['excluidos', 'Itens excluídos', (e) => e.action === 'excluir' && e.kind !== 'sistema'],
+];
+
+function cxActType(ev) {
+  if (ev.kind === 'sistema') return 'sistema';
+  if (ev.source === 'restauracao') return 'restauracao';
+  if (ev.kind === 'importacao') return 'importacao';
+  if (ev.action === 'excluir') return 'exclusao';
+  if (ev.kind === 'constricao') return 'bem';
+  if (ev.kind === 'frente') return 'fase';
+  return CX_ACT_TYPES[ev.kind] ? ev.kind : 'sistema';
+}
+function cxActCdaIds(ev) {
+  if (ev.batch) return (ev.batch.details || []).filter(d => d.col === 'debts' && d.op !== 'delete').map(d => String(d.id));
+  return ev.entity && ev.entity.col === 'debts' && ev.kind === 'cda' && ev.action !== 'excluir' ? [String(ev.entity.id)] : [];
+}
+function cxActMask(s) {
+  const d = String(s || '').replace(/\D/g, '');
+  return d.length === 20 ? d.slice(0, 7) + '-' + d.slice(7, 9) + '.' + d.slice(9, 13) + '.' + d.slice(13, 14) + '.' + d.slice(14, 16) + '.' + d.slice(16) : String(s || '');
+}
+function cxActTime(ts) {
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+}
+const cxActDmy = (day) => (/^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day.slice(8) + '/' + day.slice(5, 7) + '/' + day.slice(0, 4) : String(day || ''));
+function cxActDayLabel(day, today) {
+  const d = new Date(day + 'T12:00:00');
+  const full = (isNaN(d.getTime()) ? '' : CX_DOW_L[d.getDay()].split('-')[0] + ', ') + cxActDmy(day);
+  if (day === today) return { main: 'Hoje', sub: full };
+  if (day === addCalendarDays(today, -1)) return { main: 'Ontem', sub: full };
+  return { main: full, sub: '' };
+}
+function cxActVal(v) {
+  if (v == null) return '';
+  const s = String(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(s);
+  if (!m || !/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(s)) return s;
+  if (!m[4]) return m[3] + '/' + m[2] + '/' + m[1];
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).replace(',', '');
+}
+const cxActShown = (c, side) => cxActVal(side === 'from' ? (c.fromText != null ? c.fromText : c.from) : (c.toText != null ? c.toText : c.to));
+const cxActPlain = (tc, side) => (tc.format === 'html' ? textdiffPlain(tc[side]) : String(tc[side] == null ? '' : tc[side]));
+const cxActSnip = (s, n) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+
+/* Período: [de, até] em AAAA-MM-DD e o rótulo do passo. */
+function cxActRange(per, off, cust, today) {
+  if (per === 'hoje') {
+    const d = addCalendarDays(today, off);
+    const lb = off === 0 ? 'Hoje' : off === -1 ? 'Ontem' : cxActDayLabel(d, today).main;
+    return { from: d, to: d, label: lb + (off === 0 || off === -1 ? ' · ' + cxActDmy(d).slice(0, 5) : '') };
+  }
+  if (per === 'semana') {
+    const base = addCalendarDays(today, 7 * off);
+    const dow = new Date(base + 'T12:00:00').getDay();
+    const mon = addCalendarDays(base, -((dow + 6) % 7));
+    const sun = addCalendarDays(mon, 6);
+    return { from: mon, to: sun, label: 'Semana · ' + cxActDmy(mon).slice(0, 5) + ' a ' + cxActDmy(sun).slice(0, 5) };
+  }
+  if (per === 'mes') {
+    const t = new Date(today + 'T12:00:00');
+    const a = new Date(t.getFullYear(), t.getMonth() + off, 1), b = new Date(t.getFullYear(), t.getMonth() + off + 1, 0);
+    return { from: localIso(a), to: localIso(b), label: cxCap(CX_MES_L[a.getMonth()]) + ' de ' + a.getFullYear() };
+  }
+  const f = cust.from || today, t2 = cust.to || today;
+  const lo = f <= t2 ? f : t2, hi = f <= t2 ? t2 : f;
+  return { from: lo, to: hi, label: cxActDmy(lo) + ' a ' + cxActDmy(hi) };
+}
+function cxActBlob(ev) {
+  const parts = [ev.summary, ev.op && ev.op.name, ev.entity && ev.entity.label, ev.entity && ev.entity.proc, ev.batch && ev.batch.label];
+  (ev.changes || []).forEach(c => parts.push(c.label, cxActShown(c, 'from'), cxActShown(c, 'to')));
+  (ev.textChanges || []).forEach(t => parts.push(t.label, cxActPlain(t, 'from'), cxActPlain(t, 'to')));
+  if (ev.batch) (ev.batch.details || []).forEach(d => parts.push(d.label, d.proc, (d.fields || []).join(' ')));
+  return cxNorm(parts.filter(Boolean).join(' \n '));
+}
+function cxActDigits(ev) {
+  const parts = [ev.summary, ev.entity && ev.entity.label, ev.entity && ev.entity.proc];
+  if (ev.batch) (ev.batch.details || []).forEach(d => parts.push(d.label, d.proc));
+  (ev.changes || []).forEach(c => parts.push(cxActShown(c, 'from'), cxActShown(c, 'to')));
+  return parts.filter(Boolean).map(x => String(x).replace(/\D/g, '')).filter(Boolean);
+}
+const cxActHasRestore = (ev) => ev.kind !== 'sistema' && (ev.restore ? (ev.restore.items || []).length > 0 : true);
+/* Itens do `only` de planRestore para restaurar só um campo: itens de briefing casam pelo caminho, os demais pelo campo de nível 1. */
+function cxActOnly(full, f) {
+  const out = [];
+  ((full.restore && full.restore.items) || []).forEach(it => {
+    if (it.path) { if (f === it.path || String(f).indexOf(it.path) === 0 || it.path.indexOf(String(f)) === 0) out.push({ col: it.col, id: it.id, field: it.path }); }
+    else out.push({ col: it.col, id: it.id, field: String(f).split('.')[0].replace(/\[.*$/, '') });
+  });
+  return out;
+}
+function cxActEvRow(ev) {
+  const antes = [], depois = [];
+  (ev.changes || []).forEach(c => { antes.push(c.label + ': ' + (cxActShown(c, 'from') || '—')); depois.push(c.label + ': ' + (cxActShown(c, 'to') || '—')); });
+  (ev.textChanges || []).forEach(t => { antes.push(t.label + ': ' + cxActSnip(cxActPlain(t, 'from'), 500)); depois.push(t.label + ': ' + cxActSnip(cxActPlain(t, 'to'), 500)); });
+  const org = ev.source && ev.source !== 'manual' ? (CX_ACT_ORIGIN[ev.source] || ev.source) + (ev.source === 'importacao' && ev.batch ? ' ' + ev.batch.label : '') : 'manual';
+  return [cxActDmy(ev.day), cxActTime(ev.ts), (ev.op && ev.op.name) || '', cxActMask(ev.entity && ev.entity.proc), CX_ACT_TYPES[cxActType(ev)], ev.action || '', ev.summary || '', antes.join('\n'), depois.join('\n'), org];
+}
+const CX_ACT_HEADER = ['Data', 'Hora', 'Operação', 'Processo', 'Tipo', 'Ação', 'Resumo', 'Antes', 'Depois', 'Origem'];
+/* "Excluiu o bem X e 2 itens vinculados" → "bem X". */
+function cxActItemName(ev) { return String(ev.summary || '').replace(/^Excluiu\s+(o|a)\s+/, '').replace(/\s+e \d+ (item vinculado|itens vinculados)$/, ''); }
+function cxActCsv(rows) {
+  const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  return '﻿' + [CX_ACT_HEADER].concat(rows).map(r => r.map(q).join(';')).join('\r\n');
+}
+function cxActDownload(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function CxActTextDiff({ tc }) {
+  const sides = React.useMemo(() => diffSides(cxActPlain(tc, 'from'), cxActPlain(tc, 'to')), [tc]);
+  const render = (parts, tag) => parts.map((x, i) => (x.hl ? React.createElement(tag, { key: i }, x.s) : <React.Fragment key={i}>{x.s}</React.Fragment>));
+  return <div className="cx-act-dg">
+    <div className="cx-act-db"><h4>Antes</h4><div className="tx">{sides.before.length ? render(sides.before, 'del') : <i className="cx-muted">(vazio)</i>}</div></div>
+    <div className="cx-act-db"><h4>Depois</h4><div className="tx">{sides.after.length ? render(sides.after, 'ins') : <i className="cx-muted">(vazio)</i>}</div></div>
+  </div>;
+}
+
+function CxActDetail({ ev, full, onOpen, onRestore }) {
+  const src = full && typeof full === 'object' ? full : ev;
+  const [allRows, setAllRows] = React.useState(false);
+  const can = cxActHasRestore(ev);
+  const en = ev.entity || {};
+  const entName = en.type === 'diario' ? 'Diário' : en.type === 'fase' ? 'Fase' : cxCap(cxActColName(en.col, 1));
+  const changes = ev.changes || [];
+  const texts = src.textChanges || ev.textChanges || [];
+  const casc = ev.cascade && ev.cascade.byType ? Object.keys(ev.cascade.byType).map(k => [k, ev.cascade.byType[k]]) : [];
+  const rowsAll = ev.batch ? (ev.batch.details || []) : [];
+  const rows = allRows ? rowsAll : rowsAll.slice(0, 100);
+  const opLbl = { create: 'nova', update: 'alterada', delete: 'removida' };
+  const single = ev.action === 'criar' || ev.action === 'excluir' || ev.kind === 'importacao';
+  return <div className="cx-act-rd">
+    {ev.batch ? <>
+      <table className="cx-act-tab"><thead><tr><th>Item</th><th>Alteração</th><th /></tr></thead><tbody>
+        {rows.map((d, i) => <tr key={i}>
+          <td>{cxCap(cxActColName(d.col, 1))} <b>{d.label || cxActMask(d.proc) || d.id}</b>{d.proc && d.label !== d.proc ? <span className="cx-muted cx-mono"> · {cxActMask(d.proc)}</span> : null}</td>
+          <td>{opLbl[d.op] || d.op}{(d.fields || []).length ? ': ' + d.fields.join(', ') : ''}</td>
+          <td className="r">{can ? <button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'row', row: d })}><CxIcon n="history" s={12} />{d.op === 'create' ? 'Desfazer' : 'Restaurar'}</button> : null}</td>
+        </tr>)}
+        {!rowsAll.length ? <tr><td colSpan={3} className="cx-muted">Sem detalhe por item neste registro.</td></tr> : null}
+      </tbody></table>
+      {rowsAll.length > rows.length ? <div className="cx-act-links"><button type="button" className="cx-link-btn" onClick={() => setAllRows(true)}>Mostrar os {rowsAll.length} itens</button></div> : null}
+      {ev.batch.detailsCut ? <div className="cx-act-links">A lista de itens foi encurtada para caber no registro; “Desfazer importação inteira” cobre todos.</div> : null}
+    </> : null}
+    {changes.length ? <table className="cx-act-tab"><thead><tr><th>Campo</th><th>Antes</th><th>Depois</th><th /></tr></thead><tbody>
+      {changes.map((c, i) => <tr key={i}>
+        <td>{cxCap(c.label)}</td>
+        <td className="b"><span>{cxActShown(c, 'from') || '—'}</span></td>
+        <td className="a"><span>{cxActShown(c, 'to') || '—'}</span></td>
+        <td className="r">{can && !single && cxActShown(c, 'from') !== '' ? <button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'field', f: c.f, change: c })}><CxIcon n="history" s={12} />Restaurar este campo</button> : null}</td>
+      </tr>)}
+    </tbody></table> : null}
+    {texts.map((tc, i) => {
+      const loading = tc.cut && !(full && typeof full === 'object');
+      return <div key={i}>
+        <div className="cx-act-dl">{tc.label} · texto completo, com diferenças{tc.truncated ? ' (texto muito longo, guardado só até 200 KB)' : ''}</div>
+        {loading ? <div className="cx-muted cx-small" style={{ marginTop: 6 }}>{full === 'erro' ? 'Não foi possível carregar o texto completo.' : 'Carregando o texto completo…'}</div> : <CxActTextDiff tc={tc} />}
+        {can && !single && tc.from ? <div className="cx-act-acts" style={{ marginTop: 6 }}><button type="button" className="cx-btn sm" onClick={() => onRestore({ ev, mode: 'text', f: tc.f, tc })}><CxIcon n="history" s={12} />Restaurar texto anterior</button></div> : null}
+      </div>;
+    })}
+    {ev.action === 'excluir' && ev.kind !== 'sistema' ? <div className="cx-act-casc"><b>Apagado:</b> {cxActItemName(ev)}
+      {casc.length ? <>
+        <br />Também foi junto:
+        <ul>{casc.map(([k, n]) => <li key={k}>{n} {cxActColName(k, n)}</li>)}</ul>
+      </> : null}
+    </div> : null}
+    <div className="cx-act-links">
+      <span>Ligado a:</span>
+      <button type="button" className="cx-act-link" onClick={() => onOpen(ev)}>{entName}{en.label ? ' ' + en.label : ''}</button>
+      {en.proc && en.col !== 'executions' ? <span className="cx-mono">Processo {cxActMask(en.proc)}</span> : null}
+      {ev.op && ev.op.name ? <span>{ev.op.name}</span> : null}
+    </div>
+    <div className="cx-act-acts">
+      {ev.kind !== 'sistema' ? <button type="button" className="cx-btn primary sm" onClick={() => onOpen(ev)}><CxIcon n="arrowUR" s={12} />Abrir no Nexus</button> : null}
+      {can && ev.batch ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'batch' })}><CxIcon n="history" s={12} />Desfazer importação inteira</button> : null}
+      {can && !ev.batch && ev.action === 'excluir' ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'recover' })}><CxIcon n="history" s={12} />Recuperar item</button> : null}
+      {can && !ev.batch && ev.action === 'criar' ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'event' })}><CxIcon n="history" s={12} />Desfazer criação</button> : null}
+      {can && !ev.batch && !single && (changes.length + texts.length) > 1 ? <button type="button" className="cx-btn sm cx-act-btn-w" onClick={() => onRestore({ ev, mode: 'event' })}><CxIcon n="history" s={12} />Restaurar valor anterior (alteração inteira)</button> : null}
+    </div>
+  </div>;
+}
+
+function CxActRow({ ev, open, full, opObj, onToggle, onOpen, onRestore }) {
+  const ty = cxActType(ev);
+  const en = ev.entity || {};
+  const org = ev.source && ev.source !== 'manual' ? (CX_ACT_ORIGIN[ev.source] || ev.source) + (ev.source === 'importacao' && ev.batch && ev.batch.label ? ' · ' + ev.batch.label : '') : '';
+  const proc = en.proc ? cxActMask(en.proc) : '';
+  return <div className={'cx-act-row' + (open ? ' open' : '')}>
+    <div className="cx-act-rh" role="button" tabIndex={0} aria-expanded={open} onClick={onToggle}
+      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(); } }}>
+      <span className="cx-act-tm">{cxActTime(ev.ts)}</span>
+      <span className={'cx-act-b t-' + ty}>{CX_ACT_TYPES[ty]}</span>
+      <span className="cx-minw0">
+        <span className="cx-act-ph">{ev.summary}</span>
+        <span className="cx-act-meta">
+          {ev.op && ev.op.name ? <span className="cx-act-opc"><span className="cx-dot" style={{ background: opObj ? cxOpColor(opObj) : 'var(--cx-line-strong)' }} />{opObj ? cxOpName(opObj) : ev.op.name}</span> : null}
+          {proc ? <CxNumCopy value={proc}><span className="cx-act-proc"><span className="cx-mono">{proc}</span><CxIcon n="copy" s={12} /></span></CxNumCopy> : null}
+          {org ? <span className={'cx-act-org' + (ev.source === 'restauracao' ? ' res' : '')}>{org}</span> : null}
+          {ev.minor ? <span className="cx-act-min">ajuste menor</span> : null}
+          {ev.coalesced > 1 ? <span className="cx-act-min">{ev.coalesced} ajustes juntos</span> : null}
+        </span>
+      </span>
+      <span className="cx-act-chev"><CxIcon n="chevR" s={14} /></span>
+    </div>
+    {open ? <CxActDetail ev={ev} full={full} onOpen={onOpen} onRestore={onRestore} /> : null}
+  </div>;
+}
+
+/* Confirmação de restauração: simula antes (previewRestore), mostra o que volta e os conflitos, só então aplica. */
+function CxActRestoreModal({ req, activity, onClose, onDone }) {
+  const { ev, mode } = req;
+  const [st, setSt] = React.useState({ loading: true });
+  const [busy, setBusy] = React.useState(false);
+  const optsFor = (full, force) => {
+    const o = {};
+    if (mode === 'field' || mode === 'text') o.only = cxActOnly(full, req.f);
+    else if (mode === 'row') o.only = [{ col: req.row.col, id: req.row.id }];
+    if (force) o.force = true;
+    return o;
+  };
+  React.useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const full = await activity.getFull(ev);
+        const r = await activity.previewRestore(full, optsFor(full, false));
+        if (!dead) setSt({ full, r });
+      } catch (e) { if (!dead) setSt({ error: String((e && e.message) || e) }); }
+    })();
+    return () => { dead = true; };
+  }, []);
+  React.useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', k);
+    return () => document.removeEventListener('keydown', k);
+  }, []);
+  const go = async (force) => {
+    setBusy(true);
+    try { onDone(await activity.restore(st.full, optsFor(st.full, force))); }
+    catch (e) { setSt(s => ({ ...s, error: String((e && e.message) || e) })); setBusy(false); }
+  };
+  const full = st.full || ev;
+  const T = { field: ['Restaurar o valor anterior?', 'Restaurar'], text: ['Restaurar o texto anterior?', 'Restaurar'], event: [ev.action === 'criar' ? 'Desfazer a criação?' : 'Restaurar a alteração inteira?', ev.action === 'criar' ? 'Desfazer criação' : 'Restaurar'],
+    recover: ['Recuperar item excluído?', 'Recuperar tudo'], batch: ['Desfazer a importação inteira?', 'Desfazer importação'], row: ['Restaurar este item da importação?', 'Restaurar'] }[mode];
+  const casc = ev.cascade && ev.cascade.byType ? Object.keys(ev.cascade.byType).map(k => ev.cascade.byType[k] + ' ' + cxActColName(k, ev.cascade.byType[k])) : [];
+  const rev = [];
+  if (mode === 'field') rev.push([req.change.label, cxActShown(req.change, 'to') || '(vazio)', cxActShown(req.change, 'from') || '(vazio)']);
+  else if (mode === 'text') {
+    const tc = (full.textChanges || []).find(x => x.f === req.f) || req.tc;
+    rev.push([tc.label, '(texto atual, ' + cxActPlain(tc, 'to').length + ' caracteres)', '(texto anterior, ' + cxActPlain(tc, 'from').length + ' caracteres)']);
+  } else if (mode === 'event' && ev.action !== 'criar') {
+    (ev.changes || []).forEach(c => rev.push([c.label, cxActShown(c, 'to') || '(vazio)', cxActShown(c, 'from') || '(vazio)']));
+    (full.textChanges || ev.textChanges || []).forEach(tc => rev.push([tc.label, '(texto atual)', '(texto anterior, ' + cxActPlain(tc, 'from').length + ' caracteres)']));
+  } else if (mode === 'row') rev.push([cxCap(cxActColName(req.row.col, 1)), req.row.label || req.row.id, req.row.op === 'create' ? 'será removido' : req.row.op === 'delete' ? 'será recuperado' : 'volta ao valor anterior']);
+  const stats = ev.batch && ev.batch.stats;
+  const conf = st.r ? st.r.conflicts : [];
+  const nothing = st.r && st.r.applied === 0 && !conf.length;
+  return <>
+    <div className="cx-scrim" onClick={onClose} />
+    <div className="cx cx-act-modal" role="dialog" aria-modal="true" aria-label={T[0]}>
+      <div className="cx-act-mh"><h2>{T[0]}</h2><p>{ev.summary}{ev.entity && ev.entity.proc ? ' · ' + cxActMask(ev.entity.proc) : ''}</p></div>
+      <div className="cx-act-mb">
+        {rev.length ? <div className="cx-act-rev">{rev.map((r, i) => <div className="it" key={i}><span className="k">{r[0]}</span><span><span className="now">{r[1]}</span> &nbsp;→&nbsp; <span className="back">{r[2]}</span></span></div>)}</div> : null}
+        {mode === 'recover' ? <div className="cx-act-rev">
+          <div className="it"><span className="k">Item principal</span><span className="back">{cxActItemName(ev)}</span></div>
+          {casc.map((c, i) => <div className="it" key={i}><span className="k">Vai junto</span><span className="back">{c}</span></div>)}
+          {ev.op && ev.op.name ? <div className="it"><span className="k">Operação</span><span>{ev.op.name}</span></div> : null}
+        </div> : null}
+        {mode === 'batch' ? <div className="cx-act-rev">
+          <div className="it"><span className="k">Importação</span><span>{ev.batch.label} · {cxActDmy(ev.day)} às {cxActTime(ev.ts)}</span></div>
+          {stats ? <>
+            {stats.update ? <div className="it"><span className="k">Alterados</span><span className="back">{stats.update} voltam ao valor anterior</span></div> : null}
+            {stats.create ? <div className="it"><span className="k">Novos</span><span className="back">{stats.create} serão removidos</span></div> : null}
+            {stats.delete ? <div className="it"><span className="k">Removidos</span><span className="back">{stats.delete} serão recuperados</span></div> : null}
+          </> : null}
+        </div> : null}
+        {st.loading ? <div className="cx-act-mn">Conferindo o que muda…</div> : null}
+        {st.error ? <div className="cx-act-mn warn">Não foi possível restaurar: {st.error}</div> : null}
+        {st.r && !conf.length && !nothing ? <div className="cx-act-mn">{cxPl(st.r.applied, 'item será atualizado', 'itens serão atualizados')}. A restauração fica registrada como uma nova linha em “Minha atividade” (origem: restauração) e dá para restaurar de novo se mudar de ideia.</div> : null}
+        {nothing ? <div className="cx-act-mn">Nada a restaurar: os dados já estão como estavam antes desta alteração.</div> : null}
+        {conf.length ? <div className="cx-act-mn warn">Alguns itens foram <b>alterados depois por você</b>, então restaurar sobrescreve o que está lá agora:
+          <ul>{conf.slice(0, 8).map((c, i) => <li key={i}>{c.label && cxNorm(c.label).indexOf(cxNorm(cxActColName(c.col, 1))) === 0 ? c.label : cxCap(cxActColName(c.col, 1)) + (c.label ? ' ' + c.label : '')} — {c.motivo}</li>)}</ul>
+          {conf.length > 8 ? <div>… e mais {conf.length - 8}.</div> : null}
+          {st.r.applied > 0 ? <div style={{ marginTop: 4 }}>{cxPl(st.r.applied, 'item não tem conflito', 'itens não têm conflito')} e pode voltar sem sobrescrever nada.</div> : null}
+        </div> : null}
+      </div>
+      <div className="cx-act-mf">
+        <button type="button" className="cx-btn" onClick={onClose}>Cancelar</button>
+        {conf.length && st.r.applied > 0 ? <button type="button" className="cx-btn" disabled={busy} onClick={() => go(false)}>Restaurar o que não conflita</button> : null}
+        {conf.length ? <button type="button" className="cx-btn primary" disabled={busy} onClick={() => go(true)}><CxIcon n="history" s={14} />Restaurar mesmo assim</button>
+          : <button type="button" className="cx-btn primary" disabled={busy || !st.r || nothing} onClick={() => go(false)}><CxIcon n="history" s={14} />{T[1]}</button>}
+      </div>
+    </div>
+  </>;
+}
+
+function EditionClaudeAtividade(p) {
+  const { activity, data } = p;
+  const today = React.useMemo(() => dayKey(new Date()), []);
+  const [per, setPer] = React.useState('hoje');
+  const [off, setOff] = React.useState(0);
+  const [cust, setCust] = React.useState(() => ({ from: addCalendarDays(today, -6), to: today }));
+  const [opId, setOpId] = React.useState('');
+  const [q, setQ] = React.useState('');
+  const [types, setTypes] = React.useState(() => new Set());
+  const [minor, setMinor] = React.useState(false);
+  const [kpi, setKpi] = React.useState(null);
+  const [openIds, setOpenIds] = React.useState(() => new Set());
+  const [events, setEvents] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState('');
+  const [tick, setTick] = React.useState(0);
+  const [fulls, setFulls] = React.useState({});
+  const [restoreReq, setRestoreReq] = React.useState(null);
+  const [menu, setMenu] = React.useState(null); // 'tipo' | 'exp'
+  const [exp, setExp] = React.useState(null); // { busy } | { err, csv } | { url, kind }
+  const [shown, setShown] = React.useState(200);
+  const [pending, setPending] = React.useState(0);
+  const wrapRef = React.useRef(null);
+  const fetching = React.useRef(new Set());
+  const blobs = React.useRef(new WeakMap());
+  const range = React.useMemo(() => cxActRange(per, off, cust, today), [per, off, cust, today]);
+
+  React.useEffect(() => {
+    let dead = false;
+    setLoading(true); setErr('');
+    activity.list(range.from, range.to).then(r => {
+      if (dead) return;
+      setEvents((r || []).slice().sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : a.id < b.id ? 1 : -1)));
+      setLoading(false);
+    }).catch(e => { if (!dead) { setErr(String((e && e.message) || e)); setLoading(false); } });
+    return () => { dead = true; };
+  }, [range.from, range.to, tick, activity]);
+  React.useEffect(() => { setShown(200); }, [range.from, range.to, opId, q, kpi, minor, types]);
+  React.useEffect(() => {
+    const gas = typeof activityGas === 'function' && activityGas();
+    const read = () => setPending(gas ? activity.pendingCount() : 0);
+    read();
+    const t = setInterval(read, 4000);
+    return () => clearInterval(t);
+  }, [activity, tick]);
+  React.useEffect(() => {
+    if (!menu) return undefined;
+    const down = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setMenu(null); };
+    const key = (e) => { if (e.key === 'Escape') setMenu(null); };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
+  }, [menu]);
+  // Ao abrir um registro de lista leve com texto cortado, busca o evento completo.
+  React.useEffect(() => {
+    events.forEach(ev => {
+      if (!openIds.has(ev.id) || fulls[ev.id] || fetching.current.has(ev.id)) return;
+      if (!(ev.textChanges || []).some(t => t.cut)) return;
+      fetching.current.add(ev.id);
+      activity.getFull(ev).then(f => setFulls(s => ({ ...s, [ev.id]: f }))).catch(() => setFulls(s => ({ ...s, [ev.id]: 'erro' })));
+    });
+  }, [openIds, events]);
+
+  const opById = React.useMemo(() => new Map((data.operations || []).map(o => [o.id, o])), [data.operations]);
+  const base = React.useMemo(() => events.filter(e => !opId || (e.op && e.op.id === opId)), [events, opId]);
+  const nMinor = base.filter(e => e.minor).length;
+  const vis = React.useMemo(() => (minor ? base : base.filter(e => !e.minor)), [base, minor]);
+  const typeCount = React.useMemo(() => { const m = {}; vis.forEach(e => { const t = cxActType(e); m[t] = (m[t] || 0) + 1; }); return m; }, [vis]);
+  const typeKeys = React.useMemo(() => { const s = new Set(base.map(cxActType)); types.forEach(t => s.add(t)); return Object.keys(CX_ACT_TYPES).filter(t => s.has(t)); }, [base, types]);
+  const kpiVals = React.useMemo(() => {
+    const cda = new Set();
+    vis.forEach(e => cxActCdaIds(e).forEach(i => cda.add(i)));
+    return CX_ACT_KPIS.map(k => (k[0] === 'cdas' ? cda.size : vis.filter(k[2]).length));
+  }, [vis]);
+  const filtered = React.useMemo(() => {
+    const kp = kpi ? CX_ACT_KPIS.find(k => k[0] === kpi) : null;
+    const qs = q.trim();
+    const qn = cxNorm(qs);
+    const qd = /^[\d.\-/\s]+$/.test(qs) ? qs.replace(/\D/g, '') : '';
+    return vis.filter(e => {
+      if (types.size && !types.has(cxActType(e))) return false;
+      if (kp && !kp[2](e)) return false;
+      if (qs) {
+        let b = blobs.current.get(e);
+        if (!b) { b = { t: cxActBlob(e), d: cxActDigits(e) }; blobs.current.set(e, b); }
+        if (!(b.t.includes(qn) || (qd.length >= 4 && b.d.some(x => x.includes(qd))))) return false;
+      }
+      return true;
+    });
+  }, [vis, types, kpi, q]);
+
+  const setPeriod = (v) => { setPer(v); setOff(0); };
+  const toggleType = (t) => setTypes(s => { const n = new Set(s); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+  const toggleOpen = (id) => setOpenIds(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const reloadSoon = () => { setTick(t => t + 1); setTimeout(() => setTick(t => t + 1), 900); setTimeout(() => setTick(t => t + 1), 2800); };
+  const onDone = (res) => {
+    setRestoreReq(null);
+    cxNotify(res && res.applied > 0 ? 'Restaurado. Nova linha adicionada ao registro.' : 'Nada mudou: já estava como antes.');
+    reloadSoon();
+  };
+
+  const title = 'Minha atividade — ' + range.label;
+  const exportSheet = async () => {
+    setMenu(null); setExp({ busy: true });
+    const rows = filtered.map(cxActEvRow);
+    try {
+      const r = await activity.exportSheet({ title, sheets: [{ name: 'Atividade', header: CX_ACT_HEADER, rows, mono: [3] }] });
+      setExp({ url: r.url, kind: 'Planilha' });
+      try { window.open(r.url, '_blank', 'noopener'); } catch (e) { /* o aviso tem o link */ }
+    } catch (e) { setExp({ err: String((e && e.message) || e), kind: 'Planilha' }); }
+  };
+  const exportDoc = async () => {
+    setMenu(null); setExp({ busy: true });
+    const blocks = [{ type: 'h1', text: title }, { type: 'p', text: filtered.length + ' registros · gerado em ' + new Date().toLocaleString('pt-BR'), small: true }];
+    const byDay = new Map();
+    filtered.slice().reverse().forEach(e => { if (!byDay.has(e.day)) byDay.set(e.day, []); byDay.get(e.day).push(e); });
+    Array.from(byDay.keys()).sort().forEach(day => {
+      const l = cxActDayLabel(day, today);
+      blocks.push({ type: 'h2', text: l.sub || l.main });
+      blocks.push({ type: 'table', header: ['Hora', 'Operação', 'Processo', 'Tipo', 'Resumo', 'Origem'], mono: [2],
+        rows: byDay.get(day).map(e => { const r = cxActEvRow(e); return [r[1], r[2], r[3], r[4], r[6], r[9]]; }) });
+    });
+    try {
+      const r = await activity.exportDoc({ title, blocks });
+      setExp({ url: r.url, kind: 'Google Doc' });
+      try { window.open(r.url, '_blank', 'noopener'); } catch (e) { /* o aviso tem o link */ }
+    } catch (e) { setExp({ err: String((e && e.message) || e), kind: 'Google Doc' }); }
+  };
+  const downloadCsv = () => { cxActDownload('minha-atividade_' + range.from + '_' + range.to + '.csv', cxActCsv(filtered.map(cxActEvRow))); setExp(null); };
+
+  const list = filtered.slice(0, shown);
+  const groups = [];
+  list.forEach(e => { const g = groups[groups.length - 1]; if (g && g.day === e.day) g.items.push(e); else groups.push({ day: e.day, items: [e] }); });
+  const filtersOn = !!(q.trim() || types.size || kpi);
+  const kpiName = kpi ? CX_ACT_KPIS.find(k => k[0] === kpi)[1] : '';
+
+  return <div className="cx cx-page" ref={wrapRef}>
+    <div className="cx-page-h">
+      <div><h1>Minha atividade</h1><p>Tudo o que você alterou no Nexus, com antes e depois. Dá para conferir e, se precisar, restaurar.</p></div>
+      <div className="cx-acts">
+        {pending > 0 ? <span className="cx-muted cx-small" title="Ficam guardadas neste aparelho e seguem para o Drive quando houver conexão.">{cxPl(pending, 'alteração aguardando envio', 'alterações aguardando envio')}</span> : null}
+        <span className="cx-act-pw">
+          <button type="button" className="cx-btn" aria-haspopup="true" aria-expanded={menu === 'exp'} disabled={!filtered.length || (exp && exp.busy)} onClick={() => setMenu(menu === 'exp' ? null : 'exp')}><CxIcon n="upload" s={14} />Exportar período<CxIcon n="chevD" s={12} /></button>
+          {menu === 'exp' ? <div className="cx-act-pop r" role="menu">
+            <small>{range.label} · {cxPl(filtered.length, 'registro', 'registros')}</small>
+            <button type="button" role="menuitem" onClick={exportSheet}><CxIcon n="list" s={14} />Planilha (Google Sheets)</button>
+            <button type="button" role="menuitem" onClick={exportDoc}><CxIcon n="file" s={14} />Google Doc</button>
+            <hr /><small>Exporta o que está filtrado na tela.</small>
+          </div> : null}
+        </span>
+      </div>
+    </div>
+
+    {exp && (exp.busy || exp.url || exp.err) ? <div className="cx-act-note" role="status">
+      {exp.busy ? <span>Gerando arquivo…</span> : null}
+      {exp.url ? <><span>{exp.kind} criada no seu Drive.</span><a className="cx-act-link" href={exp.url} target="_blank" rel="noopener noreferrer">Abrir {exp.kind === 'Planilha' ? 'a planilha' : 'o documento'}</a></> : null}
+      {exp.err ? <><span>{/app publicado/.test(exp.err) ? 'A exportação para o Google só funciona no app publicado (aberto pelo Apps Script).' : 'Não foi possível exportar: ' + exp.err}</span><button type="button" className="cx-btn sm" onClick={downloadCsv}><CxIcon n="upload" s={12} />Baixar CSV</button></> : null}
+      {!exp.busy ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => setExp(null)} aria-label="Fechar aviso"><CxIcon n="x" s={12} /></button> : null}
+    </div> : null}
+
+    <div className="cx-ks cx-act-ks" style={{ '--n': 5 }}>
+      {CX_ACT_KPIS.map((k, i) => <button key={k[0]} type="button" className={'cx-kc click' + (kpi === k[0] ? ' on' : '')} aria-pressed={kpi === k[0]} title={kpi === k[0] ? 'Clique para limpar o filtro' : 'Filtrar a lista por ' + k[1].toLowerCase()} onClick={() => setKpi(kpi === k[0] ? null : k[0])}>
+        <span className="cx-kc-l">{k[1]}</span><span className={'cx-kc-v' + (k[0] === 'excluidos' && kpiVals[i] ? ' red' : '')}>{kpiVals[i]}</span>
+      </button>)}
+    </div>
+
+    <div className="cx-act-fil">
+      <div className="cx-act-fr">
+        <div className="cx-seg lg" role="group" aria-label="Período">
+          {[['hoje', 'Hoje'], ['semana', 'Semana'], ['mes', 'Mês'], ['custom', 'Período…']].map(x => <button key={x[0]} type="button" className={per === x[0] ? 'on' : ''} onClick={() => setPeriod(x[0])}>{x[1]}</button>)}
+        </div>
+        {per === 'custom'
+          ? <span className="cx-act-dates"><input type="date" className="cx-input" aria-label="De" value={cust.from} max={today} onChange={e => e.target.value && setCust(c => ({ ...c, from: e.target.value }))} />até<input type="date" className="cx-input" aria-label="Até" value={cust.to} max={today} onChange={e => e.target.value && setCust(c => ({ ...c, to: e.target.value }))} /></span>
+          : <span className="cx-act-step">
+            <button type="button" className="cx-icon-btn" onClick={() => setOff(off - 1)} aria-label="Período anterior"><CxIcon n="chevL" s={14} /></button>
+            <span className="cx-act-lbl">{range.label}</span>
+            <button type="button" className="cx-icon-btn" disabled={off >= 0} onClick={() => setOff(off + 1)} aria-label="Próximo período"><CxIcon n="chevR" s={14} /></button>
+          </span>}
+        <CxSelect value={opId} onChange={setOpId} label="Operação" options={[['', 'Todas as operações']].concat((data.operations || []).slice().sort(sortOpsByName).map(o => [o.id, cxOpName(o)]))} />
+        <label className="cx-field"><CxIcon n="search" s={14} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar: nº do processo (com ou sem máscara), CDA, texto…" autoComplete="off" aria-label="Buscar na atividade" />
+          {q ? <button type="button" className="cx-icon-btn cx-sm" onClick={() => setQ('')} aria-label="Limpar busca"><CxIcon n="x" s={12} /></button> : null}</label>
+      </div>
+      <div className="cx-act-fr">
+        <span className="cx-act-pw">
+          <button type="button" className="cx-btn" aria-haspopup="true" aria-expanded={menu === 'tipo'} onClick={() => setMenu(menu === 'tipo' ? null : 'tipo')}><CxIcon n="filter" s={13} />Tipo{types.size ? <span className="cx-act-tcount">{types.size}</span> : null}<CxIcon n="chevD" s={12} /></button>
+          {menu === 'tipo' ? <div className="cx-act-pop" role="group" aria-label="Filtrar por tipo">
+            {typeKeys.map(t => <label key={t}><input type="checkbox" checked={types.has(t)} onChange={() => toggleType(t)} />{CX_ACT_TYPES[t]}<em>{typeCount[t] || 0}</em></label>)}
+            {!typeKeys.length ? <small>Nenhum tipo neste período.</small> : null}
+            {types.size ? <><hr /><button type="button" onClick={() => setTypes(new Set())}>Limpar seleção</button></> : null}
+          </div> : null}
+        </span>
+        {types.size ? <span className="cx-muted cx-small">{Array.from(types).map(t => CX_ACT_TYPES[t]).join(', ')}</span> : null}
+        <span className="cx-sp" />
+        <label className="cx-act-tog"><input type="checkbox" checked={minor} onChange={e => setMinor(e.target.checked)} /><span className="tr" />Mostrar também ajustes menores {nMinor ? <em>({minor ? nMinor + ' incluídos' : nMinor + ' ocultos'})</em> : null}</label>
+      </div>
+    </div>
+
+    {loading && !events.length ? <div className="cx-act-list"><div className="cx-act-empty">Carregando o registro…</div></div>
+      : err ? <div className="cx-act-list"><div className="cx-act-empty">Não foi possível carregar o registro: {err}<div style={{ marginTop: 10 }}><button type="button" className="cx-btn sm" onClick={() => setTick(t => t + 1)}>Tentar de novo</button></div></div></div>
+      : !filtered.length ? <div className="cx-act-list"><div className="cx-act-empty">{filtersOn ? 'Nenhum registro com esses filtros.' : !vis.length && nMinor ? 'Só há ajustes menores neste período (' + nMinor + ' ocultos).' : 'Nada registrado neste período.'}</div></div>
+      : groups.map(g => { const l = cxActDayLabel(g.day, today); return <div key={g.day}>
+        <div className="cx-act-day">{l.main}{l.sub ? <span>{l.sub}</span> : null}</div>
+        <div className="cx-act-list">{g.items.map(e => <CxActRow key={e.id} ev={e} open={openIds.has(e.id)} full={fulls[e.id]} opObj={e.op ? opById.get(e.op.id) : null}
+          onToggle={() => toggleOpen(e.id)} onOpen={p.onOpenEntity} onRestore={setRestoreReq} />)}</div>
+      </div>; })}
+    {filtered.length > shown ? <div className="cx-act-more"><button type="button" className="cx-btn sm" onClick={() => setShown(shown + 200)}>Mostrar mais ({filtered.length - shown})</button></div> : null}
+
+    <div className="cx-act-foot">
+      <span>{cxPl(filtered.length, 'registro', 'registros')}{minor ? ' (inclui ajustes menores)' : ' relevantes'}{kpi ? ' · filtrando por ' + kpiName.toLowerCase() : ''}{kpi ? <> · <button type="button" className="cx-link-btn" onClick={() => setKpi(null)}>limpar</button></> : null}</span>
+      <span>O registro é automático. Restaurar nunca apaga o histórico: gera uma nova linha.</span>
+    </div>
+    {restoreReq ? <CxActRestoreModal req={restoreReq} activity={activity} onClose={() => setRestoreReq(null)} onDone={onDone} /> : null}
   </div>;
 }

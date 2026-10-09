@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Ajustes em formulários — Teor, Constrição, Relatório</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Tokens Nexus Prumo (Ardósia) — mesmos nomes do bloco "EDIÇÃO CLAUDE" de src/Nexus.shell.html */
+:root{
+  --cx-ground:#f2f3f5;--cx-panel:#ebedf0;--cx-surface:#fff;--cx-surface-2:#f6f7f9;--cx-hover:#e7e9ed;
+  --cx-line:#dcdfe4;--cx-line-strong:#c7cbd2;--cx-ink:#14161a;--cx-ink-2:#4d535e;--cx-ink-3:#7c828e;
+  --cx-accent:#8a6722;--cx-accent-soft:#f4ecdb;--cx-btn:#1b1e24;--cx-btn-hover:#2c3039;--cx-btn-ink:#fff;
+  --cx-red:#c2323d;--cx-red-soft:#fbe8e9;--cx-orange:#bf5f16;--cx-orange-soft:#fcefe3;
+  --cx-yellow:#946b00;--cx-yellow-soft:#f8efd2;--cx-blue:#2d62d3;--cx-blue-soft:#e7eefc;
+  --cx-green:#21845a;--cx-green-soft:#e2f3eb;--cx-violet:#6a4fd4;--cx-violet-soft:#eeeafc;
+  --cx-shadow:0 1px 2px rgba(20,24,32,.05),0 6px 20px rgba(20,24,32,.07);
+  --cx-shadow-lg:0 24px 64px rgba(20,24,32,.22);
+  --cx-font:'Geist','Segoe UI',system-ui,sans-serif;--cx-mono:'Geist Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --cx-ground:#16181c;--cx-panel:#111316;--cx-surface:#1c1f24;--cx-surface-2:#22262c;--cx-hover:#292d34;
+  --cx-line:#2f343c;--cx-line-strong:#434a55;--cx-ink:#eceef2;--cx-ink-2:#b4bac4;--cx-ink-3:#8e95a1;
+  --cx-accent:#d2ae62;--cx-accent-soft:rgba(210,174,98,.13);--cx-btn:#e6e9ee;--cx-btn-hover:#c9ced6;--cx-btn-ink:#14161a;
+  --cx-red:#f0777f;--cx-red-soft:rgba(240,119,127,.13);--cx-orange:#f0a066;--cx-orange-soft:rgba(240,160,102,.13);
+  --cx-yellow:#e0c24e;--cx-yellow-soft:rgba(224,194,78,.12);--cx-blue:#6fa6ff;--cx-blue-soft:rgba(111,166,255,.13);
+  --cx-green:#6bd09a;--cx-green-soft:rgba(107,208,154,.12);--cx-violet:#b9a4ff;--cx-violet-soft:rgba(185,164,255,.13);
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--cx-font);background:var(--cx-ground);color:var(--cx-ink);font-size:13px;line-height:1.45;padding:24px 16px 64px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:20px;font-weight:600;margin-bottom:2px}
+.lead{color:var(--cx-ink-2);margin-bottom:16px;max-width:760px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--cx-line)}
+.tab{border:0;background:none;font:inherit;font-weight:500;color:var(--cx-ink-2);padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected=true]{color:var(--cx-ink);border-bottom-color:var(--cx-accent)}
+.sec{display:none}.sec.on{display:block}
+.sec>p.why{color:var(--cx-ink-2);max-width:820px;margin-bottom:14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.col-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--cx-ink-3);margin-bottom:8px}
+.col-h b{padding:2px 7px;border-radius:5px;font-size:10.5px}
+.col-h .a{background:var(--cx-surface-2);border:1px solid var(--cx-line)}
+.col-h .d{background:var(--cx-accent-soft);color:var(--cx-accent)}
+.stack{display:flex;flex-direction:column;gap:16px}
+.blk-t{font-size:12px;font-weight:600;color:var(--cx-ink-2);margin:2px 0 6px}
+.card{background:var(--cx-surface);border:1px solid var(--cx-line);border-radius:10px;box-shadow:var(--cx-shadow);padding:14px}
+.note-d{font-size:12px;color:var(--cx-ink-3);margin-top:6px}
+.mark{outline:2px dashed var(--cx-accent);outline-offset:3px;border-radius:6px}
+.new-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--cx-accent);background:var(--cx-accent-soft);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+/* controles */
+.btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border-radius:7px;border:1px solid var(--cx-line);background:var(--cx-surface);color:var(--cx-ink);font:500 13px var(--cx-font);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--cx-hover)}.btn.primary{background:var(--cx-btn);color:var(--cx-btn-ink);border-color:transparent}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}.btn.ghost{border-color:transparent;background:none;color:var(--cx-ink-2)}
+.input,select.input,textarea.input{height:30px;border:1px solid var(--cx-line);border-radius:7px;background:var(--cx-surface);color:var(--cx-ink);font:13px var(--cx-font);padding:0 9px;width:100%}
+textarea.input{height:auto;padding:7px 9px;resize:vertical}
+label.f{display:block;font-size:11px;font-weight:600;color:var(--cx-ink-2);margin-bottom:4px}
+.fg{margin-bottom:10px}.row{display:grid;gap:10px}.r2{grid-template-columns:1fr 1fr}.r3{grid-template-columns:1fr 1fr 1fr}
+.hint{font-size:11px;color:var(--cx-ink-3);margin-top:3px}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;background:var(--cx-surface-2);border:1px solid var(--cx-line);color:var(--cx-ink-2)}
+.tag.red{background:var(--cx-red-soft);color:var(--cx-red);border-color:transparent}
+.tag.green{background:var(--cx-green-soft);color:var(--cx-green);border-color:transparent}
+.tag.blue{background:var(--cx-blue-soft);color:var(--cx-blue);border-color:transparent}
+.tag.yellow{background:var(--cx-yellow-soft);color:var(--cx-yellow);border-color:transparent}
+.mono{font-family:var(--cx-mono);font-size:11.5px}
+/* modal */
+.modal{background:var(--cx-surface);border:1px solid var(--cx-line);border-radius:12px;box-shadow:var(--cx-shadow-lg);overflow:hidden}
+.modal-h{display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--cx-line);font-weight:600}
+.modal-b{padding:14px 16px}.modal-f{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--cx-line);background:var(--cx-surface-2)}
+.ctx{padding:9px 11px;background:var(--cx-surface-2);border-radius:8px;margin-bottom:12px;font-size:12px}
+.ctx .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--cx-ink-3);font-weight:600;margin-bottom:3px}
+/* gaveta da intimação */
+.d-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.d-title{font-size:16px;font-weight:600;margin-bottom:2px}
+.d-ev{color:var(--cx-ink-2);font-size:13px;padding:2px 4px;margin:0 -4px;border-radius:5px}
+.d-ev:hover{background:var(--cx-hover)}
+.d-teor{display:flex;gap:6px;align-items:baseline;font-size:12px;color:var(--cx-ink-3);padding:2px 4px;margin:0 -4px;border-radius:5px;cursor:pointer}
+.d-teor:hover{background:var(--cx-hover);color:var(--cx-ink-2)}
+.d-teor .lab{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;flex:none}
+.d-teor.empty{opacity:.75}
+.d-teor q{quotes:none;color:var(--cx-ink-2);font-style:italic}
+/* linha da lista de intimações */
+.i-row{display:grid;grid-template-columns:18px 1fr auto;gap:10px;padding:10px 4px;border-top:1px solid var(--cx-line)}
+.i-row:first-child{border-top:0}
+.i-party{font-weight:600}.i-ev{color:var(--cx-ink-2)}
+.i-note{display:flex;gap:6px;color:var(--cx-ink-3);font-size:12px;margin-top:2px}
+.i-sub{display:flex;gap:8px;margin-top:4px;font-size:11.5px;color:var(--cx-ink-3)}
+.dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--cx-yellow);margin-top:5px}
+/* linha do tempo */
+.tl{position:relative;padding-left:22px}
+.tl:before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--cx-line)}
+.tl-i{position:relative;padding:0 0 14px}
+.tl-i:before{content:"";position:absolute;left:-21px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--cx-surface);border:2px solid var(--cx-line-strong)}
+.tl-i.ok:before{background:var(--cx-green);border-color:var(--cx-green)}
+.tl-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.tl-h b{font-weight:600}.tl-d{font-size:11.5px;color:var(--cx-ink-3)}
+.tl-tx{color:var(--cx-ink-2);font-size:12.5px}
+.tl-teor{margin-top:3px;font-size:12.5px;color:var(--cx-ink-2);border-left:2px solid var(--cx-line-strong);padding-left:8px}
+.tl-teor .src{font-size:10.5px;color:var(--cx-ink-3);margin-left:4px}
+/* relatório */
+.rel{font-family:Georgia,'Times New Roman',serif;font-size:12.5px;color:var(--cx-ink);background:var(--cx-surface);border:1px solid var(--cx-line);border-radius:8px;padding:12px 14px}
+.rel h5{font:600 10.5px var(--cx-font);text-transform:uppercase;letter-spacing:.06em;color:var(--cx-ink-3);margin-bottom:6px}
+.rel li{margin-left:16px;margin-bottom:3px}
+/* bem */
+.bem{display:grid;grid-template-columns:34px 1fr auto;gap:10px;padding:11px 12px;background:var(--cx-surface);border:1px solid var(--cx-line);border-radius:10px}
+.bem-ic{width:34px;height:34px;border-radius:8px;background:var(--cx-surface-2);display:grid;place-items:center;font-size:16px}
+.bem-t{font-weight:600}.bem-s{color:var(--cx-ink-3);font-size:12px}
+.bem-since{font-size:11.5px;color:var(--cx-ink-2);margin-top:3px}
+.bem-v{font-family:var(--cx-mono);font-weight:500;text-align:right}
+/* diário */
+.comp{border:1px solid var(--cx-line);border-radius:10px;background:var(--cx-surface);overflow:hidden}
+.comp-h{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--cx-line);background:var(--cx-surface-2);flex-wrap:wrap}
+.comp-h .input{width:auto}.sp{flex:1}
+.ed{min-height:62px;padding:10px 12px;color:var(--cx-ink-3)}
+.home{width:30px;height:30px;border-radius:7px;border:1px solid var(--cx-line);background:var(--cx-surface);color:var(--cx-ink-3);display:grid;place-items:center;cursor:pointer;padding:0}
+.home:hover{background:var(--cx-hover);color:var(--cx-ink)}
+.home[aria-pressed=true]{background:var(--cx-accent-soft);color:var(--cx-accent);border-color:var(--cx-accent)}
+.home svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.home[aria-pressed=true] svg{fill:currentColor;fill-opacity:.18}
+.en{padding:10px 12px;border:1px solid var(--cx-line);border-radius:9px;background:var(--cx-surface);margin-bottom:8px}
+.en-h{display:flex;gap:8px;align-items:center;margin-bottom:3px}
+.en-h .mono{color:var(--cx-ink-3)}
+.en-rel{display:inline-flex;align-items:center;gap:3px;color:var(--cx-accent);font-size:11px;font-weight:500}
+.en-rel svg{width:12px;height:12px;fill:currentColor;fill-opacity:.2;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.legend{font-size:12px;color:var(--cx-ink-2);margin-top:10px;padding:10px 12px;background:var(--cx-surface-2);border-radius:8px}
+.legend b{color:var(--cx-ink)}
+.toggle-demo{display:flex;gap:6px;align-items:center;margin-bottom:8px;font-size:12px;color:var(--cx-ink-2)}
+.duvidas{margin-top:22px;padding:12px 14px;border:1px solid var(--cx-line);border-radius:10px;background:var(--cx-surface)}
+.duvidas h4{font-size:12px;margin-bottom:6px}.duvidas li{margin-left:18px;color:var(--cx-ink-2);margin-bottom:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prumo · Três ajustes em formulários e cards</h1>
+  <p class="lead">Mockup estático para aprovação de layout (dados fictícios). Cada aba mostra <b>Antes</b> (como é hoje) e <b>Depois</b> (proposta). Contornos tracejados marcam o que muda. Nada aqui altera o modelo de dados existente; os campos novos são opcionais.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-t="s1">1 · Teor da decisão (intimação)</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="s2">2 · Data da constrição (bem)</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="s3">3 · Vai para o relatório (diário)</button>
+  </div>
+
+  <!-- ============ AJUSTE 1 ============ -->
+  <section class="sec on" id="s1">
+    <p class="why"><b>Menor atrito:</b> o teor é preenchido onde o objeto da intimação já é editado hoje (clique na linha de texto, na gaveta) e também aparece, opcional e pré-preenchido, no modal “Registrar atuação”. Não existe aviso, selo ou pendência quando está vazio.</p>
+
+    <div class="cols">
+      <div class="stack">
+        <div class="col-h"><b class="a">Antes</b> Gaveta da intimação</div>
+        <div class="card">
+          <div class="d-chips"><span class="tag">Op. Fachada Norte</span><span class="tag yellow">Pendente de análise</span></div>
+          <div class="d-title">Comercial Fachada Norte Ltda.</div>
+          <div class="d-ev">Decisão — indisponibilidade parcial deferida (ev. 52)</div>
+          <div class="note-d" style="margin-top:10px">Prazo final 21/10/2025 · <span class="mono">5001234-56.2023.4.04.7001</span></div>
+        </div>
+        <div class="col-h" style="margin-top:4px"><b class="a">Antes</b> Modal “Registrar atuação”</div>
+        <div class="modal">
+          <div class="modal-h"><span>Registrar resposta — ✓ Ciência</span><span>✕</span></div>
+          <div class="modal-b">
+            <div class="ctx"><div class="k">Intimação</div><div class="mono">5001234-56.2023.4.04.7001</div><div style="color:var(--cx-ink-3)">Decisão — indisponibilidade parcial deferida</div></div>
+            <div class="fg"><label class="f">Descrição do ato — qual decisão/despacho objeto da ciência *</label><textarea class="input" rows="2" placeholder="Ex: Ciência da decisão monocrática evento 52…"></textarea></div>
+            <div class="fg"><label class="f">📎 Link do documento / peça (opcional)</label><input class="input" placeholder="https://docs.google.com/document/d/..."></div>
+          </div>
+          <div class="modal-f"><button class="btn">Cancelar</button><button class="btn primary" disabled style="opacity:.5">✓ Registrar ciência</button></div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="col-h"><b class="d">Depois</b> Gaveta — teor preenchido</div>
+        <div class="card">
+          <div class="d-chips"><span class="tag">Op. Fachada Norte</span><span class="tag yellow">Pendente de análise</span></div>
+          <div class="d-title">Comercial Fachada Norte Ltda.</div>
+          <div class="d-ev">Decisão — indisponibilidade parcial deferida (ev. 52)</div>
+          <div class="d-teor mark" title="Clique para editar"><span class="lab">Teor</span><q>Defere indisponibilidade até R$ 1,2 mi; afasta o pedido de arresto de quotas.</q></div>
+          <div class="note-d" style="margin-top:10px">Prazo final 21/10/2025 · <span class="mono">5001234-56.2023.4.04.7001</span></div>
+        </div>
+
+        <div class="col-h"><b class="d">Depois</b> Gaveta — teor vazio (nenhum destaque)</div>
+        <div class="card">
+          <div class="d-title">Vale Verde Distribuidora S/A</div>
+          <div class="d-ev">Despacho — manifeste-se sobre a penhora (ev. 18)</div>
+          <div class="d-teor empty mark"><span class="lab">Teor</span><span>Adicionar teor da decisão…</span></div>
+          <div class="note-d">Mesmo padrão discreto de “Definir objeto…” (<code>cx-obj-undef</code>): texto cinza, sem ícone, sem contagem, sem pendência. Se o usuário não clicar, nada muda.</div>
+        </div>
+
+        <div class="col-h"><b class="d">Depois</b> Lista (card compacto) — preservado</div>
+        <div class="card" style="padding:4px 12px">
+          <div class="i-row"><div class="dot"></div><div><div class="i-party">Comercial Fachada Norte Ltda.</div><div class="i-ev">Decisão — indisponibilidade parcial deferida</div><div class="i-note">✎ <span>Nota: conferir matrícula 45.678</span></div><div class="i-sub"><span class="mono">5001234-56.2023.4.04.7001</span></div></div><span class="mono">21/10</span></div>
+        </div>
+        <div class="note-d">O teor <b>não</b> entra na linha da lista (o card de notas segue como está); só na gaveta e no modal.</div>
+
+        <div class="col-h"><b class="d">Depois</b> Modal “Registrar atuação”</div>
+        <div class="modal">
+          <div class="modal-h"><span>Registrar resposta — ✓ Ciência</span><span>✕</span></div>
+          <div class="modal-b">
+            <div class="ctx"><div class="k">Intimação</div><div class="mono">5001234-56.2023.4.04.7001</div><div style="color:var(--cx-ink-3)">Decisão — indisponibilidade parcial deferida</div></div>
+            <div class="fg"><label class="f">Descrição do ato — qual decisão/despacho objeto da ciência *</label><textarea class="input" rows="2">Ciência da decisão do ev. 52.</textarea></div>
+            <div class="fg mark"><label class="f">Teor da decisão <span style="font-weight:400;color:var(--cx-ink-3)">(opcional · 1–2 linhas)</span><span class="new-tag">novo</span></label><textarea class="input" rows="2" maxlength="240" placeholder="Ex.: Defere indisponibilidade até R$ 1,2 mi; indefere arresto de quotas.">Defere indisponibilidade até R$ 1,2 mi; afasta o pedido de arresto de quotas.</textarea><div class="hint">Aparece na fase da frente (Linha do tempo) e no relatório. Em branco: nada é gerado.</div></div>
+            <div class="fg"><label class="f">📎 Link do documento / peça (opcional)</label><input class="input" placeholder="https://docs.google.com/document/d/..."></div>
+          </div>
+          <div class="modal-f"><button class="btn">Cancelar</button><button class="btn primary">✓ Registrar ciência</button></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin:26px 0 8px;font-size:14px">Repercussão em cadeia</h3>
+    <div class="cols">
+      <div class="stack">
+        <div class="col-h"><b class="a">Antes</b> Linha do tempo — frente processual</div>
+        <div class="card"><div class="tl">
+          <div class="tl-i ok"><div class="tl-h"><b>Ajuizamento</b><span class="tl-d">14/03/2025 · ev. 1</span></div><div class="tl-tx">IDPJ ajuizado vinculando Marina Ferreira Norte.</div></div>
+          <div class="tl-i ok"><div class="tl-h"><b>Liminar</b><span class="tag green">favorável</span><span class="tl-d">12/05/2025 · ev. 12</span></div><div class="tl-tx">Liminar deferida — inclusão cautelar no polo.</div></div>
+          <div class="tl-i"><div class="tl-h"><b>Decisão final</b><span class="tl-d">sem data</span></div><div class="tl-tx">Aguardando instrução.</div></div>
+        </div></div>
+      </div>
+      <div class="stack">
+        <div class="col-h"><b class="d">Depois</b> Linha do tempo — teor refletido</div>
+        <div class="card"><div class="tl">
+          <div class="tl-i ok"><div class="tl-h"><b>Ajuizamento</b><span class="tl-d">14/03/2025 · ev. 1</span></div><div class="tl-tx">IDPJ ajuizado vinculando Marina Ferreira Norte.</div></div>
+          <div class="tl-i ok"><div class="tl-h"><b>Liminar</b><span class="tag green">favorável</span><span class="tl-d">12/05/2025 · ev. 12</span></div><div class="tl-tx">Liminar deferida — inclusão cautelar no polo.</div></div>
+          <div class="tl-i ok"><div class="tl-h"><b>Constrições</b><span class="tl-d">03/09/2025 · ev. 52</span></div>
+            <div class="tl-teor mark">Defere indisponibilidade até R$ 1,2 mi; afasta o pedido de arresto de quotas.<span class="src">· teor da intimação</span></div></div>
+          <div class="tl-i"><div class="tl-h"><b>Decisão final</b><span class="tl-d">sem data</span></div><div class="tl-tx">Aguardando instrução.</div></div>
+        </div></div>
+        <div class="note-d">Regra proposta: o teor vira o texto complementar da fase já existente para aquele evento (por ora a fase é inferida pelo tipo do ato; se não houver correspondência clara, o teor fica só na gaveta, sem criar fase nova).</div>
+        <div class="col-h"><b class="d">Depois</b> Cronologia do relatório</div>
+        <div class="rel"><h5>Cronologia processual</h5><ul>
+          <li>14/03/2025 — Ajuizamento (ev. 1).</li>
+          <li>12/05/2025 — Liminar deferida (ev. 12).</li>
+          <li class="mark" style="list-style:disc">03/09/2025 — Decisão (ev. 52): defere indisponibilidade até R$ 1,2 mi; afasta o pedido de arresto de quotas.</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AJUSTE 2 ============ -->
+  <section class="sec" id="s2">
+    <p class="why"><b>Menor atrito:</b> “Data da constrição” ocupa a linha do Status e só aparece quando a situação é de constrição (Indisponibilidade ativa / requerida; futuramente penhora, bloqueio). Padrão = hoje, editável, nunca obrigatório. Teste: troque a Situação abaixo.</p>
+    <div class="cols">
+      <div class="stack">
+        <div class="col-h"><b class="a">Antes</b> Formulário do bem</div>
+        <div class="modal">
+          <div class="modal-h"><span>Novo bem</span><span>✕</span></div>
+          <div class="modal-b">
+            <div class="row r3 fg">
+              <div><label class="f">Tipo</label><select class="input"><option>Imóvel</option></select></div>
+              <div><label class="f">Valor (R$)</label><input class="input" value="900000"></div>
+              <div><label class="f">Status</label><select class="input"><option>Indisponibilidade Ativa</option></select></div>
+            </div>
+            <div class="row r2 fg">
+              <div><label class="f">Origem / Sistema</label><input class="input" value="CNIB"></div>
+              <div><label class="f">Processo Vinculado</label><input class="input" value="5001234-56.2023.4.04.7001"></div>
+            </div>
+            <div class="row r2 fg">
+              <div><label class="f">Registro / Matrícula / Placa</label><input class="input" value="45.678"></div>
+              <div><label class="f">Titular</label><select class="input"><option>Marina Ferreira Norte</option></select></div>
+            </div>
+            <div class="fg"><label class="f">Descrição</label><input class="input" value="Imóvel — Matrícula 45.678 CRI Maringá"></div>
+          </div>
+          <div class="modal-f"><button class="btn">Cancelar</button><button class="btn primary">Salvar</button></div>
+        </div>
+        <div class="col-h"><b class="a">Antes</b> Card do bem</div>
+        <div class="bem"><div class="bem-ic">🏠</div><div><div class="bem-t">Imóvel · Matrícula 45.678</div><div class="bem-s">Marina Ferreira Norte · CNIB</div><div style="margin-top:4px"><span class="tag green">Indisponibilidade Ativa</span></div></div><div class="bem-v">R$ 900.000</div></div>
+      </div>
+
+      <div class="stack">
+        <div class="col-h"><b class="d">Depois</b> Formulário do bem (interativo)</div>
+        <div class="modal">
+          <div class="modal-h"><span>Novo bem</span><span>✕</span></div>
+          <div class="modal-b">
+            <div class="row r3 fg">
+              <div><label class="f">Tipo</label><select class="input"><option>Imóvel</option></select></div>
+              <div><label class="f">Valor (R$)</label><input class="input" value="900000"></div>
+              <div><label class="f">Situação</label><select class="input" id="st"><option value="ativa">Indisponibilidade Ativa</option><option value="req">Indisponibilidade Requerida</option><option value="lib">Liberado</option><option value="ctv">Controvertido</option></select></div>
+            </div>
+            <div class="fg mark" id="dtbox"><label class="f">Data da constrição <span style="font-weight:400;color:var(--cx-ink-3)">(opcional)</span><span class="new-tag">novo</span></label><input class="input" type="date" id="dt" style="max-width:190px"><div class="hint">Já preenchida com hoje. Apague se não souber; nada é cobrado.</div></div>
+            <div class="row r2 fg">
+              <div><label class="f">Origem / Sistema</label><input class="input" value="CNIB"></div>
+              <div><label class="f">Processo Vinculado</label><input class="input" value="5001234-56.2023.4.04.7001"></div>
+            </div>
+            <div class="row r2 fg">
+              <div><label class="f">Registro / Matrícula / Placa</label><input class="input" value="45.678"></div>
+              <div><label class="f">Titular</label><select class="input"><option>Marina Ferreira Norte</option></select></div>
+            </div>
+            <div class="fg"><label class="f">Descrição</label><input class="input" value="Imóvel — Matrícula 45.678 CRI Maringá"></div>
+          </div>
+          <div class="modal-f"><button class="btn">Cancelar</button><button class="btn primary">Salvar</button></div>
+        </div>
+        <div class="note-d">Ao escolher “Liberado” ou “Controvertido” o campo some (valor guardado é mantido, só não é exibido).</div>
+        <div class="col-h"><b class="d">Depois</b> Cards do bem</div>
+        <div class="bem"><div class="bem-ic">🏠</div><div><div class="bem-t">Imóvel · Matrícula 45.678</div><div class="bem-s">Marina Ferreira Norte · CNIB</div><div style="margin-top:4px"><span class="tag green">Indisponibilidade Ativa</span></div><div class="bem-since mark">Indisponível desde 12/03/2025</div></div><div class="bem-v">R$ 900.000</div></div>
+        <div class="bem"><div class="bem-ic">🚗</div><div><div class="bem-t">Veículo · ABC1D23</div><div class="bem-s">BMW X5 · Renajud</div><div style="margin-top:4px"><span class="tag yellow">Indisponibilidade Requerida</span></div><div class="bem-since mark">Requerida em 02/09/2025</div></div><div class="bem-v">R$ 280.000</div></div>
+        <div class="bem"><div class="bem-ic">🏦</div><div><div class="bem-t">Conta bancária · Vale Verde</div><div class="bem-s">Sisbajud</div><div style="margin-top:4px"><span class="tag">Liberado</span></div></div><div class="bem-v">R$ 145.000</div></div>
+        <div class="note-d">Sem data (bens antigos): a linha simplesmente não aparece. “Liberado” não mostra a linha.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AJUSTE 3 ============ -->
+  <section class="sec" id="s3">
+    <p class="why"><b>Menor atrito:</b> a casinha fica na barra do compositor, ao lado do seletor de tipo. Ao trocar o tipo ela acompanha o padrão (ligada em Decisão judicial e Providência), mas o clique manual sempre vence. Experimente trocar o tipo no “Depois”.</p>
+    <div class="cols">
+      <div class="stack">
+        <div class="col-h"><b class="a">Antes</b> Compositor do Diário</div>
+        <div class="comp">
+          <div class="comp-h"><select class="input"><option>Observação</option></select><input type="date" class="input" value="2025-10-08"><span class="sp"></span><button class="btn sm ghost">Cancelar</button><button class="btn sm primary">+ Adicionar</button></div>
+          <div class="ed">Registrar risco, estratégia, decisão, providência…</div>
+        </div>
+        <div class="col-h"><b class="a">Antes</b> Entrada salva</div>
+        <div class="en"><div class="en-h"><span class="tag blue">Decisão judicial</span><span class="mono">03/09/2025</span></div>Indisponibilidade deferida até R$ 1,2 mi.</div>
+      </div>
+
+      <div class="stack">
+        <div class="col-h"><b class="d">Depois</b> Compositor (interativo)</div>
+        <div class="comp">
+          <div class="comp-h">
+            <select class="input" id="tp"><option value="risco">Risco</option><option value="estrategia">Estratégia</option><option value="decisao">Decisão judicial</option><option value="providencia">Providência</option><option value="replicacao">Replicação</option><option value="observacao" selected>Observação</option></select>
+            <input type="date" class="input" value="2025-10-08">
+            <button class="home mark" id="hm" aria-pressed="false" title="Vai para o relatório"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg></button>
+            <span class="hint" id="hmt" style="margin:0">Vai para o relatório: não</span>
+            <span class="sp"></span><button class="btn sm ghost">Cancelar</button><button class="btn sm primary">+ Adicionar</button>
+          </div>
+          <div class="ed">Registrar risco, estratégia, decisão, providência…</div>
+        </div>
+        <div class="col-h"><b class="d">Depois</b> Entradas salvas</div>
+        <div class="en"><div class="en-h"><span class="tag blue">Decisão judicial</span><span class="mono">03/09/2025</span><span class="en-rel mark" title="Vai para o relatório"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>relatório</span></div>Indisponibilidade deferida até R$ 1,2 mi.</div>
+        <div class="en"><div class="en-h"><span class="tag yellow">Providência</span><span class="mono">30/09/2025</span><span class="en-rel mark"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>relatório</span></div>Oficiar o CRI de Maringá para averbação.</div>
+        <div class="en"><div class="en-h"><span class="tag">Observação</span><span class="mono">01/10/2025</span></div>Cliente pediu retorno na próxima semana.</div>
+        <div class="legend"><b>Indicador:</b> ícone da casinha + a palavra “relatório”, em dourado discreto (cor de acento), só nas entradas marcadas. Entradas sem a marca ficam exatamente como hoje. Clicar no indicador alterna a marca sem abrir o compositor.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="duvidas">
+    <h4>Dúvidas para decidir</h4>
+    <ol>
+      <li>Teor: um campo só na intimação (reaproveitado em gaveta e modal) ou um teor por registro de atuação? A proposta usa um só, para não duplicar texto.</li>
+      <li>Constrição: quais situações mostram o campo? Hoje só existem “Indisponibilidade ativa/requerida”; penhora e bloqueio entrariam como novas situações ou continuam como “origem”?</li>
+      <li>Casinha: entradas antigas de Decisão/Providência já existentes passam a ir para o relatório automaticamente ou ficam desmarcadas até o usuário marcar?</li>
+      <li>Rótulo da casinha: “Vai para o relatório” é o texto ideal ou prefere outro (ex.: “No relatório”)?</li>
+    </ol>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){
+  document.querySelectorAll('.tab').forEach(function(x){x.setAttribute('aria-selected',x===b)});
+  document.querySelectorAll('.sec').forEach(function(s){s.classList.toggle('on',s.id===b.dataset.t)});
+})});
+// Ajuste 2
+var hoje=new Date().toISOString().slice(0,10);document.getElementById('dt').value=hoje;
+document.getElementById('st').addEventListener('change',function(e){
+  document.getElementById('dtbox').style.display=(e.target.value==='ativa'||e.target.value==='req')?'':'none';
+});
+// Ajuste 3
+var hm=document.getElementById('hm'),hmt=document.getElementById('hmt'),tp=document.getElementById('tp');
+function setHome(on){hm.setAttribute('aria-pressed',on);hmt.textContent='Vai para o relatório: '+(on?'sim':'não')}
+tp.addEventListener('change',function(){setHome(tp.value==='decisao'||tp.value==='providencia')});
+hm.addEventListener('click',function(){setHome(hm.getAttribute('aria-pressed')!=='true')});
+</script>
+</body>
+</html>
