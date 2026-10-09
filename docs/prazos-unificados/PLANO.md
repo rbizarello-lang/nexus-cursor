@@ -41,8 +41,13 @@ Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commit
 ## Andamento
 - Fase 1 (Prumo): feita — `buildMesaCards` em `src/lib/prazos-mesa.js` (testes em `test/prazos-mesa.test.mjs`) e Mesa do Prumo em cartões (`EditionClaudePrazos`).
 - Fase 2 (Painel de Filtros): feita nas três Mesas — `filterMesaItems`/`filterMesaCards` em `src/lib/prazos-mesa.js`; campos `nat`, `cedoTarde`, `idpj`, `minVal`, `juntar` em `prazosFilters`. Decisão 13 completada: contadores por operação/pessoa (ponto da barra lateral, "Presc. CDA", ⏱, Carteira, Partes, Inscrições, Visão geral) contam `mesaIsAction` (fileira 1).
-
 - Fase 3 (edição no lugar, lote, Desfazer, Ajuizar): feita nas três Mesas. Funções puras em `src/lib/prazos-mesa.js` (`mesaPrimaryAction`, `captureUndo`/`applyUndo`, `mesaPlanAjuizar`, `mesaDestText`, `mesaBatchCan`…); componentes compartilhados `MesaForm`, `MesaActs`, `MesaFeitoStrip`, `MesaBatchBar` em `src/app.jsx` (classes `mzf-*`, variáveis por edição); gravações do app em `mesaDo*` (usam `upsert`/`handleSave`). Pendência da fase 1 fechada: análise de penhora vigente cai com fato datado posterior.
+- Validação (Playwright, demo + CDAs sintéticas, 1280 e 390 px, três edições): 366 conferências sem falha — cada ação com faixa Feito e Desfazer devolvendo ao cartão de origem; Ajuizar individual e em lote (cria uma execução ou só vincula a existente; Desfazer remove só a criada); eventos em lote com `batchCdaIds`; sem rolagem horizontal; sem erros de console.
+
+## Pendências e próximos passos
+- Conferir com a carteira real os cartões que a demo não exercita bem (Conferir sem pressa, Lançar fato, Confirmar vigência).
+- Rótulos por linha que ainda seguem os grupos do motor: "no alarme" nas telas de Processos do Prumo, contador por intimação, "urgente" da Agenda (`agenda.js`).
+- E-mail diário (decisão 9): suspenso; ao retomar, seguir os mesmos cartões (`buildMesaCards`).
 
 ## Arquivos
 - `00-brief.md` pedido, premissas e regras comuns · `01-superficies.md` inventário das telas atuais · `02-motor-vocabulario.md` o que o motor devolve · `03-verificacao.md` parecer do revisor, comparativo e correções.
