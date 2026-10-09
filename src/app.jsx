@@ -9607,7 +9607,7 @@ function App() {
     } else {
       setViewMode(prev => (prev === 'hoje' ? 'painel' : prev));
     }
-    if (edition !== 'claude') setViewMode(prev => (prev === 'cx_timeline' ? 'operacoes' : prev));
+    if (edition !== 'claude') setViewMode(prev => (prev === 'cx_timeline' ? 'operacoes' : prev === 'cx_atividade' ? 'painel' : prev));
     setCxDrawerId(null);
     setShowSettings(false);
   };
@@ -10991,6 +10991,26 @@ function App() {
     setCxProcFocus({ ...focus, n: Date.now() });
     startTabSwitch(() => { setActiveOpId(opId); setImportResult(null); setViewMode('operation'); setActiveTab('prescricao_v2'); });
   };
+  // Minha atividade → "Abrir no Nexus": leva ao item do registro (gaveta da intimação, ficha do processo/CDA, tarefa, audiência) ou, no mínimo, à operação.
+  const cxOpenActivityEntity = (ev) => {
+    const en = (ev && ev.entity) || {};
+    const opId = ev && ev.op && ev.op.id;
+    const find = (col) => (data[col] || []).find(x => x && String(x.id) === String(en.id));
+    const norm = (s) => String(s || '').replace(/\D/g, '');
+    const hit = en.col === 'operations' ? null : find(en.col);
+    if (en.col === 'intimations' && hit) return setCxDrawerId(hit.id);
+    if (en.col === 'executions' && hit) return cxOpenProcDrawer({ execId: hit.id });
+    if (en.col === 'debts' && hit) return cxOpenProcDrawer({ cdaId: hit.id });
+    if (en.col === 'tasks' && hit) return cxOpenTask(hit);
+    if (en.col === 'hearings' && hit) return cxOpenHearing(hit);
+    const tab = { assets: 'bens', people: 'pessoas', documents: 'docs', measures: 'bens' }[en.col];
+    if (tab && hit && hit.operationId) return cxOpenOp(hit.operationId, tab);
+    const pn = norm(en.proc);
+    const ex = pn.length >= 10 ? (data.executions || []).find(x => norm(x.processNumber) === pn) : null;
+    if (ex) return cxOpenProcDrawer({ execId: ex.id });
+    if (opId && (data.operations || []).some(o => o.id === opId)) return cxOpenOp(opId);
+    cxNotify('O item não existe mais no Nexus.');
+  };
   const cxOpenHearing = (h) => { setViewMode('audiencias'); setTimeout(() => setModal({ type: 'edit', entityType: 'hearing', initial: h }), 80); };
   /* Cabeçalho único da operação (Nexus Prumo): o mesmo componente em todas as abas, inclusive a Visão geral. */
   const cxOpHeaderEl = (isClaude && viewMode === 'operation' && activeOp) ? <EditionClaudeOpHeader op={activeOp} opStats={opStats} activeTab={activeTab} data={data}
@@ -11019,7 +11039,7 @@ function App() {
     onWatch: (intim) => setModal({ type: 'create', entityType: 'watch', initial: { processNumber: intim.processNumber, parties: intim.parties, operationId: intim.operationId, reason: `Origem: ${intim.eventDescription || 'intimação'}`, createdAt: new Date().toISOString() } }),
   };
   const cxCrumbs = (() => {
-    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel' };
+    const L = { hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações', operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel', cx_atividade: 'Minha atividade' };
     if (viewMode === 'operation' && activeOp) return ['Carteira', activeOp.name, activeTab === 'pessoas' ? 'Partes' : activeTab === 'bens' ? 'Bens' : tabLabels[activeTab]].filter(Boolean);
     if (viewMode === 'intimacoes' && cxIntimView === 'foco') return ['Intimações', 'Foco'];
     return [L[viewMode] || 'NEXUS'];
@@ -11378,6 +11398,7 @@ function App() {
         onOpenTask={cxOpenTask} onOpenHearing={cxOpenHearing} onStartFocus={() => { setCxIntimView('foco'); cxGo('intimacoes'); }}
         onOpenIntimUf={(uf) => { setCxIntimInitialUf(uf); cxGo('intimacoes'); }}
         onOpenAgendaDay={(iso) => { setCxAgendaInitialDay(iso); cxGo('audiencias'); }}
+        activity={activityApi} onOpenAtividade={() => cxGo('cx_atividade')}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
         onReviewed={(op) => { upsert('operations', { ...op, lastReviewedAt: new Date().toISOString() }); cxNotify('Revisão registrada hoje'); }} /></div>}
       {viewMode === 'intimacoes' && isClaude && <div className="cx-scroll"><EditionClaudeIntimacoes data={data} opsById={opsById} view={cxIntimView} setView={setCxIntimView}
@@ -11395,6 +11416,7 @@ function App() {
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} /></div>}
+      {viewMode === 'cx_atividade' && isClaude && <div className="cx-scroll"><EditionClaudeAtividade activity={activityApi} data={data} onOpenEntity={cxOpenActivityEntity} /></div>}
       {viewMode === 'tarefas_global' && isClaude && <div className="cx-scroll"><EditionClaudeTarefas data={data} opsById={opsById} upsert={upsert} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}

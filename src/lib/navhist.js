@@ -21,7 +21,7 @@ export const NH_PRAZOS_VIEWS = { mesa: 'Mesa', relogios: 'Relógios', lista: 'Li
 export const NH_INSC_VIEWS = { tabela: 'Tabela', relogios: 'Relógios' };
 export const NH_VIEW_LABELS = {
   hoje: 'Hoje', cx_timeline: 'Linha do tempo', intimacoes: 'Intimações', tarefas_global: 'Tarefas', mesa: 'Mesa de intimações',
-  operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel',
+  operacoes: 'Carteira', prazos: 'Prazos extintivos', audiencias: 'Agenda', acompanhar: 'Acompanhar', modelos: 'Biblioteca', painel: 'Painel', cx_atividade: 'Minha atividade',
 };
 /** Aba da operação que tem a visão Tabela/Relógios (Inscrições). */
 export const NH_INSC_TAB = 'dividas';
