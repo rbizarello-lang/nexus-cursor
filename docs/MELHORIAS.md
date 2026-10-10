@@ -285,6 +285,16 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     colunas anulava a regra do celular), a Carga de prazos da Hoje empilha até 1100 px pelo mesmo motivo, e o anel do
     Crédito sob gestão some abaixo de 560 px (o percentual continua no texto). Fecha a auditoria: textos e datas (1),
     escala tipográfica (2), número de processo e cópia (3), chips/contadores/recolher/vazios/alturas (4), limpeza (5).
+  - **Coluna Indicadores V1 do card de intimação** (10/10/2026) — só Prumo, versão V1 do mockup
+    `design/mockups/prumo-intimacao-indicadores.html`. Saem da coluna os glifos de Importância/Complexidade e o chip
+    URGENTE; entram etiquetas de texto empilhadas, com a largura da coluna e em tons de vermelho: URGENTE (sólida),
+    IMPORTANTE (preenchimento suave, importância alta) e COMPLEXO (só contorno, complexidade alta), mono 700 9px
+    (novo token `--cx-fs-9`). Na base da coluna, a esteira em cápsula "t1" (`CxIxRail`): uma pílula vertical por etapa
+    (verde feita, azul atual, cinza a fazer), com a mesma altura do ícone da peça (18px), um fio e o ícone, alinhada à
+    direita. A esteira não tem mais frase: etapa, "n de N" e "Parou há…" só na dica (mouse ou foco). Sem esteira, a
+    cápsula mostra só a peça; sem peça, só as pílulas. No celular a coluna vira faixa: etiquetas à esquerda, cápsula à
+    direita. Cabeçalho INDICADORES alinhado às etiquetas. Removidos `.cx-ix-slots`, `.cx-ix-ei`, `.cx-ix-el`,
+    `.cx-ix-sn .cx-urg` e `.cx-it-tags .cx-urg`. Quadro, Mesa, Hoje e gaveta seguem com os glifos e a barrinha de antes.
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---

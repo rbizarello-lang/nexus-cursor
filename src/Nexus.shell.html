@@ -4040,8 +4040,9 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
   --cx-row-h-sm: 42px; --cx-row-h-md: 56px;
   /* Escala tipográfica do Prumo (fase 2 da auditoria). Valem para os três temas (só cores mudam por tema).
      xs rótulos/cabeçalhos em caixa alta · sm texto denso (listas, cards, notas de lista) · md corpo de painéis · base leitura (gaveta/ficha) · lg destaques.
-     10/11/12 são degraus intermediários já usados (chip, contagem, data comum). h = h1 de página · title = título de gaveta/foco/cabeçalho da operação · kpi = número grande. */
-  --cx-fs-10: 10px; --cx-fs-xs: 10.5px; --cx-fs-11: 11px; --cx-fs-sm: 11.5px; --cx-fs-12: 12px; --cx-fs-md: 12.5px; --cx-fs-base: 13px; --cx-fs-lg: 14px;
+     10/11/12 são degraus intermediários já usados (chip, contagem, data comum). 9 = etiqueta mono em caixa alta (URGENTE/IMPORTANTE/COMPLEXO do card).
+     h = h1 de página · title = título de gaveta/foco/cabeçalho da operação · kpi = número grande. */
+  --cx-fs-9: 9px; --cx-fs-10: 10px; --cx-fs-xs: 10.5px; --cx-fs-11: 11px; --cx-fs-sm: 11.5px; --cx-fs-12: 12px; --cx-fs-md: 12.5px; --cx-fs-base: 13px; --cx-fs-lg: 14px;
   --cx-fs-h3: 17px; --cx-fs-title: 19px; --cx-fs-h: 22px; --cx-fs-kpi: 28px;
   /* Largura reservada da barra de rolagem (ver ::-webkit-scrollbar): o banner alinha com o conteúdo. */
   --cx-sbw: 6px;
@@ -4520,8 +4521,9 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
   --emb-warn: color-mix(in srgb, var(--cx-yellow) 78%, var(--cx-ink));
   --emb-today: color-mix(in srgb, var(--cx-orange) 86%, var(--cx-ink));
   --ixgap: 5px;                                                             /* respiro entre os blocos da identidade */
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 84%, var(--cx-ink));       /* texto da etiqueta IMPORTANTE */
 }
-.app-layout.edition-claude.cx-theme-noite .cx-it-list, .app-layout.edition-claude.cx-theme-grafite .cx-it-list { --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent); }
+.app-layout.edition-claude.cx-theme-noite .cx-it-list, .app-layout.edition-claude.cx-theme-grafite .cx-it-list { --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent); --tag-i-ink: color-mix(in srgb, var(--cx-red) 92%, var(--cx-ink)); }
 .cx-ix, .cx-ix-h { display: grid; padding: 0 14px; column-gap: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id pz" "sn sn" "tr tr" "nt nt"; }
 .cx-ix-h { display: none; }
 @container lst (min-width: 860px) {
@@ -4549,7 +4551,6 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
 .cx-it-op .cx-op-sq { border-radius: 2px; }
 .cx-it-op.none .cx-op-sq { background: transparent !important; border: 1.5px dashed var(--cx-line-strong); }
 .cx-it-tags { display: inline-flex; align-items: center; gap: 5px; flex: none; }
-.cx-it-tags .cx-urg { margin-right: 0; }
 .cx-tag.xs { height: 16px; padding: 0 5px; font-size: var(--cx-fs-10); border-radius: 4px; }
 .cx-ix-party { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: var(--cx-fs-base); line-height: 18px; }
 .cx-ix-pc { display: flex; align-items: center; gap: 9px; min-width: 0; }
@@ -4576,13 +4577,27 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
 .cx-it-note.act::before { display: none; }
 .cx-it-more { padding-left: 12px; font: 500 var(--cx-fs-xs)/15px var(--cx-mono); color: var(--mini); }
 
-/* Sinais: Imp | Compl | peça em 3 casas fixas (alinham entre linhas), URGENTE e esteira (barrinhas + etapa atual) */
-.cx-ix-sn { grid-area: sn; min-width: 0; padding: 8px 6px 9px; border-left: 1px solid var(--cx-line); display: flex; flex-direction: column; align-items: center; gap: var(--ixgap); }
-.cx-ix-slots { display: grid; grid-template-columns: repeat(3, 26px); justify-items: center; align-items: center; height: 18px; }
-.cx-ix-slots .sl { display: inline-flex; align-items: center; justify-content: center; min-width: 0; }
-.cx-ix-sn .cx-urg { margin: 0; }
-.cx-ix-ei { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; min-width: 0; }
-.cx-ix-el { max-width: 100%; font-size: var(--cx-fs-xs); line-height: 13px; color: var(--cx-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Indicadores (V1): etiquetas de texto empilhadas no topo, em tons de vermelho e com a largura da coluna (URGENTE sólida ·
+   IMPORTANTE preenchimento suave · COMPLEXO só contorno); na base, a cápsula esteira → peça: uma pílula vertical por etapa,
+   com a altura do ícone da peça (18px), um fio e o ícone. Etapa, "n de N" e "Parou…" só na dica (hover/foco). */
+.cx-ix-sn { grid-area: sn; min-width: 0; padding: 8px 6px 9px; border-left: 1px solid var(--cx-line); display: flex; flex-direction: column; }
+.cx-ixg { display: flex; flex-direction: column; gap: 3px; }
+.cx-ixt { display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 5px; border-radius: 3px; font: 700 var(--cx-fs-9)/1 var(--cx-mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.cx-ixt.u { background: var(--cx-red); color: var(--cx-on-solid); }
+.cx-ixt.i { background: var(--cx-red-soft); color: var(--tag-i-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-red) 42%, transparent); }
+.cx-ixt.c { color: var(--cx-red); box-shadow: inset 0 0 0 1px var(--cx-red); font-weight: 600; }
+.cx-ixf { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 6px; }
+.cx-ixr { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 6px; border-radius: 7px; background: var(--cx-surface-2); box-shadow: inset 0 0 0 1px var(--cx-line); }
+.cx-ixr:not(.est) { padding-left: 4px; }      /* só a peça */
+.cx-ixr:not(.doc) { padding-right: 6px; }     /* só a esteira (sem fio) */
+.cx-ixr:not(.doc) .cx-ixr-l { display: none; }
+.cx-ixr-e { display: inline-flex; align-items: center; gap: 6px; border-radius: 3px; cursor: help; }
+.cx-ixr-e:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 2px; }
+.cx-ixr-p { display: flex; gap: 2px; height: 18px; }
+.cx-ixr-p i { width: 4px; border-radius: 2px; background: var(--cx-line-strong); }
+.cx-ixr-p i.d { background: var(--cx-green); }
+.cx-ixr-p i.n { background: var(--cx-blue); }
+.cx-ixr-l { width: 1px; height: 18px; background: var(--cx-line); }
 
 /* Prazo: só tempo. Degrau 1 = data final (contagem no tooltip); degrau 2 = embargos, menor, logo abaixo */
 .cx-ix-pz { grid-area: pz; padding: 8px 0 8px 6px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0; }
@@ -4602,7 +4617,7 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
 .cx-ix-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
 .cx-ix-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
 .cx-ix-h .h-nt b { color: var(--cx-accent); }
-.cx-ix-h .h-sn { grid-area: sn; text-align: center; border-left: 1px solid var(--cx-line); }
+.cx-ix-h .h-sn { grid-area: sn; padding-left: 6px; border-left: 1px solid var(--cx-line); }
 .cx-ix-h .h-sn b, .cx-ix-h .h-pz b { margin-right: 0; }
 .cx-ix-h .h-pz { grid-area: pz; padding-left: 6px; text-align: right; }
 .cx-ix-h .m-only { display: none; }
@@ -4626,13 +4641,12 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
   .cx-ix-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 17px; }
   .cx-ix-pz { padding: 8px 0 0 8px; }
   .cx-ix-id { padding-right: 8px; }
-  /* Sinais vira uma faixa horizontal compacta entre a identidade e o Objeto */
-  .cx-ix-sn { border-left: 0; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px 12px; padding: 5px 0 0; }
-  .cx-ix-slots { grid-template-columns: repeat(3, auto); gap: 12px; height: auto; }
-  .cx-ix-slots .sl:empty { display: none; }
-  .cx-ix-ei { flex-direction: row; gap: 7px; }
-  .cx-ix-el { max-width: 160px; }
-  /* Celular estreito: o nº pode quebrar no hífen e Imp./Compl./peça descem para a linha de baixo, em vez de cortar */
+  /* Indicadores vira uma faixa horizontal compacta entre a identidade e o Objeto: etiquetas à esquerda, cápsula à direita */
+  .cx-ix-sn { border-left: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0 0; }
+  .cx-ix-sn:empty { display: none; }
+  .cx-ixg { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .cx-ixf { margin: 0 0 0 auto; padding-top: 0; }
+  /* Celular estreito: o nº pode quebrar no hífen em vez de cortar */
   .cx-ix-pc { flex-wrap: wrap; row-gap: 3px; }
   .cx-ix-pc .cx-proc { flex: 0 1 auto; min-width: 0; }
   .cx-ix .cx-proc { white-space: normal; }
