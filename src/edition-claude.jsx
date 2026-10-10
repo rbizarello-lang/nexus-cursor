@@ -1218,7 +1218,7 @@ function cxGroupResolved(items) {
 /* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
    contagem no tooltip). Cinco zonas: identidade (operação · Novo/Atualizada no topo, situação + parte, nº + sigla) · Objeto (objeto e teor da
    decisão) · Notas · Indicadores (Imp/Compl/peça, URGENTE, esteira) · Prazo (só tempo: data final e embargos). Cálculos em
-   src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-i-row/cx-c-*. */
+   src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-t-row/cx-w-row. */
 function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
 /* Esteira da peça na coluna Indicadores: só as barrinhas e a etapa atual (sem "parou há", que fica no tooltip). */
 function CxIxEst({ esteira }) {
