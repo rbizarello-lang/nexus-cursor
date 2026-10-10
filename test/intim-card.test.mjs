@@ -53,10 +53,10 @@ describe('prazo (só tempo)', () => {
     const p = intimPrazo({ dateDeadline: '2026-10-14' }, TODAY);
     assert.equal(p.tone, 'later');
     assert.equal(p.txt, 'Qua 14/10');
-    assert.equal(p.title, 'Final do prazo: 14/10/2026 · em 6 dias (3 dias úteis)');
+    assert.equal(p.title, 'Prazo final: 14/10/2026 · em 6 dias (3 dias úteis)');
   });
   it('vencida e amanhã', () => {
-    assert.equal(intimPrazo({ dateDeadline: '2026-10-06' }, TODAY).title, 'Final do prazo: 06/10/2026 · há 2 dias');
+    assert.equal(intimPrazo({ dateDeadline: '2026-10-06' }, TODAY).title, 'Prazo final: 06/10/2026 · há 2 dias');
     const am = intimPrazo({ dateDeadline: '2026-10-09' }, TODAY);
     assert.equal(am.tone, 'today');
     assert.equal(am.txt, 'Sex 09/10');
@@ -82,13 +82,15 @@ describe('embargos de declaração (10 dias úteis do início)', () => {
     assert.equal(e.date, '2026-10-13');
     assert.equal(e.du, 2);
     assert.equal(e.tone, 'warn');
-    assert.equal(e.txt, 'Emb. 13/10 · 2 du');
+    assert.equal(e.txt, 'Emb. 13/10');
   });
-  it('calmo, e o aviso quando cai depois do final do prazo', () => {
+  it('calmo, e o aviso quando cai depois do prazo final', () => {
     const e = intimEmbargos({ dateStart: '2026-10-06', dateDeadline: '2026-10-13', status: 'pendente_analise' }, TODAY);
     assert.equal(e.date, '2026-10-21');
     assert.equal(e.tone, 'calm');
-    assert.match(e.title, /depois do final do prazo/);
+    assert.match(e.title, /depois do prazo final/);
+    assert.match(e.aria, /dias úteis/);
+    assert.match(e.title, /dias úteis/);
   });
   it('nada quando expirado, sem início, analisada ou resolvida', () => {
     assert.equal(intimEmbargos({ dateStart: '2026-08-25', dateDeadline: '2026-10-13' }, TODAY), null);
@@ -106,6 +108,10 @@ describe('orçamento de linhas', () => {
     assert.equal(intimCardLayout(860).mode, 'mid');
     assert.equal(intimCardLayout(390).mode, 'mob');
     assert.ok(intimCardLayout(0).cplTr >= 20);
+    // fontes menores e colunas estreitas: mais caracteres por linha que na versão anterior (6,35 px/char)
+    assert.ok(intimCardLayout(1920).cplTr > 60);
+    assert.ok(intimCardLayout(1920).cplNt > 40);
+    assert.ok(intimCardLayout(1920).cplTr > intimCardLayout(1480).cplTr);
   });
   it('tribunal: objeto até 2 linhas e teor no que sobra', () => {
     assert.deepEqual(intimTribLines('curto', null, 60, 4), { ol: 1, tl: 0 });

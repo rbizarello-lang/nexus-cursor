@@ -7,7 +7,7 @@
  *  - Coluna de prazo só com tempo: data final (degrau 1) e, logo abaixo, o alerta de embargos de declaração
  *    (10 dias úteis do início do prazo, 5 faixas: nada · expirado · calmo · atenção ≤ 3 du · HOJE).
  *    A contagem ("em 5 dias · 2 úteis") vai para o tooltip da data.
- *  - Orçamento de linhas das colunas Tribunal (objeto + teor da decisão) e Minhas notas, pela largura da lista.
+ *  - Orçamento de linhas das colunas Objeto (objeto + teor da decisão) e Notas, pela largura da lista.
  */
 import { toDayKey, daysUntil, addBusinessDays, isBusinessDay } from './dates.js';
 
@@ -93,7 +93,7 @@ export const intimPrazo = (intim, asOf) => {
   const end = toDayKey(intim && intim.dateDeadline);
   if (!end) return { tone: 'none', txt: 'prazo fechado', title: 'Prazo ainda não aberto' };
   const dd = daysUntil(end, asOf);
-  let title = 'Final do prazo: ' + _dmy(end);
+  let title = 'Prazo final: ' + _dmy(end);
   if (dd > 1) title += ' · em ' + _pl(dd, 'dia', 'dias') + ' (' + _pl(bizDaysUntil(end, asOf), 'dia útil', 'dias úteis') + ')';
   else if (dd === 1) title += ' · amanhã';
   else if (dd === 0) title += ' · hoje';
@@ -120,10 +120,10 @@ export const intimEmbargos = (intim, asOf) => {
   const du = dd === 0 ? 0 : bizDaysUntil(date, asOf);
   const tone = dd === 0 ? 'today' : du <= INTIM_EMB_WARN_DU ? 'warn' : 'calm';
   const end = toDayKey(intim.dateDeadline);
-  const after = end && date > end ? ' (depois do final do prazo)' : '';
+  const after = end && date > end ? ' (depois do prazo final)' : '';
   return {
     date, du, tone,
-    txt: tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + _dm(date) + ' · ' + du + ' du',
+    txt: tone === 'today' ? 'Emb. HOJE' : 'Emb. ' + _dm(date),
     aria: 'Embargos de declaração ' + (tone === 'today' ? 'vencem hoje' : 'até ' + _dm(date) + ', ' + _pl(du, 'dia útil', 'dias úteis')),
     title: 'Embargos de declaração até ' + _dmy(date) + ' (' + (tone === 'today' ? 'hoje' : _pl(du, 'dia útil', 'dias úteis')) + ')' + after,
   };
@@ -131,21 +131,22 @@ export const intimEmbargos = (intim, asOf) => {
 
 /**
  * Orçamento de linhas pela largura da lista (px): caracteres por linha (cpl) e linhas totais das colunas
- * Tribunal (Tr) e Minhas notas (Nt). Mesmas faixas do CSS (container queries): ≥ 1480 as duas zonas lado a lado,
+ * Objeto (Tr) e Notas (Nt). Mesmas faixas do CSS (container queries): ≥ 1480 as duas zonas lado a lado,
  * 860–1479 empilhadas, < 860 celular.
  */
 export const intimCardLayout = (W) => {
   const w = Number(W) || 0;
   if (w >= 1480) {
-    const av = w - 28 - 384 - 150;
-    return { mode: 'wide', cplTr: Math.max(20, Math.floor((av * 1.25 / 2.25 - 36) / 6.35)), cplNt: Math.max(20, Math.floor((av / 2.25 - 36) / 6.1)), budTr: 4, budNt: 4 };
+    // id 290 · objeto 1,25fr · notas 1fr · sinais 118 · prazo 88; fonte 12px ≈ 5,9 px/char, notas 11,5px ≈ 5,6 (+12 do marcador)
+    const av = w - 28 - 290 - 118 - 88;
+    return { mode: 'wide', cplTr: Math.max(20, Math.floor((av * 1.25 / 2.25 - 36) / 5.9)), cplNt: Math.max(20, Math.floor((av / 2.25 - 48) / 5.6)), budTr: 4, budNt: 4 };
   }
   if (w >= 860) {
-    const c3 = w - 28 - 350 - 140 - 36;
-    return { mode: 'mid', cplTr: Math.max(20, Math.floor(c3 / 6.35)), cplNt: Math.max(20, Math.floor((c3 - 14) / 6.1)), budTr: 3, budNt: 3 };
+    const c3 = w - 28 - 260 - 110 - 84 - 36;
+    return { mode: 'mid', cplTr: Math.max(20, Math.floor(c3 / 5.9)), cplNt: Math.max(20, Math.floor((c3 - 12) / 5.6)), budTr: 3, budNt: 3 };
   }
   const c = w - 28 - 28 - 20;
-  return { mode: 'mob', cplTr: Math.max(20, Math.floor(c / 6.3)), cplNt: Math.max(20, Math.floor((c - 12) / 6.1)), budTr: 4, budNt: 3 };
+  return { mode: 'mob', cplTr: Math.max(20, Math.floor(c / 5.9)), cplNt: Math.max(20, Math.floor((c - 12) / 5.6)), budTr: 4, budNt: 3 };
 };
 
 const _lines = (t, cpl, max) => Math.min(max, Math.max(1, Math.ceil(String(t || '').length / cpl)));

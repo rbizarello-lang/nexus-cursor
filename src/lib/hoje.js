@@ -11,7 +11,7 @@
  */
 import { toDayKey, daysUntil, addCalendarDays } from './dates.js';
 
-export const CARGA_DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+export const CARGA_DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** Ordem dentro do dia (de baixo para cima na pilha): audiência, intimação, tarefa. */
 export const CARGA_KIND_ORDER = { h: 0, i: 1, t: 2 };
 export const CARGA_KIND_LABEL = { i: ['intimação', 'intimações'], t: ['tarefa', 'tarefas'], h: ['audiência', 'audiências'] };

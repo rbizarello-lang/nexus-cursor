@@ -226,6 +226,14 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   - Colunas pela largura da lista (container query): ≥ 1480 px quatro colunas; 860–1479 Tribunal e Notas
     empilhadas; abaixo disso, uma coluna (celular). Cálculos puros em `src/lib/intim-card.js`
     (`test/intim-card.test.mjs`). Nenhum campo novo.
+- **Nexus Prumo — card de intimação, revisão de tamanhos e coluna Sinais** (09/10/2026) — só no Prumo. Fontes de
+  volta às do card antigo (parte 13 px/500; nº do processo `.cx-proc` padrão, Geist Mono 11,5 px; objeto 12 px; teor
+  da decisão e notas 11,5 px, entrelinha 15 px; prazo 12 px/500 na fonte da interface, tabular). Cabeçalhos só
+  "Parte · Objeto · Notas · Sinais · Prazo" (empilhado: "Objeto · Notas"). Nova coluna **Sinais** (118 px; 110 no meio;
+  faixa horizontal no celular) com Imp. | Compl. | peça em três casas fixas, URGENTE e a esteira (barrinhas + etapa
+  atual, sem "parou há"; o tempo fica no tooltip). Identidade mais estreita (290 / 260 px); Prazo estreito (88 / 84 px)
+  alinhado à direita, embargos só "Emb. dd/mm" (dias úteis no tooltip e no aria-label). Objeto e Notas ficam com o
+  espaço (fr): ≥ 1480 px `290px 1.25fr 1fr 118px 88px`. Orçamento de caracteres por linha recalculado.
 - **Nexus Prumo — abas da operação, ajuste fino** (09/10/2026) — proposta B do mockup `p1-ajuste-fino.html`, sem
   contadores de quantidade: faixa de largura total com fio em cima, rótulos em ink-2 com peso fixo (a ativa só
   escurece e ganha o sublinhado), anel de foco interno, esmaecer nas bordas só quando as abas rolam e a aba ativa
@@ -241,6 +249,42 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
   frente" / "Retirar da frente"). Qualquer frente pode ser retirada, inclusive central e filho. O fio de ligação
   aparece só quando o processo-pai também é frente. Apensos e demais processos ficam na aba Processos e
   prescrição; na linha da frente seguem como "cobre N" e no valor.
+  - **Auditoria de consistência, fase 1/5 (textos e formatos)** (09/10/2026) — só no Prumo. "Mesa de intimações" é o
+    nome da tela de trabalho (botões "Levar à Mesa" / "Tirar da Mesa"); "Prazo final" no lugar de "Final do prazo";
+    coluna "Sinais" do card de intimação passa a **Indicadores** (Sinais fica só para os sinais de processo); datas:
+    lista = dd/mm, tooltip/ficha = dd/mm/aaaa, dia da semana sempre com inicial maiúscula ("Qua 14/10", também em
+    `hoje.js`), relativo curto em lista e longo em frase ("verificado há 3 dias"); vazios no formato "Nenhum(a) X…".
+  - **Auditoria de consistência, fase 2/5 (tipografia)** (09/10/2026) — só CSS do Prumo. Escala em tokens `--cx-fs-*`
+    (xs 10,5 · sm 11,5 · md 12,5 · base 13 · lg 14 · h 22 · title 19 · kpi 28, mais 10/11/12/h3 17) no bloco de tokens, válidos
+    nos três temas; `.cx-cap` (mono 500 10,5 px, .06em, caixa alta, ink-3) para eyebrows, títulos de seção, rótulos de grupo e
+    KPI label; todos os `th` do Prumo (.cx-tbl, .cx-pt, .cx-bft, .cx-act-tab, tabela de processos) = .cx-cap com padding
+    vertical 7 px; datas em dois estilos (`.cx-date` 12/500, `.cx-date-lg` 13/600, tabulares); KPI único 28 px, h1 22 px, título
+    de gaveta/foco/operação 19 px; leitura (gaveta/ficha) 13/1,5. Card de intimação e Frentes (.cx-bfx*) intactos em 11,5.
+  - **Auditoria de consistência, fase 3/5 (nº de processo e cópia)** (09/10/2026) — só Prumo. `CxProc` único (Geist Mono,
+    -0.02em, cauda do CNJ em ink-3, CNJ formatado via `intimProcCnj`) com `size` sm 11,5/400 · md 12/500 (tabelas) · lg
+    14/600 (gaveta/ficha) e `copy` ligado por padrão: clicar no número (ou Enter) copia, dica "Clique para copiar" →
+    "Copiado ✓", sem ícone e sem propagar o clique (`CxCopyable`). Saem `CxNumCopy`, `CxCopyNum`, `.cx-copynum`,
+    `.cx-proc-copy`, `.cx-crumb-proc`, `.cx-act-proc`; `Copyable` não é mais usado no Prumo e o 📋 do `.copyable` fica
+    neutro sob `.app-layout.edition-claude`. `copy={false}` só dentro de `<button>` (cartões do Quadro, cartão da
+    operação, seletor de processo).
+  - **Auditoria de consistência, fase 4/5 (chips, contadores, recolher, vazios, alturas)** (09/10/2026) — só Prumo.
+    Tokens `--cx-chip-h/-r` 22/6 · `--cx-tagk-h/-r` 18/4 · `--cx-pill-h` 18 · `--cx-nb-h/-r` 18/5 · `--cx-row-h-sm/-md`
+    42/56. Chip (`.cx-chip/.cx-tag/.cx-chp/.cx-rs-chip/.cx-pd-sig/.cx-ua-chip/.cx-cal-fchip`, sans 11,5), tagk
+    (`.cx-kind/.cx-pd-kind/.cx-bft .kind/.cx-cert/.cx-nr-k/.cx-ix-sg`, mono 600 10px .04em, 18px), pill só para estado
+    (`.cx-bft-due/.oc`, `.cx-act-b`, `.badge` das tabelas). Contador sem caixa = mono 500 11px ink-3 (`.cx-n/.cx-count/
+    .cx-cnt/.cx-blk-n/.cx-ap-n`; `.cx-bfx-n` fica em 10,5px); com caixa `.cx-nb/.cx-cb/.cx-tb-n/.cx-fcn` 18px r5;
+    alerta `.cx-badge/.cx-tab-al` 18px r5. Recolher: chevD 14px à esquerda, gira -90° fechado (grupos, `CxBlock`,
+    `CxFoldCard`, Frentes, Atividade, tabelas de Processos/CDAs/Bens, grupo extinto da Linha do tempo); rótulo 13/600.
+    Vazios no padrão `.cx-empty-row`; `.cx-b-empty` com uma só definição. Controles e campos = `--cx-ctl-h` (30);
+    `.cx-t-row` com um só `min-height` (56). `.cx-bfx*` e o card de intimação não crescem.
+  - **Auditoria de consistência, fase 5/5 (CSS sem uso e conferência final)** (10/10/2026) — só Prumo. Removidas as
+    regras .cx* sem uso (KPI e briefing antigos, linha antiga de intimação, .cx-op-hero, .cx-pz-tile e afins), com os
+    estilos computados de ~15 mil elementos em 38 telas (Ardósia e Noite) idênticos antes e depois. Conferência de todas
+    as telas nos temas Ardósia, Noite e Grafite e nas fontes Geist, Inter, Outfit e Source Sans, sem erro de console.
+    No celular (que já vinha assim do master): a linha de Tarefas voltou a quebrar em uma coluna (a grade fixa de 6
+    colunas anulava a regra do celular), a Carga de prazos da Hoje empilha até 1100 px pelo mesmo motivo, e o anel do
+    Crédito sob gestão some abaixo de 560 px (o percentual continua no texto). Fecha a auditoria: textos e datas (1),
+    escala tipográfica (2), número de processo e cópia (3), chips/contadores/recolher/vazios/alturas (4), limpeza (5).
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---
