@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proposta A econômica</title>
+<style>
+:root{--bg:#f4f4f2;--card:#fff;--ink:#17181a;--mut:#6b6f76;--line:#e5e5e1;--hov:#f7f7f5;--sel:#eef3ff;
+--c1:#c0392b;--c1b:#fbeceb;--c2:#b8860b;--c2b:#fbf3dc;--c3:#2563eb;--c3b:#e8f0fe;--c4:#6b7280;--c4b:#eceef1;--c5:#7c3aed;--c5b:#f1eafd;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}html,body{margin:0;overflow-x:hidden}
+body{background:var(--bg);color:var(--ink);font:13px/1.35 var(--sans)}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:1280px;margin:0 auto;padding:12px 16px 80px}
+.brief{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px}
+.brief summary{cursor:pointer;font-weight:600}
+.brief dl{margin:8px 0 0;display:grid;grid-template-columns:130px 1fr;gap:4px 10px}.brief dt{color:var(--mut)}.brief dd{margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:2px}
+.seg button{border:0;background:none;padding:4px 10px;border-radius:6px;color:var(--mut)}
+.seg button.on{background:var(--ink);color:#fff}
+.tot{color:var(--mut);margin-left:auto}.tot b{color:var(--ink)}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.sh{position:sticky;top:0;z-index:3;background:var(--card);display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.sh h3{margin:0;font-size:13px}.sh .n{color:var(--mut);font-size:12px}.sh .sit{color:var(--mut);font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh .v{font-family:var(--mono);font-size:12px;color:var(--mut)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap}
+.k1{background:var(--c1b);color:var(--c1)}.k2{background:var(--c2b);color:var(--c2)}.k3{background:var(--c3b);color:var(--c3)}.k4{background:var(--c4b);color:var(--c4)}.k5{background:var(--c5b);color:var(--c5)}
+.row{position:relative;display:grid;grid-template-columns:22px 1fr auto;gap:2px 10px;padding:7px 12px 7px 10px;border-bottom:1px solid var(--line);border-left:3px solid var(--rc);cursor:pointer;align-items:center}
+.row:last-child{border-bottom:0}.row:hover,.row.cur{background:var(--hov)}.row.sel{background:var(--sel)}
+.row.cur{outline:2px solid #93b4ff;outline-offset:-2px}
+.l1{display:flex;gap:8px;align-items:center;min-width:0}.l2{grid-column:2;display:flex;gap:10px;color:var(--mut);font-size:12px;min-width:0;white-space:nowrap;overflow:hidden}
+.l2 span{overflow:hidden;text-overflow:ellipsis}
+.cda{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.dev{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rt{display:flex;gap:12px;align-items:center;justify-content:flex-end;grid-row:1/3;grid-column:3}
+.clk{font-weight:700;font-size:12.5px;white-space:nowrap}.clk small{display:block;font-weight:400;color:var(--mut);font-family:var(--mono);font-size:11px;text-align:right}
+.val{font-family:var(--mono);font-size:12.5px;text-align:right;min-width:86px}
+.act{display:none;gap:4px;align-items:center}
+.row:hover .act,.row.cur .act{display:flex}.row:hover .rt .clk,.row.cur .rt .clk{display:none}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 9px;font-size:12px}
+.btn.p{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}.btn:hover{border-color:#999}
+.more{position:relative}.menu{position:absolute;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0002;min-width:170px;padding:4px;display:none}
+.menu.o{display:block}.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 8px;border-radius:5px}.menu button:hover{background:var(--hov)}
+.chk{width:15px;height:15px;accent-color:#2563eb}
+.rel{height:3px;background:var(--line);border-radius:2px;position:relative;width:80px;flex:none}.rel i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--rc)}
+/* tabela */
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+th{position:sticky;top:0;background:#fafaf8;text-align:left;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:6px 8px;border-bottom:1px solid var(--line);z-index:2}
+td{padding:0 8px;height:34px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+tr.tr{cursor:pointer;box-shadow:inset 3px 0 0 var(--rc)}tr.tr:hover,tr.tr.cur{background:var(--hov)}tr.tr.sel{background:var(--sel)}
+td.r,th.r{text-align:right}td.m{font-family:var(--mono);font-size:12px}.sub{color:var(--mut);font-size:11px}
+.dens-c td{height:28px}.dens-r td{height:44px}
+td.ac{overflow:visible;position:relative;padding:0;width:0}td.ac .act{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--hov);padding:2px 0 2px 8px;box-shadow:-10px 0 8px var(--hov)}
+tr .act{justify-content:flex-end}tr.tr:hover td.clkc .clk,tr.tr.cur td.clkc .clk{visibility:visible}
+/* gaveta */
+.scrim{position:fixed;inset:0;background:#0003;display:none;z-index:40}.scrim.o{display:block}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:#fff;z-index:50;box-shadow:-12px 0 32px #0003;transform:translateX(105%);transition:transform .18s;display:flex;flex-direction:column}
+.sheet.o{transform:none}
+.sheet header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:flex-start}
+.sheet header .t{flex:1;min-width:0}.sheet h2{margin:2px 0 0;font:600 15px var(--mono)}.sheet .sb{color:var(--mut);font-size:12px}
+.x{border:0;background:none;font-size:18px;color:var(--mut)}
+.body{overflow:auto;padding:12px 16px;flex:1}
+.opn{border:1px solid var(--c3);color:var(--c3);background:var(--c3b);border-radius:6px;padding:4px 10px;font-weight:600;white-space:nowrap}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:4px 10px;margin:0 0 12px}.kv dt{color:var(--mut)}.kv dd{margin:0}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.box h4{margin:0 0 6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between}
+.tl{height:2px;background:#cfd2d6;position:relative;margin:12px 0 6px}.tl i{position:absolute;top:-4px;width:2px;height:10px;background:var(--ink)}
+.note{background:var(--hov);border-radius:6px;padding:8px;margin:8px 0;font-size:12px}
+.foot{border-top:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:6px;background:#fff}
+.sticky{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:10px;padding:8px 12px;display:none;gap:10px;align-items:center;z-index:30;box-shadow:0 8px 24px #0004}
+.sticky.o{display:flex}.sticky .btn{background:#333;color:#fff;border-color:#555}
+.toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:7px 14px;border-radius:8px;z-index:90;display:none}
+.kb{color:var(--mut);font-size:11px}.kb kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fff;font-family:var(--mono)}
+@media(max-width:760px){
+ .wrap{padding:8px 16px 80px}.brief dl{grid-template-columns:1fr}.tot{margin-left:0;width:100%}
+ .row{grid-template-columns:22px 1fr}.rt{grid-column:2;grid-row:3;justify-content:space-between}
+ .act{display:none!important}.row .rt .clk{display:block!important}.kb{display:none}
+ .sh .sit{display:none}.rel{display:none}
+ table,thead,tbody,tr,td{display:block}thead{display:none}
+ tr.tr{display:grid;grid-template-columns:22px 1fr auto;padding:6px 10px 6px 8px;border-bottom:1px solid var(--line);gap:0 8px}
+ tr.tr td{height:auto;border:0;padding:1px 0;grid-column:2}
+ tr.tr td.cs{grid-column:1;grid-row:1}tr.tr td.cd{grid-column:2}tr.tr td.cm{grid-column:2}
+ tr.tr td.cc,tr.tr td.cp,tr.tr td.co,tr.tr td.ac{display:none}
+ tr.tr td.cv{grid-column:3;grid-row:1}tr.tr td.clkc{grid-column:3;grid-row:2;text-align:right}
+ .val{min-width:0}
+}
+</style></head><body><div class="wrap">
+
+<details class="brief" open><summary>Proposta A, econômica: linha compacta, ações no hover, gaveta sobre a Mesa</summary>
+<dl>
+<dt>Ideia</dt><dd>Uma CDA = 1 linha de 34 px (tabela) ou 2 linhas de ~44 px (lista). A frase de situação sobe para o cabeçalho da seção e não se repete; só aparece na linha quando diferir. Ações saem da linha: ficam na tela de hover (ação principal + menu ⋯). Clicar na linha abre a gaveta aqui mesmo; "Abrir operação" é escolha do usuário.</dd>
+<dt>O que muda</dt><dd>Cartão vira pílula curta ("Conferir"); régua some da linha (vira microbarra de 80 px ou vai à gaveta); relógio + data juntos à direita; devedor em negrito, operação/processo/natureza em segunda linha cinza; seletor de densidade; cabeçalho de seção sticky; barra de lote flutuante; teclado j/k, Enter, x, Esc. Gaveta: mesmo conteúdo, mas resumo no topo, "Abrir operação" no cabeçalho e ações no rodapé fixo.</dd>
+<dt>Custo</dt><dd><b>Baixo.</b> Reaproveita CxMesaRow/CxMesaLite/CxClkBar compact e os dados de buildMesaCards; mudança é sobretudo CSS e ordem de elementos. Gaveta existente apenas troca o handler do clique (abrir gaveta em vez de navegar) e ganha um link.</dd>
+<dt>Riscos</dt><dd>Ações escondidas dependem de hover (em toque, vão para a gaveta/menu ⋯ sempre visível); ações em menu reduzem descobribilidade da primeira vez; sem virtualização real (5.022 linhas exigem janela de renderização na implementação).</dd>
+<dt>Referências</dt><dd>Linear/GitHub Projects: linha única densa, ações no hover, seção sticky com contagem; shadcn data-table: seleção + barra de lote; Notion/Airtable: toggle de densidade; Attio/Height: side peek sem perder o contexto da lista; Superhuman: teclado j/k/Enter/Esc. Os dois links do brief não foram consultados (rede indisponível/economia de custo); padrões acima são de conhecimento prévio.</dd>
+</dl></details>
+
+<div class="bar">
+ <div class="seg" id="vm"><button data-v="l" class="on">Lista</button><button data-v="t">Tabela</button></div>
+ <div class="seg" id="dn"><button data-d="c">Compacta</button><button data-d="n" class="on">Normal</button><button data-d="r">Ampla</button></div>
+ <span class="kb"><kbd>j</kbd><kbd>k</kbd> navegar · <kbd>Enter</kbd> gaveta · <kbd>x</kbd> selecionar · <kbd>Esc</kbd></span>
+ <div class="tot" id="tot"></div>
+</div>
+<div id="out"></div>
+</div>
+
+<div class="sticky" id="lote"><span id="ln"></span><button class="btn" onclick="toast('Conferir em lote (mock)')">Conferir</button><button class="btn" onclick="toast('Adiar em lote (mock)')">Adiar…</button><button class="btn" onclick="clr()">Limpar</button></div>
+<div class="toast" id="toast"></div>
+<div class="scrim" id="scrim" onclick="closeS()"></div>
+<aside class="sheet" id="sheet" aria-label="Gaveta da CDA"></aside>
+
+<script>
+const CARDS={
+ conf:{n:'Conferir o cálculo',s:'Conferir',c:'c1',k:'k1',sit:'Os 5 anos para ajuizar já venceram no cálculo.'},
+ ajz:{n:'Ajuizei: informar processo',s:'Ajuizei?',c:'c2',k:'k2',sit:'Prazo corre; sem processo informado.'},
+ fato:{n:'Lançar fato',s:'Fato',c:'c3',k:'k3',sit:'Há ocorrência a lançar (suspensão ou interrupção).'},
+ dado:{n:'Informar dado',s:'Dado',c:'c5',k:'k5',sit:'Falta dado para calcular o termo.'},
+ vale:{n:'Ainda vale',s:'Ainda vale',c:'c4',k:'k4',sit:'Prazo cedo venceu, tarde não; ainda há margem.'}};
+const D=[
+['conf','91 2 21 007591-10','FUNCIONAL GRUPO DE SERVICOS E TERCEIRIZACAO DE MAO DE OBRA LTDA','','FUNCIONAL MÃO DE OBRA','Ordinária','há 125d','07/06/2026',19273.71,1],
+['conf','91 6 21 016035-04','FUNCIONAL GRUPO DE SERVICOS E TERCEIRIZACAO DE MAO DE OBRA LTDA','','FUNCIONAL MÃO DE OBRA','Ordinária','há 125d','07/06/2026',9535.44,1],
+['conf','90 6 21 031797-03','WIDA INDUSTRIA E COMERCIO DE EMBALAGENS LTDA','','BRITO E SOUZA','Ordinária','há 97d','05/07/2026',20737.10,1],
+['conf','00 7 21 011711-42','GRAVATUR TRANSPORTADORA E TURISMO EIRELI','','GRAVATUR','Ordinária','há 83d','19/07/2026',2221.37,1],
+['conf','90 4 21 100456-15','WIDA BRASIL INDUSTRIA E COMERCIO DE PLASTICOS LTDA','','BRITO E SOUZA','Ordinária','há 41d','30/08/2026',2839.61,1],
+['ajz','80 2 19 044120-77','CONSTRUTORA ALVORADA DO SUL PARTICIPACOES E EMPREENDIMENTOS S/A','5004321-18.2020.4.04.7100','ALVORADA','Ordinária','tarde em 160d','19/03/2027',4812300.00,1],
+['ajz','80 6 20 012390-02','MERCANTIL DOIS IRMAOS DISTRIBUIDORA DE ALIMENTOS LTDA','','DOIS IRMÃOS','Ordinária','tarde em 52d','01/12/2026',386410.22,1],
+['ajz','80 7 20 009981-30','CLINICA SAO LUCAS DE ESPECIALIDADES MEDICAS S/S LTDA','','SÃO LUCAS','Ordinária','tarde em 9d','19/10/2026',58120.00,1],
+['fato','80 2 18 077654-09','AGROPECUARIA VALE DO RIO BONITO LTDA','5011876-40.2019.4.04.7107','VALE DO RIO BONITO','Intercorrente','há 12d','28/09/2026',1245000.90,1],
+['fato','80 6 17 020045-61','JOSE ANTONIO PEREIRA DE ALBUQUERQUE NETO ME','5000912-33.2018.4.04.7116','ALBUQUERQUE','Intercorrente','não antes de 03/02/2027','03/02/2027',7340.18,1],
+['dado','178447072','SEZAFE SERVICOS EMPRESARIAIS LTDA','','AAX PROCESSAMENTO','Ordinária','sem termo','—',3736.18,1],
+['dado','80 4 19 118832-50','TRANSPORTES RODOVIARIOS PLANALTO CENTRAL DE CARGAS LTDA','','PLANALTO','Ordinária','sem termo','—',912455.00,1],
+['vale','80 1 21 055500-14','FRIGORIFICO SAO JOAO BATISTA DE CARNES E DERIVADOS S/A','5022210-09.2022.4.04.7100','SÃO JOÃO BATISTA','Ordinária','tarde em 410d','24/11/2027',2990.00,1],
+['vale','80 2 21 061234-88','COOPERATIVA AGRICOLA REGIONAL DO ALTO URUGUAI','','ALTO URUGUAI','Ordinária','tarde em 388d','02/11/2027',5100000.00,1],
+].map((r,i)=>({id:i,card:r[0],cda:r[1],dev:r[2],proc:r[3],op:r[4],nat:r[5],clk:r[6],data:r[7],val:r[8],odd:r[9]}));
+const brl=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const short=v=>v>=1e6?'R$ '+(v/1e6).toFixed(1).replace('.',',')+' mi':'R$ '+Math.round(v/1e3)+' mil';
+let view='l',dens='n',sel=new Set(),cur=-1,open=-1,collapsed=new Set(),menu=null;
+const $=s=>document.querySelector(s);
+const clkCls=c=>/^há/.test(c)?'color:var(--c1)':'';
+function acts(d){const c=CARDS[d.card];return `<div class="act"><button class="btn p" data-a="main" data-i="${d.id}">${c.s==='Conferir'?'Conferir':c.s==='Ajuizei?'?'Informar processo':c.s==='Fato'?'Lançar fato':c.s==='Dado'?'Informar dado':'Ainda vale'}</button><span class="more"><button class="btn" data-a="more" data-i="${d.id}" aria-label="Mais ações">⋯</button><div class="menu" id="m${d.id}"><button data-a="adiar" data-i="${d.id}">Adiar…</button><button data-a="evento" data-i="${d.id}">Lançar evento</button><button data-a="tratar" data-i="${d.id}">Tratar…</button><button data-a="op" data-i="${d.id}">Abrir operação ↗</button></div></span></div>`}
+function micro(d){const w=/^há/.test(d.clk)?100:/tarde em (\d+)d/.test(d.clk)?Math.max(8,100-parseInt(d.clk.match(/\d+/)[0])/5):30;return `<span class="rel"><i style="width:${w}%"></i></span>`}
+function listRow(d){const c=CARDS[d.card];
+return `<div class="row ${sel.has(d.id)?'sel':''} ${cur===d.id?'cur':''}" data-i="${d.id}" style="--rc:var(--${c.c})">
+<input class="chk" type="checkbox" data-a="sel" data-i="${d.id}" ${sel.has(d.id)?'checked':''} aria-label="Selecionar">
+<div class="l1"><span class="pill ${c.k}">${c.s}</span><span class="cda">${d.cda}</span><span class="dev" title="${d.dev}">${d.dev}</span></div>
+<div class="rt">${acts(d)}<div class="clk" style="${clkCls(d.clk)}">${d.clk}<small>${d.data}</small></div><div class="val">${brl(d.val)}</div></div>
+<div class="l2"><span>${d.proc||'sem processo'}</span><span>${d.op}</span><span>${d.nat}</span>${micro(d)}</div></div>`}
+function tblRow(d){const c=CARDS[d.card];
+return `<tr class="tr ${sel.has(d.id)?'sel':''} ${cur===d.id?'cur':''}" data-i="${d.id}" style="--rc:var(--${c.c})">
+<td class="cs" style="width:34px"><input class="chk" type="checkbox" data-a="sel" data-i="${d.id}" ${sel.has(d.id)?'checked':''}></td>
+<td class="cc"><span class="pill ${c.k}">${c.s}</span></td>
+<td class="cd m">${d.cda}</td>
+<td class="cm"><b title="${d.dev}">${d.dev}</b></td>
+<td class="cp m">${d.proc||'<span class="sub">sem processo</span>'}</td>
+<td class="co sub">${d.op} · ${d.nat.slice(0,5)}.</td>
+<td class="clkc"><span class="clk" style="${clkCls(d.clk)}">${d.clk}</span> <span class="sub">${d.data}</span></td>
+<td class="cv m r">${brl(d.val)}</td>
+<td class="ac r">${acts(d)}</td></tr>`}
+function render(){
+ const keys=Object.keys(CARDS);let h='',tv=0;
+ const tbl=view==='t';
+ for(const k of keys){const it=D.filter(d=>d.card===k);if(!it.length)continue;const c=CARDS[k],cl=collapsed.has(k),sv=it.reduce((a,d)=>a+d.val,0);tv+=sv;
+  h+=`<section class="sec"><div class="sh" data-a="fold" data-k="${k}"><span style="color:var(--mut)">${cl?'▸':'▾'}</span><span class="dot" style="background:var(--${c.c})"></span><h3>${c.n}</h3><span class="n">${it.length}</span><span class="sit">${c.sit}</span><span class="v">${short(sv)}</span></div>`;
+  if(!cl){ if(tbl){h+=`<table class="${dens==='c'?'dens-c':dens==='r'?'dens-r':''}"><colgroup><col style="width:34px"><col style="width:84px"><col style="width:136px"><col><col style="width:176px"><col style="width:150px"><col style="width:176px"><col style="width:112px"><col style="width:0"></colgroup><thead><tr><th><input class="chk" type="checkbox" data-a="selsec" data-k="${k}"></th><th>Cartão</th><th>CDA</th><th>Devedor</th><th>Processo</th><th>Operação · natureza</th><th>Relógio · data</th><th class="r">Valor</th><th></th></tr></thead><tbody>${it.map(tblRow).join('')}</tbody></table>`}
+   else h+=`<div class="${dens==='c'?'dens-c':''}">${it.map(listRow).join('')}</div>`}
+  h+='</section>'}
+ $('#out').innerHTML=h;
+ $('#tot').innerHTML=`<b>5.022</b> CDAs · R$ 724,7 mi · mostrando ${D.length} (mock)`;
+ $('#lote').classList.toggle('o',sel.size>0);$('#ln').textContent=sel.size+' selecionada(s)';
+ if(dens==='c')document.querySelectorAll('.row').forEach(r=>r.style.padding='3px 12px 3px 10px');
+ if(dens==='r')document.querySelectorAll('.row').forEach(r=>r.style.padding='12px 12px 12px 10px');
+}
+function sheet(i){open=i;cur=i;const d=D[i],c=CARDS[d.card];
+ $('#sheet').innerHTML=`<header><div class="t"><span class="pill ${c.k}">${c.n}</span><h2>${d.cda}</h2><div class="sb">${d.dev}</div></div><button class="opn" data-a="op" data-i="${i}" title="Sai da Mesa e vai à página da operação">Abrir operação ↗</button><button class="x" onclick="closeS()" aria-label="Fechar">×</button></header>
+<div class="body"><div class="note"><b style="${clkCls(d.clk)}">${d.clk} · ${d.data}</b> · ${d.nat}<br>${c.sit}</div>
+<dl class="kv"><dt>Operação</dt><dd>${d.op}</dd><dt>Processo</dt><dd>${d.proc||'sem processo'}</dd><dt>Espécie</dt><dd>SIDA</dd><dt>Valor</dt><dd style="font-family:var(--mono)">${brl(d.val)}</dd><dt>Situação</dt><dd>Ativa</dd><dt>Inscrição</dt><dd>07/06/2021</dd></dl>
+<div class="box"><h4>Prescrição ordinária <span class="pill k2">estimado</span></h4><div class="tl"><i style="left:0"></i><i style="left:62%"></i><i style="right:0"></i></div><div class="sub" style="display:flex;justify-content:space-between"><span>07/06/2021</span><span>termo ${d.data}</span><span>hoje 10/10/2026</span></div>
+<div class="note"><b>Data provável ${d.data}</b>, sem o dado que a confirmaria. Constituição definitiva e vencimento não informados: o termo conta da inscrição.</div>
+<div class="sub">OCORRÊNCIAS</div><div>07/06/2021 · Inscrição</div><div class="sub" style="margin-top:6px">CONFERIR NOS AUTOS</div><label><input type="checkbox" class="chk"> Data de constituição definitiva não informada.</label></div>
+<details class="box"><summary><b class="sub">DECADÊNCIA</b> <span class="pill k4">sem dados</span></summary><p class="sub">Não calculada: faltam período de apuração e modalidade de lançamento. Somente consulta.</p></details></div>
+<div class="foot"><button class="btn p" data-a="main" data-i="${i}">${c.s==='Conferir'?'Conferir':'Ação principal'}</button><button class="btn" data-a="evento" data-i="${i}">+ Evento</button><button class="btn" onclick="toast('Tratada (mock)')">✓ Tratada</button><button class="btn" onclick="toast('Aguardando reconhecimento (mock)')">Aguardando</button><button class="btn" onclick="toast('Memória técnica (mock)')">Memória técnica</button><button class="btn" onclick="toast('Editar inscrição (mock)')">Editar</button></div>`;
+ $('#sheet').classList.add('o');$('#scrim').classList.add('o');render()}
+function closeS(){open=-1;$('#sheet').classList.remove('o');$('#scrim').classList.remove('o')}
+function clr(){sel.clear();render()}
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',1800)}
+document.addEventListener('click',e=>{
+ const m=e.target.closest('[data-a]');
+ document.querySelectorAll('.menu.o').forEach(x=>{if(!m||m.dataset.a!=='more')x.classList.remove('o')});
+ if(!m){const r=e.target.closest('[data-i]');if(r&&!e.target.closest('.act')){sheet(+r.dataset.i)}return}
+ const a=m.dataset.a,i=+m.dataset.i;
+ if(a==='sel'){e.stopPropagation();sel.has(i)?sel.delete(i):sel.add(i);render();return}
+ if(a==='selsec'){D.filter(d=>d.card===m.dataset.k).forEach(d=>e.target.checked?sel.add(d.id):sel.delete(d.id));render();return}
+ if(a==='fold'){const k=m.dataset.k;collapsed.has(k)?collapsed.delete(k):collapsed.add(k);render();return}
+ if(a==='more'){e.stopPropagation();const mn=$('#m'+i);const was=mn.classList.contains('o');document.querySelectorAll('.menu.o').forEach(x=>x.classList.remove('o'));if(!was)mn.classList.add('o');return}
+ if(a==='main'){e.stopPropagation();toast('Ação principal: '+CARDS[D[i].card].n+' ('+D[i].cda+')');return}
+ if(a==='op'){e.stopPropagation();toast('Navegaria para a operação '+D[i].op);return}
+ if(a==='evento'||a==='adiar'||a==='tratar'){e.stopPropagation();toast(a+' (mock)');document.querySelectorAll('.menu.o').forEach(x=>x.classList.remove('o'))}
+});
+document.querySelectorAll('#vm button').forEach(b=>b.onclick=()=>{view=b.dataset.v;document.querySelectorAll('#vm button').forEach(x=>x.classList.toggle('on',x===b));render()});
+document.querySelectorAll('#dn button').forEach(b=>b.onclick=()=>{dens=b.dataset.d;document.querySelectorAll('#dn button').forEach(x=>x.classList.toggle('on',x===b));render()});
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+ if(e.key==='Escape'){closeS();return}
+ if(e.key==='j'||e.key==='k'){cur=Math.max(0,Math.min(D.length-1,(cur<0?-1:cur)+(e.key==='j'?1:-1)));if(open>=0)sheet(cur);else render();const el=document.querySelector('[data-i="'+cur+'"]');el&&el.scrollIntoView({block:'nearest'})}
+ if(e.key==='Enter'&&cur>=0)sheet(cur);
+ if(e.key==='x'&&cur>=0){sel.has(cur)?sel.delete(cur):sel.add(cur);render()}});
+render();
+</script></body></html>
