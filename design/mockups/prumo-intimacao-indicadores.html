@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prumo · Coluna Indicadores do card de intimação</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   Tokens do Nexus Prumo (copiados de src/Nexus.shell.html) · 3 temas
+   Tipografia: cada --cx-fs-* = base + --fs-adj (passo 0,5 px, −2…+2).
+   ════════════════════════════════════════════════════════════════════ */
+:root, body {
+  --fs-adj: 0px;
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-opc-parcel: #2d62d3; --cx-opc-maxima: #c2323d; --cx-opc-alta: #e0707a; --cx-opc-media: #c99a1a; --cx-opc-baixa: #21845a; --cx-opc-none: #8b919c;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-shadow-lg: 0 24px 64px rgba(20,24,32,0.22);
+  --cx-on-solid: #ffffff;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --cx-tagk-h: 18px; --cx-tagk-r: 4px;
+  --cx-fs-9: calc(9px + var(--fs-adj)); --cx-fs-10: calc(10px + var(--fs-adj)); --cx-fs-xs: calc(10.5px + var(--fs-adj)); --cx-fs-11: calc(11px + var(--fs-adj));
+  --cx-fs-sm: calc(11.5px + var(--fs-adj)); --cx-fs-12: calc(12px + var(--fs-adj)); --cx-fs-md: calc(12.5px + var(--fs-adj));
+  --cx-fs-base: calc(13px + var(--fs-adj)); --cx-fs-lg: calc(14px + var(--fs-adj));
+  /* alturas de linha que no app são px fixos: acompanham o ajuste (ver notas de implementação) */
+  --lh13: calc(13px + var(--fs-adj)); --lh15: calc(15px + var(--fs-adj)); --lh16: calc(16px + var(--fs-adj)); --lh18: calc(18px + var(--fs-adj));
+  --mini: color-mix(in srgb, var(--cx-ink-3) 68%, var(--cx-ink));
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 5.5%, transparent);
+  --zone-edge: color-mix(in srgb, var(--cx-accent) 34%, var(--cx-line));
+  --emb-warn: color-mix(in srgb, var(--cx-yellow) 78%, var(--cx-ink));
+  --emb-today: color-mix(in srgb, var(--cx-orange) 86%, var(--cx-ink));
+  --ixgap: 5px;
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 84%, var(--cx-ink));
+}
+body.cx-theme-noite {
+  color-scheme: dark;
+  --cx-ground: #121a25; --cx-panel: #0d1521; --cx-surface: #18202c; --cx-surface-2: #1e2633; --cx-hover: #252e3a;
+  --cx-line: #2d3645; --cx-line-strong: #404a59;
+  --cx-ink: #e6ecf6; --cx-ink-2: #b0b9c5; --cx-ink-3: #939ca9;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #dee4ec; --cx-btn-hover: #bbc1c9; --cx-btn-ink: #0d1521;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #757d88;
+  --cx-shadow: 0 1px 2px rgba(3,8,16,0.40), 0 6px 20px rgba(3,8,16,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(3,8,16,0.65);
+  --cx-on-solid: #0d1521;
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 92%, var(--cx-ink));
+}
+body.cx-theme-grafite {
+  color-scheme: dark;
+  --cx-ground: #18191c; --cx-panel: #141518; --cx-surface: #1e1f22; --cx-surface-2: #252629; --cx-hover: #2c2d30;
+  --cx-line: #343639; --cx-line-strong: #47494d;
+  --cx-ink: #eaebed; --cx-ink-2: #b6b7b9; --cx-ink-3: #9a9b9d;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #e1e3e5; --cx-btn-hover: #bec0c2; --cx-btn-ink: #141518;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #7a7c7f;
+  --cx-shadow: 0 1px 2px rgba(0,0,0,0.40), 0 6px 20px rgba(0,0,0,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(0,0,0,0.65);
+  --cx-on-solid: #141518;
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 92%, var(--cx-ink));
+}
+
+/* ════════════ Página do mockup ════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--cx-font); font-size: 13px; line-height: 1.5; color: var(--cx-ink); background: var(--cx-ground); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.doc { max-width: 1320px; margin: 0 auto; padding: 28px 24px 90px; }
+.eyebrow { font: 600 11px/1.3 var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-accent); }
+.doc > h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin-top: 6px; }
+.lede { font-size: 14.5px; color: var(--cx-ink-2); max-width: 920px; margin-top: 8px; line-height: 1.55; }
+.pg-h2 { font-size: 18px; font-weight: 600; letter-spacing: -.015em; margin: 44px 0 6px; }
+.pg-p { color: var(--cx-ink-2); max-width: 880px; font-size: 13.5px; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin-top: 16px; }
+.rule { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 11px 13px; font-size: 12.5px; color: var(--cx-ink-2); }
+.rule b { display: block; color: var(--cx-ink); font-weight: 600; margin-bottom: 2px; font-size: 13px; }
+.rule .q { display: block; margin-top: 5px; font-style: italic; color: var(--cx-ink-3); font-size: 11.5px; }
+
+/* Barra de controles (fixa no topo) */
+.ctl { position: sticky; top: 0; z-index: 100; background: color-mix(in srgb, var(--cx-ground) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--cx-line); }
+.ctl-in { max-width: 1320px; margin: 0 auto; padding: 9px 24px; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+.cg { display: inline-flex; align-items: center; gap: 8px; }
+.cg > label, .cg > .lb { font: 600 10.5px/1 var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-3); }
+.seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--cx-panel); border: 1px solid var(--cx-line); border-radius: 8px; }
+.seg button { height: 24px; padding: 0 10px; border-radius: 6px; color: var(--cx-ink-3); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.seg button:hover { color: var(--cx-ink); }
+.seg button.on { background: var(--cx-surface); color: var(--cx-ink); box-shadow: 0 0 0 1px var(--cx-line), var(--cx-shadow); }
+.seg button:focus-visible, .stp button:focus-visible, select:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 1px; }
+.stp { display: inline-flex; align-items: center; gap: 2px; padding: 2px; background: var(--cx-panel); border: 1px solid var(--cx-line); border-radius: 8px; }
+.stp button { height: 24px; min-width: 34px; padding: 0 8px; border-radius: 6px; font-weight: 600; font-size: 12px; color: var(--cx-ink-2); }
+.stp button:hover:not(:disabled) { background: var(--cx-surface); }
+.stp button:disabled { opacity: .35; cursor: default; }
+.stp output { min-width: 62px; text-align: center; font: 500 12px var(--cx-mono); color: var(--cx-ink); cursor: pointer; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cx-ink-2); cursor: pointer; }
+select { height: 28px; padding: 0 8px; border: 1px solid var(--cx-line); border-radius: 8px; background: var(--cx-surface); color: var(--cx-ink); font: 12px var(--cx-font); }
+
+/* Seção de uma versão */
+.ver { margin-top: 46px; scroll-margin-top: 70px; }
+.ver-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ver-badge { font: 700 12px/1 var(--cx-mono); padding: 5px 8px; border-radius: 6px; background: var(--cx-btn); color: var(--cx-btn-ink); letter-spacing: .04em; }
+.ver-badge.ref { background: var(--cx-panel); color: var(--cx-ink-2); border: 1px solid var(--cx-line-strong); }
+.ver-h h2 { font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
+.ver-rat { margin-top: 8px; max-width: 920px; color: var(--cx-ink-2); font-size: 13.5px; line-height: 1.6; }
+.pc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; max-width: 920px; margin: 12px 0 16px; }
+.pc div { font-size: 12.5px; color: var(--cx-ink-2); }
+.pc h4 { font: 600 10.5px/1 var(--cx-font); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.pc .pro h4 { color: var(--cx-green); } .pc .con h4 { color: var(--cx-orange); }
+.pc ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.pc li { padding-left: 14px; position: relative; }
+.pc li::before { content: ""; position: absolute; left: 1px; top: 8px; width: 5px; height: 5px; border-radius: 1px; background: currentColor; opacity: .55; }
+@media (max-width: 720px) { .pc { grid-template-columns: 1fr; } }
+
+/* Moldura que escala a lista (largura simulada) para caber na tela */
+.fit { position: relative; width: 100%; }
+.fit-in { transform-origin: 0 0; }
+.frame { background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-radius: 12px; box-shadow: var(--cx-shadow); overflow: visible; }
+.frame-note { font-size: 11.5px; color: var(--cx-ink-3); margin: 6px 2px 0; font-family: var(--cx-mono); }
+
+/* Comparativo só da coluna */
+.cmp { overflow-x: auto; margin-top: 14px; border: 1px solid var(--cx-line-strong); border-radius: 12px; background: var(--cx-surface); box-shadow: var(--cx-shadow); }
+.cmp-t { display: grid; grid-template-columns: 188px 124px 124px 124px 318px 124px; min-width: 1080px; font-size: var(--cx-fs-sm); }
+.cmp-t > * { border-top: 1px solid var(--cx-line); min-width: 0; }
+.cmp-t > .hh { border-top: 0; background: var(--cx-surface-2); padding: 9px 8px 8px; font: 600 var(--cx-fs-10)/1.3 var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--cx-ink-2); border-bottom: 1px solid var(--cx-line); }
+.cmp-t > .hh small { display: block; font: 400 var(--cx-fs-11)/1.3 var(--cx-font); letter-spacing: 0; text-transform: none; color: var(--cx-ink-3); margin-top: 2px; }
+.cmp-t > .lab { padding: 8px 12px 8px 12px; font-size: var(--cx-fs-sm); line-height: var(--lh15); color: var(--cx-ink-2); display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.cmp-t > .lab b { color: var(--cx-ink); font-weight: 600; font-size: var(--cx-fs-12); }
+.cmp-t > .cell { display: flex; border-left: 1px solid var(--cx-line); }
+.cmp-t > .cell.wide { }
+.cmp-t .cell .cx-ix-sn { flex: 1; border-left: 0; }
+.cmp-t .cell .mini-id { flex: 1 1 0; min-width: 0; padding: 8px 8px 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.cmp-t .cell.wide .cx-ix-sn { flex: 0 0 118px; border-left: 1px solid var(--cx-line); }
+.mini-id .mp { display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: var(--cx-fs-base); line-height: var(--lh18); min-width: 0; }
+.mini-id .mnum { font: 400 var(--cx-fs-sm)/var(--lh16) var(--cx-mono); letter-spacing: -.02em; color: var(--mini); }
+
+/* Recomendação + notas */
+.reco { margin-top: 14px; background: var(--cx-surface); border: 1px solid var(--cx-line-strong); border-left: 3px solid var(--cx-accent); border-radius: 10px; padding: 16px 20px; max-width: 980px; box-shadow: var(--cx-shadow); }
+.reco p { color: var(--cx-ink-2); font-size: 13.5px; line-height: 1.65; margin-top: 8px; }
+.reco p:first-child { margin-top: 0; }
+.reco b { color: var(--cx-ink); }
+.notes { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
+.note-c { background: var(--cx-surface); border: 1px solid var(--cx-line); border-radius: 10px; padding: 14px 16px; }
+.note-c h3 { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; }
+.note-c ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.note-c li { font-size: 12.5px; color: var(--cx-ink-2); padding-left: 14px; position: relative; line-height: 1.55; }
+.note-c li::before { content: ""; position: absolute; left: 1px; top: 8px; width: 5px; height: 5px; border-radius: 1px; background: var(--cx-accent); }
+code { font: 500 11.5px var(--cx-mono); background: var(--cx-panel); border: 1px solid var(--cx-line); border-radius: 4px; padding: 0 4px; color: var(--cx-ink); }
+
+/* ════════════ Card de intimação · CSS real (src/Nexus.shell.html), adaptado ao ajuste de fonte ════════════ */
+.cx { font-family: var(--cx-font); font-size: var(--cx-fs-base); line-height: 1.45; color: var(--cx-ink); }
+.cx-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cx-it-list {
+  container-type: inline-size; container-name: lst;
+  background: var(--cx-surface); border-radius: 12px;
+}
+.cx-ix, .cx-ix-h { display: grid; padding: 0 14px; column-gap: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id pz" "sn sn" "tr tr" "nt nt"; }
+.cx-ix-h { display: none; }
+@container lst (min-width: 860px) {
+  .cx-ix, .cx-ix-h { grid-template-columns: 260px minmax(0, 1fr) 110px 84px; grid-template-areas: "id tr sn pz" "id nt sn pz"; }
+  .cx-ix-h { display: grid; grid-template-areas: "id tr sn pz"; }
+}
+@container lst (min-width: 1480px) {
+  .cx-ix, .cx-ix-h { grid-template-columns: 290px minmax(0, 1.25fr) minmax(0, 1fr) 118px 88px; grid-template-areas: "id tr nt sn pz"; }
+}
+.cx-ix { position: relative; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-ix:hover { background: var(--cx-hover); }
+.cx-ix.urgent::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
+.cx-ix.done { opacity: 0.78; }
+.cx-it-list .cx-ix-h + .cx-grp { border-top: 0; }
+.cx-grp { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); text-align: left; color: var(--cx-ink); font-size: var(--cx-fs-base); font-weight: 600; cursor: default; }
+.cx-caret { color: var(--cx-ink-3); display: grid; flex: none; }
+.cx-n { font: 500 var(--cx-fs-11) var(--cx-mono); color: var(--cx-ink-3); }
+.cx-st-ic { display: grid; place-items: center; flex: none; }
+
+.cx-ix-id { grid-area: id; min-width: 0; padding: 8px 14px 9px 6px; display: flex; flex-direction: column; gap: var(--ixgap); }
+.cx-it-opl { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; height: var(--lh13); }
+.cx-it-op { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font: 600 var(--cx-fs-10)/var(--lh13) var(--cx-font); letter-spacing: .05em; text-transform: uppercase; color: var(--mini); }
+.cx-op-sq { width: 8px; height: 8px; border-radius: 2px; flex: none; display: inline-block; }
+.cx-it-tags { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.cx-tag { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; font-size: var(--cx-fs-sm); border: 1px solid var(--cx-line); color: var(--cx-ink-2); }
+.cx-tag.xs { height: 16px; padding: 0 5px; font-size: var(--cx-fs-10); border-radius: 4px; }
+.cx-tag.blue { color: var(--cx-blue); background: var(--cx-blue-soft); border-color: transparent; }
+.cx-flag { color: var(--cx-orange); display: inline-grid; }
+.cx-ix-party { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: var(--cx-fs-base); line-height: var(--lh18); }
+.cx-ix-pc { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.cx-proc { font-family: var(--cx-mono); font-size: var(--cx-fs-sm); font-weight: 400; white-space: nowrap; letter-spacing: -0.02em; color: var(--cx-ink); flex: none; line-height: var(--lh16); }
+.cx-proc .cx-d { color: var(--mini); font-weight: 400; }
+.cx-uf { display: inline-block; font: 600 calc(9.5px + var(--fs-adj))/1 var(--cx-mono); padding: 3px 4px; border-radius: 3px; background: var(--cx-cyan-soft); color: var(--cx-cyan); margin-right: 7px; vertical-align: 0; letter-spacing: 0.02em; }
+.cx-ix-sg { flex: none; display: inline-flex; align-items: center; height: var(--cx-tagk-h); font: 600 var(--cx-fs-10)/1 var(--cx-mono); letter-spacing: .04em; padding: 0 5px; border-radius: var(--cx-tagk-r); border: 1px solid var(--cx-line-strong); color: var(--cx-ink-2); background: var(--cx-surface-2); cursor: help; }
+
+.cx-it-tr { grid-area: tr; min-width: 0; padding: 8px 18px; border-left: 1px solid var(--cx-line); }
+.cx-it-obj { font-size: var(--cx-fs-12); line-height: var(--lh15); color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor { margin-top: 3px; padding-left: 9px; border-left: 2px solid var(--cx-line-strong); font-size: var(--cx-fs-sm); line-height: var(--lh15); color: var(--cx-ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-teor .lbl, .cx-it-nt .zl { font: 600 var(--cx-fs-9)/1 var(--cx-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mini); margin-right: 6px; vertical-align: 1px; }
+
+.cx-it-nt { grid-area: nt; min-width: 0; padding: 8px 18px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-it-note { position: relative; padding-left: 12px; font-size: var(--cx-fs-sm); line-height: var(--lh15); color: var(--cx-ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.cx-it-note + .cx-it-note, .cx-it-note + .cx-it-more { margin-top: 1px; }
+.cx-it-note::before { content: ""; position: absolute; left: 1px; top: 5.5px; width: 4px; height: 4px; border-radius: 1px; background: var(--cx-accent); }
+.cx-it-nt .zl { display: none; }
+.cx-it-note.act { color: var(--cx-ink-2); padding-left: 0; }
+.cx-it-note.act::before { display: none; }
+.cx-it-more { padding-left: 12px; font: 500 var(--cx-fs-xs)/var(--lh15) var(--cx-mono); color: var(--mini); }
+
+/* Indicadores · estrutura base (atual) */
+.cx-ix-sn { grid-area: sn; min-width: 0; padding: 8px 6px 9px; border-left: 1px solid var(--cx-line); display: flex; flex-direction: column; align-items: center; gap: var(--ixgap); }
+.cx-ix-slots { display: grid; grid-template-columns: repeat(3, 26px); justify-items: center; align-items: center; height: 18px; }
+.cx-ix-slots .sl { display: inline-flex; align-items: center; justify-content: center; min-width: 0; }
+.cx-urg { font: 700 var(--cx-fs-9)/1 var(--cx-mono); letter-spacing: 0.06em; padding: 3px 5px; border-radius: 3px; background: var(--cx-red); color: var(--cx-on-solid); flex: none; margin: 0; }
+.cx-ix-ei { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; min-width: 0; }
+.cx-ix-el { max-width: 100%; font-size: var(--cx-fs-xs); line-height: var(--lh13); color: var(--cx-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-est-prog { display: inline-flex; gap: 2px; vertical-align: middle; flex: none; }
+.cx-est-prog i { width: 11px; height: 4px; border-radius: 2px; background: var(--cx-line); display: block; }
+.cx-est-prog i.d { background: var(--cx-green); } .cx-est-prog i.n { background: var(--cx-blue); }
+.cx-imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.cx-imp i { width: 3px; border-radius: 1px; background: var(--cx-line-strong); }
+.cx-imp i:nth-child(1) { height: 5px; } .cx-imp i:nth-child(2) { height: 8px; } .cx-imp i:nth-child(3) { height: 12px; }
+.cx-imp[data-v="alta"] i { background: var(--cx-red); }
+.cx-imp[data-v="normal"] i:nth-child(-n+2) { background: var(--cx-ink-2); }
+.cx-dif { display: inline-flex; gap: 2px; align-items: center; height: 12px; flex: none; }
+.cx-dif i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--cx-line-strong); }
+.cx-dif[data-v="alta"] i { background: var(--cx-orange); border-color: var(--cx-orange); }
+.cx-dif[data-v="media"] i:nth-child(-n+2) { background: var(--cx-ink-2); border-color: var(--cx-ink-2); }
+.cx-doc-ic { flex: none; display: inline-flex; border-radius: 3px; }
+.cx-doc-ic:hover { opacity: 0.85; }
+
+.cx-ix-pz { grid-area: pz; padding: 8px 0 8px 6px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0; }
+.cx-due { white-space: nowrap; letter-spacing: 0; font: 500 var(--cx-fs-12)/var(--lh16) var(--cx-font); font-variant-numeric: tabular-nums; }
+.cx-due.late { color: var(--cx-red); } .cx-due.today { color: var(--cx-orange); } .cx-due.soon { color: var(--cx-yellow); }
+.cx-due.later { color: var(--cx-ink-2); } .cx-due.done { color: var(--cx-green); }
+.cx-emb { font: 500 var(--cx-fs-11)/var(--lh15) var(--cx-font); font-variant-numeric: tabular-nums; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
+.cx-emb.calm { color: var(--mini); }
+.cx-emb.warn { color: var(--emb-warn); background: var(--cx-yellow-soft); padding: 0 6px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-yellow) 38%, transparent); font-weight: 600; }
+.cx-emb.today { color: var(--cx-on-solid); background: var(--emb-today); padding: 0 6px; font-weight: 700; letter-spacing: .03em; }
+
+.cx-ix-h { border-bottom: 1px solid var(--cx-line); font-size: var(--cx-fs-11); color: var(--mini); }
+.cx-ix-h > span { padding: 7px 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-ix-h b { font: 600 var(--cx-fs-10) var(--cx-font); letter-spacing: .06em; text-transform: uppercase; color: var(--cx-ink-2); margin-right: 7px; }
+.cx-ix-h .h-id { grid-area: id; padding-left: 6px; }
+.cx-ix-h .h-tr { grid-area: tr; padding-left: 19px; border-left: 1px solid var(--cx-line); }
+.cx-ix-h .h-nt { grid-area: nt; padding-left: 19px; background: var(--zone-tint); border-left: 1px solid var(--zone-edge); }
+.cx-ix-h .h-nt b { color: var(--cx-accent); }
+.cx-ix-h .h-sn { grid-area: sn; text-align: center; border-left: 1px solid var(--cx-line); }
+.cx-ix-h .h-sn b, .cx-ix-h .h-pz b { margin-right: 0; }
+.cx-ix-h .h-pz { grid-area: pz; padding-left: 6px; text-align: right; }
+.cx-ix-h .m-only { display: none; }
+
+@container lst (max-width: 1479.98px) {
+  .cx-it-nt .zl { display: inline; }
+  .cx-ix-h .h-nt { display: none; }
+  .cx-ix-h .m-only { display: inline; }
+}
+@container lst (min-width: 860px) and (max-width: 1479.98px) {
+  .cx-it-nt { border-top: 1px dashed var(--zone-edge); padding-top: 7px; padding-bottom: 8px; }
+  .cx-it-nt.empty { display: none; }
+  .cx-ix.nt-empty .cx-it-tr { grid-row: 1 / span 2; }
+}
+@container lst (max-width: 859.98px) {
+  .cx-it-tr { border-left: 0; padding: 4px 0 0 0; }
+  .cx-it-nt { border-left: 2px solid var(--zone-edge); border-radius: 0 6px 6px 0; padding: 6px 10px; margin-top: 6px; margin-bottom: 9px; }
+  .cx-it-nt.empty { display: none; }
+  .cx-ix-party .cx-ell { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: var(--lh18); }
+  .cx-ix-pz { padding: 8px 0 0 8px; }
+  .cx-ix-id { padding-right: 8px; }
+  .cx-ix-sn { border-left: 0; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px 12px; padding: 5px 0 0; }
+  .cx-ix-slots { grid-template-columns: repeat(3, auto); gap: 12px; height: auto; }
+  .cx-ix-slots .sl:empty { display: none; }
+  .cx-ix-ei { flex-direction: row; gap: 7px; }
+  .cx-ix-el { max-width: 160px; }
+  .cx-ix-pc { flex-wrap: wrap; row-gap: 3px; }
+  .cx-ix-pc .cx-proc { flex: 0 1 auto; min-width: 0; white-space: normal; }
+}
+
+/* ════════════ PROPOSTAS · novos elementos da coluna Indicadores ════════════ */
+/* Etiqueta de texto (tons de vermelho): URGENTE sólida · IMPORTANTE preenchimento suave · COMPLEXO só contorno */
+.ixt { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: calc(16px + var(--fs-adj)); padding: 0 5px; border-radius: 3px; font: 700 var(--cx-fs-9)/1 var(--cx-mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; flex: none; position: relative; }
+.ixt.u { background: var(--cx-red); color: var(--cx-on-solid); }
+.ixt.i { background: var(--cx-red-soft); color: var(--tag-i-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cx-red) 42%, transparent); }
+.ixt.c { background: transparent; color: var(--cx-red); box-shadow: inset 0 0 0 1px var(--cx-red); font-weight: 600; }
+
+/* Rodapé: esteira (só barra) + ícone da peça, na base da coluna */
+.ix-ft { display: flex; align-items: center; gap: 7px; width: 100%; margin-top: auto; min-height: 16px; }
+.ix-bar { position: relative; flex: 1 1 0; min-width: 0; display: flex; gap: 2px; align-items: center; height: 16px; cursor: help; border-radius: 3px; }
+.ix-bar i { flex: 1 1 0; height: 6px; border-radius: 2px; background: var(--cx-line-strong); transition: height .1s; }
+.ix-bar i.d { background: var(--cx-green); } .ix-bar i.n { background: var(--cx-blue); }
+.ix-bar:hover i, .ix-bar:focus-visible i { height: 8px; }
+.ix-bar:focus-visible { outline: 2px solid var(--cx-accent); outline-offset: 2px; }
+.ix-bar.none { visibility: hidden; }
+.ix-pc { flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+.ix-pc .cx-doc-ic { width: 16px; height: 16px; }
+
+/* Tooltip próprio (substitui o title nativo; aparece só no hover/foco) */
+.tp { position: relative; }
+.tip { position: absolute; z-index: 60; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%); width: max-content; max-width: 212px; padding: 7px 10px; border-radius: 8px; background: var(--cx-btn); color: var(--cx-btn-ink); font: 500 var(--cx-fs-12)/1.35 var(--cx-font); letter-spacing: 0; text-transform: none; text-align: left; white-space: normal; box-shadow: var(--cx-shadow-lg); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s; font-variant-numeric: normal; }
+.tip b { font-weight: 600; display: block; }
+.tip small { display: block; margin-top: 1px; font: 400 var(--cx-fs-11)/1.35 var(--cx-font); color: color-mix(in srgb, var(--cx-btn-ink) 66%, transparent); }
+.tip .stp-l { display: flex; gap: 3px; margin: 5px 0 1px; }
+.tip .stp-l i { flex: 1; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--cx-btn-ink) 28%, transparent); }
+.tip .stp-l i.d { background: #4cc38a; } .tip .stp-l i.n { background: #6fa5ff; }
+.tip.dn { bottom: auto; top: calc(100% + 7px); }
+.tp:hover > .tip, .tp:focus-visible > .tip { opacity: 1; visibility: visible; }
+.tp:hover { z-index: 61; }
+
+/* ── V0 · atual (referência) ── nenhum ajuste: usa .cx-ix-slots, .cx-urg, .cx-ix-ei acima */
+
+/* ── V1 · como pedido: etiquetas empilhadas no topo, esteira + peça na base ── */
+.v1 .cx-ix-sn { align-items: stretch; gap: 0; }
+.v1 .ixg { display: flex; flex-direction: column; gap: 3px; }
+.v1 .ixg:empty { display: none; }
+.v1 .ixt { width: 100%; }
+.v1 .ix-ft { padding-top: 6px; }
+.v1 .cx-ix-h .h-sn { text-align: left; padding-left: 6px; }
+
+/* ── V2 · chips compactos em linha, 3 casas fixas (URG · IMP · CPX), palavra inteira no hover ── */
+.v2 .cx-ix-sn { align-items: stretch; gap: 0; }
+.v2 .ixg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; height: calc(16px + var(--fs-adj)); }
+.v2 .ixt { cursor: help; padding: 0; width: 100%; letter-spacing: .03em; }
+.v2 .ixt.u { grid-column: 1; } .v2 .ixt.i { grid-column: 2; } .v2 .ixt.c { grid-column: 3; }
+.v2 .ix-ft { padding-top: 6px; }
+.v2 .cx-ix-h .h-sn { text-align: left; padding-left: 6px; }
+
+/* ── V3 · etiquetas na identidade (linha própria sob o nº); coluna só com esteira + peça ── */
+.v3 .id-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
+.v3 .id-tags:empty { display: none; }
+.v3 .cx-ix-sn { align-items: stretch; gap: 0; }
+.v3 .cx-ix-h .h-sn { text-align: left; padding-left: 6px; }
+
+/* ── V4 · grade fixa de 3 linhas, estilo texto: só URGENTE tem caixa; os demais com marcador ── */
+.v4 .cx-ix-sn { align-items: stretch; gap: 0; }
+.v4 .ixg { display: grid; grid-template-rows: repeat(3, calc(14px + var(--fs-adj))); row-gap: 2px; }
+.v4 .ixr { display: flex; align-items: center; gap: 6px; font: 600 var(--cx-fs-10)/1 var(--cx-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--tag-i-ink); white-space: nowrap; min-width: 0; }
+.v4 .ixr.c { font-weight: 500; color: var(--cx-red); }
+.v4 .ixr .mk { flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--cx-red); }
+.v4 .ixr.c .mk { background: transparent; box-shadow: inset 0 0 0 1.5px var(--cx-red); }
+.v4 .ixr.u .ixt { height: calc(14px + var(--fs-adj)); }
+.v4 .ix-ft { padding-top: 6px; }
+.v4 .cx-ix-h .h-sn { text-align: left; padding-left: 6px; }
+
+/* Celular (< 860): coluna vira faixa horizontal; casas vazias somem */
+@container lst (max-width: 859.98px) {
+  .cx-ix-sn .ix-ft { width: auto; flex: 0 0 132px; margin-top: 0; padding-top: 0; }
+  .cx-ix-sn .ix-ft:has(.ix-bar.none) { flex: 0 0 auto; }
+  .ix-bar.none { display: none; }
+  .v1 .cx-ix-sn, .v2 .cx-ix-sn, .v3 .cx-ix-sn, .v4 .cx-ix-sn { align-items: center; }
+  .v1 .ixg { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .v1 .ixt { width: auto; }
+  .v2 .ixg { display: flex; gap: 4px; height: auto; }
+  .v2 .ixg .ix-empty { display: none; }
+  .v2 .ixt { width: auto; padding: 0 6px; }
+  .v4 .ixg { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .v4 .ixg .ix-empty { display: none; }
+  .tip { left: 0; transform: none; }
+  .tp.tl-r > .tip { left: auto; right: 0; }
+  .cx-ix-sn:empty { display: none; }
+}
+</style>
+</head>
+<body class="cx-theme-ardosia">
+
+<div class="ctl" role="region" aria-label="Controles do mockup">
+  <div class="ctl-in">
+    <div class="cg"><span class="lb">Tema</span><div class="seg" id="c-theme">
+      <button data-v="ardosia" class="on">Ardósia</button><button data-v="noite">Noite</button><button data-v="grafite">Grafite</button></div></div>
+    <div class="cg"><span class="lb">Largura da lista</span><div class="seg" id="c-width">
+      <button data-v="1920" class="on">1920</button><button data-v="1280">1280</button><button data-v="420">420</button></div>
+      <label class="chk" title="Reduz a visualização (sem alterar o layout simulado) para caber na janela"><input type="checkbox" id="c-fit" checked> caber na tela</label></div>
+    <div class="cg"><span class="lb">Fonte do card</span><div class="stp" role="group" aria-label="Tamanho da fonte do card">
+      <button id="fs-dn" aria-label="Diminuir fonte 0,5 px" title="Diminuir 0,5 px">A−</button>
+      <output id="fs-out" title="Clique para voltar ao padrão" aria-live="polite">padrão</output>
+      <button id="fs-up" aria-label="Aumentar fonte 0,5 px" title="Aumentar 0,5 px">A+</button></div></div>
+    <div class="cg"><span class="lb">Mostrar</span><select id="c-show" aria-label="Versões exibidas">
+      <option value="all">Todas as versões</option><option value="v0">Só atual</option><option value="v1">Só V1</option><option value="v2">Só V2</option><option value="v3">Só V3</option><option value="v4">Só V4</option></select></div>
+  </div>
+</div>
+
+<div class="doc">
+  <div class="eyebrow">Nexus Prumo · proposta de design</div>
+  <h1>Coluna Indicadores do card de intimação</h1>
+  <p class="lede">Quatro versões da coluna, mais a atual como referência, com as mesmas dez linhas de exemplo. Os controles acima trocam o tema, a largura da lista (os três pontos de quebra reais: 1920 = quatro colunas, 1280 = Objeto e Notas empilhados, 420 = celular) e o tamanho da fonte do card em passos de 0,5 px. Passe o mouse sobre a barra da esteira e sobre as etiquetas abreviadas.</p>
+  <div class="rules">
+    <div class="rule"><b>Esteira sem frase</b>Só a barra colorida, na base da coluna. A etapa aparece apenas no tooltip da barra.<span class="q">"A frase aparece apenas quando passa o mouse sobre a linha."</span></div>
+    <div class="rule"><b>URGENTE · IMPORTANTE · COMPLEXO</b>Substituem os glifos de barras e bolinhas. Podem aparecer juntos; todos em tons de vermelho.<span class="q">URGENTE = urgente · IMPORTANTE = importância alta · COMPLEXO = complexidade alta</span></div>
+    <div class="rule"><b>Peça simétrica à esteira</b>O ícone do Google Docs fica no fim da linha da esteira; a barra foi redimensionada para formar com ele uma unidade.<span class="q">"…de forma simétrica a ela."</span></div>
+    <div class="rule"><b>Sem dado novo</b>Tudo sai de <code>intimIsUrgent</code>, <code>intimImpKey</code>, <code>intimDifKey</code>, <code>minutaUrl</code> e <code>esteira</code>.</div>
+  </div>
+
+  <h2 class="pg-h2" id="lado-a-lado">Só a coluna, lado a lado</h2>
+  <p class="pg-p">Cada célula é a coluna Indicadores em 118 px (largura de ≥ 1480). Em V3 as etiquetas ficam na identidade, por isso a célula mostra também o trecho da identidade.</p>
+  <div class="cmp"><div class="cmp-t" id="cmp"></div></div>
+
+  <div id="vers"></div>
+
+  <h2 class="pg-h2" id="recomendacao">Recomendação</h2>
+  <div class="reco" id="reco"></div>
+
+  <h2 class="pg-h2" id="implementacao">Notas de implementação</h2>
+  <div class="notes" id="impl"></div>
+</div>
+
+<script>
+/* ═══════════════ Dados de exemplo (10 linhas) ═══════════════ */
+/* est: passos ['d'|'n'|'']; lab = etapa atual; when = "parou há…" */
+var STEPS4 = ['Anonimização', 'Extração do relatório e triagem', 'Redação fina', 'Leitura e ajustes'];
+var ROWS = [
+  { cap: 'Só urgente · peça · esteira (etapa longa)', op: 'Saneamento Fiscal', opc: 'maxima', st: 'em_analise', party: 'Frigorífico Pampa S.A. (massa falida)', uf: 'PR', num: '5004321-87', tail: '.2023.4.04.7000', sg: 'EF',
+    obj: 'Intimação para manifestar-se sobre o pedido de habilitação do crédito trabalhista e sobre a ordem de preferência no rateio.', teor: 'Prazo de 10 dias para a exequente indicar se há interesse na reserva de valores no rosto dos autos.',
+    notes: ['Verificar se o crédito já foi habilitado na falência antes do rateio.', 'Conversar com a PRFN sobre o rosto dos autos.'], u: 1, i: 0, c: 0, peca: 1, est: { s: ['d', 'n', '', ''], lab: STEPS4[1], when: 'parou há 3 dias' }, due: ['today', 'Hoje'], emb: ['warn', 'Emb. 14/10'] },
+  { cap: 'Urgente + importante + complexo · peça · esteira', op: 'Rota Sul', opc: 'alta', st: 'peca_edicao', party: 'Transportadora Rota Sul Ltda.', uf: 'RS', num: '5012987-20', tail: '.2022.4.04.7100', sg: 'IDPJ', flag: 1, isNew: 1,
+    obj: 'Intimação para responder ao incidente de desconsideração da personalidade jurídica e juntar os documentos societários do grupo.', teor: 'Defiro a instauração do incidente. Cite-se a União para, querendo, manifestar-se em 15 dias.',
+    notes: ['Montar a linha do tempo da sucessão empresarial (2019-2023).', 'Pedir certidão de breve relato à Junta.'], u: 1, i: 1, c: 1, peca: 1, est: { s: ['d', 'd', 'n', ''], lab: STEPS4[2], when: 'parou há 1 dia' }, due: ['today', 'Amanhã'] },
+  { cap: 'Importante + complexo · sem peça · esteira iniciando', op: 'Saneamento Fiscal', opc: 'maxima', st: 'pendente_analise', party: 'João Carlos Mendes Pereira', uf: 'SC', num: '5000876-14', tail: '.2024.4.04.7200', sg: 'AI',
+    obj: 'Agravo de instrumento contra a decisão que indeferiu a penhora de ativos financeiros do corresponsável.', teor: 'Intime-se o agravado para contrarrazões no prazo legal.',
+    notes: ['Tema 1.209/STJ pendente; checar se há sobrestamento.'], u: 0, i: 1, c: 1, peca: 0, est: { s: ['n', '', '', ''], lab: STEPS4[0], when: 'parou há 5 dias' }, due: ['soon', 'Qui 15/10'], emb: ['calm', 'Emb. 20/10'] },
+  { cap: 'Nenhuma etiqueta · sem peça · sem esteira · sem notas', op: 'Vale do Itajaí', opc: 'media', st: 'pendente_analise', party: 'Comercial Vale do Itajaí Ltda.', uf: 'SC', num: '5008112-65', tail: '.2021.4.04.7208', sg: 'EF',
+    obj: 'Ciência da certidão do oficial de justiça: executado não localizado no endereço do cadastro.', teor: '',
+    notes: [], u: 0, i: 0, c: 0, peca: 0, est: null, due: ['later', '27/10'] },
+  { cap: 'Só importante · peça · esteira concluída', op: 'Rota Sul', opc: 'alta', st: 'peca_pronta', party: 'Agropecuária Boa Vista Ltda.', uf: 'RS', num: '5021456-03', tail: '.2023.4.04.7102', sg: 'EF', flag: 1,
+    obj: 'Intimação para impugnar os embargos à execução fiscal opostos com base em prescrição intercorrente.', teor: 'Impugnação em 30 dias, com cópia integral do processo administrativo.',
+    notes: ['Peça pronta: só falta conferir a numeração das folhas.'], u: 0, i: 1, c: 0, peca: 1, est: { s: ['d', 'd', 'd', 'd'], lab: 'Concluída', when: 'concluída 08/10', done: 1 }, due: ['soon', 'Seg 12/10'] },
+  { cap: 'Só complexo · sem peça · esteira na última etapa · atrasada', op: 'Vale do Itajaí', opc: 'media', st: 'analise_concluida', party: 'Metalúrgica Tupi Ltda.', uf: 'SC', num: '5003390-71', tail: '.2022.4.04.7216', sg: 'ED',
+    obj: 'Embargos de declaração da executada apontando omissão sobre a incidência de encargo legal; vista à União.', teor: 'Manifeste-se a embargada em 5 dias.',
+    notes: ['Rever a súmula 168 do extinto TFR antes de responder.', 'Falta conferir o cálculo atualizado.'], u: 0, i: 0, c: 1, peca: 0, est: { s: ['d', 'd', 'd', 'n'], lab: STEPS4[3], when: 'parou há 9 dias' }, due: ['late', 'há 2d'] },
+  { cap: 'Urgente + importante · peça · sem esteira', op: 'Saneamento Fiscal', opc: 'maxima', st: 'peca_edicao', party: 'Construtora Alvorada S.A.', uf: 'PR', num: '5016745-92', tail: '.2024.4.04.7000', sg: 'MCF',
+    obj: 'Intimação para manifestar-se sobre pedido de liberação de bem imóvel indisponibilizado na cautelar fiscal.', teor: 'A requerente alega ter quitado o parcelamento; manifeste-se a União em 5 dias.',
+    notes: ['Confirmar o status do parcelamento no sistema da PGFN.'], u: 1, i: 1, c: 0, peca: 1, est: null, due: ['today', 'Ter 13/10'] },
+  { cap: 'Nenhuma etiqueta · peça · sem esteira · Atualizada', op: 'Vale do Itajaí', opc: 'media', st: 'em_analise', party: 'Posto Caminho Real Ltda.', uf: 'SC', num: '5007704-38', tail: '.2020.4.04.7208', sg: 'EF', upd: 1,
+    obj: 'Intimação para dar andamento ao feito: pedido de arquivamento por baixo valor (Portaria PGFN 396).', teor: 'Em 30 dias, sob pena de arquivamento provisório.',
+    notes: ['Saldo abaixo do piso; arquivar sem baixa.'], u: 0, i: 0, c: 0, peca: 1, est: null, due: ['later', '03/11'] },
+  { cap: 'Só complexo · sem peça · esteira com nome muito longo', op: 'Rota Sul', opc: 'alta', st: 'aguardando_subsidios', party: 'Laticínios Serra Verde Ltda.', uf: 'RS', num: '5019033-56', tail: '.2023.4.04.7107', sg: 'AC',
+    obj: 'Apelação cível: intimação para contrarrazões ao recurso do contribuinte em ação anulatória de débito fiscal.', teor: 'Prazo de 30 dias úteis, em dobro para a Fazenda.',
+    notes: ['Aguardando subsídios da Receita sobre a compensação alegada.'], u: 0, i: 0, c: 1, peca: 0, est: { s: ['d', 'n', '', ''], lab: 'Revisão da fundamentação com a Procuradoria Regional e conferência das citações', when: 'parou há 12 dias' }, due: ['later', '30/10'] },
+  { cap: 'Resolvida · importante + complexo · peça · esteira concluída', op: 'Saneamento Fiscal', opc: 'maxima', st: 'analisado', party: 'Madeireira Três Pinheiros Ltda.', uf: 'PR', num: '5011220-47', tail: '.2022.4.04.7009', sg: 'EF', resolved: 1,
+    obj: 'Intimação para manifestar-se sobre a exceção de pré-executividade com alegação de ilegitimidade passiva.', teor: 'Manifestação em 15 dias.',
+    ra: 'Peticionamento · Impugnação à exceção de pré-executividade protocolada em 08/10.', u: 0, i: 1, c: 1, peca: 1, est: { s: ['d', 'd', 'd', 'd'], lab: 'Concluída', when: 'concluída 07/10', done: 1 }, due: ['done', '✓ 08/10'] },
+];
+var ST = { pendente_analise: ['Pendente de análise', 'ring', 'yellow'], em_analise: ['Em análise', 'dot', 'violet'], analise_concluida: ['Análise concluída', 'chk', 'green'], aguardando_subsidios: ['Aguardando subsídios', 'dash', 'ink-3'], peca_edicao: ['Peça em edição', 'half', 'blue'], peca_pronta: ['Peça pronta', 'full', 'green'], analisado: ['Analisado', 'done', 'green'] };
+function stIcon(s) {
+  var d = ST[s], c = 'var(--cx-' + d[2] + ')', k = d[1], inn;
+  if (k === 'done') inn = '<circle cx="7" cy="7" r="6" style="fill:' + c + '"/><path d="M4.4 7.2 6.2 9l3.4-3.6" style="fill:none;stroke:var(--cx-surface);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>';
+  else if (k === 'half') inn = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M7 3.4a3.6 3.6 0 0 1 0 7.2z" style="fill:' + c + '"/>';
+  else if (k === 'dot') inn = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><circle cx="7" cy="7" r="2.2" style="fill:' + c + '"/>';
+  else if (k === 'chk') inn = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/><path d="M4.6 7.2 6.3 8.8l3.1-3.3" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"/>';
+  else if (k === 'full') inn = '<circle cx="7" cy="7" r="5.4" style="fill:' + c + '"/>';
+  else if (k === 'dash') inn = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5;stroke-dasharray:2.2 2.2"/>';
+  else inn = '<circle cx="7" cy="7" r="5.4" style="fill:none;stroke:' + c + ';stroke-width:1.5"/>';
+  return '<span class="cx-st-ic" title="' + d[0] + '"><svg width="14" height="14" viewBox="0 0 14 14">' + inn + '</svg></span>';
+}
+var DOC = '<a class="cx-doc-ic" href="#" onclick="event.preventDefault();event.stopPropagation()" title="Abrir peça" aria-label="Abrir peça"><svg width="SZ" height="SZ" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="1" width="20" height="22" rx="3" fill="#4285f4"/><path d="M14 1 22 9h-6a2 2 0 0 1-2-2z" fill="#8ab4f8"/><rect x="6" y="12" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="15.6" width="12" height="1.7" rx="0.85" fill="#fff"/><rect x="6" y="19.2" width="7.5" height="1.7" rx="0.85" fill="#fff"/></svg></a>';
+function docIcon(sz) { return DOC.replace(/SZ/g, sz); }
+function proc(r) { return '<span class="cx-proc"><span class="cx-uf">' + r.uf + '</span>' + r.num + '<span class="cx-d">' + r.tail + '</span></span>'; }
+
+/* urgente só vale em linha aberta (igual ao app: intimIsUrgent && !done); IMPORTANTE e COMPLEXO aparecem também na resolvida */
+function eff(r) { return { u: r.u && !r.resolved, i: !!r.i, c: !!r.c }; }
+var TIPS = { u: ['Urgente', 'Intimação marcada como urgente'], i: ['Importante', 'Importância alta'], c: ['Complexo', 'Complexidade alta'] };
+var WORD = { u: 'URGENTE', i: 'IMPORTANTE', c: 'COMPLEXO' }, ABBR = { u: 'URG', i: 'IMP', c: 'CPX' };
+
+/* Esteira: só a barra; frase no tooltip */
+function barHTML(r, tlr) {
+  var e = r.est;
+  if (!e) return '<span class="ix-bar none" aria-hidden="true"></span>';
+  var segs = e.s.map(function (s) { return '<i class="' + s + '"></i>'; }).join('');
+  var n = e.s.filter(function (s) { return s === 'd'; }).length;
+  var idx = e.done ? e.s.length : (e.s.indexOf('n') + 1);
+  var lines = e.done ? 'Esteira concluída' : 'Etapa ' + idx + ' de ' + e.s.length;
+  var tip = '<span class="tip"><b>' + e.lab + '</b><small>' + lines + ' · ' + e.when + '</small><span class="stp-l">' + segs + '</span></span>';
+  return '<span class="ix-bar tp' + (tlr ? ' tl-r' : '') + '" tabindex="0" role="img" aria-label="Esteira da peça: ' + e.lab + ' (' + lines.toLowerCase() + ', ' + e.when + ')">' + segs + tip + '</span>';
+}
+function footHTML(r) { return '<div class="ix-ft">' + barHTML(r) + '<span class="ix-pc">' + (r.peca ? docIcon(16) : '') + '</span></div>'; }
+
+/* Colunas por versão */
+function snV0(r) {
+  var f = eff(r), e = r.est, bars = '';
+  if (e) bars = '<div class="cx-ix-ei" title="Esteira da peça: ' + e.lab + ' · ' + e.when + '"><span class="cx-est-prog">' + e.s.map(function (s) { return '<i class="' + s + '"></i>'; }).join('') + '</span><span class="cx-ix-el">' + e.lab + '</span></div>';
+  return '<span class="cx-ix-slots"><span class="sl"><span class="cx-imp" data-v="' + (r.i ? 'alta' : 'normal') + '"><i></i><i></i><i></i></span></span><span class="sl"><span class="cx-dif" data-v="' + (r.c ? 'alta' : 'media') + '"><i></i><i></i><i></i></span></span><span class="sl">' + (r.peca ? docIcon(14) : '') + '</span></span>' + (f.u ? '<span class="cx-urg">URGENTE</span>' : '') + bars;
+}
+function snV1(r) {
+  var f = eff(r), t = '';
+  ['u', 'i', 'c'].forEach(function (k) { if (f[k]) t += '<span class="ixt ' + k + '">' + WORD[k] + '</span>'; });
+  return '<div class="ixg">' + t + '</div>' + footHTML(r);
+}
+function snV2(r) {
+  var f = eff(r), t = '';
+  ['u', 'i', 'c'].forEach(function (k) {
+    if (f[k]) t += '<span class="ixt ' + k + ' tp tl-' + (k === 'c' ? 'r' : 'l') + '" tabindex="0" aria-label="' + TIPS[k][0] + ': ' + TIPS[k][1].toLowerCase() + '">' + ABBR[k] + '<span class="tip dn"><b>' + TIPS[k][0].toUpperCase() + '</b><small>' + TIPS[k][1] + '</small></span></span>';
+    else t += '<span class="ix-empty"></span>';
+  });
+  return '<div class="ixg">' + t + '</div>' + footHTML(r);
+}
+function idTagsV3(r) {
+  var f = eff(r), t = '';
+  ['u', 'i', 'c'].forEach(function (k) { if (f[k]) t += '<span class="ixt ' + k + '">' + WORD[k] + '</span>'; });
+  return '<div class="id-tags">' + t + '</div>';
+}
+function snV3(r) { return footHTML(r); }
+function snV4(r) {
+  var f = eff(r), t = '';
+  t += f.u ? '<span class="ixr u"><span class="ixt u">URGENTE</span></span>' : '<span class="ixr ix-empty"></span>';
+  t += f.i ? '<span class="ixr i"><span class="mk"></span>IMPORTANTE</span>' : '<span class="ixr ix-empty"></span>';
+  t += f.c ? '<span class="ixr c"><span class="mk"></span>COMPLEXO</span>' : '<span class="ixr ix-empty"></span>';
+  return '<div class="ixg">' + t + '</div>' + footHTML(r);
+}
+var SN = { v0: snV0, v1: snV1, v2: snV2, v3: snV3, v4: snV4 };
+
+function rowHTML(v, r) {
+  var f = eff(r), done = !!r.resolved, hasNt = done || (r.notes && r.notes.length);
+  var flag = r.isNew ? '<span class="cx-tag blue xs">Novo</span>' : r.upd ? '<span class="cx-tag xs">Atualizada</span>' : '';
+  var tags = flag + (r.flag ? '<span class="cx-flag" title="Pendência marcada"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M3 1.5v13h1.6V9.4h7.1l-1.6-3.2 1.6-3.2H4.6V1.5z"/></svg></span>' : '');
+  var nt = done ? '<div class="cx-it-note act"><span class="zl">Atuação</span>' + r.ra + '</div>'
+    : (r.notes || []).slice(0, 2).map(function (n, i) { return '<div class="cx-it-note">' + (i === 0 ? '<span class="zl">Notas</span>' : '') + n + '</div>'; }).join('');
+  var emb = r.emb ? '<span class="cx-emb ' + r.emb[0] + '">' + r.emb[1] + '</span>' : '';
+  return '<div class="cx-ix' + (f.u ? ' urgent' : '') + (done ? ' done' : '') + (hasNt ? '' : ' nt-empty') + '" tabindex="0">' +
+    '<div class="cx-ix-id"><div class="cx-it-opl"><span class="cx-it-op"><span class="cx-op-sq" style="background:var(--cx-opc-' + r.opc + ')"></span><span class="cx-ell">' + r.op + '</span></span><span class="cx-it-tags">' + tags + '</span></div>' +
+    '<div class="cx-ix-party">' + stIcon(r.st) + '<span class="cx-ell">' + r.party + '</span></div>' +
+    '<div class="cx-ix-pc">' + proc(r) + '<span class="cx-ix-sg">' + r.sg + '</span></div>' + (v === 'v3' ? idTagsV3(r) : '') + '</div>' +
+    '<div class="cx-it-tr"><div class="cx-it-obj">' + r.obj + '</div>' + (r.teor ? '<div class="cx-it-teor"><span class="lbl">Decisão</span>' + r.teor + '</div>' : '') + '</div>' +
+    '<div class="cx-it-nt' + (hasNt ? '' : ' empty') + '">' + nt + '</div>' +
+    '<div class="cx-ix-sn">' + SN[v](r) + '</div>' +
+    '<div class="cx-ix-pz"><span class="cx-due ' + r.due[0] + '">' + r.due[1] + '</span>' + emb + '</div></div>';
+}
+var CARET = '<span class="cx-caret"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>';
+function listHTML(v) {
+  var open = ROWS.filter(function (r) { return !r.resolved; }), res = ROWS.filter(function (r) { return r.resolved; });
+  return '<div class="cx cx-it-list ' + v + '" data-list>' +
+    '<div class="cx-ix-h"><span class="h-id"><b>Parte</b></span><span class="h-tr"><b>Objeto<span class="m-only"> · Notas</span></b></span><span class="h-nt"><b>Notas</b></span><span class="h-sn"><b>Indicadores</b></span><span class="h-pz"><b>Prazo</b></span></div>' +
+    '<div class="cx-grp">' + CARET + stIcon('pendente_analise') + '<span>Abertas</span><span class="cx-n">' + open.length + '</span></div>' + open.map(function (r) { return rowHTML(v, r); }).join('') +
+    '<div class="cx-grp">' + CARET + stIcon('analisado') + '<span>Resolvidas</span><span class="cx-n">' + res.length + '</span></div>' + res.map(function (r) { return rowHTML(v, r); }).join('') + '</div>';
+}
+
+/* ═══════════════ Texto das versões ═══════════════ */
+var VERS = [
+  { id: 'v0', badge: 'ATUAL', ref: 1, name: 'Referência · como está hoje', rat: 'Três casas fixas (Importância, Complexidade, peça), URGENTE em caixa vermelha e a esteira com barrinhas de 11 px mais a frase da etapa. Serve de régua para comparar: repare como os glifos de barras e bolinhas exigem aprender a legenda e como a frase da etapa disputa espaço com o resto.', pros: ['Já conhecida pelo usuário', 'Importância e complexidade têm três níveis'], cons: ['Glifos pedem leitura de legenda', 'A frase da esteira é a parte mais ruidosa da coluna', 'Importância baixa/média ocupa espaço sem sinalizar nada'] },
+  { id: 'v1', badge: 'V1', name: 'Como pedido · etiquetas empilhadas no topo, esteira + peça na base', rat: 'Implementação literal do pedido. As etiquetas têm largura total da coluna e se empilham no topo na ordem de gravidade (URGENTE sólida, IMPORTANTE com preenchimento suave, COMPLEXO só com contorno); a esteira vira uma barra de quatro segmentos que ocupa a base da coluna e, no mesmo eixo, o ícone da peça. A barra foi alargada (de 50 para cerca de 82 px) para que ela e o ícone de 16 px formem uma unidade com as mesmas margens laterais das etiquetas acima.', pros: ['Texto por extenso, sem legenda', 'Etiquetas empilhadas sem colisão, mesmo com as três juntas', 'Barra e etiquetas com a mesma largura: coluna com aparência de bloco único', 'Linhas sem etiqueta ficam limpas'], cons: ['Com as três juntas a coluna cresce até ~70 px e pode alongar a linha', 'Sem casas fixas, a mesma etiqueta muda de altura entre linhas: pior para varrer a lista', 'Na faixa de 1280 a coluna é alta (Objeto e Notas empilhados) e a distância entre topo e base aumenta'] },
+  { id: 'v2', badge: 'V2', name: 'Chips compactos de uma linha, três casas fixas', rat: 'As três etiquetas ficam numa só linha, com abreviações em casas fixas (URG na primeira, IMP na segunda, CPX na terceira). Como cada tipo tem sempre a mesma posição, o olho percorre a coluna na vertical e acha todos os IMPORTANTES sem ler. O nome completo, com a definição, aparece no tooltip. A coluna encolhe para 16 px de etiquetas mais 16 px de rodapé, o que ajuda quando a fonte é aumentada.', pros: ['Menor altura: não alonga a linha mesmo com as três', 'Posição fixa: varredura vertical rápida', 'Funciona bem em 110 px (faixa de 1280) e acompanha o A+', 'Mantém o texto, que distingue as cores para daltônicos'], cons: ['Abreviações exigem o primeiro hover (IMP e CPX não são óbvias)', 'Tooltip não existe no toque: no celular as abreviações aparecem com texto igual', 'Foge do "três etiquetas por extenso" do pedido'] },
+  { id: 'v3', badge: 'V3', name: 'Etiquetas na identidade; a coluna guarda só esteira + peça', rat: 'As etiquetas por extenso sobem para a coluna Parte, em uma linha própria sob o número do processo, que só existe nas linhas que têm alguma etiqueta. A coluna Indicadores passa a ter uma única função, a de "andamento da peça": barra de esteira e ícone, na base. A leitura fica: quem é a parte, o que a torna prioritária, e do outro lado em que pé está a peça.', pros: ['Prioridade colada ao nome da parte, onde o olho já começa', 'Coluna Indicadores simples e estreita; poderia até diminuir', 'Palavras inteiras com a coluna Indicadores totalmente livre'], cons: ['Linhas com etiqueta ficam ~20 px mais altas que as demais (alturas irregulares)', 'Muda o desenho da identidade, que o plano manda preservar', 'Coluna Indicadores fica quase vazia no topo e pode parecer faltar algo', 'Mais mudança de JSX e de CSS (duas colunas)'] },
+  { id: 'v4', badge: 'V4', name: 'Grade fixa de 3 linhas em estilo texto', rat: 'Três linhas reservadas, sempre nas mesmas posições (URGENTE, IMPORTANTE, COMPLEXO), com os nomes inteiros. Só URGENTE tem caixa sólida; IMPORTANTE leva um marcador cheio e COMPLEXO um marcador vazado, ambos em vermelho, com texto. A forma do marcador, e não só a cor, diferencia os dois, e a lista fica silenciosa: poucos blocos de cor sólida, que passam a ser exclusivos do que é realmente urgente.', pros: ['Alinhamento perfeito entre linhas e nome por extenso', 'Menos tinta que V1: URGENTE salta aos olhos', 'Marcador cheio/vazado reforça a diferença sem depender da cor'], cons: ['Reserva ~48 px de altura mesmo quando não há etiqueta', 'IMPORTANTE e COMPLEXO parecem menos "etiqueta" do que o pedido sugere', 'Em 420 px a grade colapsa em linha e perde o alinhamento'] },
+];
+var RECO = [
+  '<p><b>Recomendo a V1.</b> É o que o pedido descreve, funciona sem legenda, e a coluna só cresce quando há motivo: a linha comum (nenhuma etiqueta) fica mais limpa do que hoje. Os três estilos (sólida, suave, contorno) são distinguíveis pelo texto e pela forma nos três temas, e a barra de esteira com o ícone da peça formam uma unidade alinhada à base, com as mesmas margens das etiquetas.</p>',
+  '<p>Se na prática muitas intimações tiverem as três etiquetas juntas e a altura da linha incomodar, a saída é a <b>V2</b>: mesma lógica, metade da altura, casas fixas e tooltip para a abreviação. A <b>V4</b> é a mais silenciosa com a lista cheia, mas reserva ~48 px em todas as linhas, inclusive nas muitas sem etiqueta. A <b>V3</b> mexe na identidade e produz linhas de alturas diferentes; fica como alternativa descartada.</p>',
+  '<p>Em todas as versões, a esteira como barra única na base, com a etapa só no tooltip, resolve o defeito mais visível da coluna atual: a frase longa ("Revisão da fundamentação com a Procuradoria Regional…") não trunca nem disputa espaço. O A−/A+ foi aplicado a todos os textos do card (tokens e alturas de linha) de −2 a +2 px.</p>'
+];
+var IMPL = [
+  ['JSX · <code>src/edition-claude.jsx</code>', [
+    'Em <code>CxIntimRow</code>, trocar o conteúdo de <code>.cx-ix-sn</code>: sai <code>.cx-ix-slots</code> (<code>CxImp</code>, <code>CxDif</code>, <code>CxDocIcon</code>) e <code>.cx-urg</code>; entram <code>&lt;CxIxTags&gt;</code> e <code>&lt;CxIxFoot&gt;</code>.',
+    '<code>CxIxTags</code> lê só o que o card já calcula: <code>urgent</code> (<code>intimIsUrgent(intim) &amp;&amp; !done</code>), <code>intimImpKey(intim) === \'alta\'</code> e <code>intimDifKey(intim) === \'alta\'</code>. Nada de campo novo e nada em <code>app.jsx</code>.',
+    '<code>CxIxEst</code> deixa de renderizar <code>.cx-ix-el</code> (a frase); a etapa e o "parou há" passam a ser o conteúdo do tooltip da barra (hoje já estão no <code>title</code>, com o mesmo texto de <code>esteiraSummary</code>/<code>esteiraStoppedLabel</code>). Barra com <code>tabIndex=0</code> e <code>aria-label</code> para teclado.',
+    '<code>CxDocIcon</code> passa a ficar dentro do rodapé (<code>.cx-ix-ft</code>), ao lado da barra, com <code>size={16}</code>. <code>CxImp</code> e <code>CxDif</code> continuam em Quadro, gaveta e Tarefas; apenas deixam de ser usados no card.',
+    'V3 apenas: <code>.id-tags</code> dentro de <code>.cx-ix-id</code>, abaixo de <code>.cx-ix-pc</code>.'
+  ]],
+  ['CSS · bloco "Card de intimação" de <code>src/Nexus.shell.html</code>', [
+    'Remover <code>.cx-ix-slots</code>, <code>.cx-ix-ei</code> e <code>.cx-ix-el</code> do card (e o trecho equivalente na regra de celular). Acrescentar <code>.cx-ixt</code> (+ <code>.u/.i/.c</code>), <code>.cx-ix-ft</code>, <code>.cx-ix-bar</code> e o tooltip da barra, como neste mockup.',
+    'A coluna usa <code>margin-top:auto</code> no rodapé para encostar na base; o <code>display:flex; flex-direction:column</code> que ela já tem basta. Tokens existentes: <code>--cx-red</code>, <code>--cx-red-soft</code>, <code>--cx-on-solid</code> (dão contraste nos três temas, sem token novo).',
+    'Celular (&lt; 860 px): a coluna já vira faixa horizontal; as etiquetas fluem em linha e o rodapé ganha largura fixa (~132 px). Largura de 118 px (≥ 1480) comporta barra de ~82 px + ícone de 16 px com folga.',
+    'O cabeçalho "Indicadores" fica à esquerda nas versões com etiquetas ancoradas à esquerda.'
+  ]],
+  ['Seletor de tamanho de fonte (A− / A+)', [
+    'Guardar <code>appSettings.cxFontAdj</code> (−2…+2, passo 0,5) e aplicar <code>--cx-fs-adj</code> no <code>.app-layout.edition-claude</code>; ao lado do seletor de fonte (<code>.cx-font-opts</code>) na ⚙.',
+    'Converter os tokens <code>--cx-fs-*</code> para <code>calc(Npx + var(--cx-fs-adj))</code>. Isto já cobre todas as telas do Prumo. Os literais fora dos tokens (<code>9px</code>, <code>9.5px</code>, <code>8.5px</code> em <code>.zl</code>, <code>.cx-urg</code>, <code>.cx-uf</code>, <code>.cx-av</code>) também precisam virar token, como foi feito aqui com <code>--cx-fs-9</code>.',
+    'As alturas de linha fixas do card (<code>15px</code>, <code>16px</code>, <code>18px</code>, <code>13px</code>) devem acompanhar o ajuste, como neste mockup (<code>--lh15</code> etc.).',
+    'Atenção a <code>intimCardLayout(W)</code> (<code>src/lib/intim-card.js</code>): o orçamento de caracteres por linha supõe fonte de 12 px. Em <code>CxIntimList</code>, passar a largura "equivalente": <code>W / (1 + adj/12)</code>. Assim as linhas reservadas para Objeto e Notas diminuem sozinhas quando a fonte cresce, sem tocar a função.'
+  ]],
+  ['Decisões a confirmar', [
+    'IMPORTANTE e COMPLEXO aparecem também na linha resolvida (opaca)? Aqui sim; URGENTE não, como hoje.',
+    'Importância/complexidade média ou baixa deixam de aparecer no card. Continuam na gaveta e nos filtros; vale conferir se alguém usa a barra "baixa" como sinal.',
+    'Depois da implementação: <code>npm run build</code> e conferir <code>Nexus.html</code> nas três edições, pois só o Prumo muda. Documentar em <code>docs/MELHORIAS.md</code>.'
+  ]]
+];
+
+/* ═══════════════ Montagem ═══════════════ */
+var vers = document.getElementById('vers');
+vers.innerHTML = VERS.map(function (v) {
+  return '<section class="ver" id="' + v.id + '" data-ver="' + v.id + '"><div class="ver-h"><span class="ver-badge' + (v.ref ? ' ref' : '') + '">' + v.badge + '</span><h2>' + v.name + '</h2></div>' +
+    '<p class="ver-rat">' + v.rat + '</p><div class="pc"><div class="pro"><h4>Prós</h4><ul>' + v.pros.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div><div class="con"><h4>Contras</h4><ul>' + v.cons.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div></div>' +
+    '<div class="fit"><div class="fit-in frame">' + listHTML(v.id) + '</div></div><div class="frame-note" data-note></div></section>';
+}).join('');
+document.getElementById('reco').innerHTML = RECO.join('');
+document.getElementById('impl').innerHTML = IMPL.map(function (g) { return '<div class="note-c"><h3>' + g[0] + '</h3><ul>' + g[1].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>'; }).join('');
+
+/* Comparativo: só a coluna */
+(function () {
+  var h = '<div class="hh">Linha de exemplo</div>';
+  [['Atual', 'referência'], ['V1', 'empilhadas'], ['V2', 'chips'], ['V3', 'na identidade'], ['V4', 'grade fixa']].forEach(function (x) { h += '<div class="hh" style="border-left:1px solid var(--cx-line)">' + x[0] + '<small>' + x[1] + '</small></div>'; });
+  var vs = ['v0', 'v1', 'v2', 'v3', 'v4'];
+  var body = ROWS.map(function (r) {
+    var o = '<div class="lab"><b>' + r.party.split(' (')[0] + '</b>' + r.cap + '</div>';
+    vs.forEach(function (v) {
+      if (v === 'v3') o += '<div class="cell wide v3"><div class="mini-id ' + v + '"><div class="mp">' + stIcon(r.st) + '<span class="cx-ell">' + r.party + '</span></div><div class="mnum">' + r.num + r.tail + '</div>' + idTagsV3(r) + '</div><div class="cx-ix-sn ' + v + '" style="max-width:118px">' + SN[v](r) + '</div></div>';
+      else o += '<div class="cell ' + v + '"><div class="cx-ix-sn" style="width:100%;min-height:84px">' + SN[v](r) + '</div></div>';
+    });
+    return o;
+  }).join('');
+  document.getElementById('cmp').innerHTML = h + body;
+  /* as classes de versão ficam no wrapper da célula, as regras .vN .cx-ix-sn funcionam por descendência */
+})();
+
+/* ═══════════════ Controles ═══════════════ */
+var S = { theme: 'ardosia', w: 1920, adj: 0, fit: true, show: 'all' };
+function qs() { try { var p = new URLSearchParams(location.search); if (p.get('theme')) S.theme = p.get('theme'); if (p.get('w')) S.w = +p.get('w'); if (p.get('adj')) S.adj = +p.get('adj'); if (p.get('fit') === '0') S.fit = false; if (p.get('show')) S.show = p.get('show'); } catch (e) {} }
+function fmtAdj(a) { return a === 0 ? 'padrão' : (a > 0 ? '+' : '−') + String(Math.abs(a)).replace('.', ',') + ' px'; }
+function layoutFit() {
+  document.querySelectorAll('.fit').forEach(function (f) {
+    var inn = f.firstElementChild, list = inn.firstElementChild;
+    inn.style.width = S.w + 'px'; inn.style.transform = ''; f.style.height = '';
+    var avail = f.clientWidth, k = S.fit ? Math.min(1, avail / S.w) : 1;
+    inn.style.transform = k < 1 ? 'scale(' + k + ')' : '';
+    f.style.height = Math.ceil(inn.offsetHeight * k) + 'px';
+    f.style.overflowX = (!S.fit && S.w > avail) ? 'auto' : 'visible';
+    if (f.style.overflowX === 'auto') f.style.height = '';
+    var note = f.parentNode.querySelector('[data-note]');
+    if (note) note.textContent = 'Lista simulada em ' + S.w + ' px' + (k < 1 ? ' · exibida a ' + Math.round(k * 100) + ' %' : '') + ' · ' + (S.w >= 1480 ? 'quatro colunas' : S.w >= 860 ? 'Objeto e Notas empilhados' : 'celular');
+  });
+}
+function apply() {
+  document.body.className = 'cx-theme-' + S.theme;
+  document.body.style.setProperty('--fs-adj', S.adj + 'px');
+  document.getElementById('fs-out').textContent = fmtAdj(S.adj);
+  document.getElementById('fs-dn').disabled = S.adj <= -2; document.getElementById('fs-up').disabled = S.adj >= 2;
+  document.querySelectorAll('#c-theme button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === S.theme); });
+  document.querySelectorAll('#c-width button').forEach(function (b) { b.classList.toggle('on', +b.dataset.v === S.w); });
+  document.getElementById('c-fit').checked = S.fit; document.getElementById('c-show').value = S.show;
+  document.querySelectorAll('.ver').forEach(function (s) { s.style.display = (S.show === 'all' || S.show === s.dataset.ver) ? '' : 'none'; });
+  layoutFit();
+}
+document.getElementById('c-theme').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { S.theme = b.dataset.v; apply(); } });
+document.getElementById('c-width').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { S.w = +b.dataset.v; apply(); } });
+document.getElementById('c-fit').addEventListener('change', function (e) { S.fit = e.target.checked; apply(); });
+document.getElementById('c-show').addEventListener('change', function (e) { S.show = e.target.value; apply(); });
+document.getElementById('fs-dn').addEventListener('click', function () { S.adj = Math.max(-2, S.adj - 0.5); apply(); });
+document.getElementById('fs-up').addEventListener('click', function () { S.adj = Math.min(2, S.adj + 0.5); apply(); });
+document.getElementById('fs-out').addEventListener('click', function () { S.adj = 0; apply(); });
+window.addEventListener('resize', layoutFit);
+if (window.ResizeObserver) new ResizeObserver(layoutFit).observe(vers);
+qs(); apply();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutFit);
+</script>
+</body>
+</html>
