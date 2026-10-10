@@ -3852,8 +3852,8 @@ button.op-summary-item:hover { background: rgba(255,255,255,.025); }
 .mesa-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: visible; }
 .mesa-rest-line strong { font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; margin: 0; padding: 10px 14px; color: var(--text-primary); }
 .mesa-empty { font-size: 12px; color: var(--text-muted); padding: 8px 14px 14px; margin: 0; }
-.mesa-row { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
-.mesa-row.g1-vencido { border-left: 4px solid var(--red); background: linear-gradient(90deg, rgba(229,64,96,0.08) 0%, var(--bg-card) 36%); }
+.mesa-row { border-left: 3px solid var(--mzc, transparent); padding: 10px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.mesa-row.venc { background: linear-gradient(90deg, rgba(229,64,96,0.08) 0%, var(--bg-card) 36%); }
 .mesa-row-main { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
 .mesa-cda { font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: var(--text-primary); }
 .mesa-proc { font-size: 11px; color: var(--text-secondary); }
@@ -4487,7 +4487,6 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
 .cx-pct { font: 500 var(--cx-fs-sm) var(--cx-mono); color: var(--cx-ink-2); }
 .cx-pill { display: inline-flex; align-items: center; gap: 6px; font-size: var(--cx-fs-12); color: var(--cx-ink-2); white-space: nowrap; }
 .cx-kind { display: inline-flex; align-items: center; height: var(--cx-tagk-h); font: 600 var(--cx-fs-10)/1 var(--cx-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--cx-ink-3); padding: 0 5px; border: 1px solid var(--cx-line); border-radius: var(--cx-tagk-r); white-space: nowrap; }
-.cx-gnum { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font: 600 var(--cx-fs-xs)/1 var(--cx-mono); color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); flex: none; }
 .cx-a { display: inline-flex; align-items: center; gap: 4px; color: var(--cx-blue); text-decoration: none; margin-left: 6px; }
 .cx-a:hover { text-decoration: underline; }
 .cx-copy { color: var(--cx-ink-3); padding: 2px 4px; border-radius: 4px; vertical-align: -3px; margin-left: 4px; cursor: pointer; }
@@ -5414,9 +5413,7 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-pz-gh { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--cx-surface-2); border-top: 1px solid var(--cx-line); font-size: var(--cx-fs-md); font-weight: 500; color: var(--cx-ink-2); }
 .cx-mesa-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 18px; min-height: var(--cx-row-h-md); padding: 12px 14px 11px 18px; border-top: 1px solid var(--cx-line); }
 .cx-mesa-row::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c); opacity: 0.55; }
-.cx-mesa-row.g1::before { opacity: 1; }
 .cx-mesa-row.venc { background: color-mix(in srgb, var(--cx-red-soft) 55%, var(--cx-surface)); }
-.cx-mesa-row .cx-gnum { color: var(--c); }
 .cx-mesa-row.sel { background: color-mix(in srgb, var(--cx-accent) 9%, var(--cx-surface)); }
 .cx-mesa-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .cx-mesa-id { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }

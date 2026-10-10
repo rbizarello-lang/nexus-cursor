@@ -27,6 +27,7 @@ Mockup: `design/mockups/prazos-unificados/proposta-2-v2.html` (usa `base.css` e 
 16. **Decadência** fica como seção no fim da Mesa (confirmado em 10/10/2026; não vira opção do filtro Natureza).
 17. **Tela única (fase 4):** "Prazos extintivos" passa a ter uma só tela, a dos cartões. Fusão com os Relógios: a linha da CDA na Mesa ganha a régua do relógio (menor e discreta) e a página ganha o "Calendário dos termos", recolhível, que filtra a lista ao clicar. O modo "Relógios" sai do seletor da página (segue na aba Inscrições e na Linha do tempo). A "Lista completa" deixa de ser modo: um seletor "Exibir: Lista · Tabela" acima das seções só muda o layout dos mesmos itens (cartão como coluna, ordenação, exportação, agrupar por processo/incidente/devedor/operação, lote); cartões, filtros e calendário valem para as duas. G1–G7 saem da tela. Cuidados da fusão: a régua compacta mostra a faixa cedo–tarde e a cor do cartão; o calendário é colorido pelo cartão (ou neutro) e posiciona pela mesma data da Mesa (cedo; tarde quando a cedo venceu), pisos em cinza; régua visível na fileira 1 e em "Conferir sem pressa", nas demais só ao abrir a linha; calendário recolhido por padrão; "E se eu ajuizar hoje?" vira ação secundária no cartão Ajuizar.
 18. **Rótulos restantes pelos cartões:** "no alarme" em Processos, "urgente" da Agenda e relatório de passagem.
+19. **Linha da Mesa sem selo de grupo:** o selo «Grupo N» e a cor por grupo saem da linha da Mesa nas três edições; só a cor do cartão do item (borda/realce). O destaque de vencido segue o relógio da Mesa (`mesaItemClock(...).late`), não o grupo.
 
 ## Achados do levantamento que guiam a construção
 - Hoje: Mesa "332 = 101 (Urgentes) + 202 (A completar) + 29 (Acompanhamento)"; "Consumadas 181 × 194" porque 13 consumadas recentes contam duas vezes; linhas "há 20 anos" são G1 de tese (cedo venceu, tarde futura), não consumadas. Ver `01-superficies.md`.
@@ -57,11 +58,11 @@ Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commit
   - **Relatório de passagem**: «Alertas: CDAs no alarme (grupos 1 e 2)» virou «CDAs a agir (prazos extintivos)», um bloco por cartão da fileira 1, na ordem da Mesa. Importação «formato NEXUS prescrição» mostra «Cartão antes → depois».
   - **Hoje do clássico/Beta** (`buildHojeFila`): filtro «Mesa» = fileira 1; «Prescrição» = prazo de até 30 dias em cartão em andamento.
   - **Relógios** (aba Inscrições e Linha do tempo): grupos, cores e ordem são os dos cartões (`mesaClockGroups`; CDA sem cartão vai a «Só vigiar»); KPIs: Próximo termo · **A agir** (no lugar de «Termo em até 1 ano») · Relógio parado · Piso; calendário colorido pelo cartão predominante e com a legenda da Mesa. Régua e «E se eu ajuizar hoje?» intactas.
-  - **Ainda usa os grupos do motor, de propósito**: (1) `buildMesaCards` e `mesaNeedsYou`/`mesaCertainty` (a derivação dos cartões parte de `row.group` e `prescKind`); (2) o selo «Grupo N» e a cor da borda na linha da Mesa (decisão 13: o selo fica só nas linhas do motor); (3) `isG1Vencido` no destaque «vencida» da linha da Mesa e em `mesaItemClock`; (4) o teto do adiamento (`snoozeMaxUntil(grupo)`); (5) `clocks.js`, que guarda o grupo de risco interno do relógio (`crit/alerta/corre…`) só para ordenar e para `clkSimulateFiling`/`clkApplySim`, sem aparecer na tela; (6) as faixas de prescrição por processo no panorama da Linha do tempo (`CX_SEV`, `CX_PRESC_TXT`: «crítica», «em alerta», «ciclo encerrado»), que descrevem o estado do cálculo da CDA, não uma contagem; (7) `prescription.js` (`prazosRiskMetaForCdas`, `buildPrazosRadar.totals/byOp`) e o e-mail diário, que não mudaram.
+  - **Ainda usa os grupos do motor, de propósito**: (1) `buildMesaCards` e `mesaNeedsYou`/`mesaCertainty` (a derivação dos cartões parte de `row.group` e `prescKind`); (2) [saiu na 3.6.0: a linha da Mesa não tem mais selo nem cor de grupo, decisão 19]; (3) `isG1Vencido` só dentro de `mesaItemClock` (relógio da Mesa); (4) o teto do adiamento (`snoozeMaxUntil(grupo)`); (5) `clocks.js`, que guarda o grupo de risco interno do relógio (`crit/alerta/corre…`) só para ordenar e para `clkSimulateFiling`/`clkApplySim`, sem aparecer na tela; (6) as faixas de prescrição por processo no panorama da Linha do tempo (`CX_SEV`, `CX_PRESC_TXT`: «crítica», «em alerta», «ciclo encerrado»), que descrevem o estado do cálculo da CDA, não uma contagem; (7) `prescription.js` (`prazosRiskMetaForCdas`, `buildPrazosRadar.totals/byOp`) e o e-mail diário, que não mudaram.
+- Mescla do master (auditoria visual do Prumo) e versão 3.6.0: CSS da fase 4 no Prumo passou aos tokens `--cx-fs-*`, cabeçalho da Tabela no padrão `.cx-cap`, `CxProc size="md"` na Tabela, chip de filtro com `--cx-chip-h/-r`; CSS `.prazos-view:not(.mesa-view)` (A7) descartado por já ter saído na 4b. Linha da Mesa sem selo de grupo (decisão 19).
 
 ## Pendências e próximos passos
 - Conferir com a carteira real os cartões que a demo não exercita bem (Conferir sem pressa, Lançar fato, Confirmar vigência).
-- Decidir se o selo «Grupo N» da linha da Mesa (decisão 13) também sai.
 - E-mail diário (decisão 9): retomado na 3.5.1 pelos cartões; depois do `push`, sincronizar o app uma vez para gravar `mesaCard`. Conferir o primeiro e-mail real contra a Mesa.
 
 ## Arquivos
@@ -69,7 +70,7 @@ Regras do repositório (`AGENTS.md`): `npm run build` após mudar `src/`; commit
 - Mockups em `design/mockups/prazos-unificados/` (README.md explica o kit).
 
 ## Publicação do app (lembrete)
-Versão 3.5.1 fixada no `package.json`: publicar com `npm run push:release` (não soma versão). O `npm run push` soma 1 (3.5.2).
+Versão 3.6.0 fixada no `package.json`: publicar com `npm run push:release` (não soma versão). O `npm run push` soma 1 (3.6.1).
 `git stash` · `git checkout master` · `git pull origin master` · `npm run push`. O `push` agora cancela sozinho se a cópia estiver desatualizada.
 
 ## Prompt para iniciar em outra sessão ou no Cursor

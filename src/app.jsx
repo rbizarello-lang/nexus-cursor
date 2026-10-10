@@ -10255,9 +10255,11 @@ function App() {
     const isParc = r.action && r.action.type === 'criar_evento' && r.action.eventType === 'susp_parcelamento';
     const seg = r.prescSegment || r.clock;
     const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : null;
-    const venc = isG1Vencido(r) && !antiga && !tardeNao;
+    const venc = !!(ck && ck.late) && !antiga && !tardeNao;
+    const tone = item ? mesaItemTone(item) : 'neutral';
+    const toneC = tone === 'red' ? 'var(--red)' : tone === 'orange' ? 'var(--orange)' : tone === 'blue' ? 'var(--blue)' : 'var(--text-muted)';
     return (
-      <div key={r.id} className={`mesa-row g${r.group}${venc ? ' g1-vencido' : ''}${ck && ck.gray ? ' longe' : ''}${mz.sel.has(r.id) ? ' sel' : ''}`}>
+      <div key={r.id} style={{ '--mzc': toneC }} className={`mesa-row${venc ? ' venc' : ''}${ck && ck.gray ? ' longe' : ''}${mz.sel.has(r.id) ? ' sel' : ''}`}>
         <div className="mesa-row-main">
           <MesaCk item={item} mz={mz} />
           {isDemo

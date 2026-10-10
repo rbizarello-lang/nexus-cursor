@@ -2059,7 +2059,6 @@ function EditionClaudeFocus(p) {
    Só leitura, exceto as ações da Mesa, que chamam as MESMAS funções do app
    (applyMesaAction, applyPrescSnooze, clearPrescSnooze, createInlineParcelamento…).
    ═══════════════════════════════════════════════════════════════════════════ */
-const CX_GROUP_C = { 1: 'var(--cx-red)', 2: 'var(--cx-orange)', 3: 'var(--cx-yellow)', 4: 'var(--cx-blue)', 5: 'var(--cx-ink-3)', 6: 'var(--cx-ink-3)', 7: 'var(--cx-violet)' };
 const CX_CERT = { calculado: 'Calculado', estimado: 'Estimado', cadastro: 'Cadastro', faixa: 'Cedo–tarde', dado: 'Falta dado', analisar: 'Analisar' };
 const CX_CERT_TIP = {
   calculado: 'Data exata pelo cálculo, com os fatos lançados.',
@@ -4463,14 +4462,13 @@ function CxMesaRow({ r, debt, a, item, clk, data }) {
   const horizon = ck ? (ck.plain ? '' : ck.text) : formatPrescHorizon(r.prescDays);
   const seg = r.prescSegment || r.clock;
   const clock = seg === 'ordinaria' || seg === 'credito' ? 'Ordinária' : seg === 'intercorrente' ? 'Intercorrente' : seg === 'decadencia' ? 'Decadência' : null;
-  const vencido = isG1Vencido(r) && !antiga;
+  const vencido = !!(ck && ck.late) && !antiga;
   const rb = useCxMesaBar(item, clk, today);
   const fs = useCxFilingSim(item, clk, data, today);
-  return <div className={'cx-mesa-row g' + r.group + (vencido && !tardeNao ? ' venc' : '') + (mz.sel.has(r.id) ? ' sel' : '')} style={{ '--c': CX_GROUP_C[r.group] }}>
+  return <div className={'cx-mesa-row' + (vencido && !tardeNao ? ' venc' : '') + (mz.sel.has(r.id) ? ' sel' : '')} style={{ '--c': item ? cxCardColor(item) : CX_TONE_VAR.neutral }}>
     <div className="cx-mesa-main">
       <div className="cx-mesa-id">
         <MesaCk item={item} mz={mz} />
-        <span className="cx-gnum" title={'Grupo ' + r.group + ' · ' + (PRAZOS_GROUP_LABELS[r.group] || '')}>{r.group}</span>
         <span className="cx-mono cx-mesa-cda">{r.cdaNumber || 'S/N'}</span>
         <span className={'cx-cert ' + cert} title={CX_CERT_TIP[cert]}>{CX_CERT[cert]}</span>
         {clock ? <span className="cx-tag">{clock}</span> : null}
