@@ -1005,7 +1005,7 @@ function EditionClaudeHoje(p) {
     if (x.intim) p.onOpenIntim(x.intim.id);
     else if (x.task) p.onOpenTask(x.task);
     else if (x.hearing) p.onOpenHearing(x.hearing);
-    else if (x.g) p.openPrazos(x.g);
+    else if (x.g) p.openPrazos(x.g, x.debt && x.debt.id);
   };
   const hr = new Date().getHours();
   const hello = hr < 12 ? 'Bom dia.' : hr < 18 ? 'Boa tarde.' : 'Boa noite.';
