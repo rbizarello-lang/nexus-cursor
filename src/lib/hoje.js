@@ -7,7 +7,7 @@
  *    e vencidos. Nenhum item é descartado: a UI parte os dias com mais de `perCol` itens em colunas finas.
  *  - Resumo: frase montada por regras fixas (cada trecho só entra se a condição for verdadeira). Os
  *    destaques vêm entre `**` (a UI troca por negrito); `resumoPlain` tira as marcas.
- *  - Precisa de atenção: CDAs no alarme (grupo 1 da Mesa de prazos) e operações com revisão atrasada.
+ *  - Precisa de atenção: CDAs a agir (fileira 1 da Mesa de prazos) e operações com revisão atrasada.
  */
 import { toDayKey, daysUntil, addCalendarDays } from './dates.js';
 
@@ -162,7 +162,7 @@ export function resumoCarga(mapa, audiencia = null) {
  * Resumo da Visão geral da operação (regras fixas; cada trecho só entra se valer):
  *  indisponibilidade (bens indisponíveis cobrem a dívida 1× ou mais; ou 5 p.p. ou mais longe da média da carteira) ·
  *  garantia contra a média da carteira (diferença de 5 p.p. ou mais) · intimação vencida (a mais antiga e a
- *  parte) · CDAs no alarme · revisão atrasada · audiência marcada (em até 7 dias).
+ *  parte) · CDAs a agir · revisão atrasada · audiência marcada (em até 7 dias).
  * @param {object} i
  * @param {number|null} i.garantiaPct % garantido da operação (null se sem dívida)
  * @param {number|null} i.carteiraPct % garantido da carteira
@@ -170,7 +170,7 @@ export function resumoCarga(mapa, audiencia = null) {
  * @param {number|null} [i.indispCarteiraPct] o mesmo, da carteira
  * @param {number|null} [i.indispRatio] valor indisponível / dívida da operação (sem teto; ≥ 1 = a dívida inteira)
  * @param {{n:number, maisAntigaDias:number, parte?:string}|null} i.intimVencidas
- * @param {number} i.cdasAlarme CDAs da operação nos grupos urgentes
+ * @param {number} i.cdasAlarme CDAs da operação a agir (fileira 1 dos cartões da Mesa de prazos)
  * @param {number|null} i.revisaoAtrasadaDias dias de atraso (null se em dia)
  * @param {{dias:number, tipo?:string, iso?:string, time?:string}|null} i.audiencia
  */
@@ -242,26 +242,26 @@ export function janelaPrazos(intimsAbertas, today) {
   return { prox5, seg5, delta: seg5 - prox5, proximo };
 }
 
-/** Termo mais próximo entre as CDAs do grupo 1 da Mesa de prazos (menor `prescDays`), com a data a partir de hoje. */
+/** Termo mais próximo entre as CDAs a agir (fileira 1 dos cartões da Mesa de prazos; menor `prescDays`), com a data a partir de hoje. */
 export function proximoTermo(rows, today) {
   let best = null;
   (rows || []).forEach(r => {
-    if (!r || r.group !== 1 || r.prescDays == null) return;
+    if (!r || r.prescDays == null) return;
     if (!best || r.prescDays < best.dias) best = { dias: r.prescDays, iso: addCalendarDays(today, r.prescDays), row: r };
   });
   return best;
 }
 
 /**
- * "Precisa de atenção": CDAs no alarme (linhas do grupo 1 da Mesa de prazos, da mais próxima do termo para a mais
+ * "Precisa de atenção": CDAs a agir (fileira 1 dos cartões da Mesa de prazos, da mais próxima do termo para a mais
  * distante) e operações ativas com a revisão fora do prazo (da mais atrasada para a menos).
  * @param {object} i
- * @param {Array} i.rows prazosRadar.rows
+ * @param {Array} i.rows uma linha por CDA a agir ({ id, cdaNumber, prescDays, ... }); quem chama já filtra pela fileira 1
  * @param {Array} i.operations operações
  * @param {(op:object)=>{overdue:boolean, daysLeft:number|null, intervalLabel?:string}} i.reviewOf
  */
 export function atencaoItens({ rows, operations, reviewOf }) {
-  const cdas = (rows || []).filter(r => r && r.group === 1).slice().sort((a, b) => {
+  const cdas = (rows || []).filter(r => !!r).slice().sort((a, b) => {
     const da = a.prescDays == null ? Infinity : a.prescDays, db = b.prescDays == null ? Infinity : b.prescDays;
     return da - db || String(a.cdaNumber || '').localeCompare(String(b.cdaNumber || ''));
   });
@@ -275,7 +275,7 @@ export function atencaoItens({ rows, operations, reviewOf }) {
   return { cdas, revisoes, total: cdas.length + revisoes.length };
 }
 
-/** Frase do cabeçalho do painel: "4 itens pedem uma decisão sua: 2 CDAs no alarme e 2 revisões atrasadas". */
+/** Frase do cabeçalho do painel: "4 itens pedem uma decisão sua: 2 CDAs a agir e 2 revisões atrasadas". */
 export function atencaoFrase(a) {
   if (!a.total) return '';
   const parts = [];

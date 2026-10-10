@@ -147,7 +147,7 @@ describe('renderReportDocument / reportFileName', () => {
       model: 'resumo', op: { ...op, name: '<img src=x onerror=alert(1)>' }, sections: defaultReportSections(),
       generatedAtLabel: '25/09/2026, 10:20', generatedDateLabel: '25/09/2026',
       highlight: null, next15: { items: [], overflowCount: 0, overflowFirst: null },
-      alerts: [{ cda: '<b>x</b>', termLabel: '04/12/2026', late: true, situacao: 'ordinária', valorLabel: 'R$ 48.000' }],
+      alerts: [{ card: 'ajuizar', nome: 'Ajuizar <i>', items: [{ cda: '<b>x</b>', termLabel: '04/12/2026', late: true, situacao: 'ordinária', valorLabel: 'R$ 48.000' }] }],
       numbers: [{ label: 'Crédito', value: 'R$ 1,29 mi', sub: '6 CDAs' }],
       sources: [],
     };
@@ -155,6 +155,28 @@ describe('renderReportDocument / reportFileName', () => {
     assert.doesNotMatch(html, /<img src=x onerror=/);
     assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
     assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
+    assert.match(html, /<h2>CDAs a agir \(prazos extintivos\)<\/h2>/);
+    assert.doesNotMatch(html, /grupos 1 e 2|no alarme/i);
+    assert.match(html, /Ajuizar &lt;i&gt;<\/span> <span[^>]*>· 1 CDA</);
+  });
+
+  it('CDAs a agir: um bloco por cartão, na ordem recebida; sem nenhuma, a frase vazia', () => {
+    const base = {
+      model: 'resumo', op, sections: defaultReportSections(),
+      generatedAtLabel: '25/09/2026, 10:20', generatedDateLabel: '25/09/2026',
+      highlight: null, next15: { items: [], overflowCount: 0, overflowFirst: null }, numbers: [], sources: [],
+    };
+    const item = (cda) => ({ cda, termLabel: '04/12/2026', late: false, situacao: 'x', valorLabel: 'R$ 1' });
+    const html = renderReportDocument({ ...base, alerts: [
+      { card: 'calculo', nome: 'Conferir o cálculo', items: [item('A1'), item('A2')] },
+      { card: 'ajuizar', nome: 'Ajuizar', items: [item('B1')] },
+    ] });
+    assert.ok(html.indexOf('Conferir o cálculo') < html.indexOf('>Ajuizar<'), 'ordem da Mesa');
+    assert.match(html, /· 2 CDAs</);
+    assert.match(html, /· 1 CDA</);
+    const empty = renderReportDocument({ ...base, alerts: [] });
+    assert.match(empty, /Nenhuma CDA a agir nos prazos extintivos\./);
+    assert.doesNotMatch(empty, /grupos 1 e 2/);
   });
 
   it('modelo resumo gera só a página 1 (uma div.a4)', () => {
@@ -229,14 +251,21 @@ describe('buildAgendaByDay (src/lib/agenda.js)', () => {
       { id: 't2', operationId: 'op1', dueDate: '2026-09-29', title: 'Concluída', status: 'concluida' },
     ],
   };
-  const prazosRadar = { rows: [
-    { id: 'p1', operationId: 'op1', keyDate: '2026-09-29', group: 1, cdaNumber: '90.6.20.000881-40' },
-    { id: 'p2', operationId: 'op1', keyDate: '2026-09-29', group: 5, cdaNumber: 'fora-do-radar' },
-    { id: 'p3', operationId: 'op2', keyDate: '2026-09-29', group: 1, cdaNumber: 'outra-operacao' },
+  // Cartões da Mesa (só o que a Agenda lê): item = { debtId, debt, card, row, dateIsDeadline, sortDate, ajuizarLonge }
+  const card = (id, op, cardId, over = {}) => ({ debtId: id, debt: { id, operationId: op, cdaNumber: id.toUpperCase() }, card: cardId, row: { id, why: 'por quê ' + id }, dateIsDeadline: true, sortDate: '2026-09-29', ajuizarLonge: false, ...over });
+  const mesaCards = { items: [
+    card('p1', 'op1', 'fato'),
+    card('p2', 'op1', 'vigiar', { sortDate: '2026-09-29' }),
+    card('p3', 'op2', 'fato'),
+    card('p4', 'op1', 'antigas'),
+    card('p5', 'op1', 'tratadas'),
+    card('p6', 'op1', 'adiadas'),
+    card('p7', 'op1', 'ajuizar', { ajuizarLonge: true }),
+    card('p8', 'op1', 'dado', { dateIsDeadline: false, sortDate: null }),
   ] };
 
-  it('junta audiências (exceto canceladas/realizadas), prazos, tarefas abertas e termos de prescrição (grupos 1-4), filtrando por operação', () => {
-    const by = buildAgendaByDay(data, prazosRadar, '2026-09-25', '2026-10-10', 'op1', {
+  it('junta audiências (exceto canceladas/realizadas), prazos, tarefas abertas e termos de prescrição pelos cartões, filtrando por operação', () => {
+    const by = buildAgendaByDay(data, mesaCards, '2026-09-25', '2026-10-10', 'op1', {
       hearingLabel: () => 'Audiência',
       partyName: (x) => x.processNumber,
       intimOnAgenda: (x) => !!x.dateDeadline,
@@ -248,13 +277,25 @@ describe('buildAgendaByDay (src/lib/agenda.js)', () => {
     assert.equal(by['2026-09-27'].length, 1);
     assert.equal(by['2026-09-27'][0].kind, 'aud');
     assert.equal(by['2026-09-28'][0].kind, 'prazo');
-    // t2 (2026-09-29) está concluída — só o termo de prescrição entra.
-    assert.equal(by['2026-09-29'].length, 1);
-    assert.deepEqual(by['2026-09-29'].map(i => i.kind), ['presc']);
+    // t2 (2026-09-29) está concluída; entram p1 (a agir) e p2 (só vigiar, com prazo); p3 é de outra operação.
+    assert.deepEqual(by['2026-09-29'].map(i => i.id), ['pp1', 'pp2']);
+    assert.deepEqual(by['2026-09-29'].map(i => i.kind), ['presc', 'presc']);
+  });
+
+  it('prescrição «urgente» = cartão da fileira 1 com prazo; Ajuizar só até 60 dias; antigas, tratadas, adiadas e sem prazo nunca', () => {
+    const by = buildAgendaByDay(data, mesaCards, '2026-09-25', '2026-10-10', 'all', {});
+    const presc = (by['2026-09-29'] || []).filter(i => i.kind === 'presc');
+    assert.deepEqual(presc.map(i => [i.id, !!i.urgent]).sort(), [['pp1', true], ['pp2', false], ['pp3', true]]);
+    const ids = Object.values(by).flat().map(i => i.id);
+    ['pp4', 'pp5', 'pp6', 'pp7', 'pp8'].forEach(id => assert.ok(!ids.includes(id), id + ' não entra'));
+    // Ajuizar a até 60 dias entra e é urgente
+    const j = buildAgendaByDay(data, { items: [card('a1', 'op1', 'ajuizar', { sortDate: '2026-10-05' })] }, '2026-09-25', '2026-10-10', 'all', {});
+    assert.equal(j['2026-10-05'][0].urgent, true);
+    assert.equal(j['2026-10-05'][0].card, 'ajuizar');
   });
 
   it('fora do intervalo de datas não entra', () => {
-    const by = buildAgendaByDay(data, prazosRadar, '2026-10-01', '2026-10-10', 'op1', {});
+    const by = buildAgendaByDay(data, mesaCards, '2026-10-01', '2026-10-10', 'op1', {});
     assert.deepEqual(by, {});
   });
 });

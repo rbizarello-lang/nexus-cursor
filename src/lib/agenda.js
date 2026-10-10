@@ -6,15 +6,17 @@
  * urgência etc.) para este módulo continuar sem depender de `window`/React.
  */
 import { toDayKey } from './dates.js';
+import { mesaAgendaPoint, mesaCardName } from './prazos-mesa.js';
 
 export const AGENDA_KIND_RANK = { aud: 0, prazo: 1, tarefa: 2, presc: 3 };
 
 /**
  * Junta, por dia, audiências, prazos de intimação, tarefas com data limite e
- * termos de prescrição (grupos 1 a 4).
+ * termos de prescrição pelos cartões da Mesa de prazos (mesaAgendaPoint): CDAs com data de prazo, fora Tratadas, Adiadas,
+ * Consumadas antigas e o Ajuizar de 60 a 180 dias. A prescrição é «urgente» quando a CDA está na fileira 1 (a agir).
  *
  * @param {object} data - { hearings, intimations, tasks }
- * @param {object} prazosRadar - { rows: [...] }
+ * @param {object} mesaCards - saída de buildMesaCards ({ items: [...] })
  * @param {string} fromIso
  * @param {string} toIso
  * @param {string} opF - 'all' | 'none' | id da operação
@@ -27,7 +29,7 @@ export const AGENDA_KIND_RANK = { aud: 0, prazo: 1, tarefa: 2, presc: 3 };
  * @param {(text:string)=>string} [helpers.safeText] - normaliza texto (ex.: sem jargão da Beta)
  * @returns {Record<string, Array<object>>}
  */
-export function buildAgendaByDay(data, prazosRadar, fromIso, toIso, opF, helpers) {
+export function buildAgendaByDay(data, mesaCards, fromIso, toIso, opF, helpers) {
   const {
     hearingLabel = () => 'Audiência',
     partyName = (x) => (x && x.processNumber) || '—',
@@ -57,9 +59,15 @@ export function buildAgendaByDay(data, prazosRadar, fromIso, toIso, opF, helpers
     if (!t.dueDate || !taskOpen(t) || !okOp(t.operationId)) return;
     put(t.dueDate, { id: 't' + t.id, kind: 'tarefa', title: t.title || 'Tarefa', sub: t.description || '', op: t.operationId, urgent: t.priority === 'urgente', ref: t });
   });
-  ((prazosRadar && prazosRadar.rows) || []).forEach(r => {
-    if (!r.keyDate || r.group > 4 || r.silenceReason || !okOp(r.operationId)) return;
-    put(r.keyDate, { id: 'p' + r.id, kind: 'presc', title: 'CDA ' + (r.cdaNumber || 'S/N'), sub: safeText(r.why || r.summary || ''), op: r.operationId, urgent: r.group === 1, ref: r });
+  ((mesaCards && mesaCards.items) || []).forEach(it => {
+    const pt = mesaAgendaPoint(it);
+    if (!pt || !okOp(it.debt.operationId)) return;
+    const r = it.row;
+    put(pt.d, {
+      id: 'p' + it.debtId, kind: 'presc', title: 'CDA ' + (it.debt.cdaNumber || 'S/N'), sub: safeText((r && (r.why || r.summary)) || '') || mesaCardName(it.card),
+      op: it.debt.operationId, urgent: pt.urgent, card: it.card,
+      ref: r || { id: it.debtId, operationId: it.debt.operationId, cdaNumber: it.debt.cdaNumber }
+    });
   });
 
   Object.keys(by).forEach(k => by[k].sort((a, b) =>
