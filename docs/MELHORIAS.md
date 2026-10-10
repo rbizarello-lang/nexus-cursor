@@ -277,6 +277,14 @@ Ordem: P1 → P2 → P3a → P3b → P3c → P4 → (P5) → P6.
     `CxFoldCard`, Frentes, Atividade, tabelas de Processos/CDAs/Bens, grupo extinto da Linha do tempo); rótulo 13/600.
     Vazios no padrão `.cx-empty-row`; `.cx-b-empty` com uma só definição. Controles e campos = `--cx-ctl-h` (30);
     `.cx-t-row` com um só `min-height` (56). `.cx-bfx*` e o card de intimação não crescem.
+  - **Auditoria de consistência, fase 5/5 (CSS sem uso e conferência final)** (10/10/2026) — só Prumo. Removidas as
+    regras .cx* sem uso (KPI e briefing antigos, linha antiga de intimação, .cx-op-hero, .cx-pz-tile e afins), com os
+    estilos computados de ~15 mil elementos em 38 telas (Ardósia e Noite) idênticos antes e depois. Conferência de todas
+    as telas nos temas Ardósia, Noite e Grafite e nas fontes Geist, Inter, Outfit e Source Sans, sem erro de console.
+    No celular (que já vinha assim do master): a linha de Tarefas voltou a quebrar em uma coluna (a grade fixa de 6
+    colunas anulava a regra do celular), a Carga de prazos da Hoje empilha até 1100 px pelo mesmo motivo, e o anel do
+    Crédito sob gestão some abaixo de 560 px (o percentual continua no texto). Fecha a auditoria: textos e datas (1),
+    escala tipográfica (2), número de processo e cópia (3), chips/contadores/recolher/vazios/alturas (4), limpeza (5).
 - **Backup pré-mudança** — cópia intacta em `_backup-pre-build-20260729-192046/`
 
 ---

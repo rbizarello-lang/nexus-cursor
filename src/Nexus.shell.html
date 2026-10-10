@@ -5178,9 +5178,6 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-pz-legend > span { display: inline-flex; align-items: center; gap: 8px; }
 
 @media (max-width: 1100px) {
-  .cx-cg { grid-template-columns: 1fr; }
-  .cx-cg-l { border-right: 0; border-bottom: 1px solid var(--cx-line); }
-  .cx-cg-r { overflow-x: auto; }
   .cx-hm { min-width: 640px; }
 }
 @media (max-width: 1180px) {
@@ -5209,7 +5206,7 @@ button.cx-hz-it:hover { border-color: var(--cx-line-strong); border-left-color: 
 .cx-quick .cx-input { width: auto; height: var(--cx-ctl-h); font-size: var(--cx-fs-md); }
 .cx-quick-d { width: 150px; }
 .cx-quick-o { max-width: 190px; }
-.cx-t-row { position: relative; display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) 34px auto 96px; column-gap: 14px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--cx-line); cursor: pointer; }
+.cx-t-row { position: relative; display: grid; grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) 34px 106px 96px; column-gap: 14px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--cx-line); cursor: pointer; }
 .cx-t-row:hover { background: var(--cx-hover); }
 .cx-t-row.urgent::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 0 2px 2px 0; background: var(--cx-red); }
 .cx-t-row.done { opacity: 0.72; }
@@ -5815,6 +5812,7 @@ button.cx-kc-b:hover { background: var(--cx-surface-2); }
 .cx-ks.cpair .cx-kc-v { font-size: var(--cx-fs-kpi); }
 .cx-ks.cpair .cx-kc-n { margin-top: 6px; min-height: 44px; }
 .cx-kc-ring { margin-left: auto; display: inline-flex; }
+@media (max-width: 560px) { .cx-kc-ring { display: none; } } /* celular: o anel não cabe ao lado do valor; o texto abaixo já dá o percentual */
 .cx-kc-pair { border-top: 1px solid var(--cx-line); padding: 9px 20px 11px; background: var(--cx-surface-2); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 button.cx-kc-pair:hover { background: var(--cx-hover); }
 .cx-kc-pair .cx-pt { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
@@ -5846,6 +5844,12 @@ button.cx-kc-pair:hover { background: var(--cx-hover); }
 .cx-cg { display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 .cx-cg-l { padding: 12px 20px; border-right: 1px solid var(--cx-line); display: flex; flex-direction: column; gap: 8px; }
 .cx-cg-r { padding: 12px 20px; min-width: 0; }
+/* Até 1100 px: as duas metades empilham e o mapa rola na horizontal (vem depois da regra base para valer). */
+@media (max-width: 1100px) {
+  .cx-cg { grid-template-columns: 1fr; }
+  .cx-cg-l { border-right: 0; border-bottom: 1px solid var(--cx-line); }
+  .cx-cg-r { overflow-x: auto; }
+}
 .cx-cg-n { display: flex; align-items: baseline; gap: 8px; }
 .cx-cg-n .big { font-size: var(--cx-fs-kpi); font-weight: 600; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
 .cx-cg-n .cap { font-size: var(--cx-fs-12); color: var(--cx-ink-2); }
@@ -6165,8 +6169,8 @@ table.cx-pt.cx-pt-fx { table-layout: fixed; }
 .cx-pt-c-tit { width: 190px; }
 .cx-pt-c-proc { width: 230px; }
 .cx-pt-c-an { width: 110px; }
-/* A9 · lista de Tarefas: colunas de ação e prazo com largura fixa (as linhas deixam de se deslocar entre si) */
-.cx-t-row { grid-template-columns: 18px minmax(0, 2.6fr) minmax(0, 1.3fr) 34px 106px 96px; min-height: var(--cx-row-h-md); }
+/* A9 · lista de Tarefas: colunas de ação e prazo com largura fixa (na regra base, para o celular poder trocar a grade) */
+.cx-t-row { min-height: var(--cx-row-h-md); }
 .cx-desk-btn { min-width: 76px; justify-content: center; }
 
 /* A11 · títulos de cartão (h5) com a mesma escala em todo o app: 13px/600 */
