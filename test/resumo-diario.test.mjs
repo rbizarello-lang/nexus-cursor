@@ -102,11 +102,21 @@ describe('E-mail diário — destino, assunto e decisão de enviar', () => {
     assert.equal(l.sent.length, 1);
   });
 
-  it('só o radar (intimação longe) ainda manda, como antes', () => {
-    const l = load(base({ intimations: [intim('2026-12-20')] }));
+  it('qualquer intimação em aberto (longe ou sem prazo) já faz o e-mail sair', () => {
+    let l = load(base({ intimations: [intim('2026-12-20')] }));
     l.run();
     assert.equal(l.sent.length, 1);
     assert.equal(l.sent[0].subject, 'NEXUS · 09/10');
+    l = load(base({ intimations: [intim('')] }));
+    l.run();
+    assert.equal(l.sent.length, 1);
+  });
+
+  it('só respondidas (ou só analisada vencida) não fazem o e-mail sair', () => {
+    const resp = { type: 'ciencia', respondedAt: new RealDate(2026, 9, 9, 2, 0).toISOString() };
+    const l = load(base({ intimations: [intim('2026-10-12', { responseAction: resp }), intim('2026-10-01', { status: 'analisado' })] }));
+    assert.match(l.run(), /não enviado/);
+    assert.equal(l.sent.length, 0);
   });
 });
 
@@ -274,15 +284,15 @@ describe('E-mail diário — tarefas', () => {
     ['Urgente sem prazo', 'Urgente longe', 'Alta em 7 dias', 'Alta vencida'].forEach(t => assert.ok(h.includes(t), t));
     ['Alta em 8 dias', 'Alta sem prazo', 'Media em 1 dia', 'Alta concluida', 'Urgente cancelada'].forEach(t => assert.ok(!h.includes(t), t));
     assert.ok(h.includes('Tarefas urgentes e de prioridade alta'));
-    assert.match(h, />URGENTE<\/span>Urgente sem prazo/);
-    assert.match(h, />ALTA<\/span>Alta vencida/);
-    assert.match(h, /vencido há 7d/);
+    assert.match(h, />URGENTE<\/span> Urgente sem prazo/);
+    assert.match(h, />ALTA<\/span> Alta vencida/);
+    assert.match(h, /vencida há 7d/);
     assert.match(h, /sem prazo/);
   });
 });
 
 describe('E-mail diário — ordem das seções', () => {
-  it('vencidos · a vencer · radar · audiências · prescrição · tarefas · mesa de trabalho (no fim) · rodapé', () => {
+  it('intimações em aberto · audiências · prescrição · tarefas · mesa de trabalho (no fim) · rodapé', () => {
     const data = base({
       intimations: [intim('2026-10-05'), intim('2026-10-12'), intim('2026-12-01')],
       hearings: [{ id: 'h1', date: '2026-10-15', parties: 'Audiência X', time: '14:00' }],
@@ -294,11 +304,12 @@ describe('E-mail diário — ordem das seções', () => {
     const { sent, run } = load(data);
     run();
     const h = html(sent[0]);
-    const marcas = ['Prazos vencidos', 'Prazos a vencer', 'No radar', 'Audiências', 'Prescrição — a agir', 'Tarefas urgentes e de prioridade alta', 'Na mesa de trabalho', 'Enviado automaticamente'];
+    const marcas = ['Intimações em aberto', 'Audiências', 'Prescrição — a agir', 'Tarefas urgentes e de prioridade alta', 'Na mesa de trabalho', 'Enviado automaticamente'];
     const pos = marcas.map(m => h.indexOf(m));
     pos.forEach((p, i) => assert.ok(p >= 0, marcas[i]));
     assert.deepEqual(pos.slice().sort((a, b) => a - b), pos, 'ordem das seções');
     assert.ok(h.includes('Tarefa da mesa'));
+    ['Prazos vencidos', 'Prazos a vencer', 'No radar'].forEach(t => assert.ok(!h.includes(t), 'seção antiga ' + t));
   });
 
   it('seção da mesa só aparece se houver itens; a de prescrição some sem nada a agir', () => {
@@ -307,5 +318,233 @@ describe('E-mail diário — ordem das seções', () => {
     const h = html(sent[0]);
     assert.ok(!h.includes('Na mesa de trabalho'));
     assert.ok(!h.includes('Prescrição — a agir'));
+  });
+});
+
+describe('E-mail diário — intimações em aberto (todas, por grupo de prazo)', () => {
+  const NOMES = ['Vencidas', 'Hoje e amanhã', 'Até 7 dias', '8 a 30 dias', 'Mais de 30 dias', 'Sem prazo'];
+  const grupos = (h) => NOMES.map(n => h.indexOf('>' + n + ' <'));
+  const tudo = () => [
+    intim('2026-10-05', { partyName: 'P-venc' }),        // vencida há 4d
+    intim('2026-10-09', { partyName: 'P-hoje' }),        // hoje
+    intim('2026-10-10', { partyName: 'P-amanha' }),      // amanhã
+    intim('2026-10-11', { partyName: 'P-2d' }),          // em 2d
+    intim('2026-10-16', { partyName: 'P-7d' }),          // em 7d
+    intim('2026-10-17', { partyName: 'P-8d' }),          // em 8d
+    intim('2026-11-08', { partyName: 'P-30d' }),         // em 30d
+    intim('2026-11-09', { partyName: 'P-31d' }),         // em 31d
+    intim('2027-03-01', { partyName: 'P-longe' }),
+    intim('', { partyName: 'P-sem' }),
+    intim(undefined, { partyName: 'P-sem2', dateDeadline: undefined })
+  ];
+
+  it('inclui TODAS (não só 7 dias + 5 próximas), com o cabeçalho de total e contagem por grupo', () => {
+    const muitas = [];
+    for (let i = 0; i < 20; i++) muitas.push(intim('2026-12-' + String(1 + i).padStart(2, '0'), { partyName: 'Longe-' + i }));
+    const { sent, run } = load(base({ intimations: [...tudo(), ...muitas] }));
+    run();
+    const h = html(sent[0]);
+    for (let i = 0; i < 20; i++) assert.ok(h.includes('Longe-' + i + '<'), 'Longe-' + i);
+    assert.match(h, /Intimações em aberto: 31<\/div>|Intimações em aberto: 31 <span/);
+    assert.ok(h.includes('— 1 vencidas · 2 hoje/amanhã · 2 até 7 dias · 2 até 30 · 22 depois · 2 sem prazo'), h.match(/Intimações em aberto[^]{0,300}/)[0]);
+  });
+
+  it('grupos na ordem Vencidas · Hoje e amanhã · Até 7 dias · 8 a 30 dias · Mais de 30 dias · Sem prazo, com as fronteiras certas', () => {
+    const { sent, run } = load(base({ intimations: tudo() }));
+    run();
+    const h = html(sent[0]);
+    const pos = grupos(h);
+    pos.forEach((p, i) => assert.ok(p > 0, NOMES[i]));
+    assert.deepEqual(pos.slice().sort((a, b) => a - b), pos);
+    const parte = (n) => h.indexOf('>' + n + '<');
+    const entre = (nome, i) => [pos[i], i < 5 ? pos[i + 1] : h.length].map((x, k, a) => x);
+    const dentro = (nome, i) => { const [a, b] = entre(nome, i); const p = parte(nome); return p > a && p < b; };
+    ['P-venc'].forEach(n => assert.ok(dentro(n, 0), n));
+    ['P-hoje', 'P-amanha'].forEach(n => assert.ok(dentro(n, 1), n));
+    ['P-2d', 'P-7d'].forEach(n => assert.ok(dentro(n, 2), n));
+    ['P-8d', 'P-30d'].forEach(n => assert.ok(dentro(n, 3), n));
+    ['P-31d', 'P-longe'].forEach(n => assert.ok(dentro(n, 4), n));
+    ['P-sem', 'P-sem2'].forEach(n => assert.ok(dentro(n, 5), n));
+    assert.match(h, /Vencidas <span[^>]*>\(1\)/);
+    assert.match(h, /Sem prazo <span[^>]*>\(2\)/);
+  });
+
+  it('grupo vazio não aparece e some da linha de totais', () => {
+    const { sent, run } = load(base({ intimations: [intim('2026-10-12')] }));
+    run();
+    const h = html(sent[0]);
+    assert.ok(h.includes('Intimações em aberto: 1'));
+    assert.ok(h.includes('— 1 até 7 dias<'));
+    ['>Vencidas <', '>Hoje e amanhã <', '>8 a 30 dias <', '>Mais de 30 dias <', '>Sem prazo <'].forEach(t => assert.ok(!h.includes(t), t));
+  });
+
+  it('prazo: dd/mm + «vencida há Nd» / «hoje» / «amanhã» / «em Nd»; vermelho só em vencida e hoje', () => {
+    const { sent, run } = load(base({ intimations: tudo() }));
+    run();
+    const h = html(sent[0]);
+    assert.match(h, /<b>05\/10<\/b> vencida há 4d/);
+    assert.match(h, /<b>09\/10<\/b> hoje/);
+    assert.match(h, /<b>10\/10<\/b> amanhã/);
+    assert.match(h, /<b>11\/10<\/b> em 2d/);
+    assert.match(h, /<b>01\/03\/27<\/b> em \d+d/);
+    const cor = (txt) => h.slice(h.lastIndexOf('<span', h.indexOf(txt)), h.indexOf(txt));
+    assert.match(cor('<b>05/10</b>'), /#c0392b/);
+    assert.match(cor('<b>09/10</b>'), /#c0392b/);
+    assert.doesNotMatch(cor('<b>10/10</b>'), /#c0392b/);
+    assert.doesNotMatch(cor('<b>11/10</b>'), /#c0392b/);
+  });
+
+  it('campos: processo, classe, parte, evento, operação, situação (rótulo), prioridade, URGENTE e última nota', () => {
+    const x = intim('2026-10-12', {
+      processNumber: '5001234-56.2023.4.04.7001', className: 'Execução Fiscal', partyName: 'Comercial Fachada Norte LTDA',
+      eventDescription: 'Manifestar sobre exceção', operationId: 'op1', status: 'aguardando_subsidios', priority: 'alta', urgent: true,
+      notesList: ['nota antiga', 'nota recente <b>com</b> html']
+    });
+    const { sent, run } = load(base({ intimations: [x] }));
+    run();
+    const h = html(sent[0]);
+    ['5001234-56.2023.4.04.7001', '· Execução Fiscal', 'Comercial Fachada Norte LTDA', 'Manifestar sobre exceção', '◎ Operação Teste',
+      'Aguardando Subsídios', '<b>alta</b>', 'nota recente com html'].forEach(t => assert.ok(h.includes(t), t));
+    assert.ok(!h.includes('nota antiga'));
+    assert.match(h, /<b style="color:#c0392b">URGENTE<\/b> Manifestar/);
+  });
+
+  it('rótulos de situação (incluindo o legado «analisado») e valor desconhecido', () => {
+    const { ctx } = load(base());
+    const L = ctx.STATUS_INTIM;
+    assert.equal(L.pendente_analise, 'Pendente de Análise');
+    assert.equal(L.em_analise, 'Em Análise');
+    assert.equal(L.analise_concluida, 'Análise Concluída');
+    assert.equal(L.aguardando_subsidios, 'Aguardando Subsídios');
+    assert.equal(L.aguardar, 'Aguardar');
+    assert.equal(L.peca_edicao, 'Peça em Edição');
+    assert.equal(L.ciencia_renuncia, 'Ciência com Renúncia');
+    assert.equal(L.peca_pronta, 'Peça Pronta');
+    assert.equal(L.analisado, 'Analisado');
+    const l = load(base({ intimations: [intim('2026-10-20', { status: 'analisado' }), intim('2026-10-20', { status: 'xyz_novo' })] }));
+    l.run();
+    assert.ok(html(l.sent[0]).includes('Analisado'));
+    assert.ok(html(l.sent[0]).includes('xyz_novo'));
+  });
+
+  it('nota: cai para `notes` sem notesList; corta em ~140 caracteres com reticências; sem nota, sem aspas', () => {
+    const longa = 'palavra '.repeat(40).trim();
+    const l = load(base({ intimations: [
+      intim('2026-10-12', { partyName: 'N-longa', notesList: [longa] }),
+      intim('2026-10-13', { partyName: 'N-notes', notes: 'texto simples' }),
+      intim('2026-10-14', { partyName: 'N-sem' })
+    ] }));
+    l.run();
+    const h = html(l.sent[0]);
+    const m = h.match(/“(palavra[^”]*)”/);
+    assert.ok(m, 'nota longa');
+    assert.ok(m[1].length <= 140 && m[1].endsWith('…'), m[1].length + ' ' + m[1].slice(-5));
+    assert.ok(m[1].length > 120);
+    assert.ok(h.includes('“texto simples”'));
+    assert.equal((h.match(/“/g) || []).length, 2);
+  });
+
+  it('analisada com prazo vencido sai; analisada no prazo e sem prazo ficam; com responseAction sai', () => {
+    const resp = { type: 'ciencia', respondedAt: '2026-09-01T10:00:00Z' };
+    const intimations = [
+      intim('2026-10-01', { partyName: 'A-venc', status: 'analisado' }),
+      intim('2026-10-20', { partyName: 'A-prazo', status: 'analisado' }),
+      intim('', { partyName: 'A-semprazo', status: 'analisado' }),
+      intim('2026-10-20', { partyName: 'R-resp', responseAction: resp }),
+      intim('2026-10-01', { partyName: 'P-venc-pendente', status: 'pendente_analise' })
+    ];
+    const { sent, run } = load(base({ intimations }));
+    run();
+    const h = html(sent[0]);
+    ['A-prazo', 'A-semprazo', 'P-venc-pendente'].forEach(t => assert.ok(h.includes(t + '<'), t));
+    ['A-venc', 'R-resp'].forEach(t => assert.ok(!h.includes(t + '<'), t));
+    assert.equal(sent[0].subject, 'NEXUS · 09/10 · 1 prazo vencido');
+  });
+
+  it('ordem dentro do grupo: prazo e, no empate, urgente e depois prioridade', () => {
+    const d = '2026-10-14';
+    const intimations = [
+      intim('2026-10-15', { partyName: 'O-depois', priority: 'alta', urgent: true }),
+      intim(d, { partyName: 'O-baixa', priority: 'baixa' }),
+      intim(d, { partyName: 'O-normal', priority: 'normal' }),
+      intim(d, { partyName: 'O-alta', priority: 'alta' }),
+      intim(d, { partyName: 'O-urgente', priority: 'baixa', urgent: true })
+    ];
+    const { sent, run } = load(base({ intimations }));
+    run();
+    const h = html(sent[0]);
+    const ordem = ['O-urgente', 'O-alta', 'O-normal', 'O-baixa', 'O-depois'].map(n => h.indexOf('>' + n + '<'));
+    assert.ok(ordem.every(p => p > 0));
+    assert.deepEqual(ordem.slice().sort((a, b) => a - b), ordem);
+  });
+
+  it('«Respondidas nas últimas 24 h: N» conta só as de 24 h, sem listá-las', () => {
+    const resp = (h) => ({ type: 'ciencia', respondedAt: new RealDate(2026, 9, 9, 7 - h, 0).toISOString() });
+    const intimations = [
+      intim('2026-10-20', { partyName: 'Aberta' }),
+      intim('2026-10-20', { partyName: 'Resp-1h', responseAction: resp(1) }),
+      intim('2026-10-20', { partyName: 'Resp-23h', responseAction: resp(23) }),
+      intim('2026-10-20', { partyName: 'Resp-25h', responseAction: resp(25) }),
+      intim('2026-10-20', { partyName: 'Resp-semdata', responseAction: { type: 'ciencia' } })
+    ];
+    const { sent, run } = load(base({ intimations }));
+    run();
+    const h = html(sent[0]);
+    assert.ok(h.includes('Respondidas nas últimas 24 h: 2<'));
+    ['Resp-1h', 'Resp-23h', 'Resp-25h', 'Resp-semdata'].forEach(t => assert.ok(!h.includes(t), t));
+    assert.ok(h.includes('Intimações em aberto: 1'));
+  });
+
+  it('sem intimações: a seção some', () => {
+    const { sent, run } = load(base({ debts: [cda('a', 'dado', 0)] }));
+    run();
+    assert.ok(!html(sent[0]).includes('Intimações em aberto'));
+  });
+});
+
+describe('E-mail diário — formato compacto', () => {
+  const completo = () => base({
+    intimations: [intim('2026-10-05'), intim('2026-10-12')],
+    hearings: [{ id: 'h1', date: '2026-10-15', parties: 'Audiência X', time: '14:00' }],
+    debts: [cda('a', 'fato', 0)],
+    tasks: [{ id: 'tk1', title: 'Tarefa urgente', priority: 'urgente', status: 'pendente' }]
+  });
+
+  it('sem cabeçalho escuro, sombra, cantos arredondados nem fundo colorido; fonte 13px; tabelas com largura 100%', () => {
+    const { sent, run } = load(completo());
+    run();
+    const h = html(sent[0]);
+    assert.doesNotMatch(h, /#1f2733;color:#e2ded0/);
+    assert.doesNotMatch(h, /box-shadow|border-radius|text-transform/);
+    assert.doesNotMatch(h, /background:#(?!fff)/i);
+    assert.match(h, /font-size:13px/);
+    assert.doesNotMatch(h, /(?<!max-)width:\d{3,}px/);
+    assert.ok(/max-width:\d+px/.test(h));
+  });
+
+  it('cor só no alerta: vermelho presente; sem cores de seção (azul, âmbar, dourado)', () => {
+    const { sent, run } = load(completo());
+    run();
+    const h = html(sent[0]);
+    assert.ok(h.includes('#c0392b'));
+    ['#2c6ba0', '#b8860b', '#c2631a', '#96762e', '#8a6d1f'].forEach(c => assert.ok(!h.includes(c), c));
+  });
+
+  it('rodapé de uma linha e instrução de desativar', () => {
+    const { sent, run } = load(completo());
+    run();
+    const h = html(sent[0]);
+    const rod = h.slice(h.indexOf('Enviado automaticamente'));
+    assert.ok(rod.includes('removerResumoDiario'));
+    assert.doesNotMatch(rod, /<br/);
+  });
+
+  it('escapa HTML vindo dos dados', () => {
+    const { sent, run } = load(base({ intimations: [intim('2026-10-12', { partyName: '<script>x</script>', eventDescription: 'a & b', notesList: ['<img src=x>'] })] }));
+    run();
+    const h = html(sent[0]);
+    assert.ok(!h.includes('<script>'));
+    assert.ok(h.includes('&lt;script&gt;') && h.includes('a &amp; b'));
+    assert.ok(!h.includes('<img'));
   });
 });

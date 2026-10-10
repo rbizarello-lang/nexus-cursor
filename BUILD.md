@@ -46,7 +46,7 @@ npm run push:release
 
 ## E-mail diário (`RESUMO-DIARIO.js`)
 
-Vai no mesmo `clasp push` (copiado para `gas/`). Destino fixo: `doutorjivago@mail.grokbot.com`, às 7h. A prescrição do e-mail vem dos cartões da Mesa: o app grava `mesaCard` em cada CDA (e `mesaCardsAt` na raiz) a cada salvamento na nuvem; o Apps Script só lê. Depois do push, abra o NEXUS e sincronize uma vez para os cartões aparecerem. Instalar/retomar: `instalarResumoDiario`; desligar: `removerResumoDiario`. Testes: `test/resumo-diario.test.mjs`.
+Vai no mesmo `clasp push` (copiado para `gas/`). Destino fixo: `doutorjivago@mail.grokbot.com`, às 7h. O e-mail é compacto e lista todas as intimações em aberto, agrupadas pela situação do prazo, antes de audiências, prescrição, tarefas e Mesa. A prescrição do e-mail vem dos cartões da Mesa: o app grava `mesaCard` em cada CDA (e `mesaCardsAt` na raiz) a cada salvamento na nuvem; o Apps Script só lê. Depois do push, abra o NEXUS e sincronize uma vez para os cartões aparecerem. Instalar/retomar: `instalarResumoDiario`; desligar: `removerResumoDiario`. Testes: `test/resumo-diario.test.mjs`.
 
 ## Por que isso acelera
 

@@ -2,9 +2,13 @@
  * NEXUS — RESUMO DIÁRIO POR E-MAIL
  * ---------------------------------------------------------------------------
  * Lê o nexus_data.json (o mesmo arquivo que o app sincroniza no Drive) e envia
- * um e-mail com o que exige atuação, nesta ordem: prazos vencidos, prazos a
- * vencer, radar de intimações, audiências, prescrição (cartões da Mesa de
- * prazos), tarefas urgentes e de prioridade alta e, no fim, a Mesa de trabalho.
+ * um e-mail compacto (tabelas densas, uma linha por item) com, nesta ordem:
+ * TODAS as intimações em aberto (sem responseAction), agrupadas pela situação do
+ * prazo (vencidas · hoje e amanhã · até 7 dias · 8 a 30 dias · mais de 30 dias ·
+ * sem prazo), audiências, prescrição (cartões da Mesa de prazos), tarefas
+ * urgentes e de prioridade alta e, no fim, a Mesa de trabalho.
+ * Intimação em aberto = sem responseAction; a «analisada» com prazo vencido sai
+ * (análise ≠ peticionamento). Uma linha discreta conta as respondidas nas últimas 24 h.
  *
  * DESTINO: CONFIG.EMAIL = doutorjivago@mail.grokbot.com (só esse endereço).
  * Horário: 7h (CONFIG.HORA_ENVIO).
@@ -38,11 +42,10 @@ var CONFIG = {
   EMAIL: 'doutorjivago@mail.grokbot.com', // destinatário único (vazio = conta que roda o script)
   HORA_ENVIO: 7,          // 0–23 (horário do fuso do projeto)
   ARQUIVO: 'nexus_data.json',
-  DIAS_PRAZO: 7,          // intimações: alertar com esta antecedência
   DIAS_AUDIENCIA: 15,     // audiências: idem
   DIAS_TAREFA_ALTA: 7,    // tarefas de prioridade alta: entram se vencem em até N dias (ou já venceram)
   CDAS_POR_CARTAO: 10,    // prescrição: CDAs listadas por cartão ("+N CDAs no app" para o resto)
-  PROXIMOS_PRAZOS: 5,     // além dos urgentes, mostrar sempre as N intimações mais próximas
+  CHARS_NOTA: 140,        // intimações: tamanho máximo da última nota no e-mail
   ENVIAR_SE_VAZIO: false  // true = manda e-mail mesmo sem nada pendente
 };
 // Tarefas: urgentes entram sempre (com ou sem prazo); as de prioridade alta só com prazo em CONFIG.DIAS_TAREFA_ALTA.
@@ -56,6 +59,31 @@ var CARTOES_PRESC = [
   { id: 'vigencia', nome: 'Confirmar vigência', cor: '#2c6ba0' },
   { id: 'dado', nome: 'Completar dado', cor: '#5a6b7d' }
 ];
+// Grupos de intimações por situação do prazo, na ordem do e-mail. `curto` entra na linha de totais.
+var GRUPOS_INTIM = [
+  { id: 'venc', nome: 'Vencidas', curto: 'vencidas' },
+  { id: 'hoje', nome: 'Hoje e amanhã', curto: 'hoje/amanhã' },
+  { id: 'sete', nome: 'Até 7 dias', curto: 'até 7 dias' },
+  { id: 'trinta', nome: '8 a 30 dias', curto: 'até 30' },
+  { id: 'mais', nome: 'Mais de 30 dias', curto: 'depois' },
+  { id: 'sem', nome: 'Sem prazo', curto: 'sem prazo' }
+];
+// Rótulos de INTIM_STATUSES (src/app.jsx), incluindo o legado «analisado».
+var STATUS_INTIM = {
+  pendente_analise: 'Pendente de Análise',
+  em_analise: 'Em Análise',
+  analise_concluida: 'Análise Concluída',
+  aguardando_subsidios: 'Aguardando Subsídios',
+  aguardar: 'Aguardar',
+  peca_edicao: 'Peça em Edição',
+  ciencia_renuncia: 'Ciência com Renúncia',
+  peca_pronta: 'Peça Pronta',
+  analisado: 'Analisado'
+};
+// Cores do e-mail: só o alerta (prazo vencido/hoje, urgente) é colorido.
+var COR_ALERTA = '#c0392b';
+var COR_TEXTO = '#1f2733';
+var COR_CINZA = '#6b7785';
 var NOTA_SEM_CARTOES = 'Abra o NEXUS 3.5 e sincronize para o e-mail passar a mostrar os cartões de prescrição.';
 
 // ─── FUNÇÕES QUE VOCÊ EXECUTA ───────────────────────────────────────────────
@@ -98,13 +126,13 @@ function enviarResumoNexus() {
   if (!dados) return 'ERRO: arquivo de dados do NEXUS não encontrado na pasta da planilha.';
 
   var r = _coletar_(dados);
-  // O radar é informativo (horizonte) e não conta como pendência para decidir o envio.
+  // Todas as intimações em aberto contam para decidir o envio (as respondidas nas últimas 24 h, não).
   var aAgir = r.presc.total;
-  var total = r.vencidas.length + r.prazos.length + r.audiencias.length + aAgir + r.tarefas.length;
-  if (total === 0 && r.radar.length === 0 && !CONFIG.ENVIAR_SE_VAZIO) return 'Nada pendente hoje — e-mail não enviado.';
+  var total = r.intim.total + r.audiencias.length + aAgir + r.tarefas.length;
+  if (total === 0 && !CONFIG.ENVIAR_SE_VAZIO) return 'Nada pendente hoje — e-mail não enviado.';
 
   var email = CONFIG.EMAIL || Session.getActiveUser().getEmail();
-  var assunto = _assunto_(r.vencidas.length, aAgir);
+  var assunto = _assunto_(r.intim.contagem.venc, aAgir);
 
   MailApp.sendEmail({ to: email, subject: assunto, htmlBody: _html_(r), name: 'NEXUS' });
   return 'Resumo enviado para ' + email + ' (' + total + ' itens).';
@@ -199,30 +227,10 @@ function _coletar_(d) {
   (d.operations || []).forEach(function (o) { ops[o.id] = o.name; });
   var nomeOp = function (id) { return id && ops[id] ? ops[id] : ''; };
 
-  var out = { vencidas: [], prazos: [], radar: [], audiencias: [], presc: null, tarefas: [], mesa: [] };
+  var out = { intim: null, audiencias: [], presc: null, tarefas: [], mesa: [] };
 
-  // Intimações em aberto com prazo
-  var futuras = [];
-  (d.intimations || []).forEach(function (x) {
-    if (x.responseAction || !x.dateDeadline) return;
-    var dias = _dias_(x.dateDeadline);
-    if (dias === null) return;
-    // Analisado sem atuação: só some depois que o prazo vence (análise ≠ peticionamento).
-    if (x.status === 'analisado' && dias < 0) return;
-    var item = {
-      dias: dias, data: x.dateDeadline,
-      titulo: x.partyName || x.parties || x.processNumber || 'Intimação',
-      proc: x.processNumber || '', op: nomeOp(x.operationId),
-      extra: x.eventDescription || ''
-    };
-    if (dias < 0) out.vencidas.push(item);
-    else if (dias <= CONFIG.DIAS_PRAZO) out.prazos.push(item);
-    else futuras.push(item); // além da janela — candidatas ao "radar"
-  });
-  // Radar: as próximas N intimações que ficaram fora da janela de alerta,
-  // para haver sempre visibilidade do horizonte (não só do que já está em cima).
-  futuras.sort(function (a, b) { return a.dias - b.dias; });
-  out.radar = futuras.slice(0, CONFIG.PROXIMOS_PRAZOS);
+  // Intimações: TODAS as em aberto (sem responseAction), agrupadas pela situação do prazo.
+  out.intim = _coletarIntimacoes_(d, nomeOp);
 
   // Audiências futuras
   (d.hearings || []).forEach(function (h) {
@@ -278,9 +286,80 @@ function _coletar_(d) {
   });
 
   var porData = function (a, b) { return a.dias - b.dias; };
-  out.vencidas.sort(porData); out.prazos.sort(porData);
   out.audiencias.sort(porData); out.tarefas.sort(porData);
   return out;
+}
+
+/** Última nota da intimação (notesList, senão notes), sem HTML, em uma linha e cortada em CONFIG.CHARS_NOTA. */
+function _ultimaNota_(x) {
+  var n = null;
+  if (x.notesList && x.notesList.length) n = x.notesList[x.notesList.length - 1];
+  if (n && typeof n === 'object') n = n.text || n.html || '';
+  if (!n && x.notes) n = x.notes;
+  var t = String(n == null ? '' : n).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  var lim = CONFIG.CHARS_NOTA;
+  return t.length > lim ? t.slice(0, lim - 1).replace(/\s+\S*$/, '').replace(/[\s,;:.\-—]+$/, '') + '…' : t;
+}
+
+/** Desempate dentro do dia: urgente primeiro, depois prioridade (alta, normal, baixa). */
+function _pesoPrioridade_(x) {
+  if (x.urgente) return 0;
+  var p = String(x.prioridade || '').toLowerCase();
+  return p === 'urgente' ? 0 : p === 'alta' ? 1 : p === 'baixa' ? 3 : 2;
+}
+
+function _grupoIntim_(dias) {
+  if (dias === null) return 'sem';
+  if (dias < 0) return 'venc';
+  if (dias <= 1) return 'hoje';
+  if (dias <= 7) return 'sete';
+  if (dias <= 30) return 'trinta';
+  return 'mais';
+}
+
+/**
+ * Intimações em aberto (sem responseAction), em grupos fixos (GRUPOS_INTIM) já ordenados por prazo e, no
+ * empate, urgente/prioridade. «Analisada» com prazo vencido sai. `respondidas` = com responseAction.respondedAt
+ * nas últimas 24 h (só contagem).
+ */
+function _coletarIntimacoes_(d, nomeOp) {
+  var grupos = {}, contagem = {};
+  GRUPOS_INTIM.forEach(function (g) { grupos[g.id] = []; contagem[g.id] = 0; });
+  var total = 0, respondidas = 0;
+  var agora = new Date().getTime();
+  (d.intimations || []).forEach(function (x) {
+    if (!x) return;
+    if (x.responseAction) {
+      var t = x.responseAction.respondedAt ? new Date(x.responseAction.respondedAt).getTime() : NaN;
+      if (!isNaN(t) && agora - t >= 0 && agora - t <= 86400000) respondidas++;
+      return;
+    }
+    var dias = x.dateDeadline ? _dias_(x.dateDeadline) : null;
+    // Analisado sem atuação: só some depois que o prazo vence (análise ≠ peticionamento).
+    if (x.status === 'analisado' && dias !== null && dias < 0) return;
+    var g = _grupoIntim_(dias);
+    grupos[g].push({
+      dias: dias, data: dias === null ? '' : x.dateDeadline,
+      proc: x.processNumber || '', classe: x.className || '',
+      parte: x.partyName || x.parties || '',
+      evento: x.eventDescription || '',
+      op: nomeOp(x.operationId),
+      status: x.status ? (STATUS_INTIM[x.status] || String(x.status)) : '',
+      prioridade: x.priority || '', urgente: !!x.urgent,
+      nota: _ultimaNota_(x)
+    });
+    contagem[g]++; total++;
+  });
+  GRUPOS_INTIM.forEach(function (g) {
+    grupos[g.id].sort(function (a, b) {
+      var da = a.dias === null ? 0 : a.dias, db = b.dias === null ? 0 : b.dias;
+      return (da - db) || (_pesoPrioridade_(a) - _pesoPrioridade_(b));
+    });
+  });
+  return {
+    total: total, contagem: contagem, respondidas: respondidas,
+    grupos: GRUPOS_INTIM.map(function (g) { return { id: g.id, nome: g.nome, curto: g.curto, itens: grupos[g.id] }; })
+  };
 }
 
 /**
@@ -360,178 +439,216 @@ function _horizonte_(dias) {
  */
 function _relogioCartao_(m) {
   var dias = m.date ? _dias_(m.date) : null;
-  var r = { texto: '', data: '', cor: '#7b8896', chip: m.cedoTarde ? 'cedo venceu, tarde não' : '' };
+  var r = { texto: '', data: '', cor: COR_TEXTO, chip: m.cedoTarde ? 'cedo venceu, tarde não' : '' };
   if (m.dateKind === 'tarde') {
     if (dias === null) { r.texto = m.label || 'sem data tarde'; return r; }
     r.texto = 'tarde ' + _horizonte_(dias);
     r.data = _fmtData_(m.date);
-    r.cor = '#b8860b';
     return r;
   }
   if (m.dateKind === 'consumada' && dias !== null) {
     r.texto = 'consumada ' + _horizonte_(dias);
     r.data = _fmtData_(m.date);
-    r.cor = '#c0392b';
+    r.cor = COR_ALERTA;
     return r;
   }
   if (m.dateKind === 'prazo' && dias !== null) {
     r.texto = _horizonte_(dias);
     r.data = m.label || _fmtData_(m.date);
-    r.cor = _corPrazo_(dias);
+    if (dias <= 0) r.cor = COR_ALERTA;
     return r;
   }
   r.texto = m.label || (m.date ? _fmtData_(m.date) : '—');
   return r;
 }
 
-/** Texto do prazo (9999 = tarefa urgente sem data marcada). */
-function _prazoTexto_(dias) {
-  if (dias === 9999) return 'sem prazo';
-  if (dias < 0) return 'vencido há ' + Math.abs(dias) + 'd';
-  if (dias === 0) return 'HOJE';
-  if (dias === 1) return 'amanhã';
-  return 'em ' + dias + ' dias';
-}
-
-// ─── E-MAIL (HTML) ──────────────────────────────────────────────────────────
+// ─── E-MAIL (HTML compacto, estilos inline) ─────────────────────────────────
 
 function _esc_(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _corPrazo_(dias) {
-  if (dias === 9999) return '#7b8896';
-  if (dias < 0) return '#c0392b';
-  if (dias <= 2) return '#c0392b';
-  if (dias <= 7) return '#b8860b';
-  return '#5a6b7d';
+var TD = 'padding:3px 4px;border-bottom:1px solid #e3e6ea;vertical-align:top;';
+
+function _cinza_(txt, px) {
+  return '<span style="color:' + COR_CINZA + ';font-size:' + (px || 11) + 'px">' + txt + '</span>';
 }
 
-/** Selo de prioridade da tarefa (URGENTE / ALTA). */
-function _tag_(tag) {
-  if (!tag) return '';
-  var cor = tag === 'URGENTE' ? '#c0392b' : '#b8860b';
-  return '<span style="font-size:10px;font-weight:700;color:' + cor + ';border:1px solid ' + cor +
-    ';border-radius:3px;padding:1px 5px;margin-right:6px;letter-spacing:.4px;vertical-align:1px">' + tag + '</span>';
+/** Título de seção: negrito simples, filete fino, com a contagem. */
+function _titulo_(texto, extra) {
+  return '<div style="font-size:13px;font-weight:700;color:' + COR_TEXTO + ';margin:14px 0 3px;padding:0 0 2px;border-bottom:1px solid #9aa4af">' +
+    _esc_(texto) + (extra ? ' <span style="font-weight:400;color:' + COR_CINZA + '">' + extra + '</span>' : '') + '</div>';
 }
 
-function _secao_(titulo, itens, cor, mostrarValor) {
+/**
+ * Linha de tabela: cada célula é HTML pronto; `nowrap` marca (por índice) as que não quebram e `larg` dá a
+ * largura (px ou %) de colunas. As classes nx-* só servem ao CSS do celular (ver _html_); sem ele, a tabela segue válida.
+ */
+function _linha_(cels, nowrap, larg) {
+  return '<tr class="nx-r">' + cels.map(function (c, i) {
+    return '<td class="nx-c"' + (larg && larg[i] ? ' width="' + larg[i] + '"' : '') + ' style="' + TD + (nowrap && nowrap.indexOf(i) >= 0 ? 'white-space:nowrap;' : '') + '">' + c + '</td>';
+  }).join('') + '</tr>';
+}
+
+function _tabela_(linhas) {
+  return '<table class="nx-t" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;color:' + COR_TEXTO + '">' + linhas + '</table>';
+}
+
+/** Nº do processo sem quebra (no celular o CSS libera a quebra, classe nx-p). */
+function _proc_(proc) {
+  return proc ? '<span class="nx-p" style="white-space:nowrap">' + _esc_(proc) + '</span>' : _cinza_('<i>sem processo</i>', 12);
+}
+
+function _op_(op) {
+  return op ? _cinza_('◎ ' + _esc_(op)) : '';
+}
+
+/** dd/mm (com /aa se o ano não for o atual). */
+function _fmtCurta_(iso) {
+  var k = _diaKey_(iso);
+  if (!k) return iso ? _esc_(iso) : '—';
+  var p = k.split('-');
+  return p[2] + '/' + p[1] + (+p[0] !== new Date().getFullYear() ? '/' + p[0].slice(2) : '');
+}
+
+/** Texto do prazo: «vencida há 4d», «hoje», «amanhã», «em 12d» (9999/null = sem prazo). */
+function _prazoTexto_(dias) {
+  if (dias === null || dias === 9999) return 'sem prazo';
+  if (dias < 0) return 'vencida há ' + Math.abs(dias) + 'd';
+  if (dias === 0) return 'hoje';
+  if (dias === 1) return 'amanhã';
+  return 'em ' + dias + 'd';
+}
+
+/** Célula do prazo: data curta em negrito + texto; vermelho se vencido ou hoje. */
+function _celPrazo_(dias, data) {
+  if (dias === null || dias === 9999) return _cinza_('sem prazo', 12);
+  var cor = dias <= 0 ? COR_ALERTA : COR_TEXTO;
+  return '<span style="color:' + cor + ';font-weight:' + (dias <= 0 ? 700 : 400) + '"><b>' + _fmtCurta_(data) + '</b> ' + _prazoTexto_(dias) + '</span>';
+}
+
+/** Seção «Intimações em aberto»: total + contagem por grupo no título, uma tabela com subtítulos de grupo. */
+function _secaoIntimacoes_(it) {
+  if (!it.total) return '';
+  var cab = [];
+  it.grupos.forEach(function (g) { if (g.itens.length) cab.push(g.itens.length + ' ' + g.curto); });
+  var larg = [null, null, '15%', '34%', '14%'];
+  var linhas = '<tr class="nx-h">' + ['Prazo', 'Processo · classe', 'Parte', 'Evento · nota', 'Operação'].map(function (h, i) {
+    return '<td ' + (larg[i] ? 'width="' + larg[i] + '" ' : '') + 'style="padding:2px 4px;border-bottom:1px solid #9aa4af;color:' + COR_CINZA + ';font-size:11px">' + h + '</td>';
+  }).join('') + '</tr>';
+  it.grupos.forEach(function (g) {
+    if (!g.itens.length) return;
+    linhas += '<tr class="nx-g"><td colspan="5" style="padding:7px 4px 2px;font-weight:700;font-size:12px;color:' + (g.id === 'venc' ? COR_ALERTA : COR_TEXTO) + '">' +
+      _esc_(g.nome) + ' <span style="font-weight:400;color:' + COR_CINZA + '">(' + g.itens.length + ')</span></td></tr>';
+    g.itens.forEach(function (x) {
+      var meta = [];
+      if (x.status) meta.push(_esc_(x.status));
+      if (x.prioridade) meta.push(x.prioridade === 'alta' ? '<b>alta</b>' : _esc_(x.prioridade));
+      linhas += _linha_([
+        _celPrazo_(x.dias, x.data) + (meta.length ? '<br>' + _cinza_(meta.join(' · ')) : ''),
+        _proc_(x.proc) + (x.classe ? ' <span style="color:' + COR_CINZA + '">· ' + _esc_(x.classe) + '</span>' : ''),
+        _esc_(x.parte),
+        (x.urgente ? '<b style="color:' + COR_ALERTA + '">URGENTE</b> ' : '') + _esc_(x.evento) +
+          (x.nota ? ' ' + _cinza_('— “' + _esc_(x.nota) + '”') : ''),
+        _op_(x.op)
+      ], [0], larg);
+    });
+  });
+  return _titulo_('Intimações em aberto: ' + it.total, '— ' + cab.join(' · ')) + _tabela_(linhas);
+}
+
+/** Linha discreta com as intimações respondidas nas últimas 24 h (só a contagem). */
+function _linhaRespondidas_(it) {
+  return '<div style="margin:5px 0 0;color:' + COR_CINZA + ';font-size:11px">Respondidas nas últimas 24 h: ' + it.respondidas + '</div>';
+}
+
+function _secaoAudiencias_(itens) {
   if (!itens.length) return '';
-  var linhas = itens.map(function (x) {
-    return '' +
-      '<tr>' +
-      '<td style="padding:9px 10px;border-bottom:1px solid #eceff3;white-space:nowrap;vertical-align:top">' +
-      '<span style="color:' + _corPrazo_(x.dias) + ';font-weight:700;font-size:13px">' + _prazoTexto_(x.dias) + '</span><br>' +
-      '<span style="color:#95a3b3;font-size:11px">' + _fmtData_(x.data) + '</span>' +
-      '</td>' +
-      '<td style="padding:9px 10px;border-bottom:1px solid #eceff3;vertical-align:top">' +
-      '<div style="color:#1f2733;font-size:14px;font-weight:600">' + _tag_(x.tag) + _esc_(x.titulo) + '</div>' +
-      (x.proc ? '<div style="color:#5a6b7d;font-size:12px;font-family:monospace">' + _esc_(x.proc) + '</div>' : '') +
-      (x.extra ? '<div style="color:#7b8896;font-size:12px;margin-top:2px">' + _esc_(x.extra) + '</div>' : '') +
-      (x.op ? '<div style="color:#96762e;font-size:11px;margin-top:3px">◎ ' + _esc_(x.op) + '</div>' : '') +
-      '</td>' +
-      '</tr>';
-  }).join('');
-
-  return '' +
-    '<div style="margin:0 0 22px">' +
-    '<div style="font-size:13px;font-weight:700;color:' + cor + ';text-transform:uppercase;letter-spacing:.6px;padding:0 0 7px">' +
-    _esc_(titulo) + ' <span style="color:#b6c0cb;font-weight:600">(' + itens.length + ')</span></div>' +
-    '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e8ee;border-radius:6px">' +
-    linhas + '</table></div>';
+  return _titulo_('Audiências', '(' + itens.length + ')') + _tabela_(itens.map(function (x) {
+    return _linha_([_celPrazo_(x.dias, x.data), _proc_(x.proc), _esc_(x.titulo), _esc_(x.extra), _op_(x.op)], [0], null);
+  }).join(''));
 }
 
-/** Seção «Prescrição — a agir»: um bloco por cartão da Mesa (fileira 1), com a hora do cálculo no rodapé. */
+function _secaoTarefas_(itens) {
+  if (!itens.length) return '';
+  return _titulo_('Tarefas urgentes e de prioridade alta', '(' + itens.length + ')') + _tabela_(itens.map(function (x) {
+    var tag = '<span style="font-size:10px;font-weight:700;color:' + (x.tag === 'URGENTE' ? COR_ALERTA : COR_TEXTO) + '">' + x.tag + '</span> ';
+    return _linha_([
+      _celPrazo_(x.dias, x.data),
+      tag + _esc_(x.titulo),
+      _cinza_(_esc_(x.extra), 12),
+      _op_(x.op)
+    ], [0]);
+  }).join(''));
+}
+
+/** Seção «Prescrição — a agir»: um bloco por cartão da Mesa (fileira 1), com a hora do cálculo no fim. */
 function _secaoPrescricao_(p) {
-  var cinza = 'color:#9aa7b4;font-size:11px';
-  var corpo = '';
+  var hora = p.calculadoEm ? '<div style="margin:4px 0 0;color:' + COR_CINZA + ';font-size:11px">Cartões calculados na sincronização de ' + _esc_(p.calculadoEm) + '</div>' : '';
   if (p.semCartoes) {
-    corpo = '<div style="padding:12px 14px;background:#fff;border:1px solid #e4e8ee;border-radius:6px;color:#5a6b7d;font-size:13px">' +
-      _esc_(NOTA_SEM_CARTOES) + '</div>';
-  } else if (!p.blocos.length) {
-    // Nada a agir: some a seção, como as demais; fica só a hora do cálculo, discreta.
-    return p.calculadoEm ? '<div style="' + cinza + ';padding:0 2px 18px">Cartões calculados na sincronização de ' + _esc_(p.calculadoEm) + '</div>' : '';
-  } else {
-    corpo = p.blocos.map(function (b) {
-      var linhas = b.itens.map(function (x) {
-        var rel = x.relogio;
-        return '' +
-          '<tr>' +
-          '<td style="padding:9px 10px;border-bottom:1px solid #eceff3;white-space:nowrap;vertical-align:top">' +
-          '<span style="color:' + rel.cor + ';font-weight:700;font-size:13px">' + _esc_(rel.texto) + '</span>' +
-          (rel.data ? '<br><span style="color:#95a3b3;font-size:11px">' + _esc_(rel.data) + '</span>' : '') +
-          '</td>' +
-          '<td style="padding:9px 10px;border-bottom:1px solid #eceff3;vertical-align:top">' +
-          '<div style="color:#1f2733;font-size:14px;font-weight:600">CDA ' + _esc_(x.cda) +
-          (x.devedor ? ' <span style="font-weight:400;color:#5a6b7d">· ' + _esc_(x.devedor) + '</span>' : '') + '</div>' +
-          '<div style="color:#5a6b7d;font-size:12px;margin-top:1px"><span style="font-family:monospace">' +
-          (x.proc ? _esc_(x.proc) : '<i style="font-family:inherit">sem processo</i>') + '</span> · ' + _fmtMoeda_(x.valor) + '</div>' +
-          (rel.chip ? '<div style="margin-top:3px"><span style="font-size:10px;color:#8a6d1f;background:#fbf3dc;border:1px solid #ecd9a0;border-radius:3px;padding:1px 6px">' + _esc_(rel.chip) + '</span></div>' : '') +
-          (x.op ? '<div style="color:#96762e;font-size:11px;margin-top:3px">◎ ' + _esc_(x.op) + '</div>' : '') +
-          '</td>' +
-          '</tr>';
-      }).join('');
-      var resumo = b.n
-        ? b.n + (b.n === 1 ? ' CDA' : ' CDAs') + ' · ' + _fmtMoeda_(b.valor)
-        : 'nenhuma nos 60 dias';
-      return '' +
-        '<div style="margin:0 0 12px">' +
-        '<div style="padding:0 0 6px"><span style="font-size:13px;font-weight:700;color:' + b.cor + '">' + _esc_(b.nome) + '</span>' +
-        ' <span style="color:#7b8896;font-size:12px">' + _esc_(resumo) + '</span></div>' +
-        (linhas ? '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e8ee;border-radius:6px">' + linhas + '</table>' : '') +
-        (b.mais > 0 ? '<div style="' + cinza + ';padding:5px 2px 0">+' + b.mais + (b.mais === 1 ? ' CDA' : ' CDAs') + ' no app</div>' : '') +
-        (b.id === 'ajuizar' && b.longe > 0 ? '<div style="color:#8a96a3;font-size:12px;padding:5px 2px 0">+' + b.longe + ' entre 60 e 180 dias</div>' : '') +
-        '</div>';
-    }).join('');
+    return _titulo_('Prescrição — a agir') + '<div style="color:' + COR_CINZA + '">' + _esc_(NOTA_SEM_CARTOES) + '</div>' + hora;
   }
-  return '' +
-    '<div style="margin:0 0 22px">' +
-    '<div style="font-size:13px;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.6px;padding:0 0 7px">' +
-    'Prescrição — a agir' + (p.semCartoes ? '' : ' <span style="color:#b6c0cb;font-weight:600">(' + p.total + ')</span>') + '</div>' +
-    corpo +
-    (p.calculadoEm ? '<div style="' + cinza + ';padding:2px 2px 0">Cartões calculados na sincronização de ' + _esc_(p.calculadoEm) + '</div>' : '') +
-    '</div>';
+  if (!p.blocos.length) return hora; // nada a agir: some a seção; fica só a hora do cálculo, discreta
+  var corpo = p.blocos.map(function (b) {
+    var linhas = b.itens.map(function (x) {
+      var rel = x.relogio;
+      return _linha_([
+        '<span style="color:' + rel.cor + ';font-weight:' + (rel.cor === COR_ALERTA ? 700 : 400) + '">' + _esc_(rel.texto) + '</span>' +
+          (rel.data ? ' ' + _cinza_(_esc_(rel.data)) : ''),
+        'CDA ' + _esc_(x.cda) + (x.devedor ? ' <span style="color:' + COR_CINZA + '">· ' + _esc_(x.devedor) + '</span>' : ''),
+        _proc_(x.proc),
+        '<span style="white-space:nowrap">' + _fmtMoeda_(x.valor) + '</span>' + (rel.chip ? ' ' + _cinza_('· ' + _esc_(rel.chip)) : ''),
+        _op_(x.op)
+      ], [0], null);
+    }).join('');
+    var resumo = b.n
+      ? b.n + (b.n === 1 ? ' CDA' : ' CDAs') + ' · ' + _fmtMoeda_(b.valor)
+      : 'nenhuma nos 60 dias';
+    return '<div style="margin:8px 0 0">' +
+      '<span style="font-weight:700">' + _esc_(b.nome) + '</span> <span style="color:' + COR_CINZA + ';font-size:12px">' + _esc_(resumo) + '</span>' +
+      (linhas ? _tabela_(linhas) : '') +
+      (b.mais > 0 ? '<div style="color:' + COR_CINZA + ';font-size:11px;padding:2px 4px 0">+' + b.mais + (b.mais === 1 ? ' CDA' : ' CDAs') + ' no app</div>' : '') +
+      (b.id === 'ajuizar' && b.longe > 0 ? '<div style="color:' + COR_CINZA + ';font-size:11px;padding:2px 4px 0">+' + b.longe + ' entre 60 e 180 dias</div>' : '') +
+      '</div>';
+  }).join('');
+  return _titulo_('Prescrição — a agir', '(' + p.total + ')') + corpo + hora;
+}
+
+function _secaoMesa_(itens) {
+  if (!itens.length) return '';
+  return _titulo_('Na mesa de trabalho', '(' + itens.length + ')') + _tabela_(itens.map(function (m) {
+    return _linha_([_cinza_(_esc_(m.tipo), 12), _esc_(m.titulo), _op_(m.op)], [0]);
+  }).join(''));
 }
 
 function _html_(r) {
-  var mesa = '';
-  if (r.mesa.length) {
-    mesa = '<div style="margin:0 0 22px">' +
-      '<div style="font-size:13px;font-weight:700;color:#5a6b7d;text-transform:uppercase;letter-spacing:.6px;padding:0 0 7px">Na mesa de trabalho <span style="color:#b6c0cb">(' + r.mesa.length + ')</span></div>' +
-      '<div style="background:#fff;border:1px solid #e4e8ee;border-radius:6px;padding:4px 0">' +
-      r.mesa.map(function (m) {
-        return '<div style="padding:6px 12px;font-size:13px;color:#1f2733">' +
-          '<span style="font-size:10px;color:#7b8896;border:1px solid #dfe4ea;border-radius:3px;padding:1px 6px;margin-right:7px">' + _esc_(m.tipo) + '</span>' +
-          _esc_(m.titulo) + (m.op ? ' <span style="color:#96762e;font-size:11px">◎ ' + _esc_(m.op) + '</span>' : '') + '</div>';
-      }).join('') + '</div></div>';
-  }
-
-  // Ordem: prazos vencidos · a vencer · radar · audiências · prescrição · tarefas · mesa de trabalho (no fim).
+  // Ordem: intimações em aberto · audiências · prescrição · tarefas · mesa de trabalho (no fim) · rodapé.
   var corpo = '' +
-    _secao_('Prazos vencidos', r.vencidas, '#c0392b') +
-    _secao_('Prazos a vencer', r.prazos, '#b8860b') +
-    _secao_('No radar — próximos prazos', r.radar, '#5a6b7d') +
-    _secao_('Audiências', r.audiencias, '#8a6d1f') +
+    _secaoIntimacoes_(r.intim) +
+    ((r.intim.total || r.intim.respondidas) ? _linhaRespondidas_(r.intim) : '') +
+    _secaoAudiencias_(r.audiencias) +
     _secaoPrescricao_(r.presc) +
-    _secao_('Tarefas urgentes e de prioridade alta', r.tarefas, '#2c6ba0') +
-    mesa;
+    _secaoTarefas_(r.tarefas) +
+    _secaoMesa_(r.mesa);
 
-  var temItens = r.vencidas.length + r.prazos.length + r.radar.length + r.audiencias.length +
-    r.presc.total + r.tarefas.length + r.mesa.length;
+  var temItens = r.intim.total + r.audiencias.length + r.presc.total + r.tarefas.length + r.mesa.length;
   if (!temItens && !r.presc.semCartoes) {
-    corpo = '<div style="padding:26px;text-align:center;color:#7b8896;background:#fff;border:1px solid #e4e8ee;border-radius:6px;margin:0 0 22px">Nenhuma pendência no período. ✓</div>' + corpo;
+    corpo = '<div style="margin:14px 0 0;color:' + COR_CINZA + '">Nenhuma pendência no período. ✓</div>' + corpo;
   }
 
-  return '' +
-    '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f4f6f9;padding:22px;margin:0">' +
-    '<div style="max-width:640px;margin:0 auto">' +
-    '<div style="background:#1f2733;color:#e2ded0;padding:15px 18px;border-radius:6px 6px 0 0">' +
-    '<div style="font-size:17px;font-weight:700;letter-spacing:.5px">NEXUS</div>' +
-    '<div style="font-size:12px;color:#9fb0c8;margin-top:2px">Resumo de ' + _hojeBR_() + '</div>' +
-    '</div>' +
-    '<div style="background:#f4f6f9;padding:18px 0 0">' + corpo + '</div>' +
-    '<div style="color:#9aa7b4;font-size:11px;text-align:center;padding:10px 0 0;border-top:1px solid #e4e8ee">' +
-    'Enviado automaticamente pelo NEXUS · para desativar, rode <code>removerResumoDiario</code> no Apps Script' +
-    '</div></div></div>';
+  // CSS só para telas estreitas (Gmail aceita <style> com @media): as linhas viram parágrafos corridos.
+  var css = '<style>@media only screen and (max-width:600px){' +
+    '.nx-t,.nx-t tbody,.nx-r,.nx-g,.nx-g td{display:block !important;width:auto !important}' +
+    '.nx-h{display:none !important}.nx-p{white-space:normal !important}' +
+    '.nx-r{padding:3px 0 !important;border-bottom:1px solid #e3e6ea !important}' +
+    '.nx-c{display:inline !important;border:0 !important;padding:0 6px 0 0 !important;width:auto !important}' +
+    '}</style>';
+  return css +
+    '<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.35;color:' + COR_TEXTO + ';background:#ffffff;margin:0;padding:8px;max-width:820px;width:auto">' +
+    '<div style="font-size:15px;font-weight:700">NEXUS <span style="font-weight:400;font-size:13px;color:' + COR_CINZA + '">· resumo de ' + _hojeBR_() + '</span></div>' +
+    corpo +
+    '<div style="color:' + COR_CINZA + ';font-size:11px;margin:16px 0 0;padding:4px 0 0;border-top:1px solid #e3e6ea">' +
+    'Enviado automaticamente pelo NEXUS · para desativar, rode <code>removerResumoDiario</code></div>' +
+    '</div>';
 }
