@@ -1225,16 +1225,41 @@ function cxGroupResolved(items) {
 }
 /* Card de intimação da lista (versão R do mockup prumo-intimacao-card-b2-extremos: D1 + sigla + Geist + prazo com
    contagem no tooltip). Cinco zonas: identidade (operação · Novo/Atualizada no topo, situação + parte, nº + sigla) · Objeto (objeto e teor da
-   decisão) · Notas · Indicadores (Imp/Compl/peça, URGENTE, esteira) · Prazo (só tempo: data final e embargos). Cálculos em
+   decisão) · Notas · Indicadores (etiquetas URGENTE/IMPORTANTE/COMPLEXO, esteira + peça) · Prazo (só tempo: data final e embargos). Cálculos em
    src/lib/intim-card.js. Classes novas cx-ix-* / cx-it-*: Tarefas e Acompanhar seguem com cx-t-row/cx-w-row. */
 function cxRaKind(ra) { return ra.type === 'peticionamento' ? (ra.peticionType || 'Peticionamento') : ra.type === 'ciencia' ? 'Ciência' : 'Outra medida'; }
-/* Esteira da peça na coluna Indicadores: só as barrinhas e a etapa atual (sem "parou há", que fica no tooltip). */
-function CxIxEst({ esteira }) {
-  if (!esteiraHasStarted(esteira)) return null;
-  const s = esteiraSummary(esteira);
-  const label = s.isComplete ? 'Concluída' : (s.current ? s.current.label : '—');
-  const when = s.isComplete ? 'concluída ' + cxDM(esteira.updatedAt) : 'parou ' + esteiraStoppedLabel(esteira.updatedAt);
-  return <div className="cx-ix-ei" title={'Esteira da peça: ' + label + ' · ' + when}><CxEstProgress esteira={esteira} size="sm" /><span className="cx-ix-el">{label}</span></div>;
+/* Coluna Indicadores (V1): etiquetas de texto empilhadas no topo (URGENTE sólida · IMPORTANTE preenchimento suave · COMPLEXO só
+   contorno, tons de vermelho) e, na base, o "trilho" esteira → peça: N pílulas verticais finas com a mesma altura do ícone da peça,
+   um fio que leva até ele e o ícone no fim. A frase da esteira só aparece na dica (passar o mouse ou focar). */
+function CxIxTags({ intim, urgent }) {
+  const imp = intimImpKey(intim) === 'alta';
+  const dif = intimDifKey(intim) === 'alta';
+  if (!urgent && !imp && !dif) return null;
+  return <div className="cx-ixg">
+    {urgent ? <span className="cx-ixt u" title="Intimação urgente">URGENTE</span> : null}
+    {imp ? <span className="cx-ixt i" title="Importância alta">IMPORTANTE</span> : null}
+    {dif ? <span className="cx-ixt c" title="Complexidade alta">COMPLEXO</span> : null}
+  </div>;
+}
+/* Esteira + peça numa unidade só (somente na lista de intimações; Mesa, Hoje e gaveta seguem com CxEstProgress). */
+function CxIxRail({ esteira, url }) {
+  const started = esteiraHasStarted(esteira);
+  if (!started && !url) return null;
+  const st = started ? esteiraProgress(esteira) : [];
+  const s = started ? esteiraSummary(esteira) : null;
+  const label = s ? (s.isComplete ? 'Concluída' : (s.current ? s.current.label : '—')) : '';
+  const n = s ? (s.isComplete ? s.total : s.currentIndex + 1) : 0;
+  const when = s ? (s.isComplete ? 'Concluída em ' + cxDM(esteira.updatedAt) : 'Parou ' + esteiraStoppedLabel(esteira.updatedAt)) : '';
+  const hint = started ? cxHintProps(() => ({ when: n + ' de ' + s.total, title: label, lines: [when] })) : null;
+  return <div className="cx-ixf">
+    <span className={'cx-ixr' + (started ? ' est' : '') + (url ? ' doc' : '') + (started && s.isComplete ? ' fin' : '')}>
+      {started ? <span className="cx-ixr-e" tabIndex={0} role="img" aria-label={'Esteira da peça: ' + label + ', etapa ' + n + ' de ' + s.total + '. ' + when} {...hint}>
+        <span className="cx-ixr-p">{st.map((x, i) => <i key={i} className={x === 'done' ? 'd' : x === 'doing' ? 'n' : ''} />)}</span>
+        <span className="cx-ixr-l" />
+      </span> : null}
+      {url ? <CxDocIcon url={url} size={18} /> : null}
+    </span>
+  </div>;
 }
 function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
   const ra = intim.responseAction;
@@ -1281,9 +1306,8 @@ function CxIntimRow({ intim, op, sel, onOpen, onOpenOp, L, hideOp }) {
           {fit.rest ? <div className="cx-it-more">+{fit.rest} {fit.rest === 1 ? 'nota anterior' : 'notas anteriores'}</div> : null}</>}
     </div>
     <div className="cx-ix-sn">
-      <span className="cx-ix-slots"><span className="sl"><CxImp intim={intim} /></span><span className="sl"><CxDif intim={intim} /></span><span className="sl">{intim.minutaUrl ? <CxDocIcon url={intim.minutaUrl} size={14} /> : null}</span></span>
-      {urgent ? <span className="cx-urg">URGENTE</span> : null}
-      <CxIxEst esteira={intim.esteira} />
+      <CxIxTags intim={intim} urgent={urgent} />
+      <CxIxRail esteira={intim.esteira} url={intim.minutaUrl} />
     </div>
     <div className="cx-ix-pz">
       <span className={'cx-due ' + pz.tone} title={pz.title}>{pz.txt}</span>

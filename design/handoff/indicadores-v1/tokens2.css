@@ -1,0 +1,64 @@
+.th-ard {
+  --fs-adj: 0px;
+  --cx-ground: #f2f3f5; --cx-panel: #ebedf0; --cx-surface: #ffffff; --cx-surface-2: #f6f7f9; --cx-hover: #e7e9ed;
+  --cx-line: #dcdfe4; --cx-line-strong: #c7cbd2;
+  --cx-ink: #14161a; --cx-ink-2: #4d535e; --cx-ink-3: #7c828e;
+  --cx-accent: #8a6722; --cx-accent-soft: #f4ecdb; --cx-btn: #1b1e24; --cx-btn-hover: #2c3039; --cx-btn-ink: #ffffff;
+  --cx-red: #c2323d; --cx-red-soft: #fbe8e9; --cx-orange: #bf5f16; --cx-orange-soft: #fcefe3;
+  --cx-yellow: #946b00; --cx-yellow-soft: #f8efd2; --cx-blue: #2d62d3; --cx-blue-soft: #e7eefc;
+  --cx-green: #21845a; --cx-green-soft: #e2f3eb; --cx-violet: #6a4fd4; --cx-violet-soft: #eeeafc;
+  --cx-cyan: #0f7888; --cx-cyan-soft: #e0f3f5;
+  --cx-opc-parcel: #2d62d3; --cx-opc-maxima: #c2323d; --cx-opc-alta: #e0707a; --cx-opc-media: #c99a1a; --cx-opc-baixa: #21845a; --cx-opc-none: #8b919c;
+  --cx-shadow: 0 1px 2px rgba(20,24,32,0.05), 0 6px 20px rgba(20,24,32,0.07);
+  --cx-shadow-lg: 0 24px 64px rgba(20,24,32,0.22);
+  --cx-on-solid: #ffffff;
+  --cx-font: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --cx-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --cx-tagk-h: 18px; --cx-tagk-r: 4px;
+  --cx-fs-9: calc(9px + var(--fs-adj)); --cx-fs-10: calc(10px + var(--fs-adj)); --cx-fs-xs: calc(10.5px + var(--fs-adj)); --cx-fs-11: calc(11px + var(--fs-adj));
+  --cx-fs-sm: calc(11.5px + var(--fs-adj)); --cx-fs-12: calc(12px + var(--fs-adj)); --cx-fs-md: calc(12.5px + var(--fs-adj));
+  --cx-fs-base: calc(13px + var(--fs-adj)); --cx-fs-lg: calc(14px + var(--fs-adj));
+  /* alturas de linha que no app são px fixos: acompanham o ajuste (ver notas de implementação) */
+  --lh13: calc(13px + var(--fs-adj)); --lh15: calc(15px + var(--fs-adj)); --lh16: calc(16px + var(--fs-adj)); --lh18: calc(18px + var(--fs-adj));
+  --mini: color-mix(in srgb, var(--cx-ink-3) 68%, var(--cx-ink));
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 5.5%, transparent);
+  --zone-edge: color-mix(in srgb, var(--cx-accent) 34%, var(--cx-line));
+  --emb-warn: color-mix(in srgb, var(--cx-yellow) 78%, var(--cx-ink));
+  --emb-today: color-mix(in srgb, var(--cx-orange) 86%, var(--cx-ink));
+  --ixgap: 5px;
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 84%, var(--cx-ink));
+}
+.th-noite {
+  color-scheme: dark;
+  --cx-ground: #121a25; --cx-panel: #0d1521; --cx-surface: #18202c; --cx-surface-2: #1e2633; --cx-hover: #252e3a;
+  --cx-line: #2d3645; --cx-line-strong: #404a59;
+  --cx-ink: #e6ecf6; --cx-ink-2: #b0b9c5; --cx-ink-3: #939ca9;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #dee4ec; --cx-btn-hover: #bbc1c9; --cx-btn-ink: #0d1521;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #757d88;
+  --cx-shadow: 0 1px 2px rgba(3,8,16,0.40), 0 6px 20px rgba(3,8,16,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(3,8,16,0.65);
+  --cx-on-solid: #0d1521;
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 92%, var(--cx-ink));
+}
+.th-graf {
+  color-scheme: dark;
+  --cx-ground: #18191c; --cx-panel: #141518; --cx-surface: #1e1f22; --cx-surface-2: #252629; --cx-hover: #2c2d30;
+  --cx-line: #343639; --cx-line-strong: #47494d;
+  --cx-ink: #eaebed; --cx-ink-2: #b6b7b9; --cx-ink-3: #9a9b9d;
+  --cx-accent: #caa75f; --cx-accent-soft: rgba(202,167,95,0.12); --cx-btn: #e1e3e5; --cx-btn-hover: #bec0c2; --cx-btn-ink: #141518;
+  --cx-red: #fe7d85; --cx-red-soft: rgba(254,125,133,0.12); --cx-orange: #ffa56d; --cx-orange-soft: rgba(255,165,109,0.12);
+  --cx-yellow: #e6d34f; --cx-yellow-soft: rgba(230,211,79,0.10); --cx-blue: #63adfe; --cx-blue-soft: rgba(99,173,254,0.12);
+  --cx-green: #6ede91; --cx-green-soft: rgba(110,222,145,0.10); --cx-violet: #c9acff; --cx-violet-soft: rgba(201,172,255,0.12);
+  --cx-cyan: #68d5da; --cx-cyan-soft: rgba(104,213,218,0.10);
+  --cx-opc-parcel: #63adfe; --cx-opc-maxima: #fe7d85; --cx-opc-alta: #c1727a; --cx-opc-media: #e6d34f; --cx-opc-baixa: #6ede91; --cx-opc-none: #7a7c7f;
+  --cx-shadow: 0 1px 2px rgba(0,0,0,0.40), 0 6px 20px rgba(0,0,0,0.45);
+  --cx-shadow-lg: 0 24px 64px rgba(0,0,0,0.65);
+  --cx-on-solid: #141518;
+  --zone-tint: color-mix(in srgb, var(--cx-accent) 8.5%, transparent);
+  --tag-i-ink: color-mix(in srgb, var(--cx-red) 92%, var(--cx-ink));
+}
