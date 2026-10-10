@@ -1700,3 +1700,14 @@ export function mesaFilterByCal(fl, bucket, todayIso) {
   });
   return { by, items: all, n: all.length, totals: mesaTotalsOf(all) };
 }
+
+/* ───────────────────────── Fase 4b · Tela única no clássico e na Beta ───────────────────────── */
+
+/**
+ * Seção (cartão) da Mesa para quem antes navegava à «Lista completa» (G1–G7): com o item da CDA, o cartão dela; sem item,
+ * o antigo grupo 6 (Consumadas) cai em «Consumadas antigas» e os demais na Mesa inteira (seção vazia).
+ */
+export function mesaSecForLegacy(group, item) {
+  if (item && item.card) return item.card;
+  return Number(group) === 6 ? 'antigas' : '';
+}

@@ -75,6 +75,7 @@ import {
   mesaCalTone,
   mesaCalMatch,
   mesaFilterByCal,
+  mesaSecForLegacy,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -1403,5 +1404,55 @@ describe('Mesa — fase 4a: Tabela, calendário e régua (só apresentação)', 
     assert.equal(mesaCalPredominant([{ kind: 'term', card: 'dado', n: 2 }, { kind: 'term', card: 'ajuizar', n: 1 }]), 'dado');
     assert.equal(mesaCalPredominant([]), '');
     assert.ok(MESA_INLINE_KINDS.includes('ajuizar'));
+  });
+});
+
+describe('Mesa — fase 4b: tela única no clássico e na Beta (funções puras compartilhadas)', () => {
+  const TODAY = '2026-09-17';
+  const OP = { id: 'op1', name: 'Operação Um', status: 'ativa' };
+  const debt = (id, over = {}) => ({ id, operationId: 'op1', status: 'ativa', value: 100, cdaNumber: 'CDA-' + id, personId: 'p1', ...over });
+  const row = (id, over = {}) => ({ id, group: 4, value: 100, prescKind: 'correndo', prescSegment: 'intercorrente', action: { type: 'nenhuma' }, ...over });
+  const mk = ({ debts, rows = [] }) => buildMesaCards({
+    data: { debts, operations: [OP], executions: [], prescriptionEvents: [] },
+    radar: { rows, silenced: [] },
+    prescLookup: () => ({ segment: null, phase: 'sem_dados', status: 'sem_dados' }),
+    today: TODAY
+  });
+  const ctx = { today: TODAY, opNameOf: () => 'Operação Um', personOf: () => 'Zeta Ltda', silOf: () => null };
+
+  it('mesaSecForLegacy: o item aponta o cartão; sem item, o antigo grupo 6 vai a Consumadas antigas e o resto à Mesa inteira', () => {
+    assert.equal(mesaSecForLegacy(1, { card: 'ajuizar' }), 'ajuizar');
+    assert.equal(mesaSecForLegacy(6, { card: 'calculo' }), 'calculo', 'consumada recente fica em Conferir o cálculo');
+    assert.equal(mesaSecForLegacy(6, null), 'antigas');
+    assert.equal(mesaSecForLegacy('6'), 'antigas');
+    assert.equal(mesaSecForLegacy(1, undefined), '');
+    assert.equal(mesaSecForLegacy(0), '');
+    assert.equal(mesaSecForLegacy(undefined, { debtId: 'x' }), '');
+  });
+
+  it('Tabela = Lista: mesmos itens, mesma ordem e mesmo total, com ou sem faixa do calendário', () => {
+    const debts = [debt('a', { value: 500 }), debt('b', { value: 300 }), debt('c', { value: 200 }), debt('d', { value: 50 })];
+    const rows = [
+      row('a', { prescKind: 'vencido', group: 1, prescDays: -30, prescDate: '2026-08-18', action: { type: 'conferir_autos' } }),
+      row('b', { prescKind: 'iminente', group: 1, prescDays: 40, prescDate: '2026-10-27', prescSegment: 'ordinaria', keyDate: '2026-10-27' }),
+      row('c', { prescKind: 'vencido', group: 1, prescDays: -400, prescDate: '2025-08-12', bandCedo: '2025-08-12', bandTarde: '2027-01-10', action: { type: 'conferir_autos' } }),
+      row('d', { group: 3, keyDate: '2030-05-03', keyLabel: 'não antes de 03/05/2030', prescDate: '2030-05-03', prescDays: 1300 })
+    ];
+    const out = mk({ debts, rows });
+    const fl = { by: out.byCard, items: out.items, n: out.items.length, totals: out.totals };
+    const tab = mesaTableRows(mesaListOrder(fl.by), ctx);
+    assert.equal(tab.length, fl.n);
+    assert.deepEqual(tab.map(r => r.id), mesaListOrder(fl.by).map(i => i.debtId));
+    // dentro de uma faixa do calendário os cartões recontam e a Tabela acompanha
+    const { cal } = mesaCalBins(fl.items, TODAY);
+    const col = cal.cols.find(c => c.term.cdas > 0);
+    const sel = mesaFilterByCal(fl, { lane: 'term', from: col.from, to: col.to }, TODAY);
+    const selTab = mesaTableRows(mesaListOrder(sel.by), ctx);
+    assert.equal(selTab.length, sel.n);
+    assert.equal(MESA_CARDS.reduce((s, c) => s + sel.totals[c.id].n + sel.totals[c.id].nLonge, 0), sel.n);
+    // agrupar não perde nem duplica CDA e o CSV traz uma linha por item
+    const sum = mesaTableGroups(tab, 'processo').reduce((s, g) => s + g.n, 0);
+    assert.equal(sum, tab.length);
+    assert.equal(mesaTableCsv(tab).split('\r\n').length, tab.length + 1);
   });
 });
