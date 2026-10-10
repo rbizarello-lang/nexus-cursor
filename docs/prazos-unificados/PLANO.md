@@ -24,6 +24,9 @@ Mockup: `design/mockups/prazos-unificados/proposta-2-v2.html` (usa `base.css` e 
 13. **Números fora da Mesa pelos cartões**: badge do menu = soma da fileira 1 (Conferir o cálculo + Ajuizar até 60 d + Lançar fato + Confirmar vigência + Completar dado); Hoje e Painel mostram os mesmos cartões; a Lista mantém G1–G7 como coluna técnica.
 14. **Ajuizar** grava nº do processo + data do ajuizamento (vara opcional) nas CDAs (também em lote), cria a execução se não existir ou só vincula se existir com o mesmo número.
 15. **Desfazer**: faixa verde "Feito — foi para «X»" com Desfazer após cada ação na Mesa, até dispensar ou sair da tela. Formulários abrem na própria linha; a ficha completa continua em "Abrir".
+16. **Decadência** fica como seção no fim da Mesa (confirmado em 10/10/2026; não vira opção do filtro Natureza).
+17. **Tela única (fase 4):** "Prazos extintivos" passa a ter uma só tela, a dos cartões. Fusão com os Relógios: a linha da CDA na Mesa ganha a régua do relógio (menor e discreta) e a página ganha o "Calendário dos termos", recolhível, que filtra a lista ao clicar. O modo "Relógios" sai do seletor da página (segue na aba Inscrições e na Linha do tempo). A "Lista completa" vira "Tabela" dos mesmos itens, com o cartão como coluna; G1–G7 saem da tela.
+18. **Rótulos restantes pelos cartões:** "no alarme" em Processos, "urgente" da Agenda e relatório de passagem.
 
 ## Achados do levantamento que guiam a construção
 - Hoje: Mesa "332 = 101 (Urgentes) + 202 (A completar) + 29 (Acompanhamento)"; "Consumadas 181 × 194" porque 13 consumadas recentes contam duas vezes; linhas "há 20 anos" são G1 de tese (cedo venceu, tarde futura), não consumadas. Ver `01-superficies.md`.
