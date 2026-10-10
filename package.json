@@ -1,6 +1,6 @@
 {
   "name": "nexus-fiscal",
-  "version": "3.2.10",
+  "version": "3.5.1",
   "private": true,
   "type": "module",
   "description": "NEXUS — Painel de Operações Fiscais (build local do JSX)",
@@ -14,6 +14,7 @@
     "push": "node scripts/assert-up-to-date.mjs && node scripts/bump-version.mjs patch && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
     "push:minor": "node scripts/assert-up-to-date.mjs && node scripts/bump-version.mjs minor && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
     "push:major": "node scripts/assert-up-to-date.mjs && node scripts/bump-version.mjs major && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
+    "push:release": "node scripts/assert-up-to-date.mjs && npm run build && node scripts/sync-gas.mjs && node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push",
     "push:check": "node scripts/assert-gas-sync.mjs",
     "clasp:push": "node scripts/assert-gas-sync.mjs && npx --yes @google/clasp push"
   },

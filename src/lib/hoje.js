@@ -190,7 +190,7 @@ export function resumoOperacao(i) {
   if (iv && iv.n > 0) {
     out.push('**' + hjPlural(iv.n, 'intimação vencida', 'intimações vencidas') + '** há ' + hjPlural(iv.maisAntigaDias, 'dia', 'dias') + (iv.parte ? ' (' + iv.parte + ')' : '') + '.');
   }
-  if (i.cdasAlarme > 0) out.push('**' + hjPlural(i.cdasAlarme, 'CDA', 'CDAs') + '** no alarme de prescrição.');
+  if (i.cdasAlarme > 0) out.push('**' + hjPlural(i.cdasAlarme, 'CDA', 'CDAs') + '** a agir nos prazos extintivos.');
   if (i.revisaoAtrasadaDias != null && i.revisaoAtrasadaDias > 0) out.push('Revisão atrasada há ' + hjPlural(i.revisaoAtrasadaDias, 'dia', 'dias') + '.');
   const a = i.audiencia;
   if (a && a.dias !== null && a.dias >= 0 && a.dias <= RESUMO_AUDIENCIA_DIAS_OP) {
@@ -279,7 +279,7 @@ export function atencaoItens({ rows, operations, reviewOf }) {
 export function atencaoFrase(a) {
   if (!a.total) return '';
   const parts = [];
-  if (a.cdas.length) parts.push(hjPlural(a.cdas.length, 'CDA no alarme', 'CDAs no alarme'));
+  if (a.cdas.length) parts.push(hjPlural(a.cdas.length, 'CDA a agir', 'CDAs a agir'));
   if (a.revisoes.length) parts.push(hjPlural(a.revisoes.length, 'revisão atrasada', 'revisões atrasadas'));
   return (a.total === 1 ? '1 item pede' : a.total + ' itens pedem') + ' uma decisão sua: ' + hjJoinE(parts);
 }

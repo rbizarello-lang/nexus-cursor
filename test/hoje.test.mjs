@@ -202,8 +202,8 @@ describe('Resumo da Visão geral da operação', () => {
 
   it('cada trecho só entra se a condição for verdadeira', () => {
     assert.equal(resumoOperacao({ garantiaPct: 20, carteiraPct: 24, intimVencidas: null, cdasAlarme: 0, revisaoAtrasadaDias: null, audiencia: null }), '');
-    assert.equal(resumoPlain(resumoOperacao({ garantiaPct: 71, carteiraPct: 24, cdasAlarme: 2 })), 'Garantia de 71%, acima da média da carteira (24%). 2 CDAs no alarme de prescrição.');
-    assert.equal(resumoPlain(resumoOperacao({ garantiaPct: null, carteiraPct: 24, cdasAlarme: 1, revisaoAtrasadaDias: 1 })), '1 CDA no alarme de prescrição. Revisão atrasada há 1 dia.');
+    assert.equal(resumoPlain(resumoOperacao({ garantiaPct: 71, carteiraPct: 24, cdasAlarme: 2 })), 'Garantia de 71%, acima da média da carteira (24%). 2 CDAs a agir nos prazos extintivos.');
+    assert.equal(resumoPlain(resumoOperacao({ garantiaPct: null, carteiraPct: 24, cdasAlarme: 1, revisaoAtrasadaDias: 1 })), '1 CDA a agir nos prazos extintivos. Revisão atrasada há 1 dia.');
     assert.equal(resumoOperacao({ audiencia: { dias: 9, tipo: 'una', iso: '2026-10-10' } }), '');
   });
 
@@ -253,9 +253,9 @@ describe('Precisa de atenção', () => {
   });
 
   it('frase do painel', () => {
-    assert.equal(atencaoFrase(atencaoItens({ rows: rows.slice(0, 2), operations, reviewOf })), '4 itens pedem uma decisão sua: 2 CDAs no alarme e 2 revisões atrasadas');
+    assert.equal(atencaoFrase(atencaoItens({ rows: rows.slice(0, 2), operations, reviewOf })), '4 itens pedem uma decisão sua: 2 CDAs a agir e 2 revisões atrasadas');
     assert.equal(atencaoFrase(atencaoItens({ rows: [], operations: [], reviewOf })), '');
-    assert.equal(atencaoFrase(atencaoItens({ rows: [rows[1]], operations: [], reviewOf })), '1 item pede uma decisão sua: 1 CDA no alarme');
+    assert.equal(atencaoFrase(atencaoItens({ rows: [rows[1]], operations: [], reviewOf })), '1 item pede uma decisão sua: 1 CDA a agir');
   });
 });
 
