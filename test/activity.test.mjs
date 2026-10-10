@@ -34,7 +34,7 @@ describe('diff — referência e campos ignorados', () => {
   });
   it('save sem mudança real (só updatedAt) não gera evento', () => {
     const p = deepFreeze(base());
-    const n = withCol(p, 'debts', replaceId(p.debts, 'cda1', (d) => ({ ...d, updatedAt: 'x', createdAt: 'y', lastAccessed: 'z', seen: true, prescriptionSnapshot: { a: 1 }, _flag: 1 })));
+    const n = withCol(p, 'debts', replaceId(p.debts, 'cda1', (d) => ({ ...d, updatedAt: 'x', createdAt: 'y', lastAccessed: 'z', seen: true, prescriptionSnapshot: { a: 1 }, mesaCard: { card: 'ajuizar', ord: 0 }, _flag: 1 })));
     assert.deepEqual(diffForActivity(p, n), []);
     assert.deepEqual(run(p, n), []);
   });

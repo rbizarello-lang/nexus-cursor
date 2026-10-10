@@ -57,6 +57,8 @@ import {
   mesaBatchCan,
   mesaSnoozeMaxFor,
   mesaDadoCampos,
+  mesaEmailSnapshot,
+  attachMesaEmailCards,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -1071,5 +1073,128 @@ describe('Mesa — decisão 8: seção Decadência (só consulta)', () => {
     const d = items[1].debt;
     assert.strictEqual(mesaDecadenciaOf(d, T), mesaDecadenciaOf(d, T));
     assert.notStrictEqual(mesaDecadenciaOf(d, T), mesaDecadenciaOf(d, '2026-10-10'));
+  });
+});
+
+describe('Mesa — cartão compacto para o e-mail diário', () => {
+  const TODAY = '2026-09-17';
+  const OP = { id: 'op1', name: 'Op', status: 'ativa' };
+  const debt = (id, over = {}) => ({ id, operationId: 'op1', status: 'ativa', value: 100, ...over });
+  const row = (id, over = {}) => ({
+    id, group: 4, value: 100, prescKind: 'correndo', prescSegment: 'intercorrente',
+    action: { type: 'nenhuma' }, ...over
+  });
+  const mk = ({ debts, rows = [], results = {} }) => buildMesaCards({
+    data: { debts, operations: [OP], executions: [], prescriptionEvents: [] },
+    radar: { rows, silenced: [] },
+    prescLookup: d => results[d.id] || { segment: null, phase: 'sem_dados', status: 'sem_dados' },
+    today: TODAY
+  });
+  const KEYS = ['card', 'cedoTarde', 'date', 'dateKind', 'label', 'longe', 'ord'];
+
+  it('devolve só os sete campos do contrato; nulo sem cartão', () => {
+    const out = mk({
+      debts: [debt('a')],
+      rows: [row('a', { prescKind: 'vencido', group: 1, prescDays: -3, prescDate: '2026-09-14', action: { type: 'conferir_autos' } })]
+    });
+    const s = mesaEmailSnapshot(out.byDebt.get('a'), 4);
+    assert.deepEqual(Object.keys(s).sort(), KEYS);
+    assert.equal(s.card, 'fato');
+    assert.equal(s.ord, 4);
+    assert.equal(s.dateKind, 'prazo');
+    assert.equal(s.date, '2026-09-14');
+    assert.equal(mesaEmailSnapshot(null, 0), null);
+    assert.equal(mesaEmailSnapshot({}, 0), null);
+  });
+
+  it('cedo venceu, tarde não: dateKind tarde com a data tarde (ou «sem data tarde»)', () => {
+    const out = mk({
+      debts: [debt('a'), debt('b')],
+      rows: [
+        row('a', { prescKind: 'vencido', group: 1, prescDays: -400, prescDate: '2025-08-12', bandCedo: '2025-08-12', bandTarde: '2027-01-10', action: { type: 'conferir_autos' } }),
+        row('b', { prescKind: 'vencido', group: 1, prescDays: -400, prescDate: '2025-08-12', bandCedo: '2025-08-12', bandTarde: '', action: { type: 'conferir_autos' } })
+      ]
+    });
+    const a = mesaEmailSnapshot(out.byDebt.get('a'), 0);
+    assert.equal(a.cedoTarde, true);
+    assert.equal(a.dateKind, 'tarde');
+    assert.equal(a.date, '2027-01-10');
+    assert.equal(a.label, '');
+    const b = mesaEmailSnapshot(out.byDebt.get('b'), 1);
+    assert.equal(b.dateKind, 'tarde');
+    assert.equal(b.date, '');
+    assert.equal(b.label, 'sem data tarde');
+  });
+
+  it('consumada recente: dateKind consumada; «não antes de»: sem dias, só o texto', () => {
+    const out = mk({
+      debts: [debt('c'), debt('n')],
+      rows: [
+        row('c', { prescKind: 'vencido', group: 1, consumada: 'recent', prescSegment: 'ordinaria', prescDays: -40, prescDate: '2026-08-08' }),
+        row('n', { prescKind: 'residual_media', group: 3, decisionNote: 'diverge', keyDate: '2024-05-03', keyLabel: 'não antes de 03/05/2024', prescDate: '2024-05-03', prescDays: -866 })
+      ]
+    });
+    const c = mesaEmailSnapshot(out.byDebt.get('c'), 0);
+    assert.equal(out.byDebt.get('c').card, 'calculo');
+    assert.equal(c.dateKind, 'consumada');
+    assert.equal(c.date, '2026-08-08');
+    const n = mesaEmailSnapshot(out.byDebt.get('n'), 1);
+    assert.equal(n.dateKind, 'nao_antes');
+    assert.equal(n.label, 'não antes de 03/05/2024');
+    assert.equal(n.date, '2024-05-03');
+  });
+
+  it('ordinária sem linha (derivada): prazo pela data-alvo; longe só no Ajuizar de 60 a 180 dias', () => {
+    const res = { segment: 'credito', status: 'ok', phase: 'correndo', band: { cedo: { diesAdQuem: '2026-12-01' } } };
+    const res2 = { segment: 'credito', status: 'ok', phase: 'correndo', band: { cedo: { diesAdQuem: '2026-10-20' } } };
+    const out = mk({ debts: [debt('far'), debt('near')], results: { far: res, near: res2 } });
+    const far = mesaEmailSnapshot(out.byDebt.get('far'), 1);
+    const near = mesaEmailSnapshot(out.byDebt.get('near'), 0);
+    assert.equal(far.card, 'ajuizar');
+    assert.equal(far.longe, true);
+    assert.equal(far.dateKind, 'prazo');
+    assert.equal(far.date, '2026-12-01');
+    assert.equal(near.longe, false);
+  });
+
+  it('attachMesaEmailCards: grava a fileira 1 (inclusive cinza), tira das demais e marca mesaCardsAt', () => {
+    const debts = [debt('a'), debt('f2', { mesaCard: { card: 'fato' } }), debt('gone', { status: 'extinta', mesaCard: { card: 'dado' } }), debt('d1')];
+    const out = mk({
+      debts,
+      rows: [
+        row('a', { prescKind: 'vencido', group: 1, prescDays: -3, prescDate: '2026-09-14', action: { type: 'conferir_autos' } }),
+        row('f2', { prescKind: 'vigiar_interrompido' }),
+        row('d1', { prescKind: 'correndo', group: 3 })
+      ]
+    });
+    const data = { debts };
+    attachMesaEmailCards(data, out, '2026-09-17T10:00:00.000Z');
+    assert.equal(data.mesaCardsAt, '2026-09-17T10:00:00.000Z');
+    assert.equal(debts[0].mesaCard.card, 'fato');
+    assert.equal(debts[3].mesaCard.card, 'dado');
+    assert.equal('mesaCard' in debts[1], false, 'fileira 2 sai');
+    assert.equal('mesaCard' in debts[2], false, 'CDA fora do universo sai');
+    // contagens iguais às dos cartões (n + nLonge)
+    const gravadas = {};
+    debts.forEach(d => { if (d.mesaCard) gravadas[d.mesaCard.card] = (gravadas[d.mesaCard.card] || 0) + 1; });
+    MESA_CARDS.filter(c => c.fileira === 1).forEach(c => {
+      assert.equal(gravadas[c.id] || 0, out.totals[c.id].n + out.totals[c.id].nLonge, c.id);
+    });
+    // sem cartões: não mexe em nada
+    const keep = { debts: [debt('k', { mesaCard: { card: 'dado' } })], mesaCardsAt: 'x' };
+    attachMesaEmailCards(keep, null, 'y');
+    assert.equal(keep.debts[0].mesaCard.card, 'dado');
+    assert.equal(keep.mesaCardsAt, 'x');
+  });
+
+  it('ord segue a ordem da Mesa dentro do cartão', () => {
+    const out = mk({
+      debts: [debt('p1', { value: 50 }), debt('p2', { value: 900 }), debt('p3')],
+      rows: ['p1', 'p2', 'p3'].map((id, i) => row(id, { prescKind: 'vencido', group: 1, prescDays: -(i + 1), prescDate: '2026-09-1' + (6 - i), action: { type: 'conferir_autos' } }))
+    });
+    const data = { debts: [debt('p1', { value: 50 }), debt('p2', { value: 900 }), debt('p3')] };
+    attachMesaEmailCards(data, out, 'z');
+    const byOrd = data.debts.slice().sort((a, b) => a.mesaCard.ord - b.mesaCard.ord).map(d => d.id);
+    assert.deepEqual(byOrd, out.byCard.fato.map(i => i.debtId));
   });
 });

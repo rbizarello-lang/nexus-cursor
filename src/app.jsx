@@ -4337,6 +4337,11 @@ function App() {
     [data.debts, data.executions, data.prescriptionEvents, data.operations, prazosRadar, prescLookup]
   );
   const mesaAction = useMemo(() => mesaActionCount(mesaCards.totals), [mesaCards]);
+  // Para o e-mail diário (Apps Script, que não roda o bundle): o salvamento na nuvem grava o cartão de cada CDA
+  // a partir destes cartões já calculados. Ref para o cloudPush (chamado por intervalo) não ler valor velho.
+  const mesaCardsAt = useMemo(() => new Date().toISOString(), [mesaCards]);
+  const mesaCardsRef = useRef(null);
+  mesaCardsRef.current = { cards: mesaCards, at: mesaCardsAt };
   const prazosByDebt = useMemo(() => {
     const m = new Map();
     (prazosRadar.rows || []).forEach(r => m.set(r.id, r));
@@ -4574,6 +4579,7 @@ function App() {
         })
         .saveNexusData((() => {
           try { attachPrescriptionSnapshots(data); } catch (e) { console.error('prescription snapshot', e); }
+          try { const mc = mesaCardsRef.current; if (mc) attachMesaEmailCards(data, mc.cards, mc.at); } catch (e) { console.error('mesa email cards', e); }
           const json = JSON.stringify(data);
           // Envia em gzip+base64: o JSON cru passou de 20 MB e o google.script.run
           // passou a recusar com 400. O servidor descompacta e grava o JSON legível.

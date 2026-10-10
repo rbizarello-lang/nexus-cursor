@@ -819,6 +819,81 @@ export function mesaItemClock(item, todayIso) {
   };
 }
 
+/**
+ * Cartão compacto que o app grava em cada CDA (debt.mesaCard) para o e-mail diário, que roda no Apps Script
+ * e não executa o bundle. Só o mínimo: o e-mail recalcula os dias na manhã do envio a partir de `date`.
+ *  card      id do cartão da fileira 1 (calculo, ajuizar, fato, vigencia, dado)
+ *  ord       posição na lista do cartão, na mesma ordem da Mesa
+ *  longe     Ajuizar entre 60 e 180 dias (cinza)
+ *  cedoTarde «cedo venceu, tarde não»
+ *  dateKind  'prazo' | 'tarde' | 'nao_antes' | 'consumada' | '' (data que não é prazo nunca vira «há N anos»)
+ *  date      ISO da data do relógio (vazio se não houver)
+ *  label     texto do relógio sem dias («não antes de 03/05/2024»)
+ */
+export function mesaEmailSnapshot(item, idx) {
+  if (!item || !item.card) return null;
+  const r = item.row || null;
+  let dateKind = '';
+  let date = '';
+  let label = '';
+  if (r) {
+    if (r.consumada === 'recent') {
+      dateKind = 'consumada';
+      date = r.prescDate || r.keyDate || '';
+    } else if (item.cedoVencidaTardeNao) {
+      dateKind = 'tarde';
+      date = r.bandTarde || '';
+      label = date ? '' : 'sem data tarde';
+    } else if (item.dateIsDeadline) {
+      dateKind = 'prazo';
+      date = r.prescDate || r.keyDate || '';
+      label = r.bandHit ? (r.keyLabel || '') : '';
+    } else {
+      label = r.keyLabel || (r.keyDate ? fmtDate(r.keyDate) : '');
+      if (/^não antes de/i.test(label)) {
+        dateKind = 'nao_antes';
+        date = r.keyDate || '';
+      }
+    }
+  } else if (item.dateIsDeadline) {
+    dateKind = 'prazo';
+    date = item.sortDate || '';
+  }
+  if (!date && (dateKind === 'prazo' || dateKind === 'consumada' || dateKind === 'nao_antes')) dateKind = '';
+  return {
+    card: item.card,
+    ord: Number.isFinite(Number(idx)) ? Number(idx) : 0,
+    longe: item.card === 'ajuizar' && !!item.ajuizarLonge,
+    cedoTarde: !!item.cedoVencidaTardeNao,
+    dateKind,
+    date,
+    label
+  };
+}
+
+/**
+ * Grava `mesaCard` nas CDAs da fileira 1 (todas as do universo dos cinco cartões, inclusive as cinzas de
+ * 60 a 180 dias), remove das demais e marca `data.mesaCardsAt`. Não recalcula nada: lê os cartões já
+ * montados. Sem cartões (nulo) não toca em nada.
+ */
+export function attachMesaEmailCards(data, mesaCards, nowIso) {
+  if (!data || !Array.isArray(data.debts) || !mesaCards || !mesaCards.byCard) return data;
+  const snaps = new Map();
+  MESA_CARDS.filter(c => c.fileira === 1).forEach(c => {
+    (mesaCards.byCard[c.id] || []).forEach((it, i) => {
+      if (it && it.debtId && !snaps.has(it.debtId)) snaps.set(it.debtId, mesaEmailSnapshot(it, i));
+    });
+  });
+  data.debts.forEach(d => {
+    if (!d) return;
+    const s = snaps.get(d.id);
+    if (s) d.mesaCard = s;
+    else if (d.mesaCard !== undefined) delete d.mesaCard;
+  });
+  data.mesaCardsAt = nowIso || new Date().toISOString();
+  return data;
+}
+
 /** Chip de adiamento que perdeu a vez («adiada até dd/mm/aaaa (venceu)»); vazio se não se aplica. */
 export function mesaSnoozeLabel(item, todayIso) {
   if (!item || !item.snoozeExpired) return '';
