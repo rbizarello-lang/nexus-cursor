@@ -130,6 +130,80 @@ Maquete aprovada: `design/mockups/prumo-visao-geral-r3-tabela.html` (rodada 3 da
 
 ---
 
+## ✨ Prumo · Plano de aprimoramento da UI (proposta consolidada, 10/10/2026 · **aguardando escolha**)
+
+Dois designers trabalharam em paralelo, sem combinar entre si, só sobre o Nexus Prumo. O Clássico, a Beta e a Demo ficam idênticos.
+- **Designer A — "Prumo com luz":** cor, degradê, superfícies e urgência.
+- **Designer B — "Prumo calmo, rápido e reversível":** navegação, estados, teclado e movimento.
+
+Os planos completos e as vitrines (HTML real do app, com Antes/Depois e os três temas) estão em `design/planos-ui/`: `PLANO-A.md`, `vitrine-a.html`, `PLANO-B.md` e `vitrine-b.html`. As regras CSS da proposta do A estão em `proposta-a.css`; no PLANO-A ele aparece como `src/proposta.css`. Abaixo, os dois planos juntos numa única sequência de fases. Pedir por fase: "vamos fazer o U3".
+
+**Regras comuns aos dois planos (valem para todas as fases)**
+- Nenhuma fonte cresce. Nenhum dado novo. O card de intimação (com a V1) e as Frentes (`.cx-bfx*`) não mudam de medida.
+- Degradê só onde tem papel. São cinco:
+  - **atmosfera:** o topo da página;
+  - **identidade:** a cor da operação;
+  - **calor:** prazo vencido ou para hoje/amanhã;
+  - **tempo:** régua, horizonte e progresso;
+  - **destaque:** um único cartão por tela.
+- Quantidade (anéis, barras de crédito, contagens) fica em cor chapada.
+- Movimento curto: 90, 160 ou 240 ms, e 420 ms só em momentos raros. Animar só opacidade, deslocamento até 8 px e escala até 1,02.
+- Tudo desliga com "reduzir movimento". Alto contraste, cores forçadas e impressão tiram a luz sem perder informação.
+- Cor nunca sozinha: data, rótulo e marca continuam carregando o sentido.
+- Cada fase segue o fluxo de sempre: build, testes, Playwright nos três temas (1440 e 420 px), estilos computados do Clássico e da Beta iguais, MELHORIAS e commit.
+
+**Fases (uma por vez; esforço em dias de implementação com QA)**
+
+| Fase | Origem | O que muda | Esforço |
+|---|---|---|---|
+| **U0 · Fundação** | A·G0 + B·B0 | Base sem mudança visível de layout: <br>• Tokens de luz para os três temas: atmosfera, calor, bordas vivas, elevação 0–3 e fio de luz no escuro. <br>• Tokens de movimento e modo reduzido global. <br>• `--cx-ink-3s` e `--cx-today-ink`, porque o cinza miúdo da Ardósia hoje dá 3,48:1 sobre o fundo, abaixo de 4,5:1. <br>• Teste de contraste também na Ardósia. <br>• Um anel de foco só. <br>• A gaveta anima a saída e devolve o foco à linha de origem (hoje o foco cai no `<body>`). | 1–1,5 |
+| **U1 · Atmosfera e identidade** | A·G1 | Degradê menta → lavanda → pêssego no topo das páginas, que rola e some. A cor da operação acende o canto do cabeçalho dela. Iniciais (tiles) e avatares em degradê. Calibrar a intensidade (Sutil/Viva) com o usuário. | 1 |
+| **U2 · Calor e urgência** | A·G3 | <br>• Lavagem que nasce da coluna Prazo nas linhas vencidas e de hoje/amanhã (Intimações, Fila, Tarefas, Mesa). <br>• Faixa do grupo no tom do grupo. <br>• Marca URGENTE de 3 px em degradê. <br>• Tampa de 2 px nos KPIs que descrevem um estado. <br>• Aviso do topo em degradê. | 1–1,5 |
+| **U3 · Avisos com Desfazer** | B·B1 | Até dois avisos empilhados, com uma ação ("Desfazer", "Abrir") e Ctrl Z. Desfazer em: Mesa, concluir tarefa, situação, urgente, Revisada, Verificar, adiar e Tratada. É retrocompatível com `cxNotify('texto')`. | 1 |
+| **U4 · Teclado nas listas** | B·B2 | A lista vira uma parada de Tab só. <br>• J/K e ↑/↓ andam entre linhas, Enter abre. <br>• Letras: D (Mesa), U (urgente), R (registrar), C (copiar nº), E (editar), X (concluir/marcar) e `.` (menu de ações). <br>• `?` abre a folha de atalhos e `g` + letra leva a cada tela. <br>• `/` passa a focar o filtro: hoje o menu mostra a tecla, mas ela não faz nada. | 1,5 |
+| **U5 · Paleta Prumo (Ctrl K)** | B·B3 | <br>• Setas que funcionam (hoje ↓ não move a seleção). <br>• Grupos: Recentes, Ir para, Ações e Resultados. <br>• Atalho mostrado em cada linha. <br>• Prefixos: `>` comandos, `#` números e `@` pessoas. <br>O Clássico mantém a busca dele. | 2 |
+| **U6 · Elevação e destaque** | A·G2 | Quatro níveis de profundidade, e no escuro a profundidade vem de luz, não de sombra. Um destaque com borda em degradê por tela: a audiência na Hoje, o cartão do Foco e o hover da Carteira. Paleta e janelas no nível flutuante. | 1 |
+| **U7 · Vazios e divisórias** | A·G5 + B·B6 | Um único `CxEmpty`, com o visual do A e as variantes do B: <br>• primeiro uso; <br>• filtro sem resultado, com "Limpar filtros"; <br>• tudo em dia, mostrando o próximo prazo; <br>• zona de soltar. <br>Também: divisórias que se apagam entre seções e KPI zerado discreto. | 1–1,5 |
+| **U8 · Orientação** | B·B5 | <br>• Cabeçalho com "linha viva" de números clicáveis; a explicação vai para "ⓘ Como funciona". <br>• Na operação, o cabeçalho condensa ao rolar (≈170 → ≈96 px; cerca de 75 px a mais de lista em todas as abas). <br>• Migalha clicável. <br>• "← Voltar" restaura rolagem e foco. <br>• Marcador do menu e sublinhado da aba deslizam. <br>• Abas respondem a ←/→ e `[`/`]`. | 1,5 |
+| **U9 · Gavetas e fichas** | A·G6 + B·B7 | <br>• Canto da gaveta no tom do prazo ou da prescrição. <br>• Régua com o decorrido em degradê, que se mede ao abrir. <br>• J/K com direção e título que sobe. <br>• Blocos com animação. <br>• "Espiar" com Espaço (gaveta sem véu, lista viva, ≥ 1280 px). <br>• Gavetas empilhadas. | 2 |
+| **U10 · Tempo e dados** | A·G4 | Régua e barras de horizonte e de relógio em rampa. Progresso do Foco. Horizonte de 90 dias com colunas que se apagam. Panorama com janela de foco e linha "Hoje" iluminadas. Coluna de hoje da Agenda e da Carga. | 1 |
+| **U11 · Listas vivas** | B·B8 | <br>• Reordenar, agrupar e filtrar com deslize (até 60 linhas). <br>• Cabeçalho de grupo fixo. <br>• Barra de lote única que sobe do pé (Processos, Inscrições, Bens, Prazos, Arquivos). <br>• "Farol" em todo "rolar até". <br>• Contagem que "respira" ao mudar. <br>• Linha nova desde a última visita. | 1,5 |
+| **U12 · Microinterações exclusivas** | A·G8 + B·B9 | Dá para dividir em PRs. <br>• **Hoje:** pincel de carga (Carga ↔ Fila) e respiro do aviso da audiência. <br>• **Mesa de prazos:** voo para Tratadas. <br>• **Quadro/Mesa:** mover sem arrastar (Alt+←/→ e "Mover para…", exigido pelo WCAG 2.5.7). <br>• **Agenda:** teclado. <br>• **Barra superior:** fio de luz enquanto sincroniza. <br>• **Importar:** zona de soltar que acende. <br>• **Mural:** papel. | 2–3 |
+| **U13 · Aparência no ⚙** | B·B4 + A·G7 | Grupo "Aparência" no topo: <br>• tema com amostra da luz e troca suave; <br>• fonte; <br>• Movimento (Sistema/Reduzido); <br>• títulos em serifa (Fraunces), opcional. <br>Zoom desce para "Avançado". O **A−/A+** entra aqui só se aprovado (ver item 3 do HANDOFF). | 1–1,5 (+1 com A−/A+) |
+| **U14 · Celular** | B·B10 | Migalha curta e "Filtros (N)" numa folha que sobe do pé. Gaveta em tela cheia com alça (e ✕). Ações da linha em "⋯". Áreas de toque ≥ 32 px. | 1 |
+
+**Total:** cerca de 20 a 23 dias em 15 PRs. Todas as fases dependem da U0. Fora isso, quase todas são independentes. As exceções:
+- U9 e U10 ficam melhores depois da U2 (calor);
+- U11 e U12 usam os tokens de movimento da U0;
+- U7 reaproveita o `CxEmpty` nas fases seguintes.
+
+**Pacotes sugeridos para escolher**
+- **Essencial — "luz e calor"** (U0 → U1 → U2 → U6), cerca de 4–5 dias. É o que foi pedido com a referência do degradê: cards em destaque, divisões e marcadores de urgência.
+- **Produtividade — "rápido e reversível"** (U0 → U3 → U4 → U5), cerca de 5–6 dias. Desfazer, teclado e paleta. É o maior ganho no dia a dia de triagem.
+- **Completo:** Essencial e Produtividade intercalados (U0, U1, U2, U3, U4, U6, U5, U7, U8, U9, U10, U11, U12, U13, U14).
+
+**Conflitos entre os dois planos (resolvidos na consolidação)**
+- **Vazios:** os dois propuseram um `CxEmpty`. Fica um só, com o visual do A e as variantes e ações do B.
+- **Marca URGENTE:**
+  - O A propõe 3 px vermelho → laranja e a lavagem do calor do lado do prazo.
+  - O B propõe a borda que esvai na horizontal.
+  - Fica a do A, porque o próprio B delega "qual degradê" ao A.
+- **Hover da Carteira:** o A sobe 2 px com borda viva; o B sobe 1 px com sombra. Fica o visual do A com os tempos do B (160 ms) e sem subida em movimento reduzido.
+- **KPI zerado:** o A usa o cinza forte; o B usa opacidade 0,5. Fica a cor (`--cx-ink-3s`), que não reduz o contraste.
+
+**Decisões do usuário (antes das fases correspondentes)**
+1. **Intensidade da luz** (U1): Sutil, a proposta, ou Viva, mais próxima da referência? Fica fixa, não vai ao ⚙.
+2. **Serifa nos títulos** (U13): entra como opção do ⚙? Desligada por padrão?
+3. **Cinza miúdo da Ardósia** (U0): escurecer todos os rótulos (`#676d78`) ou só os que ficam sobre luz (`--cx-ink-3s`)?
+4. **Prazos de 2 a 5 dias** (U2): sem lavagem, a proposta, ou com uma lavagem âmbar bem fraca?
+5. **Arrastar cartão** (U12): o A inclina 0,6°; o B nunca gira, só sobe com escala de no máximo 1,02. Recomendação: a do B, que é mais calma e coerente com o movimento reduzido.
+6. **Atalhos de uma letra** (U4): ligados por padrão, com chave no ⚙ para desligar, ou desligados até ativar?
+7. **"Espiar" com Espaço** (U9): gaveta sem véu, com a lista viva ao lado. Entra?
+8. **Agenda no fim de semana** (U12): no sábado e no domingo, a "Semana" começa em hoje em vez de segunda?
+9. **A−/A+** (U13): pendente desde o HANDOFF. O B recomenda: −2 a +2 px em passos de 0,5, com piso de 9 px. O ⚙ mostra "Texto 13 px". As telas clássicas dentro da casca não acompanham, salvo uma mitigação opcional com `zoom`.
+
+---
+
 ## 🎨 Redesign visual — PLANO PROGRESSIVO (revisado 30/07/2026)
 
 **Ainda não implementado.** Pedir por fase: "vamos fazer o P1".

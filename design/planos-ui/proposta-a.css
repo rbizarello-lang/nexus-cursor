@@ -1,0 +1,210 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   PROPOSTA A · Linguagem visual do Nexus Prumo ("Prumo com luz")
+   Na vitrine, as regras ficam sob .va-after (o "Depois"). No app, o
+   prefixo vira .app-layout.edition-claude (ver PLANO-A.md).
+   Tokens: definidos nos três temas; não têm efeito sozinhos.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Tokens · Ardósia (bloco base) ─── */
+#app.app-layout.edition-claude {
+  --cx-font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  /* ink-3 "forte": texto miúdo sobre aura/lavagem/painel. ≥ 4,5:1 sobre ground, surface e aura. */
+  --cx-ink-3s: #5f6570;
+  /* Data "hoje/amanhã" sobre a lavagem laranja: laranja aprofundado (≥ 4,5:1; o laranja puro dá 4,3:1 no branco). */
+  --cx-today-ink: #9a4d12;
+  /* Atmosfera (cabeçalho de página): menta · lavanda · pêssego, como na referência. */
+  --cx-aura-a: #e2f1ea; --cx-aura-b: #e9e8f7; --cx-aura-c: #f7eadf;
+  --cx-aura-h: 280px;
+  --cx-aura: linear-gradient(180deg, var(--cx-ground), transparent 52px),
+             radial-gradient(48% 230px at 0% 0%, var(--cx-aura-a), transparent),
+             radial-gradient(42% 210px at 52% 0%, var(--cx-aura-b), transparent),
+             radial-gradient(46% 240px at 100% 0%, var(--cx-aura-c), transparent);
+  /* Identidade da operação (cor da operação no cabeçalho e no tile). */
+  --cx-id-a: 16%;
+  /* Calor (urgência por prazo): intensidade da lavagem e rampa de legenda. */
+  --cx-wash-a: 9%;
+  --cx-heat-ramp: linear-gradient(90deg, var(--cx-red), var(--cx-orange) 34%, var(--cx-yellow) 67%, var(--cx-line-strong));
+  /* Bordas em degradê: destaque (uma por tela) e destaque quente (urgente). */
+  --cx-edge-feat: linear-gradient(120deg, #8ccfb3, #aea8e6 50%, #e8b386);
+  --cx-edge-hot: linear-gradient(120deg, var(--cx-red), var(--cx-orange) 58%, color-mix(in srgb, var(--cx-yellow) 60%, var(--cx-line)));
+  /* Elevação: 0 plano (só borda) · 1 repouso · 2 destaque/hover · 3 flutuante (= --cx-shadow-lg). */
+  --cx-elev-1: 0 1px 2px rgba(20,24,32,0.045), 0 1px 0 rgba(20,24,32,0.02);
+  --cx-elev-2: 0 1px 2px rgba(20,24,32,0.05), 0 12px 28px -12px rgba(20,24,32,0.22);
+  --cx-hi: inset 0 1px 0 rgba(255,255,255,0.6);
+  --cx-accent-grad: linear-gradient(180deg, #b38a3d, #8a6722);
+  /* Divisória que se apaga (seções, blocos de gaveta). */
+  --cx-rule: linear-gradient(90deg, var(--cx-line-strong), var(--cx-line) 45%, transparent);
+}
+/* ─── Tokens · Noite ─── */
+#app.app-layout.edition-claude.cx-theme-noite {
+  --cx-ink-3s: #a3acb8; --cx-today-ink: var(--cx-orange);
+  --cx-aura-a: rgba(104,213,218,0.11); --cx-aura-b: rgba(165,150,255,0.11); --cx-aura-c: rgba(255,165,109,0.085);
+  --cx-id-a: 20%;
+  --cx-wash-a: 12%;
+  --cx-edge-feat: linear-gradient(120deg, rgba(104,213,218,0.62), rgba(165,150,255,0.58) 50%, rgba(255,165,109,0.58));
+  --cx-elev-1: 0 1px 2px rgba(3,8,16,0.35);
+  --cx-elev-2: 0 1px 2px rgba(3,8,16,0.40), 0 14px 32px -12px rgba(3,8,16,0.70);
+  --cx-hi: inset 0 1px 0 rgba(255,255,255,0.045);
+  --cx-accent-grad: linear-gradient(180deg, #e2c483, #caa75f);
+}
+/* ─── Tokens · Grafite ─── */
+#app.app-layout.edition-claude.cx-theme-grafite {
+  --cx-ink-3s: #a6a7a9; --cx-today-ink: var(--cx-orange);
+  --cx-aura-a: rgba(110,222,145,0.07); --cx-aura-b: rgba(201,172,255,0.075); --cx-aura-c: rgba(202,167,95,0.10);
+  --cx-id-a: 18%;
+  --cx-wash-a: 12%;
+  --cx-edge-feat: linear-gradient(120deg, rgba(110,222,145,0.48), rgba(201,172,255,0.48) 50%, rgba(202,167,95,0.62));
+  --cx-elev-1: 0 1px 2px rgba(0,0,0,0.35);
+  --cx-elev-2: 0 1px 2px rgba(0,0,0,0.40), 0 14px 32px -12px rgba(0,0,0,0.70);
+  --cx-hi: inset 0 1px 0 rgba(255,255,255,0.04);
+  --cx-accent-grad: linear-gradient(180deg, #e2c483, #caa75f);
+}
+
+/* ─── Calibragem (só na vitrine): "Viva" = mesma receita, mais pigmento. O valor final sai da fase G1 com o usuário. ─── */
+#app.app-layout.edition-claude.va-vivid { --cx-aura-a: #d6eee2; --cx-aura-b: #e2dff7; --cx-aura-c: #f6e0cc; --cx-wash-a: 13%; --cx-id-a: 24%; }
+#app.app-layout.edition-claude.cx-theme-noite.va-vivid { --cx-aura-a: rgba(104,213,218,0.17); --cx-aura-b: rgba(165,150,255,0.17); --cx-aura-c: rgba(255,165,109,0.13); --cx-wash-a: 16%; --cx-id-a: 28%; }
+#app.app-layout.edition-claude.cx-theme-grafite.va-vivid { --cx-aura-a: rgba(110,222,145,0.11); --cx-aura-b: rgba(201,172,255,0.11); --cx-aura-c: rgba(202,167,95,0.15); --cx-wash-a: 16%; --cx-id-a: 26%; }
+
+/* ═══ 1 · Atmosfera: o cabeçalho de cada página ganha luz (rola junto com a página) ═══ */
+.va-after .cx-scroll { background-image: var(--cx-aura); background-repeat: no-repeat; background-size: 100% var(--cx-aura-h); background-attachment: local; }
+.va-after .cx-oph ~ .cx-scroll { background-image: none; }      /* na operação a luz fica no cabeçalho fixo */
+.va-after .cx-eyebrow, .va-after .cx-page-h .cx-eyebrow { color: var(--cx-ink-3s); }
+.va-after .cx-page-h p, .va-after .cx-lede { color: var(--cx-ink-2); }
+
+/* ═══ 2 · Identidade: a cor da operação acende o canto do cabeçalho ═══ */
+.va-after .cx-oph {
+  background:
+    radial-gradient(34% 190px at 0% 0%, color-mix(in srgb, var(--op, var(--cx-accent)) var(--cx-id-a), transparent), transparent),
+    radial-gradient(38% 170px at 62% 0%, var(--cx-aura-b), transparent),
+    radial-gradient(40% 200px at 100% 0%, var(--cx-aura-c), transparent),
+    var(--cx-ground);
+}
+.va-after .cx-tile {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--c) 26%, var(--cx-tile-base)), color-mix(in srgb, var(--c) 8%, var(--cx-tile-base)));
+  box-shadow: var(--cx-hi), 0 1px 2px color-mix(in srgb, var(--c) 18%, transparent);
+}
+
+/* ═══ 3 · Títulos editoriais (opcional, ⚙): Fraunces só nos h1 e títulos de gaveta ═══ */
+.va-serif .va-after .cx-page-h h1, .va-serif .va-after .cx-hello, .va-serif .va-after .cx-oph-name h1, .va-serif .va-after .cx-d-title {
+  font-family: var(--cx-font-display); font-weight: 600; letter-spacing: -0.012em; font-optical-sizing: auto;
+}
+.va-serif .va-after .cx-page-h h1, .va-serif .va-after .cx-hello { font-size: 23px; }
+
+/* ═══ 4 · Elevação: papel sobre ardósia (repouso), destaque e flutuante ═══ */
+.va-after .cx-card, .va-after .cx-ks, .va-after .cx-list, .va-after .cx-op-card, .va-after .cx-b-card, .va-after .cx-pz-card:not(.zero) { box-shadow: var(--cx-elev-1), var(--cx-hi); }
+.va-after .cx-fold { box-shadow: var(--cx-elev-1), var(--cx-hi); }
+.va-after .cx-op-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.va-after .cx-op-card:hover {
+  transform: translateY(-2px); box-shadow: var(--cx-elev-2);
+  border-color: transparent;
+  background: linear-gradient(var(--cx-surface), var(--cx-surface)) padding-box, var(--cx-edge-feat) border-box;
+}
+.va-after .cx-drawer { box-shadow: var(--cx-shadow-lg), var(--cx-hi); }
+
+/* ═══ 5 · Destaque: um só por tela, com borda em degradê ═══ */
+.va-after .cx-callout {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(105deg, color-mix(in srgb, var(--cx-orange) 12%, var(--cx-surface)), var(--cx-surface) 72%) padding-box,
+    var(--cx-edge-hot) border-box;
+  box-shadow: var(--cx-elev-2);
+}
+.va-after .cx-callout-ic { background: linear-gradient(160deg, color-mix(in srgb, var(--cx-orange) 20%, var(--cx-surface)), var(--cx-surface)); border-color: color-mix(in srgb, var(--cx-orange) 35%, var(--cx-line)); }
+@media (prefers-reduced-motion: no-preference) {
+  .va-after .cx-callout-ic { animation: vaBreath 2.4s ease-in-out 2; }
+}
+@keyframes vaBreath { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--cx-orange) 16%, transparent); } }
+.va-after .cx-banner {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cx-orange) 15%, var(--cx-surface)), color-mix(in srgb, var(--cx-orange) 4%, var(--cx-surface)) 60%, var(--cx-surface));
+  border-color: color-mix(in srgb, var(--cx-orange) 32%, var(--cx-line));
+}
+.va-after .cx-banner.today, .va-after .cx-banner.cx-banner-err {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cx-red) 14%, var(--cx-surface)), color-mix(in srgb, var(--cx-red) 4%, var(--cx-surface)) 60%, var(--cx-surface));
+}
+.va-after .cx-focus-card {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--cx-surface), var(--cx-surface)) padding-box, var(--cx-edge-feat) border-box;
+  box-shadow: var(--cx-elev-2);
+}
+
+/* ═══ 6 · Calor: urgência por prazo, sempre com texto (a data) e forma (barra/ponto) ═══ */
+/* Lavagem que nasce do lado do Prazo: só vencido (vermelho) e hoje/amanhã (laranja). 2 a 5 dias: só a cor da data, como hoje. */
+.va-after .cx-ix:has(.cx-ix-pz .cx-due.late),
+.va-after .cx-q-row:has(.cx-q-due .cx-due.late),
+.va-after .cx-t-row:has(.cx-due.late) { background-image: linear-gradient(270deg, color-mix(in srgb, var(--cx-red) var(--cx-wash-a), transparent), transparent 300px); }
+.va-after .cx-ix:has(.cx-ix-pz .cx-due.today),
+.va-after .cx-q-row:has(.cx-q-due .cx-due.today),
+.va-after .cx-t-row:has(.cx-due.today) { background-image: linear-gradient(270deg, color-mix(in srgb, var(--cx-orange) var(--cx-wash-a), transparent), transparent 260px); }
+.va-after .cx-ix:has(.cx-ix-pz .cx-due.today) .cx-due.today,
+.va-after .cx-q-row:has(.cx-q-due .cx-due.today) .cx-due.today,
+.va-after .cx-t-row:has(.cx-due.today) .cx-due.today { color: var(--cx-today-ink); }
+/* Marca de URGENTE (manual): 3 px, vermelho → laranja. */
+.va-after .cx-ix.urgent::before { width: 3px; top: 6px; bottom: 6px; background: linear-gradient(180deg, var(--cx-red), color-mix(in srgb, var(--cx-orange) 75%, var(--cx-red))); }
+/* Grupos: a faixa do grupo herda o calor do ponto, apagando para a direita. */
+.va-after .cx-grp:has(> .cx-dot[style*="cx-red"]) { background-image: linear-gradient(90deg, color-mix(in srgb, var(--cx-red) 12%, transparent), transparent 46%); }
+.va-after .cx-grp:has(> .cx-dot[style*="cx-orange"]) { background-image: linear-gradient(90deg, color-mix(in srgb, var(--cx-orange) 12%, transparent), transparent 46%); }
+.va-after .cx-grp:has(> .cx-dot[style*="cx-yellow"]) { background-image: linear-gradient(90deg, color-mix(in srgb, var(--cx-yellow) 13%, transparent), transparent 46%); }
+/* KPI com estado: tampa de 2 px no tom do estado + leve luz no canto. Neutro fica como está. */
+.va-after .cx-kc { position: relative; }
+.va-after .cx-kc:has(.cx-violet-t, .cx-kc-v.violet, .cx-kc-d.violet, .cx-kc-fr.violet) { --tone: var(--cx-violet); }
+.va-after .cx-kc:has(.cx-orange-t, .cx-kc-v.orange, .cx-kc-d.orange) { --tone: var(--cx-orange); }
+.va-after .cx-kc:has(.cx-red-t, .cx-kc-v.red, .cx-kc-d.red) { --tone: var(--cx-red); }
+.va-after .cx-kc:has(.cx-violet-t, .cx-kc-v.violet, .cx-kc-d.violet, .cx-kc-fr.violet, .cx-orange-t, .cx-kc-v.orange, .cx-kc-d.orange, .cx-red-t, .cx-kc-v.red, .cx-kc-d.red)::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, var(--tone), color-mix(in srgb, var(--tone) 0%, transparent) 78%);
+}
+.va-after .cx-kc:has(.cx-red-t, .cx-kc-v.red, .cx-kc-d.red, .cx-orange-t, .cx-kc-v.orange, .cx-kc-d.orange, .cx-violet-t, .cx-kc-v.violet, .cx-kc-d.violet, .cx-kc-fr.violet) {
+  background-image: radial-gradient(60% 90px at 0% 0%, color-mix(in srgb, var(--tone) 6%, transparent), transparent);
+}
+/* Mesa de prazos: a barra lateral dos cartões e das linhas vira rampa (forte em cima, apagando); grupo 1 ganha a lavagem do prazo. */
+.va-after .cx-pz-card:not(.zero)::before { background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 35%, transparent)); }
+.va-after .cx-mesa-row::before { background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 30%, transparent)); }
+.va-after .cx-mesa-row.g1 { background-image: linear-gradient(270deg, color-mix(in srgb, var(--c) var(--cx-wash-a), transparent), transparent 300px); }
+
+/* ═══ 7 · Tempo: degradê só para passagem de tempo (régua, horizonte, foco). Quantidade fica em cor chapada. ═══ */
+.va-after .cx-drawer:has(.cx-ruler-big.soon) { --heat: var(--cx-yellow); }
+.va-after .cx-drawer:has(.cx-ruler-big.today) { --heat: var(--cx-orange); }
+.va-after .cx-drawer:has(.cx-ruler-big.late) { --heat: var(--cx-red); }
+.va-after .cx-drawer .cx-dr-body {
+  background-image:
+    radial-gradient(58% 230px at 100% 0%, color-mix(in srgb, var(--heat, var(--cx-aura-a)) 12%, transparent), transparent),
+    radial-gradient(52% 200px at 0% 0%, var(--cx-aura-b), transparent);
+  background-repeat: no-repeat; background-attachment: local;
+}
+.va-after .cx-ruler {
+  background: linear-gradient(180deg, var(--cx-surface), var(--cx-surface-2));
+  border-color: color-mix(in srgb, var(--heat, var(--cx-line)) 30%, var(--cx-line));
+  box-shadow: var(--cx-elev-1);
+}
+.va-after .cx-fill, .va-after .cx-fill.late { opacity: 1; background: linear-gradient(90deg, color-mix(in srgb, var(--heat, var(--cx-ink-3)) 18%, transparent), color-mix(in srgb, var(--heat, var(--cx-ink-3)) 85%, transparent)); }
+.va-after .cx-now { box-shadow: 0 0 0 1px var(--cx-accent), 0 0 0 5px color-mix(in srgb, var(--cx-accent) 20%, transparent); }
+.va-after .cx-progress i { background: linear-gradient(90deg, color-mix(in srgb, var(--cx-accent) 30%, transparent), var(--cx-accent)); }
+.va-after .cx-kc-spark i.last { background: var(--cx-accent-grad); }
+
+/* ═══ 8 · Divisórias: fios que se apagam; a seção respira sem caixa extra ═══ */
+.va-after .cx-blk { border-top: 0; background-image: var(--cx-rule); background-size: 100% 1px; background-repeat: no-repeat; }
+.va-after .cx-blk:first-of-type { background-image: none; }
+.va-after .cx-mt-cap, .va-after .cx-sec-t { display: flex; align-items: center; gap: 10px; }
+.va-after .cx-mt-cap::after, .va-after .cx-sec-t::after { content: ""; flex: 1; height: 1px; background: var(--cx-rule); }
+.va-after .cx-oc-f { border-top-color: transparent; background-image: var(--cx-rule); background-size: 100% 1px; background-repeat: no-repeat; }
+
+/* ═══ 9 · Menu lateral: marcador e marca com luz de acento ═══ */
+.va-after .cx-nav-item.on::before { background: var(--cx-accent-grad); }
+.va-after .cx-brand-mark { background: linear-gradient(155deg, color-mix(in srgb, var(--cx-ink) 78%, var(--cx-accent)), var(--cx-ink)); }
+
+/* ═══ 10 · Vazios: um círculo de luz e uma frase (componente CxEmpty) ═══ */
+.va-after .cx-b-empty { border-style: dashed; background: radial-gradient(90% 120% at 50% 0%, var(--cx-aura-b), transparent 70%); }
+
+/* ═══ Acessibilidade ═══ */
+@media (prefers-contrast: more) {
+  .va-after .cx-scroll, .va-after .cx-oph, .va-after .cx-drawer .cx-dr-body { background-image: none; }
+  .va-after .cx-ix, .va-after .cx-q-row, .va-after .cx-t-row, .va-after .cx-grp, .va-after .cx-kc { background-image: none !important; }
+}
+@media (forced-colors: active) {
+  .va-after .cx-scroll, .va-after .cx-oph, .va-after .cx-drawer .cx-dr-body, .va-after .cx-ix, .va-after .cx-grp, .va-after .cx-kc { background-image: none !important; }
+  .va-after .cx-callout, .va-after .cx-focus-card, .va-after .cx-op-card:hover { border: 1px solid CanvasText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .va-after .cx-op-card, .va-after .cx-op-card:hover { transition: none; transform: none; }
+}
+@media print { .va-after .cx-scroll, .va-after .cx-oph { background-image: none; } }
