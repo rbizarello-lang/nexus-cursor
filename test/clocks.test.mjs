@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createPrescLookup, buildPrazosRadar } from '../src/lib/prescription.js';
 import {
   CLK_GROUPS, CLK_GROUP_KEYS, clkGroupOfDays, clkClassify, clkBuild, clkKpis, clkStrip, clkPct, clkSimulateFiling, clkParcSince, clkApplySim, clkSort,
-  clkQuarterBins, clkBucketMatch, clkNextDates, clkTopGroup, CLK_CAL_MAX_COLS,
+  clkQuarterBins, clkBucketMatch, clkNextDates, clkTopGroup, CLK_CAL_MAX_COLS, clkCalCells, clkDateInBucket, clkByCda,
 } from '../src/lib/clocks.js';
 
 const TODAY = '2026-10-01';
@@ -454,5 +454,57 @@ describe('clkBucketMatch e clkNextDates', () => {
     assert.equal(out[2].kind, 'piso');
     assert.equal(clkNextDates([], T).length, 0);
     assert.equal(clkNextDates([p('d', '2028-01-01', 'term', 1, 'Z')], T, 3).length, 1);
+  });
+});
+
+describe('Relógios — fase 4a: mapa por CDA e células do calendário', () => {
+  it('clkByCda: cada CDA de um processo acha o relógio do seu grupo; CDA sem relógio fica de fora', () => {
+    const data = dataset();
+    const { res } = build(data, '');
+    const m = clkByCda(res.clocks);
+    assert.ok(m.get('d-ef1') && m.get('d-ef2'), 'as duas CDAs do mesmo processo');
+    assert.equal(m.get('d-ef1'), m.get('d-ef2'));
+    assert.ok(m.get('d-ef1').n >= 2);
+    assert.ok(m.get('d-crit'));
+    assert.equal(m.get('d-treated'), undefined, 'tratada não tem relógio');
+    assert.equal(m.get('d-enc'), undefined, 'operação encerrada fica fora');
+    const total = res.clocks.reduce((s, c) => s + c.cdaIds.length, 0);
+    assert.equal(m.size, total, 'cada CDA de cada relógio aparece uma vez');
+  });
+
+  it('clkQuarterBins com groupOf: a regra de cor da célula é de quem chama', () => {
+    const pts = [
+      { id: 'a', d: '2026-11-10', kind: 'term', group: 'crit', n: 1, number: '1', val: 10 },
+      { id: 'b', d: '2026-11-12', kind: 'term', group: 'corre', n: 1, number: '2', val: 20 },
+      { id: 'c', d: '2025-01-01', kind: 'term', group: 'crit', n: 1, number: '3', val: 5 },
+    ];
+    const base = clkQuarterBins(pts, TODAY);
+    assert.equal(base.cols[0].term.group, 'crit');
+    const custom = clkQuarterBins(pts, TODAY, { groupOf: () => 'X' });
+    assert.equal(custom.cols[0].term.group, 'X');
+    assert.equal(custom.overdue.group, 'X');
+    assert.equal(custom.cols[0].piso.group, '', 'célula vazia continua sem grupo');
+  });
+
+  it('clkCalCells e clkDateInBucket: mesmas faixas que clkBucketMatch', () => {
+    const pts = [
+      { id: 'a', d: '2026-11-10', kind: 'term', group: 'crit', n: 1, number: '1', val: 10 },
+      { id: 'p', d: '2027-05-10', kind: 'piso', group: 'piso', n: 1, number: '2', val: 20 },
+      { id: 'o', d: '2025-01-01', kind: 'term', group: 'crit', n: 1, number: '3', val: 5 },
+    ];
+    const cal = clkQuarterBins(pts, TODAY);
+    const cells = clkCalCells(cal);
+    assert.ok(cells.has('over'));
+    assert.ok(cells.has('term|2026-Q4'));
+    assert.ok(cells.has('piso|2027-Q2'));
+    assert.equal(cells.get('piso|2027-Q2').short, '2º tri 2027 · pisos');
+    pts.forEach(p => {
+      cells.forEach(x => {
+        const clock = p.kind === 'piso' ? { kind: 'piso', floor: p.d } : { kind: 'orig', term: p.d };
+        assert.equal(clkDateInBucket(p.d, p.kind, x.bucket, TODAY), clkBucketMatch(clock, x.bucket, TODAY), p.id + ' ' + x.label);
+      });
+    });
+    assert.equal(clkDateInBucket('', 'term', { lane: 'over' }, TODAY), false);
+    assert.equal(clkCalCells(null).size, 0);
   });
 });

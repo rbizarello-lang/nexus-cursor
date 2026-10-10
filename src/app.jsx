@@ -10261,7 +10261,7 @@ function App() {
   const prazosDeskMode = appSettings.prazosDeskMode === 'lista' ? 'lista' : 'mesa';
   const setPrazosDeskMode = (mode) => updateSetting('prazosDeskMode', mode === 'lista' ? 'lista' : 'mesa');
   // A faixa «Feito», a seleção e o formulário aberto vivem só enquanto a Mesa está na tela.
-  const mesaNaTela = viewMode === 'prazos' && prazosDeskMode === 'mesa';
+  const mesaNaTela = viewMode === 'prazos' && (isClaude || prazosDeskMode === 'mesa');
   useEffect(() => {
     if (mesaNaTela) return;
     setMesaFeitos(f => (f.length ? [] : f));
@@ -11331,7 +11331,7 @@ function App() {
   // Um só lugar observa o estado de navegação e registra as mudanças; nenhum ponto de chamada precisa saber do histórico.
   const cxNavSnap = () => nhSnapshot({
     viewMode, activeOpId, activeTab, tlOp: cxTlOp || activeOpId, tlMode: cxLs('nexus_cx_tl_mode', 'panorama'),
-    prazosDeskMode, prazosView: cxLs('nexus_cx_prazos_view', 'mesa'), inscView: cxLs('nexus_cx_insc_view', 'tabela'), intimView: cxIntimView,
+    prazosDeskMode: 'mesa', inscView: cxLs('nexus_cx_insc_view', 'tabela'), intimView: cxIntimView,
   });
   useEffect(() => {
     const on = () => setCxNavTick(t => t + 1);
@@ -11366,7 +11366,6 @@ function App() {
     n.cur = entry; n.restoreKey = nhKey(entry); n.until = Date.now() + 1500;
     setCxDrawerId(null); setCxProcFocus(null); setCxSideOpen(false); setImportResult(null);
     if (entry.tlMode) cxLsSet('nexus_cx_tl_mode', entry.tlMode);
-    if (entry.prazos) { if (entry.prazos !== 'lista') cxLsSet('nexus_cx_prazos_view', entry.prazos); setPrazosDeskMode(entry.prazos === 'lista' ? 'lista' : 'mesa'); }
     if (entry.insc) cxLsSet('nexus_cx_insc_view', entry.insc);
     if (entry.intim) setCxIntimView(entry.intim);
     if (entry.vm === 'cx_timeline') setCxTlOp(entry.tlOp);
@@ -11689,12 +11688,11 @@ function App() {
         initialUf={cxIntimInitialUf} onInitialUfConsumed={() => setCxIntimInitialUf(null)}
         detailActions={cxDetailActions} onImportEproc={() => eprocInputRef.current?.click()}
         onNewIntim={() => setModal({ type: 'create', entityType: 'intimation', initial: { status: 'pendente_analise', priority: 'normal', difficulty: 'media', urgent: false } })} /></div>}
-      {viewMode === 'prazos' && !(isClaude && prazosDeskMode === 'mesa') && renderPrazosView()}
-      {viewMode === 'prazos' && isClaude && prazosDeskMode === 'mesa' && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} mesaCards={mesaCards} initialSec={cxMesaInitSec} onInitialSecConsumed={() => setCxMesaInitSec('')} pf={prazosFilters} setPf={setPrazosFilters}
+      {viewMode === 'prazos' && !isClaude && renderPrazosView()}
+      {viewMode === 'prazos' && isClaude && <div className="cx-scroll"><EditionClaudePrazos data={data} prazosRadar={prazosRadar} mesaCards={mesaCards} initialSec={cxMesaInitSec} onInitialSecConsumed={() => setCxMesaInitSec('')} pf={prazosFilters} setPf={setPrazosFilters}
         a={{ inlineParc: createInlineParcelamento, presc: prescLookup, mz }}
-        onOpenRules={() => setShowPrescRules(true)} onLista={() => setPrazosDeskMode('lista')}
-        onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProcDrawer={(id) => cxOpenProcDrawer({ execId: id })}
-        onConsumadas={() => { setPrazosFilters({ group: 6 }); setPrazosDeskMode('lista'); }} /></div>}
+        onOpenRules={() => setShowPrescRules(true)}
+        onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProcDrawer={(id) => cxOpenProcDrawer({ execId: id })} /></div>}
       {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup} prazosRadar={prazosRadar}
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
@@ -14638,7 +14636,7 @@ function MesaSecBar({ items, mz }) {
   );
 }
 /** Botões da linha: o verbo do cartão, Tratar…, Adiar…, Evento, Abrir. */
-function MesaActs({ item, mz, ui, skipPrimary }) {
+function MesaActs({ item, mz, ui, skipPrimary, extra }) {
   const B = mzfBtn(ui);
   const pa = skipPrimary ? null : mesaPrimaryAction(item);
   const isOpen = (k) => !!(mz.open && mz.open.id === item.debtId && mz.open.kind === k);
@@ -14655,6 +14653,7 @@ function MesaActs({ item, mz, ui, skipPrimary }) {
   const inline = pa && ['ajuizar', 'fato', 'vincular', 'dado', 'analisar'].includes(pa.kind);
   return <>
     {pa ? <button type="button" className={B.pri} data-act={pa.kind} aria-expanded={inline ? isOpen(pa.kind) : undefined} onClick={primary}>{pa.label}</button> : null}
+    {extra || null}
     {mesaCanTratar(item) ? <button type="button" className={B.gh} data-act="tratar" aria-expanded={isOpen('tratar')} onClick={() => toggle('tratar')}>Tratar…</button> : null}
     {mesaCanSnooze(item) ? <button type="button" className={B.gh} data-act="adiar" aria-expanded={isOpen('adiar')} onClick={() => toggle('adiar')}>Adiar…</button> : null}
     {item.row ? <button type="button" className={B.sec} data-act="evento" onClick={() => mz.openEvent(item.row)}>Evento</button> : null}
