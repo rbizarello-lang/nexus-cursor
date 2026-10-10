@@ -245,7 +245,9 @@ export function clkStrip(clocks, todayIso) {
  * soma CDAs (`n`) e valor (`val`) e guarda o grupo mais urgente (crit > alerta > corre > piso). Termos já vencidos
  * (d < hoje) viram a célula "Vencidos"; pisos que já passaram ficam de fora (`skipped`) — não são prazo vencido.
  * Granularidade: trimestres do trimestre de hoje até o fim do último ano; se passar de `maxCols` (24) colunas, semestres;
- * se ainda passar, anos. */
+ * se ainda passar, anos.
+ * opts.groupOf(points) (opcional): troca a regra do "grupo" da célula (a Mesa de prazos colore pelo cartão predominante,
+ * não pelo grupo de risco dos Relógios). */
 export const CLK_CAL_MAX_COLS = 24;
 const CLK_GROUP_RANK = { crit: 0, alerta: 1, corre: 2, piso: 3 };
 const clkPad2 = (n) => String(n).padStart(2, '0');
@@ -257,9 +259,10 @@ export function clkTopGroup(points) {
   (points || []).forEach(p => { if ((CLK_GROUP_RANK[p.group] ?? 9) < (CLK_GROUP_RANK[best] ?? 9)) best = p.group; });
   return best;
 }
-const clkCell = (pts, forceGroup) => {
+const clkCell = (pts, forceGroup, groupOf) => {
   const points = pts.slice().sort(clkPtSort);
-  return { cdas: points.reduce((s, p) => s + (p.n || 1), 0), value: points.reduce((s, p) => s + (Number(p.val) || 0), 0), group: forceGroup || (points.length ? clkTopGroup(points) : ''), points };
+  const group = groupOf ? (points.length ? groupOf(points) : '') : (forceGroup || (points.length ? clkTopGroup(points) : ''));
+  return { cdas: points.reduce((s, p) => s + (p.n || 1), 0), value: points.reduce((s, p) => s + (Number(p.val) || 0), 0), group, points };
 };
 
 export function clkQuarterBins(points, todayIso, opts = {}) {
@@ -304,12 +307,54 @@ export function clkQuarterBins(points, todayIso, opts = {}) {
     const b = byKey.get(keyOf(p.d));
     if (b) b[p.kind === 'piso' ? 'piso' : 'term'].push(p);
   });
-  cols.forEach(c => { const b = byKey.get(c.key); c.term = clkCell(b.term); c.piso = clkCell(b.piso); });
+  cols.forEach(c => { const b = byKey.get(c.key); c.term = clkCell(b.term, '', opts.groupOf); c.piso = clkCell(b.piso, '', opts.groupOf); });
   const years = [];
   cols.forEach((c, i) => { const l = years[years.length - 1]; if (l && l.year === c.year) l.span++; else years.push({ year: c.year, start: i, span: 1 }); });
-  const overdue = clkCell(over, 'crit');
+  const overdue = clkCell(over, 'crit', opts.groupOf);
   const tot = cols.reduce((a, c) => ({ cdas: a.cdas + c.term.cdas + c.piso.cdas, value: a.value + c.term.value + c.piso.value }), { cdas: overdue.cdas, value: overdue.value });
   return { gran, overdue, cols, years, skipped, total: tot };
+}
+
+/**
+ * Células não vazias do calendário, por chave ('over' | 'term|2030-Q3' | 'piso|2030-Q3'): rótulo completo (`label`),
+ * rótulo curto do chip (`short`), a célula de `clkQuarterBins` e o recorte (`bucket`: { lane, from, to }).
+ * Usado pelos Relógios e pela Mesa de prazos (um só calendário).
+ */
+export function clkCalCells(cal) {
+  const m = new Map();
+  if (!cal) return m;
+  if (cal.overdue.points.length) m.set('over', { lane: 'over', label: 'Vencidos', short: 'Vencidos', cell: cal.overdue, bucket: { lane: 'over' } });
+  cal.cols.forEach(c => ['term', 'piso'].forEach(lane => {
+    if (!c[lane].points.length) return;
+    m.set(lane + '|' + c.key, { lane, label: c.label + (lane === 'piso' ? ' · pisos' : ' · termos'), short: c.label + (lane === 'piso' ? ' · pisos' : ''), cell: c[lane], bucket: { lane, from: c.from, to: c.to } });
+  }));
+  return m;
+}
+
+/** A data (ISO) cai na faixa? bucket = { lane: 'over' | 'term' | 'piso', from, to } e `kind` do ponto ('term' | 'piso'). */
+export function clkDateInBucket(iso, kind, bucket, todayIso) {
+  if (!bucket) return true;
+  const t = toDayKey(todayIso) || localIso(new Date());
+  const d = toDayKey(iso);
+  if (!d) return false;
+  if (bucket.lane === 'piso') return kind === 'piso' && d >= bucket.from && d <= bucket.to;
+  if (kind !== 'term') return false;
+  if (bucket.lane === 'over') return d < t;
+  return d >= bucket.from && d <= bucket.to;
+}
+
+/**
+ * Relógio por CDA: mapa id da CDA -> relógio de `clkBuild`. Uma linha de relógio pode juntar várias CDAs do mesmo processo
+ * (e do mesmo tipo de relógio); cada uma das suas `cdaIds` aponta para o mesmo relógio. CDA sem relógio (tratada, extinta,
+ * consumada, fora do universo) não entra no mapa.
+ */
+export function clkByCda(clocks) {
+  const m = new Map();
+  (clocks || []).forEach(c => {
+    const ids = (c.cdaIds && c.cdaIds.length) ? c.cdaIds : (c.leadId ? [c.leadId] : []);
+    ids.forEach(id => { if (!m.has(id)) m.set(id, c); });
+  });
+  return m;
 }
 
 /** O relógio pertence à célula? bucket = { lane: 'over' | 'term' | 'piso', from, to } (de `clkQuarterBins`). */

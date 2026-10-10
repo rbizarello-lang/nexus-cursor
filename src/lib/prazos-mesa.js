@@ -12,6 +12,7 @@ import {
   penhoraAntigaInfo,
   snoozeLimitDays
 } from './prescription.js';
+import { clkQuarterBins, clkDateInBucket } from './clocks.js';
 
 /** Sem teto: tudo o que precisa de você aparece (resposta F2). */
 export const MESA_CAP = Infinity;
@@ -1417,4 +1418,285 @@ export function mesaDecadenciaItems({ items, today, decadenciaOf } = {}) {
   conferir.sort(cmp);
   semDados.sort(cmp);
   return { conferir, semDados, n: conferir.length + semDados.length };
+}
+
+/* ───────────────────────── Fase 4a · Tela única: Lista · Tabela, régua e calendário ─────────────────────────
+ * Só apresentação: nada aqui muda a classificação em cartões, os totais ou o motor. */
+
+/** Ações da linha que abrem formulário na própria linha (as demais executam direto ou abrem a CDA). */
+export const MESA_INLINE_KINDS = ['ajuizar', 'fato', 'vincular', 'dado', 'analisar'];
+
+/**
+ * Itens na MESMA ordem em que a Lista os mostra: cartão a cartão (ordem de MESA_CARDS) e, dentro de cada um, a ordem interna;
+ * no cartão Ajuizar, primeiro as de até 60 dias e depois as de 60 a 180 (cinza). `by` = { [cartão]: itens }.
+ */
+export function mesaListOrder(by) {
+  let out = [];
+  MESA_CARDS.forEach(c => {
+    const list = (by && by[c.id]) || [];
+    out = out.concat(c.id === 'ajuizar' ? list.filter(i => !i.ajuizarLonge).concat(list.filter(i => i.ajuizarLonge)) : list);
+  });
+  return out;
+}
+
+/** Faixa cedo-tarde do item ({ cedo, tarde }), da linha do radar ou do cálculo; null se não houver as duas datas. */
+export function mesaItemBand(item) {
+  if (!item) return null;
+  const r = item.row;
+  let cedo = (r && r.bandCedo) || '';
+  let tarde = (r && r.bandTarde) || '';
+  if (!r && item.prescResult && item.prescResult.band) {
+    const b = item.prescResult.band;
+    cedo = (b.cedo && b.cedo.diesAdQuem) || '';
+    tarde = (b.tarde && b.tarde.diesAdQuem) || '';
+  }
+  cedo = toDayKey(cedo) || '';
+  tarde = toDayKey(tarde) || '';
+  return cedo && tarde && tarde > cedo ? { cedo, tarde } : null;
+}
+
+/** Incidente (IDPJ/cautelar) que abrange a CDA: { key, label }. Sem incidente: key vazia. */
+export function mesaItemIncident(item) {
+  const r = item && item.row;
+  const inc = r && r.incident;
+  if (inc && (inc.processNumber || inc.id)) {
+    const kind = inc.tag === 'cautelar_fiscal' ? 'Cautelar fiscal' : 'IDPJ';
+    const num = inc.processNumber || '';
+    return { key: 'inc:' + (inc.id || num), label: kind + (num ? ' ' + num : '') };
+  }
+  if (r && r.hasIDPJ) return { key: 'inc:?', label: 'Abrangida por incidente' };
+  return { key: '', label: '' };
+}
+
+/** Colunas da Tabela: chave de ordenação e rótulo (a primeira, a caixa de seleção, não ordena). */
+export const MESA_TABLE_COLS = [
+  { k: 'card', label: 'Cartão' },
+  { k: 'cda', label: 'CDA' },
+  { k: 'devedor', label: 'Devedor' },
+  { k: 'processo', label: 'Processo' },
+  { k: 'operacao', label: 'Operação' },
+  { k: 'natureza', label: 'Natureza' },
+  { k: 'clock', label: 'Data / relógio' },
+  { k: 'valor', label: 'Valor' },
+  { k: 'situacao', label: 'Situação' }
+];
+export const MESA_GROUP_BYS = [['', 'nenhum'], ['processo', 'processo'], ['incidente', 'incidente'], ['devedor', 'devedor'], ['operacao', 'operação']];
+
+const MESA_NAT_LABEL = { ordinaria: 'Ordinária', intercorrente: 'Intercorrente' };
+
+/**
+ * Linha da Tabela de um item da Mesa. ctx: { today, opNameOf(opId), personOf(debt), silOf(debtId), prescLookup }.
+ * A data/relógio vem de mesaItemClock (item com linha) ou de mesaLiteInfo (sem linha): nunca «há N anos» numa data que não é prazo.
+ */
+export function mesaTableRow(item, ctx, idx) {
+  const c = ctx || {};
+  const today = c.today;
+  const d = item.debt || {};
+  const r = item.row;
+  let text = '';
+  let date = '';
+  let gray = false;
+  let situ = '';
+  if (r) {
+    const ck = mesaItemClock(item, today) || {};
+    text = ck.text || '';
+    date = ck.date || '';
+    gray = !!ck.gray;
+    situ = betaSafeUiText(r.why || r.prescLabel || r.summary || '') || 'Prazo em acompanhamento.';
+  } else {
+    const li = mesaLiteInfo(item, c.silOf ? c.silOf(item.debtId) : null, today);
+    text = li.when || (item.card === 'tratadas' ? 'tratada' : '');
+    date = li.when ? '' : (li.date || '');
+    gray = !!li.whenGray;
+    situ = li.why + (li.date && item.card !== 'tratadas' ? ' · ' + li.date : '');
+  }
+  const prefix = [];
+  if (item.cedoVencidaTardeNao) prefix.push('Cedo venceu, tarde não');
+  const sn = mesaSnoozeLabel(item, today);
+  if (sn) prefix.push(sn);
+  if (prefix.length) situ = prefix.join(' · ') + ' · ' + situ;
+  const inc = mesaItemIncident(item);
+  const nat = mesaItemNature(item, c.prescLookup);
+  return {
+    id: item.debtId,
+    item,
+    idx: idx || 0,
+    card: item.card,
+    cardIdx: MESA_CARDS.findIndex(x => x.id === item.card),
+    cardName: mesaCardName(item.card),
+    cda: d.cdaNumber || 'S/N',
+    devedor: (c.personOf && c.personOf(d)) || d.devedor || '',
+    processo: d.processNumber || '',
+    operacao: (c.opNameOf && c.opNameOf(d.operationId)) || '',
+    natureza: MESA_NAT_LABEL[nat] || '',
+    clockText: text,
+    clockDate: date,
+    clockGray: gray,
+    clockSort: item.sortDate || (r && r.keyDate) || item.until || item.handledAt || '',
+    valor: Number(item.value) || 0,
+    situacao: situ,
+    incidente: inc.label,
+    incKey: inc.key
+  };
+}
+
+/** Linhas da Tabela na ordem recebida (a ordem da Mesa; `idx` guarda a posição). */
+export function mesaTableRows(items, ctx) {
+  return (items || []).map((it, i) => mesaTableRow(it, ctx, i));
+}
+
+const mesaCollator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' });
+
+/**
+ * Ordena as linhas pela coluna `key` (MESA_TABLE_COLS) em 'asc' ou 'desc'. Vazio por último nos dois sentidos;
+ * empate pela ordem da Mesa. Sem chave devolve a ordem da Mesa.
+ */
+export function mesaTableSort(rows, key, dir) {
+  const list = (rows || []).slice();
+  const byMesa = (a, b) => a.idx - b.idx;
+  if (!key) return list.sort(byMesa);
+  const sign = dir === 'desc' ? -1 : 1;
+  const val = (r) => {
+    switch (key) {
+      case 'card': return r.cardIdx;
+      case 'valor': return r.valor;
+      case 'clock': return r.clockSort;
+      default: return r[key] == null ? '' : r[key];
+    }
+  };
+  const empty = (v) => v === '' || v == null;
+  return list.sort((a, b) => {
+    const x = val(a);
+    const y = val(b);
+    const ex = empty(x);
+    const ey = empty(y);
+    if (ex !== ey) return ex ? 1 : -1;
+    if (!ex) {
+      const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : mesaCollator.compare(String(x), String(y));
+      if (cmp) return cmp * sign;
+    }
+    return byMesa(a, b);
+  });
+}
+
+/**
+ * Agrupa as linhas (na ordem recebida) por 'processo' | 'incidente' | 'devedor' | 'operacao'. Cada grupo traz o nº de CDAs e a soma.
+ * Sem `by` devolve um grupo só, sem cabeçalho (key ''). Grupos na ordem da primeira aparição; o «sem …» vai por último.
+ */
+export function mesaTableGroups(rows, by) {
+  const list = rows || [];
+  if (!by) return [{ key: '', label: '', n: list.length, value: list.reduce((s, r) => s + r.valor, 0), rows: list, blank: false }];
+  const spec = {
+    processo: { get: r => r.processo, key: r => r.processo.replace(/\D/g, '') || r.processo, empty: 'Sem processo' },
+    incidente: { get: r => r.incidente, key: r => r.incKey, empty: 'Sem incidente' },
+    devedor: { get: r => r.devedor, key: r => r.devedor.trim().toLowerCase(), empty: 'Sem devedor' },
+    operacao: { get: r => r.operacao, key: r => r.operacao.trim().toLowerCase(), empty: 'Sem operação' }
+  }[by];
+  if (!spec) return mesaTableGroups(list, '');
+  const map = new Map();
+  list.forEach(r => {
+    const label = spec.get(r);
+    const k = label ? spec.key(r) : '';
+    if (!map.has(k)) map.set(k, { key: k, label: label || spec.empty, n: 0, value: 0, rows: [], blank: !label });
+    const g = map.get(k);
+    g.rows.push(r);
+    g.n++;
+    g.value += r.valor;
+  });
+  const groups = [...map.values()];
+  return groups.filter(g => !g.blank).concat(groups.filter(g => g.blank));
+}
+
+/** CSV (separador «;», BOM UTF-8, decimal com vírgula) das linhas visíveis, na ordem recebida. */
+export function mesaTableCsv(rows) {
+  const head = ['Cartão', 'CDA', 'Devedor', 'Processo', 'Incidente', 'Operação', 'Natureza', 'Data/relógio', 'Data de posição', 'Valor', 'Situação'];
+  const esc = (v) => {
+    const t = v == null ? '' : String(v);
+    return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  const lines = [head].concat((rows || []).map(r => [
+    r.cardName, r.cda, r.devedor, r.processo, r.incidente, r.operacao, r.natureza,
+    [r.clockText, r.clockDate].filter(Boolean).join(' · '), r.clockSort || '',
+    (Math.round(r.valor * 100) / 100).toFixed(2).replace('.', ','), r.situacao
+  ]));
+  return '\uFEFF' + lines.map(l => l.map(esc).join(';')).join('\r\n');
+}
+
+/* ── Calendário dos termos da Mesa ── */
+
+/**
+ * Posição do item no calendário: a MESMA data da Mesa (cedo; a tarde quando a cedo já venceu), ou null se não houver data.
+ * { d, kind: 'term' | 'piso' }. «Não antes de» vira piso (cinza). Ficam de fora: consumadas (já prescritas, não há termo
+ * a vir), Tratadas e Consumadas antigas.
+ */
+export function mesaCalPoint(item) {
+  if (!item || !item.debt) return null;
+  if (item.card === 'tratadas' || item.card === 'antigas') return null;
+  const r = item.row;
+  if (r && r.consumada) return null;
+  if (item.dateIsDeadline && item.sortDate) {
+    const d = toDayKey(item.sortDate);
+    return d ? { d, kind: 'term' } : null;
+  }
+  if (r && !item.dateIsDeadline && /^não antes de/i.test(String(r.keyLabel || '')) && r.keyDate) {
+    const d = toDayKey(r.keyDate);
+    return d ? { d, kind: 'piso' } : null;
+  }
+  return null;
+}
+
+/** Pontos do calendário (um por CDA) a partir dos itens: { id, d, kind, card, n: 1, number, val }. */
+export function mesaCalPoints(items) {
+  const out = [];
+  (items || []).forEach(it => {
+    const p = mesaCalPoint(it);
+    if (p) out.push({ id: it.debtId, d: p.d, kind: p.kind, card: it.card, group: it.card, n: 1, number: (it.debt && it.debt.cdaNumber) || 'S/N', val: Number(it.value) || 0 });
+  });
+  return out;
+}
+
+/** Cartão predominante dos pontos (mais CDAs; empate pela ordem de MESA_CARDS). Pisos formam uma pista própria: 'piso'. */
+export function mesaCalPredominant(points) {
+  const cnt = new Map();
+  (points || []).forEach(p => {
+    if (p.kind === 'piso') return;
+    cnt.set(p.card, (cnt.get(p.card) || 0) + (p.n || 1));
+  });
+  if (!cnt.size) return (points || []).length ? 'piso' : '';
+  let best = '';
+  let bn = -1;
+  MESA_CARDS.forEach(c => { const n = cnt.get(c.id) || 0; if (n > bn) { bn = n; best = c.id; } });
+  return best;
+}
+
+/** Calendário em faixas (trimestres, semestres ou anos) dos itens: { points, cal } — `cal` é o de clkQuarterBins. */
+export function mesaCalBins(items, todayIso) {
+  const points = mesaCalPoints(items);
+  const cal = clkQuarterBins(points, todayIso, { groupOf: mesaCalPredominant });
+  return { points, cal };
+}
+
+/** Classe de cor (tom) da célula do calendário: o tom do cartão predominante; pisos e cartões da fileira 2 são neutros. */
+export function mesaCalTone(group) {
+  if (!group || group === 'piso') return 'neutral';
+  return MESA_CARD_TONE[group] || 'neutral';
+}
+
+/** O item cai na faixa do calendário? (mesma posição do ponto; sem data não casa). */
+export function mesaCalMatch(item, bucket, todayIso) {
+  if (!bucket) return true;
+  const p = mesaCalPoint(item);
+  return !!p && clkDateInBucket(p.d, p.kind, bucket, todayIso);
+}
+
+/** Aplica a faixa escolhida no calendário ao resultado de filterMesaCards: { by, items, n, totals } refeitos (os cartões recontam). */
+export function mesaFilterByCal(fl, bucket, todayIso) {
+  if (!bucket) return fl;
+  const by = {};
+  let all = [];
+  MESA_CARDS.forEach(c => {
+    by[c.id] = ((fl && fl.by && fl.by[c.id]) || []).filter(it => mesaCalMatch(it, bucket, todayIso));
+    all = all.concat(by[c.id]);
+  });
+  return { by, items: all, n: all.length, totals: mesaTotalsOf(all) };
 }

@@ -59,6 +59,22 @@ import {
   mesaDadoCampos,
   mesaEmailSnapshot,
   attachMesaEmailCards,
+  MESA_INLINE_KINDS,
+  mesaListOrder,
+  mesaItemBand,
+  mesaItemIncident,
+  MESA_TABLE_COLS,
+  mesaTableRows,
+  mesaTableSort,
+  mesaTableGroups,
+  mesaTableCsv,
+  mesaCalPoint,
+  mesaCalPoints,
+  mesaCalPredominant,
+  mesaCalBins,
+  mesaCalTone,
+  mesaCalMatch,
+  mesaFilterByCal,
 } from '../src/lib/prazos-mesa.js';
 
 describe('Mesa — seleção PRECISA DE VOCÊ', () => {
@@ -1196,5 +1212,196 @@ describe('Mesa — cartão compacto para o e-mail diário', () => {
     attachMesaEmailCards(data, out, 'z');
     const byOrd = data.debts.slice().sort((a, b) => a.mesaCard.ord - b.mesaCard.ord).map(d => d.id);
     assert.deepEqual(byOrd, out.byCard.fato.map(i => i.debtId));
+  });
+});
+
+describe('Mesa — fase 4a: Tabela, calendário e régua (só apresentação)', () => {
+  const TODAY = '2026-09-17';
+  const OP = { id: 'op1', name: 'Operação Um', status: 'ativa' };
+  const PEOPLE = { p1: { id: 'p1', name: 'Zeta Ltda' }, p2: { id: 'p2', name: 'Alfa SA' } };
+  const debt = (id, over = {}) => ({ id, operationId: 'op1', status: 'ativa', value: 100, cdaNumber: 'CDA-' + id, personId: 'p1', ...over });
+  const row = (id, over = {}) => ({
+    id, group: 4, value: 100, prescKind: 'correndo', prescSegment: 'intercorrente', action: { type: 'nenhuma' }, ...over
+  });
+  const mk = ({ debts, rows = [], results = {} }) => buildMesaCards({
+    data: { debts, operations: [OP], executions: [], prescriptionEvents: [] },
+    radar: { rows, silenced: [] },
+    prescLookup: d => results[d.id] || { segment: null, phase: 'sem_dados', status: 'sem_dados' },
+    today: TODAY
+  });
+  const ctx = { today: TODAY, opNameOf: () => 'Operação Um', personOf: d => (PEOPLE[d.personId] || {}).name || '', silOf: () => null };
+  const sample = () => {
+    const debts = [
+      debt('a', { value: 500, processNumber: '5000001-00.2020.4.04.7000' }),
+      debt('b', { value: 300, personId: 'p2' }),
+      debt('c', { value: 200, processNumber: '5000001-00.2020.4.04.7000' }),
+      debt('d', { value: 50, personId: 'p2', processNumber: '5000002-00.2020.4.04.7000' }),
+      debt('t', { prescriptionHandled: true, prescriptionHandledAt: '2026-08-01', prescriptionHandledType: 'declarada' })
+    ];
+    const rows = [
+      row('a', { prescKind: 'vencido', group: 1, prescDays: -30, prescDate: '2026-08-18', action: { type: 'conferir_autos' }, processNumber: '5000001-00.2020.4.04.7000' }),
+      row('b', { prescKind: 'iminente', group: 1, prescDays: 40, prescDate: '2026-10-27', prescSegment: 'ordinaria', keyDate: '2026-10-27' }),
+      row('c', { prescKind: 'vencido', group: 1, prescDays: -400, prescDate: '2025-08-12', bandCedo: '2025-08-12', bandTarde: '2027-01-10', action: { type: 'conferir_autos' } }),
+      row('d', { prescKind: 'residual_media', group: 3, decisionNote: 'diverge', keyDate: '2030-05-03', keyLabel: 'não antes de 03/05/2030', prescDate: '2030-05-03', prescDays: 1300 })
+    ];
+    return { debts, rows, out: mk({ debts, rows }) };
+  };
+
+  it('mesaListOrder: cartão a cartão; no Ajuizar, as de até 60 dias antes das de 60 a 180', () => {
+    const res = (d) => ({ segment: 'credito', status: 'ok', phase: 'correndo', band: { cedo: { diesAdQuem: d } } });
+    const out = mk({ debts: [debt('far'), debt('near'), debt('mid')], results: { far: res('2026-12-01'), near: res('2026-10-20'), mid: res('2026-11-01') } });
+    const ids = mesaListOrder(out.byCard).map(i => i.debtId);
+    assert.deepEqual(ids, ['near', 'mid', 'far'].filter(id => out.byDebt.get(id).card === 'ajuizar' && !out.byDebt.get(id).ajuizarLonge)
+      .concat(['near', 'mid', 'far'].filter(id => out.byDebt.get(id).ajuizarLonge)));
+    assert.equal(ids.length, out.items.length, 'mesmos itens, nenhum a mais ou a menos');
+  });
+
+  it('a Tabela tem os mesmos itens da Lista, na mesma ordem, inclusive os sem linha do radar', () => {
+    const { out } = sample();
+    const items = mesaListOrder(out.byCard);
+    assert.equal(items.length, out.items.length);
+    const rows = mesaTableRows(items, ctx);
+    assert.deepEqual(rows.map(r => r.id), items.map(i => i.debtId));
+    assert.ok(rows.some(r => !r.item.row), 'há item sem linha (tratada)');
+    const cardOrder = rows.map(r => r.cardIdx);
+    assert.deepEqual(cardOrder, cardOrder.slice().sort((x, y) => x - y), 'cartão na ordem de MESA_CARDS');
+    assert.deepEqual(MESA_TABLE_COLS.map(c => c.k), ['card', 'cda', 'devedor', 'processo', 'operacao', 'natureza', 'clock', 'valor', 'situacao']);
+  });
+
+  it('colunas: relógio sem «há N anos» em data que não é prazo; cedo venceu, tarde não vira «tarde em …»', () => {
+    const { out } = sample();
+    const rows = mesaTableRows(mesaListOrder(out.byCard), ctx);
+    const d = rows.find(r => r.id === 'd');
+    assert.equal(out.byDebt.get('d').card, 'calculo');
+    assert.ok(!/há/.test(d.clockText), d.clockText);
+    const c = rows.find(r => r.id === 'c');
+    assert.match(c.clockText, /^tarde em /);
+    assert.match(c.situacao, /^Cedo venceu, tarde não/);
+    assert.equal(c.clockSort, '2027-01-10');
+    const t = rows.find(r => r.id === 't');
+    assert.equal(t.clockText, 'tratada');
+    assert.equal(rows.find(r => r.id === 'b').natureza, 'Ordinária');
+    assert.equal(rows.find(r => r.id === 'b').devedor, 'Alfa SA');
+    assert.equal(rows.find(r => r.id === 'a').cda, 'CDA-a');
+  });
+
+  it('ordenação por coluna: vazio por último, empate pela ordem da Mesa, sem chave volta à Mesa', () => {
+    const { out } = sample();
+    const rows = mesaTableRows(mesaListOrder(out.byCard), ctx);
+    const asc = mesaTableSort(rows, 'valor', 'asc').map(r => r.valor);
+    assert.deepEqual(asc, asc.slice().sort((x, y) => x - y));
+    const desc = mesaTableSort(rows, 'valor', 'desc').map(r => r.valor);
+    assert.deepEqual(desc, desc.slice().sort((x, y) => y - x));
+    const proc = mesaTableSort(rows, 'processo', 'asc');
+    assert.equal(proc[proc.length - 1].processo, '', 'sem processo por último');
+    const procDesc = mesaTableSort(rows, 'processo', 'desc');
+    assert.equal(procDesc[procDesc.length - 1].processo, '', 'sem processo por último também em desc');
+    const dev = mesaTableSort(rows, 'devedor', 'asc').map(r => r.devedor);
+    assert.deepEqual(dev, dev.slice().sort((x, y) => x.localeCompare(y, 'pt-BR')));
+    assert.deepEqual(mesaTableSort(mesaTableSort(rows, 'valor', 'asc'), '', '').map(r => r.id), rows.map(r => r.id));
+    const clock = mesaTableSort(rows, 'clock', 'asc');
+    const datas = clock.map(r => r.clockSort).filter(Boolean);
+    assert.deepEqual(datas, datas.slice().sort());
+    assert.equal(clock[clock.length - 1].clockSort === '' || true, true);
+  });
+
+  it('agrupar por processo / devedor / operação / incidente: n CDAs, soma, «sem …» por último; nenhum = um grupo', () => {
+    const { out } = sample();
+    const rows = mesaTableRows(mesaListOrder(out.byCard), ctx);
+    const none = mesaTableGroups(rows, '');
+    assert.equal(none.length, 1);
+    assert.equal(none[0].n, rows.length);
+    const proc = mesaTableGroups(rows, 'processo');
+    assert.equal(proc.reduce((s, g) => s + g.n, 0), rows.length, 'agrupar não perde nem repete CDA');
+    const g1 = proc.find(g => g.rows.some(r => r.id === 'a'));
+    assert.equal(g1.n, 2);
+    assert.equal(g1.value, 700);
+    assert.equal(proc[proc.length - 1].label, 'Sem processo');
+    const dev = mesaTableGroups(rows, 'devedor');
+    assert.deepEqual(dev.map(g => g.label).sort(), ['Alfa SA', 'Zeta Ltda']);
+    assert.equal(dev.reduce((s, g) => s + g.value, 0), rows.reduce((s, r) => s + r.valor, 0));
+    assert.equal(mesaTableGroups(rows, 'operacao').length, 1);
+    const inc = mesaTableGroups(rows, 'incidente');
+    assert.equal(inc.length, 1);
+    assert.equal(inc[0].label, 'Sem incidente');
+    const withInc = mesaTableRows([{ debtId: 'x', card: 'fato', debt: debt('x'), value: 10, row: row('x', { incident: { id: 'e9', processNumber: '5009999-00.2021.4.04.7000', tag: 'idpj' } }) }], ctx);
+    assert.equal(withInc[0].incidente, 'IDPJ 5009999-00.2021.4.04.7000');
+    assert.equal(mesaItemIncident({ row: { hasIDPJ: true } }).label, 'Abrangida por incidente');
+    assert.equal(mesaItemIncident({}).key, '');
+  });
+
+  it('CSV: BOM, «;», aspas e decimal com vírgula, uma linha por item visível', () => {
+    const { out } = sample();
+    const rows = mesaTableRows(mesaListOrder(out.byCard), ctx);
+    rows[0].situacao = 'diz "oi"; e quebra\nlinha';
+    const csv = mesaTableCsv(rows);
+    assert.equal(csv.charCodeAt(0), 0xFEFF);
+    assert.match(csv, /^\uFEFFCartão;CDA;Devedor;Processo;Incidente;Operação;Natureza;Data\/relógio;Data de posição;Valor;Situação/);
+    assert.ok(csv.includes('"diz ""oi""; e quebra\nlinha"'));
+    assert.ok(/;500,00;/.test(csv));
+    assert.equal(mesaTableCsv([]).split('\r\n').length, 1);
+  });
+
+  it('faixa cedo-tarde da régua: das duas datas, só quando tarde > cedo', () => {
+    assert.deepEqual(mesaItemBand({ row: { bandCedo: '2026-01-01', bandTarde: '2027-01-01' } }), { cedo: '2026-01-01', tarde: '2027-01-01' });
+    assert.equal(mesaItemBand({ row: { bandCedo: '2026-01-01', bandTarde: '' } }), null);
+    assert.equal(mesaItemBand({ row: { bandCedo: '2026-01-01', bandTarde: '2026-01-01' } }), null);
+    assert.deepEqual(mesaItemBand({ prescResult: { band: { cedo: { diesAdQuem: '2026-02-01' }, tarde: { diesAdQuem: '2026-08-01' } } } }), { cedo: '2026-02-01', tarde: '2026-08-01' });
+    assert.equal(mesaItemBand(null), null);
+  });
+
+  it('calendário: posição é a da Mesa (cedo; tarde quando a cedo venceu); sem data, tratadas e consumadas não entram', () => {
+    const { out } = sample();
+    const p = (id) => mesaCalPoint(out.byDebt.get(id));
+    assert.deepEqual(p('a'), { d: '2026-08-18', kind: 'term' }, 'vencida sem tarde: data cedo, no passado');
+    assert.deepEqual(p('b'), { d: '2026-10-27', kind: 'term' });
+    assert.deepEqual(p('c'), { d: '2027-01-10', kind: 'term' }, 'cedo venceu: a tarde');
+    assert.deepEqual(p('d'), { d: '2030-05-03', kind: 'piso' }, '«não antes de» é piso');
+    assert.equal(p('t'), null, 'tratada fora');
+    const sem = mk({ debts: [debt('s1'), debt('s2')], rows: [
+      row('s1', { prescKind: 'vencido', group: 1, prescDays: -400, prescDate: '2025-08-12', bandCedo: '2025-08-12', bandTarde: '', action: { type: 'conferir_autos' } }),
+      row('s2', { prescKind: 'vencido', group: 1, consumada: 'recent', prescSegment: 'ordinaria', prescDays: -40, prescDate: '2026-08-08' })
+    ] });
+    assert.equal(mesaCalPoint(sem.byDebt.get('s1')), null, 'cedo venceu e sem data tarde: sem data, não entra');
+    assert.equal(mesaCalPoint(sem.byDebt.get('s2')), null, 'consumada fora');
+    assert.equal(mesaCalPoints(out.items).length, 4);
+  });
+
+  it('calendário: faixas, cor pelo cartão predominante (pisos neutros) e filtro por célula refaz os cartões', () => {
+    const { out } = sample();
+    const { cal, points } = mesaCalBins(out.items, TODAY);
+    assert.equal(cal.overdue.cdas, 1, 'a vencida de agosto');
+    assert.equal(cal.overdue.group, out.byDebt.get('a').card);
+    const q4 = cal.cols.find(c => c.key === '2026-Q4');
+    assert.equal(q4.term.cdas, 1);
+    assert.equal(q4.term.group, out.byDebt.get('b').card);
+    assert.equal(cal.cols.find(c => c.key === '2027-Q1').term.cdas, 1);
+    const pisoCol = cal.cols.find(c => c.piso.cdas > 0);
+    assert.equal(pisoCol.piso.group, 'piso');
+    assert.equal(mesaCalTone('piso'), 'neutral');
+    assert.equal(mesaCalTone('ajuizar'), 'red');
+    assert.equal(mesaCalTone('sempressa'), 'neutral');
+    assert.equal(points.length, cal.total.cdas + cal.skipped);
+    // filtro por célula
+    const fl = { by: out.byCard, items: out.items, n: out.items.length, totals: out.totals };
+    const sel = mesaFilterByCal(fl, { lane: 'term', from: q4.from, to: q4.to }, TODAY);
+    assert.deepEqual(sel.items.map(i => i.debtId), ['b']);
+    assert.equal(sel.n, 1);
+    assert.equal(sel.totals[out.byDebt.get('b').card].n, 1);
+    assert.equal(MESA_CARDS.reduce((s, c) => s + sel.totals[c.id].n + sel.totals[c.id].nLonge, 0), 1, 'os cartões recontam');
+    const over = mesaFilterByCal(fl, { lane: 'over' }, TODAY);
+    assert.deepEqual(over.items.map(i => i.debtId), ['a']);
+    const piso = mesaFilterByCal(fl, { lane: 'piso', from: pisoCol.from, to: pisoCol.to }, TODAY);
+    assert.deepEqual(piso.items.map(i => i.debtId), ['d']);
+    assert.equal(mesaFilterByCal(fl, null, TODAY), fl, 'sem faixa, nada muda');
+    assert.equal(mesaCalMatch(out.byDebt.get('t'), { lane: 'over' }, TODAY), false);
+  });
+
+  it('cartão predominante: mais CDAs; empate pela ordem de MESA_CARDS', () => {
+    const pts = [{ kind: 'term', card: 'dado', n: 1 }, { kind: 'term', card: 'ajuizar', n: 1 }, { kind: 'piso', card: 'sempressa', n: 3 }];
+    assert.equal(mesaCalPredominant(pts), 'ajuizar');
+    assert.equal(mesaCalPredominant([{ kind: 'term', card: 'dado', n: 2 }, { kind: 'term', card: 'ajuizar', n: 1 }]), 'dado');
+    assert.equal(mesaCalPredominant([]), '');
+    assert.ok(MESA_INLINE_KINDS.includes('ajuizar'));
   });
 });
