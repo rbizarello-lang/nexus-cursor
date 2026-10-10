@@ -151,14 +151,14 @@ describe('Resumo da Carga de prazos (regras fixas, sem IA)', () => {
     const m = cenarioDemo();
     assert.deepEqual(m.semanas.map(s => s.count), [14, 18, 11]);
     const txt = resumoPlain(resumoCarga(m));
-    assert.equal(txt, 'Carga concentrada em dom 04/10 (5 itens: 5 tarefas). A semana de 08/10 é a mais pesada: 18 itens, contra 14 na atual. 2 itens vencidos; o mais antigo, há 4 dias.');
+    assert.equal(txt, 'Carga concentrada em Dom 04/10 (5 itens: 5 tarefas). A semana de 08/10 é a mais pesada: 18 itens, contra 14 na atual. 2 itens vencidos; o mais antigo, há 4 dias.');
   });
 
   it('o texto marca os destaques em negrito (**) e não cita IA', () => {
     const m = cenarioDemo();
     const s = resumoCarga(m);
     const partes = resumoPartes(s);
-    assert.ok(partes.some(p => p.b && p.t === 'dom 04/10'));
+    assert.ok(partes.some(p => p.b && p.t === 'Dom 04/10'));
     assert.ok(!/\bIA\b|inteligência/i.test(resumoPlain(s)));
   });
 
@@ -197,7 +197,7 @@ describe('Resumo da Visão geral da operação', () => {
       cdasAlarme: 0, revisaoAtrasadaDias: 10,
       audiencia: { dias: 4, tipo: 'justificação', iso: '2026-10-05', time: '14:30' },
     });
-    assert.equal(resumoPlain(txt), 'Garantia de 18%, abaixo da média da carteira (24%). 1 intimação vencida há 2 dias (Marina Ferreira Norte). Revisão atrasada há 10 dias. Próxima audiência: justificação, seg 05/10, 14:30.');
+    assert.equal(resumoPlain(txt), 'Garantia de 18%, abaixo da média da carteira (24%). 1 intimação vencida há 2 dias (Marina Ferreira Norte). Revisão atrasada há 10 dias. Próxima audiência: justificação, Seg 05/10, 14:30.');
   });
 
   it('cada trecho só entra se a condição for verdadeira', () => {
@@ -261,8 +261,8 @@ describe('Precisa de atenção', () => {
 
 describe('formatação de datas curtas', () => {
   it('dia da semana e dd/mm', () => {
-    assert.equal(dowDmIso('2026-10-04'), 'dom 04/10');
-    assert.equal(dowDmIso('2026-10-01'), 'qui 01/10');
+    assert.equal(dowDmIso('2026-10-04'), 'Dom 04/10');
+    assert.equal(dowDmIso('2026-10-01'), 'Qui 01/10');
     assert.equal(dmIso('2026-10-08'), '08/10');
   });
 });
