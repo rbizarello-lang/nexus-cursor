@@ -12,7 +12,7 @@ import {
   penhoraAntigaInfo,
   snoozeLimitDays
 } from './prescription.js';
-import { clkQuarterBins, clkDateInBucket } from './clocks.js';
+import { clkQuarterBins, clkDateInBucket, clkKpis } from './clocks.js';
 
 /** Sem teto: tudo o que precisa de você aparece (resposta F2). */
 export const MESA_CAP = Infinity;
@@ -1710,4 +1710,266 @@ export function mesaFilterByCal(fl, bucket, todayIso) {
 export function mesaSecForLegacy(group, item) {
   if (item && item.card) return item.card;
   return Number(group) === 6 ? 'antigas' : '';
+}
+
+/* ───────────────────────── Fase 4c · Rótulos restantes e Relógios pelos cartões ───────────────────────── */
+/* Os últimos lugares que contavam ou classificavam prescrição pelos grupos do motor (G1–G7) passam a ler os cartões:
+   «a agir» = fileira 1 (mesaIsAction), selo e cor = os do cartão da CDA. Nada aqui muda as regras de buildMesaCards. */
+
+/** Nome curto do cartão, para o selo da célula de prescrição por linha. */
+export const MESA_CARD_SHORT = {
+  calculo: 'Conferir cálculo',
+  ajuizar: 'Ajuizar',
+  fato: 'Lançar fato',
+  vigencia: 'Confirmar vigência',
+  dado: 'Completar dado',
+  sempressa: 'Sem pressa',
+  vigiar: 'Só vigiar',
+  adiadas: 'Adiada',
+  tratadas: 'Tratada',
+  antigas: 'Consumada'
+};
+
+export function mesaCardShort(id) {
+  return MESA_CARD_SHORT[id] || mesaCardName(id) || '';
+}
+
+/** Tom (cor) do cartão do item: o dos cartões da Mesa. Ajuizar de 60 a 180 dias e a fileira 2 são neutros. */
+export function mesaItemTone(item) {
+  if (!item || (item.card === 'ajuizar' && item.ajuizarLonge)) return 'neutral';
+  return MESA_CARD_TONE[item.card] || 'neutral';
+}
+
+function mesaCardIndex(item) {
+  const i = MESA_CARDS.findIndex(c => c.id === (item && item.card));
+  return i < 0 ? 99 : i;
+}
+
+/**
+ * Dias até a data de posição do item na Mesa (a mesma do relógio: a cedo; a tarde quando a cedo já venceu).
+ * Só quando a data é um prazo; com `rowFallback`, uma consumada recente sem prazo usa os dias da linha do radar.
+ */
+export function mesaItemDays(item, todayIso, rowFallback = false) {
+  if (!item || item.card === 'antigas') return null;
+  if (item.dateIsDeadline && item.sortDate) {
+    const d = daysUntil(item.sortDate, todayIso);
+    return d == null ? null : d;
+  }
+  if (rowFallback && item.row && item.row.prescDays != null) return item.row.prescDays;
+  return null;
+}
+
+/** Comparação «mais urgente primeiro»: cartão (ordem da Mesa), o Ajuizar de até 60 dias antes do cinza, depois o prazo mais curto. */
+function mesaUrgencyCmp(todayIso) {
+  return (a, b) => {
+    const ca = mesaCardIndex(a), cb = mesaCardIndex(b);
+    if (ca !== cb) return ca - cb;
+    if (!!a.ajuizarLonge !== !!b.ajuizarLonge) return a.ajuizarLonge ? 1 : -1;
+    const da = mesaItemDays(a, todayIso, true), db = mesaItemDays(b, todayIso, true);
+    if (da !== db) { if (da == null) return 1; if (db == null) return -1; return da - db; }
+    return String(a.debtId).localeCompare(String(b.debtId));
+  };
+}
+
+/**
+ * Leitura de um conjunto de CDAs (processo, execução, incidente, intimação, linha da tabela) pelos cartões da Mesa.
+ * `byDebt` = mesaCards.byDebt. «A agir» = CDAs da fileira 1 (mesaIsAction). Devolve:
+ *  n         CDAs com cartão que não são tratadas
+ *  nAct      CDAs a agir
+ *  value     valor das CDAs a agir
+ *  lead      item que dá o selo: o mais urgente entre os a agir; sem nenhum, o primeiro cartão ativo (null se todas tratadas)
+ *  card      id do cartão do lead · short: nome curto · tone: red | orange | blue | neutral
+ *  label     texto do selo: nome curto do cartão (uma CDA) ou «N a agir»; «Tratadas» quando todas estão tratadas
+ *  riskClass 'critical' (algum Ajuizar vermelho) | 'warning' (outro a agir) | 'ok' (todas tratadas) | ''
+ *  days / iso  prazo do lead (null se não for prazo) · minRiskDays  o menor prazo entre os a agir
+ */
+export function mesaCdasMeta(cdas, byDebt, todayIso) {
+  const items = [];
+  (cdas || []).forEach(d => {
+    const it = d && byDebt && typeof byDebt.get === 'function' ? byDebt.get(d.id) : null;
+    if (it) items.push(it);
+  });
+  const allHandled = items.length > 0 && items.every(it => it.card === 'tratadas');
+  const act = items.filter(mesaIsAction);
+  const pool = act.length ? act : items.filter(it => it.card !== 'tratadas');
+  const cmp = mesaUrgencyCmp(todayIso);
+  const lead = pool.slice().sort(cmp)[0] || null;
+  let minRiskDays = null;
+  act.forEach(it => {
+    const d = mesaItemDays(it, todayIso, true);
+    if (d != null && (minRiskDays == null || d < minRiskDays)) minRiskDays = d;
+  });
+  let label = '—';
+  if (allHandled) label = 'Tratadas';
+  else if (act.length) label = items.length === 1 ? mesaCardShort(lead.card) : act.length + ' a agir';
+  else if (lead) label = mesaCardShort(lead.card);
+  const days = lead ? mesaItemDays(lead, todayIso, true) : null;
+  return {
+    n: items.filter(it => it.card !== 'tratadas').length,
+    nAct: act.length,
+    value: act.reduce((s, it) => s + (Number(it.value) || 0), 0),
+    lead,
+    card: lead ? lead.card : '',
+    short: lead ? mesaCardShort(lead.card) : '',
+    tone: lead ? mesaItemTone(lead) : 'neutral',
+    label,
+    riskClass: allHandled ? 'ok' : act.length ? (act.some(it => mesaItemTone(it) === 'red') ? 'critical' : 'warning') : '',
+    days,
+    iso: days == null ? '' : addCalendarDays(todayIso, days),
+    minRiskDays
+  };
+}
+
+/** Prazo da CDA a agir já vencido (a data de posição da Mesa chegou e não é só a «cedo» com a tarde ainda por vir). */
+export function mesaIsVencida(item, todayIso) {
+  if (!mesaIsAction(item) || !item.dateIsDeadline || !item.sortDate || item.cedoVencidaTardeNao) return false;
+  const d = daysUntil(item.sortDate, todayIso);
+  return d != null && d <= 0;
+}
+
+/** Chave de ordenação «pior primeiro» de uma CDA: tratada por último, depois cartão (ordem da Mesa) e prazo mais curto. */
+export function mesaCdaRank(item, todayIso) {
+  if (!item) return { rank: 98, days: 1e9 };
+  const d = mesaItemDays(item, todayIso, true);
+  return { rank: item.card === 'tratadas' ? 97 : mesaCardIndex(item) + (item.card === 'ajuizar' && item.ajuizarLonge ? 0.5 : 0), days: d == null ? 1e9 : d };
+}
+
+/**
+ * Fila de prescrição do «Hoje» (clássico e Prumo). Modo 'agir': as CDAs da fileira 1; modo 'ate30': as de qualquer cartão em
+ * andamento (fora Tratadas, Adiadas e Consumadas antigas) cujo prazo cai em até 30 dias (já vencido incluso).
+ * Item: { debtId, item, days, urgent } — urgente = fileira 1 com prazo (ou, em 'ate30', prazo de até 30 dias).
+ */
+export function mesaFilaItems(items, todayIso, mode = 'agir') {
+  const out = [];
+  (items || []).forEach(it => {
+    if (!it || !it.debt) return;
+    const days = mesaItemDays(it, todayIso, true);
+    if (mode === 'ate30') {
+      if (it.card === 'tratadas' || it.card === 'adiadas' || it.card === 'antigas') return;
+      if (days == null || days > 30) return;
+    } else if (!mesaIsAction(it)) return;
+    out.push({ debtId: it.debtId, item: it, days, urgent: days != null && (mesaIsAction(it) || days <= 30) });
+  });
+  return out;
+}
+
+/* ── Agenda ── */
+
+/**
+ * Item de prescrição da Agenda (e dos «Próximos 15 dias» do relatório): CDA com data de prazo na Mesa, fora Tratadas, Adiadas,
+ * Consumadas antigas e o Ajuizar de 60 a 180 dias (que ainda não pede nada). Devolve { d, urgent } ou null.
+ * Urgente = fileira 1 com prazo. Decadência nunca entra (não é cartão).
+ */
+export function mesaAgendaPoint(item) {
+  if (!item || !item.debt || !item.dateIsDeadline || !item.sortDate) return null;
+  if (item.card === 'tratadas' || item.card === 'adiadas' || item.card === 'antigas') return null;
+  if (item.card === 'ajuizar' && item.ajuizarLonge) return null;
+  const d = toDayKey(item.sortDate);
+  return d ? { d, urgent: mesaIsAction(item) } : null;
+}
+
+/* ── Relatório de passagem ── */
+
+/**
+ * «CDAs a agir (prazos extintivos)» do relatório: as CDAs da fileira 1 da operação, um grupo por cartão, na ordem da Mesa.
+ * Linha: { cda, termLabel, late, situacao, valorLabel }. `fmtCur` formata o valor; `safeText` tira o jargão do texto.
+ */
+export function mesaAlertGroups(mc, { opId, today, fmtCur = (v) => String(v), safeText = (s) => s } = {}) {
+  const out = [];
+  MESA_CARDS.forEach(c => {
+    if (c.fileira !== 1) return;
+    const list = ((mc && mc.byCard && mc.byCard[c.id]) || []).filter(it => mesaIsAction(it) && it.debt && (!opId || it.debt.operationId === opId));
+    if (!list.length) return;
+    out.push({
+      card: c.id,
+      nome: c.nome,
+      value: list.reduce((s, it) => s + (Number(it.value) || 0), 0),
+      items: list.map(it => {
+        const d = it.debt;
+        const r = it.row || {};
+        const termIso = (it.dateIsDeadline && it.sortDate) || r.keyDate || r.prescDate || '';
+        const days = termIso && today ? daysUntil(termIso, today) : null;
+        const txt = safeText(r.summary || r.why || '');
+        return {
+          cda: d.cdaNumber || d.id,
+          termLabel: termIso ? fmtDate(termIso) : '—',
+          late: days != null && days < 0,
+          situacao: txt || (d.processNumber ? 'em acompanhamento' : 'sem processo — ajuizar'),
+          valorLabel: fmtCur(d.value)
+        };
+      })
+    });
+  });
+  return out;
+}
+
+/* ── Relógios agrupados e coloridos pelos cartões ── */
+
+/** Item da Mesa que dá o cartão do relógio: o cartão mais à frente na ordem da Mesa entre as CDAs que ele reúne. */
+export function mesaClockLead(clock, byDebt) {
+  if (!clock || !byDebt || typeof byDebt.get !== 'function') return null;
+  const ids = (clock.cdaIds && clock.cdaIds.length) ? clock.cdaIds : (clock.leadId ? [clock.leadId] : []);
+  let best = null;
+  ids.forEach(id => {
+    const it = byDebt.get(id);
+    if (!it) return;
+    if (!best || mesaCardIndex(it) < mesaCardIndex(best) || (mesaCardIndex(it) === mesaCardIndex(best) && best.ajuizarLonge && !it.ajuizarLonge)) best = it;
+  });
+  return best;
+}
+
+/** Cartão do relógio; CDA sem cartão vai a “Só vigiar”. */
+export function mesaClockCard(clock, byDebt) {
+  const it = mesaClockLead(clock, byDebt);
+  return it ? it.card : 'vigiar';
+}
+
+/**
+ * Relógios agrupados por cartão, na ordem de MESA_CARDS (grupo vazio some) e, dentro de cada um, na ordem da Mesa.
+ * Grupo: { card, nome, fileira, tip, rows: [{ clock, lead, card, tone }], cdas }.
+ */
+export function mesaClockGroups(clocks, mc) {
+  const byDebt = mc && mc.byDebt;
+  const pos = new Map();
+  mesaListOrder((mc && mc.byCard) || {}).forEach((it, i) => pos.set(it.debtId, i));
+  const rows = (clocks || []).map((clock, i) => {
+    const lead = mesaClockLead(clock, byDebt);
+    return { clock, lead, card: lead ? lead.card : 'vigiar', tone: lead ? mesaItemTone(lead) : 'neutral', _i: i, _p: lead && pos.has(lead.debtId) ? pos.get(lead.debtId) : 1e9 };
+  });
+  return MESA_CARDS.map(c => {
+    const list = rows.filter(r => r.card === c.id).sort((a, b) => a._p - b._p || a._i - b._i);
+    return { card: c.id, nome: c.nome, fileira: c.fileira, tip: c.tip, rows: list.map(({ _i, _p, ...r }) => r), cdas: list.reduce((s, r) => s + (r.clock.n || 1), 0) };
+  }).filter(g => g.rows.length);
+}
+
+/**
+ * Números do topo dos Relógios, coerentes com os cartões: «A agir» = CDAs da fileira 1 entre as dos relógios mostrados
+ * (nº, valor e quantos relógios); próximo termo, relógio parado e piso seguem de clkKpis.
+ */
+export function mesaClockKpis(clocks, mc, todayIso) {
+  const base = clkKpis(clocks, todayIso);
+  const byDebt = mc && mc.byDebt;
+  const seen = new Set();
+  let n = 0, value = 0, rows = 0;
+  (clocks || []).forEach(c => {
+    let hit = false;
+    ((c.cdaIds && c.cdaIds.length) ? c.cdaIds : (c.leadId ? [c.leadId] : [])).forEach(id => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const it = byDebt && byDebt.get ? byDebt.get(id) : null;
+      if (mesaIsAction(it)) { n++; value += Number(it.value) || 0; hit = true; }
+    });
+    if (hit) rows++;
+  });
+  return { ...base, agir: { cdas: n, value, rows } };
+}
+
+/** Pontos do calendário dos Relógios coloridos pelo cartão: cada ponto de clkStrip ganha `card` e `group` = cartão do relógio. */
+export function mesaClockPoints(points, clocks, byDebt) {
+  const cardById = new Map();
+  (clocks || []).forEach(c => cardById.set(c.id, mesaClockCard(c, byDebt)));
+  return (points || []).map(p => {
+    const card = cardById.get(p.id) || 'vigiar';
+    return { ...p, card, group: card };
+  });
 }

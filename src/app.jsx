@@ -1342,49 +1342,6 @@ function formatAssetHeadline(a, people) {
   const id = assetIdentifier(a, people);
   return id ? `${species} · ${id}` : species;
 }
-function groupPrazosByLabel(rows, getKey, getLabel) {
-  const map = new Map();
-  for (const r of rows || []) {
-    const key = getKey(r);
-    if (!map.has(key)) {
-      map.set(key, {
-        key,
-        label: getLabel(r, key),
-        processNumber: r.processNumber || '',
-        court: r.court || '',
-        opName: r.opName || '',
-        operationId: r.operationId,
-        incident: r.incident || null,
-        rows: []
-      });
-    }
-    const g = map.get(key);
-    g.rows.push(r);
-    if (!g.incident && r.incident) g.incident = r.incident;
-    if (!g.court && r.court) g.court = r.court;
-    if (!g.opName && r.opName) g.opName = r.opName;
-  }
-  const groups = [...map.values()];
-  groups.forEach(g => {
-    g.rows.sort((a, b) => a.group - b.group || (a.keyDate || '9999').localeCompare(b.keyDate || '9999'));
-    g.worstGroup = Math.min(...g.rows.map(r => r.group));
-    g.value = g.rows.reduce((s, r) => s + (r.value || 0), 0);
-  });
-  groups.sort((a, b) => a.worstGroup - b.worstGroup || String(a.label || '').localeCompare(String(b.label || ''), 'pt-BR'));
-  return groups;
-}
-function countPrazosActiveFilters(pf) {
-  let n = 0;
-  const lg = pf.listGroup || (pf.view === 'incidente' ? 'incidente' : 'processo');
-  if (lg && lg !== 'processo') n++;
-  const ops = Array.isArray(pf.operationIds) ? pf.operationIds : (pf.operationId ? [pf.operationId] : []);
-  if (ops.length) n++;
-  if (pf.incidentCover === 'yes' || pf.incidentCover === 'no' || pf.onlyIncident) n++;
-  if (pf.filed === 'yes' || pf.filed === 'no') n++;
-  if (pf.onlyNoCiencia) n++;
-  if (pf.personId && pf.personId !== 'all') n++;
-  return n;
-}
 const DOC_TYPES = ['Petição Inicial', 'Réplica', 'Embargos', 'Recurso', 'Parecer', 'Decisão', 'Sentença', 'Acórdão', 'Manifestação', 'Outro'];
 
 // Process tag labels (used across Processos and Proc & Presc² tabs)
@@ -6003,34 +5960,21 @@ function App() {
         if (!t.dueDate) return;
         next15Items.push({ date: toDayKey(t.dueDate), kind: 'tarefa', dateLabel: fmtDate(t.dueDate), kindLabel: 'Tarefa', title: t.title || 'Tarefa' });
       });
-      (prazosRadar.rows || []).forEach(r => {
-        if (r.operationId !== opId || !r.keyDate || r.group > 4 || r.silenceReason) return;
+      // Prescrição nos próximos dias: os mesmos itens da Agenda (cartões da Mesa; só prazos, sem Tratadas/Adiadas/Consumadas antigas).
+      (mesaCards.items || []).forEach(it => {
+        const pt = mesaAgendaPoint(it);
+        if (!pt || it.debt.operationId !== opId) return;
+        const r = it.row || {};
         const why = betaSafeUiText(r.why || r.summary || '');
-        next15Items.push({ date: toDayKey(r.keyDate), kind: 'presc', dateLabel: fmtDate(r.keyDate), kindLabel: 'Prescrição', title: `CDA ${r.cdaNumber || 'S/N'}${why ? ' — ' + why : ''}` });
+        next15Items.push({ date: pt.d, kind: 'presc', dateLabel: fmtDate(pt.d), kindLabel: 'Prescrição', title: `CDA ${it.debt.cdaNumber || 'S/N'}${why ? ' — ' + why : ''}` });
       });
     }
     const next15 = buildNext15Days(next15Items, { fromIso: todayIso, days: 15 });
 
-    // ── Alertas: CDAs no alarme (grupos 1 e 2) ──
-    const alerts = [];
-    if (sections.alertas) {
-      activeDebts.forEach(d => {
-        const row = prazosByDebt.get(d.id);
-        if (!row || (row.group !== 1 && row.group !== 2)) return;
-        const termIso = row.keyDate || row.prescDate;
-        const summaryTxt = betaSafeUiText(row.summary || row.why || '');
-        alerts.push({
-          cda: d.cdaNumber || d.id,
-          termLabel: termIso ? fmtDate(termIso) : '—',
-          late: row.group === 1,
-          situacao: summaryTxt || (d.processNumber ? 'em acompanhamento' : 'sem processo — ajuizar'),
-          valorLabel: fmtCur(d.value),
-          _days: row.prescDays ?? 9999,
-        });
-      });
-      alerts.sort((a, b) => a._days - b._days);
-      alerts.forEach(a => { delete a._days; });
-    }
+    // ── CDAs a agir (prazos extintivos): fileira 1 dos cartões da Mesa, um grupo por cartão, na ordem da Mesa ──
+    const alerts = sections.alertas
+      ? mesaAlertGroups(mesaCards, { opId, today: todayIso, fmtCur, safeText: betaSafeUiText })
+      : [];
 
     // ── Números ──
     const constrictedActive = opAssets.filter(a => a.status === 'indisponibilidade_ativa');
@@ -6260,7 +6204,7 @@ function App() {
     if (!reportModalOp) return null;
     const op = reportModalOp;
     const models = [
-      { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, alertas, frentes e anexos. Para férias ou substituição.' },
+      { id: 'passagem', label: 'Passagem de serviço', hint: 'Leitura, próximos 15 dias, CDAs a agir, frentes e anexos. Para férias ou substituição.' },
       { id: 'resumo', label: 'Resumo de uma página', hint: 'Só a página 1. Para a chefia ou uma reunião.' },
       { id: 'prestacao', label: 'Prestação de contas', hint: 'Tudo o que foi feito, num período ou desde o início da operação.' },
       { id: 'base', label: 'Base do relatório', hint: 'Base factual e cronológica, com valores e partes, para você redigir o relatório à chefia no Google Docs.' },
@@ -6273,7 +6217,7 @@ function App() {
       fronts: Object.keys(BASE_FRONTS).map(k => ({ key: k, label: BASE_FRONTS[k], count: 0, processes: 0 })),
     };
     const sectionChips = [
-      ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'Alertas'], ['frentes', 'Frentes'],
+      ['leitura', 'Leitura'], ['proximos', 'Próximos 15 dias'], ['alertas', 'CDAs a agir'], ['frentes', 'Frentes'],
       ['diario', 'Diário'], ['lembretes', 'Lembretes'], ['bens', 'Bens'], ['partes', 'Partes'], ['fontes', 'Fontes'],
     ];
     return (
@@ -8168,7 +8112,7 @@ function App() {
       if (isClaude) {
         return <EditionClaudeProcessos
           opId={opId} data={data} briefing={activeOp.briefing || {}} classified={classified} execs={execs} allDebts={allDebts}
-          prazosByDebt={prazosByDebt} openIntimsByProc={openIntimsByProc} openTasksByProc={openTasksByProc}
+          prazosByDebt={prazosByDebt} mesaCards={mesaCards} openIntimsByProc={openIntimsByProc} openTasksByProc={openTasksByProc}
           selectedCDAs={selectedCDAs} setSelectedCDAs={setSelectedCDAs} setModal={setModal} setData={setData}
           upsert={upsert} togglePrescCheck={togglePrescCheck}
           procCdaQuery={procCdaQuery} setProcCdaQuery={setProcCdaQuery}
@@ -8239,10 +8183,10 @@ function App() {
           return null;
         })() : null;
 
-        const rm = prazosRiskMetaForCdas(group.cdas, prazosByDebt);
+        const rm = mesaCdasMeta(group.cdas, mesaCards.byDebt, localIso(new Date()));
         const allHandled = group.cdas.length > 0 && group.cdas.every(d => d.prescriptionHandled);
         const riskLabel = rm.label;
-        const anyG1Vencido = isDemo && group.cdas.some(d => isG1Vencido(prazosByDebt.get(d.id)));
+        const anyG1Vencido = isDemo && group.cdas.some(d => mesaIsVencida(mesaCards.byDebt.get(d.id), localIso(new Date())));
         const riskClass = allHandled ? 'risk-ok'
           : anyG1Vencido ? 'risk-critical g1-vencido'
           : rm.riskClass === 'critical' ? 'risk-critical'
@@ -8478,10 +8422,10 @@ function App() {
       const hubVariant = (e) => e.processTag === 'central' ? 'central' : 'idpj';
       const hubTagShort = (tag) => ({ idpj: 'IDPJ', cautelar_fiscal: 'Cautelar fiscal', central: 'Central' }[tag] || tag || 'Hub');
       const efRiskMeta = (group) => {
-        const rm = prazosRiskMetaForCdas(group.cdas || [], prazosByDebt);
+        const rm = mesaCdasMeta(group.cdas || [], mesaCards.byDebt, localIso(new Date()));
         const total = (group.cdas || []).reduce((s, d) => s + (d.value || 0), 0);
         const st = EXEC_STATUSES[group.exec?.status] || {};
-        return { total, st, label: rm.label, riskClass: rm.riskClass, minRiskDays: rm.minRiskDays, n1: rm.n1, n2: rm.n2, n3: rm.n3 };
+        return { total, st, label: rm.label, riskClass: rm.riskClass, minRiskDays: rm.minRiskDays, nAct: rm.nAct };
       };
       const hubRailMeta = (hubGroup, covered) => {
         const isCentral = hubGroup?.exec?.processTag === 'central';
@@ -8494,8 +8438,8 @@ function App() {
         const allHandled = allMetas.length > 0 && allMetas.every(m => m.riskClass === 'ok');
         const anyCrit = allMetas.some(m => m.riskClass === 'critical');
         const anyWarn = allMetas.some(m => m.riskClass === 'warning');
-        const riscoN = allMetas.reduce((s, m) => s + (m.n1 || 0) + (m.n2 || 0), 0);
-        const label = allHandled ? 'OK' : riscoN ? riscoN + ' risco' : (allMetas[0] && allMetas[0].label) || '—';
+        const riscoN = allMetas.reduce((s, m) => s + (m.nAct || 0), 0);
+        const label = allHandled ? 'OK' : riscoN ? riscoN + ' a agir' : (allMetas[0] && allMetas[0].label) || '—';
         const riskClass = allHandled ? 'ok' : anyCrit ? 'critical' : anyWarn ? 'warning' : '';
         const st = EXEC_STATUSES[hubGroup.exec?.status] || {};
         return { total, st, label, riskClass, minRiskDays, coveredCount: (covered || []).length, ownTotal: ownMeta?.total || 0 };
@@ -8639,7 +8583,7 @@ function App() {
           if (list.length > 0 && list.every(g => g.type === 'unlinked')) {
             const cdas = list.flatMap(g => g.cdas || []);
             const total = cdas.reduce((s, d) => s + (d.value || 0), 0);
-            const rm = prazosRiskMetaForCdas(cdas, prazosByDebt);
+            const rm = mesaCdasMeta(cdas, mesaCards.byDebt, localIso(new Date()));
             return { count: cdas.length, total, presc: rm.label };
           }
           const metas = list.map(efRiskMeta);
@@ -8647,7 +8591,7 @@ function App() {
           const riskVals = metas.map(m => m.minRiskDays).filter(v => v !== null);
           const minRiskDays = riskVals.length ? Math.min(...riskVals) : null;
           const presc = isDemo
-            ? (list.length && list.every(g => g.type === 'unlinked') ? prazosRiskMetaForCdas(list.flatMap(g => g.cdas || []), prazosByDebt).label : (minRiskDays === null ? 'em acompanhamento' : formatPrescHorizon(minRiskDays)))
+            ? (list.length && list.every(g => g.type === 'unlinked') ? mesaCdasMeta(list.flatMap(g => g.cdas || []), mesaCards.byDebt, localIso(new Date())).label : (minRiskDays === null ? 'em acompanhamento' : formatPrescHorizon(minRiskDays)))
             : (minRiskDays === null ? '—' : minRiskDays <= 0 ? 'Prescrita' : minRiskDays + 'd');
           return { count: list.length, total, presc };
         };
@@ -8672,7 +8616,7 @@ function App() {
                 </thead>
                 <tbody>
                   {cdas.map(d => {
-                    const rm = prazosRiskMetaForCdas([d], prazosByDebt);
+                    const rm = mesaCdasMeta([d], mesaCards.byDebt, localIso(new Date()));
                     const meta = isDemo ? betaPrescMeta(d) : null;
                     const riskClass = d.prescriptionHandled ? 'ok' : (meta && meta.g1 ? 'critical' : rm.riskClass);
                     const prescLabel = isDemo ? meta.text : (d.prescriptionHandled ? 'Tratada' : rm.label);
@@ -9904,15 +9848,17 @@ function App() {
   const buildHojeFila = (filter) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const items = [];
-    const pushPresc = (d, row) => {
-      const dd = row.prescDays;
+    // Prescrição pelos cartões da Mesa: «Mesa» = CDAs a agir (fileira 1); «Prescrição» = prazo de até 30 dias em qualquer cartão em andamento.
+    const pushPresc = ({ item, days: dd }) => {
+      const d = item.debt;
+      const row = item.row || {};
       const op = data.operations.find(o => o.id === d.operationId);
       items.push({
         id: 'presc-' + d.id, kind: 'Prescrição', due: dd,
         title: `CDA ${d.number || d.cdaNumber || ''} · ${fmtCur(d.value || 0)}`.trim(),
-        meta: [op?.name, row.summary || (dd < 0 ? 'vencida' : `${dd}d`)].filter(Boolean).join(' · '),
-        urgent: row.group === 1 || (dd != null && dd <= 30),
-        go: () => openPrazos(row.group, d.id),
+        meta: [op?.name, mesaCardName(item.card), row.summary || (dd == null ? '' : dd < 0 ? 'vencida' : `${dd}d`)].filter(Boolean).join(' · '),
+        urgent: mesaIsAction(item) && dd != null,
+        go: () => openPrazos(null, d.id),
       });
     };
     if (!filter || filter === 'intimacoes') {
@@ -9963,23 +9909,8 @@ function App() {
         });
       });
     }
-    if (!filter || filter === 'mesa') {
-      (data.debts || []).forEach(d => {
-        if (d.prescriptionHandled) return;
-        const row = prazosByDebt.get(d.id);
-        if (!row || (row.group !== 1 && row.group !== 2)) return;
-        pushPresc(d, row);
-      });
-    }
-    if (filter === 'prescricao') {
-      (data.debts || []).forEach(d => {
-        if (d.prescriptionHandled) return;
-        const row = prazosByDebt.get(d.id);
-        if (!row || row.group === 6 || row.consumada === 'old') return;
-        if (row.prescDays == null || row.prescDays > 30) return;
-        pushPresc(d, row);
-      });
-    }
+    if (!filter || filter === 'mesa') mesaFilaItems(mesaCards.items, localIso(today), 'agir').forEach(pushPresc);
+    if (filter === 'prescricao') mesaFilaItems(mesaCards.items, localIso(today), 'ate30').forEach(pushPresc);
     items.sort((a, b) => {
       const ad = a.due === null ? 9999 : a.due;
       const bd = b.due === null ? 9999 : b.due;
@@ -10041,7 +9972,7 @@ function App() {
       presc,
       line,
       text: line.fullText || betaCdaPrescText(d, row, sil),
-      g1: isG1Vencido(row),
+      g1: mesaIsVencida(mesaCards.byDebt.get(d && d.id), localIso(new Date())),
       expired: !!(d && d.prescSnooze && row)
     };
   };
@@ -10899,7 +10830,7 @@ function App() {
         title: truncate(d.cdaNumber || 'CDA', 28),
         meta: (d.value ? fmtCur(d.value) + ' · ' : '') + opName(d.operationId),
         tip: (row && row.summary) ? row.summary : `Termo final de prescrição · ${fmtDate(pd)}`,
-        onClick: () => openPrazos(row && row.group, d.id),
+        onClick: () => openPrazos(null, d.id),
       });
     });
 
@@ -11086,7 +11017,7 @@ function App() {
   }).map(x => x.id) : [];
   const cxDetailActions = {
     activity: activityApi, // registro de trabalho (Minha atividade) — mesmo objeto de window.nexusActivity
-    data, opsById, prazosByDebt, upsert, linkify, isOnDesk, toggleDesk,
+    data, opsById, prazosByDebt, mesaCards, upsert, linkify, isOnDesk, toggleDesk,
     esteiraTemplate: appSettings.esteiraTemplate || ESTEIRA_DEFAULT_TEMPLATE,
     onRespond: handleRespondIntim,
     onOpenIntim: (id) => setCxDrawerId(id),
@@ -11466,7 +11397,7 @@ function App() {
         a={{ inlineParc: createInlineParcelamento, presc: prescLookup, mz }}
         onOpenRules={() => setShowPrescRules(true)}
         onOpenCdaDrawer={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProcDrawer={(id) => cxOpenProcDrawer({ execId: id })} /></div>}
-      {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup} prazosRadar={prazosRadar}
+      {viewMode === 'cx_timeline' && isClaude && <div className="cx-scroll"><EditionClaudeTimelinePage data={data} opId={cxTlOp || activeOpId} setOpId={setCxTlOp} prescLookup={prescLookup} prazosRadar={prazosRadar} mesaCards={mesaCards}
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenHearing={cxOpenHearing} onOpenOp={(id) => cxOpenOp(id)}
         onOpenCda={(r) => cxOpenProcDrawer({ cdaId: r.id })} onOpenProc={(id) => cxOpenProcDrawer({ execId: id })}
         onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })} /></div>}
@@ -11476,7 +11407,7 @@ function App() {
         onNewTask={() => setModal({ type: 'create', entityType: 'task', initial: { taskVisibility: 'global' } })}
         onCreate={(f) => handleSave('task', { id: uid(), status: 'pendente', taskVisibility: 'global', ...f })}
         onOpenOp={(id) => cxOpenOp(id, 'tarefas')} /></div>}
-      {viewMode === 'audiencias' && isClaude && <div className="cx-scroll"><EditionClaudeAgenda data={data} opsById={opsById} prazosRadar={prazosRadar} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
+      {viewMode === 'audiencias' && isClaude && <div className="cx-scroll"><EditionClaudeAgenda data={data} opsById={opsById} mesaCards={mesaCards} isOnDesk={isOnDesk} toggleDesk={toggleDesk}
         onOpenIntim={(id) => setCxDrawerId(id)} onOpenTask={(t) => setModal({ type: 'edit', entityType: 'task', initial: t })}
         onOpenHearing={(h) => setModal({ type: 'edit', entityType: 'hearing', initial: h })}
         onOpenCda={(r) => openCdaInscricoes(r, { scrollCols: true })}
@@ -13006,14 +12937,15 @@ function App() {
                       pushUndo('Importação formato NEXUS prescrição');
                       const now = new Date().toISOString();
                       const { data: next } = commitNexusPrescricao(data, prescImport.plan, { uid, now });
-                      const before = new Map((prazosRadar.rows || []).map(r => [r.id, r.group]));
+                      // Cartão da Mesa antes e depois da importação (não mais o grupo do motor).
                       const afterRadar = buildPrazosRadar(next, undefined, undefined, { policy: 'v2' });
+                      const afterCards = buildMesaCards({ data: next, radar: afterRadar, today: localIso(new Date()) });
                       const after = [];
                       (prescImport.plan.processes || []).forEach(p => {
                         (p.cdas || []).forEach(c => {
-                          const row = (afterRadar.rows || []).find(r => r.id === c.id);
-                          const handled = (next.debts || []).some(d => d.id === c.id && d.prescriptionHandled);
-                          after.push({ id: c.id, cdaNumber: c.cdaNumber, from: before.get(c.id) || 0, to: handled ? 0 : (row ? row.group : 0) });
+                          const was = mesaCards.byDebt.get(c.id);
+                          const now2 = afterCards.byDebt.get(c.id);
+                          after.push({ id: c.id, cdaNumber: c.cdaNumber, from: was ? mesaCardName(was.card) : '', to: now2 ? mesaCardName(now2.card) : '' });
                         });
                       });
                       const nNew = (prescImport.plan.processes || []).reduce((s, p) => s + (p.newFacts || []).length, 0);
@@ -13038,9 +12970,9 @@ function App() {
             )}
             {prescImport.after && (
               <>
-                <div style={{marginBottom:8}}>Gravado. Grupo antes → depois:</div>
+                <div style={{marginBottom:8}}>Gravado. Cartão da Mesa antes → depois:</div>
                 {prescImport.after.map(a => (
-                  <div key={a.id} style={{fontSize:11,marginBottom:4}}>CDA {a.cdaNumber || a.id}: {a.from || '—'} → {a.to || 'saiu da fila'}</div>
+                  <div key={a.id} style={{fontSize:11,marginBottom:4}}>CDA {a.cdaNumber || a.id}: {a.from || '—'} → {a.to || 'fora da Mesa'}</div>
                 ))}
                 <button type="button" className="btn-primary btn-sm" onClick={() => setPrescImport(null)}>Fechar</button>
               </>

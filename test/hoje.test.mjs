@@ -228,11 +228,11 @@ describe('Resumo da Visão geral da operação', () => {
 });
 
 describe('Precisa de atenção', () => {
+  // Linhas das CDAs a agir (fileira 1 dos cartões da Mesa); quem chama já filtra, a lib não olha mais o grupo do motor.
   const rows = [
-    { id: 'd2', group: 1, prescDays: 160, cdaNumber: '90.6.20.000881-40', operationId: 'op1', value: 95000 },
-    { id: 'd1', group: 1, prescDays: 70, cdaNumber: '90.6.23.000884-40', operationId: 'op1', value: 48000 },
-    { id: 'd3', group: 2, prescDays: 30, cdaNumber: 'x', operationId: 'op1', value: 1 },
-    { id: 'd4', group: 1, prescDays: null, cdaNumber: 'sem-data', operationId: 'op2', value: 1 },
+    { id: 'd2', prescDays: 160, cdaNumber: '90.6.20.000881-40', operationId: 'op1', value: 95000 },
+    { id: 'd1', prescDays: 70, cdaNumber: '90.6.23.000884-40', operationId: 'op1', value: 48000 },
+    { id: 'd4', prescDays: null, cdaNumber: 'sem-data', operationId: 'op2', value: 1 },
   ];
   const operations = [
     { id: 'op1', name: 'Agro Horizonte' }, { id: 'op2', name: 'Fachada Norte' }, { id: 'op3', name: 'Holding' },
@@ -241,7 +241,7 @@ describe('Precisa de atenção', () => {
   const dias = { op1: -4, op2: -10, op3: 80, op4: -50 };
   const reviewOf = (op) => ({ overdue: dias[op.id] < 0, daysLeft: dias[op.id], intervalLabel: 'quinzenal' });
 
-  it('CDAs do grupo 1 do termo mais próximo ao mais distante; só o grupo 1', () => {
+  it('CDAs a agir do termo mais próximo ao mais distante (sem data por último)', () => {
     const a = atencaoItens({ rows, operations, reviewOf });
     assert.deepEqual(a.cdas.map(r => r.id), ['d1', 'd2', 'd4']);
   });
@@ -297,14 +297,15 @@ describe('Números dos cartões da tela Hoje', () => {
     assert.equal(janelaPrazos([], TODAY).proximo, null);
   });
 
-  it('próximo termo: menor prescDays do grupo 1, com a data a partir de hoje', () => {
+  it('próximo termo: menor prescDays entre as CDAs a agir, com a data a partir de hoje', () => {
     const t = proximoTermo([
-      { id: 'a', group: 1, prescDays: 160 }, { id: 'b', group: 1, prescDays: 70 }, { id: 'c', group: 2, prescDays: 5 }, { id: 'd', group: 1, prescDays: null },
+      { id: 'a', prescDays: 160 }, { id: 'b', prescDays: 70 }, { id: 'd', prescDays: null },
     ], TODAY);
     assert.equal(t.dias, 70);
     assert.equal(t.iso, '2026-12-10');
     assert.equal(t.row.id, 'b');
-    assert.equal(proximoTermo([{ id: 'x', group: 2, prescDays: 1 }], TODAY), null);
+    assert.equal(proximoTermo([{ id: 'x', prescDays: null }], TODAY), null);
+    assert.equal(proximoTermo([], TODAY), null);
   });
 });
 

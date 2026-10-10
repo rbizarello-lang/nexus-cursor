@@ -261,11 +261,21 @@ function renderAgendaList(next15) {
   return `<div class="agenda">${rows}${overflow}</div>`;
 }
 
+/**
+ * «CDAs a agir (prazos extintivos)»: `alerts` = grupos por cartão da fileira 1, na ordem da Mesa
+ * ([{ nome, value?, items: [{ cda, termLabel, late, situacao, valorLabel }] }], de mesaAlertGroups).
+ */
 function renderAlerts(alerts) {
-  if (!alerts || !alerts.length) return '<div class="fr-txt">Sem CDAs no alarme (grupos 1 e 2).</div>';
+  const groups = (alerts || []).filter(g => g && g.items && g.items.length);
+  if (!groups.length) return '<div class="fr-txt">Nenhuma CDA a agir nos prazos extintivos.</div>';
   const head = `<div class="row" style="font-weight:600;color:#7c828e;font-size:9.5px;text-transform:uppercase"><span>CDA</span><span>Termo</span><span>Situação</span><span style="text-align:right">Valor</span></div>`;
-  const rows = alerts.map(a => `<div class="row"><span class="mono">${escHtml(a.cda)}</span><span class="mono" style="color:${a.late ? 'var(--red)' : 'var(--orange)'};font-weight:600">${escHtml(a.termLabel)}</span><span>${escHtml(a.situacao)}</span><span class="mono" style="text-align:right">${escHtml(a.valorLabel)}</span></div>`).join('');
-  return `<div class="alert-box">${head}${rows}</div>`;
+  const body = groups.map(g => {
+    const n = g.items.length;
+    const title = `<div class="row" style="display:block;font-weight:600;padding-top:6px"><span>${escHtml(g.nome || '')}</span> <span style="color:#7c828e;font-weight:500">· ${n} ${n === 1 ? 'CDA' : 'CDAs'}</span></div>`;
+    const rows = g.items.map(a => `<div class="row"><span class="mono">${escHtml(a.cda)}</span><span class="mono" style="color:${a.late ? 'var(--red)' : 'var(--orange)'};font-weight:600">${escHtml(a.termLabel)}</span><span>${escHtml(a.situacao)}</span><span class="mono" style="text-align:right">${escHtml(a.valorLabel)}</span></div>`).join('');
+    return title + rows;
+  }).join('');
+  return `<div class="alert-box">${head}${body}</div>`;
 }
 
 function renderNumbers(numbers) {
@@ -345,7 +355,7 @@ function renderCapa(rd, pageLabel) {
     out += `<h2>Próximos 15 dias</h2>${renderAgendaList(rd.next15)}`;
   }
   if (s.alertas) {
-    out += `<h2>Alertas</h2>${renderAlerts(rd.alerts)}`;
+    out += `<h2>CDAs a agir (prazos extintivos)</h2>${renderAlerts(rd.alerts)}`;
   }
   out += `<h2>Números</h2>${renderNumbers(rd.numbers)}`;
   if (s.fontes) {

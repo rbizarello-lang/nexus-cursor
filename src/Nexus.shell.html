@@ -4806,6 +4806,11 @@ input.mzf-ck, .mzf-secbar input { width: 16px; height: 16px; min-width: 16px; ma
 .cx-presc.g3 { background: var(--cx-yellow-soft); color: var(--cx-yellow); }
 .cx-presc.g4 { background: var(--cx-blue-soft); color: var(--cx-blue); }
 .cx-presc.g0 { background: var(--cx-surface-2); color: var(--cx-ink-3); border: 1px solid var(--cx-line); }
+/* Selo do cartão da Mesa de prazos (fase 4c): a cor é a do cartão. */
+.cx-presc.t-red { background: var(--cx-red-soft); color: var(--cx-red); }
+.cx-presc.t-orange { background: var(--cx-orange-soft); color: var(--cx-orange); }
+.cx-presc.t-blue { background: var(--cx-blue-soft); color: var(--cx-blue); }
+.cx-presc.t-neutral { background: var(--cx-surface-2); color: var(--cx-ink-3); border: 1px solid var(--cx-line); }
 .cx-form { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--cx-line-strong); border-radius: 10px; background: var(--cx-surface-2); margin-top: 18px; }
 .cx-form h3 { margin: 0; font-size: 13.5px; }
 .cx-form label { font-size: 11.5px; color: var(--cx-ink-3); display: flex; flex-direction: column; gap: 5px; }
@@ -6451,6 +6456,9 @@ table.cx-pt { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cx-pt-presc.risk-critical { color: var(--cx-red); font-weight: 600; }
 .cx-pt-presc.risk-warning { color: var(--cx-orange); }
 .cx-pt-presc.risk-ok, .cx-pt-presc.risk- { color: var(--cx-ink-3); }
+/* Célula de Prescrição pelos cartões (fase 4c): o selo do cartão numa linha e, abaixo, a barra com «N dias · dd/mm». */
+.cx-pt-presc .cx-presc { display: flex; width: fit-content; max-width: 100%; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.cx-pt-presc .cx-pc-t { display: block; }
 tr.cx-pt-row { cursor: pointer; }
 tr.cx-pt-row:hover td { background: var(--cx-hover); }
 tr.cx-pt-row.on td { background: var(--cx-accent-soft); }
